@@ -4,6 +4,10 @@ use safe_math::FixedExt;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
 
+/// Emission suppression threshold (50%). Subnets with suppression fraction
+/// above this value are considered emission-suppressed.
+const EMISSION_SUPPRESSION_THRESHOLD: f64 = 0.5;
+
 impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
         // Filter out root subnet.
@@ -27,7 +31,8 @@ impl<T: Config> Pallet<T> {
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
         // Get subnet TAO emissions.
-        let shares = Self::get_shares(subnets_to_emit_to);
+        let mut shares = Self::get_shares(subnets_to_emit_to);
+        Self::apply_emission_suppression(&mut shares);
         log::debug!("Subnet emission shares = {shares:?}");
 
         shares
@@ -245,5 +250,79 @@ impl<T: Config> Pallet<T> {
                 (*netuid, share)
             })
             .collect::<BTreeMap<NetUid, U64F64>>()
+    }
+
+    /// Normalize shares so they sum to 1.0.
+    pub(crate) fn normalize_shares(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let sum: U64F64 = shares
+            .values()
+            .copied()
+            .fold(U64F64::saturating_from_num(0), |acc, v| {
+                acc.saturating_add(v)
+            });
+        if sum > U64F64::saturating_from_num(0) {
+            for s in shares.values_mut() {
+                *s = s.safe_div(sum);
+            }
+        }
+    }
+
+    /// Check if a subnet is currently emission-suppressed, considering override first.
+    pub(crate) fn is_subnet_emission_suppressed(netuid: NetUid) -> bool {
+        match EmissionSuppressionOverride::<T>::get(netuid) {
+            Some(true) => true,
+            Some(false) => false,
+            None => {
+                EmissionSuppression::<T>::get(netuid)
+                    > U64F64::saturating_from_num(EMISSION_SUPPRESSION_THRESHOLD)
+            }
+        }
+    }
+
+    /// Zero the emission share of any subnet whose suppression fraction exceeds 50%
+    /// (or is force-suppressed via override), then re-normalize the remaining shares.
+    pub(crate) fn apply_emission_suppression(shares: &mut BTreeMap<NetUid, U64F64>) {
+        let zero = U64F64::saturating_from_num(0);
+        let mut any_zeroed = false;
+        for (netuid, share) in shares.iter_mut() {
+            if Self::is_subnet_emission_suppressed(*netuid) {
+                *share = zero;
+                any_zeroed = true;
+            }
+        }
+        if any_zeroed {
+            Self::normalize_shares(shares);
+        }
+    }
+
+    /// Collect emission suppression votes from root validators for a subnet
+    /// and update the EmissionSuppression storage.
+    /// Called once per subnet per epoch. No-op for root subnet.
+    pub(crate) fn collect_emission_suppression_votes(netuid: NetUid) {
+        if netuid.is_root() {
+            return;
+        }
+        let root_n = SubnetworkN::<T>::get(NetUid::ROOT);
+        let mut suppress_stake = U64F64::saturating_from_num(0u64);
+        let mut total_root_stake = U64F64::saturating_from_num(0u64);
+
+        for uid in 0..root_n {
+            let hotkey = Keys::<T>::get(NetUid::ROOT, uid);
+            let root_stake = Self::get_stake_for_hotkey_on_subnet(&hotkey, NetUid::ROOT);
+            let stake_u64f64 = U64F64::saturating_from_num(u64::from(root_stake));
+            total_root_stake = total_root_stake.saturating_add(stake_u64f64);
+
+            let coldkey = Owner::<T>::get(&hotkey);
+            if let Some(true) = EmissionSuppressionVote::<T>::get(netuid, &coldkey) {
+                suppress_stake = suppress_stake.saturating_add(stake_u64f64);
+            }
+        }
+
+        let suppression = if total_root_stake > U64F64::saturating_from_num(0u64) {
+            suppress_stake.safe_div(total_root_stake)
+        } else {
+            U64F64::saturating_from_num(0u64)
+        };
+        EmissionSuppression::<T>::insert(netuid, suppression);
     }
 }

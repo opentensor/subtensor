@@ -517,6 +517,30 @@ mod events {
             alpha: AlphaCurrency,
         },
 
+        /// A root validator cast (or cleared) an emission suppression vote.
+        EmissionSuppressionVoteCast {
+            /// The coldkey that cast the vote
+            coldkey: T::AccountId,
+            /// The subnet voted on
+            netuid: NetUid,
+            /// The vote: Some(true) = suppress, Some(false) = unsuppress, None = cleared
+            suppress: Option<bool>,
+        },
+
+        /// Root set or cleared the emission suppression override for a subnet.
+        EmissionSuppressionOverrideSet {
+            /// The subnet affected
+            netuid: NetUid,
+            /// The override value: Some(true) = force suppress, Some(false) = force unsuppress, None = cleared
+            override_value: Option<bool>,
+        },
+
+        /// Root set the RootSellPressureOnSuppressedSubnetsMode.
+        RootSellPressureOnSuppressedSubnetsModeSet {
+            /// The new mode
+            mode: RootSellPressureOnSuppressedSubnetsMode,
+        },
+
         /// "Add stake and burn" event: alpha token was purchased and burned.
         AddStakeBurn {
             /// The subnet ID

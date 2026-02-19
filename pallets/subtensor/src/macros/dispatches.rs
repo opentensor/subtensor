@@ -2569,5 +2569,104 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
+
+        /// --- Set or clear the root override for emission suppression on a subnet.
+        /// Some(true) forces suppression, Some(false) forces unsuppression,
+        /// None removes the override and falls back to vote-based suppression.
+        #[pallet::call_index(133)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(2))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_emission_suppression_override(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            override_value: Option<bool>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::CannotVoteOnRootSubnet);
+            match override_value {
+                Some(val) => EmissionSuppressionOverride::<T>::insert(netuid, val),
+                None => EmissionSuppressionOverride::<T>::remove(netuid),
+            }
+            Self::deposit_event(Event::EmissionSuppressionOverrideSet {
+                netuid,
+                override_value,
+            });
+            Ok(())
+        }
+
+        /// --- Vote to suppress or unsuppress emissions for a subnet.
+        /// The caller must be a coldkey that owns at least one hotkey registered on root
+        /// with stake >= StakeThreshold. Pass suppress=None to clear the vote.
+        #[pallet::call_index(134)]
+        #[pallet::weight((
+            Weight::from_parts(20_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(3))
+                .saturating_add(T::DbWeight::get().reads(128))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn vote_emission_suppression(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            suppress: Option<bool>,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::CannotVoteOnRootSubnet);
+
+            // Only require root registration + stake threshold when *setting* a vote.
+            // Clearing (None) is always allowed so that deregistered/understaked coldkeys
+            // can clean up their own stale entries.
+            if suppress.is_some() {
+                // Coldkey must own at least one hotkey registered on root with enough stake.
+                let stake_threshold = Self::get_stake_threshold();
+                let hotkeys = OwnedHotkeys::<T>::get(&coldkey);
+                let has_qualifying_hotkey = hotkeys.iter().any(|hk| {
+                    Self::is_hotkey_registered_on_network(NetUid::ROOT, hk)
+                        && u64::from(Self::get_stake_for_hotkey_on_subnet(hk, NetUid::ROOT))
+                            >= stake_threshold
+                });
+                ensure!(has_qualifying_hotkey, Error::<T>::NotEnoughStakeToVote);
+            }
+
+            match suppress {
+                Some(val) => EmissionSuppressionVote::<T>::insert(netuid, &coldkey, val),
+                None => EmissionSuppressionVote::<T>::remove(netuid, &coldkey),
+            }
+            Self::deposit_event(Event::EmissionSuppressionVoteCast {
+                coldkey,
+                netuid,
+                suppress,
+            });
+            Ok(())
+        }
+
+        /// --- Set the mode for root alpha dividends on emission-suppressed subnets.
+        /// - Disable: root gets no alpha; root alpha recycled to subnet validators.
+        /// - Enable: root still accumulates alpha (old behaviour).
+        /// - Recycle: root alpha swapped to TAO via AMM, TAO burned.
+        #[pallet::call_index(135)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_root_sell_pressure_on_suppressed_subnets_mode(
+            origin: OriginFor<T>,
+            mode: RootSellPressureOnSuppressedSubnetsMode,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            KeepRootSellPressureOnSuppressedSubnets::<T>::put(mode);
+            Self::deposit_event(Event::RootSellPressureOnSuppressedSubnetsModeSet { mode });
+            Ok(())
+        }
     }
 }
