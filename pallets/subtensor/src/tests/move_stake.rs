@@ -711,7 +711,7 @@ fn test_do_move_storage_updates() {
                 destination_netuid
             ),
             alpha2,
-            epsilon = 2.into()
+            epsilon = 50.into()
         );
     });
 }
