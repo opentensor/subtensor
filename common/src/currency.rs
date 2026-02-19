@@ -129,6 +129,7 @@ macro_rules! impl_currency_reqs {
             }
         }
 
+        // TODO: This is a lossy conversion, maybe it should use try_from
         impl From<i32> for $currency_type {
             fn from(value: i32) -> Self {
                 Self(value.unsigned_abs().into())
