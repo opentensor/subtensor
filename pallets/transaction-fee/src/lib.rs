@@ -145,16 +145,19 @@ where
             return false;
         }
 
-        let (hotkey, netuid) = &alpha_vec[0];
-        let alpha_balance =
-            pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey, coldkey, *netuid,
+        if let Some((hotkey, netuid)) = alpha_vec.first() {
+            let alpha_balance =
+                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, *netuid,
+                );
+            let alpha_fee = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
+                *netuid,
+                tao_amount.into(),
             );
-        let alpha_fee = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
-            *netuid,
-            tao_amount.into(),
-        );
-        alpha_balance >= alpha_fee
+            alpha_balance >= alpha_fee
+        } else {
+            false
+        }
     }
 
     fn withdraw_in_alpha(
@@ -166,31 +169,34 @@ where
             return 0;
         }
 
-        let (hotkey, netuid) = &alpha_vec[0];
-        let alpha_balance =
-            pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey, coldkey, *netuid,
+        if let Some((hotkey, netuid)) = alpha_vec.first() {
+            let alpha_balance =
+                pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, *netuid,
+                );
+            let mut alpha_equivalent = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
+                *netuid,
+                tao_amount.into(),
             );
-        let mut alpha_equivalent = pallet_subtensor_swap::Pallet::<T>::get_alpha_amount_for_tao(
-            *netuid,
-            tao_amount.into(),
-        );
-        if alpha_equivalent.is_zero() {
-            alpha_equivalent = alpha_balance;
+            if alpha_equivalent.is_zero() {
+                alpha_equivalent = alpha_balance;
+            }
+            let alpha_fee = alpha_equivalent.min(alpha_balance);
+
+            // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return).
+            let _ = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
+                hotkey,
+                coldkey,
+                *netuid,
+                alpha_fee,
+                0.into(),
+                true,
+            );
+
+            alpha_fee.into()
+        } else {
+            0
         }
-        let alpha_fee = alpha_equivalent.min(alpha_balance);
-
-        // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return).
-        let _ = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
-            hotkey,
-            coldkey,
-            *netuid,
-            alpha_fee,
-            0.into(),
-            true,
-        );
-
-        alpha_fee.into()
     }
 
     fn get_all_netuids_for_coldkey_and_hotkey(

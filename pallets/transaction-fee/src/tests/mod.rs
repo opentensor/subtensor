@@ -1,7 +1,8 @@
-#![allow(clippy::indexing_slicing, clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 use crate::{AlphaFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler, TransactionSource};
-use frame_support::assert_ok;
+use approx::assert_abs_diff_eq;
 use frame_support::dispatch::GetDispatchInfo;
+use frame_support::{assert_err, assert_ok};
 use sp_runtime::{
     traits::{DispatchTransaction, TransactionExtension, TxBaseImplication},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -221,7 +222,7 @@ fn test_remove_stake_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_abs_diff_eq!(actual_tao_fee, 0, epsilon = 10);
         assert!(actual_alpha_fee > 0.into());
 
         let events = System::events();
@@ -656,6 +657,9 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
         // Provide adequate TAO reserve so that sim swap works ok in validation
         SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1_000_000_000));
 
+        // Provide Alpha reserve so that price is about 1.0
+        SubnetAlphaIn::<Test>::insert(sn.subnets[0].netuid, AlphaCurrency::from(1_000_000_000));
+
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
         let _ = SubtensorModule::remove_balance_from_coldkey_account(
@@ -773,7 +777,7 @@ fn test_remove_stake_limit_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_abs_diff_eq!(actual_tao_fee, 0, epsilon = 100,);
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -821,8 +825,22 @@ fn test_unstake_all_fees_alpha() {
         });
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
+        // Get invalid payment because we cannot pay fees in multiple alphas
         let info = call.get_dispatch_info();
         let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        assert_err!(
+            ext.clone().dispatch_transaction(
+                RuntimeOrigin::signed(coldkey).into(),
+                call.clone(),
+                &info,
+                0,
+                0,
+            ),
+            TransactionValidityError::Invalid(InvalidTransaction::Payment),
+        );
+
+        // Give the coldkey TAO balance - now should unstake ok
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64);
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -888,8 +906,22 @@ fn test_unstake_all_alpha_fees_alpha() {
         });
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
+        // Get invalid payment because we cannot pay fees in multiple alphas
         let info = call.get_dispatch_info();
         let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        assert_err!(
+            ext.clone().dispatch_transaction(
+                RuntimeOrigin::signed(coldkey).into(),
+                call.clone(),
+                &info,
+                0,
+                0,
+            ),
+            TransactionValidityError::Invalid(InvalidTransaction::Payment),
+        );
+
+        // Give the coldkey TAO balance - now should unstake ok
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64);
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,

@@ -18457,6 +18457,7 @@ dependencies = [
 name = "subtensor-transaction-fee"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "frame-executive",
  "frame-support",
  "frame-system",
