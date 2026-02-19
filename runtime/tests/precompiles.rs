@@ -222,7 +222,6 @@ mod balance_transfer {
 }
 
 mod drand {
-    #![allow(clippy::slicing_panic)]
     use super::*;
 
     fn get_last_stored_round_call_data() -> Vec<u8> {
@@ -262,8 +261,7 @@ mod drand {
                 32,
                 "getLastStoredRound should return 32 bytes (uint64 ABI)"
             );
-            let output_u64 =
-                u64::from_be_bytes(output[24..32].try_into().expect("expected 8 bytes"));
+            let output_u64 = u64::from_be_bytes(output[24..32].try_into().unwrap());
             assert_eq!(output_u64, round);
         });
     }
