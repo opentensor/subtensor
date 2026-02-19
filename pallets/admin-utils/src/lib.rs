@@ -2134,6 +2134,69 @@ pub mod pallet {
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
             Ok(())
         }
+
+        /// Sets EffectiveRootProp emission scaling on/off
+        #[pallet::call_index(91)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_effective_root_prop_emission_scaling(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_effective_root_prop_emission_scaling(enabled);
+            Ok(())
+        }
+
+        /// Sets the proportion of top subnets that receive emission.
+        /// `proportion_ppm` is in parts-per-million: 1_000_000 = 100%, 500_000 = 50%, etc.
+        /// Must be in range (0, 1_000_000].
+        #[pallet::call_index(89)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_emission_top_subnet_proportion(
+            origin: OriginFor<T>,
+            proportion_ppm: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                proportion_ppm > 0 && proportion_ppm <= 1_000_000,
+                Error::<T>::InvalidValue
+            );
+            let prop = U64F64::saturating_from_num(proportion_ppm)
+                .saturating_div(U64F64::saturating_from_num(1_000_000));
+            pallet_subtensor::Pallet::<T>::set_emission_top_subnet_proportion(prop);
+            Ok(())
+        }
+
+        /// Sets the absolute-limit cutoff for subnets receiving emission (None = no limit).
+        /// Ties at the cutoff are included, so the number of nonzero subnets may exceed N.
+        #[pallet::call_index(90)]
+        #[pallet::weight((
+            Weight::from_parts(7_343_000, 0)
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+                .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
+        pub fn sudo_set_emission_top_subnet_absolute_limit(
+            origin: OriginFor<T>,
+            limit: Option<u16>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_emission_top_subnet_absolute_limit(limit);
+            Ok(())
+        }
     }
 }
 
