@@ -167,6 +167,8 @@ pub mod pallet {
         KeyExpired,
         /// The provided `key_hash` does not match the expected epoch key hash.
         KeyHashMismatch,
+        /// The shield is disabled while upgrading.
+        ShieldDisabledWhileUpgrading,
     }
 
     // ----------------- Hooks -----------------
@@ -250,7 +252,7 @@ pub mod pallet {
             Weight::from_parts(20_999_999_999, 0)
                 .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         #[allow(clippy::useless_conversion)]
@@ -301,26 +303,11 @@ pub mod pallet {
             Pays::Yes,
         ))]
         pub fn submit_encrypted(
-            origin: OriginFor<T>,
-            commitment: T::Hash,
-            ciphertext: BoundedVec<u8, ConstU32<8192>>,
+            _origin: OriginFor<T>,
+            _commitment: T::Hash,
+            _ciphertext: BoundedVec<u8, ConstU32<8192>>,
         ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-
-            let id: T::Hash = T::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
-            let sub = Submission::<T::AccountId, BlockNumberFor<T>, T::Hash> {
-                author: who.clone(),
-                commitment,
-                ciphertext,
-                submitted_in: <frame_system::Pallet<T>>::block_number(),
-            };
-            ensure!(
-                !Submissions::<T>::contains_key(id),
-                Error::<T>::SubmissionAlreadyExists
-            );
-            Submissions::<T>::insert(id, sub);
-            Self::deposit_event(Event::EncryptedSubmitted { id, who });
-            Ok(())
+            Err(Error::<T>::ShieldDisabledWhileUpgrading.into())
         }
 
         /// Marks a submission as failed to decrypt and removes it from storage.
