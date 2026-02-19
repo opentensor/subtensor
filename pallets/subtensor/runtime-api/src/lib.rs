@@ -7,7 +7,7 @@ use pallet_subtensor::rpc_info::{
     dynamic_info::DynamicInfo,
     metagraph::{Metagraph, SelectiveMetagraph},
     neuron_info::{NeuronInfo, NeuronInfoLite},
-    show_subnet::SubnetState,
+    show_subnet::{SubnetState, SubnetStateV2},
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
@@ -44,6 +44,7 @@ sp_api::decl_runtime_apis! {
         fn get_mechagraph(netuid: NetUid, mecid: MechId) -> Option<Metagraph<AccountId32>>;
         fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>>;
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>>;
+        fn get_subnet_state_v2(netuid: NetUid) -> Option<SubnetStateV2<AccountId32>>;
         fn get_selective_metagraph(netuid: NetUid, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;
         fn get_coldkey_auto_stake_hotkey(coldkey: AccountId32, netuid: NetUid) -> Option<AccountId32>;
         fn get_selective_mechagraph(netuid: NetUid, subid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;

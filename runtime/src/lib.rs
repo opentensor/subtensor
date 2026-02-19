@@ -37,7 +37,7 @@ use pallet_subtensor::rpc_info::{
     dynamic_info::DynamicInfo,
     metagraph::{Metagraph, SelectiveMetagraph},
     neuron_info::{NeuronInfo, NeuronInfoLite},
-    show_subnet::SubnetState,
+    show_subnet::{SubnetState, SubnetStateV2},
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
@@ -2375,6 +2375,10 @@ impl_runtime_apis! {
 
         fn get_subnet_state(netuid: NetUid) -> Option<SubnetState<AccountId32>> {
             SubtensorModule::get_subnet_state(netuid)
+        }
+
+        fn get_subnet_state_v2(netuid: NetUid) -> Option<SubnetStateV2<AccountId32>> {
+            SubtensorModule::get_subnet_state_v2(netuid)
         }
 
         fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>> {
