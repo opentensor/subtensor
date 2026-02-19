@@ -12,7 +12,7 @@ use frame_support::{assert_err, assert_ok};
 use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -178,7 +178,7 @@ fn init_run_epochs(
         };
 
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
-        SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake);
+        SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake.into());
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &U256::from(key),
@@ -565,7 +565,7 @@ fn test_1_graph() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount + ExistentialDeposit::get(),
+            TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -656,7 +656,7 @@ fn test_10_graph() {
         for i in 0..n {
             assert_eq!(
                 SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
-                TaoCurrency::from(1)
+                TaoBalance::from(1)
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
             assert_eq!(SubtensorModule::get_trust_for_uid(netuid, i as u16), 0);
@@ -734,7 +734,7 @@ fn test_512_graph() {
                 for uid in servers {
                     assert_eq!(
                         SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
-                        TaoCurrency::ZERO
+                        TaoBalance::ZERO
                     );
                     assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 146);
                     assert_eq!(
@@ -778,7 +778,7 @@ fn test_512_graph_random_weights() {
                     Vec<u16>,
                     Vec<u16>,
                     Vec<u16>,
-                    Vec<AlphaCurrency>,
+                    Vec<AlphaBalance>,
                     Vec<I32F32>,
                     Vec<I32F32>,
                 ) = (vec![], vec![], vec![], vec![], vec![], vec![]);
@@ -1024,7 +1024,7 @@ fn test_bonds() {
 
 		// === Register [validator1, validator2, validator3, validator4, server1, server2, server3, server4]
 		for key in 0..n as u64 {
-			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
+			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake.into());
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as frame_system::Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
 			SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &U256::from(key), &U256::from(key), netuid, stakes[key as usize].into() );
@@ -1315,7 +1315,7 @@ fn test_set_alpha_disabled() {
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
@@ -1325,7 +1325,7 @@ fn test_set_alpha_disabled() {
             signer.clone(),
             hotkey,
             netuid,
-            TaoCurrency::from(5) * DefaultMinStake::<Test>::get() + fee
+            TaoBalance::from(5) * DefaultMinStake::<Test>::get() + fee
         ));
         // Only owner can set alpha values
         assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
@@ -1367,7 +1367,7 @@ fn test_active_stake() {
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake.into());
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -1585,7 +1585,7 @@ fn test_outdated_weights() {
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake.into());
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -1789,7 +1789,7 @@ fn test_zero_weights() {
             ));
         }
         for validator in 0..(n / 2) as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake);
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake.into());
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &U256::from(validator),
                 &U256::from(validator),
@@ -1977,7 +1977,7 @@ fn test_deregistered_miner_bonds() {
         // === Register [validator1, validator2, server1, server2]
         let block_number = System::block_number();
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake.into());
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -2172,7 +2172,7 @@ fn test_validator_permits() {
                     for key in 0..network_n as u64 {
                         SubtensorModule::add_balance_to_coldkey_account(
                             &U256::from(key),
-                            stake[key as usize],
+                            stake[key as usize].into(),
                         );
                         let (nonce, work): (u64, Vec<u8>) =
                             SubtensorModule::create_work_for_block_number(
@@ -2223,7 +2223,7 @@ fn test_validator_permits() {
                     for server in &servers {
                         SubtensorModule::add_balance_to_coldkey_account(
                             &(U256::from(*server as u64)),
-                            2 * network_n as u64,
+                            (2 * network_n as u64).into(),
                         );
                         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                             &(U256::from(*server as u64)),
@@ -2271,7 +2271,7 @@ fn test_get_set_alpha() {
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
 
         // Should fail as signer does not own the subnet
@@ -2465,8 +2465,8 @@ fn test_can_set_self_weight_as_subnet_owner() {
 
         let other_hotkey: U256 = U256::from(2);
 
-        let stake = 5_000_000_000_000; // 5k TAO
-        let to_emit: u64 = 1_000_000_000; // 1 TAO
+        let stake = 5_000_000_000_000_u64; // 5k TAO
+        let to_emit: u64 = 1_000_000_000_u64; // 1 TAO
 
         // Create subnet
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
@@ -2538,19 +2538,19 @@ fn test_epoch_outputs_single_staker_registered_no_weights() {
             1.into(),
         );
 
-        let pending_alpha = AlphaCurrency::from(1_000_000_000);
+        let pending_alpha = AlphaBalance::from(1_000_000_000);
         let hotkey_emission = SubtensorModule::epoch(netuid, pending_alpha);
 
         let sum_incentives = hotkey_emission
             .iter()
             .map(|(_, incentive, _)| incentive)
             .copied()
-            .fold(AlphaCurrency::ZERO, |acc, x| acc + x);
-        let sum_dividends: AlphaCurrency = hotkey_emission
+            .fold(AlphaBalance::ZERO, |acc, x| acc + x);
+        let sum_dividends: AlphaBalance = hotkey_emission
             .iter()
             .map(|(_, _, dividend)| dividend)
             .copied()
-            .fold(AlphaCurrency::ZERO, |acc, x| acc + x);
+            .fold(AlphaBalance::ZERO, |acc, x| acc + x);
 
         assert_abs_diff_eq!(
             sum_incentives.saturating_add(sum_dividends),
@@ -2696,7 +2696,7 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
 
     // === Register
     for key in 0..n as u64 {
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake.into());
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
             block_number,
@@ -3833,7 +3833,7 @@ fn test_last_update_size_mismatch() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount + ExistentialDeposit::get(),
+            TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);

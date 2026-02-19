@@ -4,7 +4,7 @@ use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::Perbill;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve,
 };
 
 use crate::{pallet::balancer::Balancer, weights::WeightInfo};
@@ -40,10 +40,10 @@ mod pallet {
         type SubnetInfo: SubnetInfo<Self::AccountId>;
 
         /// Tao reserves info.
-        type TaoReserve: CurrencyReserve<TaoCurrency>;
+        type TaoReserve: TokenReserve<TaoBalance>;
 
         /// Alpha reserves info.
-        type AlphaReserve: CurrencyReserve<AlphaCurrency>;
+        type AlphaReserve: TokenReserve<AlphaBalance>;
 
         /// Implementor of
         /// [`BalanceOps`](subtensor_swap_interface::BalanceOps).
@@ -105,11 +105,11 @@ mod pallet {
 
     /// Total fees in TAO per subnet due to be paid to users / protocol
     #[pallet::storage]
-    pub type FeesTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+    pub type FeesTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoBalance, ValueQuery>;
 
     /// Total fees in Alpha per subnet due to be paid to users / protocol
     #[pallet::storage]
-    pub type FeesAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+    pub type FeesAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 
     /// --- Storage for migration run status
     #[pallet::storage]

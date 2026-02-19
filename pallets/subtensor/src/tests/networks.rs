@@ -6,16 +6,10 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use sp_std::collections::{
-    //btree_map::BTreeMap,
-    vec_deque::VecDeque,
-};
+use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::{
-    //Order,
-    SwapHandler,
-};
+use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoBalance};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
 fn test_registration_ok() {
@@ -58,9 +52,9 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
         let hot = U256::from(2);
         let net = add_dynamic_network(&hot, &cold);
 
-        SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(0));
-        Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -83,16 +77,16 @@ fn dissolve_refunds_full_lock_cost_when_no_emission() {
         let reg_at = NetworkRegisteredAt::<Test>::get(net);
         NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
 
-        let lock: TaoCurrency = TaoCurrency::from(1_000_000);
+        let lock: TaoBalance = TaoBalance::from(1_000_000);
         SubtensorModule::set_subnet_locked_balance(net, lock);
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(0));
-        Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
         let after = SubtensorModule::get_coldkey_balance(&cold);
 
-        assert_eq!(TaoCurrency::from(after), TaoCurrency::from(before) + lock);
+        assert_eq!(TaoBalance::from(after), TaoBalance::from(before) + lock);
     });
 }
 
@@ -110,9 +104,9 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // Entire TAO pot should be paid to staker's cold-key
         let pot: u64 = 99_999;
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(pot));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
         SubtensorModule::set_subnet_locked_balance(net, 0.into());
-        TotalHotkeyAlpha::<Test>::insert(s_hot, net, AlphaCurrency::from(5_000u64));
+        TotalHotkeyAlpha::<Test>::insert(s_hot, net, AlphaBalance::from(5_000u64));
 
         // Cold-key balance before
         let before = SubtensorModule::get_coldkey_balance(&s_cold);
@@ -122,7 +116,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // Cold-key received full pot
         let after = SubtensorModule::get_coldkey_balance(&s_cold);
-        assert_eq!(after, before + pot);
+        assert_eq!(after, before + pot.into());
 
         // No α entries left for dissolved subnet
         assert!(Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net));
@@ -149,11 +143,11 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         Alpha::<Test>::insert((s1_hot, s1_cold, net), U64F64::from_num(a1));
         Alpha::<Test>::insert((s2_hot, s2_cold, net), U64F64::from_num(a2));
 
-        TotalHotkeyAlpha::<Test>::insert(s1_hot, net, AlphaCurrency::from(a1 as u64));
-        TotalHotkeyAlpha::<Test>::insert(s2_hot, net, AlphaCurrency::from(a2 as u64));
+        TotalHotkeyAlpha::<Test>::insert(s1_hot, net, AlphaBalance::from(a1 as u64));
+        TotalHotkeyAlpha::<Test>::insert(s2_hot, net, AlphaBalance::from(a2 as u64));
 
         let pot: u64 = 10_000;
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(pot));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
         SubtensorModule::set_subnet_locked_balance(net, 5_000.into()); // owner refund path present; emission = 0
 
         // Cold-key balances before
@@ -194,17 +188,17 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         // Cold-keys received their τ shares
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&s1_cold),
-            s1_before + expected1
+            s1_before + expected1.into()
         );
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&s2_cold),
-            s2_before + expected2
+            s2_before + expected2.into()
         );
 
         // Owner refunded lock (no emission)
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&oc),
-            owner_before + 5_000
+            owner_before + 5_000.into()
         );
 
         // α entries for dissolved subnet gone
@@ -230,12 +224,12 @@ fn dissolve_owner_cut_refund_logic() {
             &sh,
             &sc,
             net,
-            AlphaCurrency::from(800u64),
+            AlphaBalance::from(800u64),
         );
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(1_000));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(1_000));
 
         // Lock & emissions: total emitted α = 800.
-        let lock: TaoCurrency = TaoCurrency::from(2_000);
+        let lock: TaoBalance = TaoBalance::from(2_000);
         SubtensorModule::set_subnet_locked_balance(net, lock);
         // ensure there was some Alpha issued
         assert!(SubtensorModule::get_alpha_issuance(net).to_u64() > 0);
@@ -263,7 +257,7 @@ fn dissolve_owner_cut_refund_logic() {
                 .into()
         };
 
-        let expected_refund: TaoCurrency = lock.saturating_sub(owner_emission_tao);
+        let expected_refund: TaoBalance = lock.saturating_sub(owner_emission_tao);
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -271,8 +265,8 @@ fn dissolve_owner_cut_refund_logic() {
 
         assert!(after > before); // some refund is expected
         assert_eq!(
-            TaoCurrency::from(after),
-            TaoCurrency::from(before) + expected_refund
+            TaoBalance::from(after),
+            TaoBalance::from(before) + expected_refund
         );
     });
 }
@@ -284,9 +278,9 @@ fn dissolve_zero_refund_when_emission_exceeds_lock() {
         let oh = U256::from(2_000);
         let net = add_dynamic_network(&oh, &oc);
 
-        SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(1_000));
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(1_000));
         SubnetOwnerCut::<Test>::put(u16::MAX); // 100 %
-        Emission::<Test>::insert(net, vec![AlphaCurrency::from(2_000)]);
+        Emission::<Test>::insert(net, vec![AlphaBalance::from(2_000)]);
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -327,7 +321,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         Rank::<Test>::insert(net, vec![1u16]);
         Trust::<Test>::insert(net, vec![1u16]);
         Active::<Test>::insert(net, vec![true]);
-        Emission::<Test>::insert(net, vec![AlphaCurrency::from(1)]);
+        Emission::<Test>::insert(net, vec![AlphaBalance::from(1)]);
         Incentive::<Test>::insert(NetUidStorageIndex::from(net), vec![1u16]);
         Consensus::<Test>::insert(net, vec![1u16]);
         Dividends::<Test>::insert(net, vec![1u16]);
@@ -351,15 +345,15 @@ fn dissolve_clears_all_per_subnet_storages() {
         BurnRegistrationsThisInterval::<Test>::insert(net, 1u16);
 
         // Pool / AMM counters
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(1));
-        SubnetAlphaInEmission::<Test>::insert(net, AlphaCurrency::from(1));
-        SubnetAlphaOutEmission::<Test>::insert(net, AlphaCurrency::from(1));
-        SubnetTaoInEmission::<Test>::insert(net, TaoCurrency::from(1));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(1));
+        SubnetAlphaInEmission::<Test>::insert(net, AlphaBalance::from(1));
+        SubnetAlphaOutEmission::<Test>::insert(net, AlphaBalance::from(1));
+        SubnetTaoInEmission::<Test>::insert(net, TaoBalance::from(1));
         SubnetVolume::<Test>::insert(net, 1u128);
 
         // Items now REMOVED (not zeroed) by dissolution
-        SubnetAlphaIn::<Test>::insert(net, AlphaCurrency::from(2));
-        SubnetAlphaOut::<Test>::insert(net, AlphaCurrency::from(3));
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(2));
+        SubnetAlphaOut::<Test>::insert(net, AlphaBalance::from(3));
 
         // Prefix / double-map collections
         Keys::<Test>::insert(net, 0u16, owner_hot);
@@ -379,7 +373,7 @@ fn dissolve_clears_all_per_subnet_storages() {
 
         // Subnet locks
         TransferToggle::<Test>::insert(net, true);
-        SubnetLocked::<Test>::insert(net, TaoCurrency::from(1));
+        SubnetLocked::<Test>::insert(net, TaoBalance::from(1));
         LargestLocked::<Test>::insert(net, 1u64);
 
         // Subnet parameters & pending counters
@@ -387,10 +381,10 @@ fn dissolve_clears_all_per_subnet_storages() {
         SubnetMechanism::<Test>::insert(net, 1u16);
         NetworkRegistrationAllowed::<Test>::insert(net, true);
         NetworkPowRegistrationAllowed::<Test>::insert(net, true);
-        PendingServerEmission::<Test>::insert(net, AlphaCurrency::from(1));
-        PendingValidatorEmission::<Test>::insert(net, AlphaCurrency::from(1));
-        PendingRootAlphaDivs::<Test>::insert(net, AlphaCurrency::from(1));
-        PendingOwnerCut::<Test>::insert(net, AlphaCurrency::from(1));
+        PendingServerEmission::<Test>::insert(net, AlphaBalance::from(1));
+        PendingValidatorEmission::<Test>::insert(net, AlphaBalance::from(1));
+        PendingRootAlphaDivs::<Test>::insert(net, AlphaBalance::from(1));
+        PendingOwnerCut::<Test>::insert(net, AlphaBalance::from(1));
         BlocksSinceLastStep::<Test>::insert(net, 1u64);
         LastMechansimStepBlock::<Test>::insert(net, 1u64);
         ServingRateLimit::<Test>::insert(net, 1u64);
@@ -412,14 +406,14 @@ fn dissolve_clears_all_per_subnet_storages() {
         CommitRevealWeightsEnabled::<Test>::insert(net, true);
 
         // Burn/difficulty/adjustment
-        Burn::<Test>::insert(net, TaoCurrency::from(1));
-        MinBurn::<Test>::insert(net, TaoCurrency::from(1));
-        MaxBurn::<Test>::insert(net, TaoCurrency::from(2));
+        Burn::<Test>::insert(net, TaoBalance::from(1));
+        MinBurn::<Test>::insert(net, TaoBalance::from(1));
+        MaxBurn::<Test>::insert(net, TaoBalance::from(2));
         MinDifficulty::<Test>::insert(net, 1u64);
         MaxDifficulty::<Test>::insert(net, 2u64);
         RegistrationsThisBlock::<Test>::insert(net, 1u16);
         EMAPriceHalvingBlocks::<Test>::insert(net, 1u64);
-        RAORecycledForRegistration::<Test>::insert(net, TaoCurrency::from(1));
+        RAORecycledForRegistration::<Test>::insert(net, TaoBalance::from(1));
 
         // Feature toggles
         LiquidAlphaOn::<Test>::insert(net, true);
@@ -436,7 +430,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         BlockAtRegistration::<Test>::insert(net, 0u16, 1u64);
 
         // Per‑subnet dividends
-        AlphaDividendsPerSubnet::<Test>::insert(net, owner_hot, AlphaCurrency::from(1));
+        AlphaDividendsPerSubnet::<Test>::insert(net, owner_hot, AlphaBalance::from(1));
 
         // Parent/child topology + takes
         ChildkeyTake::<Test>::insert(owner_hot, net, 1u16);
@@ -639,10 +633,10 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
         let sc = U256::from(24);
 
         Alpha::<Test>::insert((sh, sc, net), U64F64::from_num(1_000u64));
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(0)); // zero TAO
-        SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
-        Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
-        TotalHotkeyAlpha::<Test>::insert(sh, net, AlphaCurrency::from(1_000u64));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0)); // zero TAO
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
+        TotalHotkeyAlpha::<Test>::insert(sh, net, AlphaBalance::from(1_000u64));
 
         let before = SubtensorModule::get_coldkey_balance(&sc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -685,11 +679,11 @@ fn dissolve_rounding_remainder_distribution() {
         Alpha::<Test>::insert((s1h, s1c, net), U64F64::from_num(3u128));
         Alpha::<Test>::insert((s2h, s2c, net), U64F64::from_num(2u128));
 
-        SubnetTAO::<Test>::insert(net, TaoCurrency::from(1)); // TAO pot = 1
-        SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(1)); // TAO pot = 1
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
 
-        TotalHotkeyAlpha::<Test>::insert(s1h, net, AlphaCurrency::from(3u64));
-        TotalHotkeyAlpha::<Test>::insert(s2h, net, AlphaCurrency::from(2u64));
+        TotalHotkeyAlpha::<Test>::insert(s1h, net, AlphaBalance::from(3u64));
+        TotalHotkeyAlpha::<Test>::insert(s2h, net, AlphaBalance::from(2u64));
 
         // Cold-key balances before
         let c1_before = SubtensorModule::get_coldkey_balance(&s1c);
@@ -702,7 +696,7 @@ fn dissolve_rounding_remainder_distribution() {
         let c1_after = SubtensorModule::get_coldkey_balance(&s1c);
         let c2_after = SubtensorModule::get_coldkey_balance(&s2c);
 
-        assert_eq!(c1_after, c1_before + 1);
+        assert_eq!(c1_after, c1_before + 1.into());
         assert_eq!(c2_after, c2_before);
 
         // α records for subnet gone; TAO key gone
@@ -734,8 +728,8 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         let s1: u64 = 3u64 * min_total_u64;
         let s2: u64 = 7u64 * min_total_u64;
 
-        SubtensorModule::add_balance_to_coldkey_account(&c1, s1 + 50_000);
-        SubtensorModule::add_balance_to_coldkey_account(&c2, s2 + 50_000);
+        SubtensorModule::add_balance_to_coldkey_account(&c1, (s1 + 50_000).into());
+        SubtensorModule::add_balance_to_coldkey_account(&c2, (s2 + 50_000).into());
 
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(c1),
@@ -757,8 +751,8 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
 
         // 5. TAO pot & lock
         let tao_pot: u64 = 10_000;
-        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_pot));
-        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(5_000));
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(tao_pot));
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoBalance::from(5_000));
 
         // 6. Balances before
         let c1_before = SubtensorModule::get_coldkey_balance(&c1);
@@ -788,17 +782,17 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         // 9. Cold-key balances must have increased accordingly
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&c1),
-            c1_before + s1_share
+            c1_before + s1_share.into()
         );
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&c2),
-            c2_before + s2_share
+            c2_before + s2_share.into()
         );
 
         // 10. Owner refund (5 000 τ) to cold-key (no emission)
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&owner_cold),
-            owner_before + 5_000
+            owner_before + 5_000.into()
         );
 
         // 11. α entries cleared for the subnet
@@ -845,7 +839,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             stake[i] = (i as u64 + 1u64) * min_amount_u64; // multiples of min_amount
 
             register_ok_neuron(netuid, hot[i], cold[i], 0);
-            SubtensorModule::add_balance_to_coldkey_account(&cold[i], stake[i] + 100_000);
+            SubtensorModule::add_balance_to_coldkey_account(&cold[i], (stake[i] + 100_000).into());
 
             assert_ok!(SubtensorModule::do_add_stake(
                 RuntimeOrigin::signed(cold[i]),
@@ -866,8 +860,8 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         // ── 3) TAO pot & subnet lock ────────────────────────────────────────
         let tao_pot: u64 = 123_456;
         let lock: u64 = 30_000;
-        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_pot));
-        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock));
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(tao_pot));
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoBalance::from(lock));
 
         // ensure there was some Alpha issued
         assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
@@ -876,7 +870,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         SubnetOwnerCut::<Test>::put(32_768u16); // ~ 0.5 in fixed-point
 
         // ── 4) balances before ──────────────────────────────────────────────
-        let mut bal_before = [0u64; N];
+        let mut bal_before = [TaoBalance::new(0); N];
         for i in 0..N {
             bal_before[i] = SubtensorModule::get_coldkey_balance(&cold[i]);
         }
@@ -929,7 +923,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             // cold-key balances increased by expected τ share
             assert_eq!(
                 SubtensorModule::get_coldkey_balance(&cold[i]),
-                bal_before[i] + share[i],
+                bal_before[i] + share[i].into(),
                 "staker {i} cold-key balance changed unexpectedly"
             );
         }
@@ -937,7 +931,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         // owner refund
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&owner_cold),
-            owner_before + expected_refund
+            owner_before + expected_refund.into()
         );
 
         // α cleared for dissolved subnet & related counters reset
@@ -965,7 +959,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
 
         // Lock and (nonzero) emissions
         let lock_u64: u64 = 50_000;
-        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock_u64));
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoBalance::from(lock_u64));
         // Owner cut ≈ 50%
         SubnetOwnerCut::<Test>::put(32_768u16);
 
@@ -976,7 +970,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             &other_hot,
             &other_cold,
             netuid,
-            AlphaCurrency::from(30u64), // not nearly enough to cover the lock
+            AlphaBalance::from(30u64), // not nearly enough to cover the lock
         );
 
         // ensure there was some Alpha issued
@@ -1010,12 +1004,12 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
 
         // Owner received their refund…
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
-        assert_eq!(owner_after, owner_before + expected_refund);
+        assert_eq!(owner_after, owner_before + expected_refund.into());
 
         // …and the lock is always cleared to zero by destroy_alpha_in_out_stakes.
         assert_eq!(
             SubtensorModule::get_subnet_locked_balance(netuid),
-            TaoCurrency::from(0u64)
+            TaoBalance::from(0u64)
         );
     });
 
@@ -1034,7 +1028,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
 
         // Lock and emissions present (should be ignored for refund)
         let lock_u64: u64 = 42_000;
-        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(lock_u64));
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoBalance::from(lock_u64));
         // give some stake to other key
         let other_cold = U256::from(1_234);
         let other_hot = U256::from(2_345);
@@ -1042,7 +1036,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             &other_hot,
             &other_cold,
             netuid,
-            AlphaCurrency::from(300u64), // not nearly enough to cover the lock
+            AlphaBalance::from(300u64), // not nearly enough to cover the lock
         );
         // ensure there was some Alpha issued
         assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
@@ -1061,7 +1055,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // Lock is still cleared to zero by the routine
         assert_eq!(
             SubtensorModule::get_subnet_locked_balance(netuid),
-            TaoCurrency::from(0u64)
+            TaoBalance::from(0u64)
         );
     });
 
@@ -1079,8 +1073,8 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
 
         // lock = 0; emissions present (must not matter)
-        SubtensorModule::set_subnet_locked_balance(netuid, TaoCurrency::from(0u64));
-        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(10_000));
+        SubtensorModule::set_subnet_locked_balance(netuid, TaoBalance::from(0u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(10_000));
         // ensure there was some Alpha issued
         assert!(SubtensorModule::get_alpha_issuance(netuid).to_u64() > 0);
         SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
@@ -1093,7 +1087,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         assert_eq!(owner_after, owner_before);
         assert_eq!(
             SubtensorModule::get_subnet_locked_balance(netuid),
-            TaoCurrency::from(0u64)
+            TaoBalance::from(0u64)
         );
     });
 }
@@ -1113,7 +1107,7 @@ fn prune_none_when_all_networks_immune() {
         let _n2 = add_dynamic_network(&U256::from(4), &U256::from(3));
 
         // emissions don’t matter while immune
-        Emission::<Test>::insert(n1, vec![AlphaCurrency::from(10)]);
+        Emission::<Test>::insert(n1, vec![AlphaBalance::from(10)]);
 
         assert_eq!(SubtensorModule::get_network_to_prune(), None);
     });
@@ -1384,13 +1378,16 @@ fn register_network_prunes_and_recycles_netuid() {
         let imm = SubtensorModule::get_network_immunity_period();
         System::set_block_number(imm + 100);
 
-        Emission::<Test>::insert(n1, vec![AlphaCurrency::from(1)]);
-        Emission::<Test>::insert(n2, vec![AlphaCurrency::from(1_000)]);
+        Emission::<Test>::insert(n1, vec![AlphaBalance::from(1)]);
+        Emission::<Test>::insert(n2, vec![AlphaBalance::from(1_000)]);
 
         let new_cold = U256::from(30);
         let new_hot = U256::from(31);
         let needed: u64 = SubtensorModule::get_network_lock_cost().into();
-        SubtensorModule::add_balance_to_coldkey_account(&new_cold, needed.saturating_mul(10));
+        SubtensorModule::add_balance_to_coldkey_account(
+            &new_cold,
+            needed.saturating_mul(10).into(),
+        );
 
         assert_ok!(SubtensorModule::do_register_network(
             RuntimeOrigin::signed(new_cold),
@@ -1417,7 +1414,7 @@ fn register_network_fails_before_prune_keeps_existing() {
 
         let imm = SubtensorModule::get_network_immunity_period();
         System::set_block_number(imm + 50);
-        Emission::<Test>::insert(net, vec![AlphaCurrency::from(10)]);
+        Emission::<Test>::insert(net, vec![AlphaBalance::from(10)]);
 
         let caller_cold = U256::from(50);
         let caller_hot = U256::from(51);
@@ -1716,12 +1713,12 @@ fn test_migrate_network_immunity_period() {
 #[test]
 fn test_register_subnet_low_lock_cost() {
     new_test_ext(1).execute_with(|| {
-        NetworkMinLockCost::<Test>::set(TaoCurrency::from(1_000));
-        NetworkLastLockCost::<Test>::set(TaoCurrency::from(1_000));
+        NetworkMinLockCost::<Test>::set(TaoBalance::from(1_000));
+        NetworkLastLockCost::<Test>::set(TaoBalance::from(1_000));
 
         // Make sure lock cost is lower than 100 TAO
         let lock_cost = SubtensorModule::get_network_lock_cost();
-        assert!(lock_cost < 100_000_000_000.into());
+        assert!(lock_cost < 100_000_000_000_u64.into());
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
@@ -1741,13 +1738,13 @@ fn test_register_subnet_low_lock_cost() {
 #[test]
 fn test_register_subnet_high_lock_cost() {
     new_test_ext(1).execute_with(|| {
-        let lock_cost = TaoCurrency::from(1_000_000_000_000);
+        let lock_cost = TaoBalance::from(1_000_000_000_000_u64);
         NetworkMinLockCost::<Test>::set(lock_cost);
         NetworkLastLockCost::<Test>::set(lock_cost);
 
         // Make sure lock cost is higher than 100 TAO
         let lock_cost = SubtensorModule::get_network_lock_cost();
-        assert!(lock_cost >= 1_000_000_000_000.into());
+        assert!(lock_cost >= 1_000_000_000_000_u64.into());
 
         let subnet_owner_coldkey = U256::from(1);
         let subnet_owner_hotkey = U256::from(2);
@@ -1778,6 +1775,346 @@ fn test_tempo_greater_than_weight_set_rate_limit() {
 
         assert!(tempo as u64 >= weights_set_rate_limit);
     })
+}
+
+#[allow(clippy::indexing_slicing)]
+#[test]
+fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state() {
+    new_test_ext(0).execute_with(|| {
+        // ────────────────────────────────────────────────────────────────────
+        // 0) Constants and helpers (distinct hotkeys & coldkeys)
+        // ────────────────────────────────────────────────────────────────────
+        const NUM_NETS: usize = 4;
+
+        // Six LP coldkeys
+        let cold_lps: [U256; 6] = [
+            U256::from(3001),
+            U256::from(3002),
+            U256::from(3003),
+            U256::from(3004),
+            U256::from(3005),
+            U256::from(3006),
+        ];
+
+        // For each coldkey, define two DISTINCT hotkeys it owns.
+        let mut cold_to_hots: BTreeMap<U256, [U256; 2]> = BTreeMap::new();
+        for &c in cold_lps.iter() {
+            let h1 = U256::from(c.low_u64().saturating_add(100_000));
+            let h2 = U256::from(c.low_u64().saturating_add(200_000));
+            cold_to_hots.insert(c, [h1, h2]);
+        }
+
+        // Distinct τ pot sizes per net.
+        let pots: [u64; NUM_NETS] = [12_345, 23_456, 34_567, 45_678];
+
+        let lp_sets_per_net: [&[U256]; NUM_NETS] = [
+            &cold_lps[0..4], // net0: A,B,C,D
+            &cold_lps[2..6], // net1: C,D,E,F
+            &cold_lps[0..6], // net2: A..F
+            &cold_lps[1..5], // net3: B,C,D,E
+        ];
+
+        // ────────────────────────────────────────────────────────────────────
+        // 1) Create many subnets, enable V3, fix price at tick=0 (sqrt≈1)
+        // ────────────────────────────────────────────────────────────────────
+        let mut nets: Vec<NetUid> = Vec::new();
+        for i in 0..NUM_NETS {
+            let owner_hot = U256::from(10_000 + (i as u64));
+            let owner_cold = U256::from(20_000 + (i as u64));
+            let net = add_dynamic_network(&owner_hot, &owner_cold);
+            SubtensorModule::set_max_registrations_per_block(net, 1_000u16);
+            SubtensorModule::set_target_registrations_per_interval(net, 1_000u16);
+            Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
+            SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+
+            nets.push(net);
+        }
+
+        // Map net → index for quick lookups.
+        let mut net_index: BTreeMap<NetUid, usize> = BTreeMap::new();
+        for (i, &n) in nets.iter().enumerate() {
+            net_index.insert(n, i);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 2) Pre-create a handful of small (hot, cold) pairs so accounts exist
+        // ────────────────────────────────────────────────────────────────────
+        for id in 0u64..10 {
+            let cold_acc = U256::from(1_000_000 + id);
+            let hot_acc = U256::from(2_000_000 + id);
+            for &net in nets.iter() {
+                register_ok_neuron(net, hot_acc, cold_acc, 100_000 + id);
+            }
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 3) LPs per net: register each (hot, cold), massive τ prefund, and stake
+        // ────────────────────────────────────────────────────────────────────
+        for &cold in cold_lps.iter() {
+            SubtensorModule::add_balance_to_coldkey_account(&cold, u64::MAX.into());
+        }
+
+        // τ balances before LP adds (after staking):
+        let mut tao_before: BTreeMap<U256, u64> = BTreeMap::new();
+
+        // Ordered α snapshot per net at **pair granularity** (pre‑LP):
+        let mut alpha_pairs_per_net: BTreeMap<NetUid, Vec<((U256, U256), u128)>> = BTreeMap::new();
+
+        // Register both hotkeys for each participating cold on each net and stake τ→α.
+        for (ni, &net) in nets.iter().enumerate() {
+            let participants = lp_sets_per_net[ni];
+            for &cold in participants.iter() {
+                let [hot1, hot2] = cold_to_hots[&cold];
+
+                // Ensure (hot, cold) neurons exist on this net.
+                register_ok_neuron(
+                    net,
+                    hot1,
+                    cold,
+                    (ni as u64) * 10_000 + (hot1.low_u64() % 10_000),
+                );
+                register_ok_neuron(
+                    net,
+                    hot2,
+                    cold,
+                    (ni as u64) * 10_000 + (hot2.low_u64() % 10_000) + 1,
+                );
+
+                // Stake τ (split across the two hotkeys).
+                let base: u64 =
+                    5_000_000 + ((ni as u64) * 1_000_000) + ((cold.low_u64() % 10) * 250_000);
+                let stake1: u64 = base.saturating_mul(3) / 5; // 60%
+                let stake2: u64 = base.saturating_sub(stake1); // 40%
+
+                assert_ok!(SubtensorModule::do_add_stake(
+                    RuntimeOrigin::signed(cold),
+                    hot1,
+                    net,
+                    stake1.into()
+                ));
+                assert_ok!(SubtensorModule::do_add_stake(
+                    RuntimeOrigin::signed(cold),
+                    hot2,
+                    net,
+                    stake2.into()
+                ));
+            }
+        }
+
+        // Record τ balances now (post‑stake, pre‑LP).
+        for &cold in cold_lps.iter() {
+            tao_before.insert(cold, SubtensorModule::get_coldkey_balance(&cold).into());
+        }
+
+        // Capture **pair‑level** α snapshot per net (pre‑LP).
+        for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
+            if let Some(&ni) = net_index.get(&net)
+                && lp_sets_per_net[ni].contains(&cold) {
+                    let a: u128 = amt.saturating_to_num();
+                    if a > 0 {
+                        alpha_pairs_per_net
+                            .entry(net)
+                            .or_default()
+                            .push(((hot, cold), a));
+                    }
+                }
+        }
+
+        // Snapshot τ balances AFTER LP adds (to measure actual principal debit).
+        let mut tao_after_adds: BTreeMap<U256, u64> = BTreeMap::new();
+        for &cold in cold_lps.iter() {
+            tao_after_adds.insert(cold, SubtensorModule::get_coldkey_balance(&cold).into());
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 5) Compute Hamilton-apportionment BASE shares per cold and total leftover
+        //    from the **pair-level** pre‑LP α snapshot; also count pairs per cold.
+        // ────────────────────────────────────────────────────────────────────
+        let mut base_share_cold: BTreeMap<U256, u64> =
+            cold_lps.iter().copied().map(|c| (c, 0_u64)).collect();
+        let mut pair_count_cold: BTreeMap<U256, u32> =
+            cold_lps.iter().copied().map(|c| (c, 0_u32)).collect();
+
+        let mut leftover_total: u64 = 0;
+
+        for (ni, &net) in nets.iter().enumerate() {
+            let pot = pots[ni];
+            let pairs = alpha_pairs_per_net.get(&net).cloned().unwrap_or_default();
+            if pot == 0 || pairs.is_empty() {
+                continue;
+            }
+            let total_alpha: u128 = pairs.iter().map(|(_, a)| *a).sum();
+            if total_alpha == 0 {
+                continue;
+            }
+
+            let mut base_sum_net: u64 = 0;
+            for ((_, cold), a) in pairs.iter().copied() {
+                // quota = a * pot / total_alpha
+                let prod: u128 = a.saturating_mul(pot as u128);
+                let base: u64 = (prod / total_alpha) as u64;
+                base_sum_net = base_sum_net.saturating_add(base);
+                *base_share_cold.entry(cold).or_default() =
+                    base_share_cold[&cold].saturating_add(base);
+                *pair_count_cold.entry(cold).or_default() += 1;
+            }
+            let leftover_net = pot.saturating_sub(base_sum_net);
+            leftover_total = leftover_total.saturating_add(leftover_net);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 6) Seed τ pots and dissolve *all* networks (liquidates LPs + refunds)
+        // ────────────────────────────────────────────────────────────────────
+        for (ni, &net) in nets.iter().enumerate() {
+            SubnetTAO::<Test>::insert(net, TaoBalance::from(pots[ni]));
+        }
+        for &net in nets.iter() {
+            assert_ok!(SubtensorModule::do_dissolve_network(net));
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 7) Assertions: τ balances, α gone, nets removed, swap state clean
+        //    (Hamilton invariants enforced at cold-level without relying on tie-break)
+        // ────────────────────────────────────────────────────────────────────
+        // Collect actual pot credits per cold (principal cancels out against adds when comparing before→after).
+        let mut actual_pot_cold: BTreeMap<U256, u64> =
+            cold_lps.iter().copied().map(|c| (c, 0_u64)).collect();
+        for &cold in cold_lps.iter() {
+            let before = tao_before[&cold];
+            let after = SubtensorModule::get_coldkey_balance(&cold);
+            actual_pot_cold.insert(cold, after.saturating_sub(before.into()).into());
+        }
+
+        // (a) Sum of actual pot credits equals total pots.
+        let total_actual: u64 = actual_pot_cold.values().copied().sum();
+        let total_pots: u64 = pots.iter().copied().sum();
+        assert_eq!(
+            total_actual, total_pots,
+            "total τ pot credited across colds must equal sum of pots"
+        );
+
+        // (b) Each cold’s pot is within Hamilton bounds: base ≤ actual ≤ base + #pairs.
+        let mut extra_accum: u64 = 0;
+        for &cold in cold_lps.iter() {
+            let base = *base_share_cold.get(&cold).unwrap_or(&0);
+            let pairs = *pair_count_cold.get(&cold).unwrap_or(&0) as u64;
+            let actual = *actual_pot_cold.get(&cold).unwrap_or(&0);
+
+            assert!(
+                actual >= base,
+                "cold {cold:?} actual pot {actual} is below base {base}"
+            );
+            assert!(
+                actual <= base.saturating_add(pairs),
+                "cold {cold:?} actual pot {actual} exceeds base + pairs ({base} + {pairs})"
+            );
+
+            extra_accum = extra_accum.saturating_add(actual.saturating_sub(base));
+        }
+
+        // (c) The total “extra beyond base” equals the computed leftover_total across nets.
+        assert_eq!(
+            extra_accum, leftover_total,
+            "sum of extras beyond base must equal total leftover"
+        );
+
+        // (d) τ principal was fully refunded (compare after_adds → after).
+        for &cold in cold_lps.iter() {
+            let before = tao_before[&cold];
+            let mid = tao_after_adds[&cold];
+            let after = SubtensorModule::get_coldkey_balance(&cold);
+            let principal_actual = before.saturating_sub(mid);
+            let actual_pot = after.saturating_sub(before.into());
+            assert_eq!(
+                after.saturating_sub(mid.into()),
+                principal_actual.saturating_add(actual_pot.into()).into(),
+                "cold {cold:?} τ balance incorrect vs 'after_adds'"
+            );
+        }
+
+        // For each dissolved net, check α ledgers gone, network removed, and swap state clean.
+        for &net in nets.iter() {
+            assert!(
+                Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net),
+                "alpha ledger not fully cleared for net {net:?}"
+            );
+            assert!(
+                !SubtensorModule::if_subnet_exist(net),
+                "subnet {net:?} still exists"
+            );
+            assert!(
+                !pallet_subtensor_swap::PalSwapInitialized::<Test>::get(net),
+                "SwapV3Initialized still set"
+            );
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // 8) Re-register a fresh subnet and re‑stake using the pallet’s min rule
+        //    Assert αΔ equals the sim-swap result for the exact τ staked.
+        // ────────────────────────────────────────────────────────────────────
+        let new_owner_hot = U256::from(99_000);
+        let new_owner_cold = U256::from(99_001);
+        let net_new = add_dynamic_network(&new_owner_hot, &new_owner_cold);
+        SubtensorModule::set_max_registrations_per_block(net_new, 1_000u16);
+        SubtensorModule::set_target_registrations_per_interval(net_new, 1_000u16);
+        Emission::<Test>::insert(net_new, Vec::<AlphaBalance>::new());
+        SubtensorModule::set_subnet_locked_balance(net_new, TaoBalance::from(0));
+
+        // Compute the exact min stake per the pallet rule: DefaultMinStake + fee(DefaultMinStake).
+        let min_stake = DefaultMinStake::<Test>::get();
+		let order = GetAlphaForTao::<Test>::with_amount(min_stake);
+        let fee_for_min = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
+            net_new,
+			order,
+        )
+        .map(|r| r.fee_paid)
+        .unwrap_or_else(|_e| {
+            <pallet_subtensor_swap::Pallet<Test> as subtensor_swap_interface::SwapHandler>::approx_fee_amount(net_new, min_stake)
+        });
+        let min_amount_required = min_stake.saturating_add(fee_for_min).to_u64();
+
+        // Re‑stake from three coldkeys; choose a specific DISTINCT hotkey per cold.
+        for &cold in &cold_lps[0..3] {
+            let [hot1, _hot2] = cold_to_hots[&cold];
+            register_ok_neuron(net_new, hot1, cold, 7777);
+
+            let before_tao = SubtensorModule::get_coldkey_balance(&cold);
+            let a_prev: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
+
+            // Expected α for this exact τ, using the same sim path as the pallet.
+			let order = GetAlphaForTao::<Test>::with_amount(min_amount_required);
+            let expected_alpha_out = pallet_subtensor_swap::Pallet::<Test>::sim_swap(
+                net_new,
+				order,
+            )
+            .map(|r| r.amount_paid_out)
+            .expect("sim_swap must succeed for fresh net and min amount");
+
+            assert_ok!(SubtensorModule::do_add_stake(
+                RuntimeOrigin::signed(cold),
+                hot1,
+                net_new,
+                min_amount_required.into()
+            ));
+
+            let after_tao = SubtensorModule::get_coldkey_balance(&cold);
+            let a_new: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
+            let a_delta = a_new.saturating_sub(a_prev);
+
+            // τ decreased by exactly the amount we sent.
+            assert_eq!(
+                after_tao,
+                before_tao.saturating_sub(min_amount_required.into()),
+                "τ did not decrease by the min required restake amount for cold {cold:?}"
+            );
+
+            // α minted equals the simulated swap’s net out for that same τ.
+            assert_eq!(
+                a_delta, expected_alpha_out.to_u64(),
+                "α minted mismatch for cold {cold:?} (hot {hot1:?}) on new net (αΔ {a_delta}, expected {expected_alpha_out})"
+            );
+        }
+    });
 }
 
 #[test]

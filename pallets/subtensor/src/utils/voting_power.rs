@@ -1,7 +1,7 @@
 use super::*;
 use crate::epoch::run_epoch::EpochTerms;
 use alloc::collections::BTreeMap;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 /// 14 days in blocks (assuming ~12 second blocks)
 /// 14 * 24 * 60 * 60 / 12 = 100800 blocks
@@ -182,7 +182,7 @@ impl<T: Config> Pallet<T> {
     fn update_voting_power_for_hotkey(
         netuid: NetUid,
         hotkey: &T::AccountId,
-        current_stake: AlphaCurrency,
+        current_stake: AlphaBalance,
         alpha: u64,
         min_stake: u64,
     ) {

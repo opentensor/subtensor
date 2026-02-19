@@ -1,21 +1,10 @@
 use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
 use safe_math::*;
-use sp_arithmetic::{
-    //helpers_128bit,
-    Perquintill,
-};
+use sp_arithmetic::{Perquintill, traits::Zero};
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{
-    AlphaCurrency,
-    // BalanceOps,
-    Currency,
-    CurrencyReserve,
-    NetUid,
-    SubnetInfo,
-    TaoCurrency,
-};
+use subtensor_runtime_common::{AlphaBalance, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve};
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
 };
@@ -90,14 +79,14 @@ impl<T: Config> Pallet<T> {
     /// Returns actually added Tao and Alpha, which includes fees
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
-        tao_delta: TaoCurrency,
-        alpha_delta: AlphaCurrency,
-    ) -> (TaoCurrency, AlphaCurrency) {
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
+    ) -> (TaoBalance, AlphaBalance) {
         // Collect fees
         let tao_fees = FeesTao::<T>::get(netuid);
         let alpha_fees = FeesAlpha::<T>::get(netuid);
-        FeesTao::<T>::insert(netuid, TaoCurrency::ZERO);
-        FeesAlpha::<T>::insert(netuid, AlphaCurrency::ZERO);
+        FeesTao::<T>::insert(netuid, TaoBalance::ZERO);
+        FeesAlpha::<T>::insert(netuid, AlphaBalance::ZERO);
         let actual_tao_delta = tao_delta.saturating_add(tao_fees);
         let actual_alpha_delta = alpha_delta.saturating_add(alpha_fees);
 
@@ -127,7 +116,7 @@ impl<T: Config> Pallet<T> {
             // Return fees back into fee storage and return zeroes
             FeesTao::<T>::insert(netuid, tao_fees);
             FeesAlpha::<T>::insert(netuid, alpha_fees);
-            (TaoCurrency::ZERO, AlphaCurrency::ZERO)
+            (TaoBalance::ZERO, AlphaBalance::ZERO)
         } else {
             SwapBalancer::<T>::insert(netuid, balancer);
             (actual_tao_delta, actual_alpha_delta)
@@ -248,11 +237,7 @@ impl<T: Config> Pallet<T> {
     /// Calculate fee amount
     ///
     /// Fee is provided by state ops as u16-normalized value.
-    pub(crate) fn calculate_fee_amount<C: Currency>(
-        netuid: NetUid,
-        amount: C,
-        drop_fees: bool,
-    ) -> C {
+    pub(crate) fn calculate_fee_amount<C: Token>(netuid: NetUid, amount: C, drop_fees: bool) -> C {
         if drop_fees {
             return C::ZERO;
         }
@@ -270,11 +255,11 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub(crate) fn min_price_inner<C: Currency>() -> C {
+    pub(crate) fn min_price_inner<C: Token>() -> C {
         u64::from(1_000_u64).into()
     }
 
-    pub(crate) fn max_price_inner<C: Currency>() -> C {
+    pub(crate) fn max_price_inner<C: Token>() -> C {
         u64::from(1_000_000_000_000_000_u64).into()
     }
 
@@ -311,14 +296,14 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> DefaultPriceLimit<TaoCurrency, AlphaCurrency> for Pallet<T> {
-    fn default_price_limit<C: Currency>() -> C {
+impl<T: Config> DefaultPriceLimit<TaoBalance, AlphaBalance> for Pallet<T> {
+    fn default_price_limit<C: Token>() -> C {
         Self::max_price_inner::<C>()
     }
 }
 
-impl<T: Config> DefaultPriceLimit<AlphaCurrency, TaoCurrency> for Pallet<T> {
-    fn default_price_limit<C: Currency>() -> C {
+impl<T: Config> DefaultPriceLimit<AlphaBalance, TaoBalance> for Pallet<T> {
+    fn default_price_limit<C: Token>() -> C {
         Self::min_price_inner::<C>()
     }
 }
@@ -333,7 +318,7 @@ where
     fn swap(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError> {
@@ -355,7 +340,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn swap<O>(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
@@ -376,7 +361,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     {
         match T::SubnetInfo::mechanism(netuid) {
             1 => {
-                let price_limit = Self::default_price_limit::<TaoCurrency>();
+                let price_limit = Self::default_price_limit::<TaoBalance>();
 
                 <Self as SwapEngine<O>>::swap(netuid, order, price_limit, false, true)
             }
@@ -396,7 +381,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
         }
     }
 
-    fn approx_fee_amount<C: Currency>(netuid: NetUid, amount: C) -> C {
+    fn approx_fee_amount<C: Token>(netuid: NetUid, amount: C) -> C {
         Self::calculate_fee_amount(netuid, amount, false)
     }
 
@@ -404,19 +389,19 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::current_price(netuid.into())
     }
 
-    fn min_price<C: Currency>() -> C {
+    fn min_price<C: Token>() -> C {
         Self::min_price_inner()
     }
 
-    fn max_price<C: Currency>() -> C {
+    fn max_price<C: Token>() -> C {
         Self::max_price_inner()
     }
 
     fn adjust_protocol_liquidity(
         netuid: NetUid,
-        tao_delta: TaoCurrency,
-        alpha_delta: AlphaCurrency,
-    ) -> (TaoCurrency, AlphaCurrency) {
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
+    ) -> (TaoBalance, AlphaBalance) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta)
     }
 

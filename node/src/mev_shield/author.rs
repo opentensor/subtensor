@@ -387,7 +387,7 @@ where
             runtime::Runtime,
         >::new(pallet_transaction_payment::ChargeTransactionPayment::<
             runtime::Runtime,
-        >::from(0u64)),
+        >::from(0u64.into())),
         node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
         pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
         pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),

@@ -149,10 +149,10 @@ mod balance_transfer {
             let destination_balance_after =
                 pallet_balances::Pallet::<Runtime>::free_balance(&destination_account);
 
-            assert_eq!(source_balance_after, source_balance_before - amount);
+            assert_eq!(source_balance_after, source_balance_before - amount.into());
             assert_eq!(
                 destination_balance_after,
-                destination_balance_before + amount
+                destination_balance_before + amount.into()
             );
         });
     }

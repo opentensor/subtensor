@@ -14,12 +14,12 @@ pub mod deprecated_swap_maps {
     /// TAO reservoir for scraps of protocol claimed fees.
     #[storage_alias]
     pub type ScrapReservoirTao<T: Config> =
-        StorageMap<Pallet<T>, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+        StorageMap<Pallet<T>, Twox64Concat, NetUid, TaoBalance, ValueQuery>;
 
     /// Alpha reservoir for scraps of protocol claimed fees.
     #[storage_alias]
     pub type ScrapReservoirAlpha<T: Config> =
-        StorageMap<Pallet<T>, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+        StorageMap<Pallet<T>, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 }
 
 pub fn migrate_swapv3_to_balancer<T: Config>() -> Weight {

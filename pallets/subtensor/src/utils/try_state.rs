@@ -18,13 +18,13 @@ impl<T: Config> Pallet<T> {
         //
         // These values can be off slightly due to float rounding errors.
         // They are corrected every runtime upgrade.
-        let delta = 1000;
-        let total_issuance = TotalIssuance::<T>::get().to_u64();
+        let delta = TaoBalance::from(1000);
+        let total_issuance = TotalIssuance::<T>::get();
 
         let diff = if total_issuance > expected_total_issuance {
-            total_issuance.checked_sub(expected_total_issuance)
+            total_issuance.checked_sub(&expected_total_issuance)
         } else {
-            expected_total_issuance.checked_sub(total_issuance)
+            expected_total_issuance.checked_sub(&total_issuance)
         }
         .expect("LHS > RHS");
 
@@ -40,17 +40,16 @@ impl<T: Config> Pallet<T> {
     #[allow(dead_code)]
     pub(crate) fn check_total_stake() -> Result<(), sp_runtime::TryRuntimeError> {
         // Calculate the total staked amount
-        let total_staked =
-            SubnetTAO::<T>::iter().fold(TaoCurrency::ZERO, |acc, (netuid, stake)| {
-                let acc = acc.saturating_add(stake);
+        let total_staked = SubnetTAO::<T>::iter().fold(TaoBalance::ZERO, |acc, (netuid, stake)| {
+            let acc = acc.saturating_add(stake);
 
-                if netuid.is_root() {
-                    // root network doesn't have initial pool TAO
-                    acc
-                } else {
-                    acc.saturating_sub(Self::get_network_min_lock())
-                }
-            });
+            if netuid.is_root() {
+                // root network doesn't have initial pool TAO
+                acc
+            } else {
+                acc.saturating_sub(Self::get_network_min_lock())
+            }
+        });
 
         log::warn!(
             "total_staked: {}, TotalStake: {}",

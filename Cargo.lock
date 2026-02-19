@@ -9591,6 +9591,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "subtensor-macros",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -18357,11 +18358,14 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "frame-support",
+ "num-traits",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "scale-info",
  "serde",
+ "sp-arithmetic",
  "sp-core",
+ "sp-rpc",
  "sp-runtime",
  "substrate-fixed",
  "subtensor-macros",

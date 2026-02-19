@@ -9,12 +9,12 @@ pub mod deprecated_swap_maps {
     /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
     #[storage_alias]
     pub type SubnetTaoProvided<T: Config> =
-        StorageMap<Pallet<T>, Identity, NetUid, TaoCurrency, ValueQuery>;
+        StorageMap<Pallet<T>, Identity, NetUid, TaoBalance, ValueQuery>;
 
     /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
     #[storage_alias]
     pub type SubnetAlphaInProvided<T: Config> =
-        StorageMap<Pallet<T>, Identity, NetUid, AlphaCurrency, ValueQuery>;
+        StorageMap<Pallet<T>, Identity, NetUid, AlphaBalance, ValueQuery>;
 }
 
 pub fn migrate_cleanup_swap_v3<T: Config>() -> Weight {

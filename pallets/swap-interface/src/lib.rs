@@ -4,7 +4,7 @@ use core::ops::Neg;
 use frame_support::pallet_prelude::*;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 
 pub use order::*;
 
@@ -14,7 +14,7 @@ pub trait SwapEngine<O: Order>: DefaultPriceLimit<O::PaidIn, O::PaidOut> {
     fn swap(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>;
@@ -24,7 +24,7 @@ pub trait SwapHandler {
     fn swap<O: Order>(
         netuid: NetUid,
         order: O,
-        price_limit: TaoCurrency,
+        price_limit: TaoBalance,
         drop_fees: bool,
         should_rollback: bool,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
@@ -37,34 +37,34 @@ pub trait SwapHandler {
     where
         Self: SwapEngine<O>;
 
-    fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
+    fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U64F64;
-    fn max_price<C: Currency>() -> C;
-    fn min_price<C: Currency>() -> C;
+    fn max_price<C: Token>() -> C;
+    fn min_price<C: Token>() -> C;
     fn adjust_protocol_liquidity(
         netuid: NetUid,
-        tao_delta: TaoCurrency,
-        alpha_delta: AlphaCurrency,
-    ) -> (TaoCurrency, AlphaCurrency);
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
+    ) -> (TaoBalance, AlphaBalance);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>
 where
-    PaidIn: Currency,
-    PaidOut: Currency,
+    PaidIn: Token,
+    PaidOut: Token,
 {
-    fn default_price_limit<C: Currency>() -> C;
+    fn default_price_limit<C: Token>() -> C;
 }
 
 /// Externally used swap result (for RPC)
-#[freeze_struct("58ff42da64adce1a")]
+#[freeze_struct("6a03533fc53ccfb8")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SwapResult<PaidIn, PaidOut>
 where
-    PaidIn: Currency,
-    PaidOut: Currency,
+    PaidIn: Token,
+    PaidOut: Token,
 {
     pub amount_paid_in: PaidIn,
     pub amount_paid_out: PaidOut,
@@ -74,8 +74,8 @@ where
 
 impl<PaidIn, PaidOut> SwapResult<PaidIn, PaidOut>
 where
-    PaidIn: Currency,
-    PaidOut: Currency,
+    PaidIn: Token,
+    PaidOut: Token,
 {
     pub fn paid_in_reserve_delta(&self) -> i128 {
         self.amount_paid_in.to_u64() as i128
