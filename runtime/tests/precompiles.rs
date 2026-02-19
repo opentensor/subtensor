@@ -261,6 +261,7 @@ mod drand {
                 32,
                 "getLastStoredRound should return 32 bytes (uint64 ABI)"
             );
+            #[allow(clippy::indexing_slicing)]
             let output_u64 = u64::from_be_bytes(output[24..32].try_into().unwrap());
             assert_eq!(output_u64, round);
         });
