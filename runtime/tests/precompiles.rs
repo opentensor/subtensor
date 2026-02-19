@@ -5,7 +5,9 @@ use core::iter::IntoIterator;
 use std::collections::BTreeSet;
 
 use fp_evm::{Context, ExitError, PrecompileFailure, PrecompileResult};
+use frame_support::BoundedVec;
 use node_subtensor_runtime::{BuildStorage, Runtime, RuntimeGenesisConfig, System};
+use pallet_drand::{LastStoredRound, Pulses, types::Pulse};
 use pallet_evm::{AddressMapping, BalanceConverter, PrecompileSet};
 use precompile_utils::testing::{MockHandle, PrecompileTesterExt};
 use sp_core::{H160, H256, U256};
@@ -239,6 +241,8 @@ mod drand {
     #[test]
     fn drand_precompile_get_last_stored_round_returns_value() {
         new_test_ext().execute_with(|| {
+            let round = 1000;
+            LastStoredRound::<Runtime>::put(round);
             let precompiles = Precompiles::<Runtime>::new();
             let caller = addr_from_index(1);
             let precompile_addr = addr_from_index(DrandPrecompile::<Runtime>::INDEX);
@@ -257,17 +261,28 @@ mod drand {
                 32,
                 "getLastStoredRound should return 32 bytes (uint64 ABI)"
             );
+            let output_u64 = u64::from_be_bytes(output[24..32].try_into().unwrap());
+            assert_eq!(output_u64, round);
         });
     }
 
     #[test]
     fn drand_precompile_get_randomness_returns_bytes32() {
         new_test_ext().execute_with(|| {
+            let round = 1000;
+            let value = 1u8;
+            Pulses::<Runtime>::insert(
+                round,
+                Pulse {
+                    round: 1000,
+                    randomness: BoundedVec::truncate_from(vec![value; 32]),
+                    signature: BoundedVec::truncate_from(vec![0u8; 96]),
+                },
+            );
             let precompiles = Precompiles::<Runtime>::new();
             let caller = addr_from_index(1);
             let precompile_addr = addr_from_index(DrandPrecompile::<Runtime>::INDEX);
-            let non_existent_round = 999_999_999u64;
-            let input = get_randomness_call_data(non_existent_round);
+            let input = get_randomness_call_data(round);
 
             let result =
                 execute_precompile(&precompiles, precompile_addr, caller, input, U256::zero());
@@ -283,9 +298,20 @@ mod drand {
                 "getRandomness should return 32 bytes (bytes32)"
             );
             assert!(
-                output.iter().all(|&b| b == 0),
-                "getRandomness for non-existent round should return zero bytes"
+                output.iter().all(|&b| b == value),
+                "getRandomness for round 1000 should return the inserted randomness (32 bytes of 1s)"
             );
+
+            let non_existent_round = 999_999_999u64;
+            let input = get_randomness_call_data(non_existent_round);
+            let result =
+                execute_precompile(&precompiles, precompile_addr, caller, input, U256::zero());
+            let precompile_result =
+                result.expect("expected precompile call to be routed to drand precompile");
+            let output = precompile_result
+                .expect("expected successful getRandomness call")
+                .output;
+            assert!(output.iter().all(|&b| b == 0), "getRandomness for non-existent round should return 32 bytes of 0s");
         });
     }
 }
