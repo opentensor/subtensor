@@ -70,7 +70,7 @@ mod benches {
     //     assert_eq!(stored, public_key);
     // }
 
-    /// Benchmark `submit_encrypted`.
+    // Benchmark `submit_encrypted`.
     // #[benchmark]
     // fn submit_encrypted() {
     //     // Any whitelisted caller is fine (no authority requirement).
