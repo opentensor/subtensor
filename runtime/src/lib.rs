@@ -433,11 +433,8 @@ impl pallet_safe_mode::Config for Runtime {
 
 // Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: u64 = 500;
-pub struct ExistentialDeposit;
-impl frame_support::traits::Get<TaoBalance> for ExistentialDeposit {
-    fn get() -> TaoBalance {
-        TaoBalance::new(500)
-    }
+parameter_types! {
+    pub const ExistentialDeposit: TaoBalance = TaoBalance::new(500);
 }
 
 impl pallet_balances::Config for Runtime {
