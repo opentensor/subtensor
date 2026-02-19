@@ -9,6 +9,7 @@ use super::mock::*;
 use crate::*;
 use frame_support::testing_prelude::*;
 use sp_core::{H160, Pair, U256, blake2_256, ecdsa, keccak_256};
+use std::convert::AsRef;
 
 fn public_to_evm_key(pubkey: &ecdsa::Public) -> H160 {
     use libsecp256k1::PublicKey;
@@ -103,7 +104,11 @@ fn test_associate_evm_key_different_block_number_success() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
@@ -145,7 +150,11 @@ fn test_associate_evm_key_coldkey_does_not_own_hotkey() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let signature = sign_evm_message(&pair, message);
 
         assert_err!(
@@ -182,7 +191,11 @@ fn test_associate_evm_key_hotkey_not_registered_in_subnet() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let signature = sign_evm_message(&pair, message);
 
         assert_err!(
@@ -222,7 +235,11 @@ fn test_associate_evm_key_using_wrong_hash_function() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let hashed_message = blake2_256(message.as_ref());
         let signature = pair.sign_prehashed(&hashed_message);
 
@@ -262,7 +279,11 @@ fn test_associate_evm_key_rate_limit_exceeded() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let signature = sign_evm_message(&pair, message);
 
         // First association should succeed
@@ -278,7 +299,11 @@ fn test_associate_evm_key_rate_limit_exceeded() {
         let block_number = frame_system::Pallet::<Test>::block_number();
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let signature = sign_evm_message(&pair, message);
 
         // Second association should fail due to rate limit
@@ -297,7 +322,11 @@ fn test_associate_evm_key_rate_limit_exceeded() {
         let block_number = frame_system::Pallet::<Test>::block_number();
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let signature = sign_evm_message(&pair, message);
 
         assert_ok!(SubtensorModule::associate_evm_key(
@@ -329,7 +358,11 @@ fn test_associate_evm_key_uid_not_found() {
         let hashed_block_number = keccak_256(block_number.encode().as_ref());
         let hotkey_bytes = hotkey.encode();
 
-        let message = [hotkey_bytes.as_ref(), hashed_block_number.as_ref()].concat();
+        let message = [
+            hotkey_bytes.as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&hashed_block_number),
+        ]
+        .concat();
         let signature = sign_evm_message(&pair, message);
 
         assert_noop!(
