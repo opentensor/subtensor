@@ -18330,6 +18330,7 @@ dependencies = [
  "pallet-admin-utils",
  "pallet-balances",
  "pallet-crowdloan",
+ "pallet-drand",
  "pallet-evm",
  "pallet-evm-precompile-bn128",
  "pallet-evm-precompile-dispatch",
