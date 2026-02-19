@@ -43,9 +43,9 @@ pub trait SwapHandler {
     fn min_price<C: Token>() -> C;
     fn adjust_protocol_liquidity(
         netuid: NetUid,
-        tao_delta: TaoCurrency,
-        alpha_delta: AlphaCurrency,
-    ) -> (TaoCurrency, AlphaCurrency);
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
+    ) -> (TaoBalance, AlphaBalance);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
 }
@@ -59,7 +59,7 @@ where
 }
 
 /// Externally used swap result (for RPC)
-#[freeze_struct("58ff42da64adce1a")]
+#[freeze_struct("6a03533fc53ccfb8")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SwapResult<PaidIn, PaidOut>
 where

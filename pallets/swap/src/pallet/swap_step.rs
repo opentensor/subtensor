@@ -2,9 +2,9 @@ use core::marker::PhantomData;
 
 use frame_support::ensure;
 use safe_math::*;
-use sp_arithmetic::traits::Zero;
-use substrate_fixed::types::{I64F64, U64F64};
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
+use sp_core::Get;
+use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token, TokenReserve};
 
 use super::pallet::*;
 
@@ -146,17 +146,17 @@ where
 impl<T: Config> SwapStep<T, TaoBalance, AlphaBalance>
     for BasicSwapStep<T, TaoBalance, AlphaBalance>
 {
-    fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> TaoCurrency {
+    fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> TaoBalance {
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let balancer = SwapBalancer::<T>::get(netuid);
-        TaoCurrency::from(balancer.calculate_quote_delta_in(
+        TaoBalance::from(balancer.calculate_quote_delta_in(
             price_curr,
             price_target,
             tao_reserve.into(),
         ))
     }
 
-    fn price_target(netuid: NetUid, delta_in: TaoCurrency) -> U64F64 {
+    fn price_target(netuid: NetUid, delta_in: TaoBalance) -> U64F64 {
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let balancer = SwapBalancer::<T>::get(netuid);
@@ -172,18 +172,18 @@ impl<T: Config> SwapStep<T, TaoBalance, AlphaBalance>
         price1 <= price2
     }
 
-    fn add_fees(netuid: NetUid, fee: TaoCurrency) {
+    fn add_fees(netuid: NetUid, fee: TaoBalance) {
         FeesTao::<T>::mutate(netuid, |total| *total = total.saturating_add(fee))
     }
 
-    fn convert_deltas(netuid: NetUid, delta_in: TaoCurrency) -> AlphaCurrency {
+    fn convert_deltas(netuid: NetUid, delta_in: TaoBalance) -> AlphaBalance {
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let balancer = SwapBalancer::<T>::get(netuid);
         let e = balancer.exp_quote_base(tao_reserve.into(), delta_in.into());
         let one = U64F64::from_num(1);
         let alpha_reserve_fixed = U64F64::from_num(alpha_reserve);
-        AlphaCurrency::from(
+        AlphaBalance::from(
             alpha_reserve_fixed
                 .saturating_mul(one.saturating_sub(e))
                 .saturating_to_num::<u64>(),
@@ -194,17 +194,17 @@ impl<T: Config> SwapStep<T, TaoBalance, AlphaBalance>
 impl<T: Config> SwapStep<T, AlphaBalance, TaoBalance>
     for BasicSwapStep<T, AlphaBalance, TaoBalance>
 {
-    fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> AlphaCurrency {
+    fn delta_in(netuid: NetUid, price_curr: U64F64, price_target: U64F64) -> AlphaBalance {
         let alpha_reserve = T::AlphaReserve::reserve(netuid);
         let balancer = SwapBalancer::<T>::get(netuid);
-        AlphaCurrency::from(balancer.calculate_base_delta_in(
+        AlphaBalance::from(balancer.calculate_base_delta_in(
             price_curr,
             price_target,
             alpha_reserve.into(),
         ))
     }
 
-    fn price_target(netuid: NetUid, delta_in: AlphaCurrency) -> U64F64 {
+    fn price_target(netuid: NetUid, delta_in: AlphaBalance) -> U64F64 {
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let balancer = SwapBalancer::<T>::get(netuid);
@@ -220,18 +220,18 @@ impl<T: Config> SwapStep<T, AlphaBalance, TaoBalance>
         price1 >= price2
     }
 
-    fn add_fees(netuid: NetUid, fee: AlphaCurrency) {
+    fn add_fees(netuid: NetUid, fee: AlphaBalance) {
         FeesAlpha::<T>::mutate(netuid, |total| *total = total.saturating_add(fee))
     }
 
-    fn convert_deltas(netuid: NetUid, delta_in: AlphaCurrency) -> TaoCurrency {
+    fn convert_deltas(netuid: NetUid, delta_in: AlphaBalance) -> TaoBalance {
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
         let balancer = SwapBalancer::<T>::get(netuid);
         let e = balancer.exp_base_quote(alpha_reserve.into(), delta_in.into());
         let one = U64F64::from_num(1);
         let tao_reserve_fixed = U64F64::from_num(u64::from(tao_reserve));
-        TaoCurrency::from(
+        TaoBalance::from(
             tao_reserve_fixed
                 .saturating_mul(one.saturating_sub(e))
                 .saturating_to_num::<u64>(),

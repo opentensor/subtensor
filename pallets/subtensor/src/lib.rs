@@ -2551,7 +2551,7 @@ pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 
 impl<T: Config> TokenReserve<TaoBalance> for TaoCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
-    fn reserve(netuid: NetUid) -> TaoCurrency {
+    fn reserve(netuid: NetUid) -> TaoBalance {
         SubnetTAO::<T>::get(netuid)
     }
 
@@ -2569,7 +2569,7 @@ pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
 
 impl<T: Config> TokenReserve<AlphaBalance> for AlphaCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
-    fn reserve(netuid: NetUid) -> AlphaCurrency {
+    fn reserve(netuid: NetUid) -> AlphaBalance {
         SubnetAlphaIn::<T>::get(netuid)
     }
 

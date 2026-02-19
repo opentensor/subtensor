@@ -7,7 +7,7 @@ use frame_support::traits::{
 };
 use safe_math::*;
 use substrate_fixed::types::{U64F64, U96F32};
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::*;
@@ -350,7 +350,7 @@ impl<T: Config> Pallet<T> {
         Ok(credit)
     }
 
-    pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
+    pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaBalance) {
         // TODO: record recycled alpha in a tracker
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(amount);

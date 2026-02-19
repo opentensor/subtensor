@@ -2727,7 +2727,7 @@ fn test_migrate_reset_unactive_sn() {
                 RAORecycledForRegistration::<Test>::get(netuid),
                 actual_tao_lock_amount_less_pool_tao
             );
-            assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
             assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaBalance::ZERO);
@@ -2797,7 +2797,7 @@ fn test_migrate_reset_unactive_sn() {
                 SubnetAlphaOutEmission::<Test>::get(netuid),
                 AlphaBalance::ZERO
             );
-            assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
             assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaBalance::ZERO);
@@ -2976,17 +2976,17 @@ fn test_migrate_cleanup_swap_v3() {
         let provided: u64 = 9876;
         let reserves: u64 = 1_000_000;
 
-        SubnetTAO::<Test>::insert(NetUid::from(1), TaoCurrency::from(reserves));
-        SubnetAlphaIn::<Test>::insert(NetUid::from(1), AlphaCurrency::from(reserves));
+        SubnetTAO::<Test>::insert(NetUid::from(1), TaoBalance::from(reserves));
+        SubnetAlphaIn::<Test>::insert(NetUid::from(1), AlphaBalance::from(reserves));
 
         // Insert deprecated maps values
         deprecated_swap_maps::SubnetTaoProvided::<Test>::insert(
             NetUid::from(1),
-            TaoCurrency::from(provided),
+            TaoBalance::from(provided),
         );
         deprecated_swap_maps::SubnetAlphaInProvided::<Test>::insert(
             NetUid::from(1),
-            AlphaCurrency::from(provided),
+            AlphaBalance::from(provided),
         );
 
         // Run migration

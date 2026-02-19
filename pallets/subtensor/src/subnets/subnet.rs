@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
-        SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaCurrency::ZERO);
+        SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
         RAORecycledForRegistration::<T>::insert(
             netuid_to_register,

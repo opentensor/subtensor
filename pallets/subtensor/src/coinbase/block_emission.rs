@@ -6,7 +6,7 @@ use substrate_fixed::{
     transcendental::log2,
     types::{I96F32, U64F64},
 };
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {

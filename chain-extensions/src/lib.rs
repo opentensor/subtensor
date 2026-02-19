@@ -19,7 +19,7 @@ use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, ProxyType, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUid, ProxyType, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 #[derive(DebugNoBound)]

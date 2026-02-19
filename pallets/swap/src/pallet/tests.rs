@@ -10,7 +10,7 @@ use frame_support::{assert_noop, assert_ok};
 use sp_arithmetic::Perquintill;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{NetUid, Token};
 use subtensor_swap_interface::Order as OrderT;
 
 use super::*;
@@ -22,13 +22,13 @@ use crate::pallet::swap_step::*;
 
 #[allow(dead_code)]
 fn get_min_price() -> U64F64 {
-    U64F64::from_num(Pallet::<Test>::min_price_inner::<TaoCurrency>())
+    U64F64::from_num(Pallet::<Test>::min_price_inner::<TaoBalance>())
         / U64F64::from_num(1_000_000_000)
 }
 
 #[allow(dead_code)]
 fn get_max_price() -> U64F64 {
-    U64F64::from_num(Pallet::<Test>::max_price_inner::<TaoCurrency>())
+    U64F64::from_num(Pallet::<Test>::max_price_inner::<TaoBalance>())
         / U64F64::from_num(1_000_000_000)
 }
 
@@ -114,12 +114,12 @@ mod dispatchables {
             new_test_ext().execute_with(|| {
                 let netuid = NetUid::from(1);
 
-                let tao_delta = TaoCurrency::from(tao_delta);
-                let alpha_delta = AlphaCurrency::from(alpha_delta);
+                let tao_delta = TaoBalance::from(tao_delta);
+                let alpha_delta = AlphaBalance::from(alpha_delta);
 
                 // Initialize reserves and price
-                let tao = TaoCurrency::from(1_000_000_000_000_u64);
-                let alpha = AlphaCurrency::from(4_000_000_000_000_u64);
+                let tao = TaoBalance::from(1_000_000_000_000_u64);
+                let alpha = AlphaBalance::from(4_000_000_000_000_u64);
                 TaoReserve::set_mock_reserve(netuid, tao);
                 AlphaReserve::set_mock_reserve(netuid, alpha);
                 let price_before = Swap::current_price(netuid);
@@ -175,8 +175,8 @@ mod dispatchables {
         const PREC_LARGE_DELTA: f64 = 0.001;
         const WEIGHT_PRECISION: f64 = 0.000_000_000_000_000_001;
 
-        let initial_tao_reserve = TaoCurrency::from(1_000_000_000_000_000_u64);
-        let initial_alpha_reserve = AlphaCurrency::from(10_000_000_000_000_000_u64);
+        let initial_tao_reserve = TaoBalance::from(1_000_000_000_000_000_u64);
+        let initial_alpha_reserve = AlphaBalance::from(10_000_000_000_000_000_u64);
 
         // test case: tao_delta, alpha_delta, price_precision
         [
@@ -207,8 +207,8 @@ mod dispatchables {
             new_test_ext().execute_with(|| {
                 let netuid1 = NetUid::from(1);
 
-                let tao_delta = TaoCurrency::from(tao_delta);
-                let alpha_delta = AlphaCurrency::from(alpha_delta);
+                let tao_delta = TaoBalance::from(tao_delta);
+                let alpha_delta = AlphaBalance::from(alpha_delta);
 
                 // Initialize realistically large reserves
                 let mut tao = initial_tao_reserve;
@@ -245,8 +245,8 @@ mod dispatchables {
                 AlphaReserve::set_mock_reserve(netuid2, initial_alpha_reserve);
 
                 // Adjust reserves by one large amount at once
-                let tao_delta_once = TaoCurrency::from(ITERATIONS * u64::from(tao_delta));
-                let alpha_delta_once = AlphaCurrency::from(ITERATIONS * u64::from(alpha_delta));
+                let tao_delta_once = TaoBalance::from(ITERATIONS * u64::from(tao_delta));
+                let alpha_delta_once = AlphaBalance::from(ITERATIONS * u64::from(alpha_delta));
                 Swap::adjust_protocol_liquidity(netuid2, tao_delta_once, alpha_delta_once);
                 TaoReserve::set_mock_reserve(netuid2, initial_tao_reserve + tao_delta_once);
                 AlphaReserve::set_mock_reserve(netuid2, initial_alpha_reserve + alpha_delta_once);
@@ -315,13 +315,13 @@ mod dispatchables {
             new_test_ext().execute_with(|| {
                 let netuid = NetUid::from(1);
 
-                let tao_delta = TaoCurrency::from(tao_delta);
-                let alpha_delta = AlphaCurrency::from(alpha_delta);
+                let tao_delta = TaoBalance::from(tao_delta);
+                let alpha_delta = AlphaBalance::from(alpha_delta);
 
                 // Initialize reserves and price
                 // broken state: Zero price because of zero alpha reserve
-                let tao = TaoCurrency::from(1_000_000_000_000_u64);
-                let alpha = AlphaCurrency::from(0_u64);
+                let tao = TaoBalance::from(1_000_000_000_000_u64);
+                let alpha = AlphaBalance::from(0_u64);
                 TaoReserve::set_mock_reserve(netuid, tao);
                 AlphaReserve::set_mock_reserve(netuid, alpha);
                 let price_before = Swap::current_price(netuid);
@@ -364,19 +364,19 @@ mod dispatchables {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(1);
 
-            let tao_delta = TaoCurrency::ZERO;
-            let alpha_delta = AlphaCurrency::ZERO;
+            let tao_delta = TaoBalance::ZERO;
+            let alpha_delta = AlphaBalance::ZERO;
 
             // Initialize reserves and price
             // 0.1 price
-            let tao = TaoCurrency::from(1_000_000_000_u64);
-            let alpha = AlphaCurrency::from(10_000_000_000_u64);
+            let tao = TaoBalance::from(1_000_000_000_u64);
+            let alpha = AlphaBalance::from(10_000_000_000_u64);
             TaoReserve::set_mock_reserve(netuid, tao);
             AlphaReserve::set_mock_reserve(netuid, alpha);
 
             // Insert fees
-            let tao_fees = TaoCurrency::from(1_000);
-            let alpha_fees = AlphaCurrency::from(1_000);
+            let tao_fees = TaoBalance::from(1_000);
+            let alpha_fees = AlphaBalance::from(1_000);
             FeesTao::<Test>::insert(netuid, tao_fees);
             FeesAlpha::<Test>::insert(netuid, alpha_fees);
 
@@ -391,8 +391,8 @@ mod dispatchables {
             assert_eq!(actual_alpha_delta, alpha_fees);
 
             // Check that fees got reset
-            assert_eq!(FeesTao::<Test>::get(netuid), TaoCurrency::ZERO);
-            assert_eq!(FeesAlpha::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_eq!(FeesTao::<Test>::get(netuid), TaoBalance::ZERO);
+            assert_eq!(FeesAlpha::<Test>::get(netuid), AlphaBalance::ZERO);
         });
     }
 }
@@ -403,8 +403,8 @@ fn test_swap_initialization() {
         let netuid = NetUid::from(1);
 
         // Setup reserves
-        let tao = TaoCurrency::from(1_000_000_000u64);
-        let alpha = AlphaCurrency::from(4_000_000_000u64);
+        let tao = TaoBalance::from(1_000_000_000u64);
+        let alpha = AlphaBalance::from(4_000_000_000u64);
         TaoReserve::set_mock_reserve(netuid, tao);
         AlphaReserve::set_mock_reserve(netuid, alpha);
 
@@ -435,8 +435,8 @@ fn test_swap_initialization_with_price() {
         let netuid = NetUid::from(1);
 
         // Setup reserves, tao / alpha = 0.25
-        let tao = TaoCurrency::from(1_000_000_000u64);
-        let alpha = AlphaCurrency::from(4_000_000_000u64);
+        let tao = TaoBalance::from(1_000_000_000u64);
+        let alpha = AlphaBalance::from(4_000_000_000u64);
         TaoReserve::set_mock_reserve(netuid, tao);
         AlphaReserve::set_mock_reserve(netuid, alpha);
 
@@ -476,8 +476,8 @@ fn test_swap_basic() {
 
             // Setup swap
             // Price is 0.25
-            let initial_tao_reserve = TaoCurrency::from(1_000_000_000_u64);
-            let initial_alpha_reserve = AlphaCurrency::from(4_000_000_000_u64);
+            let initial_tao_reserve = TaoBalance::from(1_000_000_000_u64);
+            let initial_alpha_reserve = AlphaBalance::from(4_000_000_000_u64);
             TaoReserve::set_mock_reserve(netuid, initial_tao_reserve);
             AlphaReserve::set_mock_reserve(netuid, initial_alpha_reserve);
             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
@@ -530,14 +530,14 @@ fn test_swap_basic() {
             if price_should_grow {
                 TaoReserve::set_mock_reserve(
                     netuid,
-                    TaoCurrency::from(
+                    TaoBalance::from(
                         (u64::from(initial_tao_reserve) as i128
                             + swap_result.paid_in_reserve_delta()) as u64,
                     ),
                 );
                 AlphaReserve::set_mock_reserve(
                     netuid,
-                    AlphaCurrency::from(
+                    AlphaBalance::from(
                         (u64::from(initial_alpha_reserve) as i128
                             + swap_result.paid_out_reserve_delta()) as u64,
                     ),
@@ -545,14 +545,14 @@ fn test_swap_basic() {
             } else {
                 TaoReserve::set_mock_reserve(
                     netuid,
-                    TaoCurrency::from(
+                    TaoBalance::from(
                         (u64::from(initial_tao_reserve) as i128
                             + swap_result.paid_out_reserve_delta()) as u64,
                     ),
                 );
                 AlphaReserve::set_mock_reserve(
                     netuid,
-                    AlphaCurrency::from(
+                    AlphaBalance::from(
                         (u64::from(initial_alpha_reserve) as i128
                             + swap_result.paid_in_reserve_delta()) as u64,
                     ),
@@ -588,7 +588,7 @@ fn test_swap_basic() {
         );
         perform_test(
             3.into(),
-            GetAlphaForTao::with_amount(10_000_000_000),
+            GetAlphaForTao::with_amount(10_000_000_000_u64),
             1000.0,
             true,
         );
@@ -610,8 +610,8 @@ fn test_swap_precision_edge_case() {
             let order = GetTaoForAlpha::with_amount(swap_amount);
 
             // Very low reserves
-            TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(tao_reserve));
-            AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(alpha_reserve));
+            TaoReserve::set_mock_reserve(netuid, TaoBalance::from(tao_reserve));
+            AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(alpha_reserve));
 
             // Minimum possible limit price
             let limit_price: U64F64 = get_min_price();
@@ -621,7 +621,7 @@ fn test_swap_precision_edge_case() {
             let swap_result =
                 Pallet::<Test>::do_swap(netuid, order, limit_price, false, true).unwrap();
 
-            assert!(swap_result.amount_paid_out > TaoCurrency::ZERO);
+            assert!(swap_result.amount_paid_out > TaoBalance::ZERO);
         });
     });
 }
@@ -695,8 +695,8 @@ fn test_convert_deltas() {
         ] {
             // Initialize reserves and weights
             let netuid = NetUid::from(1);
-            TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(tao));
-            AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(alpha));
+            TaoReserve::set_mock_reserve(netuid, TaoBalance::from(tao));
+            AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(alpha));
             assert_ok!(Pallet::<Test>::maybe_initialize_palswap(netuid, None));
 
             let w_accuracy = 1_000_000_000_f64;
@@ -716,7 +716,7 @@ fn test_convert_deltas() {
 
             assert_abs_diff_eq!(
                 u64::from(
-                    BasicSwapStep::<Test, AlphaCurrency, TaoCurrency>::convert_deltas(
+                    BasicSwapStep::<Test, AlphaBalance, TaoBalance>::convert_deltas(
                         netuid,
                         delta_in.into()
                     )
@@ -726,7 +726,7 @@ fn test_convert_deltas() {
             );
             assert_abs_diff_eq!(
                 u64::from(
-                    BasicSwapStep::<Test, TaoCurrency, AlphaCurrency>::convert_deltas(
+                    BasicSwapStep::<Test, TaoBalance, AlphaBalance>::convert_deltas(
                         netuid,
                         delta_in.into()
                     )
@@ -790,8 +790,8 @@ fn test_liquidate_pal_simple_ok_and_clears() {
 
         // Insert map values
         FeeRate::<Test>::insert(netuid, 1_000);
-        FeesTao::<Test>::insert(netuid, TaoCurrency::from(1_000));
-        FeesAlpha::<Test>::insert(netuid, AlphaCurrency::from(1_000));
+        FeesTao::<Test>::insert(netuid, TaoBalance::from(1_000));
+        FeesAlpha::<Test>::insert(netuid, AlphaBalance::from(1_000));
         PalSwapInitialized::<Test>::insert(netuid, true);
         let w_quote_pt = Perquintill::from_rational(1u128, 2u128);
         let bal = Balancer::new(w_quote_pt).unwrap();
@@ -870,15 +870,12 @@ fn test_migrate_swapv3_to_balancer() {
 
         // Insert deprecated maps values
         deprecated_swap_maps::AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from_num(1.23));
-        deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(netuid, TaoCurrency::from(9876));
-        deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(
-            netuid,
-            AlphaCurrency::from(9876),
-        );
+        deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(netuid, TaoBalance::from(9876));
+        deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(netuid, AlphaBalance::from(9876));
 
         // Insert reserves that do not match the 1.23 price
-        TaoReserve::set_mock_reserve(netuid, TaoCurrency::from(1_000_000_000));
-        AlphaReserve::set_mock_reserve(netuid, AlphaCurrency::from(4_000_000_000));
+        TaoReserve::set_mock_reserve(netuid, TaoBalance::from(1_000_000_000));
+        AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(4_000_000_000_u64));
 
         // Run migration
         migration();

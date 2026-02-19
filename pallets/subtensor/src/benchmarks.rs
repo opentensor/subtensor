@@ -68,8 +68,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_max_registrations_per_block(netuid, 4096);
         Subtensor::<T>::set_target_registrations_per_interval(netuid, 4096);
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
-        SubnetTAO::<T>::insert(netuid, TaoCurrency::from(1_000_000_000_000_u64));
-        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000_u64));
+        SubnetTAO::<T>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
+        SubnetAlphaIn::<T>::insert(netuid, AlphaBalance::from(1_000_000_000_000_000_u64));
 
         let mut seed: u32 = 1;
         let mut dests = Vec::new();
@@ -733,7 +733,7 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
 
-        let initial_balance = 900_000_000_000;
+        let initial_balance = TaoBalance::from(900_000_000_000_u64);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), initial_balance);
 
         // Price = 0.01
@@ -754,7 +754,7 @@ mod pallet_benchmarks {
         let limit = current_price
             .saturating_mul(U64F64::saturating_from_num(1_001_000_000))
             .saturating_to_num::<u64>();
-        let amount_to_be_staked = TaoBalance::from(100_000_000_000);
+        let amount_to_be_staked = TaoBalance::from(100_000_000_000_u64);
 
         // Allow partial (worst case)
         #[extrinsic_call]
@@ -842,8 +842,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_burn(netuid, 1.into());
 
         // Price = 0.01
-        let tao_reserve = TaoCurrency::from(1_000_000_000_000_u64);
-        let alpha_in = AlphaCurrency::from(100_000_000_000_000_u64);
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
         SubnetTAO::<T>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<T>::insert(netuid, alpha_in);
 
@@ -872,7 +872,7 @@ mod pallet_benchmarks {
         let limit = current_price
             .saturating_mul(U64F64::saturating_from_num(999_900_000))
             .saturating_to_num::<u64>();
-        let amount_unstaked = AlphaCurrency::from(100_000_000_000_u64);
+        let amount_unstaked = AlphaBalance::from(100_000_000_000_u64);
 
         // Remove stake limit for benchmark
         StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
@@ -1339,8 +1339,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_burn(netuid, 1.into());
 
         // Price = 0.01
-        SubnetTAO::<T>::insert(netuid, TaoCurrency::from(1_000_000_000_000_u64));
-        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(100_000_000_000_000_u64));
+        SubnetTAO::<T>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
+        SubnetAlphaIn::<T>::insert(netuid, AlphaBalance::from(100_000_000_000_000_u64));
 
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 1000000u32.into());
 
@@ -1387,8 +1387,8 @@ mod pallet_benchmarks {
         let hotkey: T::AccountId = account("Alice", 0, seed);
         Subtensor::<T>::set_burn(netuid, 1.into());
 
-        let tao_reserve = TaoCurrency::from(1_000_000_000_000_u64);
-        let alpha_in = AlphaCurrency::from(100_000_000_000_000_u64);
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
         SubnetTAO::<T>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<T>::insert(netuid, alpha_in);
 
@@ -1408,7 +1408,7 @@ mod pallet_benchmarks {
             .saturating_mul(U64F64::saturating_from_num(500_000_000))
             .saturating_to_num::<u64>();
         let staked_amt = TaoBalance::from(1_000_000_000_u64);
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
 
         assert_ok!(Subtensor::<T>::add_stake(
             RawOrigin::Signed(coldkey.clone()).into(),

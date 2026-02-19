@@ -907,8 +907,8 @@ fn test_remove_stake_insufficient_liquidity() {
         );
 
         // Mock more liquidity - remove becomes successful
-        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(amount_staked + 1));
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1));
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(amount_staked + 1));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1));
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1000,7 +1000,7 @@ fn test_remove_stake_total_issuance_no_change() {
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
             SubtensorModule::get_network_min_lock() + total_fee.into(),
-            epsilon = TaoCurrency::from(fee) / 1000.into() + 1.into()
+            epsilon = TaoBalance::from(fee) / 1000.into() + 1.into()
         );
 
         // Check if total issuance is equal to the added stake, even after remove stake (no fee,
@@ -3716,12 +3716,12 @@ fn test_max_amount_move_dynamic_dynamic() {
                 expected_max_swappable,
                 precision,
             )| {
-                let expected_max_swappable = AlphaCurrency::from(expected_max_swappable);
+                let expected_max_swappable = AlphaBalance::from(expected_max_swappable);
                 // Forse-set alpha in and tao reserve to achieve relative price of subnets
-                SubnetTAO::<Test>::insert(origin_netuid, TaoCurrency::from(tao_in_1));
-                SubnetAlphaIn::<Test>::insert(origin_netuid, AlphaCurrency::from(alpha_in_1));
-                SubnetTAO::<Test>::insert(destination_netuid, TaoCurrency::from(tao_in_2));
-                SubnetAlphaIn::<Test>::insert(destination_netuid, AlphaCurrency::from(alpha_in_2));
+                SubnetTAO::<Test>::insert(origin_netuid, TaoBalance::from(tao_in_1));
+                SubnetAlphaIn::<Test>::insert(origin_netuid, AlphaBalance::from(alpha_in_1));
+                SubnetTAO::<Test>::insert(destination_netuid, TaoBalance::from(tao_in_2));
+                SubnetAlphaIn::<Test>::insert(destination_netuid, AlphaBalance::from(alpha_in_2));
 
                 if !alpha_in_1.is_zero() && !alpha_in_2.is_zero() {
                     let origin_price = tao_in_1 as f64 / alpha_in_1 as f64;
@@ -3853,7 +3853,7 @@ fn test_add_stake_limit_fill_or_kill() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
         // Setup limit price so that it doesn't peak above 4x of current price
-        let limit_price = TaoCurrency::from(6_000_000_000_u64);
+        let limit_price = TaoBalance::from(6_000_000_000_u64);
 
         // Add stake with slippage safety and check if it fails
         assert_noop!(
@@ -3869,7 +3869,7 @@ fn test_add_stake_limit_fill_or_kill() {
         );
 
         // Lower the amount and it should succeed now
-        let amount_ok = TaoCurrency::from(150_000_000_000_u64); // fits the maximum
+        let amount_ok = TaoBalance::from(150_000_000_000_u64); // fits the maximum
         assert_ok!(SubtensorModule::add_stake_limit(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -4581,7 +4581,7 @@ fn test_stake_into_subnet_low_amount() {
         // add network
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        // Forse-set alpha in and tao reserve to make price equal 0.01
+        // Forse-set alpha in and tao reserve to make price equal 0.1
         let tao_reserve = TaoBalance::from(100_000_000_000_u64);
         let alpha_in = AlphaBalance::from(1_000_000_000_000_u64);
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
@@ -4589,15 +4589,8 @@ fn test_stake_into_subnet_low_amount() {
             <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
                 .to_num::<f64>();
 
-        // Initialize swap v3
-        let order = GetAlphaForTao::<Test>::with_amount(0);
-        assert_ok!(<tests::mock::Test as pallet::Config>::SwapInterface::swap(
-            netuid.into(),
-            order,
-            TaoBalance::MAX,
-            false,
-            true
-        ));
+        // Initialize swap
+        <Test as pallet::Config>::SwapInterface::init_swap(netuid, None);
 
         // Add stake with slippage safety and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(
@@ -4609,15 +4602,13 @@ fn test_stake_into_subnet_low_amount() {
             false,
             false,
         ));
-        let expected_stake = AlphaBalance::from(((amount as f64) * 0.997 / current_price) as u64);
+        let expected_stake = AlphaBalance::from(((amount as f64) * 0.9995 / current_price) as u64);
 
         // Check if stake has increased
         assert_abs_diff_eq!(
-            u64::from(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey, &coldkey, netuid
-            )) as f64,
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
             expected_stake,
-            epsilon = expected_stake / 100.
+            epsilon = 1.into()
         );
     });
 }
@@ -4920,7 +4911,7 @@ fn test_swap_fees_tao_correctness() {
         let block_builder_balance_before = SubtensorModule::get_coldkey_balance(&block_builder);
         let total_tao_before = user_balance_before
             + owner_balance_before
-            + SubnetTAO::<Test>::get(netuid).to_u64()
+            + SubnetTAO::<Test>::get(netuid)
             + block_builder_balance_before;
 
         // Get alpha for owner
@@ -4978,7 +4969,7 @@ fn test_swap_fees_tao_correctness() {
 
         let total_tao_after = user_balance_after
             + owner_balance_after
-            + SubnetTAO::<Test>::get(netuid).to_u64()
+            + SubnetTAO::<Test>::get(netuid)
             + block_builder_balance_after;
 
         // Total TAO does not change, leave some epsilon for rounding
@@ -5245,8 +5236,8 @@ fn test_large_swap() {
         // add network
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
-        let tao = TaoCurrency::from(100_000_000u64);
-        let alpha = AlphaCurrency::from(1_000_000_000_000_000_u64);
+        let tao = TaoBalance::from(100_000_000u64);
+        let alpha = AlphaBalance::from(1_000_000_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
 

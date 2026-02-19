@@ -3,7 +3,7 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
 impl<T: Config> Pallet<T> {
@@ -17,7 +17,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
-    pub fn get_alpha_issuance(netuid: NetUid) -> AlphaCurrency {
+    pub fn get_alpha_issuance(netuid: NetUid) -> AlphaBalance {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
@@ -589,8 +589,8 @@ impl<T: Config> Pallet<T> {
             SwapResult {
                 amount_paid_in: tao,
                 amount_paid_out: tao.to_u64().into(),
-                fee_paid: TaoCurrency::ZERO,
-                fee_to_block_author: TaoCurrency::ZERO,
+                fee_paid: TaoBalance::ZERO,
+                fee_to_block_author: TaoBalance::ZERO,
             }
         };
 
@@ -643,8 +643,8 @@ impl<T: Config> Pallet<T> {
             SwapResult {
                 amount_paid_in: alpha,
                 amount_paid_out: alpha.to_u64().into(),
-                fee_paid: AlphaCurrency::ZERO,
-                fee_to_block_author: AlphaCurrency::ZERO,
+                fee_paid: AlphaBalance::ZERO,
+                fee_to_block_author: AlphaBalance::ZERO,
             }
         };
 
@@ -712,7 +712,7 @@ impl<T: Config> Pallet<T> {
             let bb_swap_result = Self::swap_alpha_for_tao(
                 netuid,
                 swap_result.fee_to_block_author,
-                T::SwapInterface::min_price::<TaoCurrency>(),
+                T::SwapInterface::min_price::<TaoBalance>(),
                 true,
             )?;
             Self::add_balance_to_coldkey_account(
@@ -922,7 +922,7 @@ impl<T: Config> Pallet<T> {
         // there's no slippage in this move)
         let current_price =
             <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-        let tao_equivalent: TaoCurrency = current_price
+        let tao_equivalent: TaoBalance = current_price
             .saturating_mul(U64F64::saturating_from_num(actual_alpha_moved))
             .saturating_to_num::<u64>()
             .into();
@@ -1251,7 +1251,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
+    pub fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoBalance) {
         if !tao.is_zero() {
             SubnetTAO::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(tao);
@@ -1259,7 +1259,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
+    pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoBalance) {
         if !tao.is_zero() {
             SubnetTAO::<T>::mutate(netuid, |total| {
                 *total = total.saturating_sub(tao);
@@ -1267,7 +1267,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
+    pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaBalance) {
         if !alpha.is_zero() {
             SubnetAlphaIn::<T>::mutate(netuid, |total| {
                 *total = total.saturating_add(alpha);
@@ -1275,7 +1275,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
+    pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaBalance) {
         if !alpha.is_zero() {
             SubnetAlphaIn::<T>::mutate(netuid, |total| {
                 *total = total.saturating_sub(alpha);

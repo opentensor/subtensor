@@ -2511,9 +2511,10 @@ impl_runtime_apis! {
                 .collect()
         }
 
-        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
+        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
-            let no_slippage_alpha = U64F64::saturating_from_num(u64::from(tao)).safe_div(price).saturating_to_num::<u64>();
+            let tao_u64: u64 = tao.into();
+            let no_slippage_alpha = U64F64::saturating_from_num(tao_u64).safe_div(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
@@ -2540,9 +2541,10 @@ impl_runtime_apis! {
             )
         }
 
-        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
+        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
-            let no_slippage_tao = U64F64::saturating_from_num(u64::from(alpha)).saturating_mul(price).saturating_to_num::<u64>();
+            let alpha_u64: u64 = alpha.into();
+            let no_slippage_tao = U64F64::saturating_from_num(alpha_u64).saturating_mul(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(

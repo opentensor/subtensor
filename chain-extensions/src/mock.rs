@@ -25,7 +25,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

@@ -19,7 +19,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
+use subtensor_runtime_common::{AuthorshipInfo, ConstTao, NetUid, TaoBalance};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 // Configure a mock runtime to test the pallet.

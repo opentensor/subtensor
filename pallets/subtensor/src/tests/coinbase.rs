@@ -2958,8 +2958,8 @@ fn test_mining_emission_distribution_with_no_root_sell() {
 
         // Make root sell NOT happen
         // set price very low, e.g. a lot of alpha in
-        //SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
-        let alpha = AlphaCurrency::from(1_000_000_000_000_000_000_u64);
+        //SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000_000));
+        let alpha = AlphaBalance::from(1_000_000_000_000_000_000_u64);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
         // Make sure we ARE NOT root selling, so we do not have root alpha divs.
@@ -3152,7 +3152,7 @@ fn test_mining_emission_distribution_with_root_sell() {
         // Make root sell happen
         // Set moving price > 1.0
         // Set price > 1.0
-        let alpha = AlphaCurrency::from(100_000_000_000_000);
+        let alpha = AlphaBalance::from(100_000_000_000_000_u64);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
 
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
@@ -3296,8 +3296,8 @@ fn test_coinbase_subnet_terms_with_alpha_in_gt_alpha_emission() {
             .saturating_add(U96F32::saturating_from_num(0.01));
 
         // Set the price
-        let tao = TaoCurrency::from(1_000_000_000_u64);
-        let alpha = AlphaCurrency::from(
+        let tao = TaoBalance::from(1_000_000_000_u64);
+        let alpha = AlphaBalance::from(
             (U64F64::saturating_from_num(u64::from(tao)) / price_to_set).to_num::<u64>(),
         );
         SubnetTAO::<Test>::insert(netuid0, tao);
@@ -3777,8 +3777,8 @@ fn test_pending_emission_start_call_not_done() {
         // Make root sell happen
         // Set moving price > 1.0
         // Set price > 1.0
-        let tao = TaoCurrency::from(10_000_000_000_u64);
-        let alpha = AlphaCurrency::from(1_000_000_000_u64);
+        let tao = TaoBalance::from(10_000_000_000_u64);
+        let alpha = AlphaBalance::from(1_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
 

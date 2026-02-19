@@ -22,7 +22,9 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-pub use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, Currency, NetUid, TaoCurrency};
+pub use subtensor_runtime_common::{
+    AlphaBalance, AuthorshipInfo, ConstTao, NetUid, TaoBalance, Token,
+};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 use crate::SubtensorTxFeeHandler;
@@ -646,7 +648,7 @@ pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaBalance) -> (u64, u6
 
 pub(crate) fn swap_tao_to_alpha_ext(
     netuid: NetUid,
-    tao: TaoCurrency,
+    tao: TaoBalance,
     drop_fees: bool,
 ) -> (u64, u64) {
     if netuid.is_root() {
@@ -672,7 +674,7 @@ pub(crate) fn swap_tao_to_alpha_ext(
     (result.amount_paid_out.to_u64(), result.fee_paid.to_u64())
 }
 
-pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (u64, u64) {
+pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoBalance) -> (u64, u64) {
     swap_tao_to_alpha_ext(netuid, tao, false)
 }
 

@@ -20,7 +20,7 @@ use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 #[test]
@@ -791,8 +791,8 @@ fn test_claim_root_with_run_coinbase() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        let tao = TaoCurrency::from(10_000_000_000_000_u64);
-        let alpha = AlphaCurrency::from(1_000_000_000_000_u64);
+        let tao = TaoBalance::from(10_000_000_000_000_u64);
+        let alpha = AlphaBalance::from(1_000_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
         let current_price =
@@ -907,8 +907,8 @@ fn test_claim_root_with_block_emissions() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        let tao = TaoCurrency::from(10_000_000_000_000_u64);
-        let alpha = AlphaCurrency::from(1_000_000_000_000_u64);
+        let tao = TaoBalance::from(10_000_000_000_000_u64);
+        let alpha = AlphaBalance::from(1_000_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
         let current_price =
@@ -1034,8 +1034,8 @@ fn test_claim_root_coinbase_distribution() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        let tao = TaoCurrency::from(100_000_000_000_u64);
-        let alpha = AlphaCurrency::from(100_000_000_000_u64);
+        let tao = TaoBalance::from(100_000_000_000_u64);
+        let alpha = AlphaBalance::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao);
         SubnetAlphaIn::<Test>::insert(netuid, alpha);
         // let current_price =
@@ -1045,7 +1045,7 @@ fn test_claim_root_coinbase_distribution() {
         RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
         let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
+        let alpha_emissions: AlphaBalance = 1_000_000_000u64.into();
 
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);

@@ -12,7 +12,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaBalance, Currency as CurrencyTrait, NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 type AccountId = <mock::Test as frame_system::Config>::AccountId;

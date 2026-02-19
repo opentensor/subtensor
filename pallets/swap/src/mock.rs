@@ -16,12 +16,7 @@ use sp_runtime::{
 };
 use std::{cell::RefCell, collections::HashMap};
 use subtensor_runtime_common::{
-    AlphaCurrency,
-    BalanceOps,
-    TokenReserve,
-    NetUid,
-    SubnetInfo,
-    TaoCurrency,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve,
 };
 use subtensor_swap_interface::Order;
 
@@ -91,22 +86,36 @@ parameter_types! {
 
 thread_local! {
     // maps netuid -> mocked tao reserve
-    static MOCK_TAO_RESERVES: RefCell<HashMap<NetUid, TaoCurrency>> =
+    static MOCK_TAO_RESERVES: RefCell<HashMap<NetUid, TaoBalance>> =
         RefCell::new(HashMap::new());
     // maps netuid -> mocked alpha reserve
-    static MOCK_ALPHA_RESERVES: RefCell<HashMap<NetUid, AlphaCurrency>> =
+    static MOCK_ALPHA_RESERVES: RefCell<HashMap<NetUid, AlphaBalance>> =
         RefCell::new(HashMap::new());
 }
 
 #[derive(Clone)]
 pub struct TaoReserve;
 
+impl TaoReserve {
+    pub fn set_mock_reserve(netuid: NetUid, value: TaoBalance) {
+        MOCK_TAO_RESERVES.with(|m| {
+            m.borrow_mut().insert(netuid, value);
+        });
+    }
+}
+
 impl TokenReserve<TaoBalance> for TaoReserve {
     fn reserve(netuid: NetUid) -> TaoBalance {
+        // If test has set an override, use it
+        if let Some(val) = MOCK_TAO_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
+            return val;
+        }
+
+        // Otherwise, fall back to our defaults
         match netuid.into() {
-            123u16 => 10_000_u64,
-            WRAPPING_FEES_NETUID => 100_000_000_000,
-            _ => 1_000_000_000_000,
+            123u16 => 10_000,
+            WRAPPING_FEES_NETUID => 100_000_000_000_u64,
+            _ => 1_000_000_000_000_u64,
         }
         .into()
     }
@@ -118,10 +127,24 @@ impl TokenReserve<TaoBalance> for TaoReserve {
 #[derive(Clone)]
 pub struct AlphaReserve;
 
+impl AlphaReserve {
+    pub fn set_mock_reserve(netuid: NetUid, value: AlphaBalance) {
+        MOCK_ALPHA_RESERVES.with(|m| {
+            m.borrow_mut().insert(netuid, value);
+        });
+    }
+}
+
 impl TokenReserve<AlphaBalance> for AlphaReserve {
     fn reserve(netuid: NetUid) -> AlphaBalance {
+        // If test has set an override, use it
+        if let Some(val) = MOCK_ALPHA_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
+            return val;
+        }
+
+        // Otherwise, fall back to our defaults
         match netuid.into() {
-            123u16 => 10_000_u64.into(),
+            123u16 => 10_000.into(),
             WRAPPING_FEES_NETUID => 400_000_000_000_u64.into(),
             _ => 4_000_000_000_000_u64.into(),
         }

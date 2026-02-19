@@ -19,7 +19,6 @@ use sp_runtime::{
     Perbill, Saturating,
     traits::{DispatchInfoOf, PostDispatchInfoOf},
 };
-use subtensor_runtime_common::{TaoBalance, Token};
 
 // Pallets
 use pallet_subtensor::Call as SubtensorCall;
@@ -32,7 +31,7 @@ use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AuthorshipInfo, Balance, NetUid};
+use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance, Token};
 
 // Tests
 #[cfg(test)]
@@ -46,9 +45,9 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     type Balance = TaoBalance;
 
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient = WeightToFeeCoefficient {
-            coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000), // 0.5 unit per weight
+        let coefficient: WeightToFeeCoefficient<Self::Balance> = WeightToFeeCoefficient {
+            coeff_integer: TaoBalance::new(0),
+            coeff_frac: Perbill::from_parts(50_000),
             negative: false,
             degree: 1,
         };
@@ -92,18 +91,13 @@ type BalancesImbalanceOf<T> = FungibleImbalance<
 
 impl<T> OnUnbalanced<BalancesImbalanceOf<T>> for TransactionFeeHandler<T>
 where
-    T: frame_system::Config,
-    T: pallet_subtensor::Config,
-    T: pallet_balances::Config<Balance = u64>,
-    T: AuthorshipInfo<AccountIdOf<T>>,
+    T: frame_system::Config
+        + pallet_balances::Config
+        + pallet_subtensor::Config
+        + AuthorshipInfo<AccountIdOf<T>>,
+    <T as pallet_balances::Config>::Balance: Into<TaoBalance> + Copy,
 {
-    fn on_nonzero_unbalanced(
-        imbalance: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-        >,
-    ) {
+    fn on_nonzero_unbalanced(imbalance: BalancesImbalanceOf<T>) {
         if let Some(author) = T::author() {
             // Pay block author instead of burning.
             // One of these is the right call depending on your exact fungible API:

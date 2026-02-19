@@ -6,16 +6,10 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use sp_std::collections::{
-    //btree_map::BTreeMap,
-    vec_deque::VecDeque,
-};
+use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::{
-    //Order,
-    SwapHandler,
-};
+use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoBalance};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
 fn test_registration_ok() {
@@ -1833,20 +1827,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
             SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
 
-            assert_ok!(
-                pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
-                    RuntimeOrigin::root(),
-                    net,
-                    true
-                )
-            );
-
-            // Price/tick pinned so LP math stays stable (sqrt(1)).
-            let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
-            let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1) price");
-            pallet_subtensor_swap::CurrentTick::<Test>::set(net, ct0);
-            pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net, sqrt1);
-
             nets.push(net);
         }
 
@@ -2063,44 +2043,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "subnet {net:?} still exists"
             );
             assert!(
-                pallet_subtensor_swap::Ticks::<Test>::iter_prefix(net)
-                    .next()
-                    .is_none(),
-                "ticks not cleared for net {net:?}"
-            );
-            assert!(
-                !pallet_subtensor_swap::Positions::<Test>::iter()
-                    .any(|((n, _owner, _pid), _)| n == net),
-                "swap positions not fully cleared for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::FeeGlobalTao::<Test>::get(net).saturating_to_num::<u64>(),
-                0,
-                "FeeGlobalTao nonzero for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::FeeGlobalAlpha::<Test>::get(net).saturating_to_num::<u64>(),
-                0,
-                "FeeGlobalAlpha nonzero for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::CurrentLiquidity::<Test>::get(net),
-                0,
-                "CurrentLiquidity not zero for net {net:?}"
-            );
-            assert!(
-                !pallet_subtensor_swap::SwapV3Initialized::<Test>::get(net),
+                !pallet_subtensor_swap::PalSwapInitialized::<Test>::get(net),
                 "SwapV3Initialized still set"
-            );
-            assert!(
-                !pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(net),
-                "EnabledUserLiquidity still set"
-            );
-            assert!(
-                pallet_subtensor_swap::TickIndexBitmapWords::<Test>::iter_prefix((net,))
-                    .next()
-                    .is_none(),
-                "TickIndexBitmapWords not cleared for net {net:?}"
             );
         }
 
@@ -2115,18 +2059,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         SubtensorModule::set_target_registrations_per_interval(net_new, 1_000u16);
         Emission::<Test>::insert(net_new, Vec::<AlphaBalance>::new());
         SubtensorModule::set_subnet_locked_balance(net_new, TaoBalance::from(0));
-
-        assert_ok!(
-            pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
-                RuntimeOrigin::root(),
-                net_new,
-                true
-            )
-        );
-        let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
-        let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1)");
-        pallet_subtensor_swap::CurrentTick::<Test>::set(net_new, ct0);
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net_new, sqrt1);
 
         // Compute the exact min stake per the pallet rule: DefaultMinStake + fee(DefaultMinStake).
         let min_stake = DefaultMinStake::<Test>::get();
