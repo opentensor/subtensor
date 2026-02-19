@@ -20,7 +20,9 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-use subtensor_runtime_common::{NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey};
+use subtensor_runtime_common::{
+    AuthorshipInfo, NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 // Configure a mock runtime to test the pallet.
@@ -74,6 +76,14 @@ pub type BlockNumber = u64;
 
 pub type TestAuthId = test_crypto::TestAuthId;
 pub type UncheckedExtrinsic = TestXt<RuntimeCall, ()>;
+
+pub struct MockAuthorshipProvider;
+
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(12345u64))
+    }
+}
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
@@ -216,6 +226,7 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type RateLimiting = NoRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 parameter_types! {

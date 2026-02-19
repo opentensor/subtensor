@@ -77,7 +77,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use substrate_fixed::types::U64F64;
 use subtensor_precompiles::{PrecompileTxExtensionProvider, Precompiles};
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
 use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
 // Frontier
@@ -250,7 +250,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 379,
+    spec_version: 380,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -457,6 +457,34 @@ impl pallet_balances::Config for Runtime {
     type FreezeIdentifier = RuntimeFreezeReason;
     type MaxFreezes = ConstU32<50>;
     type DoneSlashHandler = ();
+}
+
+// Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction
+// fee OnUnbalanced trait bounds
+pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
+
+impl<F: FindAuthor<u32>> BlockAuthorFromAura<F> {
+    pub fn get_block_author() -> Option<AccountId32> {
+        let binding = frame_system::Pallet::<Runtime>::digest();
+        let digest_logs = binding.logs();
+        let author_index = F::find_author(digest_logs.iter().filter_map(|d| d.as_pre_runtime()))?;
+        let authority_id = pallet_aura::Authorities::<Runtime>::get()
+            .get(author_index as usize)?
+            .clone();
+        Some(AccountId32::new(authority_id.to_raw_vec().try_into().ok()?))
+    }
+}
+
+impl AuthorshipInfo<AccountId32> for Runtime {
+    fn author() -> Option<AccountId32> {
+        BlockAuthorFromAura::<Aura>::get_block_author()
+    }
+}
+
+impl<F: FindAuthor<u32>> AuthorshipInfo<sp_runtime::AccountId32> for BlockAuthorFromAura<F> {
+    fn author() -> Option<sp_runtime::AccountId32> {
+        Self::get_block_author()
+    }
 }
 
 parameter_types! {
@@ -1100,6 +1128,7 @@ impl pallet_subtensor::Config for Runtime {
     type CommitmentsInterface = CommitmentsI;
     type RateLimiting = RateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = BlockAuthorFromAura<Aura>;
 }
 
 parameter_types! {
@@ -2571,6 +2600,7 @@ impl_runtime_apis! {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let no_slippage_alpha = U64F64::saturating_from_num(u64::from(tao)).safe_div(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,
@@ -2599,6 +2629,7 @@ impl_runtime_apis! {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let no_slippage_tao = U64F64::saturating_from_num(u64::from(alpha)).saturating_mul(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,

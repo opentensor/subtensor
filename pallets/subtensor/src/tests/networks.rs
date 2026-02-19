@@ -825,7 +825,8 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
                 netuid.into(),
                 min_stake,
             );
-            min_stake.saturating_add(fee)
+            // Double the fees because fee is calculated for min_stake, not for min_amount
+            min_stake + fee * 2.into()
         };
 
         const N: usize = 20;

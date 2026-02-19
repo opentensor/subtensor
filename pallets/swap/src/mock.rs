@@ -15,7 +15,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use std::{cell::RefCell, collections::HashMap};
-// use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
     AlphaCurrency,
     BalanceOps,

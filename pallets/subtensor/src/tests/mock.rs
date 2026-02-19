@@ -34,7 +34,7 @@ use sp_runtime::{
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{
-    NetUid, TaoCurrency,
+    AuthorshipInfo, NetUid, TaoCurrency,
     rate_limiting::{GROUP_REGISTER_NETWORK, RateLimitUsageKey},
 };
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -158,6 +158,14 @@ impl system::Config for Test {
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
+}
+
+pub struct MockAuthorshipProvider;
+
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(12345u64))
+    }
 }
 
 parameter_types! {
@@ -302,6 +310,7 @@ impl crate::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type RateLimiting = NoRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 // Swap-related parameter types

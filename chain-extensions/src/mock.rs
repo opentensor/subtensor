@@ -27,7 +27,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use subtensor_runtime_common::{
-    AlphaCurrency, NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey,
+    AlphaCurrency, AuthorshipInfo, NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -265,6 +265,14 @@ parameter_types! {
     pub const AnnouncementDepositFactor: Balance = 1;
 }
 
+pub struct MockAuthorshipProvider;
+
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(12345u64))
+    }
+}
+
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
@@ -407,6 +415,7 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type RateLimiting = NoRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 // Swap-related parameter types

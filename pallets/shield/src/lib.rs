@@ -244,13 +244,9 @@ pub mod pallet {
         /// Announce the ML‑KEM public key that will become `CurrentKey` in
         /// the following block.
         #[pallet::call_index(0)]
-        #[pallet::weight((
-            Weight::from_parts(20_999_999_999, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(20_999_999_999, 0)
+        .saturating_add(T::DbWeight::get().reads(1_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
         #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,

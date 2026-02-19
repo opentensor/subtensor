@@ -1919,13 +1919,9 @@ pub mod pallet {
 
         /// Sets the announcement delay for coldkey swap.
         #[pallet::call_index(86)]
-        #[pallet::weight((
-            Weight::from_parts(5_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(0_u64))
-			    .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(5_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_coldkey_swap_announcement_delay(
             origin: OriginFor<T>,
             duration: BlockNumberFor<T>,
@@ -1938,13 +1934,9 @@ pub mod pallet {
 
         /// Sets the coldkey swap reannouncement delay.
         #[pallet::call_index(87)]
-        #[pallet::weight((
-            Weight::from_parts(5_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(0_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(5_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_coldkey_swap_reannouncement_delay(
             origin: OriginFor<T>,
             duration: BlockNumberFor<T>,
