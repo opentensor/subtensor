@@ -262,6 +262,12 @@ pub trait BalanceOps<AccountId> {
     ) -> Result<AlphaCurrency, DispatchError>;
 }
 
+/// Allows to query the current block author
+pub trait AuthorshipInfo<AccountId> {
+    /// Return the current block author
+    fn author() -> Option<AccountId>;
+}
+
 pub mod time {
     use super::*;
 

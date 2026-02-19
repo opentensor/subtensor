@@ -2,6 +2,7 @@ use core::marker::PhantomData;
 
 use frame_support::ensure;
 use safe_math::*;
+use sp_core::Get;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
 
@@ -117,17 +118,27 @@ where
         // Convert amounts, actual swap happens here
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
         log::trace!("\tDelta Out        : {delta_out}");
+        let mut fee_to_block_author = 0.into();
         if self.delta_in > 0.into() {
             ensure!(delta_out > 0.into(), Error::<T>::ReservesTooLow);
 
-            // Hold the fees
-            Self::add_fees(self.netuid, self.fee);
+            // Split fees according to DefaultFeeSplit between liquidity pool and
+            // validators. In case we want just to forward 100% of fees to the block
+            // author, it can be done this way:
+            // ```
+            //     fee_to_block_author = self.fee;
+            // ```
+            let fee_split = DefaultFeeSplit::get();
+            let lp_fee = fee_split.mul_floor(self.fee.to_u64()).into();
+            Self::add_fees(self.netuid, lp_fee);
+            fee_to_block_author = self.fee.saturating_sub(lp_fee);
         }
 
         Ok(SwapStepResult {
             fee_paid: self.fee,
             delta_in: self.delta_in,
             delta_out,
+            fee_to_block_author,
         })
     }
 }
@@ -265,4 +276,5 @@ where
     pub(crate) fee_paid: PaidIn,
     pub(crate) delta_in: PaidIn,
     pub(crate) delta_out: PaidOut,
+    pub(crate) fee_to_block_author: PaidIn,
 }
