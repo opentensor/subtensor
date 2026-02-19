@@ -25,7 +25,7 @@ use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage, Percent,
-    traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
@@ -582,19 +582,9 @@ impl pallet_aura::Config for Test {
     type SlotDuration = SlotDuration;
 }
 
-pub struct TestAuthorityOrigin;
-
-impl pallet_shield::AuthorityOriginExt<RuntimeOrigin> for TestAuthorityOrigin {
-    type AccountId = U256;
-
-    fn ensure_validator(_origin: RuntimeOrigin) -> Result<Self::AccountId, BadOrigin> {
-        Ok(U256::from(0))
-    }
-}
-
 impl pallet_shield::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type AuthorityOrigin = TestAuthorityOrigin;
+    type AuthorityId = u64;
+    type FindAuthors = ();
 }
 
 static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
