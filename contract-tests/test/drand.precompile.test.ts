@@ -11,20 +11,12 @@ import { IDrandABI, IDRAND_ADDRESS } from "../src/contracts/drand";
 import { forceSetBalanceToSs58Address, addNewSubnetwork, startCall } from "../src/subtensor";
 
 describe("Test Drand Precompile", () => {
-    const hotkey = getRandomSubstrateKeypair();
-    const coldkey = getRandomSubstrateKeypair();
     let publicClient: PublicClient;
     let api: TypedApi<typeof devnet>;
 
     before(async () => {
         publicClient = await getPublicClient(ETH_LOCAL_URL);
         api = await getDevnetApi();
-
-        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey));
-        await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey));
-
-        const netuid = await addNewSubnetwork(api, hotkey, coldkey);
-        await startCall(api, netuid, coldkey);
     });
 
     describe("Drand Randomness Functions", () => {
@@ -36,13 +28,15 @@ describe("Test Drand Precompile", () => {
                 args: [],
             });
 
+            const lastRoundFromApi = await api.query.Drand.LastStoredRound.getValue();
+
             assert.ok(lastRound !== undefined, "getLastStoredRound should return a value");
             assert.strictEqual(
                 typeof lastRound,
                 "bigint",
                 "getLastStoredRound should return a bigint"
             );
-            assert.ok(lastRound >= BigInt(0), "Last stored round should be non-negative");
+            assert.ok(lastRound == lastRoundFromApi, "Last stored round should match the value from the API");
         });
 
         it("getRandomness returns bytes32 for a round", async () => {
@@ -62,6 +56,8 @@ describe("Test Drand Precompile", () => {
                 args: [roundToQuery],
             });
 
+            const randomnessFromApi = await api.query.Drand.Pulses.getValue(roundToQuery);
+
             assert.ok(randomness !== undefined, "getRandomness should return a value");
             assert.strictEqual(
                 typeof randomness,
@@ -72,6 +68,11 @@ describe("Test Drand Precompile", () => {
                 randomness.length,
                 66,
                 "bytes32 should be 0x + 64 hex chars"
+            );
+            assert.strictEqual(
+                randomness,
+                randomnessFromApi,
+                "Randomness should match the value from the API"
             );
         });
 
