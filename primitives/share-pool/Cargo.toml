@@ -10,6 +10,7 @@ lencode.workspace = true
 log.workspace = true
 scale-info.workspace = true
 substrate-fixed.workspace = true
+subtensor-macros.workspace = true
 sp-std.workspace = true
 num-traits.workspace = true
 safe-bigmath.workspace = true

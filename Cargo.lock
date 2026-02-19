@@ -16581,6 +16581,7 @@ dependencies = [
  "scale-info",
  "sp-std",
  "substrate-fixed",
+ "subtensor-macros",
 ]
 
 [[package]]

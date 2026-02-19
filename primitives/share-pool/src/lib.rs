@@ -12,6 +12,7 @@ use sp_std::marker;
 use sp_std::ops::Neg;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
+use subtensor_macros::freeze_struct;
 
 // Maximum value that can be represented with SafeFloat
 pub const SAFE_FLOAT_MAX: u128 = 1_000_000_000_000_000_000_000_u128;
@@ -30,6 +31,7 @@ pub struct SafeFloat {
     exponent: i64,
 }
 
+#[freeze_struct("2e6be279168faadf")]
 #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
 pub struct SafeFloatSerializable {
     mantissa: Vec<u8>,
