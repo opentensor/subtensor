@@ -263,7 +263,7 @@ mod drand {
                 "getLastStoredRound should return 32 bytes (uint64 ABI)"
             );
             let output_u64 =
-                u64::from_be_bytes(output[24..32].try_info().expect("expected 8 bytes"));
+                u64::from_be_bytes(output[24..32].try_into().expect("expected 8 bytes"));
             assert_eq!(output_u64, round);
         });
     }
