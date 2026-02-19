@@ -19,6 +19,7 @@ let state: NetworkState;
 const keyring = createKeyring();
 const alice = keyring.addFromUri("//Alice");
 const bob = keyring.addFromUri("//Bob");
+const charlie = keyring.addFromUri("//Charlie");
 
 // Extra nodes join as non-authority full nodes.
 const EXTRA_NODE_CONFIGS = [
@@ -104,6 +105,35 @@ describe("MEV Shield — 6 node scaling", () => {
     expect(encryptedEvent).toBeDefined();
 
     const balanceAfter = await getBalance(client, bob.address);
+    expect(balanceAfter).toBeGreaterThan(balanceBefore);
+  });
+
+  it("Multiple encrypted txs in same block with 6 nodes", async () => {
+    const nextKey = await getNextKey(client);
+    expect(nextKey).toBeDefined();
+
+    const balanceBefore = await getBalance(client, charlie.address);
+
+    const senders = [alice, bob];
+    const amount = 1_000_000_000n;
+    const txPromises = [];
+
+    for (const sender of senders) {
+      const nonce = await getAccountNonce(client, sender.address);
+
+      const innerTx = await client.tx.balances
+        .transferKeepAlive(charlie.address, amount)
+        .sign(sender, { nonce: nonce + 1 });
+
+      txPromises.push(submitEncrypted(client, sender, innerTx.toU8a(), nextKey!, nonce));
+    }
+
+    const results = await Promise.allSettled(txPromises);
+
+    const succeeded = results.filter((r) => r.status === "fulfilled");
+    expect(succeeded.length).toBe(senders.length);
+
+    const balanceAfter = await getBalance(client, charlie.address);
     expect(balanceAfter).toBeGreaterThan(balanceBefore);
   });
 });
