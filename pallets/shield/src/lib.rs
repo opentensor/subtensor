@@ -115,10 +115,9 @@ pub mod pallet {
         /// store the next key as `None` to reflect that this author will not be able
         /// handle encrypted transactions in his next block.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(20_999_999_999, 0)
-        .saturating_add(T::DbWeight::get().reads(1_u64))
-        .saturating_add(T::DbWeight::get().writes(1_u64)))]
-        #[allow(clippy::useless_conversion)]
+        #[pallet::weight(Weight::from_parts(23_190_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2_u64))
+        .saturating_add(T::DbWeight::get().writes(3_u64)))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: Option<ShieldPublicKey>,
@@ -178,9 +177,9 @@ pub mod pallet {
         ///        ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(13_980_000, 0)
-        .saturating_add(T::DbWeight::get().reads(1_u64))
-        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        #[pallet::weight(Weight::from_parts(207_500_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(0_u64)))]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
             ciphertext: BoundedVec<u8, ConstU32<8192>>,
