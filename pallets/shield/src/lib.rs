@@ -115,12 +115,10 @@ pub mod pallet {
         /// store the next key as `None` to reflect that this author will not be able
         /// handle encrypted transactions in his next block.
         #[pallet::call_index(0)]
-        #[pallet::weight((
-            Weight::from_parts(20_999_999_999, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-        ))]
+        #[pallet::weight(Weight::from_parts(20_999_999_999, 0)
+        .saturating_add(T::DbWeight::get().reads(1_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             public_key: Option<ShieldPublicKey>,
