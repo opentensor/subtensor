@@ -587,19 +587,9 @@ impl pallet_aura::Config for Test {
     type SlotDuration = SlotDuration;
 }
 
-pub struct TestAuthorityOrigin;
-
-impl pallet_shield::AuthorityOriginExt<RuntimeOrigin> for TestAuthorityOrigin {
-    type AccountId = U256;
-
-    fn ensure_validator(_origin: RuntimeOrigin) -> Result<Self::AccountId, BadOrigin> {
-        Ok(U256::from(0))
-    }
-}
-
 impl pallet_shield::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type AuthorityOrigin = TestAuthorityOrigin;
+    type AuthorityId = u64;
+    type FindAuthors = ();
 }
 
 static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();

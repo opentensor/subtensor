@@ -285,3 +285,12 @@ pub trait FindAuthors<T: Config> {
     fn find_current_author() -> Option<T::AuthorityId>;
     fn find_next_author() -> Option<T::AuthorityId>;
 }
+
+impl<T: Config> FindAuthors<T> for () {
+    fn find_current_author() -> Option<T::AuthorityId> {
+        None
+    }
+    fn find_next_author() -> Option<T::AuthorityId> {
+        None
+    }
+}
