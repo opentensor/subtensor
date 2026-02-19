@@ -552,6 +552,31 @@ where
     }
 }
 
+#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
+impl pallet_timestamp::Config for Test {
+    type MinimumPeriod = ConstU64<0>;
+}
+
+parameter_types! {
+    pub const MaxAuthorities: u32 = 32;
+    pub const AllowMultipleBlocksPerSlot: bool = false;
+    pub const SlotDuration: u64 = 6000;
+}
+
+impl pallet_aura::Config for Test {
+    type AuthorityId = AuraId;
+    // For tests we don't need dynamic disabling; just use unit type.
+    type DisabledValidators = ();
+    type MaxAuthorities = MaxAuthorities;
+    type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
+    type SlotDuration = SlotDuration;
+}
+
+impl pallet_shield::Config for Test {
+    type AuthorityId = u64;
+    type FindAuthors = ();
+}
+
 static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
 
 pub fn init_logs_for_tests() {

@@ -65,7 +65,7 @@ pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
 # Substrate
 sp-tracing.workspace = true
-rand.workspace = true
+rand = { workspace = true, features = ["thread_rng"] }
 sp-core.workspace = true
 sp-std.workspace = true
 pallet-preimage.workspace = true

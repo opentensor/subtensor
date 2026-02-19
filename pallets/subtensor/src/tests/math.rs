@@ -6,7 +6,7 @@
 use substrate_fixed::types::{I32F32, I64F64};
 
 use crate::epoch::math::*;
-use rand::{Rng, seq::SliceRandom, thread_rng};
+use rand::{RngExt, seq::SliceRandom};
 use substrate_fixed::{
     transcendental::exp,
     types::{I96F32, I110F18},
@@ -1437,7 +1437,7 @@ fn test_math_col_clip_sparse() {
 
 #[test]
 fn test_math_weighted_median() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let zero: I32F32 = fixed(0.);
     let one: I32F32 = fixed(1.);
     for _ in 0..100 {
@@ -1631,11 +1631,11 @@ fn test_math_weighted_median() {
                 let mut last_score: I32F32 = zero;
                 for i in 0..n {
                     if allow_equal {
-                        match rng.gen_range(0..2) {
+                        match rng.random_range(0..2) {
                             1 => stake.push(one),
                             _ => stake.push(zero),
                         }
-                        if rng.gen_range(0..2) == 1 {
+                        if rng.random_range(0..2) == 1 {
                             last_score += one
                         }
                         score.push(last_score);
@@ -1681,7 +1681,7 @@ fn test_math_weighted_median() {
                 assert!(medians.contains(&result));
                 for _ in 0..10 {
                     let mut permuted_uids: Vec<usize> = (0..n).collect();
-                    permuted_uids.shuffle(&mut thread_rng());
+                    permuted_uids.shuffle(&mut rng);
                     stake = permuted_uids.iter().map(|&i| stake[i]).collect();
                     score = permuted_uids.iter().map(|&i| score[i]).collect();
                     let result: I32F32 =
