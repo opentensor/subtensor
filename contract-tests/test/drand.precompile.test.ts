@@ -1,14 +1,13 @@
 import * as assert from "assert";
 
-import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate";
+import { getDevnetApi } from "../src/substrate";
 import { getPublicClient } from "../src/utils";
 import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors";
 import { PublicClient } from "viem";
 import { TypedApi } from "polkadot-api";
-import { toViemAddress, convertPublicKeyToSs58 } from "../src/address-utils";
+import { toViemAddress } from "../src/address-utils";
 import { IDrandABI, IDRAND_ADDRESS } from "../src/contracts/drand";
-import { forceSetBalanceToSs58Address, addNewSubnetwork, startCall } from "../src/subtensor";
 
 describe("Test Drand Precompile", () => {
     let publicClient: PublicClient;
