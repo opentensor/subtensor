@@ -114,13 +114,10 @@ mod tests {
     use super::*;
     use crate::{BalancesCall, DefaultMinStake, tests::mock::*};
     use frame_support::testing_prelude::*;
-    use frame_support::{dispatch::GetDispatchInfo, traits::OriginTrait};
+    use frame_support::{BoundedVec, dispatch::GetDispatchInfo, traits::OriginTrait};
     use frame_system::Call as SystemCall;
     use sp_core::U256;
-    use sp_runtime::{
-        BoundedVec,
-        traits::{AsTransactionAuthorizedOrigin, Hash, TxBaseImplication},
-    };
+    use sp_runtime::traits::{AsTransactionAuthorizedOrigin, Hash, TxBaseImplication};
     use subtensor_runtime_common::{Currency, NetUid};
 
     type HashingOf<T> = <T as frame_system::Config>::Hashing;
@@ -306,7 +303,6 @@ mod tests {
                 RuntimeCall::SubtensorModule(SubtensorCall::swap_coldkey_announced { new_coldkey }),
                 RuntimeCall::SubtensorModule(SubtensorCall::dispute_coldkey_swap {}),
                 RuntimeCall::Shield(pallet_shield::Call::submit_encrypted {
-                    commitment: <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey),
                     ciphertext: BoundedVec::truncate_from(vec![1, 2, 3, 4]),
                 }),
             ];
