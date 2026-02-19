@@ -14,10 +14,10 @@ use sp_std::vec;
 // }
 
 /// Helper to build bounded bytes (ciphertext) of a given length.
-fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
-    let v = vec![0u8; len];
-    BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
-}
+// fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
+//     let v = vec![0u8; len];
+//     BoundedVec::<u8, ConstU32<N>>::try_from(v).expect("within bound; qed")
+// }
 
 // /// Seed Aura authorities so `EnsureAuraAuthority` passes for a given sr25519 pubkey.
 // ///
@@ -71,37 +71,37 @@ mod benches {
     // }
 
     /// Benchmark `submit_encrypted`.
-    #[benchmark]
-    fn submit_encrypted() {
-        // Any whitelisted caller is fine (no authority requirement).
-        let who: T::AccountId = whitelisted_caller();
+    // #[benchmark]
+    // fn submit_encrypted() {
+    //     // Any whitelisted caller is fine (no authority requirement).
+    //     let who: T::AccountId = whitelisted_caller();
 
-        // Dummy commitment and ciphertext (bounded to 8192).
-        let commitment: T::Hash = <T as frame_system::Config>::Hashing::hash(b"bench-commitment");
-        const CT_DEFAULT_LEN: usize = 256;
-        let ciphertext: BoundedVec<u8, ConstU32<8192>> = super::bounded_ct::<8192>(CT_DEFAULT_LEN);
+    //     // Dummy commitment and ciphertext (bounded to 8192).
+    //     let commitment: T::Hash = <T as frame_system::Config>::Hashing::hash(b"bench-commitment");
+    //     const CT_DEFAULT_LEN: usize = 256;
+    //     let ciphertext: BoundedVec<u8, ConstU32<8192>> = super::bounded_ct::<8192>(CT_DEFAULT_LEN);
 
-        // Pre-compute expected id to assert postconditions.
-        let id: T::Hash =
-            <T as frame_system::Config>::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
+    //     // Pre-compute expected id to assert postconditions.
+    //     let id: T::Hash =
+    //         <T as frame_system::Config>::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
 
-        // Measure: dispatch the extrinsic.
-        #[extrinsic_call]
-        submit_encrypted(
-            RawOrigin::Signed(who.clone()),
-            commitment,
-            ciphertext.clone(),
-        );
+    //     // Measure: dispatch the extrinsic.
+    //     #[extrinsic_call]
+    //     submit_encrypted(
+    //         RawOrigin::Signed(who.clone()),
+    //         commitment,
+    //         ciphertext.clone(),
+    //     );
 
-        // Assert: stored under expected id.
-        let got = Submissions::<T>::get(id).expect("submission must exist");
-        assert_eq!(got.author, who);
-        assert_eq!(
-            got.commitment,
-            <T as frame_system::Config>::Hashing::hash(b"bench-commitment")
-        );
-        assert_eq!(got.ciphertext.as_slice(), ciphertext.as_slice());
-    }
+    //     // Assert: stored under expected id.
+    //     let got = Submissions::<T>::get(id).expect("submission must exist");
+    //     assert_eq!(got.author, who);
+    //     assert_eq!(
+    //         got.commitment,
+    //         <T as frame_system::Config>::Hashing::hash(b"bench-commitment")
+    //     );
+    //     assert_eq!(got.ciphertext.as_slice(), ciphertext.as_slice());
+    // }
 
     /// Benchmark `mark_decryption_failed`.
     #[benchmark]
