@@ -2,7 +2,7 @@
 use core::ops::Neg;
 
 use frame_support::pallet_prelude::*;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 
@@ -38,15 +38,16 @@ pub trait SwapHandler {
         Self: SwapEngine<O>;
 
     fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
-    fn current_alpha_price(netuid: NetUid) -> U96F32;
-    fn get_protocol_tao(netuid: NetUid) -> TaoBalance;
+    fn current_alpha_price(netuid: NetUid) -> U64F64;
     fn max_price<C: Token>() -> C;
     fn min_price<C: Token>() -> C;
-    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance);
-    fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
-    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
-    fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
+    fn adjust_protocol_liquidity(
+        netuid: NetUid,
+        tao_delta: TaoCurrency,
+        alpha_delta: AlphaCurrency,
+    ) -> (TaoCurrency, AlphaCurrency);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
+    fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>
@@ -57,7 +58,8 @@ where
     fn default_price_limit<C: Token>() -> C;
 }
 
-#[freeze_struct("20e853edfff00122")]
+/// Externally used swap result (for RPC)
+#[freeze_struct("58ff42da64adce1a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SwapResult<PaidIn, PaidOut>
 where
@@ -67,6 +69,7 @@ where
     pub amount_paid_in: PaidIn,
     pub amount_paid_out: PaidOut,
     pub fee_paid: PaidIn,
+    pub fee_to_block_author: PaidIn,
 }
 
 impl<PaidIn, PaidOut> SwapResult<PaidIn, PaidOut>

@@ -25,7 +25,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, NetUid, TaoBalance};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -262,6 +262,14 @@ parameter_types! {
     pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
 }
 
+pub struct MockAuthorshipProvider;
+
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(12345u64))
+    }
+}
+
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
@@ -411,13 +419,13 @@ impl pallet_subtensor::Config for Test {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
-    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(100).unwrap();
 }
@@ -429,7 +437,6 @@ impl pallet_subtensor_swap::Config for Test {
     type TaoReserve = TaoCurrencyReserve<Self>;
     type AlphaReserve = AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
-    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();

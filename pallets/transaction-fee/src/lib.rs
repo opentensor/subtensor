@@ -31,8 +31,8 @@ use subtensor_swap_interface::SwapHandler;
 use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::NetUid;
+use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::{AuthorshipInfo, Balance, NetUid};
 
 // Tests
 #[cfg(test)]
@@ -46,9 +46,9 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     type Balance = TaoBalance;
 
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient: WeightToFeeCoefficient<Self::Balance> = WeightToFeeCoefficient {
-            coeff_integer: TaoBalance::new(0),
-            coeff_frac: Perbill::from_parts(50_000),
+        let coefficient = WeightToFeeCoefficient {
+            coeff_integer: 0,
+            coeff_frac: Perbill::from_parts(500_000), // 0.5 unit per weight
             negative: false,
             degree: 1,
         };
@@ -92,18 +92,30 @@ type BalancesImbalanceOf<T> = FungibleImbalance<
 
 impl<T> OnUnbalanced<BalancesImbalanceOf<T>> for TransactionFeeHandler<T>
 where
-    T: frame_system::Config + pallet_balances::Config + pallet_subtensor::Config,
-    // You must be able to convert the fee amount into TaoBalance because TotalIssuance is TaoBalance.
-    <T as pallet_balances::Config>::Balance: Into<TaoBalance> + Copy,
+    T: frame_system::Config,
+    T: pallet_subtensor::Config,
+    T: pallet_balances::Config<Balance = u64>,
+    T: AuthorshipInfo<AccountIdOf<T>>,
 {
-    fn on_nonzero_unbalanced(imbalance: BalancesImbalanceOf<T>) {
-        let ti_before: TaoBalance = pallet_subtensor::TotalIssuance::<T>::get();
-
-        let fee: TaoBalance = imbalance.peek().into();
-
-        pallet_subtensor::TotalIssuance::<T>::put(ti_before.saturating_sub(fee));
-
-        drop(imbalance);
+    fn on_nonzero_unbalanced(
+        imbalance: FungibleImbalance<
+            u64,
+            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+        >,
+    ) {
+        if let Some(author) = T::author() {
+            // Pay block author instead of burning.
+            // One of these is the right call depending on your exact fungible API:
+            // let _ = pallet_balances::Pallet::<T>::resolve(&author, imbalance);
+            // or: let _ = pallet_balances::Pallet::<T>::deposit(&author, imbalance.peek(), Precision::BestEffort);
+            //
+            // Prefer "resolve" (moves the actual imbalance) if available:
+            let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, imbalance);
+        } else {
+            // Fallback: if no author, burn (or just drop).
+            drop(imbalance);
+        }
     }
 }
 
@@ -143,7 +155,7 @@ where
         // This is not ideal because it may not pay all fees, but UX is the priority
         // and this approach still provides spam protection.
         alpha_vec.iter().any(|(hotkey, netuid)| {
-            let alpha_balance = U96F32::saturating_from_num(
+            let alpha_balance = U64F64::saturating_from_num(
                 pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
                 ),
@@ -168,13 +180,13 @@ where
 
         alpha_vec.iter().for_each(|(hotkey, netuid)| {
             // Divide tao_amount evenly among all alpha entries
-            let alpha_balance = U96F32::saturating_from_num(
+            let alpha_balance = U64F64::saturating_from_num(
                 pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
                 ),
             );
             let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
-            let alpha_fee = U96F32::saturating_from_num(tao_per_entry)
+            let alpha_fee = U64F64::saturating_from_num(tao_per_entry)
                 .checked_div(alpha_price)
                 .unwrap_or(alpha_balance)
                 .min(alpha_balance)

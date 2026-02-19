@@ -37,7 +37,7 @@ where
     fn get_alpha_price(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<U256> {
         let current_alpha_price =
             <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(netuid.into());
-        let price = current_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+        let price = current_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
         let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())
@@ -194,18 +194,18 @@ where
             .filter(|(netuid, _)| *netuid != NetUid::ROOT)
             .collect::<Vec<_>>();
 
-        let mut sum_alpha_price: U96F32 = U96F32::from_num(0);
+        let mut sum_alpha_price: U64F64 = U64F64::from_num(0);
         for (netuid, _) in netuids {
             let price = <pallet_subtensor_swap::Pallet<R> as SwapHandler>::current_alpha_price(
                 netuid.into(),
             );
 
-            if price < U96F32::from_num(1) {
+            if price < U64F64::from_num(1) {
                 sum_alpha_price = sum_alpha_price.saturating_add(price);
             }
         }
 
-        let price = sum_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
+        let price = sum_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
         let price: SubstrateBalance = price.saturating_to_num::<u64>().into();
         let price_eth = <R as pallet_evm::Config>::BalanceConverter::into_evm_balance(price)
             .map(|amount| amount.into_u256())

@@ -332,13 +332,9 @@ pub mod pallet {
 
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
-        #[pallet::weight((
-            Weight::from_parts(2_856_000, 0)
-			.saturating_add(T::DbWeight::get().reads(0_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(2_856_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn set_max_space(origin: OriginFor<T>, new_limit: u32) -> DispatchResult {
             ensure_root(origin)?;
             MaxSpace::<T>::set(new_limit);

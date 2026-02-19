@@ -6,10 +6,16 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
+use sp_std::collections::{
+    //btree_map::BTreeMap,
+    vec_deque::VecDeque,
+};
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoBalance};
-use subtensor_swap_interface::{Order, SwapHandler};
+use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
+use subtensor_swap_interface::{
+    //Order,
+    SwapHandler,
+};
 
 #[test]
 fn test_registration_ok() {
@@ -247,8 +253,9 @@ fn dissolve_owner_cut_refund_logic() {
 
         // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -365,8 +372,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         TokenSymbol::<Test>::insert(net, b"XX".to_vec());
         SubnetMovingPrice::<Test>::insert(net, substrate_fixed::types::I96F32::from_num(1));
-        SubnetTaoProvided::<Test>::insert(net, TaoBalance::from(1));
-        SubnetAlphaInProvided::<Test>::insert(net, AlphaBalance::from(1));
 
         // TAO Flow
         SubnetTaoFlow::<Test>::insert(net, 0i64);
@@ -529,8 +534,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         assert!(!TokenSymbol::<Test>::contains_key(net));
         assert!(!SubnetMovingPrice::<Test>::contains_key(net));
-        assert!(!SubnetTaoProvided::<Test>::contains_key(net));
-        assert!(!SubnetAlphaInProvided::<Test>::contains_key(net));
 
         // Subnet locks
         assert!(!TransferToggle::<Test>::contains_key(net));
@@ -826,7 +829,8 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
                 netuid.into(),
                 min_stake,
             );
-            min_stake.saturating_add(fee)
+            // Double the fees because fee is calculated for min_stake, not for min_amount
+            min_stake + fee * 2.into()
         };
 
         const N: usize = 20;
@@ -906,8 +910,9 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
 
         let owner_emission_tao: u64 = {
             // Fallback matches the pallet's fallback
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -986,8 +991,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             .saturating_to_num::<u64>();
 
         let owner_emission_tao_u64 = {
-            let price: U96F32 =
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+            let price: U96F32 = U96F32::from_num(
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
+            );
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -1814,27 +1820,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             &cold_lps[1..5], // net3: B,C,D,E
         ];
 
-        // Multiple bands/sizes → many positions per cold across nets, using mixed hotkeys.
-        // let bands: [i32; 3] = [5, 13, 30];
-        // let liqs: [u64; 3] = [400_000, 700_000, 1_100_000];
-
-        // TODO: Revise when user liquidity is available
-        // Helper: add a V3 position via a (hot, cold) pair.
-        // let add_pos = |net: NetUid, hot: U256, cold: U256, band: i32, liq: u64| {
-        //     let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
-        //     let lo = ct.saturating_sub(band);
-        //     let hi = ct.saturating_add(band);
-        //     pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(net, true);
-        //     assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
-        //         RuntimeOrigin::signed(cold),
-        //         hot,
-        //         net,
-        //         lo,
-        //         hi,
-        //         liq
-        //     ));
-        // };
-
         // ────────────────────────────────────────────────────────────────────
         // 1) Create many subnets, enable V3, fix price at tick=0 (sqrt≈1)
         // ────────────────────────────────────────────────────────────────────
@@ -1954,24 +1939,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                     }
                 }
         }
-
-        // ────────────────────────────────────────────────────────────────────
-        // 4) Add many V3 positions per cold across nets, alternating hotkeys
-        // ────────────────────────────────────────────────────────────────────
-        // TODO: Revise when user liquidity is available
-        // for (ni, &net) in nets.iter().enumerate() {
-        //     let participants = lp_sets_per_net[ni];
-        //     for (pi, &cold) in participants.iter().enumerate() {
-        //         let [hot1, hot2] = cold_to_hots[&cold];
-        //         let hots = [hot1, hot2];
-        //         for k in 0..3 {
-        //             let band = bands[(pi + k) % bands.len()];
-        //             let liq = liqs[(ni + k) % liqs.len()];
-        //             let hot = hots[k % hots.len()];
-        //             add_pos(net, hot, cold, band, liq);
-        //         }
-        //     }
-        // }
 
         // Snapshot τ balances AFTER LP adds (to measure actual principal debit).
         let mut tao_after_adds: BTreeMap<U256, u64> = BTreeMap::new();
@@ -2215,17 +2182,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "α minted mismatch for cold {cold:?} (hot {hot1:?}) on new net (αΔ {a_delta}, expected {expected_alpha_out})"
             );
         }
-
-        // Ensure V3 still functional on new net: add a small position for the first cold using its hot1
-        // TODO: Revise when user liquidity is available
-        // let who_cold = cold_lps[0];
-        // let [who_hot, _] = cold_to_hots[&who_cold];
-        // add_pos(net_new, who_hot, who_cold, 8, 123_456);
-        // assert!(
-        //     pallet_subtensor_swap::Positions::<Test>::iter()
-        //         .any(|((n, owner, _pid), _)| n == net_new && owner == who_cold),
-        //     "new position not recorded on the re-registered net"
-        // );
     });
 }
 
