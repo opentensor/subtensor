@@ -257,7 +257,6 @@ mod drand {
                 32,
                 "getLastStoredRound should return 32 bytes (uint64 ABI)"
             );
-            let _round = u64::from_be_bytes(output[24..32].try_into().unwrap());
         });
     }
 
