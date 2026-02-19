@@ -27,7 +27,7 @@ describe("Test Drand Precompile", () => {
                 args: [],
             });
 
-            const lastRoundFromApi = await api.query.Drand.LastStoredRound.getValue();
+            const lastRoundFromApi = await api.query.Drand.LastStoredRound.getValue({ at: "best" });
 
             assert.ok(lastRound !== undefined, "getLastStoredRound should return a value");
             assert.strictEqual(
@@ -35,7 +35,7 @@ describe("Test Drand Precompile", () => {
                 "bigint",
                 "getLastStoredRound should return a bigint"
             );
-            assert.ok(lastRound == lastRoundFromApi, "Last stored round should match the value from the API");
+            assert.ok(lastRound === lastRoundFromApi, "Last stored round should match the value from the API");
         });
 
         it("getRandomness returns bytes32 for a round", async () => {
@@ -46,16 +46,15 @@ describe("Test Drand Precompile", () => {
                 args: [],
             });
 
-            const roundToQuery = lastRound > BigInt(0) ? lastRound : BigInt(1);
-
             const randomness = await publicClient.readContract({
                 abi: IDrandABI,
                 address: toViemAddress(IDRAND_ADDRESS),
                 functionName: "getRandomness",
-                args: [roundToQuery],
+                args: [lastRound],
             });
 
-            const randomnessFromApi = await api.query.Drand.Pulses.getValue(roundToQuery);
+            const pulseFromApi = await api.query.Drand.Pulses.getValue(lastRound, { at: "best" });
+            const randomnessFromApi = pulseFromApi?.randomness.asHex();
 
             assert.ok(randomness !== undefined, "getRandomness should return a value");
             assert.strictEqual(
@@ -84,6 +83,8 @@ describe("Test Drand Precompile", () => {
                 functionName: "getRandomness",
                 args: [nonExistentRound],
             });
+
+            console.log("randomness", randomness);
 
             assert.ok(randomness !== undefined, "getRandomness should return a value");
             const zeroBytes32 = "0x" + "0".repeat(64);
