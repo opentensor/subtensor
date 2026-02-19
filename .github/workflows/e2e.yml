@@ -1,15 +1,4 @@
 name: E2E Tests
 
-concurrency:
-  group: e2e-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
-  pull_request:
-
   workflow_dispatch:
-    inputs:
-      verbose:
-        description: "Output more information when triggered manually"
-        required: false
-        default: ""
