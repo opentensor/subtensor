@@ -30,8 +30,7 @@ use subtensor_swap_interface::SwapHandler;
 use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AuthorshipInfo, Balance, NetUid};
+use subtensor_runtime_common::{AuthorshipInfo, Balance, Currency, NetUid};
 
 // Tests
 #[cfg(test)]
