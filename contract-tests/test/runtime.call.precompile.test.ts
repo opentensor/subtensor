@@ -66,7 +66,7 @@ describe("Test the dispatch precompile", () => {
     it("Storage query only allow some pallets prefixed storage", async () => {
         const authorizedKeys = [
             await api.query.SubtensorModule.TotalNetworks.getKey(),
-            await api.query.Swap.AlphaSqrtPrice.getKey(),
+            await api.query.Swap.FeeRate.getKey(),
             await api.query.Balances.TotalIssuance.getKey(),
             await api.query.Proxy.Announcements.getKey(),
             await api.query.Scheduler.Agenda.getKey(),

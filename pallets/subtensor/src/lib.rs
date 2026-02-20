@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
 #![allow(clippy::too_many_arguments)]
+#![allow(clippy::zero_prefixed_literal)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -35,6 +36,7 @@ mod benchmarks;
 // =========================
 pub mod coinbase;
 pub mod epoch;
+pub mod extensions;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -45,9 +47,10 @@ pub mod utils;
 use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
+pub use extensions::*;
+
 #[cfg(test)]
 mod tests;
-pub mod transaction_extension;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
@@ -944,16 +947,16 @@ pub mod pallet {
         (45875, 58982)
     }
 
-    /// Default value for coldkey swap schedule duration
+    /// Default value for coldkey swap announcement delay.
     #[pallet::type_value]
-    pub fn DefaultColdkeySwapScheduleDuration<T: Config>() -> BlockNumberFor<T> {
-        T::InitialColdkeySwapScheduleDuration::get()
+    pub fn DefaultColdkeySwapAnnouncementDelay<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapAnnouncementDelay::get()
     }
 
-    /// Default value for coldkey swap reschedule duration
+    /// Default value for coldkey swap reannouncement delay.
     #[pallet::type_value]
-    pub fn DefaultColdkeySwapRescheduleDuration<T: Config>() -> BlockNumberFor<T> {
-        T::InitialColdkeySwapRescheduleDuration::get()
+    pub fn DefaultColdkeySwapReannouncementDelay<T: Config>() -> BlockNumberFor<T> {
+        T::InitialColdkeySwapReannouncementDelay::get()
     }
 
     /// Default value for applying pending items (e.g. childkeys).
@@ -1018,15 +1021,6 @@ pub mod pallet {
         360
     }
 
-    /// Default value for coldkey swap scheduled
-    #[pallet::type_value]
-    pub fn DefaultColdkeySwapScheduled<T: Config>() -> (BlockNumberFor<T>, T::AccountId) {
-        #[allow(clippy::expect_used)]
-        let default_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
-            .expect("trailing zeroes always produce a valid account ID; qed");
-        (BlockNumberFor::<T>::from(0_u32), default_account)
-    }
-
     /// Default value for setting subnet owner hotkey rate limit
     #[pallet::type_value]
     pub fn DefaultSetSNOwnerHotkeyRateLimit<T: Config>() -> u64 {
@@ -1082,16 +1076,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type OwnerHyperparamRateLimit<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
-
-    /// Duration of coldkey swap schedule before execution
-    #[pallet::storage]
-    pub type ColdkeySwapScheduleDuration<T: Config> =
-        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapScheduleDuration<T>>;
-
-    /// Duration of coldkey swap reschedule before execution
-    #[pallet::storage]
-    pub type ColdkeySwapRescheduleDuration<T: Config> =
-        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapRescheduleDuration<T>>;
 
     /// Duration of dissolve network schedule before execution
     #[pallet::storage]
@@ -1305,11 +1289,6 @@ pub mod pallet {
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
 
-    /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
-    #[pallet::storage]
-    pub type SubnetTaoProvided<T: Config> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
-
     /// --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
@@ -1328,11 +1307,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     #[pallet::storage]
     pub type SubnetAlphaIn<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
-
-    /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
-    #[pallet::storage]
-    pub type SubnetAlphaInProvided<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
@@ -1374,16 +1348,27 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// --- DMAP ( cold ) --> (block_expected, new_coldkey), Maps coldkey to the block to swap at and new coldkey.
+    /// The delay after an announcement before a coldkey swap can be performed.
     #[pallet::storage]
-    pub type ColdkeySwapScheduled<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        (BlockNumberFor<T>, T::AccountId),
-        ValueQuery,
-        DefaultColdkeySwapScheduled<T>,
-    >;
+    pub type ColdkeySwapAnnouncementDelay<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapAnnouncementDelay<T>>;
+
+    /// The delay after the initial delay has passed before a new announcement can be made.
+    #[pallet::storage]
+    pub type ColdkeySwapReannouncementDelay<T: Config> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery, DefaultColdkeySwapReannouncementDelay<T>>;
+
+    /// A map of the coldkey swap announcements from a coldkey
+    /// to the block number the coldkey swap can be performed.
+    #[pallet::storage]
+    pub type ColdkeySwapAnnouncements<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, (BlockNumberFor<T>, T::Hash), OptionQuery>;
+
+    /// A map of the coldkey swap disputes from a coldkey to the
+    /// block number the coldkey swap was disputed.
+    #[pallet::storage]
+    pub type ColdkeySwapDisputes<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, BlockNumberFor<T>, OptionQuery>;
 
     /// --- DMAP ( hot, netuid ) --> alpha | Returns the total amount of alpha a hotkey owns.
     #[pallet::storage]
@@ -1894,8 +1879,52 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
-    /// Default value for burn keys limit
+    // =======================================
+    // ==== VotingPower Storage  ====
+    // =======================================
+
     #[pallet::type_value]
+    /// Default VotingPower EMA alpha value (0.1 represented as u64 with 18 decimals)
+    /// alpha = 0.1 means slow response, 10% weight to new values per epoch
+    pub fn DefaultVotingPowerEmaAlpha<T: Config>() -> u64 {
+        0_003_570_000_000_000_000 // 0.00357 * 10^18 = 2 weeks e-folding (time-constant) @ 361
+        // blocks per tempo
+        // After 2 weeks  -> EMA reaches 63.2% of a step change
+        // After ~4 weeks -> 86.5%
+        // After ~6 weeks -> 95%
+    }
+
+    #[pallet::storage]
+    /// --- DMAP ( netuid, hotkey ) --> voting_power | EMA of stake for voting
+    /// This tracks stake EMA updated every epoch when VotingPowerTrackingEnabled is true.
+    /// Used by smart contracts to determine validator voting power for subnet governance.
+    pub type VotingPower<T: Config> =
+        StorageDoubleMap<_, Identity, NetUid, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> bool | Whether voting power tracking is enabled for this subnet.
+    /// When enabled, VotingPower EMA is updated every epoch. Default is false.
+    /// When disabled with disable_at_block set, tracking continues until that block.
+    pub type VotingPowerTrackingEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> block_number | Block at which voting power tracking will be disabled.
+    /// When set (non-zero), tracking continues until this block, then automatically disables
+    /// and clears VotingPower entries for the subnet. Provides a 14-day grace period.
+    pub type VotingPowerDisableAtBlock<T: Config> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery>;
+
+    #[pallet::storage]
+    /// --- MAP ( netuid ) --> u64 | EMA alpha value for voting power calculation.
+    /// Higher alpha = faster response to stake changes.
+    /// Stored as u64 with 18 decimal precision (1.0 = 10^18).
+    /// Only settable by sudo/root.
+    pub type VotingPowerEmaAlpha<T: Config> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultVotingPowerEmaAlpha<T>>;
+
+    #[pallet::type_value]
+    /// Default value for burn keys limit
     pub fn DefaultImmuneOwnerUidsLimit<T: Config>() -> u16 {
         1
     }
@@ -2328,11 +2357,16 @@ pub mod pallet {
         MechId::from(1)
     }
 
-    /// -- ITEM (Maximum number of sub-subnets)
+    /// -- ITEM (Maximum number of mechanisms)
     #[pallet::type_value]
-    pub fn MaxMechanismCount<T: Config>() -> MechId {
+    pub fn DefaultMaxMechanismCount<T: Config>() -> MechId {
         MechId::from(2)
     }
+
+    /// ITEM( max_mechanism_count )
+    #[pallet::storage]
+    pub type MaxMechanismCount<T> =
+        StorageValue<_, MechId, ValueQuery, DefaultMaxMechanismCount<T>>;
 
     /// -- ITEM (Rate limit for mechanism count updates)
     #[pallet::type_value]
@@ -2441,7 +2475,7 @@ pub mod pallet {
 
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
-    ColdkeyInSwapSchedule,
+    ColdkeySwapAnnounced,
     StakeAmountTooLow,
     BalanceTooLow,
     SubnetNotExists,
@@ -2463,12 +2497,14 @@ pub enum CustomTransactionError {
     InputLengthsUnequal,
     UidNotFound,
     EvmKeyAssociateRateLimitExceeded,
+    ColdkeySwapDisputed,
+    InvalidRealAccount,
 }
 
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
-            CustomTransactionError::ColdkeyInSwapSchedule => 0,
+            CustomTransactionError::ColdkeySwapAnnounced => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
             CustomTransactionError::SubnetNotExists => 3,
@@ -2490,6 +2526,8 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InputLengthsUnequal => 18,
             CustomTransactionError::UidNotFound => 19,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
+            CustomTransactionError::ColdkeySwapDisputed => 21,
+            CustomTransactionError::InvalidRealAccount => 22,
         }
     }
 }
@@ -2514,7 +2552,7 @@ pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoCurrency {
-        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
+        SubnetTAO::<T>::get(netuid)
     }
 
     fn increase_provided(netuid: NetUid, tao: TaoCurrency) {
@@ -2532,7 +2570,7 @@ pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
+        SubnetAlphaIn::<T>::get(netuid)
     }
 
     fn increase_provided(netuid: NetUid, alpha: AlphaCurrency) {
@@ -2674,6 +2712,9 @@ pub enum RateLimitKey<AccountId> {
     // Last tx block delegate key limit per account ID
     #[codec(index = 5)]
     LastTxBlockDelegateTake(AccountId),
+    // "Add stake and burn" rate limit
+    #[codec(index = 6)]
+    AddStakeBurn(NetUid),
 }
 
 pub trait ProxyInterface<AccountId> {

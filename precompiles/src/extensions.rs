@@ -10,7 +10,7 @@ use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, GasWeightMapping, Precompile,
     PrecompileFailure, PrecompileHandle, PrecompileResult,
 };
-use pallet_subtensor::transaction_extension::SubtensorTransactionExtension;
+use pallet_subtensor::SubtensorTransactionExtension;
 use precompile_utils::EvmResult;
 use scale_info::TypeInfo;
 use sp_core::{H160, U256, blake2_256};
@@ -58,6 +58,8 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             + pallet_balances::Config
             + pallet_evm::Config
             + pallet_subtensor::Config
+            + pallet_shield::Config
+            + pallet_subtensor_proxy::Config
             + Send
             + Sync
             + TypeInfo,
@@ -65,7 +67,9 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
         <R as frame_system::Config>::RuntimeCall: GetDispatchInfo
             + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
             + IsSubType<pallet_balances::Call<R>>
-            + IsSubType<pallet_subtensor::Call<R>>,
+            + IsSubType<pallet_subtensor::Call<R>>
+            + IsSubType<pallet_shield::Call<R>>
+            + IsSubType<pallet_subtensor_proxy::Call<R>>,
         <R as frame_system::Config>::RuntimeOrigin:
             From<RawOrigin<R::AccountId>> + AsSystemOriginSigner<R::AccountId> + Clone,
     {
@@ -182,7 +186,7 @@ fn extension_error(err: TransactionValidityError) -> PrecompileFailure {
 
 impl<T> PrecompileHandleExt for T where T: PrecompileHandle {}
 
-pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
+pub trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
     const INDEX: u64;
 
     // ss58 public key i.e., the contract sends funds it received to the destination address from

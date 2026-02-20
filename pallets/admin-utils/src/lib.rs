@@ -145,6 +145,8 @@ pub mod pallet {
         Leasing,
         /// Address mapping precompile
         AddressMapping,
+        /// Voting power precompile
+        VotingPower,
     }
 
     #[pallet::type_value]
@@ -505,7 +507,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the maximum allowed UIDs for a subnet.
         #[pallet::call_index(15)]
         #[pallet::weight(Weight::from_parts(32_140_000, 0)
-        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(5_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(6_u64))
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_max_allowed_uids(
             origin: OriginFor<T>,
@@ -534,6 +536,12 @@ pub mod pallet {
                 max_allowed_uids <= DefaultMaxAllowedUids::<T>::get(),
                 Error::<T>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
             );
+            // Prevent chain bloat: Require max UIDs to be limited
+            let mechanism_count = pallet_subtensor::MechanismCountCurrent::<T>::get(netuid);
+            pallet_subtensor::Pallet::<T>::ensure_max_uids_over_all_mechanisms(
+                max_allowed_uids,
+                mechanism_count.into(),
+            )?;
             pallet_subtensor::Pallet::<T>::set_max_allowed_uids(netuid, max_allowed_uids);
             pallet_subtensor::Pallet::<T>::record_owner_rl(
                 maybe_owner,
@@ -1289,40 +1297,6 @@ pub mod pallet {
                 );
             }
             res
-        }
-
-        /// Sets the duration of the coldkey swap schedule.
-        ///
-        /// This extrinsic allows the root account to set the duration for the coldkey swap schedule.
-        /// The coldkey swap schedule determines how long it takes for a coldkey swap operation to complete.
-        ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, which must be the root account.
-        /// * `duration` - The new duration for the coldkey swap schedule, in number of blocks.
-        ///
-        /// # Errors
-        /// * `BadOrigin` - If the caller is not the root account.
-        ///
-        /// # Weight
-        /// Weight is handled by the `#[pallet::weight]` attribute.
-        #[pallet::call_index(54)]
-        #[pallet::weight(Weight::from_parts(5_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(0_u64))
-        .saturating_add(T::DbWeight::get().writes(1_u64)))]
-        pub fn sudo_set_coldkey_swap_schedule_duration(
-            origin: OriginFor<T>,
-            duration: BlockNumberFor<T>,
-        ) -> DispatchResult {
-            // Ensure the call is made by the root account
-            ensure_root(origin)?;
-
-            // Set the new duration of schedule coldkey swap
-            pallet_subtensor::Pallet::<T>::set_coldkey_swap_schedule_duration(duration);
-
-            // Log the change
-            log::trace!("ColdkeySwapScheduleDurationSet( duration: {duration:?} )");
-
-            Ok(())
         }
 
         /// Sets the duration of the dissolve network schedule.
@@ -2091,6 +2065,20 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Sets the global maximum number of mechanisms in a subnet
+        #[pallet::call_index(88)]
+        #[pallet::weight(Weight::from_parts(15_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(1_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_max_mechanism_count(
+            origin: OriginFor<T>,
+            max_mechanism_count: MechId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::do_set_max_mechanism_count(max_mechanism_count)?;
+            Ok(())
+        }
+
         /// Sets the minimum number of non-immortal & non-immune UIDs that must remain in a subnet
         #[pallet::call_index(84)]
         #[pallet::weight(Weight::from_parts(7_114_000, 0)
@@ -2114,6 +2102,36 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_start_call_delay(delay);
             log::debug!("StartCallDelay( delay: {delay:?} ) ");
+            Ok(())
+        }
+
+        /// Sets the announcement delay for coldkey swap.
+        #[pallet::call_index(86)]
+        #[pallet::weight(Weight::from_parts(5_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_coldkey_swap_announcement_delay(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_coldkey_swap_announcement_delay(duration);
+            log::trace!("ColdkeySwapAnnouncementDelaySet( duration: {duration:?} )");
+            Ok(())
+        }
+
+        /// Sets the coldkey swap reannouncement delay.
+        #[pallet::call_index(87)]
+        #[pallet::weight(Weight::from_parts(5_000_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_coldkey_swap_reannouncement_delay(
+            origin: OriginFor<T>,
+            duration: BlockNumberFor<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_coldkey_swap_reannouncement_delay(duration);
+            log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
             Ok(())
         }
     }

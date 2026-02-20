@@ -3,7 +3,7 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
 impl<T: Config> Pallet<T> {
@@ -18,13 +18,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total alpha issuance for the specified subnet.
     pub fn get_alpha_issuance(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid)
-            .saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
-            .saturating_add(SubnetAlphaOut::<T>::get(netuid))
-    }
-
-    pub fn get_protocol_tao(netuid: NetUid) -> TaoCurrency {
-        T::SwapInterface::get_protocol_tao(netuid)
+        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
     pub fn get_moving_alpha_price(netuid: NetUid) -> U96F32 {
@@ -63,10 +57,10 @@ impl<T: Config> Pallet<T> {
         // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
         // We can use unsigned type here: U96F32
         let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
-        let current_price: U96F32 = alpha.saturating_mul(
+        let current_price: U96F32 = alpha.saturating_mul(U96F32::saturating_from_num(
             T::SwapInterface::current_alpha_price(netuid.into())
-                .min(U96F32::saturating_from_num(1.0)),
-        );
+                .min(U64F64::saturating_from_num(1.0)),
+        ));
         let current_moving: U96F32 =
             one_minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
         // Convert batch to signed I96F32 to avoid migration of SubnetMovingPrice for now``
@@ -596,6 +590,7 @@ impl<T: Config> Pallet<T> {
                 amount_paid_in: tao,
                 amount_paid_out: tao.to_u64().into(),
                 fee_paid: TaoCurrency::ZERO,
+                fee_to_block_author: TaoCurrency::ZERO,
             }
         };
 
@@ -649,19 +644,17 @@ impl<T: Config> Pallet<T> {
                 amount_paid_in: alpha,
                 amount_paid_out: alpha.to_u64().into(),
                 fee_paid: AlphaCurrency::ZERO,
+                fee_to_block_author: AlphaCurrency::ZERO,
             }
         };
 
-        // Increase only the protocol Alpha reserve. We only use the sum of
-        // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
-        // which one to increase.
+        // Increase only the protocol Alpha reserve
         let alpha_delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
         SubnetAlphaIn::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_delta.into());
         });
 
         // Decrease Alpha outstanding.
-        // TODO: Deprecate, not accurate in v3 anymore
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(alpha_delta.into());
         });
@@ -712,6 +705,26 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
 
+        // Swap (in a fee-less way) the block builder alpha fee
+        let mut fee_outflow = 0_u64;
+        let maybe_block_author_coldkey = T::AuthorshipProvider::author();
+        if let Some(block_author_coldkey) = maybe_block_author_coldkey {
+            let bb_swap_result = Self::swap_alpha_for_tao(
+                netuid,
+                swap_result.fee_to_block_author,
+                T::SwapInterface::min_price::<TaoCurrency>(),
+                true,
+            )?;
+            Self::add_balance_to_coldkey_account(
+                &block_author_coldkey,
+                bb_swap_result.amount_paid_out.into(),
+            );
+            fee_outflow = bb_swap_result.amount_paid_out.into();
+        } else {
+            // block author is not found, burn this alpha
+            Self::burn_subnet_alpha(netuid, swap_result.fee_to_block_author);
+        }
+
         // If this is a root-stake
         if netuid == NetUid::ROOT {
             // Adjust root claimed value for this hotkey and coldkey.
@@ -727,7 +740,12 @@ impl<T: Config> Pallet<T> {
         // }
 
         // Record TAO outflow
-        Self::record_tao_outflow(netuid, swap_result.amount_paid_out.into());
+        Self::record_tao_outflow(
+            netuid,
+            swap_result
+                .amount_paid_out
+                .saturating_add(fee_outflow.into()),
+        );
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
@@ -801,6 +819,21 @@ impl<T: Config> Pallet<T> {
         if !staking_hotkeys.contains(hotkey) {
             staking_hotkeys.push(hotkey.clone());
             StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
+        }
+
+        // Increase the balance of the block author
+        let maybe_block_author_coldkey = T::AuthorshipProvider::author();
+        if let Some(block_author_coldkey) = maybe_block_author_coldkey {
+            Self::add_balance_to_coldkey_account(
+                &block_author_coldkey,
+                swap_result.fee_to_block_author.into(),
+            );
+        } else {
+            // Block author is not found - burn this TAO
+            // Pallet balances total issuance was taken care of when balance was withdrawn for this swap
+            TotalIssuance::<T>::mutate(|ti| {
+                *ti = ti.saturating_sub(swap_result.fee_to_block_author);
+            });
         }
 
         // Record TAO inflow
@@ -890,7 +923,7 @@ impl<T: Config> Pallet<T> {
         let current_price =
             <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         let tao_equivalent: TaoCurrency = current_price
-            .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
+            .saturating_mul(U64F64::saturating_from_num(actual_alpha_moved))
             .saturating_to_num::<u64>()
             .into();
 
@@ -1219,42 +1252,34 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn increase_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        SubnetTaoProvided::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(tao);
-        });
+        if !tao.is_zero() {
+            SubnetTAO::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(tao);
+            });
+        }
     }
 
     pub fn decrease_provided_tao_reserve(netuid: NetUid, tao: TaoCurrency) {
-        // First, decrease SubnetTaoProvided, then deduct the rest from SubnetTAO
-        let subnet_tao = SubnetTAO::<T>::get(netuid);
-        let subnet_tao_provided = SubnetTaoProvided::<T>::get(netuid);
-        let remainder = subnet_tao_provided.saturating_sub(tao);
-        let carry_over = tao.saturating_sub(subnet_tao_provided);
-        if carry_over.is_zero() {
-            SubnetTaoProvided::<T>::set(netuid, remainder);
-        } else {
-            SubnetTaoProvided::<T>::set(netuid, TaoCurrency::ZERO);
-            SubnetTAO::<T>::set(netuid, subnet_tao.saturating_sub(carry_over));
+        if !tao.is_zero() {
+            SubnetTAO::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(tao);
+            });
         }
     }
 
     pub fn increase_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        SubnetAlphaInProvided::<T>::mutate(netuid, |total| {
-            *total = total.saturating_add(alpha);
-        });
+        if !alpha.is_zero() {
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(alpha);
+            });
+        }
     }
 
     pub fn decrease_provided_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) {
-        // First, decrease SubnetAlphaInProvided, then deduct the rest from SubnetAlphaIn
-        let subnet_alpha = SubnetAlphaIn::<T>::get(netuid);
-        let subnet_alpha_provided = SubnetAlphaInProvided::<T>::get(netuid);
-        let remainder = subnet_alpha_provided.saturating_sub(alpha);
-        let carry_over = alpha.saturating_sub(subnet_alpha_provided);
-        if carry_over.is_zero() {
-            SubnetAlphaInProvided::<T>::set(netuid, remainder);
-        } else {
-            SubnetAlphaInProvided::<T>::set(netuid, AlphaCurrency::ZERO);
-            SubnetAlphaIn::<T>::set(netuid, subnet_alpha.saturating_sub(carry_over));
+        if !alpha.is_zero() {
+            SubnetAlphaIn::<T>::mutate(netuid, |total| {
+                *total = total.saturating_sub(alpha);
+            });
         }
     }
 

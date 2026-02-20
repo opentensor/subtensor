@@ -210,6 +210,7 @@ fn do_set_mechanism_count_ok_at_effective_cap() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(4u16);
         NetworksAdded::<Test>::insert(NetUid::from(4u16), true); // base subnet exists
+        MaxAllowedUids::<Test>::insert(netuid, 128u16);
 
         // Effective bound is min(runtime cap, compile-time cap)
         let runtime_cap = MaxMechanismCount::<Test>::get(); // e.g., MechId::from(8)

@@ -19,7 +19,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
+use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -758,6 +758,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
     });
 }
 
+/// cargo test --package pallet-subtensor --lib -- tests::claim_root::test_claim_root_with_run_coinbase --exact --nocapture
 #[test]
 fn test_claim_root_with_run_coinbase() {
     new_test_ext(1).execute_with(|| {
@@ -790,10 +791,15 @@ fn test_claim_root_with_run_coinbase() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let tao = TaoCurrency::from(10_000_000_000_000_u64);
+        let alpha = AlphaCurrency::from(1_000_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .saturating_to_num::<f64>();
+        assert_eq!(current_price, 10.0f64);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
@@ -901,10 +907,15 @@ fn test_claim_root_with_block_emissions() {
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let tao = TaoCurrency::from(10_000_000_000_000_u64);
+        let alpha = AlphaCurrency::from(1_000_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+                .saturating_to_num::<f64>();
+        assert_eq!(current_price, 10.0f64);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
 
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
@@ -1020,16 +1031,21 @@ fn test_claim_root_coinbase_distribution() {
             initial_total_hotkey_alpha.into(),
         );
 
-        let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
-
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::insert(
-            netuid,
-            U64F64::saturating_from_num(10.0),
-        );
+        let tao = TaoCurrency::from(100_000_000_000_u64);
+        let alpha = AlphaCurrency::from(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha);
+        // let current_price =
+        //     <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into())
+        //         .saturating_to_num::<f64>();
+        // assert_eq!(current_price, 2.0f64);
+        RootClaimableThreshold::<Test>::insert(netuid, I96F32::from_num(0));
+
+        let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
+        let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
 
         // Make sure we are root selling, so we have root alpha divs.
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
@@ -1184,13 +1200,7 @@ fn test_claim_root_with_swap_coldkey() {
         );
 
         // Swap coldkey
-        let mut weight = Weight::zero();
-
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
 
         // Check swapped keys claimed values
 

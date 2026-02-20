@@ -1,16 +1,19 @@
 import * as assert from "assert";
 import { devnet, MultiAddress } from '@polkadot-api/descriptors';
-import { TypedApi, TxCallData, Binary, Enum } from 'polkadot-api';
+import { TypedApi, TxCallData, Binary, Enum, getTypedCodecs } from 'polkadot-api';
 import { KeyPair } from "@polkadot-labs/hdkd-helpers"
 import { getAliceSigner, waitForTransactionCompletion, getSignerFromKeypair, waitForTransactionWithRetry } from './substrate'
 import { convertH160ToSS58, convertPublicKeyToSs58, ethAddressToH160 } from './address-utils'
 import { tao } from './balance-math'
 import internal from "stream";
+import { createCodec } from "scale-ts";
 
 // create a new subnet and return netuid
 export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: KeyPair, coldkey: KeyPair) {
     const alice = getAliceSigner()
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
+
+    const defaultNetworkLastLockCost = await api.query.SubtensorModule.NetworkLastLockCost.getValue()
 
     const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue()
     if (rateLimit !== BigInt(0)) {
@@ -26,6 +29,9 @@ export async function addNewSubnetwork(api: TypedApi<typeof devnet>, hotkey: Key
     const newTotalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue()
     // could create multiple subnetworks during retry, just return the first created one
     assert.ok(newTotalNetworks > totalNetworks)
+
+    // reset network last lock cost to 0, to avoid the lock cost calculation error
+    await setNetworkLastLockCost(api, defaultNetworkLastLockCost)
     return totalNetworks
 }
 
@@ -398,4 +404,19 @@ export async function sendWasmContractExtrinsic(api: TypedApi<typeof devnet>, co
         storage_deposit_limit: BigInt(1000000000)
     })
     await waitForTransactionWithRetry(api, tx, signer)
-}   
+}
+
+export async function setNetworkLastLockCost(api: TypedApi<typeof devnet>, defaultNetworkLastLockCost: bigint) {
+    const alice = getAliceSigner()
+    const key = await api.query.SubtensorModule.NetworkLastLockCost.getKey()
+    const codec = await getTypedCodecs(devnet);
+    const value = codec.query.SubtensorModule.NetworkLastLockCost.value.enc(defaultNetworkLastLockCost)
+    const internalCall = api.tx.System.set_storage({
+        items: [[Binary.fromHex(key), Binary.fromBytes(value)]]
+    })
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
+    await waitForTransactionWithRetry(api, tx, alice)
+
+    const valueOnChain = await api.query.SubtensorModule.NetworkLastLockCost.getValue()
+    assert.equal(defaultNetworkLastLockCost, valueOnChain)
+}
