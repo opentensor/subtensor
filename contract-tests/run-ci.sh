@@ -7,8 +7,10 @@ cd contract-tests
 cd bittensor
 
 rustup component add rust-src
-cargo install cargo-contract 
+cargo install cargo-contract --force --locked 5.0.3
 cargo contract build --release 
+
+cargo contract --version
 
 cd ../..
 
