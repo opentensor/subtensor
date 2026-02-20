@@ -9,6 +9,11 @@ export function tao(value: number): bigint {
   return TAO * BigInt(value);
 }
 
+export async function getBalance(api: TypedApi<typeof devnet>, ss58Address: string): Promise<bigint> {
+  const account = await api.query.System.Account.getValue(ss58Address);
+  return account.data.free;
+}
+
 export async function forceSetBalance(
   api: TypedApi<typeof devnet>,
   ss58Address: string,

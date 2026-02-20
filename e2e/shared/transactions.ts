@@ -9,7 +9,7 @@ export async function waitForTransactionWithRetry(
   tx: Transaction<{}, string, string, void>,
   signer: PolkadotSigner,
   label: string,
-  maxRetries = 5
+  maxRetries = 1
 ): Promise<void> {
   let success = false;
   let retries = 0;
@@ -46,9 +46,12 @@ async function waitForTransactionCompletion(
           subscription.unsubscribe();
           clearTimeout(timeoutId);
           if (!value.ok) {
-            log.tx(label, `dispatch error: ${value.dispatchError}`);
+            const errorStr = JSON.stringify(value.dispatchError, null, 2);
+            log.tx(label, `dispatch error: ${errorStr}`);
+            reject(new Error(`[${label}] dispatch error: ${errorStr}`));
+          } else {
+            resolve();
           }
-          resolve();
         }
       },
       error(err) {
