@@ -140,8 +140,12 @@ pub fn create_benchmark_extrinsic(
         ),
         sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
         pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
+        // Keep the same order while staying under the 12-item tuple limit.
         pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
-        frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
+        (
+            frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
+            runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
+        ),
     );
 
     let raw_payload = runtime::SignedPayload::from_raw(
@@ -159,7 +163,7 @@ pub fn create_benchmark_extrinsic(
             (),
             (),
             (),
-            None,
+            (None, ()),
         ),
     );
     let signature = raw_payload.using_encoded(|e| sender.sign(e));

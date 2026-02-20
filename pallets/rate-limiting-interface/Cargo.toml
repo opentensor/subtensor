@@ -1,0 +1,25 @@
+[package]
+name = "rate-limiting-interface"
+version = "0.1.0"
+edition.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { workspace = true, features = ["derive"], default-features = false }
+frame-support = { workspace = true, default-features = false }
+scale-info = { workspace = true, features = ["derive"], default-features = false }
+serde = { workspace = true, features = ["derive"], default-features = false }
+sp-std = { workspace = true, default-features = false }
+subtensor-macros.workspace = true
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"frame-support/std",
+	"scale-info/std",
+	"serde/std",
+	"sp-std/std",
+]

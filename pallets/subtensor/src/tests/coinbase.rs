@@ -2401,8 +2401,6 @@ fn test_distribute_emission_zero_emission() {
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
         SubtensorModule::set_tempo(netuid, tempo);
-        // Set weight-set limit to 0.
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
@@ -2489,8 +2487,6 @@ fn test_run_coinbase_not_started() {
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
         SubtensorModule::set_tempo(netuid, tempo);
-        // Set weight-set limit to 0.
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         let reserve = init_stake * 1000;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -2583,8 +2579,6 @@ fn test_run_coinbase_not_started_start_after() {
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
         SubtensorModule::set_tempo(netuid, tempo);
-        // Set weight-set limit to 0.
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
@@ -2903,7 +2897,6 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             &miner_coldkey,
             stake + ExistentialDeposit::get(),
         );
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
         SubnetOwnerCut::<Test>::set(u16::MAX / 10);
         // There are two validators and three neurons
@@ -3096,7 +3089,6 @@ fn test_mining_emission_distribution_with_root_sell() {
             &miner_coldkey,
             stake + ExistentialDeposit::get(),
         );
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
         SubnetOwnerCut::<Test>::set(u16::MAX / 10);
         // There are two validators and three neurons
@@ -3751,7 +3743,6 @@ fn test_pending_emission_start_call_not_done() {
             &validator_coldkey,
             stake + ExistentialDeposit::get(),
         );
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
         SubnetOwnerCut::<Test>::set(u16::MAX / 10);
         // There are two validators and three neurons

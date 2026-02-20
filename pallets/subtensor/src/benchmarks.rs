@@ -165,7 +165,6 @@ mod pallet_benchmarks {
             netuid,
             caller.clone()
         ));
-        Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
         #[extrinsic_call]
         _(
@@ -203,7 +202,6 @@ mod pallet_benchmarks {
             netuid,
             caller.clone()
         ));
-        Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
         #[extrinsic_call]
         _(
@@ -267,7 +265,6 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("TestHotkey", 0, seed);
 
-        Subtensor::<T>::set_network_rate_limit(1);
         let amount: u64 = 100_000_000_000_000u64.saturating_mul(2);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
 
@@ -538,7 +535,6 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
-        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work) =
@@ -807,9 +803,6 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
 
-        // Remove stake limit for benchmark
-        StakingOperationRateLimiter::<T>::remove((origin.clone(), coldkey.clone(), netuid));
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -874,9 +867,6 @@ mod pallet_benchmarks {
             .saturating_to_num::<u64>();
         let amount_unstaked = AlphaCurrency::from(100_000_000_000);
 
-        // Remove stake limit for benchmark
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -937,9 +927,6 @@ mod pallet_benchmarks {
             allow
         ));
 
-        // Remove stake limit for benchmark
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid1));
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -990,9 +977,6 @@ mod pallet_benchmarks {
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid);
 
         Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
-
-        // Remove stake limit for benchmark
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(
@@ -1045,9 +1029,6 @@ mod pallet_benchmarks {
 
         let alpha_to_swap =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid1);
-
-        // Remove stake limit for benchmark
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid1));
 
         #[extrinsic_call]
         _(
@@ -1162,7 +1143,6 @@ mod pallet_benchmarks {
         let identity: Option<SubnetIdentityOfV3> = None;
 
         Subtensor::<T>::set_network_registration_allowed(1.into(), true);
-        Subtensor::<T>::set_network_rate_limit(1);
         let amount: u64 = 9_999_999_999_999;
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
 
@@ -1360,9 +1340,6 @@ mod pallet_benchmarks {
             staked_amt.into()
         ));
 
-        // Remove stake limit for benchmark
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
-
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), hotkey);
     }
@@ -1416,8 +1393,6 @@ mod pallet_benchmarks {
             netuid,
             u64_staked_amt.into()
         ));
-
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
         _(
