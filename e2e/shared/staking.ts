@@ -6,15 +6,15 @@ import { waitForTransactionWithRetry } from "./transactions.js";
 
 export async function addStake(
   api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  hotkey: string,
   netuid: number,
-  hotkeyAddress: string,
-  amount: bigint,
-  coldkey: KeyPair
+  amount: bigint
 ): Promise<void> {
   const signer = getSignerFromKeypair(coldkey);
   const tx = api.tx.SubtensorModule.add_stake({
+    hotkey: hotkey,
     netuid: netuid,
-    hotkey: hotkeyAddress,
     amount_staked: amount,
   });
   await waitForTransactionWithRetry(api, tx, signer, "add_stake");
@@ -22,17 +22,17 @@ export async function addStake(
 
 export async function addStakeLimit(
   api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  hotkey: string,
   netuid: number,
-  hotkeyAddress: string,
   amount: bigint,
   limitPrice: bigint,
-  allowPartial: boolean,
-  coldkey: KeyPair
+  allowPartial: boolean
 ): Promise<void> {
   const signer = getSignerFromKeypair(coldkey);
   const tx = api.tx.SubtensorModule.add_stake_limit({
+    hotkey: hotkey,
     netuid: netuid,
-    hotkey: hotkeyAddress,
     amount_staked: amount,
     limit_price: limitPrice,
     allow_partial: allowPartial,
@@ -42,9 +42,9 @@ export async function addStakeLimit(
 
 export async function getStake(
   api: TypedApi<typeof devnet>,
-  hotkeyAddress: string,
-  coldkeyAddress: string,
+  hotkey: string,
+  coldkey: string,
   netuid: number
 ): Promise<bigint> {
-  return await api.query.SubtensorModule.Alpha.getValue(hotkeyAddress, coldkeyAddress, netuid);
+  return await api.query.SubtensorModule.Alpha.getValue(hotkey, coldkey, netuid);
 }

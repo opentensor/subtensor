@@ -45,7 +45,7 @@ describe("▶ add_stake_limit extrinsic", () => {
     // Add stake with limit price (1 TAO per Alpha) and allow partial fills
     const stakeAmount = tao(100);
     const limitPrice = tao(1); // 1 TAO per Alpha (1e9 RAO)
-    await addStakeLimit(api, netuid, hotkeyAddress, stakeAmount, limitPrice, true, coldkey);
+    await addStakeLimit(api, coldkey, hotkeyAddress, netuid, stakeAmount, limitPrice, true);
 
     // Verify stake increased
     const stakeAfter = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
@@ -65,7 +65,7 @@ describe("▶ add_stake_limit extrinsic", () => {
     // Add stake with high limit price (fill or kill mode)
     const stakeAmount = tao(50);
     const limitPrice = tao(10); // High limit price to ensure full fill
-    await addStakeLimit(api, netuid, hotkeyAddress, stakeAmount, limitPrice, false, coldkey);
+    await addStakeLimit(api, coldkey, hotkeyAddress, netuid, stakeAmount, limitPrice, false);
 
     // Verify stake increased
     const stakeAfter = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);

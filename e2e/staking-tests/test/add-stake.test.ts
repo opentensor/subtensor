@@ -44,7 +44,7 @@ describe("▶ add_stake extrinsic", () => {
 
     // Add stake
     const stakeAmount = tao(100);
-    await addStake(api, netuid, hotkeyAddress, stakeAmount, coldkey);
+    await addStake(api, coldkey, hotkeyAddress, netuid, stakeAmount);
 
     // Verify stake increased
     const stakeAfter = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
