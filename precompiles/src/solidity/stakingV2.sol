@@ -324,17 +324,30 @@ interface IStaking {
      * @param netuid The approved subnet token.
      * @param absoluteAmount New approval amount, will overwrite previous value.
      */
-    function setApproval(
+    function approve(
         bytes32 spenderColdkey,
         uint256 netuid,
         uint256 absoluteAmount
     ) external;
 
     /**
-     * @dev Increase much the caller approves the spender to use the provided amount of subnet tokens
+     * @dev Get how much the source allows the spender to use their subnet tokens
+     *
+     * @param spenderColdkey Coldkey of the source making the allowance.
+     * @param spenderColdkey Coldkey of the address allowed to spend funds from the source.
+     * @param netuid The approved subnet token.
+     */
+    function allowance(
+        bytes32 sourceColdkey,
+        bytes32 spenderColdkey,
+        uint256 netuid,
+    ) external view returns (uint256);
+
+    /**
+     * @dev Increase how much the caller approves the spender to use the provided amount of subnet tokens
      * on its behalf in a later call.
      *
-     * This is similar to ERC20 approve, and then allows smart contract to transfer with permission from
+     * This is similar to ERC20 increaseAllowance, and then allows smart contract to transfer with permission from
      * other accounts during their execution. They can then act as escrows while knowing from whom
      * the funds comes from, which is not possible if the spender called `transfer` towards the contract
      * (no callback).
@@ -343,10 +356,29 @@ interface IStaking {
      * @param netuid The approved subnet token.
      * @param increaseAmount How much the approval amount should be increased.
      */
-    function approve(
+    function increaseAllowance(
         bytes32 spenderColdkey,
         uint256 netuid,
         uint256 increaseAmount
+    ) external;
+
+    /**
+     * @dev Decrease how much the caller approves the spender to use the provided amount of subnet tokens
+     * on its behalf in a later call.
+     *
+     * This is similar to ERC20 decreaseAllowance, and then allows smart contract to transfer with permission from
+     * other accounts during their execution. They can then act as escrows while knowing from whom
+     * the funds comes from, which is not possible if the spender called `transfer` towards the contract
+     * (no callback).
+     *
+     * @param spenderColdkey Coldkey of the address allowed to spend funds from the caller.
+     * @param netuid The approved subnet token.
+     * @param increaseAmount How much the approval amount should be decrease.
+     */
+    function decreaseAllowance(
+        bytes32 spenderColdkey,
+        uint256 netuid,
+        uint256 decreaseAmount
     ) external;
 
     /**
