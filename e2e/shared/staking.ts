@@ -20,6 +20,26 @@ export async function addStake(
   await waitForTransactionWithRetry(api, tx, signer, "add_stake");
 }
 
+export async function addStakeLimit(
+  api: TypedApi<typeof devnet>,
+  netuid: number,
+  hotkeyAddress: string,
+  amount: bigint,
+  limitPrice: bigint,
+  allowPartial: boolean,
+  coldkey: KeyPair
+): Promise<void> {
+  const signer = getSignerFromKeypair(coldkey);
+  const tx = api.tx.SubtensorModule.add_stake_limit({
+    netuid: netuid,
+    hotkey: hotkeyAddress,
+    amount_staked: amount,
+    limit_price: limitPrice,
+    allow_partial: allowPartial,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "add_stake_limit");
+}
+
 export async function getStake(
   api: TypedApi<typeof devnet>,
   hotkeyAddress: string,
