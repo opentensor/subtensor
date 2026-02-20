@@ -423,6 +423,37 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
+
+    /// Get the amount of Alpha that needs to be sold to get a given amount of Tao
+    fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoCurrency) -> AlphaCurrency {
+        if !PalSwapInitialized::<T>::get(netuid) {
+            // If swap is uninitialized, fallback to no-slippage method
+            let alpha_price = Self::current_price(netuid.into());
+            AlphaCurrency::from(
+                U64F64::from(u64::from(tao_amount))
+                    .safe_div(alpha_price)
+                    .saturating_to_num::<u64>(),
+            )
+        } else {
+            // Use the swap simulation (with slippage)
+            let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
+            let tao_reserve = T::TaoReserve::reserve(netuid.into());
+
+            AlphaCurrency::from(
+                if u64::from(tao_reserve) > u64::from(T::MinimumReserve::get()) {
+                    let balancer = SwapBalancer::<T>::get(netuid);
+                    balancer.get_base_needed_for_quote(
+                        tao_reserve.into(),
+                        alpha_reserve.into(),
+                        tao_amount.into(),
+                    )
+                } else {
+                    u64::MAX
+                },
+            )
+        }
+    }
+
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>) {
         Self::maybe_initialize_palswap(netuid, maybe_price).unwrap_or_default();
     }

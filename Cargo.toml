@@ -83,6 +83,7 @@ hex = { version = "0.4", default-features = false }
 hex-literal = "0.4.1"
 jsonrpsee = { version = "0.24.9", default-features = false }
 libsecp256k1 = { version = "0.7.2", default-features = false }
+lencode = "0.1.6"
 log = { version = "0.4.21", default-features = false }
 memmap2 = "0.9.8"
 ndarray = { version = "0.16.1", default-features = false }
@@ -307,6 +308,8 @@ pow-faucet = []
 
 [patch.crates-io]
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
+zstd-sys = { git = "https://github.com/gztensor/zstd-sys" }
+zstd-safe = { git = "https://github.com/gztensor/zstd-safe" }
 
 # Patches automatically generated with `diener`:
 # `diener patch --target https://github.com/paritytech/polkadot-sdk --point-to-git https://github.com/opentensor/polkadot-sdk.git --point-to-git-commit 81fa2c54e94f824eba7dabe9dffd063481cb2d80 --crates-to-patch ../polkadot-sdk --ignore-unused`

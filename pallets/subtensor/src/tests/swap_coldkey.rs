@@ -16,6 +16,7 @@ use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::schedule::v3::Named as ScheduleNamed;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
+use share_pool::SafeFloat;
 use sp_core::{Get, H256, U256};
 use sp_runtime::traits::Hash;
 use sp_runtime::traits::{DispatchInfoOf, DispatchTransaction, TransactionExtension};
@@ -1359,21 +1360,19 @@ fn test_do_swap_coldkey_effect_on_delegations() {
             approx_total_stake,
             epsilon = approx_total_stake / 100.into()
         );
-        assert_eq!(
-            expected_stake,
-            Alpha::<Test>::get((delegate, new_coldkey, netuid))
-                .to_num::<u64>()
-                .into(),
-        );
-        assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid)), 0);
+        let actual_stake_new: u64 =
+            SafeFloat::from(&AlphaV2::<Test>::get((delegate, new_coldkey, netuid))).into();
+        assert_eq!(expected_stake, actual_stake_new.into());
+        let actual_stake_old: u64 =
+            SafeFloat::from(&AlphaV2::<Test>::get((delegate, coldkey, netuid))).into();
+        assert_eq!(actual_stake_old, 0u64);
 
-        assert_eq!(
-            expected_stake,
-            Alpha::<Test>::get((delegate, new_coldkey, netuid2))
-                .to_num::<u64>()
-                .into()
-        );
-        assert_eq!(Alpha::<Test>::get((delegate, coldkey, netuid2)), 0);
+        let actual_stake_new_2: u64 =
+            SafeFloat::from(&AlphaV2::<Test>::get((delegate, new_coldkey, netuid2))).into();
+        assert_eq!(expected_stake, actual_stake_new_2.into());
+        let actual_stake_old_2: u64 =
+            SafeFloat::from(&AlphaV2::<Test>::get((delegate, coldkey, netuid2))).into();
+        assert_eq!(actual_stake_old_2, 0u64);
     });
 }
 

@@ -1149,7 +1149,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the minimum stake required for nominators.
         #[pallet::call_index(43)]
         #[pallet::weight(Weight::from_parts(28_050_000, 6792)
-        .saturating_add(T::DbWeight::get().reads(4_u64))
+        .saturating_add(T::DbWeight::get().reads(5_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_nominator_min_required_stake(
             origin: OriginFor<T>,
