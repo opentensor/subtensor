@@ -132,16 +132,16 @@ fn test_rejects_multi_subnet_alpha_fee_deduction() {
             !<TransactionFeeHandler<Test> as AlphaFeeHandler<Test>>::can_withdraw_in_alpha(
                 &sn.coldkey,
                 &alpha_vec,
-                1,
+                1.into(),
             )
         );
         assert_eq!(
             <TransactionFeeHandler<Test> as AlphaFeeHandler<Test>>::withdraw_in_alpha(
                 &sn.coldkey,
                 &alpha_vec,
-                1,
+                1.into(),
             ),
-            0
+            (0.into(), 0.into())
         );
 
         let alpha_after_0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -175,7 +175,7 @@ fn test_remove_stake_fees_alpha() {
         );
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
-        let (expected_unstaked_tao, _swap_fee) =
+        let (expected_unstaked_tao, swap_fee) =
             mock::swap_alpha_to_tao(sn.subnets[0].netuid, unstake_amount);
 
         // Forse-set signer balance to ED
@@ -184,6 +184,10 @@ fn test_remove_stake_fees_alpha() {
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
+
+        // Get the block builder balance
+        let block_builder = U256::from(MOCK_BLOCK_BUILDER);
+        let block_builder_balance_before = Balances::free_balance(block_builder);
 
         // Remove stake
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -225,6 +229,18 @@ fn test_remove_stake_fees_alpha() {
         assert_abs_diff_eq!(actual_tao_fee, 0, epsilon = 10);
         assert!(actual_alpha_fee > 0.into());
 
+        // Assert that swapped TAO from alpha fee goes to block author
+        let block_builder_fee_portion = 1.;
+        let expected_block_builder_swap_reward = swap_fee as f64 * block_builder_fee_portion;
+        let expected_tx_fee = 136000.; // Use very low value (0.000136) for less test flakiness
+        let block_builder_balance_after = Balances::free_balance(block_builder);
+        let actual_block_builder_reward =
+            block_builder_balance_after - block_builder_balance_before;
+        assert!(
+            actual_block_builder_reward as f64
+                >= expected_block_builder_swap_reward + expected_tx_fee
+        );
+
         let events = System::events();
         let alpha_event = events
             .iter()
@@ -234,7 +250,8 @@ fn test_remove_stake_fees_alpha() {
                     RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha {
                         who,
                         alpha_fee,
-                    }) if who == &sn.coldkey && *alpha_fee == u64::from(actual_alpha_fee)
+                        tao_amount: _,
+                    }) if who == &sn.coldkey && *alpha_fee == actual_alpha_fee
                 )
             })
             .expect("expected TransactionFeePaidWithAlpha event");
@@ -1361,7 +1378,7 @@ fn test_recycle_alpha_fees_alpha() {
 fn test_add_stake_fees_go_to_block_builder() {
     new_test_ext().execute_with(|| {
         // Portion of swap fees that should go to the block builder
-        let block_builder_fee_portion = 3. / 5.;
+        let block_builder_fee_portion = 1.;
 
         // Get the block builder balance
         let block_builder = U256::from(MOCK_BLOCK_BUILDER);
@@ -1401,7 +1418,7 @@ fn test_add_stake_fees_go_to_block_builder() {
 
         // Expect that block builder balance has increased by both the swap fee and the transaction fee
         let expected_block_builder_swap_reward = swap_fee as f64 * block_builder_fee_portion;
-        let expected_tx_fee = 0.000136; // Use very low value for less test flakiness
+        let expected_tx_fee = 136000.; // Use very low value (0.000136) for less test flakiness
         let block_builder_balance_after = Balances::free_balance(block_builder);
         let actual_reward = block_builder_balance_after - block_builder_balance_before;
         assert!(actual_reward as f64 >= expected_block_builder_swap_reward + expected_tx_fee);
