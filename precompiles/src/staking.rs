@@ -27,8 +27,10 @@
 
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use frame_support::Blake2_128Concat;
 use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
-use frame_support::traits::IsSubType;
+use frame_support::pallet_prelude::{StorageDoubleMap, ValueQuery};
+use frame_support::traits::{IsSubType, StorageInstance};
 use frame_system::RawOrigin;
 use pallet_evm::{
     AddressMapping, BalanceConverter, EvmBalance, ExitError, PrecompileFailure, PrecompileHandle,
@@ -36,12 +38,36 @@ use pallet_evm::{
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
+use precompile_utils::prelude::{RuntimeHelper, revert};
 use sp_core::{H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
 use subtensor_runtime_common::{Currency, NetUid, ProxyType};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
+
+/// Prefix for the Approves map in Substrate storage.
+pub struct ApprovesPrefix;
+impl StorageInstance for ApprovesPrefix {
+    const STORAGE_PREFIX: &'static str = "Approves";
+
+    fn pallet_prefix() -> &'static str {
+        "EvmPrecompileStaking"
+    }
+}
+
+pub type ApprovesStorage<R> = StorageDoubleMap<
+    ApprovesPrefix,
+    // For each approver
+    Blake2_128Concat,
+    <R as frame_system::Config>::AccountId,
+    // For each pair of (spender, netuid)
+    Blake2_128Concat,
+    (<R as frame_system::Config>::AccountId, u16),
+    // Allowed amount
+    U256,
+    ValueQuery,
+>;
 
 // Old StakingPrecompile had ETH-precision in values, which was not alligned with Substrate API. So
 // it's kinda deprecated, but exists for backward compatibility. Eventually, we should remove it
@@ -446,6 +472,126 @@ where
         );
 
         Ok(stake.to_u64().into())
+    }
+
+    #[precompile::public("setApproval(bytes32,bytes32,uint256)")]
+    fn set_approval(
+        handle: &mut impl PrecompileHandle,
+        spender_coldkey: H256,
+        origin_netuid: U256,
+        amount_alpha: U256,
+    ) -> EvmResult<()> {
+        // ApprovesStorage write
+        handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
+
+        let approver = handle.caller_account_id::<R>();
+        let spender = R::AccountId::from(spender_coldkey.0);
+        let netuid = try_u16_from_u256(origin_netuid)?;
+
+        if new_amount.is_zero() {
+            ApprovesStorage::<R>::remove(approver, &approval_key);
+        } else {
+            ApprovesStorage::<R>::insert(approver, &approval_key, new_amount);
+        }
+
+        Ok(())
+    }
+
+    #[precompile::public("approve(bytes32,bytes32,uint256)")]
+    fn approve(
+        handle: &mut impl PrecompileHandle,
+        spender_coldkey: H256,
+        origin_netuid: U256,
+        amount_alpha_increase: U256,
+    ) -> EvmResult<()> {
+        if amount_alpha_increase.is_zero() {
+            return Ok(());
+        }
+
+        // ApprovesStorage read + write
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
+        handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
+
+        let approver = handle.caller_account_id::<R>();
+        let spender = R::AccountId::from(spender_coldkey.0);
+        let netuid = try_u16_from_u256(origin_netuid)?;
+
+        let approval_key = (spender, netuid);
+
+        let current_amount = ApprovesStorage::<R>::get(&approver, &approval_key);
+        let new_amount = current_amount.saturating_add(amount_alpha_increase);
+
+        ApprovesStorage::<R>::insert(approver, &approval_key, new_amount);
+
+        Ok(())
+    }
+
+    fn try_decrease_approval(
+        handle: &mut impl PrecompileHandle,
+        approver: R::AccountId,
+        spender: R::AccountId,
+        netuid: u16,
+        amount: U256,
+    ) -> EvmResult<()> {
+        if amount.is_zero() {
+            return Ok(());
+        }
+
+        // ApprovesStorage read + write
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
+        handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
+
+        let approval_key = (spender, netuid);
+
+        let current_amount = ApprovesStorage::<R>::get(&approver, &approval_key);
+        let Some(new_amount) = current_amount.checked_sub(amount) else {
+            return Err(revert("trying to spend more than allowed"));
+        };
+
+        if new_amount.is_zero() {
+            ApprovesStorage::<R>::remove(approver, &approval_key);
+        } else {
+            ApprovesStorage::<R>::insert(approver, &approval_key, new_amount);
+        }
+
+        Ok(())
+    }
+
+    #[precompile::public("transferStakeFrom(bytes32,bytes32,bytes32,uint256,uint256,uint256)")]
+    fn transfer_stake_from(
+        handle: &mut impl PrecompileHandle,
+        source_coldkey: H256,
+        destination_coldkey: H256,
+        hotkey: H256,
+        origin_netuid: U256,
+        destination_netuid: U256,
+        amount_alpha: U256,
+    ) -> EvmResult<()> {
+        let spender_id = handle.caller_account_id::<R>();
+        let source_id = R::AccountId::from(source_coldkey.0);
+        let destination_coldkey = R::AccountId::from(destination_coldkey.0);
+        let hotkey = R::AccountId::from(hotkey.0);
+        let origin_netuid = try_u16_from_u256(origin_netuid)?;
+        let destination_netuid = try_u16_from_u256(destination_netuid)?;
+        let alpha_amount: u64 = amount_alpha.unique_saturated_into();
+
+        Self::try_decrease_approval(
+            handle,
+            source_id.clone(),
+            spender_id,
+            origin_netuid,
+            amount_alpha,
+        )?;
+
+        let call = pallet_subtensor::Call::<R>::transfer_stake {
+            destination_coldkey,
+            hotkey,
+            origin_netuid: origin_netuid.into(),
+            destination_netuid: destination_netuid.into(),
+            alpha_amount: alpha_amount.into(),
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(source_id))
     }
 }
 

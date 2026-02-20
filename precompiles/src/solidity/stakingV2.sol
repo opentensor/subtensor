@@ -310,4 +310,74 @@ interface IStaking {
         uint256 amount,
         uint256 netuid
     ) external payable;
+
+    /**
+     * @dev Set how much the caller approves the spender to use the provided amount of subnet tokens
+     * on its behalf in a later call.
+     *
+     * This is similar to ERC20 approve, and then allows smart contract to transfer with permission from
+     * other accounts during their execution. They can then act as escrows while knowing from whom
+     * the funds comes from, which is not possible if the spender called `transfer` towards the contract
+     * (no callback).
+     *
+     * @param spenderColdkey Coldkey of the address allowed to spend funds from the caller.
+     * @param netuid The approved subnet token.
+     * @param absoluteAmount New approval amount, will overwrite previous value.
+     */
+    function setApproval(
+        bytes32 spenderColdkey,
+        uint256 netuid,
+        uint256 absoluteAmount
+    ) external;
+
+    /**
+     * @dev Increase much the caller approves the spender to use the provided amount of subnet tokens
+     * on its behalf in a later call.
+     *
+     * This is similar to ERC20 approve, and then allows smart contract to transfer with permission from
+     * other accounts during their execution. They can then act as escrows while knowing from whom
+     * the funds comes from, which is not possible if the spender called `transfer` towards the contract
+     * (no callback).
+     *
+     * @param spenderColdkey Coldkey of the address allowed to spend funds from the caller.
+     * @param netuid The approved subnet token.
+     * @param increaseAmount How much the approval amount should be increased.
+     */
+    function approve(
+        bytes32 spenderColdkey,
+        uint256 netuid,
+        uint256 increaseAmount
+    ) external;
+
+    /**
+     * @dev Transfer a subtensor stake `amount` associated with the `source_coldkey` to a different coldkey
+     * `destination_coldkey`. The `source_coldkey` must have approved beforehand the transaction signer
+     * (spender) to spend at least the `amount` (allowance). The allowance towards that spender will be
+     * decreased by this amount.
+     *
+     * This function allows external accounts and contracts to transfer staked TAO to another coldkey,
+     * which effectively calls `transfer_stake` on the subtensor pallet with specified destination
+     * coldkey as a parameter being the hashed address mapping of H160 sender address to Substrate ss58
+     * address as implemented in Frontier HashedAddressMapping:
+     * https://github.com/polkadot-evm/frontier/blob/2e219e17a526125da003e64ef22ec037917083fa/frame/evm/src/lib.rs#L739
+     *
+     * @param source_coldkey The source coldkey public key (32 bytes).
+     * @param destination_coldkey The destination coldkey public key (32 bytes).
+     * @param hotkey The hotkey public key (32 bytes).
+     * @param origin_netuid The subnet to move stake from (uint256).
+     * @param destination_netuid The subnet to move stake to (uint256).
+     * @param amount The amount to move in rao.
+     *
+     * Requirements:
+     * - `origin_hotkey` and `destination_hotkey` must be valid hotkeys registered on the network, ensuring
+     * that the stake is correctly attributed.
+     */
+    function transferStakeFrom(
+        bytes32 source_coldkey
+        bytes32 destination_coldkey,
+        bytes32 hotkey,
+        uint256 origin_netuid,
+        uint256 destination_netuid,
+        uint256 amount
+    ) external;
 }
