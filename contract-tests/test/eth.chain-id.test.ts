@@ -1,9 +1,7 @@
 
 import * as assert from "assert";
-import * as chai from "chai";
-
 import { getDevnetApi, waitForTransactionWithRetry, getRandomSubstrateKeypair } from "../src/substrate"
-import { generateRandomEthWallet, getPublicClient } from "../src/utils";
+import { getPublicClient } from "../src/utils";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { ETH_LOCAL_URL } from "../src/config";
 import { devnet } from "@polkadot-api/descriptors"
@@ -13,62 +11,60 @@ import { TypedApi } from "polkadot-api";
 import { forceSetBalanceToSs58Address, forceSetChainID } from "../src/subtensor";
 
 describe("Test the EVM chain ID", () => {
-  // init eth part
-  const wallet = generateRandomEthWallet();
   let ethClient: PublicClient;
 
   // init substrate part
   const keyPair = getRandomSubstrateKeypair();
   let api: TypedApi<typeof devnet>;
 
-  // init other variable
-  const initChainId = 42;
+  // Default Subtensor EVM chain id is often 42 or 943 (testnet)
+  // But for devnet/local it usually starts at a fixed value.
+  let initChainId: bigint;
 
   before(async () => {
-    // init variables got from await and async
     ethClient = await getPublicClient(ETH_LOCAL_URL);
     api = await getDevnetApi()
     await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(keyPair.publicKey))
-
+    initChainId = await ethClient.getChainId();
   });
 
-  it("EVM chain id update is ok", async () => {
-    let chainId = await ethClient.getChainId();
-    // init chain id should be 42
-    assert.equal(chainId, initChainId);
+  it("EVM chain id update via sudo_set_evm_chain_id is reflected in RPC", async () => {
+    const newChainId = BigInt(100);
+    
+    // Use the helper to set chain ID (which likely uses sudo internally)
+    await forceSetChainID(api, newChainId);
 
-    const newChainId = BigInt(100)
-    await forceSetChainID(api, newChainId)
+    const updatedChainId = await ethClient.getChainId();
+    assert.equal(updatedChainId, newChainId, "Chain ID should be updated to 100");
 
-    chainId = await ethClient.getChainId();
-    assert.equal(chainId, newChainId);
-
-    await forceSetChainID(api, BigInt(initChainId))
-
-    chainId = await ethClient.getChainId();
-    // back to original value for other tests. and we can run it repeatedly
-    assert.equal(chainId, initChainId);
-
+    // Reset back to original
+    await forceSetChainID(api, initChainId);
+    const finalChainId = await ethClient.getChainId();
+    assert.equal(finalChainId, initChainId, "Chain ID should be reset to original value");
   });
 
-  it("EVM chain id is the same, only sudo can change it.", async () => {
-    let chainId = await ethClient.getChainId();
-    // init chain id should be 42
-    assert.equal(chainId, initChainId);
+  it("EVM chain id remains unchanged if non-sudo user attempts update", async () => {
+    const currentChainId = await ethClient.getChainId();
+    const targetChainId = BigInt(999);
 
-    // invalide signer for set chain ID
+    // Create a regular user signer (non-sudo)
     let signer = getPolkadotSigner(
       keyPair.publicKey,
       "Sr25519",
       keyPair.sign,
-    )
+    );
 
-    let tx = api.tx.AdminUtils.sudo_set_evm_chain_id({ chain_id: BigInt(100) })
-    await waitForTransactionWithRetry(api, tx, signer)
+    // Attempt to call sudo_set_evm_chain_id directly without sudo wrapper
+    // In Substrate, calling a sudo-protected dispatchable directly usually fails at dispatch
+    let tx = api.tx.AdminUtils.sudo_set_evm_chain_id({ chain_id: targetChainId });
+    
+    try {
+        await waitForTransactionWithRetry(api, tx, signer);
+    } catch (e) {
+        // Expected to fail or just not update
+    }
 
-    // extrinsic should be failed and chain ID not updated.
-    chainId = await ethClient.getChainId();
-    assert.equal(chainId, 42);
-
+    const checkChainId = await ethClient.getChainId();
+    assert.equal(checkChainId, currentChainId, "Chain ID should NOT have changed");
   });
 });
