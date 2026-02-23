@@ -170,3 +170,25 @@ export async function swapStake(
   });
   await waitForTransactionWithRetry(api, tx, signer, "swap_stake");
 }
+
+export async function swapStakeLimit(
+  api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  hotkey: string,
+  originNetuid: number,
+  destinationNetuid: number,
+  amount: bigint,
+  limitPrice: bigint,
+  allowPartial: boolean
+): Promise<void> {
+  const signer = getSignerFromKeypair(coldkey);
+  const tx = api.tx.SubtensorModule.swap_stake_limit({
+    hotkey: hotkey,
+    origin_netuid: originNetuid,
+    destination_netuid: destinationNetuid,
+    alpha_amount: amount,
+    limit_price: limitPrice,
+    allow_partial: allowPartial,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "swap_stake_limit");
+}
