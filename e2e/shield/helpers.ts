@@ -1,26 +1,32 @@
-import { DedotClient } from "dedot";
+import type { TypedApi, PolkadotSigner } from "polkadot-api";
+import { Binary } from "polkadot-api";
 import { hexToU8a } from "@polkadot/util";
 import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { randomBytes } from "@noble/ciphers/utils.js";
 import { MlKem768 } from "mlkem";
 import { xxhashAsU8a } from "@polkadot/util-crypto";
-import type { KeyringPair } from "@polkadot/keyring/types";
-import type { NodeSubtensorApi } from "../node-subtensor/index.js";
+import type { subtensor } from "@polkadot-api/descriptors";
 
 export const getNextKey = async (
-  client: DedotClient<NodeSubtensorApi>,
+  api: TypedApi<typeof subtensor>,
 ): Promise<Uint8Array | undefined> => {
-  const key = await client.query.mevShield.nextKey();
+  // Query at "best" (not default "finalized") because keys rotate every block
+  // and finalized lags ~2 blocks behind best with GRANDPA. Using finalized
+  // would return a stale key whose hash won't match CurrentKey/NextKey at
+  // block-building time, causing InvalidShieldedTxPubKeyHash rejection.
+  const key = await api.query.MevShield.NextKey.getValue({ at: "best" });
   if (!key) return undefined;
-  return hexToU8a(key);
+  if (key instanceof Binary) return key.asBytes();
+  return hexToU8a(key as string);
 };
 
 export const getCurrentKey = async (
-  client: DedotClient<NodeSubtensorApi>,
+  api: TypedApi<typeof subtensor>,
 ): Promise<Uint8Array | undefined> => {
-  const key = await client.query.mevShield.currentKey();
+  const key = await api.query.MevShield.CurrentKey.getValue({ at: "best" });
   if (!key) return undefined;
-  return hexToU8a(key);
+  if (key instanceof Binary) return key.asBytes();
+  return hexToU8a(key as string);
 };
 
 export const encryptTransaction = async (
@@ -43,24 +49,24 @@ export const encryptTransaction = async (
 };
 
 export const submitEncrypted = async (
-  client: DedotClient<NodeSubtensorApi>,
-  signer: KeyringPair,
+  api: TypedApi<typeof subtensor>,
+  signer: PolkadotSigner,
   innerTxBytes: Uint8Array,
   publicKey: Uint8Array,
   nonce?: number,
 ) => {
   const ciphertext = await encryptTransaction(innerTxBytes, publicKey);
-  return submitEncryptedRaw(client, signer, ciphertext, nonce);
+  return submitEncryptedRaw(api, signer, ciphertext, nonce);
 };
 
 export const submitEncryptedRaw = async (
-  client: DedotClient<NodeSubtensorApi>,
-  signer: KeyringPair,
+  api: TypedApi<typeof subtensor>,
+  signer: PolkadotSigner,
   ciphertext: Uint8Array,
   nonce?: number,
 ) => {
-  const tx = client.tx.mevShield.submitEncrypted(ciphertext);
-  const signed = await tx.sign(signer, nonce !== undefined ? { nonce } : {});
-
-  return signed.send().untilFinalized();
+  const tx = api.tx.MevShield.submit_encrypted({
+    ciphertext: Binary.fromBytes(ciphertext),
+  });
+  return tx.signAndSubmit(signer, nonce !== undefined ? { nonce } : {});
 };

@@ -1,34 +1,58 @@
-import { DedotClient, WsProvider } from "dedot";
-import { Keyring } from "@polkadot/keyring";
-import type { KeyringPair } from "@polkadot/keyring/types";
-import type { NodeSubtensorApi } from "../node-subtensor/index.js";
+import { createClient, type PolkadotClient, type TypedApi } from "polkadot-api";
+import { getWsProvider } from "polkadot-api/ws-provider";
+import { getPolkadotSigner, type PolkadotSigner } from "polkadot-api/signer";
+import { sr25519CreateDerive } from "@polkadot-labs/hdkd";
+import {
+  DEV_PHRASE,
+  entropyToMiniSecret,
+  mnemonicToEntropy,
+  ss58Address,
+} from "@polkadot-labs/hdkd-helpers";
+import { subtensor } from "@polkadot-api/descriptors";
 
 const SECOND = 1000;
 
-export const connectClient = async (rpcPort: number): Promise<DedotClient<NodeSubtensorApi>> => {
-  const provider = new WsProvider(`ws://localhost:${rpcPort}`);
-  return DedotClient.new<NodeSubtensorApi>(provider);
+export type ClientConnection = {
+  client: PolkadotClient;
+  api: TypedApi<typeof subtensor>;
 };
 
-export const createKeyring = () => {
-  return new Keyring({ type: "sr25519" });
+export const connectClient = async (rpcPort: number): Promise<ClientConnection> => {
+  const provider = getWsProvider(`ws://localhost:${rpcPort}`);
+  const client = createClient(provider);
+  const api = client.getTypedApi(subtensor);
+  return { client, api };
+};
+
+export type Signer = {
+  signer: PolkadotSigner;
+  address: string;
+};
+
+export const createSigner = (uri: string): Signer => {
+  const entropy = mnemonicToEntropy(DEV_PHRASE);
+  const miniSecret = entropyToMiniSecret(entropy);
+  const derive = sr25519CreateDerive(miniSecret);
+  const keypair = derive(uri);
+  return {
+    signer: getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign),
+    address: ss58Address(keypair.publicKey),
+  };
 };
 
 export const getAccountNonce = async (
-  client: { query: { system: { account: (address: string) => Promise<{ nonce: number }> } } },
+  api: TypedApi<typeof subtensor>,
   address: string,
 ): Promise<number> => {
-  const account = await client.query.system.account(address);
+  const account = await api.query.System.Account.getValue(address, { at: "best" });
   return account.nonce;
 };
 
 export const getBalance = async (
-  client: {
-    query: { system: { account: (address: string) => Promise<{ data: { free: bigint } }> } };
-  },
+  api: TypedApi<typeof subtensor>,
   address: string,
 ): Promise<bigint> => {
-  const account = await client.query.system.account(address);
+  const account = await api.query.System.Account.getValue(address);
   return account.data.free;
 };
 
@@ -36,60 +60,23 @@ export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(r
 
 /** Polls the chain until `count` new finalized blocks have been produced. */
 export async function waitForFinalizedBlocks(
-  client: {
-    rpc: {
-      chain_getFinalizedHead: () => Promise<`0x${string}`>;
-      chain_getHeader: (hash: `0x${string}`) => Promise<{ number: number } | undefined>;
-    };
-  },
+  client: PolkadotClient,
   count: number,
   pollInterval = 1 * SECOND,
   timeout = 120 * SECOND,
 ): Promise<void> {
-  const startHash = await client.rpc.chain_getFinalizedHead();
-  const startHeader = await client.rpc.chain_getHeader(startHash);
-  const start = startHeader!.number;
+  const startBlock = await client.getFinalizedBlock();
+  const start = startBlock.number;
   const target = start + count;
   const deadline = Date.now() + timeout;
 
   while (Date.now() < deadline) {
     await sleep(pollInterval);
-    const hash = await client.rpc.chain_getFinalizedHead();
-    const header = await client.rpc.chain_getHeader(hash);
-    if (header && header.number >= target) return;
+    const block = await client.getFinalizedBlock();
+    if (block.number >= target) return;
   }
 
   throw new Error(
     `Timed out waiting for ${count} finalized blocks (from #${start}, target #${target})`,
   );
 }
-
-type TxStatus = { type: string; value?: { error?: string } };
-
-/** Signs, sends, and watches a transaction until one of the given terminal
- *  status types is observed. If signAndSend itself rejects (e.g. pool
- *  rejection), the error is wrapped as an Invalid status. */
-export const watchTxStatus = (
-  tx: any,
-  signer: KeyringPair,
-  options: Record<string, unknown>,
-  terminalTypes: string[],
-  timeout = 30_000,
-): Promise<TxStatus> => {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`watchTxStatus timed out waiting for ${terminalTypes.join("/")}`)),
-      timeout,
-    );
-
-    tx.signAndSend(signer, options, (result: { status: TxStatus }) => {
-      if (terminalTypes.includes(result.status.type)) {
-        clearTimeout(timer);
-        resolve(result.status);
-      }
-    }).catch((err: unknown) => {
-      clearTimeout(timer);
-      resolve({ type: "Invalid", value: { error: String(err) } });
-    });
-  });
-};

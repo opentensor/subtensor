@@ -3,12 +3,15 @@
   "private": true,
   "scripts": {
     "build-node": "cargo build --manifest-path ../Cargo.toml --profile release -p node-subtensor",
-    "generate-types": "pnpm --package=@dedot/cli dlx dedot chaintypes -w ws://localhost:9944",
+    "generate-types": "papi add subtensor --wsUrl ws://localhost:9944 --skip-codegen && papi",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
+  "dependencies": {
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
+    "polkadot-api": "catalog:"
+  },
   "devDependencies": {
-    "dedot": "catalog:",
     "prettier": "catalog:"
   }
 }
