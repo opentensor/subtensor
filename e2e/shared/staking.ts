@@ -116,3 +116,23 @@ export async function transferStake(
   });
   await waitForTransactionWithRetry(api, tx, signer, "transfer_stake");
 }
+
+export async function moveStake(
+  api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  originHotkey: string,
+  destinationHotkey: string,
+  originNetuid: number,
+  destinationNetuid: number,
+  amount: bigint
+): Promise<void> {
+  const signer = getSignerFromKeypair(coldkey);
+  const tx = api.tx.SubtensorModule.move_stake({
+    origin_hotkey: originHotkey,
+    destination_hotkey: destinationHotkey,
+    origin_netuid: originNetuid,
+    destination_netuid: destinationNetuid,
+    alpha_amount: amount,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "move_stake");
+}
