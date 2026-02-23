@@ -2,18 +2,6 @@
 
 echo "start run-ci.sh"
 
-cd contract-tests
-
-cd bittensor
-
-rustup component add rust-src
-cargo install cargo-contract --force --locked --version 5.0.3
-cargo contract build --release 
-
-cargo contract --version
-
-cd ../..
-
 scripts/localnet.sh &>/dev/null &
 
 i=1

@@ -10,7 +10,7 @@ import { convertPublicKeyToSs58 } from "../src/address-utils";
 import { addNewSubnetwork, sendWasmContractExtrinsic } from "../src/subtensor";
 import { tao } from "../src/balance-math";
 
-const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
+const bittensorWasmPath = "./bittensor.wasm"
 const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
 
 describe("Test wasm contract", () => {
