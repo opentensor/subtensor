@@ -8,15 +8,13 @@
   "dependencies": {
     "e2e-shared": "workspace:*",
     "@noble/ciphers": "catalog:",
-    "@polkadot/keyring": "catalog:",
     "@polkadot/util": "catalog:",
     "@polkadot/util-crypto": "catalog:",
-    "dedot": "catalog:",
-    "mlkem": "catalog:"
+    "@polkadot-api/descriptors": "file:../.papi/descriptors",
+    "mlkem": "catalog:",
+    "polkadot-api": "catalog:"
   },
   "devDependencies": {
-    "@dedot/cli": "catalog:",
-    "@dedot/chaintypes": "catalog:",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

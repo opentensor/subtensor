@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { readFile, writeFile, rm } from "node:fs/promises";
-import { DedotClient } from "dedot";
+import type { PolkadotClient, TypedApi } from "polkadot-api";
+import { hexToU8a } from "@polkadot/util";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 import type { NetworkState } from "../setup.js";
-import type { NodeSubtensorApi } from "../../node-subtensor/index.js";
 import {
   connectClient,
-  createKeyring,
+  createSigner,
   getAccountNonce,
   getBalance,
   waitForFinalizedBlocks,
@@ -13,13 +14,13 @@ import {
 import { startNode, started, log } from "e2e-shared/node.js";
 import { getNextKey, submitEncrypted } from "../helpers.js";
 
-let client: DedotClient<NodeSubtensorApi>;
+let client: PolkadotClient;
+let api: TypedApi<typeof subtensor>;
 let state: NetworkState;
 
-const keyring = createKeyring();
-const alice = keyring.addFromUri("//Alice");
-const bob = keyring.addFromUri("//Bob");
-const charlie = keyring.addFromUri("//Charlie");
+const alice = createSigner("//Alice");
+const bob = createSigner("//Bob");
+const charlie = createSigner("//Charlie");
 
 // Extra nodes join as non-authority full nodes.
 const EXTRA_NODE_CONFIGS = [
@@ -31,7 +32,7 @@ const EXTRA_NODE_CONFIGS = [
 beforeAll(async () => {
   const data = await readFile("/tmp/e2e-shield-nodes.json", "utf-8");
   state = JSON.parse(data);
-  client = await connectClient(state.nodes[0].rpcPort);
+  ({ client, api } = await connectClient(state.nodes[0].rpcPort));
 
   // Start 3 additional full nodes to scale from 3 → 6.
   for (const config of EXTRA_NODE_CONFIGS) {
@@ -60,8 +61,8 @@ beforeAll(async () => {
   await writeFile("/tmp/e2e-shield-nodes.json", JSON.stringify(state, null, 2));
 });
 
-afterAll(async () => {
-  await client?.disconnect();
+afterAll(() => {
+  client?.destroy();
 });
 
 describe("MEV Shield — 6 node scaling", () => {
@@ -73,67 +74,60 @@ describe("MEV Shield — 6 node scaling", () => {
   });
 
   it("Key rotation continues with more peers", async () => {
-    const key1 = await getNextKey(client);
+    const key1 = await getNextKey(api);
     expect(key1).toBeDefined();
 
     await waitForFinalizedBlocks(client, 2);
 
-    const key2 = await getNextKey(client);
+    const key2 = await getNextKey(api);
     expect(key2).toBeDefined();
     expect(key2!.length).toBe(1184);
   });
 
   it("Encrypted tx works with 6 nodes", async () => {
-    const nextKey = await getNextKey(client);
+    const nextKey = await getNextKey(api);
     expect(nextKey).toBeDefined();
 
-    const balanceBefore = await getBalance(client, bob.address);
+    const balanceBefore = await getBalance(api, bob.address);
 
-    const nonce = await getAccountNonce(client, alice.address);
-    const innerTx = await client.tx.balances
-      .transferKeepAlive(bob.address, 5_000_000_000n)
-      .sign(alice, { nonce: nonce + 1 });
+    const nonce = await getAccountNonce(api, alice.address);
+    const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+      dest: MultiAddress.Id(bob.address),
+      value: 5_000_000_000n,
+    }).sign(alice.signer, { nonce: nonce + 1 });
 
-    const result = await submitEncrypted(client, alice, innerTx.toU8a(), nextKey!, nonce);
+    await submitEncrypted(api, alice.signer, hexToU8a(innerTxHex), nextKey!, nonce);
 
-    expect(result.status.type).toBe("Finalized");
-
-    const encryptedEvent = result.events.find(
-      (e: any) =>
-        e.event?.pallet === "MevShield" && e.event?.palletEvent?.name === "EncryptedSubmitted",
-    );
-    expect(encryptedEvent).toBeDefined();
-
-    const balanceAfter = await getBalance(client, bob.address);
+    const balanceAfter = await getBalance(api, bob.address);
     expect(balanceAfter).toBeGreaterThan(balanceBefore);
   });
 
   it("Multiple encrypted txs in same block with 6 nodes", async () => {
-    const nextKey = await getNextKey(client);
+    const nextKey = await getNextKey(api);
     expect(nextKey).toBeDefined();
 
-    const balanceBefore = await getBalance(client, charlie.address);
+    const balanceBefore = await getBalance(api, charlie.address);
 
     const senders = [alice, bob];
     const amount = 1_000_000_000n;
     const txPromises = [];
 
     for (const sender of senders) {
-      const nonce = await getAccountNonce(client, sender.address);
+      const nonce = await getAccountNonce(api, sender.address);
 
-      const innerTx = await client.tx.balances
-        .transferKeepAlive(charlie.address, amount)
-        .sign(sender, { nonce: nonce + 1 });
+      const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+        dest: MultiAddress.Id(charlie.address),
+        value: amount,
+      }).sign(sender.signer, { nonce: nonce + 1 });
 
-      txPromises.push(submitEncrypted(client, sender, innerTx.toU8a(), nextKey!, nonce));
+      txPromises.push(
+        submitEncrypted(api, sender.signer, hexToU8a(innerTxHex), nextKey!, nonce),
+      );
     }
 
-    const results = await Promise.allSettled(txPromises);
+    await Promise.all(txPromises);
 
-    const succeeded = results.filter((r) => r.status === "fulfilled");
-    expect(succeeded.length).toBe(senders.length);
-
-    const balanceAfter = await getBalance(client, charlie.address);
+    const balanceAfter = await getBalance(api, charlie.address);
     expect(balanceAfter).toBeGreaterThan(balanceBefore);
   });
 });

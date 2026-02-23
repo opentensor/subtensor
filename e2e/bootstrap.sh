@@ -2,7 +2,7 @@
 set -e
 
 MANIFEST="../Cargo.toml"
-BINARY="../target/debug/node-subtensor"
+BINARY="../target/release/node-subtensor"
 
 echo "==> Building node-subtensor..."
 pnpm build-node
@@ -28,7 +28,7 @@ until curl -sf -o /dev/null \
   fi
 done
 
-echo "==> Generating dedot types..."
+echo "==> Generating papi types..."
 pnpm generate-types
 
 echo "==> Done."
