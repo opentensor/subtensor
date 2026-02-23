@@ -76,6 +76,22 @@ export async function removeStakeLimit(
   await waitForTransactionWithRetry(api, tx, signer, "remove_stake_limit");
 }
 
+export async function removeStakeFullLimit(
+  api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  hotkey: string,
+  netuid: number,
+  limitPrice: bigint | undefined
+): Promise<void> {
+  const signer = getSignerFromKeypair(coldkey);
+  const tx = api.tx.SubtensorModule.remove_stake_full_limit({
+    hotkey: hotkey,
+    netuid: netuid,
+    limit_price: limitPrice,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "remove_stake_full_limit");
+}
+
 export async function unstakeAll(
   api: TypedApi<typeof devnet>,
   coldkey: KeyPair,
