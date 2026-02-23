@@ -9,7 +9,7 @@ use sp_runtime::traits::{
     AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
     ValidateResult,
 };
-use sp_runtime::transaction_validity::TransactionSource;
+use sp_runtime::transaction_validity::{TransactionSource, ValidTransaction};
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::CustomTransactionError;
 
@@ -84,7 +84,17 @@ where
             }
         }
 
-        Ok((Default::default(), (), origin))
+        // Shielded txs get a short longevity so they are evicted from the pool
+        // if not included within a few blocks. Keys rotate every block, so a tx
+        // encrypted against a key that has rotated out of the 2-key window
+        // (CurrentKey + NextKey) will never be included — without this it would
+        // stay in the pool indefinitely since pool revalidation skips the key check.
+        let validity = ValidTransaction {
+            longevity: 3,
+            ..Default::default()
+        };
+
+        Ok((validity, (), origin))
     }
 }
 
@@ -95,7 +105,7 @@ mod tests {
     use frame_support::dispatch::GetDispatchInfo;
     use frame_support::pallet_prelude::{BoundedVec, ConstU32};
     use sp_runtime::traits::TxBaseImplication;
-    use sp_runtime::transaction_validity::TransactionValidityError;
+    use sp_runtime::transaction_validity::{TransactionValidityError, ValidTransaction};
 
     /// Build wire-format ciphertext with a given key_hash.
     /// Layout: key_hash(16) || kem_ct_len(2 LE) || kem_ct(N) || nonce(24) || aead_ct(rest)
@@ -132,7 +142,7 @@ mod tests {
         who: Option<u64>,
         call: &RuntimeCall,
         source: TransactionSource,
-    ) -> Result<(), TransactionValidityError> {
+    ) -> Result<ValidTransaction, TransactionValidityError> {
         let ext = CheckShieldedTxValidity::<Test>::new();
         let info = call.get_dispatch_info();
         let origin = match who {
@@ -140,7 +150,7 @@ mod tests {
             None => RuntimeOrigin::none(),
         };
         ext.validate(origin, call, &info, 0, (), &TxBaseImplication(call), source)
-            .map(|_| ())
+            .map(|(validity, _, _)| validity)
     }
 
     const PK_A: [u8; 32] = [0x11; 32];
@@ -150,7 +160,9 @@ mod tests {
     fn non_shield_call_passes_through() {
         new_test_ext().execute_with(|| {
             let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
-            assert!(validate_ext(Some(1), &call, TransactionSource::InBlock).is_ok());
+            let validity = validate_ext(Some(1), &call, TransactionSource::InBlock).unwrap();
+            // Non-shield calls get default (max) longevity.
+            assert_eq!(validity.longevity, u64::MAX);
         });
     }
 
@@ -158,7 +170,8 @@ mod tests {
     fn unsigned_origin_passes_through() {
         new_test_ext().execute_with(|| {
             let call = make_submit_call([0xFF; 16]);
-            assert!(validate_ext(None, &call, TransactionSource::InBlock).is_ok());
+            let validity = validate_ext(None, &call, TransactionSource::InBlock).unwrap();
+            assert_eq!(validity.longevity, u64::MAX);
         });
     }
 
@@ -193,7 +206,8 @@ mod tests {
         new_test_ext().execute_with(|| {
             set_current_key(&PK_A);
             let call = make_submit_call(twox_128(&PK_A));
-            assert!(validate_ext(Some(1), &call, TransactionSource::InBlock).is_ok());
+            let validity = validate_ext(Some(1), &call, TransactionSource::InBlock).unwrap();
+            assert_eq!(validity.longevity, 3);
         });
     }
 
@@ -202,7 +216,8 @@ mod tests {
         new_test_ext().execute_with(|| {
             set_next_key(&PK_B);
             let call = make_submit_call(twox_128(&PK_B));
-            assert!(validate_ext(Some(1), &call, TransactionSource::InBlock).is_ok());
+            let validity = validate_ext(Some(1), &call, TransactionSource::InBlock).unwrap();
+            assert_eq!(validity.longevity, 3);
         });
     }
 
@@ -234,7 +249,9 @@ mod tests {
     fn pool_local_skips_key_check() {
         new_test_ext().execute_with(|| {
             let call = make_submit_call([0xFF; 16]);
-            assert!(validate_ext(Some(1), &call, TransactionSource::Local).is_ok());
+            let validity = validate_ext(Some(1), &call, TransactionSource::Local).unwrap();
+            // Pool sources skip key check but still get short longevity.
+            assert_eq!(validity.longevity, 3);
         });
     }
 
@@ -242,7 +259,8 @@ mod tests {
     fn pool_external_skips_key_check() {
         new_test_ext().execute_with(|| {
             let call = make_submit_call([0xFF; 16]);
-            assert!(validate_ext(Some(1), &call, TransactionSource::External).is_ok());
+            let validity = validate_ext(Some(1), &call, TransactionSource::External).unwrap();
+            assert_eq!(validity.longevity, 3);
         });
     }
 }
