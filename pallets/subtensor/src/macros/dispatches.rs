@@ -1785,23 +1785,25 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn swap_stake_limit(
-            origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
-            origin_netuid: NetUid,
-            destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
-            limit_price: TaoCurrency,
-            allow_partial: bool,
+            _origin: T::RuntimeOrigin,
+            _hotkey: T::AccountId,
+            _origin_netuid: NetUid,
+            _destination_netuid: NetUid,
+            _alpha_amount: AlphaCurrency,
+            _limit_price: TaoCurrency,
+            _allow_partial: bool,
         ) -> DispatchResult {
-            Self::do_swap_stake_limit(
-                origin,
-                hotkey,
-                origin_netuid,
-                destination_netuid,
-                alpha_amount,
-                limit_price,
-                allow_partial,
-            )
+			return Err(Error::<T>::SlippageTooHigh.into());
+
+            // Self::do_swap_stake_limit(
+            //     origin,
+            //     hotkey,
+            //     origin_netuid,
+            //     destination_netuid,
+            //     alpha_amount,
+            //     limit_price,
+            //     allow_partial,
+            // )
         }
 
         /// Attempts to associate a hotkey with a coldkey.
