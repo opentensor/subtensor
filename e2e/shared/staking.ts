@@ -104,6 +104,18 @@ export async function unstakeAll(
   await waitForTransactionWithRetry(api, tx, signer, "unstake_all");
 }
 
+export async function unstakeAllAlpha(
+  api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  hotkey: string
+): Promise<void> {
+  const signer = getSignerFromKeypair(coldkey);
+  const tx = api.tx.SubtensorModule.unstake_all_alpha({
+    hotkey: hotkey,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "unstake_all_alpha");
+}
+
 export async function getStake(
   api: TypedApi<typeof devnet>,
   hotkey: string,
