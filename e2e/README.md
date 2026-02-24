@@ -70,9 +70,10 @@ sequencer that ensures test files run in alphabetical order.
   sequencer sorts alphabetically, so numbering controls execution order.
 - **State file** — Each suite writes to `/tmp/subtensor-e2e/<name>/`. Tests
   can update this file mid-suite (e.g. to register extra nodes).
-- **Catalog versions** — All packages use `catalog:` in `package.json` to
-  reference versions pinned in `pnpm-workspace.yaml`. This prevents version
-  drift across packages.
+- **Catalog versions** — To add a new dependency, first pin its version in
+  `pnpm-workspace.yaml` under `catalog:`, then reference it in your
+  package's `package.json` with `"catalog:"` as the version. This prevents
+  version drift across packages.
 - **Query at "best"** — Storage queries for values that change every block
   (e.g. rotating keys) should use `{ at: "best" }` instead of the default
   `"finalized"`, since finalized lags ~2 blocks behind with GRANDPA.
