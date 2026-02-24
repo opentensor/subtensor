@@ -29,6 +29,8 @@ describe("Test approval in staking precompile", () => {
     let api: TypedApi<typeof devnet>
     let stakeNetuid: number;
 
+    let expectedAllowance = BigInt(0);
+
     // sudo account alice as signer
     let alice: PolkadotSigner;
     before(async () => {
@@ -70,7 +72,7 @@ describe("Test approval in staking precompile", () => {
         }
     })
 
-    it("Can't transfer from account without approval ", async () => {
+    it("Can't transfer from account without approval", async () => {
         try {
             // wallet2 tries to transfer from wallet1
             const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
@@ -87,6 +89,153 @@ describe("Test approval in staking precompile", () => {
             assert.fail("should have reverted due to missing allowance");
         } catch (e) {
             assert.equal(e.reason, "trying to spend more than allowed", "wrong revert message");
+        }
+    })
+
+    it("Can approve some amount", async () => {
+        const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet1);
+
+        {
+            let allowance = BigInt(
+                await contract.allowance(
+                    convertH160ToPublicKey(wallet1.address), // source
+                    convertH160ToPublicKey(wallet2.address), // destination
+                    stakeNetuid,
+                )
+            );
+            assert.equal(allowance, expectedAllowance, "default allowance should be 0");
+        }
+
+        {
+            const tx = await contract.approve(
+                convertH160ToPublicKey(wallet2.address), // destination
+                stakeNetuid,
+                tao(10)
+            )
+            await tx.wait();
+
+            expectedAllowance += BigInt(tao(10));
+
+            let allowance = BigInt(
+                await contract.allowance(
+                    convertH160ToPublicKey(wallet1.address), // source
+                    convertH160ToPublicKey(wallet2.address), // destination
+                    stakeNetuid,
+                )
+            );
+            assert.equal(allowance, expectedAllowance, "should have set allowance");
+        }
+    })
+
+    it("Can now use transfer from", async () => {
+        const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
+
+        // wallet2 transfer from wallet1
+        const tx = await contract.transferStakeFrom(
+            convertH160ToPublicKey(wallet1.address), // source
+            convertH160ToPublicKey(wallet2.address), // distination
+            hotkey.publicKey,
+            stakeNetuid,
+            stakeNetuid,
+            tao(5)
+        )
+        await tx.wait();
+
+        expectedAllowance -= BigInt(tao(5));
+
+        {
+            let allowance = BigInt(
+                await contract.allowance(
+                    convertH160ToPublicKey(wallet1.address), // source
+                    convertH160ToPublicKey(wallet2.address), // destination
+                    stakeNetuid,
+                )
+            );
+            assert.equal(allowance, expectedAllowance, "allowance should now be 500");
+        }
+    })
+
+    it("Can't use transfer from with amount too high", async () => {
+        try {
+            // wallet2 tries to transfer from wallet1
+            const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
+            const tx = await contract.transferStakeFrom(
+                convertH160ToPublicKey(wallet1.address), // source
+                convertH160ToPublicKey(wallet2.address), // distination
+                hotkey.publicKey,
+                stakeNetuid,
+                stakeNetuid,
+                expectedAllowance + BigInt(1)
+            )
+            await tx.wait();
+
+            assert.fail("should have reverted due to missing allowance");
+        } catch (e) {
+            assert.equal(e.reason, "trying to spend more than allowed", "wrong revert message");
+        }
+    })
+
+    it("Approval functions works as expected", async () => {
+        const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet1);
+
+        {
+            const tx = await contract.increaseAllowance(
+                convertH160ToPublicKey(wallet2.address), // destination
+                stakeNetuid,
+                tao(10)
+            )
+            await tx.wait();
+
+            expectedAllowance += BigInt(tao(10));
+
+            let allowance = BigInt(
+                await contract.allowance(
+                    convertH160ToPublicKey(wallet1.address), // source
+                    convertH160ToPublicKey(wallet2.address), // destination
+                    stakeNetuid,
+                )
+            );
+            assert.equal(allowance, expectedAllowance, "allowance have been increased correctly");
+        }
+
+        {
+            const tx = await contract.decreaseAllowance(
+                convertH160ToPublicKey(wallet2.address), // destination
+                stakeNetuid,
+                tao(2)
+            )
+            await tx.wait();
+
+            expectedAllowance -= BigInt(tao(2));
+
+            let allowance = BigInt(
+                await contract.allowance(
+                    convertH160ToPublicKey(wallet1.address), // source
+                    convertH160ToPublicKey(wallet2.address), // destination
+                    stakeNetuid,
+                )
+            );
+            assert.equal(allowance, expectedAllowance, "allowance have been decreased correctly");
+        }
+
+        {
+            const tx = await contract.approve(
+                convertH160ToPublicKey(wallet2.address), // destination
+                stakeNetuid,
+                0
+            )
+            await tx.wait();
+
+            expectedAllowance = BigInt(0);
+
+            let allowance = BigInt(
+                await contract.allowance(
+                    convertH160ToPublicKey(wallet1.address), // source
+                    convertH160ToPublicKey(wallet2.address), // destination
+                    stakeNetuid,
+                )
+            );
+            assert.equal(allowance, expectedAllowance, "allowance have been overwritten correctly");
         }
     })
 })

@@ -474,7 +474,7 @@ where
         Ok(stake.to_u64().into())
     }
 
-    #[precompile::public("approve(bytes32,bytes32,uint256)")]
+    #[precompile::public("approve(bytes32,uint256,uint256)")]
     fn approve(
         handle: &mut impl PrecompileHandle,
         spender_coldkey: H256,
@@ -497,11 +497,11 @@ where
         Ok(())
     }
 
-	#[precompile::public("allowance(bytes32,bytes32,bytes32)")]
-	#[precompile::view]
+    #[precompile::public("allowance(bytes32,bytes32,uint256)")]
+    #[precompile::view]
     fn allowance(
         handle: &mut impl PrecompileHandle,
-		source_coldkey: H256,
+        source_coldkey: H256,
         spender_coldkey: H256,
         origin_netuid: U256,
     ) -> EvmResult<U256> {
@@ -515,7 +515,7 @@ where
         Ok(AllowancesStorage::<R>::get(source, (spender, netuid)))
     }
 
-    #[precompile::public("increaseAllowance(bytes32,bytes32,uint256)")]
+    #[precompile::public("increaseAllowance(bytes32,uint256,uint256)")]
     fn increase_allowance(
         handle: &mut impl PrecompileHandle,
         spender_coldkey: H256,
@@ -544,7 +544,7 @@ where
         Ok(())
     }
 
-	#[precompile::public("decreaseAllowance(bytes32,bytes32,uint256)")]
+    #[precompile::public("decreaseAllowance(bytes32,uint256,uint256)")]
     fn decrease_allowance(
         handle: &mut impl PrecompileHandle,
         spender_coldkey: H256,
