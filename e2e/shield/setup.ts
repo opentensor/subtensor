@@ -1,4 +1,4 @@
-import { writeFile, readFile, rm } from "node:fs/promises";
+import { writeFile, readFile, rm, mkdir } from "node:fs/promises";
 import {
   generateChainSpec,
   insertKeys,
@@ -16,8 +16,8 @@ import {
   type NodeOptions,
 } from "e2e-shared/node.js";
 
-const CHAIN_SPEC_PATH = "/tmp/e2e-shield-chain-spec.json";
-const STATE_FILE = "/tmp/e2e-shield-nodes.json";
+const CHAIN_SPEC_PATH = "/tmp/subtensor-e2e/shield/chain-spec.json";
+const STATE_FILE = "/tmp/subtensor-e2e/shield/nodes.json";
 
 export type NetworkState = {
   binaryPath: string;
@@ -44,13 +44,13 @@ type NodeConfig = Omit<NodeOptions, "binaryPath" | "chainSpec"> & {
 };
 
 const NODE_CONFIGS: NodeConfig[] = [
-  { name: "one", port: 30333, rpcPort: 9944, basePath: "/tmp/e2e-shield-one", validator: true },
-  { name: "two", port: 30334, rpcPort: 9945, basePath: "/tmp/e2e-shield-two", validator: true },
+  { name: "one", port: 30333, rpcPort: 9944, basePath: "/tmp/subtensor-e2e/shield/one", validator: true },
+  { name: "two", port: 30334, rpcPort: 9945, basePath: "/tmp/subtensor-e2e/shield/two", validator: true },
   {
     name: "three",
     port: 30335,
     rpcPort: 9946,
-    basePath: "/tmp/e2e-shield-three",
+    basePath: "/tmp/subtensor-e2e/shield/three",
     validator: true,
     keySeed: "//Three",
   },
@@ -59,6 +59,8 @@ const NODE_CONFIGS: NodeConfig[] = [
 export async function setup() {
   log(`Setting up ${NODE_CONFIGS.length}-node network for shield E2E tests`);
   log(`Binary path: ${BINARY_PATH}`);
+
+  await mkdir("/tmp/subtensor-e2e/shield", { recursive: true });
 
   await generateChainSpec(BINARY_PATH, CHAIN_SPEC_PATH, (spec) => {
     const patch = getGenesisPatch(spec);
@@ -145,16 +147,10 @@ export async function teardown() {
       }
     }
 
-    // Clean up all base paths.
-    for (const nodeInfo of state.nodes) {
-      await rm(nodeInfo.basePath, { recursive: true, force: true });
-    }
   }
 
-  try {
-    await rm(STATE_FILE, { force: true });
-    await rm(CHAIN_SPEC_PATH, { force: true });
-  } catch {}
+  // Clean up the entire suite directory in one shot.
+  await rm("/tmp/subtensor-e2e/shield", { recursive: true, force: true });
 
   log("Teardown complete");
 }
