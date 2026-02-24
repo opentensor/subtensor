@@ -11,7 +11,7 @@ cd e2e
 ./setup_env.sh
 
 # 2. Build the node binary and generate polkadot-api type descriptors.
-#    Does not require pnpm deps — uses `pnpm dlx` for the papi CLI.
+#    Installs polkadot-api globally for the CLI and type resolution.
 #    Re-run this step whenever runtime metadata changes (new pallets,
 #    modified storage/calls, etc.) to keep descriptors in sync.
 ./bootstrap_types.sh
