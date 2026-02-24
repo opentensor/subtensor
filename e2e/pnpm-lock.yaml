@@ -2149,7 +2149,7 @@ snapshots:
 
   '@types/bn.js@5.2.0':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 25.3.0
 
   '@types/chai@5.2.3':
     dependencies:
@@ -2172,7 +2172,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 24.10.13
+      '@types/node': 25.3.0
 
   '@vitest/expect@4.0.18':
     dependencies:
