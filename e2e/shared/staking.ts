@@ -204,3 +204,46 @@ export async function swapStakeLimit(
   });
   await waitForTransactionWithRetry(api, tx, signer, "swap_stake_limit");
 }
+
+export type RootClaimType = "Swap" | "Keep" | { type: "KeepSubnets"; subnets: number[] };
+
+export async function getRootClaimType(
+  api: TypedApi<typeof devnet>,
+  coldkey: string
+): Promise<RootClaimType> {
+  const result = await api.query.SubtensorModule.RootClaimType.getValue(coldkey);
+  if (result.type === "KeepSubnets") {
+    return { type: "KeepSubnets", subnets: result.value.subnets as number[] };
+  }
+  return result.type as "Swap" | "Keep";
+}
+
+export async function setRootClaimType(
+  api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  claimType: RootClaimType
+): Promise<void> {
+  const signer = getSignerFromKeypair(coldkey);
+  let newRootClaimType;
+  if (typeof claimType === "string") {
+    newRootClaimType = { type: claimType, value: undefined };
+  } else {
+    newRootClaimType = { type: "KeepSubnets", value: { subnets: claimType.subnets } };
+  }
+  const tx = api.tx.SubtensorModule.set_root_claim_type({
+    new_root_claim_type: newRootClaimType,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "set_root_claim_type");
+}
+
+export async function claimRoot(
+  api: TypedApi<typeof devnet>,
+  coldkey: KeyPair,
+  subnets: number[]
+): Promise<void> {
+  const signer = getSignerFromKeypair(coldkey);
+  const tx = api.tx.SubtensorModule.claim_root({
+    subnets: subnets,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "claim_root");
+}
