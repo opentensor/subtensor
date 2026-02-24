@@ -136,41 +136,4 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-    pub(crate) fn do_add_stake_burn(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-        netuid: NetUid,
-        amount: TaoCurrency,
-        limit: Option<TaoCurrency>,
-    ) -> DispatchResult {
-        Self::ensure_subnet_owner(origin.clone(), netuid)?;
-
-        let current_block = Self::get_current_block_as_u64();
-        let last_block = Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid));
-        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
-
-        ensure!(
-            last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
-            Error::<T>::AddStakeBurnRateLimitExceeded
-        );
-
-        let alpha = if let Some(limit) = limit {
-            Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
-        } else {
-            Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?
-        };
-
-        Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
-
-        Self::set_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid), current_block);
-
-        Self::deposit_event(Event::AddStakeBurn {
-            netuid,
-            hotkey,
-            amount,
-            alpha,
-        });
-
-        Ok(())
-    }
 }

@@ -26,8 +26,6 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_crowdloan::Config
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -38,9 +36,7 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     const INDEX: u64 = 2058;
@@ -54,8 +50,6 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_crowdloan::Config
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -66,9 +60,7 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
 {
     #[precompile::public("getLease(uint32)")]

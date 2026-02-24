@@ -138,6 +138,8 @@ mod errors {
         ColdKeyAlreadyAssociated,
         /// The coldkey balance is not enough to pay for the swap
         NotEnoughBalanceToPaySwapColdKey,
+        /// The coldkey is in arbitration
+        ColdkeyIsInArbitration,
         /// Attempting to set an invalid child for a hotkey on a network.
         InvalidChild,
         /// Duplicate child when setting children.
@@ -148,16 +150,10 @@ mod errors {
         TooManyChildren,
         /// Default transaction rate limit exceeded.
         TxRateLimitExceeded,
-        /// Coldkey swap announcement not found
-        ColdkeySwapAnnouncementNotFound,
-        /// Coldkey swap too early.
-        ColdkeySwapTooEarly,
-        /// Coldkey swap reannounced too early.
-        ColdkeySwapReannouncedTooEarly,
-        /// The announced coldkey hash does not match the new coldkey hash.
-        AnnouncedColdkeyHashDoesNotMatch,
-        /// Coldkey swap already disputed
-        ColdkeySwapAlreadyDisputed,
+        /// Swap already scheduled.
+        SwapAlreadyScheduled,
+        /// failed to swap coldkey
+        FailedToSchedule,
         /// New coldkey is hotkey
         NewColdKeyIsHotkey,
         /// Childkey take is invalid.
@@ -270,17 +266,7 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
-        /// The maximum allowed UIDs times mechanism count should not exceed 256.
-        TooManyUIDsPerMechanism,
-        /// Voting power tracking is not enabled for this subnet.
-        VotingPowerTrackingNotEnabled,
-        /// Invalid voting power EMA alpha value (must be <= 10^18).
-        InvalidVotingPowerEmaAlpha,
         /// Unintended precision loss when unstaking alpha
         PrecisionLoss,
-        /// Deprecated call.
-        Deprecated,
-        /// "Add stake and burn" exceeded the operation rate limit
-        AddStakeBurnRateLimitExceeded,
     }
 }

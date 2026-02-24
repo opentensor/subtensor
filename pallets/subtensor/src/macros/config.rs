@@ -8,7 +8,6 @@ mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
-    use subtensor_runtime_common::AuthorshipInfo;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -59,9 +58,6 @@ mod config {
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;
-
-        /// Provider of current block author
-        type AuthorshipProvider: AuthorshipInfo<Self::AccountId>;
 
         /// =================================
         /// ==== Initial Value Constants ====
@@ -218,14 +214,16 @@ mod config {
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
         /// A flag to indicate if Yuma3 is enabled.
-        #[pallet::constant]
         type Yuma3On: Get<bool>;
-        /// Coldkey swap announcement delay.
+        // /// Initial hotkey emission tempo.
+        // #[pallet::constant]
+        // type InitialHotkeyEmissionTempo: Get<u64>;
+        /// Coldkey swap schedule duartion.
         #[pallet::constant]
-        type InitialColdkeySwapAnnouncementDelay: Get<BlockNumberFor<Self>>;
-        /// Coldkey swap reannouncement delay.
+        type InitialColdkeySwapScheduleDuration: Get<BlockNumberFor<Self>>;
+        /// Coldkey swap reschedule duration.
         #[pallet::constant]
-        type InitialColdkeySwapReannouncementDelay: Get<BlockNumberFor<Self>>;
+        type InitialColdkeySwapRescheduleDuration: Get<BlockNumberFor<Self>>;
         /// Dissolve network schedule duration
         #[pallet::constant]
         type InitialDissolveNetworkScheduleDuration: Get<BlockNumberFor<Self>>;

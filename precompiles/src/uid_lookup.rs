@@ -8,7 +8,7 @@ use sp_std::vec::Vec;
 
 use crate::PrecompileExt;
 
-pub struct UidLookupPrecompile<R>(PhantomData<R>);
+pub(crate) struct UidLookupPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for UidLookupPrecompile<R>
 where

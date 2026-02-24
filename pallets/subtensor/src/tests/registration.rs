@@ -13,7 +13,7 @@ use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, Net
 
 use super::mock;
 use super::mock::*;
-use crate::extensions::SubtensorTransactionExtension;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::{AxonInfoOf, CustomTransactionError, Error};
 
 /********************************************

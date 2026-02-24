@@ -30,8 +30,6 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -43,9 +41,7 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
@@ -60,8 +56,6 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -73,9 +67,7 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
     #[precompile::public("createPureProxy(uint8,uint32,uint16)")]
