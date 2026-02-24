@@ -1,7 +1,7 @@
 import { devnet } from "@polkadot-api/descriptors";
 import { TypedApi } from "polkadot-api";
 import { KeyPair } from "@polkadot-labs/hdkd-helpers";
-import { getSignerFromKeypair } from "./address.js";
+import { getSignerFromKeypair, getAliceSigner } from "./address.js";
 import { waitForTransactionWithRetry } from "./transactions.js";
 
 export async function addStake(
@@ -246,4 +246,228 @@ export async function claimRoot(
     subnets: subnets,
   });
   await waitForTransactionWithRetry(api, tx, signer, "claim_root");
+}
+
+export async function getNumRootClaims(
+  api: TypedApi<typeof devnet>
+): Promise<bigint> {
+  return await api.query.SubtensorModule.NumRootClaim.getValue();
+}
+
+export async function sudoSetNumRootClaims(
+  api: TypedApi<typeof devnet>,
+  newValue: bigint
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.SubtensorModule.sudo_set_num_root_claims({
+    new_value: newValue,
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_num_root_claims");
+}
+
+export async function getRootClaimThreshold(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<bigint> {
+  return await api.query.SubtensorModule.RootClaimableThreshold.getValue(netuid);
+}
+
+export async function sudoSetRootClaimThreshold(
+  api: TypedApi<typeof devnet>,
+  netuid: number,
+  newValue: bigint
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.SubtensorModule.sudo_set_root_claim_threshold({
+    netuid: netuid,
+    new_value: newValue,
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_root_claim_threshold");
+}
+
+export async function getTempo(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<number> {
+  return await api.query.SubtensorModule.Tempo.getValue(netuid);
+}
+
+export async function sudoSetTempo(
+  api: TypedApi<typeof devnet>,
+  netuid: number,
+  tempo: number
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.AdminUtils.sudo_set_tempo({
+    netuid: netuid,
+    tempo: tempo,
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_tempo");
+}
+
+export async function waitForBlocks(
+  api: TypedApi<typeof devnet>,
+  numBlocks: number
+): Promise<void> {
+  const startBlock = await api.query.System.Number.getValue();
+  const targetBlock = startBlock + numBlocks;
+
+  while (true) {
+    const currentBlock = await api.query.System.Number.getValue();
+    if (currentBlock >= targetBlock) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
+export async function getRootClaimable(
+  api: TypedApi<typeof devnet>,
+  hotkey: string
+): Promise<Map<number, bigint>> {
+  const result = await api.query.SubtensorModule.RootClaimable.getValue(hotkey);
+  const claimableMap = new Map<number, bigint>();
+  for (const [netuid, amount] of result) {
+    claimableMap.set(netuid, amount);
+  }
+  return claimableMap;
+}
+
+export async function getRootClaimed(
+  api: TypedApi<typeof devnet>,
+  netuid: number,
+  hotkey: string,
+  coldkey: string
+): Promise<bigint> {
+  return await api.query.SubtensorModule.RootClaimed.getValue(netuid, hotkey, coldkey);
+}
+
+export async function isSubtokenEnabled(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<boolean> {
+  return await api.query.SubtensorModule.SubtokenEnabled.getValue(netuid);
+}
+
+export async function sudoSetSubtokenEnabled(
+  api: TypedApi<typeof devnet>,
+  netuid: number,
+  enabled: boolean
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.AdminUtils.sudo_set_subtoken_enabled({
+    netuid: netuid,
+    subtoken_enabled: enabled,
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subtoken_enabled");
+}
+
+export async function isNetworkAdded(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<boolean> {
+  return await api.query.SubtensorModule.NetworksAdded.getValue(netuid);
+}
+
+export async function getAdminFreezeWindow(
+  api: TypedApi<typeof devnet>
+): Promise<number> {
+  return await api.query.SubtensorModule.AdminFreezeWindow.getValue();
+}
+
+export async function sudoSetAdminFreezeWindow(
+  api: TypedApi<typeof devnet>,
+  window: number
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.AdminUtils.sudo_set_admin_freeze_window({
+    window: window,
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_admin_freeze_window");
+}
+
+export async function sudoSetEmaPriceHalvingPeriod(
+  api: TypedApi<typeof devnet>,
+  netuid: number,
+  emaPriceHalvingPeriod: number
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.AdminUtils.sudo_set_ema_price_halving_period({
+    netuid: netuid,
+    ema_halving: BigInt(emaPriceHalvingPeriod),
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_ema_price_halving_period");
+}
+
+export async function sudoSetLockReductionInterval(
+  api: TypedApi<typeof devnet>,
+  interval: number
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.AdminUtils.sudo_set_lock_reduction_interval({
+    interval: BigInt(interval),
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_lock_reduction_interval");
+}
+
+export async function sudoSetSubnetMovingAlpha(
+  api: TypedApi<typeof devnet>,
+  alpha: bigint
+): Promise<void> {
+  const alice = getAliceSigner();
+  const internalCall = api.tx.AdminUtils.sudo_set_subnet_moving_alpha({
+    alpha: alpha,
+  });
+  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subnet_moving_alpha");
+}
+
+// Debug helpers for claim_root investigation
+export async function getSubnetTAO(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<bigint> {
+  return await api.query.SubtensorModule.SubnetTAO.getValue(netuid);
+}
+
+export async function getSubnetMovingPrice(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<bigint> {
+  return await api.query.SubtensorModule.SubnetMovingPrice.getValue(netuid);
+}
+
+export async function getPendingRootAlphaDivs(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<bigint> {
+  return await api.query.SubtensorModule.PendingRootAlphaDivs.getValue(netuid);
+}
+
+export async function getTaoWeight(
+  api: TypedApi<typeof devnet>
+): Promise<bigint> {
+  return await api.query.SubtensorModule.TaoWeight.getValue();
+}
+
+export async function getSubnetAlphaIn(
+  api: TypedApi<typeof devnet>,
+  netuid: number
+): Promise<bigint> {
+  return await api.query.SubtensorModule.SubnetAlphaIn.getValue(netuid);
+}
+
+export async function getTotalHotkeyAlpha(
+  api: TypedApi<typeof devnet>,
+  hotkey: string,
+  netuid: number
+): Promise<bigint> {
+  return await api.query.SubtensorModule.TotalHotkeyAlpha.getValue(hotkey, netuid);
 }
