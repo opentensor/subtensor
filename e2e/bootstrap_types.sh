@@ -4,13 +4,19 @@
 # Does not require pnpm dependencies — uses `pnpm dlx` for the papi CLI.
 # Run this whenever the runtime changes to keep descriptors in sync.
 #
+# Usage:
+#   ./bootstrap_types.sh              # build + generate types
+#   ./bootstrap_types.sh --skip-build # generate types only (binary must exist)
+#
 set -e
 
 BINARY="../target/release/node-subtensor"
 NODE_LOG="/tmp/e2e-bootstrap-node.log"
 
-echo "==> Building node-subtensor..."
-pnpm build-node
+if [ "$1" != "--skip-build" ]; then
+  echo "==> Building node-subtensor..."
+  pnpm build-node
+fi
 
 echo "==> Starting dev node (logs at $NODE_LOG)..."
 "$BINARY" --one --dev &>"$NODE_LOG" &

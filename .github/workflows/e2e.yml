@@ -15,10 +15,17 @@ permissions:
   contents: read
 
 jobs:
-  # Build the node binary once and share it across test jobs.
+  # Build the node binary in both profiles and share as artifacts.
   build:
     runs-on: [self-hosted, type-ccx33]
     timeout-minutes: 60
+    strategy:
+      matrix:
+        include:
+          - profile: release
+            output_dir: release
+          - profile: dev
+            output_dir: debug
     env:
       RUST_BACKTRACE: full
     steps:
@@ -40,17 +47,17 @@ jobs:
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: e2e
+          key: e2e-${{ matrix.profile }}
           cache-on-failure: true
 
-      - name: Build node-subtensor
-        run: cargo build --release -p node-subtensor
+      - name: Build node-subtensor (${{ matrix.profile }})
+        run: cargo build --profile ${{ matrix.profile }} -p node-subtensor
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: node-subtensor
-          path: target/release/node-subtensor
+          name: node-subtensor-${{ matrix.output_dir }}
+          path: target/${{ matrix.output_dir }}/node-subtensor
           if-no-files-found: error
 
   # Discover e2e packages that have a "test" script.
@@ -97,24 +104,34 @@ jobs:
       - name: Check-out repository
         uses: actions/checkout@v4
 
-      - name: Download node-subtensor binary
+      - name: Download release binary
         uses: actions/download-artifact@v4
         with:
-          name: node-subtensor
+          name: node-subtensor-release
           path: target/release
 
-      - name: Make binary executable
-        run: chmod +x target/release/node-subtensor
+      - name: Download debug binary
+        uses: actions/download-artifact@v4
+        with:
+          name: node-subtensor-debug
+          path: target/debug
+
+      - name: Make binaries executable
+        run: chmod +x target/release/node-subtensor target/debug/node-subtensor
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version-file: e2e/.nvmrc
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
+      - name: Bootstrap papi types
+        working-directory: e2e
+        run: ./bootstrap_types.sh --skip-build
 
       - name: Install e2e dependencies
         working-directory: e2e
