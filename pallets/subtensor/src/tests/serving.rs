@@ -2,7 +2,7 @@
 use super::mock::*;
 
 use crate::Error;
-use crate::extensions::SubtensorTransactionExtension;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
 use frame_support::assert_noop;
 use frame_support::{

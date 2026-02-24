@@ -2,13 +2,12 @@ import * as assert from "assert";
 
 import { getAliceSigner, getDevnetApi, getRandomSubstrateKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet } from "@polkadot-api/descriptors"
-import { Binary, FixedSizeBinary, TypedApi, getTypedCodecs } from "polkadot-api";
+import { Binary, TypedApi, getTypedCodecs } from "polkadot-api";
 import { convertH160ToSS58, convertPublicKeyToSs58 } from "../src/address-utils"
 import { generateRandomEthersWallet } from "../src/utils";
 import { ISubnetABI, ISUBNET_ADDRESS } from "../src/contracts/subnet"
 import { ethers } from "ethers"
 import { disableAdminFreezeWindowAndOwnerHyperparamRateLimit, forceSetBalanceToEthAddress, forceSetBalanceToSs58Address } from "../src/subtensor"
-import { blake2AsU8a } from "@polkadot/util-crypto"
 
 describe("Test the Subnet precompile contract", () => {
     // init eth part
@@ -553,16 +552,16 @@ describe("Test the Subnet precompile contract", () => {
         const netuid = totalNetwork - 1;
 
         const coldkeySs58 = convertH160ToSS58(wallet.address)
-        const newColdkeyHash = FixedSizeBinary.fromBytes(blake2AsU8a(hotkey1.publicKey))
+        const newColdkeySs58 = convertPublicKeyToSs58(hotkey1.publicKey)
         const currentBlock = await api.query.System.Number.getValue()
         const executionBlock = currentBlock + 10
 
         const codec = await getTypedCodecs(devnet);
-        const valueBytes = codec.query.SubtensorModule.ColdkeySwapAnnouncements.value.enc([
+        const valueBytes = codec.query.SubtensorModule.ColdkeySwapScheduled.value.enc([
             executionBlock,
-            newColdkeyHash
+            newColdkeySs58,
         ])
-        const key = await api.query.SubtensorModule.ColdkeySwapAnnouncements.getKey(coldkeySs58);
+        const key = await api.query.SubtensorModule.ColdkeySwapScheduled.getKey(coldkeySs58);
 
         // Use sudo + set_storage since the swap-scheduled check only exists in the tx extension.
         const setStorageCall = api.tx.System.set_storage({
@@ -571,9 +570,8 @@ describe("Test the Subnet precompile contract", () => {
         const sudoTx = api.tx.Sudo.sudo({ call: setStorageCall.decodedCall })
         await waitForTransactionWithRetry(api, sudoTx, getAliceSigner())
 
-        const storedValue = await api.query.SubtensorModule.ColdkeySwapAnnouncements.getValue(coldkeySs58)
-        assert.equal(storedValue?.[0], executionBlock)
-        assert.equal(storedValue?.[1].asHex(), newColdkeyHash.asHex())
+        const storedValue = await api.query.SubtensorModule.ColdkeySwapScheduled.getValue(coldkeySs58)
+        assert.deepStrictEqual(storedValue, [executionBlock, newColdkeySs58])
 
         await assert.rejects(async () => {
             const tx = await contract.setServingRateLimit(netuid, 100);

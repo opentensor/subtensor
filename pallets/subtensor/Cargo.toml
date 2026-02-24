@@ -55,15 +55,11 @@ sha2.workspace = true
 rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
-pallet-shield.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
 pallet-subtensor-proxy.workspace = true
-pallet-aura.workspace = true
-pallet-timestamp.workspace = true
-sp-consensus-aura.workspace = true
 subtensor-runtime-common.workspace = true
 pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
@@ -91,10 +87,7 @@ try-runtime = [
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
 	"pallet-subtensor-proxy/try-runtime",
-	"pallet-subtensor-utility/try-runtime",
-	"pallet-shield/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-aura/try-runtime",
+	"pallet-subtensor-utility/try-runtime"
 ]
 default = ["std"]
 std = [
@@ -122,10 +115,6 @@ std = [
 	"pallet-drand/std",
 	"pallet-subtensor-proxy/std",
 	"pallet-subtensor-swap/std",
-	"pallet-shield/std",
-	"pallet-timestamp/std",
-	"pallet-aura/std",
-	"sp-consensus-aura/std",
 	"subtensor-swap-interface/std",
 	"pallet-subtensor-utility/std",
 	"safe-math/std",
@@ -158,9 +147,7 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-subtensor-proxy/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks",
-	"pallet-shield/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
+	"pallet-subtensor-utility/runtime-benchmarks"
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]

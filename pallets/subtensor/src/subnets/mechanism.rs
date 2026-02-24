@@ -95,20 +95,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn ensure_max_uids_over_all_mechanisms(
-        max_uids: u16,
-        mechanism_count: MechId,
-    ) -> DispatchResult {
-        let max_uids_over_all_mechanisms =
-            max_uids.saturating_mul(u8::from(mechanism_count) as u16);
-        ensure!(
-            max_uids_over_all_mechanisms <= DefaultMaxAllowedUids::<T>::get(),
-            Error::<T>::TooManyUIDsPerMechanism
-        );
-        Ok(())
-    }
-
-    /// Set the desired value of mechanism count for a subnet identified
+    /// Set the desired valus of sub-subnet count for a subnet identified
     /// by netuid
     pub fn do_set_mechanism_count(netuid: NetUid, mechanism_count: MechId) -> DispatchResult {
         // Make sure the subnet exists
@@ -126,10 +113,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidValue
         );
 
-        // Prevent chain bloat: Require max UIDs to be limited
-        let max_uids = MaxAllowedUids::<T>::get(netuid);
-        Self::ensure_max_uids_over_all_mechanisms(max_uids, mechanism_count)?;
-
         // Make sure we are not allowing numbers that will break the math
         ensure!(
             mechanism_count <= MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET),
@@ -137,22 +120,6 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::update_mechanism_counts_if_needed(netuid, mechanism_count);
-
-        Ok(())
-    }
-
-    /// Set the global maximum number of mechanisms per subnet
-    pub fn do_set_max_mechanism_count(max_mechanism_count: MechId) -> DispatchResult {
-        // Max count cannot be zero
-        ensure!(max_mechanism_count > 0.into(), Error::<T>::InvalidValue);
-
-        // Make sure we are not allowing numbers that will break the math
-        ensure!(
-            max_mechanism_count <= MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET),
-            Error::<T>::InvalidValue
-        );
-
-        MaxMechanismCount::<T>::set(max_mechanism_count);
 
         Ok(())
     }
@@ -355,7 +322,6 @@ impl<T: Config> Pallet<T> {
                                 sub_weight,
                             );
                             acc_terms.new_validator_permit |= terms.new_validator_permit;
-                            acc_terms.stake = acc_terms.stake.saturating_add(terms.stake);
                         })
                         .or_insert_with(|| {
                             // weighted insert for the first sub-subnet seen for this hotkey
@@ -383,8 +349,7 @@ impl<T: Config> Pallet<T> {
                                     sub_weight,
                                 ),
                                 new_validator_permit: terms.new_validator_permit,
-                                bond: Vec::new(), // aggregated map doesn't use bonds; keep empty
-                                stake: terms.stake,
+                                bond: Vec::new(), // aggregated map doesn’t use bonds; keep empty
                             }
                         });
                     acc
@@ -392,9 +357,6 @@ impl<T: Config> Pallet<T> {
 
         // State updates from epoch function
         Self::persist_netuid_epoch_terms(netuid, &aggregated);
-
-        // Update voting power EMA for all validators on this subnet
-        Self::update_voting_power_for_subnet(netuid, &aggregated);
 
         // Remap BTreeMap back to Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> format
         // for processing emissions in run_coinbase

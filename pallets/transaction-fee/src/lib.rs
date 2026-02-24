@@ -30,8 +30,8 @@ use subtensor_swap_interface::SwapHandler;
 use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AuthorshipInfo, Balance, NetUid};
+use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::{Balance, Currency, NetUid};
 
 // Tests
 #[cfg(test)]
@@ -47,7 +47,7 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000), // 0.5 unit per weight
+            coeff_frac: Perbill::from_parts(50_000), // 0.05 unit per weight
             negative: false,
             degree: 1,
         };
@@ -95,7 +95,6 @@ where
     T: frame_system::Config,
     T: pallet_subtensor::Config,
     T: pallet_balances::Config<Balance = u64>,
-    T: AuthorshipInfo<AccountIdOf<T>>,
 {
     fn on_nonzero_unbalanced(
         imbalance: FungibleImbalance<
@@ -104,18 +103,11 @@ where
             IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
         >,
     ) {
-        if let Some(author) = T::author() {
-            // Pay block author instead of burning.
-            // One of these is the right call depending on your exact fungible API:
-            // let _ = pallet_balances::Pallet::<T>::resolve(&author, imbalance);
-            // or: let _ = pallet_balances::Pallet::<T>::deposit(&author, imbalance.peek(), Precision::BestEffort);
-            //
-            // Prefer "resolve" (moves the actual imbalance) if available:
-            let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, imbalance);
-        } else {
-            // Fallback: if no author, burn (or just drop).
-            drop(imbalance);
-        }
+        let ti_before = pallet_subtensor::TotalIssuance::<T>::get();
+        pallet_subtensor::TotalIssuance::<T>::put(
+            ti_before.saturating_sub(imbalance.peek().into()),
+        );
+        drop(imbalance);
     }
 }
 
@@ -153,7 +145,7 @@ where
         // This is not ideal because it may not pay all fees, but UX is the priority
         // and this approach still provides spam protection.
         alpha_vec.iter().any(|(hotkey, netuid)| {
-            let alpha_balance = U64F64::saturating_from_num(
+            let alpha_balance = U96F32::saturating_from_num(
                 pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
                 ),
@@ -176,13 +168,13 @@ where
 
         alpha_vec.iter().for_each(|(hotkey, netuid)| {
             // Divide tao_amount evenly among all alpha entries
-            let alpha_balance = U64F64::saturating_from_num(
+            let alpha_balance = U96F32::saturating_from_num(
                 pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     hotkey, coldkey, *netuid,
                 ),
             );
             let alpha_price = pallet_subtensor_swap::Pallet::<T>::current_alpha_price(*netuid);
-            let alpha_fee = U64F64::saturating_from_num(tao_per_entry)
+            let alpha_fee = U96F32::saturating_from_num(tao_per_entry)
                 .checked_div(alpha_price)
                 .unwrap_or(alpha_balance)
                 .min(alpha_balance)

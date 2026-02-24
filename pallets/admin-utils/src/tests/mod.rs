@@ -10,10 +10,7 @@ use pallet_subtensor::{
     TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit, *,
 };
 // use pallet_subtensor::{migrations, Event};
-use pallet_subtensor::{
-    Event, subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET,
-    utils::rate_limiting::TransactionType,
-};
+use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
@@ -542,20 +539,6 @@ fn test_sudo_set_max_allowed_uids() {
             ),
             Error::<Test>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
         );
-
-        // Trying to set max allowed uids that would cause max_allowed_uids * mechanism_count > 256
-        MaxAllowedUids::<Test>::insert(netuid, 8);
-        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(32));
-        let large_max_uids = 16;
-        assert_noop!(
-            AdminUtils::sudo_set_max_allowed_uids(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid,
-                large_max_uids
-            ),
-            SubtensorError::<Test>::TooManyUIDsPerMechanism
-        );
-        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(1));
 
         // Normal case
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
@@ -1399,74 +1382,39 @@ fn test_sudo_get_set_alpha() {
 }
 
 #[test]
-fn test_sudo_set_coldkey_swap_announcement_delay() {
+fn test_sudo_set_coldkey_swap_schedule_duration() {
     new_test_ext().execute_with(|| {
         // Arrange
         let root = RuntimeOrigin::root();
         let non_root = RuntimeOrigin::signed(U256::from(1));
-        let new_delay = 100u32.into();
+        let new_duration = 100u32.into();
 
         // Act & Assert: Non-root account should fail
         assert_noop!(
-            AdminUtils::sudo_set_coldkey_swap_announcement_delay(non_root, new_delay),
+            AdminUtils::sudo_set_coldkey_swap_schedule_duration(non_root, new_duration),
             DispatchError::BadOrigin
         );
 
         // Act: Root account should succeed
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
             root.clone(),
-            new_delay
+            new_duration
         ));
 
-        // Assert: Check if the delay was actually set
+        // Assert: Check if the duration was actually set
         assert_eq!(
-            pallet_subtensor::ColdkeySwapAnnouncementDelay::<Test>::get(),
-            new_delay
+            pallet_subtensor::ColdkeySwapScheduleDuration::<Test>::get(),
+            new_duration
         );
 
         // Act & Assert: Setting the same value again should succeed (idempotent operation)
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
-            root, new_delay
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
+            root,
+            new_duration
         ));
 
         // You might want to check for events here if your pallet emits them
-        System::assert_last_event(Event::ColdkeySwapAnnouncementDelaySet(new_delay).into());
-    });
-}
-
-#[test]
-fn test_sudo_set_coldkey_swap_reannouncement_delay() {
-    new_test_ext().execute_with(|| {
-        // Arrange
-        let root = RuntimeOrigin::root();
-        let non_root = RuntimeOrigin::signed(U256::from(1));
-        let new_delay = 100u32.into();
-
-        // Act & Assert: Non-root account should fail
-        assert_noop!(
-            AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(non_root, new_delay),
-            DispatchError::BadOrigin
-        );
-
-        // Act: Root account should succeed
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(
-            root.clone(),
-            new_delay
-        ));
-
-        // Assert: Check if the delay was actually set
-        assert_eq!(
-            pallet_subtensor::ColdkeySwapReannouncementDelay::<Test>::get(),
-            new_delay
-        );
-
-        // Act & Assert: Setting the same value again should succeed (idempotent operation)
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(
-            root, new_delay
-        ));
-
-        // You might want to check for events here if your pallet emits them
-        System::assert_last_event(Event::ColdkeySwapReannouncementDelaySet(new_delay).into());
+        System::assert_last_event(Event::ColdkeySwapScheduleDurationSet(new_duration).into());
     });
 }
 
@@ -2393,7 +2341,6 @@ fn test_sudo_set_mechanism_count() {
         add_network(netuid, 10);
         // Set the Subnet Owner
         SubnetOwner::<Test>::insert(netuid, sn_owner);
-        MaxAllowedUids::<Test>::insert(netuid, 256_u16);
 
         assert_eq!(
             AdminUtils::sudo_set_mechanism_count(
@@ -2407,13 +2354,7 @@ fn test_sudo_set_mechanism_count() {
             AdminUtils::sudo_set_mechanism_count(RuntimeOrigin::root(), netuid, ss_count_bad),
             pallet_subtensor::Error::<Test>::InvalidValue
         );
-        assert_noop!(
-            AdminUtils::sudo_set_mechanism_count(RuntimeOrigin::root(), netuid, ss_count_ok),
-            pallet_subtensor::Error::<Test>::TooManyUIDsPerMechanism
-        );
 
-        // Reduce max UIDs to 128
-        MaxAllowedUids::<Test>::insert(netuid, 128_u16);
         assert_ok!(AdminUtils::sudo_set_mechanism_count(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -2439,8 +2380,6 @@ fn test_sudo_set_mechanism_count_and_emissions() {
         add_network(netuid, 10);
         // Set the Subnet Owner
         SubnetOwner::<Test>::insert(netuid, sn_owner);
-        MaxMechanismCount::<Test>::set(MechId::from(2));
-        MaxAllowedUids::<Test>::set(netuid, 128_u16);
 
         assert_ok!(AdminUtils::sudo_set_mechanism_count(
             <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
@@ -2925,35 +2864,6 @@ fn test_sudo_set_min_allowed_uids() {
                 SubtensorModule::get_subnetwork_n(netuid) + 1
             ),
             Error::<Test>::MinAllowedUidsGreaterThanCurrentUids
-        );
-    });
-}
-
-#[test]
-fn test_sudo_set_max_mechanism_count() {
-    new_test_ext().execute_with(|| {
-        // Normal case
-        assert_ok!(AdminUtils::sudo_set_max_mechanism_count(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            MechId::from(10)
-        ));
-
-        // Zero fails
-        assert_noop!(
-            AdminUtils::sudo_set_max_mechanism_count(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                MechId::from(0)
-            ),
-            pallet_subtensor::Error::<Test>::InvalidValue
-        );
-
-        // Over max bound fails
-        assert_noop!(
-            AdminUtils::sudo_set_max_mechanism_count(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET + 1)
-            ),
-            pallet_subtensor::Error::<Test>::InvalidValue
         );
     });
 }

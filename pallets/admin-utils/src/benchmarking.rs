@@ -263,7 +263,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 256u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 2048u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
     }
 
     #[benchmark]
@@ -480,13 +480,7 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_coldkey_swap_announcement_delay() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, 100u32.into());
-    }
-
-    #[benchmark]
-    fn sudo_set_coldkey_swap_reannouncement_delay() {
+    fn sudo_set_coldkey_swap_schedule_duration() {
         #[extrinsic_call]
         _(RawOrigin::Root, 100u32.into());
     }
