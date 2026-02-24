@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build-node": "cargo build --manifest-path ../Cargo.toml --profile release -p node-subtensor",
-    "generate-types": "papi add subtensor --wsUrl ws://localhost:9944 --skip-codegen && papi",
+    "generate-types": "pnpm dlx polkadot-api add subtensor --wsUrl ws://localhost:9944 --skip-codegen && pnpm dlx polkadot-api",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
