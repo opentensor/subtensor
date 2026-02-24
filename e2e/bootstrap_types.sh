@@ -1,20 +1,24 @@
 #!/bin/bash
+#
+# Build the node binary and (re)generate polkadot-api type descriptors.
+# Does not require pnpm dependencies — uses `pnpm dlx` for the papi CLI.
+# Run this whenever the runtime changes to keep descriptors in sync.
+#
 set -e
 
-MANIFEST="../Cargo.toml"
 BINARY="../target/release/node-subtensor"
+NODE_LOG="/tmp/e2e-bootstrap-node.log"
 
 echo "==> Building node-subtensor..."
 pnpm build-node
 
-echo "==> Starting dev node..."
-"$BINARY" --one --dev 2>&1 &
+echo "==> Starting dev node (logs at $NODE_LOG)..."
+"$BINARY" --one --dev &>"$NODE_LOG" &
 NODE_PID=$!
 trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null" EXIT
 
 TIMEOUT=60
 ELAPSED=0
-
 echo "==> Waiting for node to be ready (timeout: ${TIMEOUT}s)..."
 until curl -sf -o /dev/null \
   -H "Content-Type: application/json" \
@@ -23,7 +27,7 @@ until curl -sf -o /dev/null \
   sleep 1
   ELAPSED=$((ELAPSED + 1))
   if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
-    echo "==> ERROR: Node failed to start within ${TIMEOUT}s"
+    echo "ERROR: Node failed to start within ${TIMEOUT}s. Check $NODE_LOG"
     exit 1
   fi
 done
