@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Build the node binary and (re)generate polkadot-api type descriptors.
-# Does not require pnpm dependencies — uses `pnpm dlx` for the papi CLI.
+# Installs polkadot-api globally for the CLI and type resolution.
 # Run this whenever the runtime changes to keep descriptors in sync.
 #
 # Usage:
@@ -37,6 +37,9 @@ until curl -sf -o /dev/null \
     exit 1
   fi
 done
+
+echo "==> Installing polkadot-api globally..."
+pnpm add -g polkadot-api
 
 echo "==> Generating papi types..."
 pnpm generate-types
