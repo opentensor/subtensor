@@ -239,12 +239,14 @@ impl<T: Config> Pallet<T> {
 
         log::trace!("Delta out: {}", swap_result.delta_out);
         log::trace!("Fees: {}", swap_result.fee_paid);
+        log::trace!("Fees for block author: {}", swap_result.fee_to_block_author);
         log::trace!("======== End Swap ========");
 
         Ok(SwapResult {
             amount_paid_in: swap_result.delta_in,
             amount_paid_out: swap_result.delta_out,
             fee_paid: swap_result.fee_paid,
+            fee_to_block_author: swap_result.fee_to_block_author,
         })
     }
 
@@ -408,6 +410,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
                     amount_paid_in: actual_amount,
                     amount_paid_out: actual_amount.to_u64().into(),
                     fee_paid: 0.into(),
+                    fee_to_block_author: 0.into(),
                 })
             }
         }

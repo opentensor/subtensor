@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
-pub use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+pub use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 use crate::SubtensorTxFeeHandler;
@@ -29,10 +29,7 @@ use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 
 pub const TAO: u64 = 1_000_000_000;
 
-pub type Block = sp_runtime::generic::Block<
-    sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
-    UncheckedExtrinsic,
->;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -137,6 +134,22 @@ impl pallet_transaction_payment::Config for Test {
     type LengthToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
     type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Test>;
+}
+
+pub struct MockAuthorshipProvider;
+
+pub const MOCK_BLOCK_BUILDER: u64 = 12345u64;
+
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(MOCK_BLOCK_BUILDER))
+    }
+}
+
+impl AuthorshipInfo<U256> for Test {
+    fn author() -> Option<U256> {
+        Some(U256::from(MOCK_BLOCK_BUILDER))
+    }
 }
 
 parameter_types! {
@@ -287,6 +300,7 @@ impl pallet_subtensor::Config for Test {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 parameter_types! {
@@ -519,7 +533,12 @@ where
             pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0),
         );
 
-        Some(UncheckedExtrinsic::new_signed(call, nonce, (), extra))
+        Some(UncheckedExtrinsic::new_signed(
+            call,
+            nonce.into(),
+            (),
+            extra,
+        ))
     }
 }
 
@@ -624,6 +643,38 @@ pub(crate) fn swap_alpha_to_tao_ext(
 
 pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (u64, u64) {
     swap_alpha_to_tao_ext(netuid, alpha, false)
+}
+
+pub(crate) fn swap_tao_to_alpha_ext(
+    netuid: NetUid,
+    tao: TaoCurrency,
+    drop_fees: bool,
+) -> (u64, u64) {
+    if netuid.is_root() {
+        return (tao.into(), 0);
+    }
+
+    let order = GetAlphaForTao::<Test>::with_amount(tao);
+    let result = <Test as pallet::Config>::SwapInterface::swap(
+        netuid.into(),
+        order,
+        <Test as pallet::Config>::SwapInterface::max_price(),
+        drop_fees,
+        true,
+    );
+
+    assert_ok!(&result);
+
+    let result = result.unwrap();
+
+    // we don't want to have silent 0 comparisons in tests
+    assert!(!result.amount_paid_out.is_zero());
+
+    (result.amount_paid_out.to_u64(), result.fee_paid.to_u64())
+}
+
+pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (u64, u64) {
+    swap_tao_to_alpha_ext(netuid, tao, false)
 }
 
 #[allow(dead_code)]

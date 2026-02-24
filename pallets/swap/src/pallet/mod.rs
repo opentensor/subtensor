@@ -2,7 +2,7 @@ use core::num::NonZeroU64;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
-// use safe_math::SafeDiv;
+use sp_arithmetic::Perbill;
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
@@ -73,6 +73,13 @@ mod pallet {
     #[pallet::type_value]
     pub fn DefaultFeeRate() -> u16 {
         33 // ~0.05 %
+    }
+
+    /// Fee split between pool and block builder.
+    /// Pool receives the portion returned by this function
+    #[pallet::type_value]
+    pub fn DefaultFeeSplit() -> Perbill {
+        Perbill::zero()
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX

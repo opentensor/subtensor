@@ -186,7 +186,7 @@ fn extension_error(err: TransactionValidityError) -> PrecompileFailure {
 
 impl<T> PrecompileHandleExt for T where T: PrecompileHandle {}
 
-pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
+pub trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
     const INDEX: u64;
 
     // ss58 public key i.e., the contract sends funds it received to the destination address from

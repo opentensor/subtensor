@@ -3,7 +3,7 @@ use safe_math::*;
 use share_pool::{SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, Currency, NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
 impl<T: Config> Pallet<T> {
@@ -590,6 +590,7 @@ impl<T: Config> Pallet<T> {
                 amount_paid_in: tao,
                 amount_paid_out: tao.to_u64().into(),
                 fee_paid: TaoCurrency::ZERO,
+                fee_to_block_author: TaoCurrency::ZERO,
             }
         };
 
@@ -643,19 +644,17 @@ impl<T: Config> Pallet<T> {
                 amount_paid_in: alpha,
                 amount_paid_out: alpha.to_u64().into(),
                 fee_paid: AlphaCurrency::ZERO,
+                fee_to_block_author: AlphaCurrency::ZERO,
             }
         };
 
-        // Increase only the protocol Alpha reserve. We only use the sum of
-        // (SubnetAlphaIn + SubnetAlphaInProvided) in alpha_reserve(), so it is irrelevant
-        // which one to increase.
+        // Increase only the protocol Alpha reserve
         let alpha_delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
         SubnetAlphaIn::<T>::mutate(netuid, |total| {
             *total = total.saturating_add(alpha_delta.into());
         });
 
         // Decrease Alpha outstanding.
-        // TODO: Deprecate, not accurate in v3 anymore
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(alpha_delta.into());
         });
@@ -706,6 +705,26 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
 
+        // Swap (in a fee-less way) the block builder alpha fee
+        let mut fee_outflow = 0_u64;
+        let maybe_block_author_coldkey = T::AuthorshipProvider::author();
+        if let Some(block_author_coldkey) = maybe_block_author_coldkey {
+            let bb_swap_result = Self::swap_alpha_for_tao(
+                netuid,
+                swap_result.fee_to_block_author,
+                T::SwapInterface::min_price::<TaoCurrency>(),
+                true,
+            )?;
+            Self::add_balance_to_coldkey_account(
+                &block_author_coldkey,
+                bb_swap_result.amount_paid_out.into(),
+            );
+            fee_outflow = bb_swap_result.amount_paid_out.into();
+        } else {
+            // block author is not found, burn this alpha
+            Self::burn_subnet_alpha(netuid, swap_result.fee_to_block_author);
+        }
+
         // If this is a root-stake
         if netuid == NetUid::ROOT {
             // Adjust root claimed value for this hotkey and coldkey.
@@ -721,7 +740,12 @@ impl<T: Config> Pallet<T> {
         // }
 
         // Record TAO outflow
-        Self::record_tao_outflow(netuid, swap_result.amount_paid_out.into());
+        Self::record_tao_outflow(
+            netuid,
+            swap_result
+                .amount_paid_out
+                .saturating_add(fee_outflow.into()),
+        );
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
@@ -795,6 +819,21 @@ impl<T: Config> Pallet<T> {
         if !staking_hotkeys.contains(hotkey) {
             staking_hotkeys.push(hotkey.clone());
             StakingHotkeys::<T>::insert(coldkey, staking_hotkeys.clone());
+        }
+
+        // Increase the balance of the block author
+        let maybe_block_author_coldkey = T::AuthorshipProvider::author();
+        if let Some(block_author_coldkey) = maybe_block_author_coldkey {
+            Self::add_balance_to_coldkey_account(
+                &block_author_coldkey,
+                swap_result.fee_to_block_author.into(),
+            );
+        } else {
+            // Block author is not found - burn this TAO
+            // Pallet balances total issuance was taken care of when balance was withdrawn for this swap
+            TotalIssuance::<T>::mutate(|ti| {
+                *ti = ti.saturating_sub(swap_result.fee_to_block_author);
+            });
         }
 
         // Record TAO inflow
