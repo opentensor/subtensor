@@ -24,13 +24,13 @@ const charlie = createSigner("//Charlie");
 
 // Extra nodes join as non-authority full nodes.
 const EXTRA_NODE_CONFIGS = [
-  { name: "four", port: 30336, rpcPort: 9947, basePath: "/tmp/e2e-shield-four" },
-  { name: "five", port: 30337, rpcPort: 9948, basePath: "/tmp/e2e-shield-five" },
-  { name: "six", port: 30338, rpcPort: 9949, basePath: "/tmp/e2e-shield-six" },
+  { name: "four", port: 30336, rpcPort: 9947, basePath: "/tmp/subtensor-e2e/shield/four" },
+  { name: "five", port: 30337, rpcPort: 9948, basePath: "/tmp/subtensor-e2e/shield/five" },
+  { name: "six", port: 30338, rpcPort: 9949, basePath: "/tmp/subtensor-e2e/shield/six" },
 ];
 
 beforeAll(async () => {
-  const data = await readFile("/tmp/e2e-shield-nodes.json", "utf-8");
+  const data = await readFile("/tmp/subtensor-e2e/shield/nodes.json", "utf-8");
   state = JSON.parse(data);
   ({ client, api } = await connectClient(state.nodes[0].rpcPort));
 
@@ -58,7 +58,7 @@ beforeAll(async () => {
   }
 
   // Persist updated state for subsequent test files (edge-cases).
-  await writeFile("/tmp/e2e-shield-nodes.json", JSON.stringify(state, null, 2));
+  await writeFile("/tmp/subtensor-e2e/shield/nodes.json", JSON.stringify(state, null, 2));
 });
 
 afterAll(() => {

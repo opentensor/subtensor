@@ -23,7 +23,7 @@ const bob = createSigner("//Bob");
 const charlie = createSigner("//Charlie");
 
 beforeAll(async () => {
-  const data = await readFile("/tmp/e2e-shield-nodes.json", "utf-8");
+  const data = await readFile("/tmp/subtensor-e2e/shield/nodes.json", "utf-8");
   state = JSON.parse(data);
   ({ client, api } = await connectClient(state.nodes[0].rpcPort));
 
