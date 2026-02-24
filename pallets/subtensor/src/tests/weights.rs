@@ -34,7 +34,7 @@ use w3f_bls::EngineBLS;
 use super::mock;
 use super::mock::*;
 use crate::coinbase::reveal_commits::{LegacyWeightsTlockPayload, WeightsTlockPayload};
-use crate::extensions::SubtensorTransactionExtension;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::*;
 /***************************
   pub fn set_weights() tests

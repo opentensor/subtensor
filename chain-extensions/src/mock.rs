@@ -25,7 +25,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -262,14 +262,6 @@ parameter_types! {
     pub const AnnouncementDepositFactor: Balance = 1;
 }
 
-pub struct MockAuthorshipProvider;
-
-impl AuthorshipInfo<U256> for MockAuthorshipProvider {
-    fn author() -> Option<U256> {
-        Some(U256::from(12345u64))
-    }
-}
-
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
@@ -333,8 +325,9 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    pub const InitialColdkeySwapAnnouncementDelay: u64 =  50;
-    pub const InitialColdkeySwapReannouncementDelay: u64 = 10;
+    // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
+    pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
+    pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // Default as 1 day
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -404,8 +397,8 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
-    type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
-    type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
+    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
+    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
@@ -419,13 +412,13 @@ impl pallet_subtensor::Config for Test {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
-    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(100).unwrap();
 }
@@ -437,6 +430,7 @@ impl pallet_subtensor_swap::Config for Test {
     type TaoReserve = TaoCurrencyReserve<Self>;
     type AlphaReserve = AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();

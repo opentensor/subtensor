@@ -16,7 +16,6 @@ pub enum TransactionType {
     MechanismCountUpdate,
     MechanismEmission,
     MaxUidsTrimming,
-    AddStakeBurn,
 }
 
 impl TransactionType {
@@ -45,7 +44,6 @@ impl TransactionType {
                 (Tempo::<T>::get(netuid) as u64).saturating_mul(epochs)
             }
             Self::SetSNOwnerHotkey => DefaultSetSNOwnerHotkeyRateLimit::<T>::get(),
-            Self::AddStakeBurn => Tempo::<T>::get(netuid) as u64,
 
             _ => self.rate_limit::<T>(),
         }
@@ -143,7 +141,6 @@ impl From<TransactionType> for u16 {
             TransactionType::MechanismCountUpdate => 7,
             TransactionType::MechanismEmission => 8,
             TransactionType::MaxUidsTrimming => 9,
-            TransactionType::AddStakeBurn => 10,
         }
     }
 }
@@ -161,7 +158,6 @@ impl From<u16> for TransactionType {
             7 => TransactionType::MechanismCountUpdate,
             8 => TransactionType::MechanismEmission,
             9 => TransactionType::MaxUidsTrimming,
-            10 => TransactionType::AddStakeBurn,
             _ => TransactionType::Unknown,
         }
     }

@@ -14,17 +14,13 @@ use sp_runtime::{
     BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use std::{cell::RefCell, collections::HashMap};
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency,
-    BalanceOps,
-    // Currency,
-    CurrencyReserve,
-    NetUid,
-    SubnetInfo,
-    TaoCurrency,
+    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
 };
 use subtensor_swap_interface::Order;
+
+use crate::pallet::{EnabledUserLiquidity, FeeGlobalAlpha, FeeGlobalTao};
 
 construct_runtime!(
     pub enum Test {
@@ -86,38 +82,16 @@ impl system::Config for Test {
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const MaxFeeRate: u16 = 10000; // 15.26%
+    pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
-}
-
-thread_local! {
-    // maps netuid -> mocked tao reserve
-    static MOCK_TAO_RESERVES: RefCell<HashMap<NetUid, TaoCurrency>> =
-        RefCell::new(HashMap::new());
-    // maps netuid -> mocked alpha reserve
-    static MOCK_ALPHA_RESERVES: RefCell<HashMap<NetUid, AlphaCurrency>> =
-        RefCell::new(HashMap::new());
 }
 
 #[derive(Clone)]
 pub struct TaoReserve;
 
-impl TaoReserve {
-    pub fn set_mock_reserve(netuid: NetUid, value: TaoCurrency) {
-        MOCK_TAO_RESERVES.with(|m| {
-            m.borrow_mut().insert(netuid, value);
-        });
-    }
-}
-
 impl CurrencyReserve<TaoCurrency> for TaoReserve {
     fn reserve(netuid: NetUid) -> TaoCurrency {
-        // If test has set an override, use it
-        if let Some(val) = MOCK_TAO_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
-            return val;
-        }
-
-        // Otherwise, fall back to our defaults
         match netuid.into() {
             123u16 => 10_000,
             WRAPPING_FEES_NETUID => 100_000_000_000,
@@ -133,22 +107,8 @@ impl CurrencyReserve<TaoCurrency> for TaoReserve {
 #[derive(Clone)]
 pub struct AlphaReserve;
 
-impl AlphaReserve {
-    pub fn set_mock_reserve(netuid: NetUid, value: AlphaCurrency) {
-        MOCK_ALPHA_RESERVES.with(|m| {
-            m.borrow_mut().insert(netuid, value);
-        });
-    }
-}
-
 impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
     fn reserve(netuid: NetUid) -> AlphaCurrency {
-        // If test has set an override, use it
-        if let Some(val) = MOCK_ALPHA_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
-            return val;
-        }
-
-        // Otherwise, fall back to our defaults
         match netuid.into() {
             123u16 => 10_000.into(),
             WRAPPING_FEES_NETUID => 400_000_000_000.into(),
@@ -163,7 +123,22 @@ impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
 pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
 
-#[allow(dead_code)]
+pub(crate) trait GlobalFeeInfo: Currency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64;
+}
+
+impl GlobalFeeInfo for TaoCurrency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalTao::<Test>::get(netuid)
+    }
+}
+
+impl GlobalFeeInfo for AlphaCurrency {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalAlpha::<Test>::get(netuid)
+    }
+}
+
 pub(crate) trait TestExt<O: Order> {
     fn approx_expected_swap_output(
         sqrt_current_price: f64,
@@ -302,6 +277,7 @@ impl crate::pallet::Config for Test {
     type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = MaxFeeRate;
+    type MaxPositions = MaxPositions;
     type MinimumLiquidity = MinimumLiquidity;
     type MinimumReserve = MinimumReserves;
     type WeightInfo = ();
@@ -316,6 +292,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(storage);
     ext.execute_with(|| {
         System::set_block_number(1);
+
+        for netuid in 0u16..=100 {
+            // enable V3 for this range of netuids
+            EnabledUserLiquidity::<Test>::set(NetUid::from(netuid), true);
+        }
+        EnabledUserLiquidity::<Test>::set(NetUid::from(WRAPPING_FEES_NETUID), true);
     });
     ext
 }

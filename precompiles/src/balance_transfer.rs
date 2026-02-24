@@ -10,7 +10,7 @@ use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, Uniqu
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
-pub struct BalanceTransferPrecompile<R>(PhantomData<R>);
+pub(crate) struct BalanceTransferPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for BalanceTransferPrecompile<R>
 where
@@ -18,8 +18,6 @@ where
         + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -28,9 +26,7 @@ where
     <R as frame_system::Config>::RuntimeCall: GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -47,8 +43,6 @@ where
         + pallet_balances::Config
         + pallet_evm::Config
         + pallet_subtensor::Config
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -57,9 +51,7 @@ where
     <R as frame_system::Config>::RuntimeCall: GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as frame_system::Config>::RuntimeCall: From<pallet_balances::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,

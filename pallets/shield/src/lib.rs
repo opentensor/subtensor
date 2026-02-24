@@ -86,7 +86,9 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config<RuntimeEvent: From<Event<Self>>> + pallet_aura::Config
+        frame_system::Config<AccountId = AccountId32, RuntimeEvent: From<Event<Self>>>
+        + pallet_timestamp::Config
+        + pallet_aura::Config
     {
         type RuntimeCall: Parameter
             + sp_runtime::traits::Dispatchable<
@@ -94,7 +96,7 @@ pub mod pallet {
                 PostInfo = PostDispatchInfo,
             > + GetDispatchInfo;
 
-        type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = Self::AccountId>;
+        type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = AccountId32>;
     }
 
     #[pallet::pallet]
@@ -246,9 +248,13 @@ pub mod pallet {
         /// Announce the ML‑KEM public key that will become `CurrentKey` in
         /// the following block.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(20_999_999_999, 0)
-        .saturating_add(T::DbWeight::get().reads(1_u64))
-        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        #[pallet::weight((
+            Weight::from_parts(20_999_999_999, 0)
+                .saturating_add(T::DbWeight::get().reads(1_u64))
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Operational,
+            Pays::Yes
+        ))]
         #[allow(clippy::useless_conversion)]
         pub fn announce_next_key(
             origin: OriginFor<T>,

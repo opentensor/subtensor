@@ -10,7 +10,6 @@ use frame_support::{
     dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::Decode,
 };
-use pallet_admin_utils::PrecompileEnum;
 use pallet_evm::{
     AddressMapping, IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult,
     PrecompileSet,
@@ -25,24 +24,23 @@ use sp_core::{H160, U256, crypto::ByteArray};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup};
 use subtensor_runtime_common::ProxyType;
 
-use crate::extensions::*;
+use pallet_admin_utils::PrecompileEnum;
 
-pub use address_mapping::AddressMappingPrecompile;
-pub use alpha::AlphaPrecompile;
-pub use balance_transfer::BalanceTransferPrecompile;
-pub use crowdloan::CrowdloanPrecompile;
-pub use ed25519::Ed25519Verify;
-pub use extensions::PrecompileExt;
-pub use leasing::LeasingPrecompile;
-pub use metagraph::MetagraphPrecompile;
-pub use neuron::NeuronPrecompile;
-pub use proxy::ProxyPrecompile;
-pub use sr25519::Sr25519Verify;
-pub use staking::{StakingPrecompile, StakingPrecompileV2};
-pub use storage_query::StorageQueryPrecompile;
-pub use subnet::SubnetPrecompile;
-pub use uid_lookup::UidLookupPrecompile;
-pub use voting_power::VotingPowerPrecompile;
+use crate::address_mapping::*;
+use crate::alpha::*;
+use crate::balance_transfer::*;
+use crate::crowdloan::*;
+use crate::ed25519::*;
+use crate::extensions::*;
+use crate::leasing::*;
+use crate::metagraph::*;
+use crate::neuron::*;
+use crate::proxy::*;
+use crate::sr25519::*;
+use crate::staking::*;
+use crate::storage_query::*;
+use crate::subnet::*;
+use crate::uid_lookup::*;
 
 mod address_mapping;
 mod alpha;
@@ -59,7 +57,6 @@ mod staking;
 mod storage_query;
 mod subnet;
 mod uid_lookup;
-mod voting_power;
 
 pub struct Precompiles<R>(PhantomData<R>);
 
@@ -73,8 +70,6 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -88,9 +83,7 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -110,8 +103,6 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -125,9 +116,7 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -136,7 +125,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 27] {
+    pub fn used_addresses() -> [H160; 26] {
         [
             hash(1),
             hash(2),
@@ -162,7 +151,6 @@ where
             hash(AlphaPrecompile::<R>::INDEX),
             hash(CrowdloanPrecompile::<R>::INDEX),
             hash(LeasingPrecompile::<R>::INDEX),
-            hash(VotingPowerPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
         ]
@@ -178,8 +166,6 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
-        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -194,8 +180,6 @@ where
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
         + IsSubType<pallet_subtensor::Call<R>>
-        + IsSubType<pallet_shield::Call<R>>
-        + IsSubType<pallet_subtensor_proxy::Call<R>>
         + Decode,
     <<R as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
         From<Option<pallet_evm::AccountIdOf<R>>>,
@@ -260,9 +244,6 @@ where
             }
             a if a == hash(LeasingPrecompile::<R>::INDEX) => {
                 LeasingPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Leasing)
-            }
-            a if a == hash(VotingPowerPrecompile::<R>::INDEX) => {
-                VotingPowerPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::VotingPower)
             }
             a if a == hash(ProxyPrecompile::<R>::INDEX) => {
                 ProxyPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Proxy)
