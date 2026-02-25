@@ -2057,3 +2057,104 @@ fn test_claim_root_with_moved_stake() {
         assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
     });
 }
+
+/// Regression test for issue #2411: finalize_all_subnet_root_dividends must
+/// clean up the target netuid across all hotkeys without collecting all keys
+/// into memory, and must preserve claimable entries for other subnets.
+#[test]
+fn test_finalize_all_subnet_root_dividends_multiple_hotkeys() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(5001);
+        let hotkey1 = U256::from(5002);
+        let hotkey2 = U256::from(5003);
+        let hotkey3 = U256::from(5004);
+
+        let netuid_a = add_dynamic_network(&hotkey1, &owner_coldkey);
+        let netuid_b = add_dynamic_network(&hotkey2, &owner_coldkey);
+
+        // Manually populate RootClaimable for multiple hotkeys across two subnets.
+        let rate = I96F32::from(42);
+        for hotkey in [hotkey1, hotkey2, hotkey3] {
+            RootClaimable::<Test>::mutate(&hotkey, |claimable| {
+                claimable.insert(netuid_a, rate);
+                claimable.insert(netuid_b, rate);
+            });
+        }
+
+        // Populate some RootClaimed entries for netuid_a.
+        RootClaimed::<Test>::insert((netuid_a, &hotkey1, &owner_coldkey), 100u128);
+        RootClaimed::<Test>::insert((netuid_a, &hotkey2, &owner_coldkey), 200u128);
+
+        // Finalize root dividends for netuid_a only.
+        SubtensorModule::finalize_all_subnet_root_dividends(netuid_a);
+
+        // netuid_a entries must be removed from all hotkeys.
+        for hotkey in [hotkey1, hotkey2, hotkey3] {
+            assert!(
+                !RootClaimable::<Test>::get(hotkey).contains_key(&netuid_a),
+                "netuid_a should be removed from hotkey {hotkey:?}"
+            );
+        }
+
+        // netuid_b entries must be preserved for all hotkeys.
+        for hotkey in [hotkey1, hotkey2, hotkey3] {
+            assert_eq!(
+                RootClaimable::<Test>::get(hotkey).get(&netuid_b),
+                Some(&rate),
+                "netuid_b should be preserved for hotkey {hotkey:?}"
+            );
+        }
+
+        // RootClaimed entries for netuid_a must be cleared.
+        assert!(!RootClaimed::<Test>::contains_key((
+            netuid_a,
+            &hotkey1,
+            &owner_coldkey,
+        )));
+        assert!(!RootClaimed::<Test>::contains_key((
+            netuid_a,
+            &hotkey2,
+            &owner_coldkey,
+        )));
+    });
+}
+
+/// Test that hotkeys whose BTreeMap becomes empty after cleanup are fully
+/// removed from storage (translate returns None).
+#[test]
+fn test_finalize_all_subnet_root_dividends_removes_empty_entries() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(6001);
+        let hotkey_single = U256::from(6002);
+        let hotkey_multi = U256::from(6003);
+
+        let netuid = add_dynamic_network(&hotkey_single, &owner_coldkey);
+        let netuid_other = add_dynamic_network(&hotkey_multi, &owner_coldkey);
+
+        let rate = I96F32::from(10);
+
+        // hotkey_single only has the target netuid.
+        RootClaimable::<Test>::mutate(&hotkey_single, |c| {
+            c.insert(netuid, rate);
+        });
+
+        // hotkey_multi has the target netuid plus another.
+        RootClaimable::<Test>::mutate(&hotkey_multi, |c| {
+            c.insert(netuid, rate);
+            c.insert(netuid_other, rate);
+        });
+
+        SubtensorModule::finalize_all_subnet_root_dividends(netuid);
+
+        // hotkey_single's entry should be entirely gone (empty map removed).
+        assert!(
+            RootClaimable::<Test>::get(hotkey_single).is_empty(),
+            "empty map should be cleaned up"
+        );
+
+        // hotkey_multi should still have netuid_other.
+        let remaining = RootClaimable::<Test>::get(hotkey_multi);
+        assert_eq!(remaining.len(), 1);
+        assert!(remaining.contains_key(&netuid_other));
+    });
+}
