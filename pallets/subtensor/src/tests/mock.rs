@@ -153,11 +153,13 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+pub const MOCK_BLOCK_BUILDER: u64 = 12345u64;
+
 pub struct MockAuthorshipProvider;
 
 impl AuthorshipInfo<U256> for MockAuthorshipProvider {
     fn author() -> Option<U256> {
-        Some(U256::from(12345u64))
+        Some(U256::from(MOCK_BLOCK_BUILDER))
     }
 }
 

@@ -31,7 +31,7 @@ use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{Balance, Currency, NetUid};
+use subtensor_runtime_common::{AuthorshipInfo, Balance, NetUid};
 
 // Tests
 #[cfg(test)]

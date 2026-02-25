@@ -302,6 +302,7 @@ impl<T: Config> Pallet<T> {
         let mut iteration_counter: u16 = 0;
         let mut in_acc = Order::PaidIn::ZERO;
         let mut fee_acc = Order::PaidIn::ZERO;
+        let mut fee_to_block_author_acc = Order::PaidIn::ZERO;
 
         log::trace!("======== Start Swap ========");
         log::trace!("Amount Remaining: {amount_remaining}");
@@ -326,6 +327,8 @@ impl<T: Config> Pallet<T> {
 
             in_acc = in_acc.saturating_add(swap_result.delta_in);
             fee_acc = fee_acc.saturating_add(swap_result.fee_paid);
+            fee_to_block_author_acc =
+                fee_to_block_author_acc.saturating_add(swap_result.fee_to_block_author);
             amount_remaining = amount_remaining.saturating_sub(swap_result.amount_to_take);
             amount_paid_out = amount_paid_out.saturating_add(swap_result.delta_out);
 
@@ -353,6 +356,7 @@ impl<T: Config> Pallet<T> {
             amount_paid_in: in_acc,
             amount_paid_out,
             fee_paid: fee_acc,
+            fee_to_block_author: fee_to_block_author_acc,
         })
     }
 

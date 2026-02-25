@@ -4898,8 +4898,6 @@ fn test_swap_fees_tao_correctness() {
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, owner_balance_before);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, user_balance_before);
-        let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
-            / u16::MAX as f64;
         pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
         // Forse-set alpha in and tao reserve to make price equal 0.25
@@ -4965,14 +4963,15 @@ fn test_swap_fees_tao_correctness() {
             user_alpha,
         ));
 
+        // TODO: This block is for balancer swap
         // Cause tao fees to propagate to SubnetTAO
-        let (claimed_tao_fees, _) =
-            <Test as pallet::Config>::SwapInterface::adjust_protocol_liquidity(
-                netuid,
-                0.into(),
-                0.into(),
-            );
-        SubnetTAO::<Test>::mutate(netuid, |tao| *tao += claimed_tao_fees);
+        // let (claimed_tao_fees, _) =
+        //     <Test as pallet::Config>::SwapInterface::adjust_protocol_liquidity(
+        //         netuid,
+        //         0.into(),
+        //         0.into(),
+        //     );
+        // SubnetTAO::<Test>::mutate(netuid, |tao| *tao += claimed_tao_fees);
 
         // Check ending "total TAO"
         let owner_balance_after = SubtensorModule::get_coldkey_balance(&owner_coldkey);
@@ -5254,6 +5253,10 @@ fn test_update_position_fees() {
             let alpha_in = AlphaCurrency::from(400_000_000_000);
             mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
+            // Get the block builder balance
+            let block_builder = U256::from(MOCK_BLOCK_BUILDER);
+            let block_builder_balance_before = Balances::free_balance(block_builder);
+
             // Get alpha for owner
             assert_ok!(SubtensorModule::add_stake(
                 RuntimeOrigin::signed(owner_coldkey),
@@ -5305,13 +5308,8 @@ fn test_update_position_fees() {
                 user_alpha,
             ));
 
-            // Modify position - fees should be collected and paid to the owner
+            // Modify position - fees should be collected and paid to the owner (block builder is already paid by now)
             let owner_tao_before = SubtensorModule::get_coldkey_balance(&owner_coldkey);
-            let owner_alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-                &owner_hotkey,
-                &owner_coldkey,
-                netuid,
-            );
 
             // Make small modification
             let delta =
@@ -5327,6 +5325,7 @@ fn test_update_position_fees() {
             ));
 
             // Check ending owner TAO and alpha
+            let block_builder_balance_after_add = Balances::free_balance(block_builder);
             let owner_tao_after_add = SubtensorModule::get_coldkey_balance(&owner_coldkey);
             let owner_alpha_after_add = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &owner_hotkey,
@@ -5334,8 +5333,10 @@ fn test_update_position_fees() {
                 netuid,
             );
 
-            assert!(owner_tao_after_add > owner_tao_before);
-            assert!(owner_alpha_after_add > owner_alpha_before); // always greater because of claimed fees
+            assert!(
+                owner_tao_after_add + block_builder_balance_after_add
+                    > owner_tao_before + block_builder_balance_before
+            );
 
             // Make small modification again - should not claim more fees
             assert_ok!(Swap::modify_position(

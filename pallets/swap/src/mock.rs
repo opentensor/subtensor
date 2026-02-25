@@ -124,6 +124,7 @@ pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, A
 pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
 
 pub(crate) trait GlobalFeeInfo: Currency {
+    #[allow(dead_code)]
     fn global_fee(&self, netuid: NetUid) -> U64F64;
 }
 

@@ -3,6 +3,7 @@ use core::ops::Neg;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
+use sp_arithmetic::Perbill;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
     AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,

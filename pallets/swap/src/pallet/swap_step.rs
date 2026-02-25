@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+use frame_support::{ensure, traits::Get};
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
@@ -186,6 +187,9 @@ where
 
     /// Process a single step of a swap
     fn process_swap(&self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
+        let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
+        log::trace!("\tDelta Out        : {delta_out}");
+
         let mut fee_to_block_author = 0.into();
         if self.delta_in > 0.into() {
             ensure!(delta_out > 0.into(), Error::<T>::ReservesTooLow);
@@ -197,7 +201,7 @@ where
             //     fee_to_block_author = self.fee;
             // ```
             let fee_split = DefaultFeeSplit::get();
-            let lp_fee = fee_split.mul_floor(self.fee.to_u64()).into();
+            let lp_fee: PaidIn = fee_split.mul_floor(self.fee.to_u64()).into();
 
             // Hold the reserve portion of fees
             if !lp_fee.is_zero() {
@@ -210,9 +214,6 @@ where
 
             fee_to_block_author = self.fee.saturating_sub(lp_fee);
         }
-
-        let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
-        log::trace!("\tDelta Out        : {delta_out}");
 
         if self.action == SwapStepAction::Crossing {
             let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();

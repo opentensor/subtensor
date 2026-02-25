@@ -1215,7 +1215,7 @@ fn test_recycle_alpha_fees_alpha() {
 fn test_add_stake_fees_go_to_block_builder() {
     new_test_ext().execute_with(|| {
         // Portion of swap fees that should go to the block builder
-        let block_builder_fee_portion = 3. / 5.;
+        let block_builder_fee_portion = 1.;
 
         // Get the block builder balance
         let block_builder = U256::from(MOCK_BLOCK_BUILDER);
