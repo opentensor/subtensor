@@ -3,7 +3,11 @@ use core::marker::PhantomData;
 
 use pallet_admin_utils::DeprecationRegistryStorage;
 use pallet_evm::PrecompileHandle;
-use precompile_utils::{EvmResult, prelude::{Address, UnboundedBytes}, solidity::Codec};
+use precompile_utils::{
+    EvmResult,
+    prelude::{Address, UnboundedBytes},
+    solidity::Codec,
+};
 use sp_core::{H160, H256};
 
 use crate::PrecompileExt;

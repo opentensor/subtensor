@@ -230,11 +230,7 @@ where
     /// Returns the UID for a hotkey on a given subnet, or reverts if not registered.
     #[precompile::public("getUid(uint16,bytes32)")]
     #[precompile::view]
-    fn get_uid(
-        _handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        hotkey: H256,
-    ) -> EvmResult<u16> {
+    fn get_uid(_handle: &mut impl PrecompileHandle, netuid: u16, hotkey: H256) -> EvmResult<u16> {
         let hotkey = R::AccountId::from(hotkey.0);
         pallet_subtensor::Uids::<R>::get(NetUid::from(netuid), &hotkey).ok_or(
             fp_evm::PrecompileFailure::Error {
@@ -280,20 +276,14 @@ where
     /// Returns the current burn cost for registration on a subnet (in RAO).
     #[precompile::public("getBurnCost(uint16)")]
     #[precompile::view]
-    fn get_burn_cost(
-        _handle: &mut impl PrecompileHandle,
-        netuid: u16,
-    ) -> EvmResult<u64> {
+    fn get_burn_cost(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
         Ok(pallet_subtensor::Burn::<R>::get(NetUid::from(netuid)).to_u64())
     }
 
     /// Returns the current POW difficulty for registration on a subnet.
     #[precompile::public("getDifficulty(uint16)")]
     #[precompile::view]
-    fn get_difficulty(
-        _handle: &mut impl PrecompileHandle,
-        netuid: u16,
-    ) -> EvmResult<u64> {
+    fn get_difficulty(_handle: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
         Ok(pallet_subtensor::Difficulty::<R>::get(NetUid::from(netuid)))
     }
 }

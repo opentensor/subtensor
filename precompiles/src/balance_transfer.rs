@@ -88,10 +88,7 @@ where
     /// Returns the free balance of an account.
     #[precompile::public("getFreeBalance(bytes32)")]
     #[precompile::view]
-    fn get_free_balance(
-        _handle: &mut impl PrecompileHandle,
-        account: H256,
-    ) -> EvmResult<u64> {
+    fn get_free_balance(_handle: &mut impl PrecompileHandle, account: H256) -> EvmResult<u64> {
         let account_id = R::AccountId::from(account.0);
         let balance = <pallet_balances::Pallet<R> as Inspect<R::AccountId>>::balance(&account_id);
         Ok(balance.unique_saturated_into())

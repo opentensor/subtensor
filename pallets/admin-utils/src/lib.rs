@@ -168,9 +168,7 @@ pub mod pallet {
     }
 
     /// Deprecation info for a specific precompile function.
-    #[derive(
-        Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq, Eq, Debug,
-    )]
+    #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct DeprecationInfo {
         /// Replacement precompile address (H160, 20 bytes)
         pub new_precompile: [u8; 20],
