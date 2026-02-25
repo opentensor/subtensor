@@ -90,6 +90,7 @@ fn dissolve_refunds_full_lock_cost_when_no_emission() {
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&cold);
 
         assert_eq!(TaoCurrency::from(after), TaoCurrency::from(before) + lock);
@@ -119,6 +120,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // Dissolve
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // Cold-key received full pot
         let after = SubtensorModule::get_coldkey_balance(&s_cold);
@@ -190,6 +192,7 @@ fn dissolve_two_stakers_pro_rata_distribution() {
 
         // Dissolve
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // Cold-keys received their τ shares
         assert_eq!(
@@ -267,6 +270,7 @@ fn dissolve_owner_cut_refund_logic() {
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&oc);
 
         assert!(after > before); // some refund is expected
@@ -460,6 +464,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Dissolve
         // ------------------------------------------------------------------
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // ------------------------------------------------------------------
         // Items that must be COMPLETELY REMOVED
@@ -647,6 +652,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
 
         let before = SubtensorModule::get_coldkey_balance(&sc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&sc);
 
         // No reward distributed, α-out cleared.
@@ -698,6 +704,7 @@ fn dissolve_rounding_remainder_distribution() {
 
         // 3. Run full dissolve flow
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // 4. s1 (larger remainder) should get +1 τ on cold-key
         let c1_after = SubtensorModule::get_coldkey_balance(&s1c);
@@ -1858,6 +1865,7 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
 
         // --- Dissolve the subnet ---
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // After dissolve, ALL mechanism-scoped items must be cleared for ALL mechanisms.
 

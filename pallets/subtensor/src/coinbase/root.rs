@@ -219,8 +219,6 @@ impl<T: Config> Pallet<T> {
         NetworksAdded::<T>::remove(netuid);
         // Reduce the total networks count.
         TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
-        // Remove the network owner, to avoid a lots of owner only extrinsics.
-        SubnetOwner::<T>::remove(netuid);
 
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
