@@ -2416,5 +2416,56 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// --- Set or clear the root override for emission suppression on a subnet.
+        /// Some(true) forces suppression, Some(false) forces unsuppression,
+        /// None removes the override (subnet is not suppressed).
+        #[pallet::call_index(133)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(2))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_emission_suppression_override(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            override_value: Option<bool>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::CannotVoteOnRootSubnet);
+            match override_value {
+                Some(val) => EmissionSuppressionOverride::<T>::insert(netuid, val),
+                None => EmissionSuppressionOverride::<T>::remove(netuid),
+            }
+            Self::deposit_event(Event::EmissionSuppressionOverrideSet {
+                netuid,
+                override_value,
+            });
+            Ok(())
+        }
+
+        /// --- Set the mode for root alpha dividends on emission-suppressed subnets.
+        /// - Disable: root gets no alpha; root alpha recycled to subnet validators.
+        /// - Enable: root still accumulates alpha (old behaviour).
+        /// - Recycle: root alpha swapped to TAO via AMM, TAO burned.
+        #[pallet::call_index(135)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_root_sell_pressure_on_suppressed_subnets_mode(
+            origin: OriginFor<T>,
+            mode: RootSellPressureOnSuppressedSubnetsMode,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            KeepRootSellPressureOnSuppressedSubnets::<T>::put(mode);
+            Self::deposit_event(Event::RootSellPressureOnSuppressedSubnetsModeSet { mode });
+            Ok(())
+        }
     }
 }

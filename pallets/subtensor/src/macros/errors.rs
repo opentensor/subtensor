@@ -268,5 +268,7 @@ mod errors {
         InvalidSubnetNumber,
         /// Unintended precision loss when unstaking alpha
         PrecisionLoss,
+        /// Cannot vote on emission suppression for the root subnet.
+        CannotVoteOnRootSubnet,
     }
 }

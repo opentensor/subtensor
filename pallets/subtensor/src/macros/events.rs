@@ -481,5 +481,19 @@ mod events {
             /// The amount of alpha distributed
             alpha: AlphaCurrency,
         },
+
+        /// Root set or cleared the emission suppression override for a subnet.
+        EmissionSuppressionOverrideSet {
+            /// The subnet affected
+            netuid: NetUid,
+            /// The override value: Some(true) = force suppress, Some(false) = force unsuppress, None = cleared
+            override_value: Option<bool>,
+        },
+
+        /// Root set the RootSellPressureOnSuppressedSubnetsModeSet.
+        RootSellPressureOnSuppressedSubnetsModeSet {
+            /// The new mode
+            mode: RootSellPressureOnSuppressedSubnetsMode,
+        },
     }
 }
