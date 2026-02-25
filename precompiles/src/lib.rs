@@ -30,6 +30,7 @@ use crate::address_mapping::*;
 use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::crowdloan::*;
+use crate::deprecation_registry::*;
 use crate::ed25519::*;
 use crate::extensions::*;
 use crate::leasing::*;
@@ -46,6 +47,7 @@ mod address_mapping;
 mod alpha;
 mod balance_transfer;
 mod crowdloan;
+mod deprecation_registry;
 mod ed25519;
 mod extensions;
 mod leasing;
@@ -125,7 +127,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 26] {
+    pub fn used_addresses() -> [H160; 27] {
         [
             hash(1),
             hash(2),
@@ -153,6 +155,7 @@ where
             hash(LeasingPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
+            hash(DeprecationRegistryPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -252,6 +255,12 @@ where
                 AddressMappingPrecompile::<R>::try_execute::<R>(
                     handle,
                     PrecompileEnum::AddressMapping,
+                )
+            }
+            a if a == hash(DeprecationRegistryPrecompile::<R>::INDEX) => {
+                DeprecationRegistryPrecompile::<R>::try_execute::<R>(
+                    handle,
+                    PrecompileEnum::DeprecationRegistry,
                 )
             }
             _ => None,
