@@ -528,6 +528,12 @@ impl<T: Config> Pallet<T> {
             LoopRemovePrefixWithWeightMeter!(
                 weight_meter,
                 T::DbWeight::get().writes(1),
+                Bonds::<T>::clear_prefix(netuid_index, 1024, None)
+            );
+
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
                 Weights::<T>::clear_prefix(netuid_index, 1024, None)
             );
         }
