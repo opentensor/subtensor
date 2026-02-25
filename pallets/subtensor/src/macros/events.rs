@@ -486,7 +486,8 @@ mod events {
         EmissionSuppressionOverrideSet {
             /// The subnet affected
             netuid: NetUid,
-            /// The override value: Some(true) = force suppress, Some(false) = force unsuppress, None = cleared
+            /// The override value: Some(true) = force suppress, None = cleared/not suppressed,
+            /// Some(false) = stored but currently identical to None (reserved for future use)
             override_value: Option<bool>,
         },
     }

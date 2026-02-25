@@ -1666,4 +1666,23 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Root, netuid, 100);
     }
+
+    #[benchmark]
+    fn sudo_set_emission_suppression_override() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let hotkey: T::AccountId = account("A", 0, 1);
+
+        let netuid = Subtensor::<T>::get_next_netuid();
+
+        let lock_cost = Subtensor::<T>::get_network_lock_cost();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, lock_cost.into());
+
+        assert_ok!(Subtensor::<T>::register_network(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone()
+        ));
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, Some(true));
+    }
 }
