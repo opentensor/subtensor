@@ -10,7 +10,7 @@
 #
 set -e
 
-BINARY="../target/release/node-subtensor"
+BINARY="${BINARY_PATH:-../target/production/node-subtensor}"
 NODE_LOG="/tmp/e2e-bootstrap-node.log"
 
 if [ "$1" != "--skip-build" ]; then

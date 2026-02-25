@@ -33,7 +33,7 @@ export type NetworkState = {
 
 const nodes: Node[] = [];
 
-const BINARY_PATH = process.env.BINARY_PATH || "../../target/release/node-subtensor";
+const BINARY_PATH = process.env.BINARY_PATH || "../../target/production/node-subtensor";
 
 // The local chain spec has 2 built-in authorities (One, Two).
 // We add "Three" dynamically by patching the chain spec JSON.
