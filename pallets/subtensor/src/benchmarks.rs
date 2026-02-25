@@ -1797,40 +1797,9 @@ mod pallet_benchmarks {
 
         // Initialize network
         Subtensor::<T>::init_new_network(netuid, tempo);
-        SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_max_allowed_uids(netuid, 256);
-        Subtensor::<T>::set_network_registration_allowed(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
 
         // Set network owner
         SubnetOwner::<T>::insert(netuid, coldkey.clone());
-
-        Subtensor::<T>::set_max_registrations_per_block(netuid, 64);
-
-        Subtensor::<T>::set_target_registrations_per_interval(netuid, 64);
-
-        // Add some registrations to make the benchmark realistic
-        let mut seed: u32 = 2;
-        for _ in 0..64 {
-            let hotkey: T::AccountId = account("Hotkey", 0, seed);
-            let coldkey: T::AccountId = account("Coldkey", 0, seed);
-            seed += 1;
-
-            let amount_to_be_staked: u64 = 1_000_000;
-            Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount_to_be_staked);
-
-            assert_ok!(Subtensor::<T>::do_burned_registration(
-                RawOrigin::Signed(coldkey.clone()).into(),
-                netuid,
-                hotkey.clone()
-            ));
-        }
-
-        // Add some network reserves to make it more realistic
-        let tao_reserve = TaoCurrency::from(10_000_000_000);
-        let alpha_in = AlphaCurrency::from(5_000_000_000);
-        SubnetTAO::<T>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<T>::insert(netuid, alpha_in);
 
         #[extrinsic_call]
         _(RawOrigin::Root, coldkey.clone(), netuid);
