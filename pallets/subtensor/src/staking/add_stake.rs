@@ -70,6 +70,7 @@ impl<T: Config> Pallet<T> {
         // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         Self::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -166,6 +167,7 @@ impl<T: Config> Pallet<T> {
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         Self::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,

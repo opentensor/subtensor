@@ -887,6 +887,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     netuid: NetUid,
 ) {
     SubtensorModule::stake_into_subnet(
+        coldkey,
         hotkey,
         coldkey,
         netuid,

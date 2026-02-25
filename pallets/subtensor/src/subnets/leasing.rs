@@ -305,6 +305,7 @@ impl<T: Config> Pallet<T> {
 
                 Self::transfer_stake_within_subnet(
                     &lease.coldkey,
+                    &lease.coldkey,
                     &lease.hotkey,
                     &contributor,
                     &lease.hotkey,
@@ -324,6 +325,7 @@ impl<T: Config> Pallet<T> {
             let beneficiary_cut_alpha =
                 total_contributors_cut_alpha.saturating_sub(alpha_distributed);
             Self::transfer_stake_within_subnet(
+                &lease.coldkey,
                 &lease.coldkey,
                 &lease.hotkey,
                 &lease.beneficiary,

@@ -356,6 +356,7 @@ impl<T: Config> Pallet<T> {
 
             // do not pay remove fees to avoid double fees in moves transactions
             let tao_unstaked = Self::unstake_from_subnet(
+                origin_coldkey,
                 origin_hotkey,
                 origin_coldkey,
                 origin_netuid,
@@ -374,6 +375,7 @@ impl<T: Config> Pallet<T> {
                 }
 
                 Self::stake_into_subnet(
+                    origin_coldkey,
                     destination_hotkey,
                     destination_coldkey,
                     destination_netuid,
@@ -387,6 +389,7 @@ impl<T: Config> Pallet<T> {
             Ok(tao_unstaked)
         } else {
             Self::transfer_stake_within_subnet(
+                origin_coldkey,
                 origin_coldkey,
                 origin_hotkey,
                 destination_coldkey,

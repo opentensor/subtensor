@@ -14,7 +14,9 @@ mod events {
         /// a network is removed.
         NetworkRemoved(NetUid),
         /// stake has been transferred from the a coldkey account onto the hotkey staking account.
+        /// (origin, coldkey, hotkey, tao_amount, alpha_amount, netuid, fee)
         StakeAdded(
+            T::AccountId,
             T::AccountId,
             T::AccountId,
             TaoCurrency,
@@ -23,7 +25,9 @@ mod events {
             u64,
         ),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
+        /// (origin, coldkey, hotkey, tao_amount, alpha_amount, netuid, fee)
         StakeRemoved(
+            T::AccountId,
             T::AccountId,
             T::AccountId,
             TaoCurrency,

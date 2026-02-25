@@ -68,6 +68,7 @@ impl<T: Config> Pallet<T> {
 
         // 3. Swap the alpba to tao and update counters for this subnet.
         let tao_unstaked = Self::unstake_from_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -163,6 +164,7 @@ impl<T: Config> Pallet<T> {
             if !alpha_unstaked.is_zero() {
                 // Swap the alpha to tao and update counters for this subnet.
                 let tao_unstaked = Self::unstake_from_subnet(
+                    &coldkey,
                     &hotkey,
                     &coldkey,
                     netuid,
@@ -256,6 +258,7 @@ impl<T: Config> Pallet<T> {
                 if !alpha_unstaked.is_zero() {
                     // Swap the alpha to tao and update counters for this subnet.
                     let tao_unstaked = Self::unstake_from_subnet(
+                        &coldkey,
                         &hotkey,
                         &coldkey,
                         netuid,
@@ -275,6 +278,7 @@ impl<T: Config> Pallet<T> {
 
         // Stake into root.
         Self::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -362,6 +366,7 @@ impl<T: Config> Pallet<T> {
 
         // 4. Swap the alpha to tao and update counters for this subnet.
         let tao_unstaked = Self::unstake_from_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,

@@ -864,6 +864,7 @@ fn test_remove_stake_insufficient_liquidity() {
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         let alpha = SubtensorModule::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -4498,6 +4499,7 @@ fn test_stake_into_subnet_ok() {
 
         // Add stake with slippage safety and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -4552,6 +4554,7 @@ fn test_stake_into_subnet_low_amount() {
 
         // Add stake with slippage safety and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -4600,6 +4603,7 @@ fn test_unstake_from_subnet_low_amount() {
 
         // Add stake and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -4613,6 +4617,7 @@ fn test_unstake_from_subnet_low_amount() {
         let alpha =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         assert_ok!(SubtensorModule::unstake_from_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -4714,6 +4719,7 @@ fn test_unstake_from_subnet_prohibitive_limit() {
 
         // Add stake and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(
+            &coldkey,
             &owner_hotkey,
             &coldkey,
             netuid,
@@ -4790,6 +4796,7 @@ fn test_unstake_full_amount() {
 
         // Add stake and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(
+            &coldkey,
             &owner_hotkey,
             &coldkey,
             netuid,
@@ -5606,6 +5613,7 @@ fn test_staking_records_flow() {
 
         // Add stake with slippage safety and check if the result is ok
         assert_ok!(SubtensorModule::stake_into_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,
@@ -5629,6 +5637,7 @@ fn test_staking_records_flow() {
         let alpha =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         assert_ok!(SubtensorModule::unstake_from_subnet(
+            &coldkey,
             &hotkey,
             &coldkey,
             netuid,

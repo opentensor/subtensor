@@ -232,6 +232,7 @@ impl<T: Config> Pallet<T> {
                 // Actually deletes the staking account.
                 // Do not apply any fees
                 let maybe_cleared_stake = Self::unstake_from_subnet(
+                    coldkey,
                     hotkey,
                     coldkey,
                     netuid,
