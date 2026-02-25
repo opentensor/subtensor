@@ -240,7 +240,7 @@ Substrate-based blockchain nodes expose a number of capabilities:
 
 There are several files in the [`node`](./node/) directory. Make a note of the following important files:
 
-- [`chain_spec.rs`](./node/src/chain_spec.rs): A
+- [`chain_spec/mod.rs`](/node/src/chain_spec/mod.rs): A
   [chain specification](https://docs.substrate.io/main-docs/build/chain-spec/) is a
   source code file that defines a Substrate chain's initial (genesis) state. Chain specifications
   are useful for development and testing, and critical when architecting the launch of a
