@@ -161,6 +161,10 @@ pub mod pallet {
         AddressMapping,
         /// Deprecation registry precompile
         DeprecationRegistry,
+        /// Drand randomness precompile
+        Drand,
+        /// Timestamp precompile
+        Timestamp,
     }
 
     /// Deprecation info for a specific precompile function.

@@ -31,6 +31,7 @@ use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::crowdloan::*;
 use crate::deprecation_registry::*;
+use crate::drand::*;
 use crate::ed25519::*;
 use crate::extensions::*;
 use crate::leasing::*;
@@ -41,6 +42,7 @@ use crate::sr25519::*;
 use crate::staking::*;
 use crate::storage_query::*;
 use crate::subnet::*;
+use crate::timestamp_precompile::*;
 use crate::uid_lookup::*;
 
 mod address_mapping;
@@ -48,6 +50,7 @@ mod alpha;
 mod balance_transfer;
 mod crowdloan;
 mod deprecation_registry;
+mod drand;
 mod ed25519;
 mod extensions;
 mod leasing;
@@ -58,6 +61,8 @@ mod sr25519;
 mod staking;
 mod storage_query;
 mod subnet;
+#[path = "timestamp.rs"]
+mod timestamp_precompile;
 mod uid_lookup;
 
 pub struct Precompiles<R>(PhantomData<R>);
@@ -72,6 +77,8 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_drand::Config
+        + pallet_timestamp::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -105,6 +112,8 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_drand::Config
+        + pallet_timestamp::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -127,7 +136,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 27] {
+    pub fn used_addresses() -> [H160; 29] {
         [
             hash(1),
             hash(2),
@@ -156,6 +165,8 @@ where
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
             hash(DeprecationRegistryPrecompile::<R>::INDEX),
+            hash(DrandPrecompile::<R>::INDEX),
+            hash(TimestampPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -169,6 +180,8 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_drand::Config
+        + pallet_timestamp::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -262,6 +275,12 @@ where
                     handle,
                     PrecompileEnum::DeprecationRegistry,
                 )
+            }
+            a if a == hash(DrandPrecompile::<R>::INDEX) => {
+                DrandPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Drand)
+            }
+            a if a == hash(TimestampPrecompile::<R>::INDEX) => {
+                TimestampPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Timestamp)
             }
             _ => None,
         }

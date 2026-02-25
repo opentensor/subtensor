@@ -119,4 +119,50 @@ interface INeuron {
         uint16[] memory salt,
         uint64 versionKey
     ) external payable;
+
+    /**
+     * @dev Returns the UID for a hotkey on a given subnet.
+     * @param netuid The subnet ID.
+     * @param hotkey The hotkey public key (32 bytes).
+     * @return uid The UID of the neuron.
+     */
+    function getUid(uint16 netuid, bytes32 hotkey) external view returns (uint16 uid);
+
+    /**
+     * @dev Returns whether a hotkey is registered on a given subnet.
+     * @param netuid The subnet ID.
+     * @param hotkey The hotkey public key (32 bytes).
+     * @return registered True if the hotkey is registered.
+     */
+    function isHotkeyRegistered(uint16 netuid, bytes32 hotkey) external view returns (bool registered);
+
+    /**
+     * @dev Returns the Prometheus info for a neuron by UID on a subnet.
+     * @param netuid The subnet ID.
+     * @param uid The UID of the neuron.
+     * @return info The Prometheus info struct.
+     */
+    function getPrometheus(uint16 netuid, uint16 uid) external view returns (PrometheusInfo memory info);
+
+    /**
+     * @dev Returns the current burn cost for registration on a subnet (in RAO).
+     * @param netuid The subnet ID.
+     * @return cost The burn cost in RAO.
+     */
+    function getBurnCost(uint16 netuid) external view returns (uint64 cost);
+
+    /**
+     * @dev Returns the current POW difficulty for registration on a subnet.
+     * @param netuid The subnet ID.
+     * @return difficulty The difficulty value.
+     */
+    function getDifficulty(uint16 netuid) external view returns (uint64 difficulty);
+}
+
+struct PrometheusInfo {
+    uint64 block;
+    uint32 version;
+    uint128 ip;
+    uint16 port;
+    uint8 ipType;
 }

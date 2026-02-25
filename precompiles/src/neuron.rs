@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use subtensor_runtime_common::{Currency, NetUid};
 
 use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
@@ -224,4 +225,83 @@ where
             RawOrigin::Signed(handle.caller_account_id::<R>()),
         )
     }
+
+    /// Returns the UID for a hotkey on a given subnet, or reverts if not registered.
+    #[precompile::public("getUid(uint16,bytes32)")]
+    #[precompile::view]
+    fn get_uid(
+        _handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        hotkey: H256,
+    ) -> EvmResult<u16> {
+        let hotkey = R::AccountId::from(hotkey.0);
+        pallet_subtensor::Uids::<R>::get(NetUid::from(netuid), &hotkey).ok_or(
+            fp_evm::PrecompileFailure::Error {
+                exit_status: fp_evm::ExitError::Other("Hotkey not registered on subnet".into()),
+            },
+        )
+    }
+
+    /// Returns whether a hotkey is registered on a given subnet.
+    #[precompile::public("isHotkeyRegistered(uint16,bytes32)")]
+    #[precompile::view]
+    fn is_hotkey_registered(
+        _handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        hotkey: H256,
+    ) -> EvmResult<bool> {
+        let hotkey = R::AccountId::from(hotkey.0);
+        Ok(pallet_subtensor::Uids::<R>::get(NetUid::from(netuid), &hotkey).is_some())
+    }
+
+    /// Returns the Prometheus info for a neuron (by UID on a subnet).
+    #[precompile::public("getPrometheus(uint16,uint16)")]
+    #[precompile::view]
+    fn get_prometheus(
+        _handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        uid: u16,
+    ) -> EvmResult<PrometheusInfoResult> {
+        let hotkey = pallet_subtensor::Pallet::<R>::get_hotkey_for_net_and_uid(netuid.into(), uid)
+            .map_err(|_| fp_evm::PrecompileFailure::Error {
+                exit_status: fp_evm::ExitError::Other("hotkey not found".into()),
+            })?;
+        let info = pallet_subtensor::Pallet::<R>::get_prometheus_info(netuid.into(), &hotkey);
+        Ok(PrometheusInfoResult {
+            block: info.block,
+            version: info.version,
+            ip: info.ip,
+            port: info.port,
+            ip_type: info.ip_type,
+        })
+    }
+
+    /// Returns the current burn cost for registration on a subnet (in RAO).
+    #[precompile::public("getBurnCost(uint16)")]
+    #[precompile::view]
+    fn get_burn_cost(
+        _handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
+        Ok(pallet_subtensor::Burn::<R>::get(NetUid::from(netuid)).to_u64())
+    }
+
+    /// Returns the current POW difficulty for registration on a subnet.
+    #[precompile::public("getDifficulty(uint16)")]
+    #[precompile::view]
+    fn get_difficulty(
+        _handle: &mut impl PrecompileHandle,
+        netuid: u16,
+    ) -> EvmResult<u64> {
+        Ok(pallet_subtensor::Difficulty::<R>::get(NetUid::from(netuid)))
+    }
+}
+
+#[derive(precompile_utils::solidity::Codec)]
+struct PrometheusInfoResult {
+    block: u64,
+    version: u32,
+    ip: u128,
+    port: u16,
+    ip_type: u8,
 }

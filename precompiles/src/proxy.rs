@@ -282,4 +282,19 @@ where
 
         Ok(result)
     }
+
+    /// Returns the result of the last proxy call for an account.
+    /// Returns (exists, success) — exists is true if a result is stored, success is true if it succeeded.
+    #[precompile::public("getLastCallResult(bytes32)")]
+    #[precompile::view]
+    pub fn get_last_call_result(
+        _handle: &mut impl PrecompileHandle,
+        account_id: H256,
+    ) -> EvmResult<(bool, bool)> {
+        let account_id = R::AccountId::from(account_id.0.into());
+        match pallet_proxy::LastCallResult::<R>::get(account_id) {
+            Some(result) => Ok((true, result.is_ok())),
+            None => Ok((false, false)),
+        }
+    }
 }

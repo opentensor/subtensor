@@ -234,6 +234,20 @@ where
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
     }
+
+    /// Returns the next crowdloan ID that will be assigned.
+    #[precompile::public("getNextCrowdloanId()")]
+    #[precompile::view]
+    fn get_next_crowdloan_id(_handle: &mut impl PrecompileHandle) -> EvmResult<u32> {
+        Ok(pallet_crowdloan::NextCrowdloanId::<R>::get())
+    }
+
+    /// Returns the current crowdloan ID (set during finalize, 0 if none active).
+    #[precompile::public("getCurrentCrowdloanId()")]
+    #[precompile::view]
+    fn get_current_crowdloan_id(_handle: &mut impl PrecompileHandle) -> EvmResult<u32> {
+        Ok(pallet_crowdloan::CurrentCrowdloanId::<R>::get().unwrap_or(0))
+    }
 }
 
 #[derive(Codec)]

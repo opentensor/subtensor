@@ -49,4 +49,12 @@ interface IProxy {
     function getProxies(
         bytes32 account
     ) external view returns (ProxyInfo[] memory);
+
+    /// @dev Returns the result of the last proxy call for an account.
+    /// @param account The account ID (bytes32).
+    /// @return exists True if a call result is stored.
+    /// @return success True if the last proxy call succeeded.
+    function getLastCallResult(
+        bytes32 account
+    ) external view returns (bool exists, bool success);
 }

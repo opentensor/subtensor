@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use frame_support::dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo};
-use frame_support::traits::IsSubType;
+use frame_support::traits::{IsSubType, fungible::Inspect};
 use frame_system::RawOrigin;
 use pallet_evm::PrecompileHandle;
 use precompile_utils::EvmResult;
@@ -75,5 +75,25 @@ where
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(Self::account_id()))
+    }
+
+    /// Returns the total issuance of the native token.
+    #[precompile::public("getTotalIssuance()")]
+    #[precompile::view]
+    fn get_total_issuance(_handle: &mut impl PrecompileHandle) -> EvmResult<u64> {
+        let total = <pallet_balances::Pallet<R> as Inspect<R::AccountId>>::total_issuance();
+        Ok(total.unique_saturated_into())
+    }
+
+    /// Returns the free balance of an account.
+    #[precompile::public("getFreeBalance(bytes32)")]
+    #[precompile::view]
+    fn get_free_balance(
+        _handle: &mut impl PrecompileHandle,
+        account: H256,
+    ) -> EvmResult<u64> {
+        let account_id = R::AccountId::from(account.0);
+        let balance = <pallet_balances::Pallet<R> as Inspect<R::AccountId>>::balance(&account_id);
+        Ok(balance.unique_saturated_into())
     }
 }
