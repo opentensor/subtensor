@@ -515,7 +515,21 @@ fn test_default_mode_is_recycle() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 14: Recycle mode, suppressed subnet → alpha swapped to TAO, TAO burned
+// Test 14: Recycle mode, suppressed subnet → root alpha swapped to TAO via
+//          AMM, then TAO recycled (removed from TotalIssuance).
+//
+// The full flow is:
+//   1. Root alpha that would go to root validators is instead sold into the
+//      subnet's AMM pool (alpha in, TAO out).
+//   2. The TAO received from the swap is recycled via `recycle_tao`, which
+//      decreases TotalIssuance (TAO is permanently removed from circulation).
+//
+// We verify every step:
+//   - PendingRootAlphaDivs stays 0 (root did NOT accumulate alpha).
+//   - SubnetAlphaIn increases (alpha entered the pool via the swap).
+//   - SubnetTAO decreases (TAO left the pool via the swap).
+//   - TotalIssuance decreases by exactly the TAO that left the pool
+//     (proving that TAO was recycled, not sent elsewhere).
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_recycle_mode_suppressed_subnet_swaps_and_recycles() {
@@ -527,9 +541,8 @@ fn test_recycle_mode_suppressed_subnet_swaps_and_recycles() {
         let sn1 = add_dynamic_network(&owner_hk, &owner_ck);
 
         // Seed the pool with TAO and alpha reserves.
-        let initial_tao = TaoCurrency::from(500_000_000u64);
         let initial_alpha_in = AlphaCurrency::from(500_000_000u64);
-        SubnetTAO::<Test>::insert(sn1, initial_tao);
+        SubnetTAO::<Test>::insert(sn1, TaoCurrency::from(500_000_000u64));
         SubnetAlphaIn::<Test>::insert(sn1, initial_alpha_in);
         SubnetTaoFlow::<Test>::insert(sn1, 100_000_000i64);
 
@@ -561,11 +574,15 @@ fn test_recycle_mode_suppressed_subnet_swaps_and_recycles() {
             RootSellPressureOnSuppressedSubnetsMode::Recycle,
         );
 
-        // Record TotalIssuance before emission.
-        let issuance_before = TotalIssuance::<Test>::get();
-
         // Clear pending.
         PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
+
+        // Snapshot state before emission.
+        // Note: emit_to_subnets calls inject_and_maybe_swap first which adds TAO
+        // to the pool, so we snapshot SubnetTAO *after* a dry run would inject.
+        // Instead we record TotalIssuance and SubnetTAO, and check relative changes.
+        let issuance_before = TotalIssuance::<Test>::get();
+        let subnet_tao_before = SubnetTAO::<Test>::get(sn1);
 
         // Build emission map.
         let mut subnet_emissions = BTreeMap::new();
@@ -573,26 +590,47 @@ fn test_recycle_mode_suppressed_subnet_swaps_and_recycles() {
 
         SubtensorModule::emit_to_subnets(&[sn1], &subnet_emissions, true);
 
-        // PendingRootAlphaDivs should be 0 (root did NOT accumulate alpha).
+        // 1. Root did NOT accumulate alpha — it was recycled instead.
         let pending_root = PendingRootAlphaDivs::<Test>::get(sn1);
         assert_eq!(
             pending_root,
             AlphaCurrency::ZERO,
-            "in Recycle mode, PendingRootAlphaDivs should be 0"
+            "Recycle mode: PendingRootAlphaDivs must be 0"
         );
 
-        // SubnetAlphaIn should have increased (alpha was swapped into pool).
+        // 2. Alpha entered the pool (swap sold alpha into AMM).
         let alpha_in_after = SubnetAlphaIn::<Test>::get(sn1);
         assert!(
             alpha_in_after > initial_alpha_in,
-            "SubnetAlphaIn should increase after swap"
+            "Recycle mode: SubnetAlphaIn must increase (alpha entered pool via swap)"
         );
 
-        // TotalIssuance should have decreased (TAO was recycled/burned).
-        let issuance_after = TotalIssuance::<Test>::get();
+        // 3. TAO left the pool (AMM paid out TAO for the alpha).
+        //    emit_to_subnets also injects TAO via inject_and_maybe_swap, so
+        //    SubnetTAO may have increased from that injection first; but the
+        //    net SubnetTaoFlow being negative (checked in test 18) proves
+        //    the swap outflow dominated. Here we check the pool TAO decreased
+        //    relative to where it started before both inject + swap.
+        let subnet_tao_after = SubnetTAO::<Test>::get(sn1);
         assert!(
-            issuance_after < issuance_before,
-            "TotalIssuance should decrease (TAO recycled)"
+            subnet_tao_after < subnet_tao_before,
+            "Recycle mode: SubnetTAO must decrease (TAO left pool via swap), \
+             before={subnet_tao_before:?} after={subnet_tao_after:?}"
+        );
+
+        // 4. The TAO that left the pool was recycled (removed from TotalIssuance).
+        //    The issuance drop should equal the TAO that left the subnet pool.
+        let issuance_after = TotalIssuance::<Test>::get();
+        let tao_recycled = issuance_before.saturating_sub(issuance_after);
+        let tao_left_pool = subnet_tao_before.saturating_sub(subnet_tao_after);
+        assert!(
+            tao_recycled > TaoCurrency::ZERO,
+            "Recycle mode: TotalIssuance must decrease (TAO was recycled)"
+        );
+        assert_eq!(
+            tao_recycled, tao_left_pool,
+            "Recycle mode: TotalIssuance drop ({tao_recycled:?}) must equal TAO that \
+             left the pool ({tao_left_pool:?}) — all swap proceeds were recycled"
         );
     });
 }
@@ -680,7 +718,7 @@ fn test_recycle_mode_ignores_root_claim_type() {
         EmissionSuppressionOverride::<Test>::insert(sn1, true);
 
         // Set RootClaimType to Keep — in normal flow this would keep alpha.
-        // But Recycle mode should override and swap+burn regardless.
+        // But Recycle mode should override and swap+recycle regardless.
         RootClaimType::<Test>::insert(coldkey, RootClaimTypeEnum::Keep);
 
         // Default mode is Recycle.
@@ -688,6 +726,8 @@ fn test_recycle_mode_ignores_root_claim_type() {
             KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
             RootSellPressureOnSuppressedSubnetsMode::Recycle,
         );
+
+        let subnet_tao_before = SubnetTAO::<Test>::get(sn1);
 
         PendingRootAlphaDivs::<Test>::insert(sn1, AlphaCurrency::ZERO);
 
@@ -703,14 +743,21 @@ fn test_recycle_mode_ignores_root_claim_type() {
         assert_eq!(
             pending_root,
             AlphaCurrency::ZERO,
-            "Recycle mode should swap+burn regardless of RootClaimType"
+            "Recycle mode should swap+recycle regardless of RootClaimType"
         );
 
-        // TAO was burned.
+        // TAO was recycled (removed from circulation).
         let issuance_after = TotalIssuance::<Test>::get();
+        let subnet_tao_after = SubnetTAO::<Test>::get(sn1);
+        let tao_recycled = issuance_before.saturating_sub(issuance_after);
+        let tao_left_pool = subnet_tao_before.saturating_sub(subnet_tao_after);
         assert!(
-            issuance_after < issuance_before,
-            "TotalIssuance should decrease even with RootClaimType::Keep"
+            tao_recycled > TaoCurrency::ZERO,
+            "TotalIssuance must decrease even with RootClaimType::Keep"
+        );
+        assert_eq!(
+            tao_recycled, tao_left_pool,
+            "all TAO from the swap must be recycled (removed from TotalIssuance)"
         );
     });
 }
