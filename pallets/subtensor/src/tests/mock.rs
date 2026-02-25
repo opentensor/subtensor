@@ -20,7 +20,6 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -41,14 +40,14 @@ frame_support::construct_runtime!(
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         Shield: pallet_shield = 3,
-        SubtensorModule: crate = 6,
-        Utility: pallet_utility = 7,
-        Scheduler: pallet_scheduler = 8,
-        Preimage: pallet_preimage = 9,
-        Drand: pallet_drand = 10,
-        Swap: pallet_subtensor_swap = 11,
-        Crowdloan: pallet_crowdloan = 12,
-        Proxy: pallet_subtensor_proxy = 13,
+        SubtensorModule: crate = 4,
+        Utility: pallet_utility = 5,
+        Scheduler: pallet_scheduler = 6,
+        Preimage: pallet_preimage = 7,
+        Drand: pallet_drand = 8,
+        Swap: pallet_subtensor_swap = 9,
+        Crowdloan: pallet_crowdloan = 10,
+        Proxy: pallet_subtensor_proxy = 11,
     }
 );
 
@@ -563,31 +562,6 @@ where
     ) -> Option<Self::Extrinsic> {
         Some(UncheckedExtrinsic::new_signed(call, nonce.into(), (), ()))
     }
-}
-
-#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
-impl pallet_timestamp::Config for Test {
-    type MinimumPeriod = ConstU64<0>;
-}
-
-parameter_types! {
-    pub const MaxAuthorities: u32 = 32;
-    pub const AllowMultipleBlocksPerSlot: bool = false;
-    pub const SlotDuration: u64 = 6000;
-}
-
-impl pallet_aura::Config for Test {
-    type AuthorityId = AuraId;
-    // For tests we don't need dynamic disabling; just use unit type.
-    type DisabledValidators = ();
-    type MaxAuthorities = MaxAuthorities;
-    type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
-    type SlotDuration = SlotDuration;
-}
-
-impl pallet_shield::Config for Test {
-    type AuthorityId = u64;
-    type FindAuthors = ();
 }
 
 static TEST_LOGS_INIT: OnceLock<()> = OnceLock::new();
