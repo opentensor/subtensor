@@ -57,10 +57,10 @@ impl<T: Config> Pallet<T> {
         // Because alpha = b / (b + h), where b and h > 0, alpha < 1, so 1 - alpha > 0.
         // We can use unsigned type here: U96F32
         let one_minus_alpha: U96F32 = U96F32::saturating_from_num(1.0).saturating_sub(alpha);
-        let current_price: U96F32 = alpha.saturating_mul(U96F32::saturating_from_num(
+        let current_price: U96F32 = alpha.saturating_mul(
             T::SwapInterface::current_alpha_price(netuid.into())
-                .min(U64F64::saturating_from_num(1.0)),
-        ));
+                .min(U96F32::saturating_from_num(1.0)),
+        );
         let current_moving: U96F32 =
             one_minus_alpha.saturating_mul(Self::get_moving_alpha_price(netuid));
         // Convert batch to signed I96F32 to avoid migration of SubnetMovingPrice for now``
@@ -923,7 +923,7 @@ impl<T: Config> Pallet<T> {
         let current_price =
             <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         let tao_equivalent: TaoBalance = current_price
-            .saturating_mul(U64F64::saturating_from_num(actual_alpha_moved))
+            .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
             .saturating_to_num::<u64>()
             .into();
 

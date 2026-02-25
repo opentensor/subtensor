@@ -365,6 +365,7 @@ impl<T: Config> Pallet<T> {
         let subnet_token_enabled = Self::get_subtoken_enabled(netuid);
         let transfers_enabled = Self::get_transfer_toggle(netuid);
         let bonds_reset = Self::get_bonds_reset(netuid);
+        let user_liquidity_enabled: bool = Self::is_user_liquidity_enabled(netuid);
 
         Some(SubnetHyperparamsV2 {
             rho: rho.into(),
@@ -399,7 +400,7 @@ impl<T: Config> Pallet<T> {
             subnet_is_active: subnet_token_enabled,
             transfers_enabled,
             bonds_reset_enabled: bonds_reset,
-            user_liquidity_enabled: false,
+            user_liquidity_enabled,
         })
     }
 

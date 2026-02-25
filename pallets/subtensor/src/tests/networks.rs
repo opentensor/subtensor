@@ -247,9 +247,8 @@ fn dissolve_owner_cut_refund_logic() {
 
         // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
-            let price: U96F32 = U96F32::from_num(
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into()),
-            );
+            let price: U96F32 =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into());
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -366,6 +365,8 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         TokenSymbol::<Test>::insert(net, b"XX".to_vec());
         SubnetMovingPrice::<Test>::insert(net, substrate_fixed::types::I96F32::from_num(1));
+        SubnetTaoProvided::<Test>::insert(net, TaoBalance::from(1));
+        SubnetAlphaInProvided::<Test>::insert(net, AlphaBalance::from(1));
 
         // TAO Flow
         SubnetTaoFlow::<Test>::insert(net, 0i64);
@@ -528,6 +529,8 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Token / price / provided reserves
         assert!(!TokenSymbol::<Test>::contains_key(net));
         assert!(!SubnetMovingPrice::<Test>::contains_key(net));
+        assert!(!SubnetTaoProvided::<Test>::contains_key(net));
+        assert!(!SubnetAlphaInProvided::<Test>::contains_key(net));
 
         // Subnet locks
         assert!(!TransferToggle::<Test>::contains_key(net));
@@ -904,9 +907,8 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
 
         let owner_emission_tao: u64 = {
             // Fallback matches the pallet's fallback
-            let price: U96F32 = U96F32::from_num(
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
-            );
+            let price: U96F32 =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -985,9 +987,8 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
             .saturating_to_num::<u64>();
 
         let owner_emission_tao_u64 = {
-            let price: U96F32 = U96F32::from_num(
-                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into()),
-            );
+            let price: U96F32 =
+                <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
             U96F32::from_num(owner_alpha_u64)
                 .saturating_mul(price)
                 .floor()
@@ -1827,6 +1828,20 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
             SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
 
+            assert_ok!(
+                pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
+                    RuntimeOrigin::root(),
+                    net,
+                    true
+                )
+            );
+
+            // Price/tick pinned so LP math stays stable (sqrt(1)).
+            let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
+            let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1) price");
+            pallet_subtensor_swap::CurrentTick::<Test>::set(net, ct0);
+            pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net, sqrt1);
+
             nets.push(net);
         }
 
@@ -1855,7 +1870,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         }
 
         // τ balances before LP adds (after staking):
-        let mut tao_before: BTreeMap<U256, u64> = BTreeMap::new();
+        let mut tao_before: BTreeMap<U256, TaoBalance> = BTreeMap::new();
 
         // Ordered α snapshot per net at **pair granularity** (pre‑LP):
         let mut alpha_pairs_per_net: BTreeMap<NetUid, Vec<((U256, U256), u128)>> = BTreeMap::new();
@@ -1921,9 +1936,9 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         }
 
         // Snapshot τ balances AFTER LP adds (to measure actual principal debit).
-        let mut tao_after_adds: BTreeMap<U256, u64> = BTreeMap::new();
+        let mut tao_after_adds: BTreeMap<U256, TaoBalance> = BTreeMap::new();
         for &cold in cold_lps.iter() {
-            tao_after_adds.insert(cold, SubtensorModule::get_coldkey_balance(&cold).into());
+            tao_after_adds.insert(cold, SubtensorModule::get_coldkey_balance(&cold));
         }
 
         // ────────────────────────────────────────────────────────────────────
@@ -2043,8 +2058,44 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "subnet {net:?} still exists"
             );
             assert!(
-                !pallet_subtensor_swap::PalSwapInitialized::<Test>::get(net),
+                pallet_subtensor_swap::Ticks::<Test>::iter_prefix(net)
+                    .next()
+                    .is_none(),
+                "ticks not cleared for net {net:?}"
+            );
+            assert!(
+                !pallet_subtensor_swap::Positions::<Test>::iter()
+                    .any(|((n, _owner, _pid), _)| n == net),
+                "swap positions not fully cleared for net {net:?}"
+            );
+            assert_eq!(
+                pallet_subtensor_swap::FeeGlobalTao::<Test>::get(net).saturating_to_num::<u64>(),
+                0,
+                "FeeGlobalTao nonzero for net {net:?}"
+            );
+            assert_eq!(
+                pallet_subtensor_swap::FeeGlobalAlpha::<Test>::get(net).saturating_to_num::<u64>(),
+                0,
+                "FeeGlobalAlpha nonzero for net {net:?}"
+            );
+            assert_eq!(
+                pallet_subtensor_swap::CurrentLiquidity::<Test>::get(net),
+                0,
+                "CurrentLiquidity not zero for net {net:?}"
+            );
+            assert!(
+                !pallet_subtensor_swap::SwapV3Initialized::<Test>::get(net),
                 "SwapV3Initialized still set"
+            );
+            assert!(
+                !pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(net),
+                "EnabledUserLiquidity still set"
+            );
+            assert!(
+                pallet_subtensor_swap::TickIndexBitmapWords::<Test>::iter_prefix((net,))
+                    .next()
+                    .is_none(),
+                "TickIndexBitmapWords not cleared for net {net:?}"
             );
         }
 
@@ -2059,6 +2110,18 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         SubtensorModule::set_target_registrations_per_interval(net_new, 1_000u16);
         Emission::<Test>::insert(net_new, Vec::<AlphaBalance>::new());
         SubtensorModule::set_subnet_locked_balance(net_new, TaoBalance::from(0));
+
+        assert_ok!(
+            pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
+                RuntimeOrigin::root(),
+                net_new,
+                true
+            )
+        );
+        let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
+        let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1)");
+        pallet_subtensor_swap::CurrentTick::<Test>::set(net_new, ct0);
+        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net_new, sqrt1);
 
         // Compute the exact min stake per the pallet rule: DefaultMinStake + fee(DefaultMinStake).
         let min_stake = DefaultMinStake::<Test>::get();

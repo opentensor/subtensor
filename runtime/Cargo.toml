@@ -200,7 +200,6 @@ std = [
 	"pallet-preimage/std",
 	"pallet-commitments/std",
 	"precompile-utils/std",
-	"safe-math/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-core/std",

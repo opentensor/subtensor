@@ -1289,6 +1289,11 @@ pub mod pallet {
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
+    /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
+    #[pallet::storage]
+    pub type SubnetTaoProvided<T: Config> =
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
+
     /// --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
@@ -1307,6 +1312,11 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     #[pallet::storage]
     pub type SubnetAlphaIn<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
+    #[pallet::storage]
+    pub type SubnetAlphaInProvided<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
@@ -2552,7 +2562,7 @@ pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> TokenReserve<TaoBalance> for TaoCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoBalance {
-        SubnetTAO::<T>::get(netuid)
+        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
 
     fn increase_provided(netuid: NetUid, tao: TaoBalance) {
@@ -2570,7 +2580,7 @@ pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> TokenReserve<AlphaBalance> for AlphaCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaBalance {
-        SubnetAlphaIn::<T>::get(netuid)
+        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
 
     fn increase_provided(netuid: NetUid, alpha: AlphaBalance) {

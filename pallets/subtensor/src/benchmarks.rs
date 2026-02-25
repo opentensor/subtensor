@@ -16,7 +16,7 @@ use sp_runtime::{
 };
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
@@ -752,8 +752,9 @@ mod pallet_benchmarks {
         // by swapping 100 TAO
         let current_price = T::SwapInterface::current_alpha_price(netuid);
         let limit = current_price
-            .saturating_mul(U64F64::saturating_from_num(1_001_000_000))
-            .saturating_to_num::<u64>();
+            .saturating_mul(U96F32::saturating_from_num(1_001_000_000))
+            .saturating_to_num::<u64>()
+            .into();
         let amount_to_be_staked = TaoBalance::from(100_000_000_000_u64);
 
         // Allow partial (worst case)
@@ -763,8 +764,8 @@ mod pallet_benchmarks {
             hotkey,
             netuid,
             amount_to_be_staked,
-            limit.into(),
-            true,
+            limit,
+            false,
         );
     }
 
@@ -870,8 +871,9 @@ mod pallet_benchmarks {
         // by swapping 100 Alpha
         let current_price = T::SwapInterface::current_alpha_price(netuid);
         let limit = current_price
-            .saturating_mul(U64F64::saturating_from_num(999_900_000))
-            .saturating_to_num::<u64>();
+            .saturating_mul(U96F32::saturating_from_num(999_900_000))
+            .saturating_to_num::<u64>()
+            .into();
         let amount_unstaked = AlphaBalance::from(100_000_000_000_u64);
 
         // Remove stake limit for benchmark
@@ -883,8 +885,8 @@ mod pallet_benchmarks {
             hotkey.clone(),
             netuid,
             amount_unstaked,
-            limit.into(),
-            true,
+            limit,
+            false,
         );
     }
 
@@ -1405,8 +1407,9 @@ mod pallet_benchmarks {
         // by swapping 1 TAO
         let current_price = T::SwapInterface::current_alpha_price(netuid);
         let limit = current_price
-            .saturating_mul(U64F64::saturating_from_num(500_000_000))
-            .saturating_to_num::<u64>();
+            .saturating_mul(U96F32::saturating_from_num(500_000_000))
+            .saturating_to_num::<u64>()
+            .into();
         let staked_amt = TaoBalance::from(1_000_000_000_u64);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
 
@@ -1424,7 +1427,7 @@ mod pallet_benchmarks {
             RawOrigin::Signed(coldkey.clone()),
             hotkey.clone(),
             netuid,
-            Some(limit.into()),
+            Some(limit),
         );
     }
 
@@ -1754,7 +1757,7 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::init_new_network(netuid, tempo);
         SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1000.into());
+        Subtensor::<T>::set_burn(netuid, 1.into());
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 

@@ -9,16 +9,20 @@ use frame_support::{
     traits::{ConstU32, Everything},
 };
 use frame_system::{self as system};
+use scale_info::prelude::collections::HashMap;
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use std::{cell::RefCell, collections::HashMap};
+use sp_std::cell::RefCell;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
 };
 use subtensor_swap_interface::Order;
+
+use crate::pallet::{EnabledUserLiquidity, FeeGlobalAlpha, FeeGlobalTao};
 
 construct_runtime!(
     pub enum Test {
@@ -80,6 +84,7 @@ impl system::Config for Test {
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const MaxFeeRate: u16 = 10000; // 15.26%
+    pub const MaxPositions: u32 = 100;
     pub const MinimumLiquidity: u64 = 1_000;
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
@@ -157,7 +162,23 @@ impl TokenReserve<AlphaBalance> for AlphaReserve {
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
 pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
 
-#[allow(dead_code)]
+pub(crate) trait GlobalFeeInfo: Token {
+    #[allow(dead_code)]
+    fn global_fee(&self, netuid: NetUid) -> U64F64;
+}
+
+impl GlobalFeeInfo for TaoBalance {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalTao::<Test>::get(netuid)
+    }
+}
+
+impl GlobalFeeInfo for AlphaBalance {
+    fn global_fee(&self, netuid: NetUid) -> U64F64 {
+        FeeGlobalAlpha::<Test>::get(netuid)
+    }
+}
+
 pub(crate) trait TestExt<O: Order> {
     fn approx_expected_swap_output(
         sqrt_current_price: f64,
@@ -296,6 +317,7 @@ impl crate::pallet::Config for Test {
     type BalanceOps = MockBalanceOps;
     type ProtocolId = SwapProtocolId;
     type MaxFeeRate = MaxFeeRate;
+    type MaxPositions = MaxPositions;
     type MinimumLiquidity = MinimumLiquidity;
     type MinimumReserve = MinimumReserves;
     type WeightInfo = ();
@@ -310,6 +332,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext = sp_io::TestExternalities::new(storage);
     ext.execute_with(|| {
         System::set_block_number(1);
+
+        for netuid in 0u16..=100 {
+            // enable V3 for this range of netuids
+            EnabledUserLiquidity::<Test>::set(NetUid::from(netuid), true);
+        }
+        EnabledUserLiquidity::<Test>::set(NetUid::from(WRAPPING_FEES_NETUID), true);
     });
     ext
 }

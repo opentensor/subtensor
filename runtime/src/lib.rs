@@ -72,7 +72,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::U96F32;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -1136,6 +1136,7 @@ impl pallet_subtensor::Config for Runtime {
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1_000_000) };
 }
@@ -1147,6 +1148,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
     type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
@@ -2492,7 +2494,7 @@ impl_runtime_apis! {
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
         fn current_alpha_price(netuid: NetUid) -> u64 {
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
-                .saturating_mul(U64F64::from_num(1_000_000_000))
+                .saturating_mul(U96F32::from_num(1_000_000_000))
                 .saturating_to_num()
         }
 
@@ -2511,7 +2513,7 @@ impl_runtime_apis! {
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let tao_u64: u64 = tao.into();
-            let no_slippage_alpha = U64F64::saturating_from_num(tao_u64).safe_div(price).saturating_to_num::<u64>();
+            let no_slippage_alpha = U96F32::saturating_from_num(tao_u64).safe_div(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
@@ -2541,7 +2543,7 @@ impl_runtime_apis! {
         fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
             let alpha_u64: u64 = alpha.into();
-            let no_slippage_tao = U64F64::saturating_from_num(alpha_u64).saturating_mul(price).saturating_to_num::<u64>();
+            let no_slippage_tao = U96F32::saturating_from_num(alpha_u64).saturating_mul(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
