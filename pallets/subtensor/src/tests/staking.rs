@@ -247,7 +247,7 @@ fn test_add_stake_err_not_enough_belance() {
                 netuid,
                 stake,
             ),
-            Error::<Test>::NotEnoughBalanceToStake
+            Error::<Test>::NotEnoughBalanceToPayStake
         );
     });
 }
