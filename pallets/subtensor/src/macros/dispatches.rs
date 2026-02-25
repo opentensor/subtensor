@@ -2446,26 +2446,5 @@ mod dispatches {
             });
             Ok(())
         }
-
-        /// --- Set the mode for root alpha dividends on emission-suppressed subnets.
-        /// - Disable: root gets no alpha; root alpha recycled to subnet validators.
-        /// - Enable: root still accumulates alpha (old behaviour).
-        /// - Recycle: root alpha swapped to TAO via AMM, TAO burned.
-        #[pallet::call_index(135)]
-        #[pallet::weight((
-            Weight::from_parts(5_000_000, 0)
-                .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::No
-        ))]
-        pub fn sudo_set_root_sell_pressure_on_suppressed_subnets_mode(
-            origin: OriginFor<T>,
-            mode: RootSellPressureOnSuppressedSubnetsMode,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            KeepRootSellPressureOnSuppressedSubnets::<T>::put(mode);
-            Self::deposit_event(Event::RootSellPressureOnSuppressedSubnetsModeSet { mode });
-            Ok(())
-        }
     }
 }

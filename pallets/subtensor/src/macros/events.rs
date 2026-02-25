@@ -489,11 +489,5 @@ mod events {
             /// The override value: Some(true) = force suppress, Some(false) = force unsuppress, None = cleared
             override_value: Option<bool>,
         },
-
-        /// Root set the RootSellPressureOnSuppressedSubnetsModeSet.
-        RootSellPressureOnSuppressedSubnetsModeSet {
-            /// The new mode
-            mode: RootSellPressureOnSuppressedSubnetsMode,
-        },
     }
 }

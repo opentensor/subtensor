@@ -183,7 +183,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
-        let root_sell_pressure_mode = KeepRootSellPressureOnSuppressedSubnets::<T>::get();
 
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
@@ -208,9 +207,6 @@ impl<T: Config> Pallet<T> {
             // Get root proportional dividends.
             let root_proportion = Self::root_proportion(*netuid_i);
             log::debug!("root_proportion: {root_proportion:?}");
-
-            // Check if subnet emission is suppressed (compute once to avoid double storage read).
-            let is_suppressed = Self::is_subnet_emission_suppressed(*netuid_i);
 
             // Get root alpha from root prop.
             let root_alpha: U96F32 = root_proportion
@@ -239,37 +235,10 @@ impl<T: Config> Pallet<T> {
             });
 
             if root_sell_flag {
-                // Determine disposition of root alpha based on suppression mode.
-                if is_suppressed
-                    && root_sell_pressure_mode == RootSellPressureOnSuppressedSubnetsMode::Disable
-                {
-                    // Disable mode: recycle root alpha back to subnet validators.
-                    PendingValidatorEmission::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(tou64!(root_alpha).into());
-                    });
-                } else if is_suppressed
-                    && root_sell_pressure_mode == RootSellPressureOnSuppressedSubnetsMode::Recycle
-                {
-                    // Recycle mode: swap alpha → TAO via AMM, then burn the TAO.
-                    let root_alpha_currency = AlphaCurrency::from(tou64!(root_alpha));
-                    if let Ok(swap_result) = Self::swap_alpha_for_tao(
-                        *netuid_i,
-                        root_alpha_currency,
-                        TaoCurrency::ZERO, // no price limit
-                        true,              // drop fees
-                    ) {
-                        Self::record_tao_outflow(*netuid_i, swap_result.amount_paid_out);
-                        Self::recycle_tao(swap_result.amount_paid_out);
-                    } else {
-                        // Swap failed: recycle alpha back to subnet to prevent loss.
-                        Self::recycle_subnet_alpha(*netuid_i, root_alpha_currency);
-                    }
-                } else {
-                    // Enable mode (or non-suppressed subnet): accumulate for root validators.
-                    PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
-                        *total = total.saturating_add(tou64!(root_alpha).into());
-                    });
-                }
+                // Accumulate root alpha divs for root validators.
+                PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(root_alpha).into());
+                });
             } else {
                 // If we are not selling the root alpha, we should recycle it.
                 Self::recycle_subnet_alpha(*netuid_i, AlphaCurrency::from(tou64!(root_alpha)));

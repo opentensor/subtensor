@@ -341,23 +341,6 @@ pub mod pallet {
         },
     }
 
-    /// Controls how root alpha dividends are handled on emission-suppressed subnets.
-    #[derive(
-        Encode, Decode, Default, TypeInfo, Clone, Copy, PartialEq, Eq, Debug, DecodeWithMemTracking,
-    )]
-    pub enum RootSellPressureOnSuppressedSubnetsMode {
-        /// Root gets no alpha on suppressed subnets; root alpha recycled to subnet validators.
-        #[codec(index = 0)]
-        Disable,
-        /// Root still accumulates alpha on suppressed subnets (old `true`).
-        #[default]
-        #[codec(index = 1)]
-        Enable,
-        /// Root alpha is swapped to TAO via AMM and the TAO is recycled.
-        #[codec(index = 2)]
-        Recycle,
-    }
-
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
@@ -2398,14 +2381,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type EmissionSuppressionOverride<T: Config> =
         StorageMap<_, Identity, NetUid, bool, OptionQuery>;
-
-    /// Controls how root alpha dividends are handled on emission-suppressed subnets.
-    /// - Disable (0x00): root gets no alpha; root alpha recycled to subnet validators.
-    /// - Enable  (0x01): root still accumulates alpha (old behaviour).
-    /// - Recycle (0x02, default): root alpha swapped to TAO and TAO burned.
-    #[pallet::storage]
-    pub type KeepRootSellPressureOnSuppressedSubnets<T: Config> =
-        StorageValue<_, RootSellPressureOnSuppressedSubnetsMode, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
