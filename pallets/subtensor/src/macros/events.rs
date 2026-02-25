@@ -14,8 +14,8 @@ mod events {
         /// a network is removed.
         NetworkRemoved(NetUid),
         /// Stake has been transferred from a coldkey account onto the hotkey staking account.
-        /// The origin is the account that initiated the action (coldkey from ensure_signed;
-        /// for proxy calls this is the proxied account, not the proxy itself).
+        /// The origin is the account on behalf of which the staking operation was performed
+        /// (coldkey for extrinsic calls, lease coldkey for automated distributions).
         /// (origin, coldkey, hotkey, tao_amount, alpha_amount, netuid, fee)
         StakeAdded(
             T::AccountId,
@@ -27,8 +27,8 @@ mod events {
             u64,
         ),
         /// Stake has been removed from the hotkey staking account onto the coldkey account.
-        /// The origin is the account that initiated the action (coldkey from ensure_signed;
-        /// for proxy calls this is the proxied account, not the proxy itself).
+        /// The origin is the account on behalf of which the unstaking operation was performed
+        /// (coldkey for extrinsic calls, lease coldkey for automated distributions).
         /// (origin, coldkey, hotkey, tao_amount, alpha_amount, netuid, fee)
         StakeRemoved(
             T::AccountId,

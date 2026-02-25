@@ -652,6 +652,34 @@ fn test_do_move_event_emission() {
             )
             .into(),
         );
+
+        // Verify StakeRemoved and StakeAdded events have origin == coldkey
+        let events = System::events();
+        let stake_removed = events.iter().find_map(|record| {
+            if let RuntimeEvent::SubtensorModule(Event::StakeRemoved(
+                origin, _, _, _, _, _, _,
+            )) = &record.event
+            {
+                Some(origin.clone())
+            } else {
+                None
+            }
+        });
+        assert!(stake_removed.is_some(), "StakeRemoved event should be emitted during move");
+        assert_eq!(stake_removed.unwrap(), coldkey, "StakeRemoved origin should be coldkey");
+
+        let stake_added = events.iter().find_map(|record| {
+            if let RuntimeEvent::SubtensorModule(Event::StakeAdded(
+                origin, _, _, _, _, _, _,
+            )) = &record.event
+            {
+                Some(origin.clone())
+            } else {
+                None
+            }
+        });
+        assert!(stake_added.is_some(), "StakeAdded event should be emitted during move");
+        assert_eq!(stake_added.unwrap(), coldkey, "StakeAdded origin should be coldkey");
     });
 }
 

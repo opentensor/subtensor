@@ -171,6 +171,77 @@ fn test_add_stake_event_has_origin() {
     });
 }
 
+// Verify StakeRemoved event contains the correct origin field (coldkey for direct calls)
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_remove_stake_event_has_origin --exact --nocapture
+#[test]
+fn test_remove_stake_event_has_origin() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        mock::setup_reserves(
+            netuid,
+            (amount * 1_000_000).into(),
+            (amount * 10_000_000).into(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        // Stake first
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into()
+        ));
+
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
+
+        System::reset_events();
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            alpha,
+        ));
+
+        // Find the StakeRemoved event and assert origin == coldkey
+        let events = System::events();
+        let stake_removed = events.iter().find_map(|record| {
+            if let RuntimeEvent::SubtensorModule(Event::StakeRemoved(
+                origin,
+                coldkey,
+                _hotkey,
+                _tao,
+                _alpha,
+                ev_netuid,
+                _fee,
+            )) = &record.event
+            {
+                Some((origin.clone(), coldkey.clone(), *ev_netuid))
+            } else {
+                None
+            }
+        });
+        assert!(
+            stake_removed.is_some(),
+            "StakeRemoved event should be emitted"
+        );
+        let (origin, coldkey, ev_netuid) = stake_removed.unwrap();
+        assert_eq!(
+            origin, coldkey_account_id,
+            "Origin should equal coldkey for direct unstake calls"
+        );
+        assert_eq!(coldkey, coldkey_account_id);
+        assert_eq!(ev_netuid, netuid);
+    });
+}
+
 #[test]
 fn test_dividends_with_run_to_block() {
     new_test_ext(1).execute_with(|| {
