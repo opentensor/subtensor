@@ -1,4 +1,144 @@
 name: E2E Tests
 
 on:
+  pull_request:
+
   workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  # Build the node binary in both variants and share as artifacts.
+  build:
+    runs-on: [self-hosted, type-ccx33]
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        include:
+          - variant: production
+            flags: ""
+          - variant: fast
+            flags: "--features fast-runtime"
+    env:
+      RUST_BACKTRACE: full
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends \
+            -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+            build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: e2e-${{ matrix.variant }}
+          cache-on-failure: true
+
+      - name: Build node-subtensor (${{ matrix.variant }})
+        run: cargo build --profile production ${{ matrix.flags }} -p node-subtensor
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-subtensor-${{ matrix.variant }}
+          path: target/production/node-subtensor
+          if-no-files-found: error
+
+  # Discover e2e packages that have a "test" script.
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.find.outputs.packages }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: e2e
+
+      - name: Find testable packages
+        id: find
+        working-directory: e2e
+        run: |
+          packages=$(
+            find . -maxdepth 2 -name package.json -not -path './node_modules/*' \
+            | while read -r pkg; do
+                name=$(jq -r '.name // empty' "$pkg")
+                has_test=$(jq -r '.scripts.test // empty' "$pkg")
+                if [ -n "$has_test" ] && [ -n "$name" ]; then
+                  echo "$name"
+                fi
+              done \
+            | jq -R -s -c 'split("\n") | map(select(. != ""))'
+          )
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+          echo "Discovered packages: $packages"
+
+  # Run each e2e package's tests in parallel.
+  test:
+    needs: [build, discover]
+    if: ${{ needs.discover.outputs.packages != '[]' }}
+    runs-on: [self-hosted, type-ccx33]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.discover.outputs.packages) }}
+    name: "e2e: ${{ matrix.package }}"
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+
+      - name: Download production binary
+        uses: actions/download-artifact@v4
+        with:
+          name: node-subtensor-production
+          path: target/production
+
+      - name: Download fast binary
+        uses: actions/download-artifact@v4
+        with:
+          name: node-subtensor-fast
+          path: target/fast
+
+      - name: Make binaries executable
+        run: chmod +x target/production/node-subtensor target/fast/node-subtensor
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: e2e/.nvmrc
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Bootstrap papi types
+        working-directory: e2e
+        run: ./bootstrap_types.sh --skip-build
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        working-directory: e2e
+        run: pnpm --filter ${{ matrix.package }} test
