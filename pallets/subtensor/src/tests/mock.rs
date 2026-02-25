@@ -5,7 +5,6 @@
 )]
 
 use core::num::NonZeroU64;
-use std::u64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
