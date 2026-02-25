@@ -111,6 +111,66 @@ fn test_add_stake_ok_no_emission() {
     });
 }
 
+// Verify StakeAdded event contains the correct origin field (coldkey for direct calls)
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_add_stake_event_has_origin --exact --nocapture
+#[test]
+fn test_add_stake_event_has_origin() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey_account_id = U256::from(533453);
+        let coldkey_account_id = U256::from(55453);
+        let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        mock::setup_reserves(
+            netuid,
+            (amount * 1_000_000).into(),
+            (amount * 10_000_000).into(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount);
+
+        System::reset_events();
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            amount.into()
+        ));
+
+        // Find the StakeAdded event and assert origin == coldkey
+        let events = System::events();
+        let stake_added = events.iter().find_map(|record| {
+            if let RuntimeEvent::SubtensorModule(Event::StakeAdded(
+                origin,
+                coldkey,
+                hotkey,
+                _tao,
+                _alpha,
+                ev_netuid,
+                _fee,
+            )) = &record.event
+            {
+                Some((
+                    origin.clone(),
+                    coldkey.clone(),
+                    hotkey.clone(),
+                    *ev_netuid,
+                ))
+            } else {
+                None
+            }
+        });
+        assert!(stake_added.is_some(), "StakeAdded event should be emitted");
+        let (origin, coldkey, hotkey, ev_netuid) = stake_added.unwrap();
+        assert_eq!(
+            origin, coldkey_account_id,
+            "Origin should equal coldkey for direct stake calls"
+        );
+        assert_eq!(coldkey, coldkey_account_id);
+        assert_eq!(hotkey, hotkey_account_id);
+        assert_eq!(ev_netuid, netuid);
+    });
+}
+
 #[test]
 fn test_dividends_with_run_to_block() {
     new_test_ext(1).execute_with(|| {
