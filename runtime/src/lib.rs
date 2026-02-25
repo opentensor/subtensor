@@ -70,6 +70,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use stp_shield::ShieldedTransaction;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -123,9 +124,28 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Signature = Signature;
 }
 
+pub struct FindAuraAuthors;
+impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
+    fn find_current_author() -> Option<AuraId> {
+        let slot = Aura::current_slot_from_digests()?;
+        let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
+        let author_index = *slot % authorities.len() as u64;
+
+        authorities.get(author_index as usize).cloned()
+    }
+
+    fn find_next_author() -> Option<AuraId> {
+        let next_slot = Aura::current_slot_from_digests()?.checked_add(1)?;
+        let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
+        let next_author_index = next_slot % authorities.len() as u64;
+
+        authorities.get(next_author_index as usize).cloned()
+    }
+}
+
 impl pallet_shield::Config for Runtime {
-    type RuntimeCall = RuntimeCall;
-    type AuthorityOrigin = pallet_shield::EnsureAuraAuthority<Self>;
+    type AuthorityId = AuraId;
+    type FindAuthors = FindAuraAuthors;
 }
 
 parameter_types! {
@@ -165,21 +185,23 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
         use sp_runtime::traits::StaticLookup;
 
         let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
-        let extra: TransactionExtensions = (
-            frame_system::CheckNonZeroSender::<Runtime>::new(),
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
-            check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
-            frame_system::CheckWeight::<Runtime>::new(),
-            ChargeTransactionPaymentWrapper::new(
-                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+        let extra: TxExtension = (
+            (
+                frame_system::CheckNonZeroSender::<Runtime>::new(),
+                frame_system::CheckSpecVersion::<Runtime>::new(),
+                frame_system::CheckTxVersion::<Runtime>::new(),
+                frame_system::CheckGenesis::<Runtime>::new(),
+                frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+                check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
+                frame_system::CheckWeight::<Runtime>::new(),
             ),
-            SudoTransactionExtension::<Runtime>::new(),
-            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
+            (
+                ChargeTransactionPaymentWrapper::new(0),
+                SudoTransactionExtension::<Runtime>::new(),
+                pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
+                pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(),
+                pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             ),
-            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
 
@@ -241,7 +263,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 382,
+    spec_version: 383,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1608,7 +1630,7 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 // Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 // The extensions to the basic transaction logic.
-pub type TransactionExtensions = (
+pub type SystemTxExtension = (
     frame_system::CheckNonZeroSender<Runtime>,
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
@@ -1616,10 +1638,17 @@ pub type TransactionExtensions = (
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
+);
+pub type CustomTxExtension = (
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
+    pallet_shield::CheckShieldedTxValidity<Runtime>,
     pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
+);
+pub type TxExtension = (
+    SystemTxExtension,
+    CustomTxExtension,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
@@ -1633,19 +1662,22 @@ type Migrations = (
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtensions>;
+    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
-    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensions, H160>;
+    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TxExtension, H160>;
 
 // The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, TransactionExtensions>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
+
+// Chain context for the executive.
+pub type ChainContext = frame_system::ChainContext<Runtime>;
 // Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
     Runtime,
     Block,
-    frame_system::ChainContext<Runtime>,
+    ChainContext,
     Runtime,
     AllPalletsWithSystem,
     Migrations,
@@ -2549,6 +2581,16 @@ impl_runtime_apis! {
                     alpha_fee:    sr.fee_paid.into(),
                 },
             )
+        }
+    }
+
+    impl stp_shield::ShieldApi<Block> for Runtime {
+        fn try_decode_shielded_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
+            MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
+        }
+
+        fn try_unshield_tx(shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+            MevShield::try_unshield_tx::<Block>(shielded_tx)
         }
     }
 }

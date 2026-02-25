@@ -1,145 +1,94 @@
-use crate as pallet_mev_shield;
+use crate as pallet_shield;
+use crate::MLKEM768_PK_LEN;
 
-use frame_support::{construct_runtime, derive_impl, parameter_types, traits::Everything};
-use frame_system as system;
+use frame_support::{BoundedVec, construct_runtime, derive_impl};
+use sp_runtime::{BuildStorage, generic, testing::TestSignature};
+use std::cell::RefCell;
+use stp_shield::ShieldPublicKey;
 
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstU32, H256};
-use sp_runtime::traits::BadOrigin;
-use sp_runtime::{
-    AccountId32, BuildStorage,
-    traits::{BlakeTwo256, IdentityLookup},
-};
+pub type Block = frame_system::mocking::MockBlock<Test>;
 
-// -----------------------------------------------------------------------------
-// Mock runtime
-// -----------------------------------------------------------------------------
-
-pub type UncheckedExtrinsic = system::mocking::MockUncheckedExtrinsic<Test>;
-pub type Block = system::mocking::MockBlock<Test>;
+pub type DecodableExtrinsic = generic::UncheckedExtrinsic<u64, RuntimeCall, TestSignature, ()>;
+pub type DecodableBlock =
+    generic::Block<generic::Header<u64, sp_runtime::traits::BlakeTwo256>, DecodableExtrinsic>;
 
 construct_runtime!(
     pub enum Test {
         System: frame_system = 0,
-        Timestamp: pallet_timestamp = 1,
-        Aura: pallet_aura = 2,
-        MevShield: pallet_mev_shield = 3,
+        MevShield: pallet_shield = 1,
+        Utility: pallet_subtensor_utility = 2,
     }
 );
 
-// A concrete nonce type used in tests.
-pub type TestNonce = u64;
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl system::Config for Test {
-    // Basic system config
-    type BaseCallFilter = Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-
-    type Nonce = TestNonce;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-
-    type AccountId = AccountId32;
-    type Lookup = IdentityLookup<Self::AccountId>;
+impl frame_system::Config for Test {
     type Block = Block;
-
-    type BlockHashCount = ();
-    type Version = ();
-    type PalletInfo = PalletInfo;
-
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-
-    // Max number of consumer refs per account.
-    type MaxConsumers = ConstU32<16>;
 }
 
-parameter_types! {
-    pub const MinimumPeriod: u64 = 1;
-}
-
-impl pallet_timestamp::Config for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
+impl pallet_subtensor_utility::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
     type WeightInfo = ();
 }
 
-// Aura mock configuration
-parameter_types! {
-    pub const MaxAuthorities: u32 = 32;
-    pub const AllowMultipleBlocksPerSlot: bool = false;
-    pub const SlotDuration: u64 = 6000;
+thread_local! {
+    pub static CURRENT_AUTHOR: RefCell<Option<u64>> = const { RefCell::new(None) };
+    pub static NEXT_AUTHOR: RefCell<Option<u64>> = const { RefCell::new(None) };
 }
 
-impl pallet_aura::Config for Test {
-    type AuthorityId = AuraId;
-    // For tests we don't need dynamic disabling; just use unit type.
-    type DisabledValidators = ();
-    type MaxAuthorities = MaxAuthorities;
-    type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
-    type SlotDuration = SlotDuration;
-}
+pub struct MockFindAuthors;
 
-// -----------------------------------------------------------------------------
-// Authority origin for tests – root-only
-// -----------------------------------------------------------------------------
-
-/// For tests, treat Root as the “validator set” and return a dummy AccountId.
-pub struct TestAuthorityOrigin;
-
-impl pallet_mev_shield::AuthorityOriginExt<RuntimeOrigin> for TestAuthorityOrigin {
-    type AccountId = AccountId32;
-
-    fn ensure_validator(origin: RuntimeOrigin) -> Result<Self::AccountId, BadOrigin> {
-        // Must be a signed origin.
-        let who: AccountId32 = frame_system::ensure_signed(origin).map_err(|_| BadOrigin)?;
-
-        // Interpret the AccountId bytes as an AuraId, just like the real pallet.
-        let aura_id =
-            <AuraId as sp_core::ByteArray>::from_slice(who.as_ref()).map_err(|_| BadOrigin)?;
-
-        // Check membership in the Aura validator set.
-        let is_validator = pallet_aura::Authorities::<Test>::get()
-            .into_iter()
-            .any(|id| id == aura_id);
-
-        if is_validator {
-            Ok(who)
-        } else {
-            Err(BadOrigin)
-        }
+impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
+    fn find_current_author() -> Option<u64> {
+        CURRENT_AUTHOR.with(|a| *a.borrow())
+    }
+    fn find_next_author() -> Option<u64> {
+        NEXT_AUTHOR.with(|a| *a.borrow())
     }
 }
 
-// -----------------------------------------------------------------------------
-// MevShield Config
-// -----------------------------------------------------------------------------
-
-impl pallet_mev_shield::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type AuthorityOrigin = TestAuthorityOrigin;
+impl pallet_shield::Config for Test {
+    type AuthorityId = u64;
+    type FindAuthors = MockFindAuthors;
 }
 
-// -----------------------------------------------------------------------------
-// new_test_ext
-// -----------------------------------------------------------------------------
-
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    // Use the construct_runtime!-generated genesis config.
     RuntimeGenesisConfig::default()
         .build_storage()
-        .expect("RuntimeGenesisConfig builds valid default genesis storage")
+        .expect("valid genesis")
         .into()
+}
+
+pub fn valid_pk() -> ShieldPublicKey {
+    BoundedVec::truncate_from(vec![0x42; MLKEM768_PK_LEN])
+}
+
+pub fn valid_pk_b() -> ShieldPublicKey {
+    BoundedVec::truncate_from(vec![0x99; MLKEM768_PK_LEN])
+}
+
+pub fn set_authors(current: Option<u64>, next: Option<u64>) {
+    CURRENT_AUTHOR.with(|a| *a.borrow_mut() = current);
+    NEXT_AUTHOR.with(|a| *a.borrow_mut() = next);
+}
+
+pub fn nest_call(call: RuntimeCall, depth: usize) -> RuntimeCall {
+    (0..depth).fold(call, |inner, _| {
+        RuntimeCall::Utility(pallet_subtensor_utility::Call::batch { calls: vec![inner] })
+    })
+}
+
+pub fn build_wire_ciphertext(
+    key_hash: &[u8; 16],
+    kem_ct: &[u8],
+    nonce: &[u8; 24],
+    aead_ct: &[u8],
+) -> Vec<u8> {
+    let mut buf = Vec::new();
+    buf.extend_from_slice(key_hash);
+    buf.extend_from_slice(&(kem_ct.len() as u16).to_le_bytes());
+    buf.extend_from_slice(kem_ct);
+    buf.extend_from_slice(nonce);
+    buf.extend_from_slice(aead_ct);
+    buf
 }

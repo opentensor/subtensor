@@ -64,7 +64,11 @@ impl<T: Config> Pallet<T> {
         Self::ensure_evm_key_associate_rate_limit(netuid, uid)?;
 
         let block_hash = keccak_256(block_number.encode().as_ref());
-        let message = [hotkey.encode().as_ref(), block_hash.as_ref()].concat();
+        let message = [
+            hotkey.encode().as_ref(),
+            <[u8; 32] as AsRef<[u8]>>::as_ref(&block_hash),
+        ]
+        .concat();
         let public = signature
             .recover_prehashed(&Self::hash_message_eip191(message))
             .ok_or(Error::<T>::InvalidIdentity)?;

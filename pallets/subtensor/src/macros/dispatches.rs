@@ -1083,8 +1083,8 @@ mod dispatches {
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight(Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(16_u64))
-        .saturating_add(T::DbWeight::get().writes(11_u64)))]
+        .saturating_add(T::DbWeight::get().reads(17_u64))
+        .saturating_add(T::DbWeight::get().writes(10_u64)))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,

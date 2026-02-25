@@ -1,7 +1,19 @@
 // pallets/mev-shield/src/lib.rs
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use frame_support::{pallet_prelude::*, traits::IsSubType};
+use frame_system::{ensure_none, ensure_signed, pallet_prelude::*};
+use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
+use stp_shield::{
+    INHERENT_IDENTIFIER, InherentType, LOG_TARGET, ShieldPublicKey, ShieldedTransaction,
+};
+
+use alloc::vec;
+
 pub use pallet::*;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -11,271 +23,137 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 
+mod extension;
+mod migrations;
+pub use extension::CheckShieldedTxValidity;
+
+type MigrationKeyMaxLen = ConstU32<128>;
+
+type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
+type CheckedOf<T, Context> = <T as Checkable<Context>>::Checked;
+type ApplyableCallOf<T> = <T as Applyable>::Call;
+
+const MLKEM768_PK_LEN: usize = 1184;
+const MAX_EXTRINSIC_DEPTH: u32 = 8;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use codec::Encode;
-    use frame_support::{
-        dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-        pallet_prelude::*,
-        traits::ConstU32,
-        traits::IsSubType,
-        weights::Weight,
-    };
-    use frame_system::pallet_prelude::*;
-    use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
-    use sp_core::ByteArray;
-    use sp_runtime::{
-        AccountId32, DispatchErrorWithPostInfo, RuntimeDebug, Saturating,
-        traits::{
-            BadOrigin, DispatchInfoOf, DispatchOriginOf, Dispatchable, Hash, Implication,
-            TransactionExtension,
-        },
-        transaction_validity::{InvalidTransaction, TransactionSource, ValidTransaction},
-    };
-    use sp_std::{marker::PhantomData, prelude::*};
-    use subtensor_macros::freeze_struct;
-
-    /// Origin helper: ensure the signer is an Aura authority (no session/authorship).
-    pub struct EnsureAuraAuthority<T>(PhantomData<T>);
-
-    pub trait AuthorityOriginExt<Origin> {
-        type AccountId;
-
-        fn ensure_validator(origin: Origin) -> Result<Self::AccountId, BadOrigin>;
-    }
-
-    impl<T> AuthorityOriginExt<OriginFor<T>> for EnsureAuraAuthority<T>
-    where
-        T: frame_system::Config<AccountId = AccountId32>
-            + pallet_aura::Config<AuthorityId = AuraAuthorityId>,
-    {
-        type AccountId = AccountId32;
-
-        fn ensure_validator(origin: OriginFor<T>) -> Result<Self::AccountId, BadOrigin> {
-            let who: AccountId32 = frame_system::ensure_signed(origin)?;
-
-            let aura_id =
-                <AuraAuthorityId as ByteArray>::from_slice(who.as_ref()).map_err(|_| BadOrigin)?;
-
-            let is_validator = pallet_aura::Authorities::<T>::get()
-                .into_iter()
-                .any(|id| id == aura_id);
-
-            if is_validator {
-                Ok(who)
-            } else {
-                Err(BadOrigin)
-            }
-        }
-    }
-
-    // ----------------- Types -----------------
-
-    /// AEAD‑independent commitment over the revealed payload.
-    #[freeze_struct("66e393c88124f360")]
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-    pub struct Submission<AccountId, BlockNumber, Hash> {
-        pub author: AccountId,
-        pub commitment: Hash,
-        pub ciphertext: BoundedVec<u8, ConstU32<8192>>,
-        pub submitted_in: BlockNumber,
-    }
-
-    // ----------------- Config -----------------
 
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config<AccountId = AccountId32, RuntimeEvent: From<Event<Self>>>
-        + pallet_timestamp::Config
-        + pallet_aura::Config
-    {
-        type RuntimeCall: Parameter
-            + sp_runtime::traits::Dispatchable<
-                RuntimeOrigin = Self::RuntimeOrigin,
-                PostInfo = PostDispatchInfo,
-            > + GetDispatchInfo;
+    pub trait Config: frame_system::Config {
+        /// The identifier type for an authority.
+        type AuthorityId: Member + Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
-        type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = AccountId32>;
+        /// A way to find the current and next block author.
+        type FindAuthors: FindAuthors<Self>;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    // ----------------- Storage -----------------
-
-    /// Current ML‑KEM‑768 public key bytes (encoded form).
+    // Current block author ML‑KEM‑768 public key bytes.
+    //
+    // Note: Do not use this to encrypt transactions as this
+    // is only used to validate transactions in the extension.
+    // Use `NextKey` instead.
     #[pallet::storage]
-    pub type CurrentKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
+    pub type CurrentKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
 
-    /// Next ML‑KEM‑768 public key bytes, announced by the block author.
+    // Next block author ML‑KEM‑768 public key bytes.
+    //
+    // This is the key that should be used to encrypt transactions.
     #[pallet::storage]
-    pub type NextKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
+    pub type NextKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
 
-    /// Buffered encrypted submissions, indexed by wrapper id.
+    /// Latest announced ML‑KEM‑768 public key per block author.
+    /// This is the key the author will use for decapsulation in their next slot.
     #[pallet::storage]
-    pub type Submissions<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::Hash,
-        Submission<T::AccountId, BlockNumberFor<T>, T::Hash>,
-        OptionQuery,
-    >;
+    pub type AuthorKeys<T: Config> =
+        StorageMap<_, Twox64Concat, T::AuthorityId, ShieldPublicKey, OptionQuery>;
 
-    /// Hash(CurrentKey) per block, used to bind `key_hash` to the epoch at submit time.
+    /// Stores whether some migration has been run.
     #[pallet::storage]
-    pub type KeyHashByBlock<T: Config> =
-        StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, T::Hash, OptionQuery>;
-
-    /// How many recent blocks of key-epoch hashes we retain.
-    const KEY_EPOCH_HISTORY: u32 = 100;
-
-    // ----------------- Events & Errors -----------------
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Encrypted wrapper accepted.
         EncryptedSubmitted { id: T::Hash, who: T::AccountId },
-        /// Decrypted call executed.
-        DecryptedExecuted { id: T::Hash, signer: T::AccountId },
-        /// Decrypted execution rejected.
-        DecryptedRejected {
-            id: T::Hash,
-            reason: DispatchErrorWithPostInfo<PostDispatchInfo>,
-        },
-        /// Decryption failed - validator could not decrypt the submission.
-        DecryptionFailed {
-            id: T::Hash,
-            reason: BoundedVec<u8, ConstU32<256>>,
-        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// A submission with the same id already exists in `Submissions`.
-        SubmissionAlreadyExists,
-        /// The referenced submission id does not exist in `Submissions`.
-        MissingSubmission,
-        /// The recomputed commitment does not match the stored commitment.
-        CommitmentMismatch,
-        /// The provided signature over the payload is invalid.
-        SignatureInvalid,
         /// The announced ML‑KEM public key length is invalid.
         BadPublicKeyLen,
-        /// The MEV‑Shield key epoch for this submission has expired and is no longer accepted.
-        KeyExpired,
-        /// The provided `key_hash` does not match the expected epoch key hash.
-        KeyHashMismatch,
-        /// The shield is disabled while upgrading.
-        ShieldDisabledWhileUpgrading,
+        /// Unreachable.
+        Unreachable,
     }
-
-    // ----------------- Hooks -----------------
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let db_weight = T::DbWeight::get();
-            let mut reads: u64 = 0;
-            let mut writes: u64 = 0;
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            // 1) Roll NextKey -> CurrentKey if a next key is present.
-            reads = reads.saturating_add(1);
-            writes = writes.saturating_add(1);
-            let mut current_opt: Option<BoundedVec<u8, ConstU32<2048>>> =
-                if let Some(next) = NextKey::<T>::take() {
-                    CurrentKey::<T>::put(&next);
-                    writes = writes.saturating_add(1);
-                    Some(next)
-                } else {
-                    None
-                };
+            weight = weight.saturating_add(
+                migrations::migrate_clear_v1_storage::migrate_clear_v1_storage::<T>(),
+            );
 
-            // 2) If we didn't roll, read the existing CurrentKey exactly once.
-            if current_opt.is_none() {
-                reads = reads.saturating_add(1);
-                current_opt = CurrentKey::<T>::get();
-            }
-
-            // 3) Maintain KeyHashByBlock entry for this block:
-            match current_opt {
-                Some(current) => {
-                    let epoch_hash: T::Hash = T::Hashing::hash(current.as_ref());
-                    KeyHashByBlock::<T>::insert(n, epoch_hash);
-                    writes = writes.saturating_add(1);
-                }
-                None => {
-                    KeyHashByBlock::<T>::remove(n);
-                    writes = writes.saturating_add(1);
-                }
-            }
-
-            // 4) Prune old epoch hashes with a sliding window of size KEY_EPOCH_HISTORY.
-            let depth: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
-            if n >= depth {
-                let prune_bn = n.saturating_sub(depth);
-                KeyHashByBlock::<T>::remove(prune_bn);
-                writes = writes.saturating_add(1);
-            }
-
-            // 5) TTL-based pruning of stale submissions.
-            let ttl: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
-            let threshold: BlockNumberFor<T> = n.saturating_sub(ttl);
-
-            let mut to_remove: Vec<T::Hash> = Vec::new();
-
-            for (id, sub) in Submissions::<T>::iter() {
-                reads = reads.saturating_add(1);
-                if sub.submitted_in < threshold {
-                    to_remove.push(id);
-                }
-            }
-
-            for id in to_remove {
-                Submissions::<T>::remove(id);
-                writes = writes.saturating_add(1);
-            }
-
-            db_weight.reads_writes(reads, writes)
+            weight
         }
     }
-
-    // ----------------- Calls -----------------
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Announce the ML‑KEM public key that will become `CurrentKey` in
-        /// the following block.
+        /// the next block the current author will produce.
+        ///
+        /// Note: The public key can be `None` if the author failed to include the key in the
+        /// inherent data (which should never happen except node failure). In that case, we
+        /// store the next key as `None` to reflect that this author will not be able
+        /// handle encrypted transactions in his next block.
         #[pallet::call_index(0)]
-        #[pallet::weight((
-            Weight::from_parts(20_999_999_999, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
-        #[allow(clippy::useless_conversion)]
+        #[pallet::weight(Weight::from_parts(23_190_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2_u64))
+        .saturating_add(T::DbWeight::get().writes(3_u64)))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
-            public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResultWithPostInfo {
-            // Only a current Aura validator may call this (signed account ∈ Aura authorities)
-            T::AuthorityOrigin::ensure_validator(origin)?;
+            public_key: Option<ShieldPublicKey>,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
 
-            const MAX_KYBER768_PK_LENGTH: usize = 1184;
-            ensure!(
-                public_key.len() == MAX_KYBER768_PK_LENGTH,
-                Error::<T>::BadPublicKeyLen
-            );
+            let author = T::FindAuthors::find_current_author()
+                // This should never happen as we are in an inherent.
+                .ok_or(Error::<T>::Unreachable)?;
 
-            NextKey::<T>::put(public_key);
+            // Shift the key chain: Current ← NextKey.
+            // NextKey was set in the previous block to be the current author's key,
+            // so this naturally tracks the last 2 keys users may have encrypted with.
+            CurrentKey::<T>::set(NextKey::<T>::get());
 
-            // Refund the fee on success by setting pays_fee = Pays::No
-            Ok(PostDispatchInfo {
-                actual_weight: None,
-                pays_fee: Pays::No,
-            })
+            if let Some(public_key) = &public_key {
+                ensure!(
+                    public_key.len() == MLKEM768_PK_LEN,
+                    Error::<T>::BadPublicKeyLen
+                );
+                AuthorKeys::<T>::insert(&author, public_key.clone());
+            } else {
+                // If the author did not announce a key, remove his old key from storage,
+                // he will not be able to accept shielded transactions in his next block.
+                AuthorKeys::<T>::remove(&author);
+            }
+
+            // Expose the next block author's key so users can encrypt for them.
+            NextKey::<T>::kill();
+            if let Some(next_author) = T::FindAuthors::find_next_author()
+                && let Some(key) = AuthorKeys::<T>::get(&next_author)
+            {
+                NextKey::<T>::put(key);
+            }
+
+            Ok(())
         }
 
         /// Users submit an encrypted wrapper.
@@ -285,179 +163,133 @@ pub mod pallet {
         ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
         ///   2. Sign your extrinsic so that it can be executed when added to the pool,
         ///        i.e. you may need to increment the nonce if you submit using the same account.
-        ///   3. `commitment = Hashing::hash(signed_extrinsic)`.
-        ///   4. Encrypt:
+        ///   3. Encrypt:
         ///
         ///        plaintext = signed_extrinsic
+        ///        key_hash = xxhash128(NextKey)
+        ///        kem_len = Length of kem_ct in bytes (u16)
+        ///        kem_ct = Ciphertext from ML‑KEM‑768
+        ///        nonce = Random 24 bytes used for XChaCha20‑Poly1305
+        ///        aead_ct = Ciphertext from XChaCha20‑Poly1305
         ///
         ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
         ///
-        ///        ciphertext = [u16 kem_len] || kem_ct || nonce24 || aead_ct
+        ///        ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((
-            Weight::from_parts(13_980_000, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Normal,
-            Pays::Yes,
-        ))]
+        #[pallet::weight(Weight::from_parts(207_500_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(0_u64)))]
         pub fn submit_encrypted(
-            _origin: OriginFor<T>,
-            _commitment: T::Hash,
-            _ciphertext: BoundedVec<u8, ConstU32<8192>>,
-        ) -> DispatchResult {
-            Err(Error::<T>::ShieldDisabledWhileUpgrading.into())
-        }
-
-        /// Marks a submission as failed to decrypt and removes it from storage.
-        ///
-        /// Called by the block author when decryption fails at any stage (e.g., ML-KEM decapsulate
-        /// failed, AEAD decrypt failed, invalid ciphertext format, etc.). This allows clients to be
-        /// notified of decryption failures through on-chain events.
-        ///
-        /// # Arguments
-        ///
-        /// * `id` - The wrapper id (hash of (author, commitment, ciphertext))
-        /// * `reason` - Human-readable reason for the decryption failure (e.g., "ML-KEM decapsulate failed")
-        #[pallet::call_index(3)]
-        #[pallet::weight((
-            Weight::from_parts(13_260_000, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Normal,
-            Pays::No
-        ))]
-        pub fn mark_decryption_failed(
             origin: OriginFor<T>,
-            id: T::Hash,
-            reason: BoundedVec<u8, ConstU32<256>>,
+            ciphertext: BoundedVec<u8, ConstU32<8192>>,
         ) -> DispatchResult {
-            // Unsigned: only the author node may inject this via ValidateUnsigned.
-            ensure_none(origin)?;
+            let who = ensure_signed(origin)?;
+            let id: T::Hash = T::Hashing::hash_of(&(who.clone(), &ciphertext));
 
-            // Load and consume the submission.
-            let Some(_sub) = Submissions::<T>::take(id) else {
-                return Err(Error::<T>::MissingSubmission.into());
-            };
-
-            // Emit event to notify clients
-            Self::deposit_event(Event::DecryptionFailed { id, reason });
-
+            Self::deposit_event(Event::EncryptedSubmitted { id, who });
             Ok(())
         }
     }
 
-    #[pallet::validate_unsigned]
-    impl<T: Config> ValidateUnsigned for Pallet<T> {
+    #[pallet::inherent]
+    impl<T: Config> ProvideInherent for Pallet<T> {
         type Call = Call<T>;
+        type Error = sp_inherents::MakeFatalError<()>;
 
-        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-            match call {
-                Call::mark_decryption_failed { id, .. } => {
-                    match source {
-                        TransactionSource::Local | TransactionSource::InBlock => {
-                            ValidTransaction::with_tag_prefix("mev-shield-failed")
-                                .priority(1u64)
-                                .longevity(64) // long because propagate(false)
-                                .and_provides(id) // dedupe by wrapper id
-                                .propagate(false) // CRITICAL: no gossip, stays on author node
-                                .build()
-                        }
-                        _ => InvalidTransaction::Call.into(),
-                    }
-                }
-                _ => InvalidTransaction::Call.into(),
-            }
+        const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
+
+        fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+            let public_key = data
+                .get_data::<InherentType>(&INHERENT_IDENTIFIER)
+                .inspect_err(
+                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded public key inherent data: {:?}", e),
+                )
+                .ok()??;
+            Some(Call::announce_next_key { public_key })
+        }
+
+        fn is_inherent(call: &Self::Call) -> bool {
+            matches!(call, Call::announce_next_key { .. })
         }
     }
+}
 
-    #[freeze_struct("51f74eb54f5ab1fe")]
-    #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-    pub struct MevShieldDecryptionFilter<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
-
-    impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for MevShieldDecryptionFilter<T> {
-        fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-            write!(f, "MevShieldDecryptionFilter")
-        }
-    }
-
-    impl<T: Config + Send + Sync + TypeInfo> MevShieldDecryptionFilter<T> {
-        pub fn new() -> Self {
-            Self(PhantomData)
-        }
-
-        #[inline]
-        fn mev_failed_priority() -> TransactionPriority {
-            1u64
-        }
-    }
-
-    impl<T: Config + Send + Sync + TypeInfo> TransactionExtension<RuntimeCallFor<T>>
-        for MevShieldDecryptionFilter<T>
+impl<T: Config> Pallet<T> {
+    pub fn try_decode_shielded_tx<Block: BlockT, Context: Default>(
+        uxt: ExtrinsicOf<Block>,
+    ) -> Option<ShieldedTransaction>
     where
-        <T as frame_system::Config>::RuntimeCall:
-            Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-        <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+        Block::Extrinsic: Checkable<Context>,
+        CheckedOf<Block::Extrinsic, Context>: Applyable,
+        ApplyableCallOf<CheckedOf<Block::Extrinsic, Context>>: IsSubType<Call<T>>,
     {
-        const IDENTIFIER: &'static str = "MevShieldDecryptionFilter";
+        // Prevent stack overflows by limiting the depth of the extrinsic.
+        let encoded = uxt.encode();
+        let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+            MAX_EXTRINSIC_DEPTH,
+            &mut &encoded[..],
+        )
+        .inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded extrinsic: {:?}", e),
+        )
+        .ok()?;
 
-        type Implicit = ();
-        type Val = ();
-        type Pre = ();
+        // Verify that the signature is correct.
+        let xt = ExtrinsicOf::<Block>::check(uxt, &Context::default())
+            .inspect_err(
+                |e| log::debug!(target: LOG_TARGET, "Failed to check shielded extrinsic: {:?}", e),
+            )
+            .ok()?;
+        let call = xt.call();
 
-        fn weight(&self, _call: &RuntimeCallFor<T>) -> Weight {
-            // Only does light pattern matching; treat as free.
-            Weight::zero()
+        let Some(Call::submit_encrypted { ciphertext }) = IsSubType::<Call<T>>::is_sub_type(call)
+        else {
+            return None;
+        };
+
+        ShieldedTransaction::parse(ciphertext)
+    }
+
+    pub fn try_unshield_tx<Block: BlockT>(
+        shielded_tx: ShieldedTransaction,
+    ) -> Option<<Block as BlockT>::Extrinsic> {
+        let mut shared_secret = [0u8; 32];
+        stp_io::crypto::mlkem768_decapsulate(&shielded_tx.kem_ct, &mut shared_secret).inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decapsulate shielded transaction: {:?}", e),
+        ).ok()?;
+
+        let plaintext = stp_io::crypto::aead_decrypt(
+            &shared_secret,
+            &shielded_tx.nonce,
+            &shielded_tx.aead_ct,
+            &[],
+        )
+        .inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decrypt shielded transaction: {:?}", e),
+        )
+        .ok()?;
+
+        if plaintext.is_empty() {
+            return None;
         }
 
-        fn validate(
-            &self,
-            origin: DispatchOriginOf<RuntimeCallFor<T>>,
-            call: &RuntimeCallFor<T>,
-            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
-            _len: usize,
-            _self_implicit: Self::Implicit,
-            _inherited_implication: &impl Implication,
-            source: TransactionSource,
-        ) -> ValidateResult<Self::Val, RuntimeCallFor<T>> {
-            match call.is_sub_type() {
-                Some(Call::mark_decryption_failed { id, .. }) => {
-                    match source {
-                        TransactionSource::Local | TransactionSource::InBlock => {
-                            let validity_res =
-                                ValidTransaction::with_tag_prefix("mev-shield-failed")
-                                    .priority(Self::mev_failed_priority())
-                                    .longevity(64)
-                                    .and_provides(id)
-                                    .propagate(false)
-                                    .build();
+        ExtrinsicOf::<Block>::decode(&mut &plaintext[..]).inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded transaction: {:?}", e),
+        ).ok()
+    }
+}
 
-                            match validity_res {
-                                Ok(validity) => Ok((validity, (), origin)),
-                                Err(e) => Err(e),
-                            }
-                        }
+pub trait FindAuthors<T: Config> {
+    fn find_current_author() -> Option<T::AuthorityId>;
+    fn find_next_author() -> Option<T::AuthorityId>;
+}
 
-                        // Anything coming from the outside world (including *signed*
-                        // transactions) is rejected at the pool boundary.
-                        _ => Err(InvalidTransaction::Call.into()),
-                    }
-                }
-
-                _ => Ok((Default::default(), (), origin)),
-            }
-        }
-
-        fn prepare(
-            self,
-            _val: Self::Val,
-            _origin: &DispatchOriginOf<RuntimeCallFor<T>>,
-            _call: &RuntimeCallFor<T>,
-            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
-            _len: usize,
-        ) -> Result<Self::Pre, TransactionValidityError> {
-            Ok(())
-        }
+impl<T: Config> FindAuthors<T> for () {
+    fn find_current_author() -> Option<T::AuthorityId> {
+        None
+    }
+    fn find_next_author() -> Option<T::AuthorityId> {
+        None
     }
 }

@@ -65,13 +65,15 @@ pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
 # Substrate
 sp-tracing.workspace = true
-rand.workspace = true
+rand = { workspace = true, features = ["thread_rng"] }
 sp-core.workspace = true
 sp-std.workspace = true
 pallet-preimage.workspace = true
 tracing.workspace = true
 tracing-log.workspace = true
 tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
+pallet-shield = { workspace = true, features = ["std"] }
+sp-consensus-aura.workspace = true
 
 [features]
 try-runtime = [
@@ -87,7 +89,8 @@ try-runtime = [
 	"pallet-crowdloan/try-runtime",
 	"pallet-drand/try-runtime",
 	"pallet-subtensor-proxy/try-runtime",
-	"pallet-subtensor-utility/try-runtime"
+	"pallet-subtensor-utility/try-runtime",
+	"pallet-shield/try-runtime",
 ]
 default = ["std"]
 std = [
@@ -130,7 +133,10 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_json/std",
-	"sha2/std"
+	"sha2/std",
+	"rand/std",
+	"pallet-shield/std",
+	"sp-consensus-aura/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -147,7 +153,8 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-subtensor-proxy/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks"
+	"pallet-subtensor-utility/runtime-benchmarks",
+	"pallet-shield/runtime-benchmarks"
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]

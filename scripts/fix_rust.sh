@@ -12,15 +12,15 @@ commit_if_changes() {
 }
 
 # Step 1: Run cargo check and commit changes to Cargo.lock if any
-cargo check --workspace
+SKIP_WASM_BUILD=1 cargo check --workspace
 commit_if_changes "commit Cargo.lock"
 
 # Step 2: Run cargo clippy with fixes and commit changes if any.
-cargo clippy --fix --workspace --all-features --all-targets
+SKIP_WASM_BUILD=1 cargo clippy --fix --workspace --all-features --all-targets
 commit_if_changes "cargo clippy"
 
 # Step 3: Run cargo fix and commit changes if any.
-cargo fix --workspace --all-features --all-targets
+SKIP_WASM_BUILD=1 cargo fix --workspace --all-features --all-targets
 commit_if_changes "cargo fix"
 
 # Step 4: Run cargo fmt and commit changes if any.

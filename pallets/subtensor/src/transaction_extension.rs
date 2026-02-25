@@ -1,7 +1,4 @@
-use crate::{
-    BalancesCall, Call, ColdkeySwapScheduled, Config, CustomTransactionError, Error, Pallet,
-    TransactionType,
-};
+use crate::{BalancesCall, Call, ColdkeySwapScheduled, Config, Error, Pallet, TransactionType};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::Weight;
@@ -17,7 +14,7 @@ use sp_runtime::transaction_validity::{
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{CustomTransactionError, NetUid, NetUidStorageIndex};
 
 #[freeze_struct("2e02eb32e5cb25d3")]
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
