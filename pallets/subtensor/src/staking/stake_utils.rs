@@ -686,6 +686,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
     pub fn unstake_from_subnet(
+        origin: &T::AccountId,
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
@@ -733,6 +734,7 @@ impl<T: Config> Pallet<T> {
 
         // Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
+            origin.clone(),
             coldkey.clone(),
             hotkey.clone(),
             swap_result.amount_paid_out.into(),
@@ -742,7 +744,8 @@ impl<T: Config> Pallet<T> {
         ));
 
         log::debug!(
-            "StakeRemoved( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
+            "StakeRemoved( origin: {:?}, coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
+            origin.clone(),
             coldkey.clone(),
             hotkey.clone(),
             swap_result.amount_paid_out,
@@ -758,6 +761,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
     pub(crate) fn stake_into_subnet(
+        origin: &T::AccountId,
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         netuid: NetUid,
@@ -822,6 +826,7 @@ impl<T: Config> Pallet<T> {
 
         // Deposit and log the staking event.
         Self::deposit_event(Event::StakeAdded(
+            origin.clone(),
             coldkey.clone(),
             hotkey.clone(),
             tao,
@@ -831,7 +836,8 @@ impl<T: Config> Pallet<T> {
         ));
 
         log::debug!(
-            "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
+            "StakeAdded( origin: {:?}, coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
+            origin.clone(),
             coldkey.clone(),
             hotkey.clone(),
             tao,
@@ -848,6 +854,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// Does not incur any swapping nor fees
     pub fn transfer_stake_within_subnet(
+        origin: &T::AccountId,
         origin_coldkey: &T::AccountId,
         origin_hotkey: &T::AccountId,
         destination_coldkey: &T::AccountId,
@@ -916,6 +923,7 @@ impl<T: Config> Pallet<T> {
 
         // Deposit and log the unstaking event.
         Self::deposit_event(Event::StakeRemoved(
+            origin.clone(),
             origin_coldkey.clone(),
             origin_hotkey.clone(),
             tao_equivalent,
@@ -924,6 +932,7 @@ impl<T: Config> Pallet<T> {
             0_u64, // 0 fee
         ));
         Self::deposit_event(Event::StakeAdded(
+            origin.clone(),
             destination_coldkey.clone(),
             destination_hotkey.clone(),
             tao_equivalent,
