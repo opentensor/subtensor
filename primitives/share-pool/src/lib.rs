@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::result_unit_err)]
 
-use safe_math::*;
 use sp_std::marker;
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, U64F64};
@@ -161,28 +160,28 @@ where
                     current_share.saturating_add(U64F64::saturating_from_num(shares_per_update)),
                 );
             } else {
-                // Check if this entry is about to break precision
-                let mut new_denominator = denominator
-                    .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
-                let mut new_share = current_share
-                    .saturating_sub(U64F64::saturating_from_num(shares_per_update.neg()));
+                // Calculate new share and denominator after the decrease
+                let shares_decrease = U64F64::saturating_from_num(shares_per_update.neg());
+                let new_denominator = denominator.saturating_sub(shares_decrease);
+                let new_share = current_share.saturating_sub(shares_decrease);
 
-                // The condition here is either the share remainder is too little OR
-                // the new_denominator is too low compared to what shared_value + year worth of emissions would be
-                if (new_share.safe_div(current_share) < U64F64::saturating_from_num(0.00001))
-                    || shared_value
-                        .saturating_add(U64F64::saturating_from_num(2_628_000_000_000_000_u64))
-                        .checked_div(new_denominator)
-                        .is_none()
+                // Only force full unstake if the remaining share would be essentially zero
+                // (less than 1 unit in the smallest representable value)
+                // This preserves precision for partial unstakes while still cleaning up
+                // truly negligible remainders
+                if new_share < U64F64::saturating_from_num(1u64)
+                    || new_denominator < U64F64::saturating_from_num(1u64)
                 {
-                    // yes, precision is low, just remove all
-                    new_share = U64F64::saturating_from_num(0);
-                    new_denominator = denominator.saturating_sub(current_share);
+                    // Remaining share is negligible, remove all to clean up storage
+                    self.state_ops
+                        .set_denominator(denominator.saturating_sub(current_share));
+                    self.state_ops
+                        .set_share(key, U64F64::saturating_from_num(0));
                     actual_update = initial_value.neg();
+                } else {
+                    self.state_ops.set_denominator(new_denominator);
+                    self.state_ops.set_share(key, new_share);
                 }
-
-                self.state_ops.set_denominator(new_denominator);
-                self.state_ops.set_share(key, new_share);
             }
         }
 
