@@ -350,10 +350,10 @@ pub mod pallet {
         #[codec(index = 0)]
         Disable,
         /// Root still accumulates alpha on suppressed subnets (old `true`).
+        #[default]
         #[codec(index = 1)]
         Enable,
-        /// Root alpha is swapped to TAO via AMM and the TAO is burned.
-        #[default]
+        /// Root alpha is swapped to TAO via AMM and the TAO is recycled.
         #[codec(index = 2)]
         Recycle,
     }

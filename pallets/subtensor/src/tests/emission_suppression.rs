@@ -217,12 +217,9 @@ fn test_suppressed_subnet_root_alpha_by_default() {
         // Force-suppress sn1.
         EmissionSuppressionOverride::<Test>::insert(sn1, true);
 
-        // Default mode is Recycle; verify that, then set to Enable for this test.
+        // Default mode is Enable; this test uses it as-is.
         assert_eq!(
             KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
-            RootSellPressureOnSuppressedSubnetsMode::Recycle,
-        );
-        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
             RootSellPressureOnSuppressedSubnetsMode::Enable,
         );
 
@@ -502,14 +499,14 @@ fn test_sudo_sell_pressure_emits_event() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 13: Default mode is Recycle
+// Test 13: Default mode is Enable
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
-fn test_default_mode_is_recycle() {
+fn test_default_mode_is_enable() {
     new_test_ext(1).execute_with(|| {
         assert_eq!(
             KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
-            RootSellPressureOnSuppressedSubnetsMode::Recycle,
+            RootSellPressureOnSuppressedSubnetsMode::Enable,
         );
     });
 }
@@ -663,9 +660,8 @@ fn test_recycle_mode_non_suppressed_subnet_normal() {
         SubtensorModule::set_tao_weight(u64::MAX);
         setup_root_with_tao(sn1);
 
-        // sn1 is NOT suppressed. Mode is Recycle (default).
-        assert_eq!(
-            KeepRootSellPressureOnSuppressedSubnets::<Test>::get(),
+        // sn1 is NOT suppressed. Set mode to Recycle for this test.
+        KeepRootSellPressureOnSuppressedSubnets::<Test>::put(
             RootSellPressureOnSuppressedSubnetsMode::Recycle,
         );
 
