@@ -40,9 +40,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system = 1,
         Balances: pallet_balances = 2,
-        Timestamp: pallet_timestamp = 3,
-        Aura: pallet_aura = 4,
-        Shield: pallet_shield = 5,
+        Shield: pallet_shield = 3,
         SubtensorModule: crate = 6,
         Utility: pallet_utility = 7,
         Scheduler: pallet_scheduler = 8,

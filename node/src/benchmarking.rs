@@ -141,7 +141,9 @@ pub fn create_benchmark_extrinsic(
             transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(0),
             sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
             pallet_shield::CheckShieldedTxValidity::<runtime::Runtime>::new(),
-            pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
+            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
+                runtime::Runtime,
+            >::new(),
             pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
         ),
         frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
