@@ -1,3 +1,4 @@
+use alloc::string::String;
 use core::marker::PhantomData;
 use subtensor_runtime_common::{Currency, NetUid};
 

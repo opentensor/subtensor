@@ -1,3 +1,4 @@
+use alloc::string::String;
 use core::marker::PhantomData;
 
 use pallet_admin_utils::DeprecationRegistryStorage;
