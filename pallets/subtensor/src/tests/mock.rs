@@ -20,6 +20,7 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -47,6 +48,7 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
         Proxy: pallet_subtensor_proxy = 14,
+        Shield: pallet_shield = 15,
     }
 );
 

@@ -15,7 +15,7 @@ use subtensor_runtime_common::{
 
 use super::mock;
 use super::mock::*;
-use crate::extensions::SubtensorTransactionExtension;
+use crate::transaction_extension::SubtensorTransactionExtension;
 use crate::{AxonInfoOf, Error};
 
 /********************************************

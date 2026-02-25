@@ -2,7 +2,7 @@ use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityEr
 
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
-    ColdkeySwapAnnounced,
+    ColdkeyInSwapSchedule,
     StakeAmountTooLow,
     BalanceTooLow,
     SubnetNotExists,
@@ -33,7 +33,7 @@ pub enum CustomTransactionError {
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
-            CustomTransactionError::ColdkeySwapAnnounced => 0,
+            CustomTransactionError::ColdkeyInSwapSchedule => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
             CustomTransactionError::SubnetNotExists => 3,

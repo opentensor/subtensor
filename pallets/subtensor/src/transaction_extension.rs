@@ -1,4 +1,4 @@
-use crate::{BalancesCall, Call, CheckColdkeySwap, Config, Error, Pallet, TransactionType};
+use crate::{BalancesCall, Call, ColdkeySwapScheduled, Config, Error, Pallet, TransactionType};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::pallet_prelude::Weight;
