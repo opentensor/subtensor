@@ -10,12 +10,13 @@
 #
 set -e
 
-BINARY="${BINARY_PATH:-../target/production/node-subtensor}"
+BINARY="${BINARY_PATH:-../target/release/node-subtensor}"
 NODE_LOG="/tmp/e2e-bootstrap-node.log"
 
 if [ "$1" != "--skip-build" ]; then
   echo "==> Building node-subtensor..."
-  pnpm build-node
+  pnpm build-node:debug
+  BINARY="../target/debug/node-subtensor"
 fi
 
 echo "==> Starting dev node (logs at $NODE_LOG)..."
@@ -39,7 +40,7 @@ until curl -sf -o /dev/null \
 done
 
 echo "==> Installing polkadot-api globally..."
-pnpm add -g polkadot-api
+npm install -g polkadot-api
 
 echo "==> Generating papi types..."
 pnpm generate-types

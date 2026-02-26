@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - variant: production
+          - variant: release 
             flags: ""
           - variant: fast
             flags: "--features fast-runtime"
@@ -53,13 +53,13 @@ jobs:
           cache-on-failure: true
 
       - name: Build node-subtensor (${{ matrix.variant }})
-        run: cargo build --profile production ${{ matrix.flags }} -p node-subtensor
+        run: cargo build --profile release ${{ matrix.flags }} -p node-subtensor
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
           name: node-subtensor-${{ matrix.variant }}
-          path: target/production/node-subtensor
+          path: target/release/node-subtensor
           if-no-files-found: error
 
   # Discover e2e packages that have a "test" script.
@@ -106,20 +106,20 @@ jobs:
       - name: Check-out repository
         uses: actions/checkout@v4
 
-      - name: Download production binary
+      - name: Download release binary
         uses: actions/download-artifact@v4
         with:
-          name: node-subtensor-production
-          path: target/production
+          name: node-subtensor
+          path: target/release
 
       - name: Download fast binary
         uses: actions/download-artifact@v4
         with:
-          name: node-subtensor-fast
+          name: node-subtensor
           path: target/fast
 
       - name: Make binaries executable
-        run: chmod +x target/production/node-subtensor target/fast/node-subtensor
+        run: chmod +x target/release/node-subtensor target/fast/node-subtensor
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
