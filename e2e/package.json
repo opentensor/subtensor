@@ -2,8 +2,9 @@
   "name": "e2e",
   "private": true,
   "scripts": {
-    "build-node:production": "cargo build --manifest-path ../Cargo.toml --profile production -p node-subtensor",
-    "build-node:fast": "pnpm build-node:production --features fast-runtime",
+    "build-node:debug": "cargo build --manifest-path ../Cargo.toml -p node-subtensor",
+    "build-node:release": "cargo build --manifest-path ../Cargo.toml --profile release -p node-subtensor",
+    "build-node:fast": "pnpm build-node:release --features fast-runtime",
     "generate-types": "polkadot-api add subtensor --wsUrl ws://localhost:9944 --skip-codegen && polkadot-api",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
