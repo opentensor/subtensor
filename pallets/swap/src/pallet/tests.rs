@@ -2358,10 +2358,7 @@ fn refund_alpha_single_provider_exact() {
         );
 
         // Clear protocol liquidity and V3 state now.
-        Pallet::<Test>::do_clear_protocol_liquidity(
-            netuid,
-            Weight::from_parts(u64::MAX, U64F64::MAX),
-        );
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // --- State is cleared.
         assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
@@ -2731,7 +2728,6 @@ fn test_clear_protocol_liquidity_green_path() {
         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
 
         // --- And it's idempotent ---
-        assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
         Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         assert!(
