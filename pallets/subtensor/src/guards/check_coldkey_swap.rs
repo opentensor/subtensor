@@ -1,5 +1,7 @@
 use crate::{Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config, Error};
-use frame_support::dispatch::{DispatchGuard, DispatchInfo, DispatchResultWithPostInfo, PostDispatchInfo};
+use frame_support::dispatch::{
+    DispatchGuard, DispatchInfo, DispatchResultWithPostInfo, PostDispatchInfo,
+};
 use frame_support::traits::{IsSubType, OriginTrait};
 use sp_runtime::traits::Dispatchable;
 use sp_std::marker::PhantomData;
@@ -26,17 +28,12 @@ pub struct CheckColdkeySwap<T: Config>(PhantomData<T>);
 impl<T> DispatchGuard<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
 where
     T: Config + pallet_shield::Config,
-    <T as frame_system::Config>::RuntimeCall:
-        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
+    <T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<Call<T>>
         + IsSubType<pallet_shield::Call<T>>,
-    DispatchableOriginOf<T>:
-        OriginTrait<AccountId = T::AccountId>,
+    DispatchableOriginOf<T>: OriginTrait<AccountId = T::AccountId>,
 {
-    fn check(
-        origin: &DispatchableOriginOf<T>,
-        call: &CallOf<T>,
-    ) -> DispatchResultWithPostInfo {
+    fn check(origin: &DispatchableOriginOf<T>, call: &CallOf<T>) -> DispatchResultWithPostInfo {
         // Only care about signed origins.
         // Root is already bypassed by check_dispatch_guard() before we get here.
         let Some(who) = origin.as_signer() else {
@@ -75,7 +72,7 @@ where
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use crate::{ColdkeySwapAnnouncements, ColdkeySwapDisputes, Error, tests::mock::*};
-    use frame_support::{assert_ok, BoundedVec};
+    use frame_support::{BoundedVec, assert_ok};
     use frame_system::Call as SystemCall;
     use pallet_subtensor_proxy::Call as ProxyCall;
     use sp_core::U256;
