@@ -167,8 +167,6 @@ pub mod pallet {
         KeyExpired,
         /// The provided `key_hash` does not match the expected epoch key hash.
         KeyHashMismatch,
-        /// The shield is disabled while upgrading.
-        ShieldDisabledWhileUpgrading,
     }
 
     // ----------------- Hooks -----------------
@@ -303,11 +301,26 @@ pub mod pallet {
             Pays::Yes,
         ))]
         pub fn submit_encrypted(
-            _origin: OriginFor<T>,
-            _commitment: T::Hash,
-            _ciphertext: BoundedVec<u8, ConstU32<8192>>,
+            origin: OriginFor<T>,
+            commitment: T::Hash,
+            ciphertext: BoundedVec<u8, ConstU32<8192>>,
         ) -> DispatchResult {
-            Err(Error::<T>::ShieldDisabledWhileUpgrading.into())
+            let who = ensure_signed(origin)?;
+
+            let id: T::Hash = T::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
+            let sub = Submission::<T::AccountId, BlockNumberFor<T>, T::Hash> {
+                author: who.clone(),
+                commitment,
+                ciphertext,
+                submitted_in: <frame_system::Pallet<T>>::block_number(),
+            };
+            ensure!(
+                !Submissions::<T>::contains_key(id),
+                Error::<T>::SubmissionAlreadyExists
+            );
+            Submissions::<T>::insert(id, sub);
+            Self::deposit_event(Event::EncryptedSubmitted { id, who });
+            Ok(())
         }
 
         /// Marks a submission as failed to decrypt and removes it from storage.

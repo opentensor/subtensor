@@ -6,7 +6,10 @@ use frame_support::{
     traits::{ConstU32 as FrameConstU32, Hooks},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_mev_shield::{Call as MevShieldCall, CurrentKey, KeyHashByBlock, NextKey};
+use pallet_mev_shield::{
+    Call as MevShieldCall, CurrentKey, Event as MevShieldEvent, KeyHashByBlock, NextKey,
+    Submissions,
+};
 use sp_core::{Pair, sr25519};
 use sp_runtime::{
     AccountId32,
@@ -135,53 +138,53 @@ fn announce_next_key_rejects_non_validator_origins() {
     });
 }
 
-// #[test]
-// fn submit_encrypted_stores_submission_and_emits_event() {
-//     new_test_ext().execute_with(|| {
-//         let pair = test_sr25519_pair();
-//         let who: AccountId32 = pair.public().into();
+#[test]
+fn submit_encrypted_stores_submission_and_emits_event() {
+    new_test_ext().execute_with(|| {
+        let pair = test_sr25519_pair();
+        let who: AccountId32 = pair.public().into();
 
-//         System::set_block_number(10);
+        System::set_block_number(10);
 
-//         let commitment =
-//             <Test as frame_system::Config>::Hashing::hash(b"test-mevshield-commitment");
-//         let ciphertext_bytes = vec![1u8, 2, 3, 4];
-//         let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
-//             BoundedVec::truncate_from(ciphertext_bytes.clone());
+        let commitment =
+            <Test as frame_system::Config>::Hashing::hash(b"test-mevshield-commitment");
+        let ciphertext_bytes = vec![1u8, 2, 3, 4];
+        let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+            BoundedVec::truncate_from(ciphertext_bytes.clone());
 
-//         assert_ok!(MevShield::submit_encrypted(
-//             RuntimeOrigin::signed(who.clone()),
-//             commitment,
-//             ciphertext.clone(),
-//         ));
+        assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(who.clone()),
+            commitment,
+            ciphertext.clone(),
+        ));
 
-//         let id = <Test as frame_system::Config>::Hashing::hash_of(&(
-//             who.clone(),
-//             commitment,
-//             &ciphertext,
-//         ));
+        let id = <Test as frame_system::Config>::Hashing::hash_of(&(
+            who.clone(),
+            commitment,
+            &ciphertext,
+        ));
 
-//         let stored = Submissions::<Test>::get(id).expect("submission stored");
-//         assert_eq!(stored.author, who);
-//         assert_eq!(stored.commitment, commitment);
-//         assert_eq!(stored.ciphertext.to_vec(), ciphertext_bytes);
-//         assert_eq!(stored.submitted_in, 10);
+        let stored = Submissions::<Test>::get(id).expect("submission stored");
+        assert_eq!(stored.author, who);
+        assert_eq!(stored.commitment, commitment);
+        assert_eq!(stored.ciphertext.to_vec(), ciphertext_bytes);
+        assert_eq!(stored.submitted_in, 10);
 
-//         let events = System::events();
-//         let last = events.last().expect("at least one event").event.clone();
+        let events = System::events();
+        let last = events.last().expect("at least one event").event.clone();
 
-//         assert!(
-//             matches!(
-//                 last,
-//                 RuntimeEvent::MevShield(
-//                     MevShieldEvent::<Test>::EncryptedSubmitted { id: ev_id, who: ev_who }
-//                 )
-//                 if ev_id == id && ev_who == who
-//             ),
-//             "expected EncryptedSubmitted event with correct id & who",
-//         );
-//     });
-// }
+        assert!(
+            matches!(
+                last,
+                RuntimeEvent::MevShield(
+                    MevShieldEvent::<Test>::EncryptedSubmitted { id: ev_id, who: ev_who }
+                )
+                if ev_id == id && ev_who == who
+            ),
+            "expected EncryptedSubmitted event with correct id & who",
+        );
+    });
+}
 
 #[test]
 fn key_hash_by_block_prunes_old_entries() {
@@ -240,135 +243,135 @@ fn key_hash_by_block_prunes_old_entries() {
     });
 }
 
-// #[test]
-// fn submissions_pruned_after_ttl_window() {
-//     new_test_ext().execute_with(|| {
-//         // This must match KEY_EPOCH_HISTORY in the pallet.
-//         const KEEP: u64 = 100;
-//         const TOTAL: u64 = KEEP + 5;
+#[test]
+fn submissions_pruned_after_ttl_window() {
+    new_test_ext().execute_with(|| {
+        // This must match KEY_EPOCH_HISTORY in the pallet.
+        const KEEP: u64 = 100;
+        const TOTAL: u64 = KEEP + 5;
 
-//         let pair = test_sr25519_pair();
-//         let who: AccountId32 = pair.public().into();
+        let pair = test_sr25519_pair();
+        let who: AccountId32 = pair.public().into();
 
-//         // Helper: create a submission at a specific block with a tagged commitment.
-//         let make_submission = |block: u64, tag: &[u8]| -> TestHash {
-//             System::set_block_number(block);
-//             let commitment: TestHash = <Test as frame_system::Config>::Hashing::hash(tag);
-//             let ciphertext_bytes = vec![block as u8; 4];
-//             let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
-//                 BoundedVec::truncate_from(ciphertext_bytes);
+        // Helper: create a submission at a specific block with a tagged commitment.
+        let make_submission = |block: u64, tag: &[u8]| -> TestHash {
+            System::set_block_number(block);
+            let commitment: TestHash = <Test as frame_system::Config>::Hashing::hash(tag);
+            let ciphertext_bytes = vec![block as u8; 4];
+            let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+                BoundedVec::truncate_from(ciphertext_bytes);
 
-//             assert_ok!(MevShield::submit_encrypted(
-//                 RuntimeOrigin::signed(who.clone()),
-//                 commitment,
-//                 ciphertext.clone(),
-//             ));
+            assert_ok!(MevShield::submit_encrypted(
+                RuntimeOrigin::signed(who.clone()),
+                commitment,
+                ciphertext.clone(),
+            ));
 
-//             <Test as frame_system::Config>::Hashing::hash_of(&(
-//                 who.clone(),
-//                 commitment,
-//                 &ciphertext,
-//             ))
-//         };
+            <Test as frame_system::Config>::Hashing::hash_of(&(
+                who.clone(),
+                commitment,
+                &ciphertext,
+            ))
+        };
 
-//         // With n = TOTAL and depth = KEEP, prune_before = n - KEEP = 5.
-//         let stale_block1: u64 = 1; // < 5, should be pruned
-//         let stale_block2: u64 = 4; // < 5, should be pruned
-//         let keep_block1: u64 = 5; // == prune_before, should be kept
-//         let keep_block2: u64 = TOTAL; // latest, should be kept
+        // With n = TOTAL and depth = KEEP, prune_before = n - KEEP = 5.
+        let stale_block1: u64 = 1; // < 5, should be pruned
+        let stale_block2: u64 = 4; // < 5, should be pruned
+        let keep_block1: u64 = 5; // == prune_before, should be kept
+        let keep_block2: u64 = TOTAL; // latest, should be kept
 
-//         let id_stale1 = make_submission(stale_block1, b"stale-1");
-//         let id_stale2 = make_submission(stale_block2, b"stale-2");
-//         let id_keep1 = make_submission(keep_block1, b"keep-1");
-//         let id_keep2 = make_submission(keep_block2, b"keep-2");
+        let id_stale1 = make_submission(stale_block1, b"stale-1");
+        let id_stale2 = make_submission(stale_block2, b"stale-2");
+        let id_keep1 = make_submission(keep_block1, b"keep-1");
+        let id_keep2 = make_submission(keep_block2, b"keep-2");
 
-//         // Sanity: all are present before pruning.
-//         assert!(Submissions::<Test>::get(id_stale1).is_some());
-//         assert!(Submissions::<Test>::get(id_stale2).is_some());
-//         assert!(Submissions::<Test>::get(id_keep1).is_some());
-//         assert!(Submissions::<Test>::get(id_keep2).is_some());
+        // Sanity: all are present before pruning.
+        assert!(Submissions::<Test>::get(id_stale1).is_some());
+        assert!(Submissions::<Test>::get(id_stale2).is_some());
+        assert!(Submissions::<Test>::get(id_keep1).is_some());
+        assert!(Submissions::<Test>::get(id_keep2).is_some());
 
-//         // Run on_initialize at block TOTAL, triggering TTL pruning over Submissions.
-//         let n_final: TestBlockNumber = TOTAL.saturated_into();
-//         MevShield::on_initialize(n_final);
+        // Run on_initialize at block TOTAL, triggering TTL pruning over Submissions.
+        let n_final: TestBlockNumber = TOTAL.saturated_into();
+        MevShield::on_initialize(n_final);
 
-//         // Submissions with submitted_in < prune_before (5) should be gone.
-//         assert!(Submissions::<Test>::get(id_stale1).is_none());
-//         assert!(Submissions::<Test>::get(id_stale2).is_none());
+        // Submissions with submitted_in < prune_before (5) should be gone.
+        assert!(Submissions::<Test>::get(id_stale1).is_none());
+        assert!(Submissions::<Test>::get(id_stale2).is_none());
 
-//         // Submissions at or after prune_before should remain.
-//         assert!(Submissions::<Test>::get(id_keep1).is_some());
-//         assert!(Submissions::<Test>::get(id_keep2).is_some());
-//     });
-// }
+        // Submissions at or after prune_before should remain.
+        assert!(Submissions::<Test>::get(id_keep1).is_some());
+        assert!(Submissions::<Test>::get(id_keep2).is_some());
+    });
+}
 
-// #[test]
-// fn mark_decryption_failed_removes_submission_and_emits_event() {
-//     new_test_ext().execute_with(|| {
-//         System::set_block_number(42);
-//         let pair = test_sr25519_pair();
-//         let who: AccountId32 = pair.public().into();
+#[test]
+fn mark_decryption_failed_removes_submission_and_emits_event() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(42);
+        let pair = test_sr25519_pair();
+        let who: AccountId32 = pair.public().into();
 
-//         let commitment: TestHash =
-//             <Test as frame_system::Config>::Hashing::hash(b"failed-decryption-commitment");
-//         let ciphertext_bytes = vec![5u8; 8];
-//         let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
-//             BoundedVec::truncate_from(ciphertext_bytes.clone());
+        let commitment: TestHash =
+            <Test as frame_system::Config>::Hashing::hash(b"failed-decryption-commitment");
+        let ciphertext_bytes = vec![5u8; 8];
+        let ciphertext: BoundedVec<u8, FrameConstU32<8192>> =
+            BoundedVec::truncate_from(ciphertext_bytes.clone());
 
-//         assert_ok!(MevShield::submit_encrypted(
-//             RuntimeOrigin::signed(who.clone()),
-//             commitment,
-//             ciphertext.clone(),
-//         ));
+        assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(who.clone()),
+            commitment,
+            ciphertext.clone(),
+        ));
 
-//         let id: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
-//             who.clone(),
-//             commitment,
-//             &ciphertext,
-//         ));
+        let id: TestHash = <Test as frame_system::Config>::Hashing::hash_of(&(
+            who.clone(),
+            commitment,
+            &ciphertext,
+        ));
 
-//         // Sanity: submission exists.
-//         assert!(Submissions::<Test>::get(id).is_some());
+        // Sanity: submission exists.
+        assert!(Submissions::<Test>::get(id).is_some());
 
-//         // Reason we will pass into mark_decryption_failed.
-//         let reason_bytes = b"AEAD decrypt failed".to_vec();
-//         let reason: BoundedVec<u8, FrameConstU32<256>> =
-//             BoundedVec::truncate_from(reason_bytes.clone());
+        // Reason we will pass into mark_decryption_failed.
+        let reason_bytes = b"AEAD decrypt failed".to_vec();
+        let reason: BoundedVec<u8, FrameConstU32<256>> =
+            BoundedVec::truncate_from(reason_bytes.clone());
 
-//         // Call mark_decryption_failed as unsigned (RuntimeOrigin::none()).
-//         assert_ok!(MevShield::mark_decryption_failed(
-//             RuntimeOrigin::none(),
-//             id,
-//             reason.clone(),
-//         ));
+        // Call mark_decryption_failed as unsigned (RuntimeOrigin::none()).
+        assert_ok!(MevShield::mark_decryption_failed(
+            RuntimeOrigin::none(),
+            id,
+            reason.clone(),
+        ));
 
-//         // Submission should be removed.
-//         assert!(Submissions::<Test>::get(id).is_none());
+        // Submission should be removed.
+        assert!(Submissions::<Test>::get(id).is_none());
 
-//         // Last event should be DecryptionFailed with the correct id and reason.
-//         let events = System::events();
-//         let last = events
-//             .last()
-//             .expect("an event should be emitted")
-//             .event
-//             .clone();
+        // Last event should be DecryptionFailed with the correct id and reason.
+        let events = System::events();
+        let last = events
+            .last()
+            .expect("an event should be emitted")
+            .event
+            .clone();
 
-//         assert!(
-//             matches!(
-//                 last,
-//                 RuntimeEvent::MevShield(
-//                     MevShieldEvent::<Test>::DecryptionFailed { id: ev_id, reason: ev_reason }
-//                 )
-//                 if ev_id == id && ev_reason.to_vec() == reason_bytes
-//             ),
-//             "expected DecryptionFailed event with correct id & reason"
-//         );
+        assert!(
+            matches!(
+                last,
+                RuntimeEvent::MevShield(
+                    MevShieldEvent::<Test>::DecryptionFailed { id: ev_id, reason: ev_reason }
+                )
+                if ev_id == id && ev_reason.to_vec() == reason_bytes
+            ),
+            "expected DecryptionFailed event with correct id & reason"
+        );
 
-//         // A second call with the same id should now fail with MissingSubmission.
-//         let res = MevShield::mark_decryption_failed(RuntimeOrigin::none(), id, reason);
-//         assert_noop!(res, pallet_mev_shield::Error::<Test>::MissingSubmission);
-//     });
-// }
+        // A second call with the same id should now fail with MissingSubmission.
+        let res = MevShield::mark_decryption_failed(RuntimeOrigin::none(), id, reason);
+        assert_noop!(res, pallet_mev_shield::Error::<Test>::MissingSubmission);
+    });
+}
 
 #[test]
 fn announce_next_key_charges_then_refunds_fee() {
