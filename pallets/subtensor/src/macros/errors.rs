@@ -282,5 +282,9 @@ mod errors {
         Deprecated,
         /// "Add stake and burn" exceeded the operation rate limit
         AddStakeBurnRateLimitExceeded,
+        /// A coldkey swap has been announced for this account.
+        ColdkeySwapActive,
+        /// A coldkey swap for this account is under dispute.
+        ColdkeySwapDisputed,
     }
 }
