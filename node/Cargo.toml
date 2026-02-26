@@ -26,7 +26,6 @@ clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
 serde = { workspace = true, features = ["derive"] }
 hex.workspace = true
-tokio = { workspace = true, features = ["time"] }
 
 # Storage import
 memmap2.workspace = true
@@ -78,7 +77,6 @@ sp-keystore.workspace = true
 polkadot-sdk = { workspace = true, features = [
 	"cumulus-primitives-proof-size-hostfunction",
 ] }
-stp-io.workspace = true
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { workspace = true, features = ["server"] }
@@ -96,7 +94,6 @@ pallet-transaction-payment-rpc-runtime-api.workspace = true
 # These dependencies are used for runtime benchmarking
 frame-benchmarking.workspace = true
 frame-benchmarking-cli.workspace = true
-pallet-subtensor.workspace = true
 
 # Needed for Frontier
 fc-mapping-sync.workspace = true
@@ -119,8 +116,18 @@ num-traits = { workspace = true, features = ["std"] }
 
 # Mev Shield
 pallet-shield.workspace = true
-stp-shield.workspace = true
-stc-shield.workspace = true
+tokio = { version = "1.38", features = ["time"] }
+x25519-dalek = "2"
+hkdf = "0.12"
+chacha20poly1305 = { version = "0.10", features = ["std"] }
+codec.workspace = true
+rand.workspace = true
+sha2.workspace = true
+anyhow.workspace = true
+pallet-subtensor.workspace = true
+ml-kem.workspace = true
+rand_core = "0.9.3"
+blake2 = "0.10.6"
 
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
@@ -180,8 +187,8 @@ try-runtime = [
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 	"polkadot-sdk/try-runtime",
-	"pallet-subtensor/try-runtime",
 	"pallet-shield/try-runtime",
+	"pallet-subtensor/try-runtime",
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]

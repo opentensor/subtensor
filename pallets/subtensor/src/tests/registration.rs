@@ -9,14 +9,12 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{
-    AlphaCurrency, Currency as CurrencyT, CustomTransactionError, NetUid, NetUidStorageIndex,
-};
+use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyT, NetUid, NetUidStorageIndex};
 
 use super::mock;
 use super::mock::*;
 use crate::transaction_extension::SubtensorTransactionExtension;
-use crate::{AxonInfoOf, Error};
+use crate::{AxonInfoOf, CustomTransactionError, Error};
 
 /********************************************
     subscribing::subscribe() tests

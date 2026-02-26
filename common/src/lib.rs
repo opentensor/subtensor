@@ -15,10 +15,8 @@ use sp_runtime::{
 use subtensor_macros::freeze_struct;
 
 pub use currency::*;
-pub use transaction_error::*;
 
 mod currency;
-mod transaction_error;
 
 /// Balance of an account.
 pub type Balance = u64;

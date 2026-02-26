@@ -9,7 +9,7 @@ use super::mock::*;
 use crate::*;
 
 use frame_support::assert_ok;
-use rand::{RngExt, SeedableRng, distr::Uniform, rngs::StdRng, seq::SliceRandom};
+use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::U256;
 use std::time::Instant;
 use substrate_fixed::transcendental::{PI, cos, ln, sqrt};
@@ -111,7 +111,7 @@ fn distribute_nodes(
     } else if interleave == 2 {
         // random interleaving
         let mut permuted_uids: Vec<u16> = (0..network_n as u16).collect();
-        permuted_uids.shuffle(&mut rand::rng());
+        permuted_uids.shuffle(&mut thread_rng());
         validators = permuted_uids[0..validators_n].into();
         servers = permuted_uids[validators_n..network_n].into();
     }
@@ -207,7 +207,7 @@ fn init_run_epochs(
 
     // === Set weights
     let mut rng = StdRng::seed_from_u64(random_seed); // constant seed so weights over multiple runs are equal
-    let range = Uniform::new(0, u16::MAX).unwrap();
+    let range = Uniform::new(0, u16::MAX);
     let mut weights: Vec<u16> = vec![u16::MAX / n; servers.len()];
     for uid in validators {
         if random_weights {
@@ -306,7 +306,7 @@ fn split_graph(
     let stddev: I32F32 = I32F32::from_num(0.3);
     let total_stake: I64F64 = I64F64::from_num(21_000_000_000_000_000_u64);
     let mut rng = StdRng::seed_from_u64(0); // constant seed so weights over multiple runs are equal
-    let dist = Uniform::new(0, u16::MAX).unwrap();
+    let dist = Uniform::new(0, u16::MAX);
 
     let mut stake: Vec<u64> = vec![0; network_n];
     let mut stake_fixed: Vec<I32F32> = vec![zero; network_n];

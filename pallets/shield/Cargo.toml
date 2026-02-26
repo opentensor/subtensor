@@ -15,10 +15,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
-log.workspace = true
 
 subtensor-macros.workspace = true
-subtensor-runtime-common.workspace = true
 
 # FRAME core
 frame-support.workspace = true
@@ -31,25 +29,13 @@ sp-runtime.workspace = true
 sp-io.workspace = true
 sp-std.workspace = true
 sp-weights.workspace = true
-sp-inherents.workspace = true
 
-# Subtensor primitives
-stp-io.workspace = true
-stp-shield.workspace = true
-
-# Benchmark-only (optional, activated by runtime-benchmarks feature)
-pallet-aura = { workspace = true, optional = true }
-sp-consensus-aura = { workspace = true, optional = true }
-ml-kem = { workspace = true, optional = true }
-chacha20poly1305 = { workspace = true, optional = true }
-rand_chacha = { workspace = true, optional = true }
+# Pallets used in Config
+pallet-timestamp.workspace = true
+pallet-aura.workspace = true
+sp-consensus-aura.workspace = true
 
 [dev-dependencies]
-stc-shield.workspace = true
-ml-kem.workspace = true
-chacha20poly1305.workspace = true
-pallet-subtensor-utility.workspace = true
-rand_chacha.workspace = true
 
 [features]
 default = ["std"]
@@ -57,7 +43,6 @@ default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
-	"log/std",
 	"frame-support/std",
 	"frame-system/std",
 	"frame-benchmarking?/std",
@@ -66,17 +51,9 @@ std = [
 	"sp-io/std",
 	"sp-std/std",
 	"sp-weights/std",
-	"sp-inherents/std",
-	"stp-io/std",
-	"stp-shield/std",
-	"pallet-aura?/std",
-	"sp-consensus-aura?/std",
-	"chacha20poly1305?/std",
-	"ml-kem?/std",
-	"rand_chacha?/std",
-	"pallet-subtensor-utility/std",
-	"stc-shield/std",
-	"subtensor-runtime-common/std",
+	"pallet-timestamp/std",
+	"pallet-aura/std",
+	"sp-consensus-aura/std",
 ]
 
 runtime-benchmarks = [
@@ -84,12 +61,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-subtensor-utility/runtime-benchmarks",
-	"chacha20poly1305",
-	"ml-kem",
-	"pallet-aura",
-	"sp-consensus-aura",
-	"rand_chacha",
+	"pallet-timestamp/runtime-benchmarks",
 ]
 
 try-runtime = [
@@ -97,5 +69,5 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
 	"pallet-aura/try-runtime",
-	"pallet-subtensor-utility/try-runtime",
+	"pallet-timestamp/try-runtime",
 ]

@@ -24,7 +24,6 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::traits::NumberFor;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use stp_shield::ShieldKeystorePtr;
 
 use crate::client::FullClient;
 use crate::service::BIQ;
@@ -86,13 +85,11 @@ pub trait ConsensusMechanism {
     /// Creates IDPs for the consensus mechanism.
     fn create_inherent_data_providers(
         slot_duration: SlotDuration,
-        shield_keystore: ShieldKeystorePtr,
     ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Creates IDPs for the consensus mechanism for pending blocks.
     fn pending_create_inherent_data_providers(
         slot_duration: SlotDuration,
-        shield_keystore: ShieldKeystorePtr,
     ) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>>;
 
     /// Creates the frontier consensus data provider with this mechanism.

@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_ok};
-use rand::{RngExt, SeedableRng, distr::Uniform, rngs::StdRng, seq::SliceRandom};
+use rand::{Rng, SeedableRng, distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng};
 use sp_core::{Get, U256};
 use substrate_fixed::types::I32F32;
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
@@ -104,7 +104,7 @@ fn distribute_nodes(
     } else if interleave == 2 {
         // random interleaving
         let mut permuted_uids: Vec<u16> = (0..network_n as u16).collect();
-        permuted_uids.shuffle(&mut rand::rng());
+        permuted_uids.shuffle(&mut thread_rng());
         validators = permuted_uids[0..validators_n].into();
         servers = permuted_uids[validators_n..network_n].into();
     }
@@ -200,7 +200,7 @@ fn init_run_epochs(
 
     // === Set weights
     let mut rng = StdRng::seed_from_u64(random_seed); // constant seed so weights over multiple runs are equal
-    let range = Uniform::new(0, u16::MAX).unwrap();
+    let range = Uniform::new(0, u16::MAX);
     let mut weights: Vec<u16> = vec![u16::MAX / n; servers.len()];
     for uid in validators {
         if random_weights {

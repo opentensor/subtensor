@@ -124,7 +124,7 @@ pub fn create_benchmark_extrinsic(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
-    let extra: runtime::TxExtension = (
+    let extra: runtime::TransactionExtensions =
         (
             frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
             frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
@@ -136,33 +136,32 @@ pub fn create_benchmark_extrinsic(
             )),
             check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
             frame_system::CheckWeight::<runtime::Runtime>::new(),
-        ),
-        (
-            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(0),
+            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
+                pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+            ),
             sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
-            pallet_shield::CheckShieldedTxValidity::<runtime::Runtime>::new(),
             pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
                 runtime::Runtime,
             >::new(),
             pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
-        ),
-        frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
-    );
+            frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
+        );
 
     let raw_payload = runtime::SignedPayload::from_raw(
         call.clone(),
         extra.clone(),
         (
-            (
-                (),
-                runtime::VERSION.spec_version,
-                runtime::VERSION.transaction_version,
-                genesis_hash,
-                best_hash,
-                (),
-                (),
-            ),
-            ((), (), (), (), ()),
+            (),
+            runtime::VERSION.spec_version,
+            runtime::VERSION.transaction_version,
+            genesis_hash,
+            best_hash,
+            (),
+            (),
+            (),
+            (),
+            (),
+            (),
             None,
         ),
     );
