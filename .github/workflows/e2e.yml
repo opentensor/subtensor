@@ -118,11 +118,6 @@ jobs:
           name: node-subtensor-fast
           path: target/fast
           
-      - name: Rename binaries
-        run: |
-          mv target/release/node-subtensor-release target/release/node-subtensor
-          mv target/fast/node-subtensor-fast target/fast/node-subtensor
-
       - name: Make binaries executable
         run: chmod +x target/release/node-subtensor target/fast/node-subtensor
 
