@@ -2,7 +2,7 @@
 use core::ops::Neg;
 
 use frame_support::pallet_prelude::*;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::U96F32;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
@@ -38,7 +38,8 @@ pub trait SwapHandler {
         Self: SwapEngine<O>;
 
     fn approx_fee_amount<T: Currency>(netuid: NetUid, amount: T) -> T;
-    fn current_alpha_price(netuid: NetUid) -> U64F64;
+    fn current_alpha_price(netuid: NetUid) -> U96F32;
+    fn get_protocol_tao(netuid: NetUid) -> TaoCurrency;
     fn max_price<C: Currency>() -> C;
     fn min_price<C: Currency>() -> C;
     fn adjust_protocol_liquidity(
@@ -48,7 +49,9 @@ pub trait SwapHandler {
     ) -> (TaoCurrency, AlphaCurrency);
 
     fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight;
-    fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
+    fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
+    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
+    fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

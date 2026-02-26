@@ -1,90 +1,10 @@
 use super::*;
 use frame_support::traits::Get;
 use safe_math::*;
-use substrate_fixed::{
-    transcendental::log2,
-    types::{I96F32, U64F64},
-};
-use subtensor_runtime_common::{NetUid, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
+use substrate_fixed::{transcendental::log2, types::I96F32};
+use subtensor_runtime_common::TaoCurrency;
 
 impl<T: Config> Pallet<T> {
-    /// Calculates the dynamic TAO emission for a given subnet.
-    ///
-    /// This function determines the three terms tao_in, alpha_in, alpha_out
-    /// which are consecutively, 1) the amount of tao injected into the pool
-    /// 2) the amount of alpha injected into the pool, and 3) the amount of alpha
-    /// left to be distributed towards miners/validators/owners per block.
-    ///
-    /// # Arguments
-    /// * `netuid` - The unique identifier of the subnet.
-    /// * `tao_emission` - The amount of tao to distribute for this subnet.
-    /// * `alpha_block_emission` - The maximum alpha emission allowed for the block.
-    ///
-    /// # Returns
-    /// * `(u64, u64, u64)` - A tuple containing:
-    ///   - `tao_in_emission`: The adjusted TAO emission always lower or equal to tao_emission
-    ///   - `alpha_in_emission`: The adjusted alpha emission amount to be added into the pool.
-    ///   - `alpha_out_emission`: The remaining alpha emission after adjustments to be distributed to miners/validators.
-    ///
-    /// The algorithm ensures that the pool injection of tao_in_emission, alpha_in_emission does not effect the pool price
-    /// It also ensures that the total amount of alpha_in_emission + alpha_out_emission sum to 2 * alpha_block_emission
-    /// It also ensures that 1 < alpha_out_emission < 2 * alpha_block_emission and 0 < alpha_in_emission < alpha_block_emission.
-    pub fn get_dynamic_tao_emission(
-        netuid: NetUid,
-        tao_emission: u64,
-        alpha_block_emission: u64,
-    ) -> (u64, u64, u64) {
-        // Init terms.
-        let mut tao_in_emission: U64F64 = U64F64::saturating_from_num(tao_emission);
-        let float_alpha_block_emission: U64F64 = U64F64::saturating_from_num(alpha_block_emission);
-
-        // Get alpha price for subnet.
-        let alpha_price = T::SwapInterface::current_alpha_price(netuid.into());
-        log::debug!("{netuid:?} - alpha_price: {alpha_price:?}");
-
-        // Get initial alpha_in
-        let mut alpha_in_emission: U64F64 = U64F64::saturating_from_num(tao_emission)
-            .checked_div(alpha_price)
-            .unwrap_or(float_alpha_block_emission);
-
-        // Check if we are emitting too much alpha_in
-        if alpha_in_emission >= float_alpha_block_emission {
-            log::debug!(
-                "{netuid:?} - alpha_in_emission: {alpha_in_emission:?} > alpha_block_emission: {float_alpha_block_emission:?}"
-            );
-
-            // Scale down tao_in
-            // tao_in_emission = alpha_price.saturating_mul(float_alpha_block_emission);
-
-            // Set to max alpha_block_emission
-            alpha_in_emission = float_alpha_block_emission;
-        }
-
-        // Avoid rounding errors.
-        let zero = U64F64::saturating_from_num(0);
-        let one = U64F64::saturating_from_num(1);
-        if tao_in_emission < one || alpha_in_emission < one {
-            alpha_in_emission = zero;
-            tao_in_emission = zero;
-        }
-
-        // Set Alpha in emission.
-        let alpha_out_emission = float_alpha_block_emission;
-
-        // Log results.
-        log::debug!("{netuid:?} - tao_in_emission: {tao_in_emission:?}");
-        log::debug!("{netuid:?} - alpha_in_emission: {alpha_in_emission:?}");
-        log::debug!("{netuid:?} - alpha_out_emission: {alpha_out_emission:?}");
-
-        // Return result.
-        (
-            tao_in_emission.saturating_to_num::<u64>(),
-            alpha_in_emission.saturating_to_num::<u64>(),
-            alpha_out_emission.saturating_to_num::<u64>(),
-        )
-    }
-
     /// Calculates the block emission based on the total issuance.
     ///
     /// This function computes the block emission by applying a logarithmic function

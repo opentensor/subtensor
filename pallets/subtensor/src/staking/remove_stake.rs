@@ -472,9 +472,7 @@ impl<T: Config> Pallet<T> {
                 owner_emission_tao = if owner_alpha_u64 > 0 {
                     // Need max 3 reads for current_alpha_price
                     WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(3));
-                    let cur_price: U96F32 = U96F32::saturating_from_num(
-                        T::SwapInterface::current_alpha_price(netuid.into()),
-                    );
+                    let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
                     let val_u64 = U96F32::from_num(owner_alpha_u64)
                         .saturating_mul(cur_price)
                         .floor()
@@ -605,6 +603,8 @@ impl<T: Config> Pallet<T> {
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
         SubnetAlphaIn::<T>::remove(netuid);
+        WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
+        SubnetAlphaInProvided::<T>::remove(netuid);
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
         SubnetAlphaOut::<T>::remove(netuid);
 

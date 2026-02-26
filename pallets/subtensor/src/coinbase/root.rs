@@ -346,6 +346,7 @@ impl<T: Config> Pallet<T> {
         SubnetTaoFlow::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetEmaTaoFlow::<T>::remove(netuid);
+        SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));

@@ -714,6 +714,63 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
     });
 }
 
+// #[test]
+// fn test_user_liquidity_access_control() {
+//     new_test_ext(1).execute_with(|| {
+//         let owner_hotkey = U256::from(1);
+//         let owner_coldkey = U256::from(2);
+//         let not_owner = U256::from(999); // arbitrary non-owner
+
+//         // add network
+//         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+//         // Not owner, not root: should fail
+//         assert_noop!(
+//             Swap::toggle_user_liquidity(RuntimeOrigin::signed(not_owner), netuid, true),
+//             DispatchError::BadOrigin
+//         );
+
+//         // Subnet owner can enable
+//         assert_ok!(Swap::toggle_user_liquidity(
+//             RuntimeOrigin::signed(owner_coldkey),
+//             netuid,
+//             true
+//         ));
+//         assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+//             NetUid::from(netuid)
+//         ));
+
+//         // Root can disable
+//         assert_ok!(Swap::toggle_user_liquidity(
+//             RuntimeOrigin::root(),
+//             netuid,
+//             false
+//         ));
+//         assert!(!pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+//             NetUid::from(netuid)
+//         ));
+
+//         // Root can enable again
+//         assert_ok!(Swap::toggle_user_liquidity(
+//             RuntimeOrigin::root(),
+//             netuid,
+//             true
+//         ));
+//         assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+//             NetUid::from(netuid)
+//         ));
+
+//         // Subnet owner cannot disable (only root can disable)
+//         assert_noop!(
+//             Swap::toggle_user_liquidity(RuntimeOrigin::signed(owner_coldkey), netuid, false),
+//             DispatchError::BadOrigin
+//         );
+//         assert!(pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(
+//             NetUid::from(netuid)
+//         ));
+//     });
+// }
+
 // cargo test --package pallet-subtensor --lib -- tests::subnet::test_no_duplicates_in_symbol_static --exact --show-output
 #[test]
 fn test_no_duplicates_in_symbol_static() {
