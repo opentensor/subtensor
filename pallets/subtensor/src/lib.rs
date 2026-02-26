@@ -37,6 +37,7 @@ mod benchmarks;
 pub mod coinbase;
 pub mod epoch;
 pub mod extensions;
+pub mod guards;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -48,6 +49,7 @@ use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 pub use extensions::*;
+pub use guards::*;
 
 #[cfg(test)]
 mod tests;
