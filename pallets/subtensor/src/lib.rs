@@ -1111,10 +1111,6 @@ pub mod pallet {
         DefaultZeroU64<T>,
     >;
 
-    /// Ensures unique IDs for StakeJobs storage map
-    #[pallet::storage]
-    pub type NextStakeJobId<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
-
     /// ============================
     /// ==== Staking Variables ====
     /// ============================
@@ -1496,10 +1492,6 @@ pub mod pallet {
     /// ============================
     /// ==== Global Parameters =====
     /// ============================
-    /// --- StorageItem Global Used Work.
-    #[pallet::storage]
-    pub type UsedWork<T: Config> = StorageMap<_, Identity, Vec<u8>, u64, ValueQuery>;
-
     /// --- ITEM( global_max_registrations_per_block )
     #[pallet::storage]
     pub type MaxRegistrationsPerBlock<T> =
@@ -1570,11 +1562,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
-
-    /// --- MAP ( netuid ) --> largest_locked
-    #[pallet::storage]
-    pub type LargestLocked<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// =================
     /// ==== Tempos =====
