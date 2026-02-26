@@ -204,7 +204,7 @@ mod balance_transfer {
                 other => panic!("unexpected precompile failure: {other:?}"),
             };
             assert!(
-                message.contains("transaction extension rejected"),
+                message.contains("dispatch execution failed: ColdkeySwapAnnounced"),
                 "unexpected precompile failure: {message}"
             );
 
