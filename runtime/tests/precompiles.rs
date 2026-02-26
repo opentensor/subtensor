@@ -158,7 +158,7 @@ mod balance_transfer {
     }
 
     #[test]
-    fn balance_transfer_precompile_respects_subtensor_extension_policy() {
+    fn balance_transfer_precompile_respects_dispatch_guard_policy() {
         new_test_ext().execute_with(|| {
             let precompiles = Precompiles::<Runtime>::new();
             let precompile_addr = addr_from_index(BalanceTransferPrecompile::<Runtime>::INDEX);
