@@ -4122,6 +4122,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "endian-cast"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e02f7a506e5de77a3db9e56fdbed17fa6f3b8d27ede81545dde96107c3d6a1d2"
+dependencies = [
+ "generic-array 1.3.5",
+ "typenum",
+]
+
+[[package]]
 name = "enum-as-inner"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5561,6 +5571,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-array"
+version = "1.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaf57c49a95fd1fe24b90b3033bee6dc7e8f1288d51494cb44e627c295e38542"
+dependencies = [
+ "rustversion",
+ "typenum",
+]
+
+[[package]]
 name = "gethostname"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6922,6 +6942,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
+name = "lencode"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83dc280ed78264020f986b2539e6a44e0720f98f66c99a48a2f52e4a441e99d8"
+dependencies = [
+ "endian-cast",
+ "generic-array 1.3.5",
+ "hashbrown 0.12.3",
+ "lencode-macros",
+ "newt-hype",
+ "ruint",
+ "zstd-safe 7.2.4",
+]
+
+[[package]]
+name = "lencode-macros"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61c57df14b9005d1e4e8e56436e922e2c046ad0be55d7cfb062a303714857508"
+dependencies = [
+ "proc-macro-crate 3.4.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.176"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8223,6 +8270,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "newt-hype"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c8b7b69b0eafaa88ec8dc9fe7c3860af0a147517e5207cfbd0ecd21cd7cde18"
+
+[[package]]
 name = "nix"
 version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8654,7 +8707,7 @@ version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77e878c846a8abae00dd069496dbe8751b16ac1c3d6bd2a7283a938e8228f90d"
 dependencies = [
- "proc-macro-crate 1.1.3",
+ "proc-macro-crate 3.4.0",
  "proc-macro2",
  "quote",
  "syn 2.0.106",
@@ -14051,9 +14104,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.7.45"
+version = "0.7.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9008cd6385b9e161d8229e1f6549dd23c3d022f132a2ea37ac3a10ac4935779b"
+checksum = "2297bf9c81a3f0dc96bc9521370b88f054168c29826a75e89c55ff196e7ed6a1"
 dependencies = [
  "bitvec",
  "bytecheck",
@@ -14069,9 +14122,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv_derive"
-version = "0.7.45"
+version = "0.7.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "503d1d27590a2b0a3a4ca4c94755aa2875657196ecbf401a42eff41d7de532c0"
+checksum = "84d7b42d4b8d06048d3ac8db0eb31bcb942cbeb709f0b5f2b2ebde398d3038f5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -14315,9 +14368,9 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 
 [[package]]
 name = "rust_decimal"
-version = "1.39.0"
+version = "1.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35affe401787a9bd846712274d97654355d21b2a2c092a3139aabe31e9022282"
+checksum = "61f703d19852dbf87cbc513643fa81428361eb6940f1ac14fd58155d295a3eb0"
 dependencies = [
  "arrayvec 0.7.6",
  "borsh",
@@ -14586,9 +14639,10 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 
 [[package]]
 name = "safe-bigmath"
-version = "0.3.0"
-source = "git+https://github.com/sam0x17/safe-bigmath#1da0a09c5bcf143fa7c464b431bfaeff5476b080"
+version = "0.4.1"
+source = "git+https://github.com/sam0x17/safe-bigmath#013c49984910e1c9a23289e8c85e7a856e263a02"
 dependencies = [
+ "lencode",
  "num-bigint",
  "num-integer",
  "num-traits",
@@ -21114,6 +21168,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee98ffd0b48ee95e6c5168188e44a54550b1564d9d530ee21d5f0eaed1069581"
 dependencies = [
  "libc",
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-safe"
+version = "7.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f49c4d5f0abb602a93fb8736af2a4f4dd9512e36f7f570d66e65ff867ed3b9d"
+dependencies = [
  "zstd-sys",
 ]
 
