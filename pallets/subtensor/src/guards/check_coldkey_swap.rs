@@ -60,7 +60,7 @@ where
             );
 
             if !is_allowed_direct && !is_mev_protected {
-                return Err(Error::<T>::ColdkeySwapActive.into());
+                return Err(Error::<T>::ColdkeySwapAnnounced.into());
             }
         }
 
@@ -176,7 +176,7 @@ mod tests {
             for call in forbidden_calls() {
                 assert_eq!(
                     call.dispatch(RuntimeOrigin::signed(who)).unwrap_err().error,
-                    Error::<Test>::ColdkeySwapActive.into()
+                    Error::<Test>::ColdkeySwapAnnounced.into()
                 );
             }
         });
@@ -192,7 +192,7 @@ mod tests {
                 if let Err(err) = call.dispatch(RuntimeOrigin::signed(who)) {
                     assert_ne!(
                         err.error,
-                        Error::<Test>::ColdkeySwapActive.into(),
+                        Error::<Test>::ColdkeySwapAnnounced.into(),
                         "Authorized call should not be blocked by the guard"
                     );
                 }
@@ -255,7 +255,7 @@ mod tests {
             // The inner call was blocked — check via LastCallResult storage.
             assert_eq!(
                 pallet_subtensor_proxy::LastCallResult::<Test>::get(real),
-                Some(Err(Error::<Test>::ColdkeySwapActive.into()))
+                Some(Err(Error::<Test>::ColdkeySwapAnnounced.into()))
             );
         });
     }
@@ -305,7 +305,7 @@ mod tests {
             // The innermost call (remark as real) was blocked.
             assert_eq!(
                 pallet_subtensor_proxy::LastCallResult::<Test>::get(real),
-                Some(Err(Error::<Test>::ColdkeySwapActive.into()))
+                Some(Err(Error::<Test>::ColdkeySwapAnnounced.into()))
             );
         });
     }
