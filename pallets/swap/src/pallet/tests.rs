@@ -2191,8 +2191,7 @@ fn test_liquidate_idempotent() {
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // Now clear protocol liquidity/state—also idempotent.
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::Max, U64F64::MAX)));
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::Max, U64F64::MAX)));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::Max, U64F64::MAX));
 
         // State remains empty
         assert!(
@@ -2300,7 +2299,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         );
 
         // Clear protocol liquidity and V3 state now.
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::Max, U64F64::MAX)));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::Max, U64F64::MAX));
 
         // User position(s) are gone and all V3 state cleared.
         assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
