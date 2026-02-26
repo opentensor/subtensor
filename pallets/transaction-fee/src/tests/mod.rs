@@ -2,11 +2,12 @@
 use crate::TransactionSource;
 use frame_support::assert_ok;
 use frame_support::dispatch::GetDispatchInfo;
+use pallet_subtensor_swap::AlphaSqrtPrice;
 use sp_runtime::{
     traits::{DispatchTransaction, TransactionExtension, TxBaseImplication},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
-// use substrate_fixed::types::U64F64;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::AlphaCurrency;
 
 use mock::*;
@@ -443,9 +444,7 @@ fn test_remove_stake_edge_alpha() {
         assert_ok!(result);
 
         // Lower Alpha price to 0.0001 so that there is not enough alpha to cover tx fees
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1_000_000));
-        SubnetAlphaIn::<Test>::insert(sn.subnets[0].netuid, AlphaCurrency::from(10_000_000_000));
-
+        AlphaSqrtPrice::<Test>::insert(sn.subnets[0].netuid, U64F64::from_num(0.01));
         let result_low_alpha_price = ext.validate(
             RuntimeOrigin::signed(sn.coldkey).into(),
             &call.clone(),
@@ -1216,7 +1215,7 @@ fn test_recycle_alpha_fees_alpha() {
 fn test_add_stake_fees_go_to_block_builder() {
     new_test_ext().execute_with(|| {
         // Portion of swap fees that should go to the block builder
-        let block_builder_fee_portion = 3. / 5.;
+        let block_builder_fee_portion = 1.;
 
         // Get the block builder balance
         let block_builder = U256::from(MOCK_BLOCK_BUILDER);
