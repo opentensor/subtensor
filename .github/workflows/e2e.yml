@@ -109,14 +109,19 @@ jobs:
       - name: Download release binary
         uses: actions/download-artifact@v4
         with:
-          name: node-subtensor
+          name: node-subtensor-release
           path: target/release
 
       - name: Download fast binary
         uses: actions/download-artifact@v4
         with:
-          name: node-subtensor
+          name: node-subtensor-fast
           path: target/fast
+          
+      - name: Rename binaries
+        run: |
+          mv target/release/node-subtensor target/release/node-subtensor
+          mv target/fast/node-subtensor target/fast/node-subtensor
 
       - name: Make binaries executable
         run: chmod +x target/release/node-subtensor target/fast/node-subtensor
