@@ -199,7 +199,11 @@ where
     type Pre = Pre<T>;
 
     fn weight(&self, call: &RuntimeCallOf<T>) -> Weight {
-        self.charge_transaction_payment.weight(call)
+        // Account for up to 3 storage reads in the worst-case fee payer resolution
+        // (outer is_real_pays_fee + inner/batch is_real_pays_fee + margin).
+        self.charge_transaction_payment
+            .weight(call)
+            .saturating_add(T::DbWeight::get().reads(3))
     }
 
     fn validate(
