@@ -26,18 +26,34 @@ impl<T: Config> Pallet<T> {
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
-        // Get subnet TAO emissions.
-        let mut shares = Self::get_shares(subnets_to_emit_to);
-        Self::apply_emission_suppression(&mut shares);
+        // Filter out suppressed subnets before computing shares so they never
+        // enter the share calculation and remaining subnets naturally split the
+        // full emission without a separate zero-and-renormalize step.
+        let active: Vec<NetUid> = subnets_to_emit_to
+            .iter()
+            .filter(|netuid| !Self::is_subnet_emission_suppressed(**netuid))
+            .copied()
+            .collect();
+        let shares = Self::get_shares(&active);
         log::debug!("Subnet emission shares = {shares:?}");
 
-        shares
+        let mut emissions: BTreeMap<NetUid, U96F32> = shares
             .into_iter()
             .map(|(netuid, share)| {
                 let emission = U64F64::saturating_from_num(block_emission).saturating_mul(share);
                 (netuid, U96F32::saturating_from_num(emission))
             })
-            .collect::<BTreeMap<NetUid, U96F32>>()
+            .collect();
+
+        // Add suppressed subnets back with zero TAO emission so they still
+        // appear in the emission map. This is required because emit_to_subnets
+        // uses the map to drive alpha issuance (which continues independently
+        // of TAO suppression).
+        for netuid in subnets_to_emit_to {
+            emissions.entry(*netuid).or_insert(U96F32::from_num(0));
+        }
+
+        emissions
     }
 
     pub fn record_tao_inflow(netuid: NetUid, tao: TaoCurrency) {
@@ -248,39 +264,10 @@ impl<T: Config> Pallet<T> {
             .collect::<BTreeMap<NetUid, U64F64>>()
     }
 
-    /// Normalize shares so they sum to 1.0.
-    pub(crate) fn normalize_shares(shares: &mut BTreeMap<NetUid, U64F64>) {
-        let sum: U64F64 = shares
-            .values()
-            .copied()
-            .fold(U64F64::saturating_from_num(0), |acc, v| {
-                acc.saturating_add(v)
-            });
-        if sum > U64F64::saturating_from_num(0) {
-            for s in shares.values_mut() {
-                *s = s.safe_div(sum);
-            }
-        }
-    }
-
     /// Check if a subnet is currently emission-suppressed via the root override.
+    /// Returns true only for `Some(true)`. `Some(false)` and `None` both yield
+    /// false (not suppressed).
     pub(crate) fn is_subnet_emission_suppressed(netuid: NetUid) -> bool {
         matches!(EmissionSuppressionOverride::<T>::get(netuid), Some(true))
-    }
-
-    /// Zero the emission share of any subnet that is force-suppressed via override,
-    /// then re-normalize the remaining shares.
-    pub(crate) fn apply_emission_suppression(shares: &mut BTreeMap<NetUid, U64F64>) {
-        let zero = U64F64::saturating_from_num(0);
-        let mut any_zeroed = false;
-        for (netuid, share) in shares.iter_mut() {
-            if Self::is_subnet_emission_suppressed(*netuid) {
-                *share = zero;
-                any_zeroed = true;
-            }
-        }
-        if any_zeroed {
-            Self::normalize_shares(shares);
-        }
     }
 }

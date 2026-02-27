@@ -5,7 +5,7 @@ use alloc::collections::BTreeMap;
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::DispatchError;
 use sp_core::U256;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
 
 /// Helper: create a non-root subnet with TAO flow so it gets shares.
@@ -23,7 +23,7 @@ fn setup_root_with_tao(sn: NetUid) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 1: Override force suppress → share=0, rest renormalized
+// Test 1: Override force suppress → zero TAO emission, rest gets full share
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_override_force_suppress() {
@@ -36,17 +36,19 @@ fn test_override_force_suppress() {
         // Override forces suppression.
         EmissionSuppressionOverride::<Test>::insert(sn1, true);
 
-        let mut shares = SubtensorModule::get_shares(&[sn1, sn2]);
-        SubtensorModule::apply_emission_suppression(&mut shares);
+        let block_emission = U96F32::from_num(1_000_000);
+        let emissions =
+            SubtensorModule::get_subnet_block_emissions(&[sn1, sn2], block_emission);
 
-        assert_eq!(
-            shares.get(&sn1).copied().unwrap_or(U64F64::from_num(0)),
-            U64F64::from_num(0)
-        );
-        let sn2_share = shares.get(&sn2).copied().unwrap_or(U64F64::from_num(0));
+        // sn1 gets zero TAO emission.
+        let sn1_emission = emissions.get(&sn1).copied().unwrap_or(U96F32::from_num(0));
+        assert_eq!(sn1_emission, U96F32::from_num(0));
+
+        // sn2 gets the full block emission.
+        let sn2_emission = emissions.get(&sn2).copied().unwrap_or(U96F32::from_num(0));
         assert!(
-            sn2_share > U64F64::from_num(0.99),
-            "sn2 share should be ~1.0, got {sn2_share:?}"
+            sn2_emission > U96F32::from_num(999_000),
+            "sn2 should get ~full emission, got {sn2_emission:?}"
         );
     });
 }
@@ -58,19 +60,15 @@ fn test_override_force_suppress() {
 fn test_override_force_unsuppress() {
     new_test_ext(1).execute_with(|| {
         let sn1 = NetUid::from(1);
-        let sn2 = NetUid::from(2);
         setup_subnet_with_flow(sn1, 10, 100_000_000);
-        setup_subnet_with_flow(sn2, 10, 100_000_000);
 
         // Some(false) is accepted but is currently identical to None: not suppressed.
         EmissionSuppressionOverride::<Test>::insert(sn1, false);
 
-        let mut shares = SubtensorModule::get_shares(&[sn1, sn2]);
-        let shares_before = shares.clone();
-        SubtensorModule::apply_emission_suppression(&mut shares);
-
-        // Shares should be unchanged (not suppressed).
-        assert_eq!(shares, shares_before);
+        assert!(
+            !SubtensorModule::is_subnet_emission_suppressed(sn1),
+            "Some(false) should not suppress"
+        );
     });
 }
 
@@ -81,17 +79,13 @@ fn test_override_force_unsuppress() {
 fn test_no_override_not_suppressed() {
     new_test_ext(1).execute_with(|| {
         let sn1 = NetUid::from(1);
-        let sn2 = NetUid::from(2);
         setup_subnet_with_flow(sn1, 10, 100_000_000);
-        setup_subnet_with_flow(sn2, 10, 100_000_000);
 
         // No override at all — default is not suppressed.
-        let mut shares = SubtensorModule::get_shares(&[sn1, sn2]);
-        let shares_before = shares.clone();
-        SubtensorModule::apply_emission_suppression(&mut shares);
-
-        // Shares should be unchanged.
-        assert_eq!(shares, shares_before);
+        assert!(
+            !SubtensorModule::is_subnet_emission_suppressed(sn1),
+            "no override means not suppressed"
+        );
     });
 }
 
@@ -116,10 +110,10 @@ fn test_dissolution_clears_override() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 5: 3 subnets, suppress 1 → others sum to 1.0
+// Test 5: 3 subnets, suppress 1 → suppressed gets 0, others split full emission
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
-fn test_shares_renormalize() {
+fn test_suppress_one_of_three() {
     new_test_ext(1).execute_with(|| {
         let sn1 = NetUid::from(1);
         let sn2 = NetUid::from(2);
@@ -131,30 +125,35 @@ fn test_shares_renormalize() {
         // Suppress sn2 via override.
         EmissionSuppressionOverride::<Test>::insert(sn2, true);
 
-        let mut shares = SubtensorModule::get_shares(&[sn1, sn2, sn3]);
-        SubtensorModule::apply_emission_suppression(&mut shares);
+        let block_emission = U96F32::from_num(1_000_000);
+        let emissions =
+            SubtensorModule::get_subnet_block_emissions(&[sn1, sn2, sn3], block_emission);
 
-        // sn2 should be 0.
-        assert_eq!(
-            shares.get(&sn2).copied().unwrap_or(U64F64::from_num(0)),
-            U64F64::from_num(0)
-        );
+        // sn2 should get 0 TAO.
+        let sn2_emission = emissions.get(&sn2).copied().unwrap_or(U96F32::from_num(0));
+        assert_eq!(sn2_emission, U96F32::from_num(0));
 
-        // Remaining shares should sum to ~1.0.
-        let sum: U64F64 = shares
-            .values()
+        // sn1 + sn3 should get the full block emission.
+        let sn1_emission: u64 = emissions
+            .get(&sn1)
             .copied()
-            .fold(U64F64::from_num(0), |a, b| a.saturating_add(b));
-        let sum_f64: f64 = sum.to_num();
+            .unwrap_or(U96F32::from_num(0))
+            .saturating_to_num();
+        let sn3_emission: u64 = emissions
+            .get(&sn3)
+            .copied()
+            .unwrap_or(U96F32::from_num(0))
+            .saturating_to_num();
+        let total = sn1_emission.saturating_add(sn3_emission);
         assert!(
-            (sum_f64 - 1.0).abs() < 1e-9,
-            "remaining shares should sum to ~1.0, got {sum_f64}"
+            total >= 999_000,
+            "sn1 + sn3 should get ~full emission, got {total}"
         );
     });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 6: All subnets suppressed → all shares 0, zero emissions
+// Test 6: All subnets suppressed → zero TAO emissions
 // ─────────────────────────────────────────────────────────────────────────────
 #[test]
 fn test_all_subnets_suppressed() {
@@ -168,23 +167,14 @@ fn test_all_subnets_suppressed() {
         EmissionSuppressionOverride::<Test>::insert(sn1, true);
         EmissionSuppressionOverride::<Test>::insert(sn2, true);
 
-        let mut shares = SubtensorModule::get_shares(&[sn1, sn2]);
-        SubtensorModule::apply_emission_suppression(&mut shares);
-
-        // Both should be zero.
-        let s1 = shares.get(&sn1).copied().unwrap_or(U64F64::from_num(0));
-        let s2 = shares.get(&sn2).copied().unwrap_or(U64F64::from_num(0));
-        assert_eq!(s1, U64F64::from_num(0));
-        assert_eq!(s2, U64F64::from_num(0));
-
-        // Total emission via get_subnet_block_emissions should be zero.
+        // Total TAO emission via get_subnet_block_emissions should be zero.
         let emissions =
             SubtensorModule::get_subnet_block_emissions(&[sn1, sn2], U96F32::from_num(1_000_000));
         let total: u64 = emissions
             .values()
             .map(|e| e.saturating_to_num::<u64>())
             .fold(0u64, |a, b| a.saturating_add(b));
-        assert_eq!(total, 0, "all-suppressed should yield zero total emission");
+        assert_eq!(total, 0, "all-suppressed should yield zero TAO emission");
     });
 }
 
@@ -370,11 +360,8 @@ fn test_sudo_override_clear_removes_storage() {
         );
 
         // With the override gone the subnet should no longer be suppressed.
-        let mut shares = SubtensorModule::get_shares(&[sn1]);
-        let shares_before = shares.clone();
-        SubtensorModule::apply_emission_suppression(&mut shares);
-        assert_eq!(
-            shares, shares_before,
+        assert!(
+            !SubtensorModule::is_subnet_emission_suppressed(sn1),
             "subnet should not be suppressed after override is cleared"
         );
     });
@@ -578,8 +565,9 @@ fn test_run_coinbase_suppressed_subnet_gets_zero_tao() {
             u64::from(total_issuance_after).saturating_sub(u64::from(total_issuance_before));
         let rounding_tolerance: u64 = 2;
         let undershoot = block_emission.saturating_sub(issuance_delta);
+        let overshoot = issuance_delta.saturating_sub(block_emission);
         assert!(
-            undershoot <= rounding_tolerance,
+            undershoot <= rounding_tolerance && overshoot <= rounding_tolerance,
             "TotalIssuance must grow by ~block_emission (±{rounding_tolerance} planck): \
              got {issuance_delta}, expected {block_emission}",
         );
