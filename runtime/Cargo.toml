@@ -219,6 +219,7 @@ std = [
 	"pallet-admin-utils/std",
 	"subtensor-custom-rpc-runtime-api/std",
 	"subtensor-transaction-fee/std",
+	"serde/std",
 	"serde_json/std",
 	"sp-io/std",
 	"sp-tracing/std",
