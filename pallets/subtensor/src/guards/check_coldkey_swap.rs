@@ -231,8 +231,8 @@ mod tests {
             ColdkeySwapAnnouncements::<Test>::insert(real, (now, hash));
 
             // Give delegate enough balance for proxy deposit
-            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000);
-            SubtensorModule::add_balance_to_coldkey_account(&delegate, 1_000_000_000);
+            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000.into());
+            SubtensorModule::add_balance_to_coldkey_account(&delegate, 1_000_000_000.into());
 
             // Register proxy: delegate can act on behalf of real
             assert_ok!(Proxy::add_proxy(
@@ -270,9 +270,9 @@ mod tests {
             let hash = HashingOf::<Test>::hash_of(&U256::from(42));
             ColdkeySwapAnnouncements::<Test>::insert(real, (now, hash));
 
-            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000);
-            SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1_000_000_000);
-            SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1_000_000_000);
+            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000.into());
+            SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1_000_000_000.into());
+            SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1_000_000_000.into());
 
             // delegate1 can proxy for real, delegate2 can proxy for delegate1
             assert_ok!(Proxy::add_proxy(
