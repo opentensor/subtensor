@@ -580,7 +580,7 @@ impl<T: Config> Pallet<T> {
 
         // Small delta is not allowed
         ensure!(
-            liquidity_delta.abs() >= T::MinimumLiquidity::get() as i64,
+            liquidity_delta.unsigned_abs() >= T::MinimumLiquidity::get(),
             Error::<T>::InvalidLiquidityValue
         );
         let mut delta_liquidity_abs = liquidity_delta.unsigned_abs();
