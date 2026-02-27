@@ -491,5 +491,28 @@ mod benchmarks {
         Ok(())
     }
 
+    #[benchmark]
+    fn set_real_pays_fee(p: Linear<1, { T::MaxProxies::get() - 1 }>) -> Result<(), BenchmarkError> {
+        add_proxies::<T>(p, None)?;
+        let caller: T::AccountId = whitelisted_caller();
+        let delegate: T::AccountId = account("target", 0, SEED);
+        let delegate_lookup = T::Lookup::unlookup(delegate.clone());
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()), delegate_lookup, true);
+
+        assert!(RealPaysFee::<T>::contains_key(&caller, &delegate));
+        assert_last_event::<T>(
+            Event::RealPaysFeeSet {
+                real: caller,
+                delegate,
+                pays_fee: true,
+            }
+            .into(),
+        );
+
+        Ok(())
+    }
+
     impl_benchmark_test_suite!(Proxy, crate::tests::new_test_ext(), crate::tests::Test);
 }
