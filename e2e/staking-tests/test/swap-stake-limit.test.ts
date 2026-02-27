@@ -13,7 +13,7 @@ import {
   getStakeRaw,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ swap_stake_limit extrinsic", () => {
   it("should swap stake with price limit (allow partial)", async () => {

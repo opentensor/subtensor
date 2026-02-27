@@ -1,5 +1,5 @@
 {
-  "name": "staking-tests",
+  "name": "e2e-staking-tests",
   "version": "1.0.0",
   "type": "module",
   "license": "ISC",
@@ -7,13 +7,13 @@
     "test": "tsx node_modules/mocha/bin/mocha.js --timeout 999999 --retries 1 --file setup.ts --extension ts \"test/**/*.ts\""
   },
   "dependencies": {
-    "shared": "../shared",
+    "e2e-shared": "workspace:*",
     "mocha": "^11.1.0",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^24"
+    "@types/node": "catalog:"
   },
   "prettier": {
     "singleQuote": false,

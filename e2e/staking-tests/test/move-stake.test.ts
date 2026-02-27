@@ -13,7 +13,7 @@ import {
   getStakeRaw,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ move_stake extrinsic", () => {
   it("should move stake to another hotkey across subnets", async () => {

@@ -12,7 +12,7 @@ import {
   getStake,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ unstake_all extrinsic", () => {
   it("should unstake all from a hotkey across all subnets", async () => {

@@ -11,7 +11,7 @@ import {
   getStake,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 // Root subnet netuid is 0
 const ROOT_NETUID = 0;

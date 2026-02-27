@@ -14,7 +14,7 @@ import {
   getStakeRaw,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ remove_stake extrinsic", () => {
   const hotkey = getRandomSubstrateKeypair();

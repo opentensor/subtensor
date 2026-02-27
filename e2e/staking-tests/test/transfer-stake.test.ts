@@ -12,7 +12,7 @@ import {
   getStakeRaw,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ transfer_stake extrinsic", () => {
   it("should transfer stake to another coldkey across subnets", async () => {

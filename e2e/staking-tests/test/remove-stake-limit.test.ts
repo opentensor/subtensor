@@ -13,7 +13,7 @@ import {
   getStake,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ remove_stake_limit extrinsic", () => {
   const hotkey = getRandomSubstrateKeypair();

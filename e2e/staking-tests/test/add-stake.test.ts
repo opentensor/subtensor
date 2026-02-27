@@ -11,7 +11,7 @@ import {
   getStake,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ add_stake extrinsic", () => {
   const hotkey = getRandomSubstrateKeypair();

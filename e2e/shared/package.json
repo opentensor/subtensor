@@ -3,10 +3,18 @@
   "version": "1.0.0",
   "type": "module",
   "exports": {
+    ".": "./index.ts",
     "./node.js": "./node.ts",
     "./chainspec.js": "./chainspec.ts",
     "./sequencer.js": "./sequencer.ts",
-    "./client.js": "./client.ts"
+    "./client.js": "./client.ts",
+    "./logger.js": "./logger.ts",
+    "./devnet-client.js": "./devnet-client.ts",
+    "./address.js": "./address.ts",
+    "./transactions.js": "./transactions.ts",
+    "./balance.js": "./balance.ts",
+    "./subnet.js": "./subnet.ts",
+    "./staking.js": "./staking.ts"
   },
   "dependencies": {
     "@polkadot/keyring": "catalog:",

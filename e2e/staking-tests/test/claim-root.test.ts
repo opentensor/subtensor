@@ -34,7 +34,7 @@ import {
   sudoSetSubnetMovingAlpha,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ set_root_claim_type extrinsic", () => {
   it("should set root claim type to Keep", async () => {

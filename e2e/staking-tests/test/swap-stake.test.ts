@@ -13,7 +13,7 @@ import {
   getStakeRaw,
   tao,
   log,
-} from "shared";
+} from "e2e-shared";
 
 describe("▶ swap_stake extrinsic", () => {
   it("should swap full stake from one subnet to another", async () => {

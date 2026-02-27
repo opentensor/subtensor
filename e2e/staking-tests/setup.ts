@@ -1,4 +1,4 @@
-import { destroyClient, getDevnetApi, sudoSetLockReductionInterval, log } from "shared";
+import { destroyClient, getDevnetApi, sudoSetLockReductionInterval, log } from "e2e-shared";
 
 before(async () => {
   const api = await getDevnetApi();
