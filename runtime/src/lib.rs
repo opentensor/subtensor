@@ -1698,6 +1698,7 @@ mod benches {
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
         [pallet_shield, MevShield]
+        [pallet_subtensor_proxy, Proxy]
     );
 }
 
