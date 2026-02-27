@@ -37,6 +37,7 @@ mod benchmarks;
 pub mod coinbase;
 pub mod epoch;
 pub mod extensions;
+pub mod guards;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -48,6 +49,7 @@ use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 pub use extensions::*;
+pub use guards::*;
 
 #[cfg(test)]
 mod tests;
@@ -1290,6 +1292,11 @@ pub mod pallet {
     pub type SubnetTAO<T: Config> =
         StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
 
+    /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
+    #[pallet::storage]
+    pub type SubnetTaoProvided<T: Config> =
+        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+
     /// --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
@@ -1308,6 +1315,11 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     #[pallet::storage]
     pub type SubnetAlphaIn<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
+    #[pallet::storage]
+    pub type SubnetAlphaInProvided<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
@@ -2506,7 +2518,9 @@ pub mod pallet {
 
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
-    ColdkeySwapAnnounced,
+    /// Deprecated: coldkey swap now uses announcements and check moved to DispatchGuard
+    #[deprecated]
+    ColdkeyInSwapSchedule,
     StakeAmountTooLow,
     BalanceTooLow,
     SubnetNotExists,
@@ -2528,14 +2542,13 @@ pub enum CustomTransactionError {
     InputLengthsUnequal,
     UidNotFound,
     EvmKeyAssociateRateLimitExceeded,
-    ColdkeySwapDisputed,
-    InvalidRealAccount,
 }
 
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
-            CustomTransactionError::ColdkeySwapAnnounced => 0,
+            #[allow(deprecated)]
+            CustomTransactionError::ColdkeyInSwapSchedule => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
             CustomTransactionError::SubnetNotExists => 3,
@@ -2557,8 +2570,6 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InputLengthsUnequal => 18,
             CustomTransactionError::UidNotFound => 19,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
-            CustomTransactionError::ColdkeySwapDisputed => 21,
-            CustomTransactionError::InvalidRealAccount => 22,
         }
     }
 }
@@ -2583,7 +2594,7 @@ pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoCurrency {
-        SubnetTAO::<T>::get(netuid)
+        SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
 
     fn increase_provided(netuid: NetUid, tao: TaoCurrency) {
@@ -2601,7 +2612,7 @@ pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
 impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaCurrency {
-        SubnetAlphaIn::<T>::get(netuid)
+        SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
 
     fn increase_provided(netuid: NetUid, alpha: AlphaCurrency) {

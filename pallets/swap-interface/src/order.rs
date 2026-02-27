@@ -11,7 +11,7 @@ pub trait Order: Clone {
 
     fn with_amount(amount: impl Into<Self::PaidIn>) -> Self;
     fn amount(&self) -> Self::PaidIn;
-    fn is_beyond_price_limit(&self, current_price: U64F64, limit_price: U64F64) -> bool;
+    fn is_beyond_price_limit(&self, alpha_sqrt_price: U64F64, limit_sqrt_price: U64F64) -> bool;
 }
 
 #[derive(Clone, Default)]
@@ -45,8 +45,8 @@ where
         self.amount
     }
 
-    fn is_beyond_price_limit(&self, current_price: U64F64, limit_price: U64F64) -> bool {
-        current_price < limit_price
+    fn is_beyond_price_limit(&self, alpha_sqrt_price: U64F64, limit_sqrt_price: U64F64) -> bool {
+        alpha_sqrt_price < limit_sqrt_price
     }
 }
 
@@ -81,7 +81,7 @@ where
         self.amount
     }
 
-    fn is_beyond_price_limit(&self, current_price: U64F64, limit_price: U64F64) -> bool {
-        current_price > limit_price
+    fn is_beyond_price_limit(&self, alpha_sqrt_price: U64F64, limit_sqrt_price: U64F64) -> bool {
+        alpha_sqrt_price > limit_sqrt_price
     }
 }

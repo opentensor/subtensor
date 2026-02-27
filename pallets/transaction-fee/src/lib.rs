@@ -33,6 +33,8 @@ use sp_std::vec::Vec;
 use subtensor_runtime_common::{
     AlphaCurrency, AuthorshipInfo, Balance, Currency, NetUid, TaoCurrency,
 };
+use substrate_fixed::types::U96F32;
+
 
 // Tests
 #[cfg(test)]
