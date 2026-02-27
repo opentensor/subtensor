@@ -156,19 +156,14 @@ where
 
         for call in calls.iter() {
             let call_ref: &RuntimeCallOf<T> = call.into_ref();
-            let (inner_real, inner_delegate, _) =
-                Self::extract_proxy_parts(call_ref, outer_real)?;
+            let (inner_real, inner_delegate, _) = Self::extract_proxy_parts(call_ref, outer_real)?;
 
             match &common_real {
                 None => {
                     // Check RealPaysFee once on the first item and memoize. For `proxy`
                     // calls the delegate is always `outer_real`, so a single read covers
                     // the entire batch; for `proxy_announced` it uses the explicit delegate.
-                    if !pallet_proxy::Pallet::<T>::is_real_pays_fee(
-                        &inner_real,
-                        &inner_delegate,
-                    )
-                    {
+                    if !pallet_proxy::Pallet::<T>::is_real_pays_fee(&inner_real, &inner_delegate) {
                         return None;
                     }
                     common_real = Some(inner_real);
@@ -233,16 +228,15 @@ where
             origin.clone()
         };
 
-        let (mut valid_transaction, val, _fee_origin) =
-            self.charge_transaction_payment.validate(
-                fee_origin,
-                call,
-                info,
-                len,
-                self_implicit,
-                inherited_implication,
-                source,
-            )?;
+        let (mut valid_transaction, val, _fee_origin) = self.charge_transaction_payment.validate(
+            fee_origin,
+            call,
+            info,
+            len,
+            self_implicit,
+            inherited_implication,
+            source,
+        )?;
 
         valid_transaction.priority = overridden_priority;
 

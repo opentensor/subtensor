@@ -5,15 +5,17 @@ use frame_support::{
     dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo},
 };
 use node_subtensor_runtime::{
-    BuildStorage, Proxy, Runtime, RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System,
-    SystemCall, transaction_payment_wrapper, NORMAL_DISPATCH_BASE_PRIORITY,
-    OPERATIONAL_DISPATCH_PRIORITY,
+    BuildStorage, NORMAL_DISPATCH_BASE_PRIORITY, OPERATIONAL_DISPATCH_PRIORITY, Proxy, Runtime,
+    RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System, SystemCall,
+    transaction_payment_wrapper,
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
 use pallet_transaction_payment::{ChargeTransactionPayment, Val};
 use sp_runtime::traits::{TransactionExtension, TxBaseImplication};
-use sp_runtime::transaction_validity::{TransactionSource, TransactionValidityError, ValidTransaction};
+use sp_runtime::transaction_validity::{
+    TransactionSource, TransactionValidityError, ValidTransaction,
+};
 use subtensor_runtime_common::{AccountId, ProxyType};
 
 const SIGNER: [u8; 32] = [1_u8; 32];
@@ -368,10 +370,7 @@ fn batch_charges_outer_real_when_non_proxy_in_batch() {
         enable_real_pays_fee(&real_b(), &signer());
 
         // Batch contains a non-proxy call → extract_proxy_parts fails
-        let batch = batch_call(vec![
-            proxy_call(real_a(), call_remark()),
-            call_remark(),
-        ]);
+        let batch = batch_call(vec![proxy_call(real_a(), call_remark()), call_remark()]);
         let call = proxy_call(real_b(), batch);
         let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(signer()), &call).unwrap();
         assert_eq!(fee_payer(&val), real_b());
