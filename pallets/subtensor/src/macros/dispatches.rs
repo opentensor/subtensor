@@ -1070,8 +1070,8 @@ mod dispatches {
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
         #[pallet::weight(Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(16_u64))
-        .saturating_add(T::DbWeight::get().writes(11_u64)))]
+        .saturating_add(T::DbWeight::get().reads(17_u64))
+        .saturating_add(T::DbWeight::get().writes(10_u64)))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
