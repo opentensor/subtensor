@@ -19,6 +19,8 @@ codec = { workspace = true, features = ["max-encoded-len"] }
 frame = { workspace = true, features = ["runtime"] }
 scale-info = { workspace = true, features = ["derive"] }
 subtensor-macros.workspace = true
+frame-system.workspace = true
+frame-support.workspace = true
 
 [dev-dependencies]
 pallet-balances = { default-features = true, workspace = true }
