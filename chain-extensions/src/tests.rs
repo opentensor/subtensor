@@ -10,7 +10,7 @@ use pallet_subtensor::DefaultMinStake;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::DispatchError;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyTrait, NetUid, TaoCurrency};
 use subtensor_swap_interface::SwapHandler;
 
@@ -969,7 +969,7 @@ fn get_alpha_price_returns_encoded_price() {
             <pallet_subtensor_swap::Pallet<mock::Test> as SwapHandler>::current_alpha_price(
                 netuid.into(),
             );
-        let expected_price_scaled = expected_price.saturating_mul(U64F64::from_num(1_000_000_000));
+        let expected_price_scaled = expected_price.saturating_mul(U96F32::from_num(1_000_000_000));
         let expected_price_u64: u64 = expected_price_scaled.saturating_to_num();
 
         let mut env = MockEnv::new(FunctionId::GetAlphaPriceV1, caller, netuid.encode());

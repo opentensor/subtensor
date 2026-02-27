@@ -15,8 +15,10 @@ use sp_runtime::{
 use subtensor_macros::freeze_struct;
 
 pub use currency::*;
+pub use evm_context::*;
 
 mod currency;
+mod evm_context;
 pub mod rate_limiting;
 
 /// Balance of an account.

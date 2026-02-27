@@ -12,6 +12,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
+environmental.workspace = true
 frame-support.workspace = true
 scale-info.workspace = true
 serde.workspace = true
@@ -31,6 +32,7 @@ approx = ["dep:approx"]
 fast-runtime = []
 std = [
 	"codec/std",
+	"environmental/std",
 	"frame-support/std",
 	"scale-info/std",
 	"serde/std",

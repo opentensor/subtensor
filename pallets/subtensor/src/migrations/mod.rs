@@ -5,7 +5,6 @@ use sp_io::KillStorageResult;
 use sp_io::hashing::twox_128;
 use sp_io::storage::clear_prefix;
 pub mod migrate_auto_stake_destination;
-pub mod migrate_cleanup_swap_v3;
 pub mod migrate_clear_rank_trust_pruning_maps;
 pub mod migrate_coldkey_swap_scheduled;
 pub mod migrate_coldkey_swap_scheduled_to_announcements;
