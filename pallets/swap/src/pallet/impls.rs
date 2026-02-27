@@ -1165,4 +1165,23 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
+
+    /// Get the amount of Alpha that needs to be sold to get a given amount of Tao
+    fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoCurrency) -> AlphaCurrency {
+        match T::SubnetInfo::mechanism(netuid.into()) {
+            1 => {
+                // For uniswap v3: Use no-slippage method. Amount is supposed to be small,
+                // hence we can neglect slippage and return slightly lower amount.
+                let alpha_price = Self::current_price(netuid.into());
+                AlphaCurrency::from(
+                    U96F32::from(u64::from(tao_amount))
+                        .safe_div(alpha_price)
+                        .saturating_to_num::<u64>(),
+                )
+            }
+
+            // Static subnet, alpha == tao
+            _ => u64::from(tao_amount).into(),
+        }
+    }    
 }

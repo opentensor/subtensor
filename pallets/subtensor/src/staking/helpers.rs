@@ -8,7 +8,7 @@ use frame_support::traits::{
 };
 use safe_math::*;
 use share_pool::SafeFloat;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
 
