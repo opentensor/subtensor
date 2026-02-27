@@ -2,12 +2,12 @@
 
 use core::num::NonZeroU64;
 
-use frame_support::construct_runtime;
 use frame_support::pallet_prelude::*;
 use frame_support::{
     PalletId, parameter_types,
     traits::{ConstU32, Everything},
 };
+use frame_support::{construct_runtime, derive_impl};
 use frame_system::{self as system};
 use scale_info::prelude::collections::HashMap;
 use sp_core::H256;
@@ -48,11 +48,9 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
@@ -61,24 +59,11 @@ impl system::Config for Test {
     type Lookup = IdentityLookup<Self::AccountId>;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
-    type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
-    type OnSetCode = ();
     type MaxConsumers = ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type RuntimeTask = ();
-    type SingleBlockMigrations = ();
-    type MultiBlockMigrator = ();
-    type PreInherents = ();
-    type PostInherents = ();
-    type PostTransactions = ();
-    type ExtensionsWeightInfo = ();
 }
 
 parameter_types! {

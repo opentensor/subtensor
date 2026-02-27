@@ -37,6 +37,7 @@ mod benchmarks;
 pub mod coinbase;
 pub mod epoch;
 pub mod extensions;
+pub mod guards;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -48,6 +49,7 @@ use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 pub use extensions::*;
+pub use guards::*;
 
 #[cfg(test)]
 mod tests;
@@ -2485,7 +2487,9 @@ pub mod pallet {
 
 #[derive(Debug, PartialEq)]
 pub enum CustomTransactionError {
-    ColdkeySwapAnnounced,
+    /// Deprecated: coldkey swap now uses announcements and check moved to DispatchGuard
+    #[deprecated]
+    ColdkeyInSwapSchedule,
     StakeAmountTooLow,
     BalanceTooLow,
     SubnetNotExists,
@@ -2507,14 +2511,13 @@ pub enum CustomTransactionError {
     InputLengthsUnequal,
     UidNotFound,
     EvmKeyAssociateRateLimitExceeded,
-    ColdkeySwapDisputed,
-    InvalidRealAccount,
 }
 
 impl From<CustomTransactionError> for u8 {
     fn from(variant: CustomTransactionError) -> u8 {
         match variant {
-            CustomTransactionError::ColdkeySwapAnnounced => 0,
+            #[allow(deprecated)]
+            CustomTransactionError::ColdkeyInSwapSchedule => 0,
             CustomTransactionError::StakeAmountTooLow => 1,
             CustomTransactionError::BalanceTooLow => 2,
             CustomTransactionError::SubnetNotExists => 3,
@@ -2536,8 +2539,6 @@ impl From<CustomTransactionError> for u8 {
             CustomTransactionError::InputLengthsUnequal => 18,
             CustomTransactionError::UidNotFound => 19,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
-            CustomTransactionError::ColdkeySwapDisputed => 21,
-            CustomTransactionError::InvalidRealAccount => 22,
         }
     }
 }

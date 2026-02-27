@@ -10,7 +10,6 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use core::num::NonZeroU64;
 
-mod base_call_filter;
 pub mod check_nonce;
 mod migrations;
 pub mod sudo_wrapper;
@@ -78,9 +77,6 @@ use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*
 use subtensor_swap_interface::{Order, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
-use crate::base_call_filter::NoNestingCallFilter;
-use crate::base_call_filter::SafeModeWhitelistedCalls;
-use core::marker::PhantomData;
 pub use frame_support::{
     StorageValue, construct_runtime, parameter_types,
     traits::{
@@ -100,11 +96,14 @@ pub use pallet_balances::Call as BalancesCall;
 use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use scale_info::TypeInfo;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+
+use core::marker::PhantomData;
+
+use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -245,7 +244,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 381,
+    spec_version: 385,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -278,6 +277,28 @@ parameter_types! {
     pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
         ::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
     pub const SS58Prefix: u8 = 42;
+}
+
+pub struct NoNestingCallFilter;
+
+impl Contains<RuntimeCall> for NoNestingCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Utility(inner) => {
+                let calls = match inner {
+                    pallet_utility::Call::force_batch { calls } => calls,
+                    pallet_utility::Call::batch { calls } => calls,
+                    pallet_utility::Call::batch_all { calls } => calls,
+                    _ => &Vec::new(),
+                };
+
+                !calls.iter().any(|call| {
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+				})
+            }
+            _ => true,
+        }
+    }
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -336,6 +357,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
+    type DispatchGuard = pallet_subtensor::CheckColdkeySwap<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -411,6 +433,25 @@ parameter_types! {
     pub const DisallowPermissionlessEntering: Option<Balance> = None;
     pub const DisallowPermissionlessExtending: Option<Balance> = None;
     pub const DisallowPermissionlessRelease: Option<BlockNumber> = None;
+}
+
+pub struct SafeModeWhitelistedCalls;
+impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
+    fn contains(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::Sudo(_)
+                | RuntimeCall::Multisig(_)
+                | RuntimeCall::System(_)
+                | RuntimeCall::SafeMode(_)
+                | RuntimeCall::Timestamp(_)
+                | RuntimeCall::SubtensorModule(
+                    pallet_subtensor::Call::set_weights { .. }
+                        | pallet_subtensor::Call::serve_axon { .. }
+                )
+                | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
+        )
+    }
 }
 
 impl pallet_safe_mode::Config for Runtime {

@@ -5,7 +5,6 @@ use parity_scale_codec::Compact;
 #[derive(Debug, Clone)]
 pub struct CustomEnvironment;
 
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 pub enum FunctionId {
     GetStakeInfoForHotkeyColdkeyNetuidV1 = 0,
     AddStakeV1 = 1,
@@ -39,15 +38,15 @@ pub trait RuntimeReadWrite {
     #[ink(function = 1)]
     fn add_stake(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
+        netuid: u16,
+        amount: u64,
     );
 
     #[ink(function = 2)]
     fn remove_stake(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
+        netuid: u16,
+        amount: u64,
     );
 
     #[ink(function = 3)]
@@ -60,66 +59,66 @@ pub trait RuntimeReadWrite {
     fn move_stake(
         origin_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         destination_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        origin_netuid: NetUid,
-        destination_netuid: NetUid,
-        amount: AlphaBalance,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
     );
 
     #[ink(function = 6)]
     fn transfer_stake(
         destination_coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        origin_netuid: NetUid,
-        destination_netuid: NetUid,
-        amount: AlphaBalance,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
     );
 
     #[ink(function = 7)]
     fn swap_stake(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        origin_netuid: NetUid,
-        destination_netuid: NetUid,
-        amount: AlphaBalance,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
     );
 
     #[ink(function = 8)]
     fn add_stake_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        netuid: NetUid,
-        amount: TaoBalance,
-        limit_price: TaoBalance,
+        netuid: u16,
+        amount: u64,
+        limit_price: u64,
         allow_partial: bool,
     );
 
     #[ink(function = 9)]
     fn remove_stake_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        netuid: NetUid,
-        amount: TaoBalance,
-        limit_price: TaoBalance,
+        netuid: u16,
+        amount: u64,
+        limit_price: u64,
         allow_partial: bool,
     );
 
     #[ink(function = 10)]
     fn swap_stake_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        origin_netuid: NetUid,
-        destination_netuid: NetUid,
-        amount: AlphaBalance,
-        limit_price: TaoBalance,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
+        limit_price: u64,
         allow_partial: bool,
     );
 
     #[ink(function = 11)]
     fn remove_stake_full_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        netuid: NetUid,
-        limit_price: TaoBalance,
+        netuid: u16,
+        limit_price: u64,
     );
 
     #[ink(function = 12)]
     fn set_coldkey_auto_stake_hotkey(
-        netuid: NetUid,
+        netuid: u16,
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
     );
 
@@ -130,7 +129,7 @@ pub trait RuntimeReadWrite {
     fn remove_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
 
     #[ink(function = 15)]
-    fn get_alpha_price(netuid: NetUid) -> u64;
+    fn get_alpha_price(netuid: u16) -> u64;
 }
 
 #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -166,11 +165,11 @@ impl ink::env::Environment for CustomEnvironment {
 pub struct StakeInfo<AccountId> {
     hotkey: AccountId,
     coldkey: AccountId,
-    netuid: Compact<NetUid>,
-    stake: Compact<AlphaBalance>,
+    netuid: Compact<u16>,
+    stake: Compact<u64>,
     locked: Compact<u64>,
-    emission: Compact<AlphaBalance>,
-    tao_emission: Compact<TaoBalance>,
+    emission: Compact<u64>,
+    tao_emission: Compact<u64>,
     drain: Compact<u64>,
     is_registered: bool,
 }
@@ -220,7 +219,7 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .add_stake(hotkey.into(), netuid.into(), amount.into())
+                .add_stake(hotkey.into(), netuid, amount)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
@@ -233,7 +232,7 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .remove_stake(hotkey.into(), netuid.into(), amount.into())
+                .remove_stake(hotkey.into(), netuid, amount)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
@@ -267,9 +266,9 @@ mod bittensor {
                 .move_stake(
                     origin_hotkey.into(),
                     destination_hotkey.into(),
-                    origin_netuid.into(),
-                    destination_netuid.into(),
-                    amount.into(),
+                    origin_netuid,
+                    destination_netuid,
+                    amount,
                 )
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
@@ -288,9 +287,9 @@ mod bittensor {
                 .transfer_stake(
                     destination_coldkey.into(),
                     hotkey.into(),
-                    origin_netuid.into(),
-                    destination_netuid.into(),
-                    amount.into(),
+                    origin_netuid,
+                    destination_netuid,
+                    amount,
                 )
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
@@ -305,12 +304,7 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .swap_stake(
-                    hotkey.into(),
-                    origin_netuid.into(),
-                    destination_netuid.into(),
-                    amount.into(),
-                )
+                .swap_stake(hotkey.into(), origin_netuid, destination_netuid, amount)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
@@ -325,13 +319,7 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .add_stake_limit(
-                    hotkey.into(),
-                    netuid.into(),
-                    amount.into(),
-                    limit_price.into(),
-                    allow_partial,
-                )
+                .add_stake_limit(hotkey.into(), netuid, amount, limit_price, allow_partial)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
@@ -346,9 +334,9 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env().extension().remove_stake_limit(
                 hotkey.into(),
-                netuid.into(),
-                amount.into(),
-                limit_price.into(),
+                netuid,
+                amount,
+                limit_price,
                 allow_partial,
             )
         }
@@ -367,10 +355,10 @@ mod bittensor {
                 .extension()
                 .swap_stake_limit(
                     hotkey.into(),
-                    origin_netuid.into(),
-                    destination_netuid.into(),
-                    amount.into(),
-                    limit_price.into(),
+                    origin_netuid,
+                    destination_netuid,
+                    amount,
+                    limit_price,
                     allow_partial,
                 )
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
@@ -385,7 +373,7 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .remove_stake_full_limit(hotkey.into(), netuid.into(), limit_price.into())
+                .remove_stake_full_limit(hotkey.into(), netuid, limit_price)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
@@ -397,7 +385,7 @@ mod bittensor {
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .set_coldkey_auto_stake_hotkey(netuid.into(), hotkey.into())
+                .set_coldkey_auto_stake_hotkey(netuid, hotkey.into())
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
@@ -421,7 +409,7 @@ mod bittensor {
         pub fn get_alpha_price(&self, netuid: u16) -> Result<u64, ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .get_alpha_price(netuid.into())
+                .get_alpha_price(netuid)
                 .map_err(|_e| ReadWriteErrorCode::ReadFailed)
         }
     }
