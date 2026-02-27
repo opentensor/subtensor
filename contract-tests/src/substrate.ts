@@ -180,7 +180,6 @@ export async function getTransactionWatchPromise(tx: Transaction<{}, string, str
 
                 // TODO investigate why finalized not for each extrinsic
                 if (value.type === "finalized") {
-                    console.log("Transaction is finalized in block:", value.txHash);
                     subscription.unsubscribe();
                     clearTimeout(timeoutId);
                     if (!value.ok) {

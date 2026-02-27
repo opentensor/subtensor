@@ -7,7 +7,7 @@ import { ethers } from "ethers";
 import { TypedApi } from "polkadot-api";
 import { devnet } from "@polkadot-api/descriptors";
 import { getAliceSigner, getBobSigner, getDevnetApi, waitForFinalizedBlock } from "../src/substrate";
-import { forceSetBalanceToEthAddress } from "../src/subtensor";
+import { forceSetBalanceToEthAddress, resetNetworkLastLockCost } from "../src/subtensor";
 import { decodeAddress } from "@polkadot/util-crypto";
 import { u8aToHex } from "@polkadot/util";
 import { ILEASING_ADDRESS, ILeasingABI } from "../src/contracts/leasing";
@@ -24,6 +24,8 @@ describe("Test Leasing precompile", () => {
     let leaseContract: ethers.Contract;
     let crowdloanContract: ethers.Contract;
     let neuronContract: ethers.Contract;
+    const crowdloanDeposit = BigInt(100_000_000_000);
+    let crowdloanCap: bigint;
 
     const alice = getAliceSigner();
     const bob = getBobSigner();
@@ -40,12 +42,19 @@ describe("Test Leasing precompile", () => {
 
         await forceSetBalanceToEthAddress(api, wallet1.address);
         await forceSetBalanceToEthAddress(api, wallet2.address);
+
+        await resetNetworkLastLockCost(api);
+        const minLockCost = await api.query.SubtensorModule.NetworkMinLockCost.getValue();
+        // guarantee that the crowdloan cap is larger than the deposit
+        if (minLockCost > crowdloanDeposit) {
+            crowdloanCap = minLockCost * BigInt(2);
+        } else {
+            crowdloanCap = crowdloanDeposit * BigInt(2);
+        }
     });
 
     it("gets an existing lease created on substrate side, its subnet id and its contributor shares", async () => {
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
-        const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
-        const crowdloanCap = await api.query.SubtensorModule.NetworkLastLockCost.getValue() * BigInt(2);
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
         const leaseEmissionsShare = 15;
         const leaseEnd = await api.query.System.Number.getValue() + 300;
@@ -67,8 +76,8 @@ describe("Test Leasing precompile", () => {
             amount: crowdloanCap - crowdloanDeposit,
         }).signAndSubmit(bob);
 
-        await waitForFinalizedBlock(api, crowdloanEnd);
 
+        await waitForFinalizedBlock(api, crowdloanEnd);
         const nextLeaseId = await api.query.SubtensorModule.NextSubnetLeaseId.getValue();
         await api.tx.Crowdloan.finalize({ crowdloan_id: nextCrowdloanId }).signAndSubmit(alice);
 
@@ -98,9 +107,7 @@ describe("Test Leasing precompile", () => {
 
     it("registers a new leased network through a crowdloan and retrieves the lease", async () => {
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
-        const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
         const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
-        const crowdloanCap = await api.query.SubtensorModule.NetworkLastLockCost.getValue() * BigInt(2);
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
         const leasingEmissionsShare = 15;
         const leasingEndBlock = await api.query.System.Number.getValue() + 300;
@@ -159,9 +166,7 @@ describe("Test Leasing precompile", () => {
         await tx.wait();
 
         const nextCrowdloanId = await api.query.Crowdloan.NextCrowdloanId.getValue();
-        const crowdloanDeposit = BigInt(100_000_000_000); // 100 TAO
         const crowdloanMinContribution = BigInt(1_000_000_000); // 1 TAO
-        const crowdloanCap = await api.query.SubtensorModule.NetworkLastLockCost.getValue() * BigInt(2);
         const crowdloanEnd = await api.query.System.Number.getValue() + 100;
         const leasingEmissionsShare = 15;
         const leasingEndBlock = await api.query.System.Number.getValue() + 200;
