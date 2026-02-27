@@ -2375,6 +2375,15 @@ pub mod pallet {
     pub type PendingChildKeyCooldown<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
 
+    /// Root override for emission suppression per subnet.
+    /// Some(true) = force suppressed; None or Some(false) = not suppressed.
+    /// Some(false) is functionally identical to None today and is reserved for
+    /// future use (e.g. an automatic suppression mechanism whose effect
+    /// Some(false) could explicitly override).
+    #[pallet::storage]
+    pub type EmissionSuppressionOverride<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, OptionQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         /// Stakes record in genesis.

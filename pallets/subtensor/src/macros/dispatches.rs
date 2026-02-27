@@ -2416,5 +2416,36 @@ mod dispatches {
 
             Ok(())
         }
+
+        /// --- Set or clear the root override for emission suppression on a subnet.
+        /// Some(true) forces suppression. None removes the override (subnet is not
+        /// suppressed). Some(false) is accepted and stored but is currently
+        /// functionally identical to None; it is reserved for future use.
+        #[pallet::call_index(133)]
+        #[pallet::weight((
+            Weight::from_parts(5_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(2))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::No
+        ))]
+        pub fn sudo_set_emission_suppression_override(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            override_value: Option<bool>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+            ensure!(!netuid.is_root(), Error::<T>::CannotSuppressRootSubnet);
+            match override_value {
+                Some(val) => EmissionSuppressionOverride::<T>::insert(netuid, val),
+                None => EmissionSuppressionOverride::<T>::remove(netuid),
+            }
+            Self::deposit_event(Event::EmissionSuppressionOverrideSet {
+                netuid,
+                override_value,
+            });
+            Ok(())
+        }
     }
 }

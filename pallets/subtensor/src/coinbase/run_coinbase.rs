@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
             });
 
             if root_sell_flag {
-                // Only accumulate root alpha divs if root sell is allowed.
+                // Accumulate root alpha divs for root validators.
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
                     *total = total.saturating_add(tou64!(root_alpha).into());
                 });
