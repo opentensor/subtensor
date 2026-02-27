@@ -56,8 +56,10 @@ where
     RuntimeCallOf<T>: IsSubType<pallet_proxy::Call<T>> + IsSubType<pallet_utility::Call<T>>,
     RuntimeOriginOf<T>: AsSystemOriginSigner<AccountIdOf<T>> + Clone,
 {
-    /// Extract (real, delegate, inner_call) from a `proxy` or `proxy_announced` call.
-    /// For `proxy`, `signer` is used as the delegate since it is implicit (the caller).
+    /// Extract (real, delegate, inner_call) from a `proxy` call.
+    /// `signer` is used as the delegate since it is implicit (the caller).
+    /// `proxy_announced` is intentionally not handled here; fee propagation
+    /// only applies to `proxy` calls to keep the logic simple.
     fn extract_proxy_parts<'a>(
         call: &'a RuntimeCallOf<T>,
         signer: &AccountIdOf<T>,
@@ -70,16 +72,6 @@ where
             pallet_proxy::Call::proxy { real, call, .. } => {
                 let real = LookupOf::<T>::lookup(real.clone()).ok()?;
                 Some((real, signer.clone(), call))
-            }
-            pallet_proxy::Call::proxy_announced {
-                delegate,
-                real,
-                call,
-                ..
-            } => {
-                let real = LookupOf::<T>::lookup(real.clone()).ok()?;
-                let delegate = LookupOf::<T>::lookup(delegate.clone()).ok()?;
-                Some((real, delegate, call))
             }
             _ => None,
         }
@@ -164,17 +156,26 @@ where
 
         for call in calls.iter() {
             let call_ref: &RuntimeCallOf<T> = call.into_ref();
-            let (inner_real, inner_delegate, _) = Self::extract_proxy_parts(call_ref, outer_real)?;
+            let (inner_real, inner_delegate, _) =
+                Self::extract_proxy_parts(call_ref, outer_real)?;
 
-            // All items must share the same real account.
             match &common_real {
-                None => common_real = Some(inner_real.clone()),
+                None => {
+                    // Check RealPaysFee once on the first item and memoize. For `proxy`
+                    // calls the delegate is always `outer_real`, so a single read covers
+                    // the entire batch; for `proxy_announced` it uses the explicit delegate.
+                    if !pallet_proxy::Pallet::<T>::is_real_pays_fee(
+                        &inner_real,
+                        &inner_delegate,
+                    )
+                    {
+                        return None;
+                    }
+                    common_real = Some(inner_real);
+                }
+                // All items must share the same real account.
                 Some(existing) if *existing != inner_real => return None,
                 _ => {}
-            }
-
-            if !pallet_proxy::Pallet::<T>::is_real_pays_fee(&inner_real, &inner_delegate) {
-                return None;
             }
         }
 
