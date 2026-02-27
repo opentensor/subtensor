@@ -2,12 +2,12 @@
 
 use core::num::NonZeroU64;
 
-use frame_support::construct_runtime;
 use frame_support::pallet_prelude::*;
 use frame_support::{
     PalletId, parameter_types,
     traits::{ConstU32, Everything},
 };
+use frame_support::{construct_runtime, derive_impl};
 use frame_system::{self as system};
 use sp_core::H256;
 use sp_runtime::{
