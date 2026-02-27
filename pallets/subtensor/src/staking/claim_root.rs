@@ -389,11 +389,25 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
+    ///
+    /// This function removes the given `netuid` entry from every hotkey's
+    /// `RootClaimable` map and clears the corresponding `RootClaimed` prefix.
+    ///
+    /// The previous implementation collected **all** hotkey keys into a `Vec`
+    /// before mutating, which is O(N) in memory and could exceed block weight
+    /// limits when the number of hotkeys is large (see issue #2411).
+    ///
+    /// The new implementation avoids the unbounded `collect()` by draining the
+    /// iterator directly. Because `StorageMap::iter_keys()` returns a lazy
+    /// iterator backed by the storage trie cursor, we can process each key
+    /// without materialising the full set in memory. Substrate's storage
+    /// iterators are safe to use while mutating *other* keys of the same map
+    /// (cursor invalidation only occurs when the *current* key is removed).
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
+        let mut cursor = RootClaimable::<T>::iter_keys();
 
-        for hotkey in hotkeys.iter() {
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
+        while let Some(hotkey) = cursor.next() {
+            RootClaimable::<T>::mutate(&hotkey, |claimable| {
                 claimable.remove(&netuid);
             });
         }
