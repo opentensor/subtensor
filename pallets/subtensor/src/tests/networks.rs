@@ -67,6 +67,34 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
 }
 
 #[test]
+fn dissolve_defers_cleanup_until_on_idle() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(11);
+        let owner_hot = U256::from(12);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        assert!(SubnetOwner::<Test>::contains_key(net));
+        assert!(NetworkRegisteredAt::<Test>::contains_key(net));
+        assert!(!DissolvedNetworks::<Test>::get().contains(&net));
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Network is no longer considered "existing" but data is not cleaned yet.
+        assert!(!SubtensorModule::if_subnet_exist(net));
+        assert!(DissolvedNetworks::<Test>::get().contains(&net));
+        assert!(SubnetOwner::<Test>::contains_key(net));
+        assert!(NetworkRegisteredAt::<Test>::contains_key(net));
+
+        // Cleanup happens in on_idle.
+        run_block_idle();
+
+        assert!(!SubnetOwner::<Test>::contains_key(net));
+        assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
+        assert!(!DissolvedNetworks::<Test>::get().contains(&net));
+    });
+}
+
+#[test]
 fn dissolve_refunds_full_lock_cost_when_no_emission() {
     new_test_ext(0).execute_with(|| {
         let cold = U256::from(3);
@@ -1421,6 +1449,31 @@ fn register_network_prunes_and_recycles_netuid() {
         assert_eq!(SubnetOwner::<Test>::get(n1), new_cold);
         assert_eq!(SubnetOwnerHotkey::<Test>::get(n1), new_hot);
         assert_eq!(SubnetOwner::<Test>::get(n2), n2_cold);
+    });
+}
+
+#[test]
+fn register_network_skips_dissolved_netuid() {
+    new_test_ext(0).execute_with(|| {
+        let dissolved = NetUid::from(1);
+        DissolvedNetworks::<Test>::put(vec![dissolved]);
+
+        let cold = U256::from(60);
+        let hot = U256::from(61);
+        let needed: u64 = SubtensorModule::get_network_lock_cost().into();
+        SubtensorModule::add_balance_to_coldkey_account(&cold, needed.saturating_mul(10));
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(cold),
+            &hot,
+            1,
+            None,
+        ));
+
+        assert!(!NetworksAdded::<Test>::get(dissolved));
+        let expected = NetUid::from(2);
+        assert!(NetworksAdded::<Test>::get(expected));
+        assert_eq!(SubnetOwner::<Test>::get(expected), cold);
     });
 }
 
