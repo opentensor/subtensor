@@ -10,7 +10,6 @@ edition = "2021"
 ink = { version = "5.1.1", default-features = false }
 parity-scale-codec = { version = "3.0.0", default-features = false }
 serde = { version = "1.0.228", default-features = false }
-subtensor-runtime-common = {  path = "../../common", default-features = false }
 [dev-dependencies]
 ink_e2e = { version = "5.1.1" }
 
@@ -23,7 +22,6 @@ std = [
     "ink/std",
     "parity-scale-codec/std",
     "serde/std",
-    "subtensor-runtime-common/std",
 ]
 
 ink-as-dependency = []
