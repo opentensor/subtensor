@@ -66,6 +66,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_max_registrations_per_block(netuid, 4096);
         Subtensor::<T>::set_target_registrations_per_interval(netuid, 4096);
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         let mut seed: u32 = 1;
         let mut dests = Vec::new();
@@ -243,6 +244,11 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
         assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+        Subtensor::<T>::init_new_network(NetUid::ROOT, 1);
+        Subtensor::<T>::set_network_registration_allowed(NetUid::ROOT, true);
+        Subtensor::<T>::set_network_pow_registration_allowed(NetUid::ROOT, true);
+        FirstEmissionBlockNumber::<T>::insert(NetUid::ROOT, 1);
+        SubtokenEnabled::<T>::insert(NetUid::ROOT, true);
 
         let amount: u64 = 100_000_000_000_000;
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
@@ -292,6 +298,7 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::init_new_network(netuid, tempo);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work) = Subtensor::<T>::create_work_for_block_number(
@@ -330,6 +337,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, tempo);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work) =
@@ -356,11 +364,19 @@ mod pallet_benchmarks {
             salt.clone(),
             version_key,
         ));
-        let _ = Subtensor::<T>::commit_weights(
+        let commit_block = Subtensor::<T>::get_current_block_as_u64();
+        assert_ok!(Subtensor::<T>::commit_weights(
             RawOrigin::Signed(hotkey.clone()).into(),
             netuid,
             commit_hash,
-        );
+        ));
+
+        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
+        let reveal_block: BlockNumberFor<T> = first_reveal_block
+            .try_into()
+            .ok()
+            .expect("can't convert to block number");
+        frame_system::Pallet::<T>::set_block_number(reveal_block);
 
         #[extrinsic_call]
         _(
@@ -556,6 +572,7 @@ mod pallet_benchmarks {
         let mut salts_list = Vec::new();
         let mut version_keys = Vec::new();
 
+        let commit_block = Subtensor::<T>::get_current_block_as_u64();
         for i in 0..num_commits {
             let uids = vec![0u16];
             let values = vec![i as u16];
@@ -582,6 +599,13 @@ mod pallet_benchmarks {
             salts_list.push(salts);
             version_keys.push(version_key_i);
         }
+
+        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
+        let reveal_block: BlockNumberFor<T> = first_reveal_block
+            .try_into()
+            .ok()
+            .expect("can't convert to block number");
+        frame_system::Pallet::<T>::set_block_number(reveal_block);
 
         #[extrinsic_call]
         _(
@@ -1052,6 +1076,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         let reg_fee = Subtensor::<T>::get_burn(netuid);
         Subtensor::<T>::add_balance_to_coldkey_account(&hotkey, reg_fee.to_u64().saturating_mul(2));
@@ -1115,9 +1140,11 @@ mod pallet_benchmarks {
     fn decrease_take() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);
-        let take: u16 = 100;
+        let min_take = Subtensor::<T>::get_min_delegate_take();
+        let take: u16 = min_take;
+        let current_take = min_take.saturating_add(1);
 
-        Delegates::<T>::insert(&hotkey, 200u16);
+        Delegates::<T>::insert(&hotkey, current_take);
         Owner::<T>::insert(&hotkey, &coldkey);
 
         #[extrinsic_call]
