@@ -1,4 +1,4 @@
-import { devnet } from "@polkadot-api/descriptors";
+import { subtensor } from "@polkadot-api/descriptors";
 import { TypedApi } from "polkadot-api";
 import { KeyPair } from "@polkadot-labs/hdkd-helpers";
 import { getAliceSigner, getSignerFromKeypair, convertPublicKeyToSs58 } from "./address.js";
@@ -6,7 +6,7 @@ import { waitForTransactionWithRetry } from "./transactions.js";
 import { log } from "./logger.js";
 
 export async function addNewSubnetwork(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   hotkey: KeyPair,
   coldkey: KeyPair
 ): Promise<number> {
@@ -31,7 +31,7 @@ export async function addNewSubnetwork(
 }
 
 export async function burnedRegister(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number,
   hotkeyAddress: string,
   coldkey: KeyPair
@@ -49,7 +49,7 @@ export async function burnedRegister(
 }
 
 export async function startCall(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number,
   coldkey: KeyPair
 ): Promise<void> {

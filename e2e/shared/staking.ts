@@ -1,4 +1,4 @@
-import { devnet } from "@polkadot-api/descriptors";
+import { subtensor } from "@polkadot-api/descriptors";
 import { TypedApi } from "polkadot-api";
 import { KeyPair } from "@polkadot-labs/hdkd-helpers";
 import { getSignerFromKeypair, getAliceSigner } from "./address.js";
@@ -31,7 +31,7 @@ export function u64f64ToNumber(raw: bigint): number {
 }
 
 export async function addStake(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string,
   netuid: number,
@@ -47,7 +47,7 @@ export async function addStake(
 }
 
 export async function addStakeLimit(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string,
   netuid: number,
@@ -67,7 +67,7 @@ export async function addStakeLimit(
 }
 
 export async function removeStake(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string,
   netuid: number,
@@ -83,7 +83,7 @@ export async function removeStake(
 }
 
 export async function removeStakeLimit(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string,
   netuid: number,
@@ -103,7 +103,7 @@ export async function removeStakeLimit(
 }
 
 export async function removeStakeFullLimit(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string,
   netuid: number,
@@ -119,7 +119,7 @@ export async function removeStakeFullLimit(
 }
 
 export async function unstakeAll(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string
 ): Promise<void> {
@@ -131,7 +131,7 @@ export async function unstakeAll(
 }
 
 export async function unstakeAllAlpha(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string
 ): Promise<void> {
@@ -147,7 +147,7 @@ export async function unstakeAllAlpha(
  * Returns the integer part of the U64F64 value.
  */
 export async function getStake(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   hotkey: string,
   coldkey: string,
   netuid: number
@@ -161,7 +161,7 @@ export async function getStake(
  * Use this when you need the raw value for extrinsics like transfer_stake.
  */
 export async function getStakeRaw(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   hotkey: string,
   coldkey: string,
   netuid: number
@@ -170,7 +170,7 @@ export async function getStakeRaw(
 }
 
 export async function transferStake(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   originColdkey: KeyPair,
   destinationColdkey: string,
   hotkey: string,
@@ -190,7 +190,7 @@ export async function transferStake(
 }
 
 export async function moveStake(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   originHotkey: string,
   destinationHotkey: string,
@@ -210,7 +210,7 @@ export async function moveStake(
 }
 
 export async function swapStake(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string,
   originNetuid: number,
@@ -228,7 +228,7 @@ export async function swapStake(
 }
 
 export async function swapStakeLimit(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   hotkey: string,
   originNetuid: number,
@@ -252,7 +252,7 @@ export async function swapStakeLimit(
 export type RootClaimType = "Swap" | "Keep" | { type: "KeepSubnets"; subnets: number[] };
 
 export async function getRootClaimType(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: string
 ): Promise<RootClaimType> {
   const result = await api.query.SubtensorModule.RootClaimType.getValue(coldkey);
@@ -263,7 +263,7 @@ export async function getRootClaimType(
 }
 
 export async function setRootClaimType(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   claimType: RootClaimType
 ): Promise<void> {
@@ -281,7 +281,7 @@ export async function setRootClaimType(
 }
 
 export async function claimRoot(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   coldkey: KeyPair,
   subnets: number[]
 ): Promise<void> {
@@ -293,13 +293,13 @@ export async function claimRoot(
 }
 
 export async function getNumRootClaims(
-  api: TypedApi<typeof devnet>
+  api: TypedApi<typeof subtensor>
 ): Promise<bigint> {
   return await api.query.SubtensorModule.NumRootClaim.getValue();
 }
 
 export async function sudoSetNumRootClaims(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   newValue: bigint
 ): Promise<void> {
   const alice = getAliceSigner();
@@ -311,14 +311,14 @@ export async function sudoSetNumRootClaims(
 }
 
 export async function getRootClaimThreshold(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<bigint> {
   return await api.query.SubtensorModule.RootClaimableThreshold.getValue(netuid);
 }
 
 export async function sudoSetRootClaimThreshold(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number,
   newValue: bigint
 ): Promise<void> {
@@ -332,14 +332,14 @@ export async function sudoSetRootClaimThreshold(
 }
 
 export async function getTempo(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<number> {
   return await api.query.SubtensorModule.Tempo.getValue(netuid);
 }
 
 export async function sudoSetTempo(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number,
   tempo: number
 ): Promise<void> {
@@ -353,7 +353,7 @@ export async function sudoSetTempo(
 }
 
 export async function waitForBlocks(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   numBlocks: number
 ): Promise<void> {
   const startBlock = await api.query.System.Number.getValue();
@@ -369,7 +369,7 @@ export async function waitForBlocks(
 }
 
 export async function getRootClaimable(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   hotkey: string
 ): Promise<Map<number, bigint>> {
   const result = await api.query.SubtensorModule.RootClaimable.getValue(hotkey);
@@ -381,7 +381,7 @@ export async function getRootClaimable(
 }
 
 export async function getRootClaimed(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number,
   hotkey: string,
   coldkey: string
@@ -390,14 +390,14 @@ export async function getRootClaimed(
 }
 
 export async function isSubtokenEnabled(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<boolean> {
   return await api.query.SubtensorModule.SubtokenEnabled.getValue(netuid);
 }
 
 export async function sudoSetSubtokenEnabled(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number,
   enabled: boolean
 ): Promise<void> {
@@ -411,20 +411,20 @@ export async function sudoSetSubtokenEnabled(
 }
 
 export async function isNetworkAdded(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<boolean> {
   return await api.query.SubtensorModule.NetworksAdded.getValue(netuid);
 }
 
 export async function getAdminFreezeWindow(
-  api: TypedApi<typeof devnet>
+  api: TypedApi<typeof subtensor>
 ): Promise<number> {
   return await api.query.SubtensorModule.AdminFreezeWindow.getValue();
 }
 
 export async function sudoSetAdminFreezeWindow(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   window: number
 ): Promise<void> {
   const alice = getAliceSigner();
@@ -436,7 +436,7 @@ export async function sudoSetAdminFreezeWindow(
 }
 
 export async function sudoSetEmaPriceHalvingPeriod(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number,
   emaPriceHalvingPeriod: number
 ): Promise<void> {
@@ -450,7 +450,7 @@ export async function sudoSetEmaPriceHalvingPeriod(
 }
 
 export async function sudoSetLockReductionInterval(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   interval: number
 ): Promise<void> {
   const alice = getAliceSigner();
@@ -462,7 +462,7 @@ export async function sudoSetLockReductionInterval(
 }
 
 export async function sudoSetSubnetMovingAlpha(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   alpha: bigint
 ): Promise<void> {
   const alice = getAliceSigner();
@@ -475,41 +475,41 @@ export async function sudoSetSubnetMovingAlpha(
 
 // Debug helpers for claim_root investigation
 export async function getSubnetTAO(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<bigint> {
   return await api.query.SubtensorModule.SubnetTAO.getValue(netuid);
 }
 
 export async function getSubnetMovingPrice(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<bigint> {
   return await api.query.SubtensorModule.SubnetMovingPrice.getValue(netuid);
 }
 
 export async function getPendingRootAlphaDivs(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<bigint> {
   return await api.query.SubtensorModule.PendingRootAlphaDivs.getValue(netuid);
 }
 
 export async function getTaoWeight(
-  api: TypedApi<typeof devnet>
+  api: TypedApi<typeof subtensor>
 ): Promise<bigint> {
   return await api.query.SubtensorModule.TaoWeight.getValue();
 }
 
 export async function getSubnetAlphaIn(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   netuid: number
 ): Promise<bigint> {
   return await api.query.SubtensorModule.SubnetAlphaIn.getValue(netuid);
 }
 
 export async function getTotalHotkeyAlpha(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   hotkey: string,
   netuid: number
 ): Promise<bigint> {

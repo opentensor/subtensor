@@ -1,4 +1,4 @@
-import { devnet, MultiAddress } from "@polkadot-api/descriptors";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 import { TypedApi } from "polkadot-api";
 import { getAliceSigner } from "./address.js";
 import { waitForTransactionWithRetry } from "./transactions.js";
@@ -9,13 +9,13 @@ export function tao(value: number): bigint {
   return TAO * BigInt(value);
 }
 
-export async function getBalance(api: TypedApi<typeof devnet>, ss58Address: string): Promise<bigint> {
+export async function getBalance(api: TypedApi<typeof subtensor>, ss58Address: string): Promise<bigint> {
   const account = await api.query.System.Account.getValue(ss58Address);
   return account.data.free;
 }
 
 export async function forceSetBalance(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   ss58Address: string,
   amount: bigint = tao(1e10)
 ): Promise<void> {

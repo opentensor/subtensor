@@ -1,11 +1,11 @@
-import { devnet } from "@polkadot-api/descriptors";
+import { subtensor } from "@polkadot-api/descriptors";
 import { TypedApi, Transaction, PolkadotSigner } from "polkadot-api";
 import { log } from "./logger.js";
 
 export const TX_TIMEOUT = 5000;
 
 export async function waitForTransactionWithRetry(
-  api: TypedApi<typeof devnet>,
+  api: TypedApi<typeof subtensor>,
   tx: Transaction<{}, string, string, void>,
   signer: PolkadotSigner,
   label: string,
