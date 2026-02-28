@@ -1,0 +1,20 @@
+{
+  "name": "start-nodes",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "ISC",
+  "scripts": {
+    "start": "tsx main.ts"
+  },
+  "dependencies": {
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24"
+  },
+  "prettier": {
+    "singleQuote": false,
+    "trailingComma": "all",
+    "printWidth": 120
+  }
+}
