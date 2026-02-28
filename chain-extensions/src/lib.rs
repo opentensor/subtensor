@@ -8,15 +8,23 @@ mod tests;
 pub mod types;
 
 use crate::types::{FunctionId, Output};
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{DebugNoBound, traits::Get};
+use codec::{Decode, DecodeLimit, Encode, MaxEncodedLen};
+use frame_support::{
+    BoundedVec, DebugNoBound,
+    dispatch::GetDispatchInfo,
+    traits::{ConstU32, Get},
+};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
     BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
-use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
+use sp_runtime::{
+    DispatchError, Weight,
+    traits::{Dispatchable, StaticLookup},
+};
+use sp_std::boxed::Box;
 use sp_std::marker::PhantomData;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaCurrency, NetUid, ProxyType, TaoCurrency};
@@ -529,6 +537,69 @@ where
                     .map_err(|_| DispatchError::Other("Failed to write output"))?;
 
                 Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::ProxyCall => {
+                // 1. Read params: (real_coldkey, force_proxy_type as Option<u8>, call_data)
+                let (real_coldkey, force_proxy_type_raw, call_data): (
+                    T::AccountId,
+                    Option<u8>,
+                    BoundedVec<u8, ConstU32<1024>>,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                // 2. Parse proxy type from raw u8
+                let force_proxy_type = force_proxy_type_raw
+                    .map(ProxyType::try_from)
+                    .transpose()
+                    .map_err(|_| DispatchError::Other("Invalid proxy type"))?;
+
+                // 3. Decode the inner RuntimeCall (depth-limited for safety)
+                let call = <<T as pallet_proxy::Config>::RuntimeCall>::decode_with_depth_limit(
+                    8,
+                    &mut &call_data[..],
+                )
+                .map_err(|_| DispatchError::Other("Failed to decode call"))?;
+
+                // 4. Dynamic weight: inner call weight + proxy overhead
+                let call_weight = call.get_dispatch_info().call_weight;
+                let proxy_overhead = <T as pallet_proxy::Config>::WeightInfo::proxy(
+                    <T as pallet_proxy::Config>::MaxProxies::get(),
+                );
+                env.charge_weight(call_weight.saturating_add(proxy_overhead))?;
+
+                // 5. Execute
+                let caller = env.caller();
+                if real_coldkey == caller {
+                    // Direct dispatch — no proxy needed
+                    let result = call.dispatch(RawOrigin::Signed(caller).into());
+                    match result {
+                        Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                        Err(e) => Ok(RetVal::Converging(Output::from(e.error) as u32)),
+                    }
+                } else {
+                    // Proxy dispatch — pallet handles all permission checking
+                    let real_lookup = <<T as SysConfig>::Lookup as StaticLookup>::Source::from(
+                        real_coldkey.clone(),
+                    );
+                    let result = pallet_proxy::Pallet::<T>::proxy(
+                        RawOrigin::Signed(caller).into(),
+                        real_lookup,
+                        force_proxy_type,
+                        Box::new(call),
+                    );
+                    match result {
+                        Ok(()) => {
+                            // Inner call result is in LastCallResult storage
+                            match pallet_proxy::LastCallResult::<T>::get(&real_coldkey) {
+                                Some(Ok(())) => Ok(RetVal::Converging(Output::Success as u32)),
+                                Some(Err(e)) => Ok(RetVal::Converging(Output::from(e) as u32)),
+                                None => Ok(RetVal::Converging(Output::RuntimeError as u32)),
+                            }
+                        }
+                        Err(e) => Ok(RetVal::Converging(Output::from(e) as u32)),
+                    }
+                }
             }
         }
     }
