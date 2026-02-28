@@ -2328,3 +2328,426 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
         assert!(!MechanismCountCurrent::<Test>::contains_key(net));
     });
 }
+
+// ---------------------------------------------------------------------------
+// Storage-leak detection test: catches any per-subnet storage left behind
+// after a full subnet lifecycle + dissolution.
+// ---------------------------------------------------------------------------
+
+/// Walk every key in storage via `sp_io::storage::next_key`.
+fn collect_all_storage_keys() -> sp_std::collections::btree_set::BTreeSet<sp_std::vec::Vec<u8>> {
+    let mut keys = sp_std::collections::btree_set::BTreeSet::new();
+    let mut cursor = sp_std::vec::Vec::new();
+    while let Some(next) = sp_io::storage::next_key(&cursor) {
+        keys.insert(next.clone());
+        cursor = next;
+    }
+    keys
+}
+
+/// Compute the 32-byte storage prefix `twox_128(pallet) ++ twox_128(item)`.
+fn storage_item_prefix(pallet: &str, item: &str) -> [u8; 32] {
+    let p = sp_io::hashing::twox_128(pallet.as_bytes());
+    let s = sp_io::hashing::twox_128(item.as_bytes());
+    let mut out = [0u8; 32];
+    out.get_mut(..16).expect("slice").copy_from_slice(&p);
+    out.get_mut(16..32).expect("slice").copy_from_slice(&s);
+    out
+}
+
+/// Build the set of 32-byte prefixes for *global* (non-per-subnet) storage
+/// items that legitimately gain or change keys during a subnet lifecycle.
+/// These are NOT leaks even though they appear in the "after − before" diff.
+fn build_global_allowlist() -> sp_std::collections::btree_set::BTreeSet<[u8; 32]> {
+    let sm = "SubtensorModule";
+    [
+        // Global counters / scalars that change as a side-effect.
+        storage_item_prefix(sm, "TotalNetworks"),
+        storage_item_prefix(sm, "TotalIssuance"),
+        storage_item_prefix(sm, "TotalStake"),
+        storage_item_prefix(sm, "TotalSubnetLocked"),
+        storage_item_prefix(sm, "NetworkLastLockCost"),
+        storage_item_prefix(sm, "NetworkLastRegisteredBlock"),
+        storage_item_prefix(sm, "NetworkRegistrationStartBlock"),
+        storage_item_prefix(sm, "NetworkMinLockCost"),
+        // Per-hotkey global maps (not per-subnet) that gain entries.
+        storage_item_prefix(sm, "Owner"),
+        storage_item_prefix(sm, "Delegates"),
+        storage_item_prefix(sm, "OwnedHotkeys"),
+        storage_item_prefix(sm, "StakingHotkeys"),
+        storage_item_prefix(sm, "StakingColdkeys"),
+        storage_item_prefix(sm, "StakingColdkeysByIndex"),
+        storage_item_prefix(sm, "NumStakingColdkeys"),
+        storage_item_prefix(sm, "RootClaimable"),
+        storage_item_prefix(sm, "RootClaimType"),
+        storage_item_prefix(sm, "LastColdkeyHotkeyStakeBlock"),
+        storage_item_prefix(sm, "HasMigrationRun"),
+        // Global iteration cursor / PoW anti-replay / rate limiting (not per-subnet).
+        storage_item_prefix(sm, "AlphaMapLastKey"),
+        storage_item_prefix(sm, "UsedWork"),
+        storage_item_prefix(sm, "LastRateLimitedBlock"),
+        // Swap global state.
+        storage_item_prefix("Swap", "LastPositionId"),
+    ]
+    .into_iter()
+    .collect()
+}
+
+/// Try to reverse-lookup a 32-byte prefix to a human-readable name.
+/// Returns `"Pallet::Item"` if known, otherwise hex of the 32-byte prefix.
+fn identify_storage_prefix(prefix_32: &[u8; 32]) -> alloc::string::String {
+    use core::fmt::Write;
+
+    // Exhaustive list of per-subnet storage items to make error messages
+    // actionable. When someone adds a new map and forgets cleanup, the test
+    // will still fail even if it's not in this list — the name will just be
+    // shown as hex instead.
+    let known: &[(&str, &str)] = &[
+        // --- SubtensorModule single maps (netuid → value) ---
+        ("SubtensorModule", "Tempo"),
+        ("SubtensorModule", "Kappa"),
+        ("SubtensorModule", "Difficulty"),
+        ("SubtensorModule", "MaxAllowedUids"),
+        ("SubtensorModule", "ImmunityPeriod"),
+        ("SubtensorModule", "ActivityCutoff"),
+        ("SubtensorModule", "MinAllowedWeights"),
+        ("SubtensorModule", "MaxWeightsLimit"),
+        ("SubtensorModule", "MinAllowedUids"),
+        ("SubtensorModule", "MinNonImmuneUids"),
+        ("SubtensorModule", "RegistrationsThisInterval"),
+        ("SubtensorModule", "POWRegistrationsThisInterval"),
+        ("SubtensorModule", "BurnRegistrationsThisInterval"),
+        ("SubtensorModule", "SubnetAlphaInEmission"),
+        ("SubtensorModule", "SubnetAlphaOutEmission"),
+        ("SubtensorModule", "SubnetTaoInEmission"),
+        ("SubtensorModule", "SubnetVolume"),
+        ("SubtensorModule", "SubnetMovingPrice"),
+        ("SubtensorModule", "SubnetTaoFlow"),
+        ("SubtensorModule", "SubnetEmaTaoFlow"),
+        ("SubtensorModule", "SubnetTaoProvided"),
+        ("SubtensorModule", "TokenSymbol"),
+        ("SubtensorModule", "SubnetMechanism"),
+        ("SubtensorModule", "SubnetOwner"),
+        ("SubtensorModule", "SubnetOwnerHotkey"),
+        ("SubtensorModule", "NetworkRegistrationAllowed"),
+        ("SubtensorModule", "NetworkPowRegistrationAllowed"),
+        ("SubtensorModule", "TransferToggle"),
+        ("SubtensorModule", "SubnetLocked"),
+        ("SubtensorModule", "LargestLocked"),
+        ("SubtensorModule", "FirstEmissionBlockNumber"),
+        ("SubtensorModule", "PendingValidatorEmission"),
+        ("SubtensorModule", "PendingServerEmission"),
+        ("SubtensorModule", "PendingRootAlphaDivs"),
+        ("SubtensorModule", "PendingOwnerCut"),
+        ("SubtensorModule", "BlocksSinceLastStep"),
+        ("SubtensorModule", "LastMechansimStepBlock"),
+        ("SubtensorModule", "LastAdjustmentBlock"),
+        ("SubtensorModule", "ServingRateLimit"),
+        ("SubtensorModule", "Rho"),
+        ("SubtensorModule", "AlphaSigmoidSteepness"),
+        ("SubtensorModule", "MaxAllowedValidators"),
+        ("SubtensorModule", "AdjustmentInterval"),
+        ("SubtensorModule", "BondsMovingAverage"),
+        ("SubtensorModule", "BondsPenalty"),
+        ("SubtensorModule", "BondsResetOn"),
+        ("SubtensorModule", "WeightsSetRateLimit"),
+        ("SubtensorModule", "ValidatorPruneLen"),
+        ("SubtensorModule", "ScalingLawPower"),
+        ("SubtensorModule", "TargetRegistrationsPerInterval"),
+        ("SubtensorModule", "AdjustmentAlpha"),
+        ("SubtensorModule", "CommitRevealWeightsEnabled"),
+        ("SubtensorModule", "Burn"),
+        ("SubtensorModule", "MinBurn"),
+        ("SubtensorModule", "MaxBurn"),
+        ("SubtensorModule", "MinDifficulty"),
+        ("SubtensorModule", "MaxDifficulty"),
+        ("SubtensorModule", "RegistrationsThisBlock"),
+        ("SubtensorModule", "EMAPriceHalvingBlocks"),
+        ("SubtensorModule", "RAORecycledForRegistration"),
+        ("SubtensorModule", "MaxRegistrationsPerBlock"),
+        ("SubtensorModule", "WeightsVersionKey"),
+        ("SubtensorModule", "LiquidAlphaOn"),
+        ("SubtensorModule", "Yuma3On"),
+        ("SubtensorModule", "AlphaValues"),
+        ("SubtensorModule", "SubtokenEnabled"),
+        ("SubtensorModule", "ImmuneOwnerUidsLimit"),
+        ("SubtensorModule", "StakeWeight"),
+        ("SubtensorModule", "LoadedEmission"),
+        ("SubtensorModule", "EffectiveRootProp"),
+        ("SubtensorModule", "RootProp"),
+        ("SubtensorModule", "RootClaimableThreshold"),
+        ("SubtensorModule", "NetworkRegisteredAt"),
+        ("SubtensorModule", "SubnetworkN"),
+        ("SubtensorModule", "NetworksAdded"),
+        ("SubtensorModule", "RecycleOrBurn"),
+        ("SubtensorModule", "RevealPeriodEpochs"),
+        ("SubtensorModule", "MechanismCountCurrent"),
+        ("SubtensorModule", "MechanismEmissionSplit"),
+        ("SubtensorModule", "SubnetIdentitiesV3"),
+        ("SubtensorModule", "SubnetTAO"),
+        ("SubtensorModule", "SubnetAlphaIn"),
+        ("SubtensorModule", "SubnetAlphaInProvided"),
+        ("SubtensorModule", "SubnetAlphaOut"),
+        // --- SubtensorModule vectors (netuid → Vec) ---
+        ("SubtensorModule", "Rank"),
+        ("SubtensorModule", "Trust"),
+        ("SubtensorModule", "Active"),
+        ("SubtensorModule", "Emission"),
+        ("SubtensorModule", "Consensus"),
+        ("SubtensorModule", "Dividends"),
+        ("SubtensorModule", "PruningScores"),
+        ("SubtensorModule", "ValidatorPermit"),
+        ("SubtensorModule", "ValidatorTrust"),
+        ("SubtensorModule", "Incentive"),
+        ("SubtensorModule", "LastUpdate"),
+        // --- SubtensorModule double/n-maps with netuid as key ---
+        ("SubtensorModule", "Uids"),
+        ("SubtensorModule", "Keys"),
+        ("SubtensorModule", "Axons"),
+        ("SubtensorModule", "NeuronCertificates"),
+        ("SubtensorModule", "Prometheus"),
+        ("SubtensorModule", "AlphaDividendsPerSubnet"),
+        ("SubtensorModule", "RootAlphaDividendsPerSubnet"),
+        ("SubtensorModule", "PendingChildKeys"),
+        ("SubtensorModule", "AssociatedEvmAddress"),
+        ("SubtensorModule", "BlockAtRegistration"),
+        ("SubtensorModule", "Weights"),
+        ("SubtensorModule", "Bonds"),
+        ("SubtensorModule", "WeightCommits"),
+        ("SubtensorModule", "TimelockedWeightCommits"),
+        ("SubtensorModule", "CRV3WeightCommits"),
+        ("SubtensorModule", "CRV3WeightCommitsV2"),
+        ("SubtensorModule", "LastHotkeySwapOnNetuid"),
+        ("SubtensorModule", "ChildkeyTake"),
+        ("SubtensorModule", "ChildKeys"),
+        ("SubtensorModule", "ParentKeys"),
+        ("SubtensorModule", "LastHotkeyEmissionOnNetuid"),
+        ("SubtensorModule", "TotalHotkeyAlphaLastEpoch"),
+        ("SubtensorModule", "TransactionKeyLastBlock"),
+        ("SubtensorModule", "StakingOperationRateLimiter"),
+        ("SubtensorModule", "IsNetworkMember"),
+        ("SubtensorModule", "RootClaimed"),
+        ("SubtensorModule", "VotingPower"),
+        ("SubtensorModule", "VotingPowerTrackingEnabled"),
+        ("SubtensorModule", "VotingPowerDisableAtBlock"),
+        ("SubtensorModule", "VotingPowerEmaAlpha"),
+        ("SubtensorModule", "AutoStakeDestination"),
+        ("SubtensorModule", "AutoStakeDestinationColdkeys"),
+        ("SubtensorModule", "TotalHotkeyAlpha"),
+        ("SubtensorModule", "TotalHotkeyShares"),
+        ("SubtensorModule", "Alpha"),
+        ("SubtensorModule", "SubnetUidToLeaseId"),
+        ("SubtensorModule", "SubnetLeases"),
+        ("SubtensorModule", "SubnetLeaseShares"),
+        ("SubtensorModule", "AccumulatedLeaseDividends"),
+        // --- Swap pallet ---
+        ("Swap", "ScrapReservoirTao"),
+        ("Swap", "ScrapReservoirAlpha"),
+        ("Swap", "FeeRate"),
+        ("Swap", "EnabledUserLiquidity"),
+        ("Swap", "FeeGlobalTao"),
+        ("Swap", "FeeGlobalAlpha"),
+        ("Swap", "CurrentLiquidity"),
+        ("Swap", "CurrentTick"),
+        ("Swap", "AlphaSqrtPrice"),
+        ("Swap", "SwapV3Initialized"),
+        ("Swap", "Positions"),
+        ("Swap", "Ticks"),
+        ("Swap", "TickIndexBitmapWords"),
+    ];
+
+    for (pallet, item) in known {
+        if storage_item_prefix(pallet, item) == *prefix_32 {
+            let mut s = alloc::string::String::new();
+            let _ = write!(s, "{}::{}", pallet, item);
+            return s;
+        }
+    }
+
+    // Fall back: identify just the pallet.
+    let pallet_prefix: &[u8] = prefix_32.get(..16).expect("32 bytes");
+    for pallet_name in &[
+        "SubtensorModule",
+        "Swap",
+        "System",
+        "Balances",
+        "Timestamp",
+        "Scheduler",
+        "Preimage",
+    ] {
+        let hash = sp_io::hashing::twox_128(pallet_name.as_bytes());
+        if pallet_prefix == hash {
+            let mut s = alloc::string::String::new();
+            // Print the unknown storage-item hash for identification.
+            let item_hash = prefix_32.get(16..32).expect("32 bytes");
+            let _ = write!(s, "{}::UNKNOWN(", pallet_name);
+            for b in item_hash {
+                let _ = write!(s, "{:02x}", b);
+            }
+            let _ = write!(s, ")");
+            return s;
+        }
+    }
+
+    let mut s = alloc::string::String::new();
+    let _ = write!(s, "UNKNOWN_PALLET(");
+    for b in prefix_32 {
+        let _ = write!(s, "{:02x}", b);
+    }
+    let _ = write!(s, ")");
+    s
+}
+
+/// Detects per-subnet storage leaks after a full subnet lifecycle.
+///
+/// This test:
+/// 1. Snapshots ALL storage keys before subnet creation
+/// 2. Creates a subnet, registers neurons, stakes, serves axon/prometheus,
+///    sets childkeys, runs 2 epochs (to generate vpermit, bonds, dividends)
+/// 3. Dissolves the subnet via root
+/// 4. Snapshots ALL storage keys after dissolution
+/// 5. Any key present in "after" but not "before" that belongs to the
+///    SubtensorModule or Swap pallets (and is not on a global allowlist)
+///    is a storage leak
+///
+/// This is **future-proof**: when a developer adds a new per-netuid storage
+/// map but forgets to clean it in `remove_network`, this test will catch it
+/// automatically — no need to update the test.
+#[test]
+fn test_dissolve_network_no_storage_leak() {
+    new_test_ext(0).execute_with(|| {
+        // ====================================================
+        // Phase 0: baseline snapshot (root network already exists)
+        // ====================================================
+        let snapshot_before = collect_all_storage_keys();
+
+        // ====================================================
+        // Phase 1: create and populate subnet
+        // ====================================================
+        let owner_cold = U256::from(9000);
+        let owner_hot = U256::from(9001);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // Register multiple neurons
+        let hot1 = U256::from(3001);
+        let cold1 = U256::from(4001);
+        let hot2 = U256::from(3002);
+        let cold2 = U256::from(4002);
+        let hot3 = U256::from(3003);
+        let cold3 = U256::from(4003);
+
+        MaxAllowedUids::<Test>::insert(netuid, 10);
+        register_ok_neuron(netuid, hot1, cold1, 100);
+        register_ok_neuron(netuid, hot2, cold2, 200);
+        register_ok_neuron(netuid, hot3, cold3, 300);
+
+        // Stake into the subnet (writes Alpha, TotalHotkeyAlpha, TotalHotkeyShares, etc.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, 1_000_000u64.into());
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, 1_000_000u64.into());
+        increase_stake_on_coldkey_hotkey_account(&cold1, &hot1, 100_000u64.into(), netuid);
+        increase_stake_on_coldkey_hotkey_account(&cold2, &hot2, 50_000u64.into(), netuid);
+
+        // Serve axon (writes Axons)
+        assert_ok!(SubtensorModule::serve_axon(
+            RuntimeOrigin::signed(hot1),
+            netuid,
+            2,          // version
+            1676056785, // ip (valid IPv4)
+            1234,       // port
+            4,          // ip_type
+            0,          // protocol
+            0,          // placeholder1
+            0,          // placeholder2
+        ));
+
+        // Serve prometheus (writes Prometheus)
+        assert_ok!(SubtensorModule::serve_prometheus(
+            RuntimeOrigin::signed(hot2),
+            netuid,
+            2,          // version
+            1676056785, // ip (valid IPv4)
+            9090,       // port
+            4,          // ip_type
+        ));
+
+        // Set childkeys (writes ChildKeys, ParentKeys)
+        assert_ok!(SubtensorModule::set_children(
+            RuntimeOrigin::signed(cold1),
+            hot1,
+            netuid,
+            vec![(u64::MAX, hot2)],
+        ));
+
+        // Disable commit-reveal so we can set weights directly
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+
+        // Set weights
+        let _ = SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hot1),
+            netuid,
+            vec![0, 1, 2],
+            vec![u16::MAX / 3, u16::MAX / 3, u16::MAX / 3],
+            0,
+        );
+
+        // Run 2 epochs to produce vpermit, bonds, dividends, incentives, etc.
+        step_epochs(2, netuid);
+
+        // ====================================================
+        // Phase 2: dissolve the subnet
+        // ====================================================
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+
+        // ====================================================
+        // Phase 3: post-dissolution snapshot
+        // ====================================================
+        let snapshot_after = collect_all_storage_keys();
+
+        // ====================================================
+        // Phase 4: compute diff and find leaks
+        // ====================================================
+        let subtensor_pallet_prefix = sp_io::hashing::twox_128(b"SubtensorModule");
+        let swap_pallet_prefix = sp_io::hashing::twox_128(b"Swap");
+        let allowlist = build_global_allowlist();
+
+        let mut leaked_names: sp_std::vec::Vec<alloc::string::String> = sp_std::vec::Vec::new();
+
+        for key in snapshot_after.difference(&snapshot_before) {
+            // Only care about SubtensorModule and Swap pallets
+            let is_subtensor = key
+                .get(..16)
+                .map(|p| p == subtensor_pallet_prefix)
+                .unwrap_or(false);
+            let is_swap = key
+                .get(..16)
+                .map(|p| p == swap_pallet_prefix)
+                .unwrap_or(false);
+            if !is_subtensor && !is_swap {
+                continue;
+            }
+
+            // Check the 32-byte prefix against the global allowlist
+            if key.len() >= 32 {
+                let mut prefix_32 = [0u8; 32];
+                prefix_32.copy_from_slice(key.get(..32).expect("checked len"));
+                if allowlist.contains(&prefix_32) {
+                    continue;
+                }
+                // This key is a leak!
+                let name = identify_storage_prefix(&prefix_32);
+                if !leaked_names.contains(&name) {
+                    leaked_names.push(name);
+                }
+            }
+        }
+
+        assert!(
+            leaked_names.is_empty(),
+            "Storage leak detected after dissolving subnet {netuid:?}!\n\
+             The following storage items have keys that were not present before subnet creation\n\
+             but remain after dissolution:\n  - {}\n\n\
+             Fix: add cleanup for these items in remove_network() or the dissolution path.",
+            leaked_names.join("\n  - ")
+        );
+    });
+}
