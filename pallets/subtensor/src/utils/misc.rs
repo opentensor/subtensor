@@ -776,6 +776,14 @@ impl<T: Config> Pallet<T> {
         (converted_low, converted_high)
     }
 
+    pub fn get_liquid_alpha_consensus_mode(netuid: NetUid) -> ConsensusMode {
+        LiquidAlphaConsensusMode::<T>::get(netuid)
+    }
+
+    pub fn set_liquid_alpha_consensus_mode_storage(netuid: NetUid, mode: ConsensusMode) {
+        LiquidAlphaConsensusMode::<T>::insert(netuid, mode);
+    }
+
     pub fn set_alpha_sigmoid_steepness(netuid: NetUid, steepness: i16) {
         AlphaSigmoidSteepness::<T>::insert(netuid, steepness);
     }

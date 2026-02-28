@@ -2569,5 +2569,36 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
+
+        /// Sets the consensus mode for liquid alpha calculation on a subnet.
+        ///
+        /// This function can only be called by the subnet owner or root.
+        /// The consensus mode determines which consensus values are used for liquid alpha calculation:
+        /// - `Current`: Use current in-memory consensus
+        /// - `Previous`: Use previous consensus from storage
+        /// - `Auto`: Use Previous if bond_penalty == 1, otherwise Current (default)
+        ///
+        /// # Arguments:
+        /// * `origin` - The origin of the call, must be subnet owner or root.
+        /// * `netuid` - The subnet to set the mode for.
+        /// * `mode` - The consensus mode to use.
+        ///
+        /// # Errors:
+        /// * `BadOrigin` - If the origin is not the subnet owner or root.
+        #[pallet::call_index(133)]
+        #[pallet::weight((
+            Weight::from_parts(10_000, 0)
+            .saturating_add(T::DbWeight::get().reads(2))
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn set_liquid_alpha_consensus_mode(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            mode: ConsensusMode,
+        ) -> DispatchResult {
+            Self::do_set_liquid_alpha_consensus_mode(origin, netuid, mode)
+        }
     }
 }
