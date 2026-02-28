@@ -9,6 +9,7 @@ use subtensor_runtime_common::{AlphaCurrency, Currency, NetUidStorageIndex, TaoC
 
 use super::mock::*;
 use crate::*;
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
@@ -906,7 +907,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_stake_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_stake_success --exact --nocapture
 #[test]
 fn test_swap_stake_success() {
     new_test_ext(1).execute_with(|| {
@@ -963,7 +964,13 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(new_hotkey, netuid),
-            U64F64::from_num(shares)
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
+                new_hotkey, netuid
+            ))),
+            shares.to_num::<f64>()
         );
         assert_eq!(
             Alpha::<Test>::get((old_hotkey, coldkey, netuid)),
@@ -971,7 +978,105 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
-            U64F64::from_num(amount)
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
+                new_hotkey, coldkey, netuid
+            )))),
+            amount as f64
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
+            AlphaCurrency::from(amount)
+        );
+    });
+}
+
+#[test]
+fn test_swap_stake_v2_success() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+        let amount = 10_000;
+        let shares = U64F64::from_num(123456);
+
+        // Initialize staking variables for old_hotkey
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaCurrency::from(amount));
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(
+            old_hotkey,
+            netuid,
+            AlphaCurrency::from(amount * 2),
+        );
+        TotalHotkeySharesV2::<Test>::insert(
+            old_hotkey,
+            netuid,
+            SafeFloatSerializable::from(&SafeFloat::from(shares)),
+        );
+        AlphaV2::<Test>::insert(
+            (old_hotkey, coldkey, netuid),
+            SafeFloatSerializable::from(&SafeFloat::from(U64F64::from_num(amount))),
+        );
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaCurrency::from(amount));
+
+        // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid)
+        ),);
+
+        // Verify the swap
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
+            AlphaCurrency::from(amount)
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(old_hotkey, netuid),
+            AlphaCurrency::ZERO
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(new_hotkey, netuid),
+            AlphaCurrency::from(amount * 2)
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
+                old_hotkey, netuid
+            ))),
+            0_f64
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
+                new_hotkey, netuid
+            ))),
+            shares.to_num::<f64>()
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
+                old_hotkey, coldkey, netuid
+            )))),
+            0_f64
+        );
+        assert_eq!(
+            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
+                new_hotkey, coldkey, netuid
+            )))),
+            amount as f64
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),

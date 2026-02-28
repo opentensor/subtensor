@@ -1,3 +1,4 @@
+use alloc::collections::BTreeMap;
 use frame_support::traits::{
     Imbalance,
     tokens::{
@@ -6,6 +7,7 @@ use frame_support::traits::{
     },
 };
 use safe_math::*;
+use share_pool::SafeFloat;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -68,7 +70,7 @@ impl<T: Config> Pallet<T> {
         hotkeys
             .iter()
             .map(|hotkey| {
-                Alpha::<T>::iter_prefix((hotkey, coldkey))
+                Self::alpha_iter_prefix((hotkey, coldkey))
                     .map(|(netuid, _)| {
                         let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
                             hotkey, coldkey, netuid,
@@ -101,7 +103,7 @@ impl<T: Config> Pallet<T> {
         hotkeys
             .iter()
             .map(|hotkey| {
-                Alpha::<T>::iter_prefix((hotkey, coldkey))
+                Self::alpha_iter_prefix((hotkey, coldkey))
                     .map(|(netuid_on_storage, _)| {
                         if netuid_on_storage == netuid {
                             let alpha_stake = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -261,7 +263,7 @@ impl<T: Config> Pallet<T> {
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
-        for ((hotkey, coldkey, netuid), _) in Alpha::<T>::iter() {
+        for ((hotkey, coldkey, netuid), _) in Self::alpha_iter() {
             Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
         }
     }
@@ -413,7 +415,158 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // Same thing as populate_root_coldkey_staking_maps, but for AlphaV2
+    // TODO: Remove this function and AlphaV2MapLastKey when slow migration is finished
+    pub fn populate_root_coldkey_staking_maps_v2() {
+        // Get starting key for the batch. Get the first key if we restart the process.
+        let mut new_starting_raw_key = AlphaV2MapLastKey::<T>::get();
+        let mut starting_key = None;
+        if new_starting_raw_key.is_none() {
+            starting_key = AlphaV2::<T>::iter_keys().next();
+            new_starting_raw_key = starting_key.as_ref().map(AlphaV2::<T>::hashed_key_for);
+        }
+
+        if let Some(starting_raw_key) = new_starting_raw_key {
+            // Get the key batch
+            let mut keys = AlphaV2::<T>::iter_keys_from(starting_raw_key)
+                .take(ALPHA_MAP_BATCH_SIZE)
+                .collect::<Vec<_>>();
+
+            // New iteration: insert the starting key in the batch if it's a new iteration
+            // iter_keys_from() skips the starting key
+            if let Some(starting_key) = starting_key {
+                if keys.len() == ALPHA_MAP_BATCH_SIZE {
+                    keys.remove(keys.len().saturating_sub(1));
+                }
+                keys.insert(0, starting_key);
+            }
+
+            let mut new_starting_key = None;
+            let new_iteration = keys.len() < ALPHA_MAP_BATCH_SIZE;
+
+            // Check and remove alphas if necessary
+            for key in keys {
+                let (_, coldkey, netuid) = key.clone();
+
+                if netuid == NetUid::ROOT {
+                    Self::maybe_add_coldkey_index(&coldkey);
+                }
+
+                new_starting_key = Some(AlphaV2::<T>::hashed_key_for(key));
+            }
+
+            // Restart the process if it's the last batch
+            if new_iteration {
+                new_starting_key = None;
+            }
+
+            AlphaV2MapLastKey::<T>::put(new_starting_key);
+        }
+    }
+
     pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaCurrency) {
         // Do nothing; TODO: record burned alpha in a tracker
+    }
+
+    /// Several alpha iteration helpers that merge key space from Alpha and AlphaV2 maps
+    pub fn alpha_iter() -> impl Iterator<Item = ((T::AccountId, T::AccountId, NetUid), SafeFloat)> {
+        // Old Alpha shares format: U64F64 -> SafeFloat
+        let legacy = Alpha::<T>::iter().map(|(key, val_u64f64)| {
+            let sf: SafeFloat = val_u64f64.into();
+            (key, sf)
+        });
+
+        // New Alpha shares format: SafeFloatSerializable -> SafeFloat
+        let v2 = AlphaV2::<T>::iter().map(|(key, val_sf_ser)| {
+            let sf: SafeFloat = SafeFloat::from(&val_sf_ser);
+            (key, sf)
+        });
+
+        // Merge and prefer v2 on duplicates
+        let merged: BTreeMap<_, SafeFloat> =
+            legacy
+                .chain(v2)
+                .fold(BTreeMap::new(), |mut acc, (key, val)| {
+                    acc.entry(key)
+                        .and_modify(|existing| {
+                            *existing = val.clone();
+                        })
+                        .or_insert(val);
+                    acc
+                });
+
+        merged.into_iter()
+    }
+
+    pub fn alpha_iter_prefix(
+        prefix: (&T::AccountId, &T::AccountId),
+    ) -> impl Iterator<Item = (NetUid, SafeFloat)>
+    where
+        T::AccountId: Clone,
+    {
+        // Old Alpha shares format: U64F64 -> SafeFloat
+        let legacy = Alpha::<T>::iter_prefix(prefix).map(|(netuid, val_u64f64)| {
+            let sf: SafeFloat = val_u64f64.into();
+            (netuid, sf)
+        });
+
+        // New Alpha shares format: SafeFloatSerializable -> SafeFloat
+        let v2 = AlphaV2::<T>::iter_prefix(prefix).map(|(netuid, val_sf_ser)| {
+            let sf: SafeFloat = SafeFloat::from(&val_sf_ser);
+            (netuid, sf)
+        });
+
+        // Merge by netuid and sum SafeFloat values
+        let merged: BTreeMap<NetUid, SafeFloat> =
+            legacy
+                .chain(v2)
+                .fold(BTreeMap::new(), |mut acc, (netuid, sf)| {
+                    acc.entry(netuid)
+                        .and_modify(|existing| {
+                            *existing = sf.clone();
+                        })
+                        .or_insert(sf);
+                    acc
+                });
+
+        merged
+            .into_iter()
+            .filter(|(_, alpha_share)| !alpha_share.is_zero())
+    }
+
+    pub fn alpha_iter_single_prefix(
+        prefix: &T::AccountId,
+    ) -> impl Iterator<Item = (T::AccountId, NetUid, SafeFloat)>
+    where
+        T::AccountId: Clone,
+    {
+        // Old Alpha shares format: U64F64 -> SafeFloat
+        let legacy =
+            Alpha::<T>::iter_prefix((prefix.clone(),)).map(|((coldkey, netuid), val_u64f64)| {
+                let sf: SafeFloat = val_u64f64.into();
+                ((coldkey, netuid), sf)
+            });
+
+        // New Alpha shares format: SafeFloatSerializable -> SafeFloat
+        let v2 = AlphaV2::<T>::iter_prefix((prefix,)).map(|((coldkey, netuid), val_sf_ser)| {
+            let sf: SafeFloat = SafeFloat::from(&val_sf_ser);
+            ((coldkey, netuid), sf)
+        });
+
+        let merged: BTreeMap<(T::AccountId, NetUid), SafeFloat> =
+            legacy
+                .chain(v2)
+                .fold(BTreeMap::new(), |mut acc, (key, sf)| {
+                    acc.entry(key)
+                        .and_modify(|existing| {
+                            *existing = sf.clone();
+                        })
+                        .or_insert(sf);
+                    acc
+                });
+
+        merged
+            .into_iter()
+            .map(|((coldkey, netuid), sf)| (coldkey, netuid, sf))
     }
 }

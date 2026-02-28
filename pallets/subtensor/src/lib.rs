@@ -93,6 +93,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
+    use share_pool::SafeFloatSerializable;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
@@ -1434,9 +1435,39 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet, stores bigmath vector.
+    #[pallet::storage]
+    pub type TotalHotkeySharesV2<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // hot
+        Identity,
+        NetUid,                // subnet
+        SafeFloatSerializable, // Hotkey shares in unlimited precision
+        ValueQuery,
+    >;
+
+    /// --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet, stores bigmath vector.
+    #[pallet::storage]
+    pub type AlphaV2<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        SafeFloatSerializable, // Shares in unlimited precision
+        ValueQuery,
+    >;
+
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
     pub type AlphaMapLastKey<T: Config> =
+        StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
+
+    /// Contains last AlphaV2 storage map key to iterate (check first)
+    #[pallet::storage]
+    pub type AlphaV2MapLastKey<T: Config> =
         StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
 
     /// --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
@@ -2684,10 +2715,15 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         hotkey: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+    ) -> Result<(), DispatchError> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
+        );
+
+        ensure!(
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) >= alpha,
+            Error::<T>::InsufficientBalance
         );
 
         // Decrese alpha out counter
@@ -2695,9 +2731,9 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             *total = total.saturating_sub(alpha);
         });
 
-        Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey, coldkey, netuid, alpha,
-        ))
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+
+        Ok(())
     }
 }
 

@@ -2267,7 +2267,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         // Mirror extrinsic bookkeeping: withdraw funds & bump provided‑reserve counters.
         let tao_taken = <Test as Config>::BalanceOps::decrease_balance(&cold, need_tao.into())
             .expect("decrease TAO");
-        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
+        <Test as Config>::BalanceOps::decrease_stake(
             &cold,
             &hot,
             netuid.into(),
@@ -2275,7 +2275,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         )
         .expect("decrease ALPHA");
         TaoReserve::increase_provided(netuid.into(), tao_taken);
-        AlphaReserve::increase_provided(netuid.into(), alpha_taken);
+        AlphaReserve::increase_provided(netuid.into(), need_alpha.into());
 
         // Users‑only liquidation.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2334,14 +2334,14 @@ fn refund_alpha_single_provider_exact() {
         let alpha_before_total = alpha_before_hot + alpha_before_owner;
 
         // --- Mimic extrinsic bookkeeping: withdraw α and record provided reserve.
-        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
+        <Test as Config>::BalanceOps::decrease_stake(
             &cold,
             &hot,
             netuid.into(),
             alpha_needed.into(),
         )
         .expect("decrease ALPHA");
-        AlphaReserve::increase_provided(netuid.into(), alpha_taken);
+        AlphaReserve::increase_provided(netuid.into(), alpha_needed.into());
 
         // --- Act: users‑only dissolve.
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2408,16 +2408,14 @@ fn refund_alpha_multiple_providers_proportional_to_principal() {
         let a2_before_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &c2, &c2);
         let a2_before = a2_before_hot + a2_before_owner;
 
-        // Withdraw α and account reserves for each provider.
-        let a1_taken =
-            <Test as Config>::BalanceOps::decrease_stake(&c1, &h1, netuid.into(), a1.into())
-                .expect("decrease α #1");
-        AlphaReserve::increase_provided(netuid.into(), a1_taken);
+        // Withdraw alpha and account reserves for each provider.
+        <Test as Config>::BalanceOps::decrease_stake(&c1, &h1, netuid.into(), a1.into())
+            .expect("decrease alpha #1");
+        AlphaReserve::increase_provided(netuid.into(), a1.into());
 
-        let a2_taken =
-            <Test as Config>::BalanceOps::decrease_stake(&c2, &h2, netuid.into(), a2.into())
-                .expect("decrease α #2");
-        AlphaReserve::increase_provided(netuid.into(), a2_taken);
+        <Test as Config>::BalanceOps::decrease_stake(&c2, &h2, netuid.into(), a2.into())
+            .expect("decrease alpha #2");
+        AlphaReserve::increase_provided(netuid.into(), a2.into());
 
         // Act
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2470,16 +2468,14 @@ fn refund_alpha_same_cold_multiple_hotkeys_conserved_to_owner() {
         let before_owner = <Test as Config>::BalanceOps::alpha_balance(netuid.into(), &cold, &cold);
         let before_total = before_hot1 + before_hot2 + before_owner;
 
-        // Withdraw α from both hotkeys; track provided‑reserve.
-        let t1 =
-            <Test as Config>::BalanceOps::decrease_stake(&cold, &hot1, netuid.into(), a1.into())
-                .expect("decr α #hot1");
-        AlphaReserve::increase_provided(netuid.into(), t1);
+        // Withdraw alpha from both hotkeys; track provided‑reserve.
+        <Test as Config>::BalanceOps::decrease_stake(&cold, &hot1, netuid.into(), a1.into())
+            .expect("decr alpha #hot1");
+        AlphaReserve::increase_provided(netuid.into(), a1.into());
 
-        let t2 =
-            <Test as Config>::BalanceOps::decrease_stake(&cold, &hot2, netuid.into(), a2.into())
-                .expect("decr α #hot2");
-        AlphaReserve::increase_provided(netuid.into(), t2);
+        <Test as Config>::BalanceOps::decrease_stake(&cold, &hot2, netuid.into(), a2.into())
+            .expect("decr alpha #hot2");
+        AlphaReserve::increase_provided(netuid.into(), a2.into());
 
         // Act
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
@@ -2561,7 +2557,7 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         // --- Mirror extrinsic bookkeeping: withdraw τ & α; bump provided reserves ---
         let tao_taken = <Test as Config>::BalanceOps::decrease_balance(&cold, tao_needed.into())
             .expect("decrease TAO");
-        let alpha_taken = <Test as Config>::BalanceOps::decrease_stake(
+        <Test as Config>::BalanceOps::decrease_stake(
             &cold,
             &hot,
             netuid.into(),
@@ -2570,7 +2566,7 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         .expect("decrease ALPHA");
 
         TaoReserve::increase_provided(netuid.into(), tao_taken);
-        AlphaReserve::increase_provided(netuid.into(), alpha_taken);
+        AlphaReserve::increase_provided(netuid.into(), alpha_needed.into());
 
         // --- Act: dissolve (GREEN PATH: permitted validators exist) ---
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));

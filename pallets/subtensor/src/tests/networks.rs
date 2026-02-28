@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, clippy::indexing_slicing)]
 
 use super::mock::*;
 use crate::migrations::migrate_network_immunity_period;
@@ -6,9 +6,11 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
-use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoCurrency};
+
+use sp_std::collections::btree_map::BTreeMap;
+use substrate_fixed::types::{I96F32, U96F32};
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+
 use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
@@ -100,7 +102,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // 2. Single α-out staker
         let (s_hot, s_cold) = (U256::from(100), U256::from(200));
-        Alpha::<Test>::insert((s_hot, s_cold, net), U64F64::from_num(5_000u128));
+        AlphaV2::<Test>::insert((s_hot, s_cold, net), sfser_from_u64(5_000u64));
 
         // Entire TAO pot should be paid to staker's cold-key
         let pot: u64 = 99_999;
@@ -119,7 +121,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
         assert_eq!(after, before + pot);
 
         // No α entries left for dissolved subnet
-        assert!(Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net));
+        assert!(AlphaV2::<Test>::iter().all(|((_h, _c, n), _)| n != net));
         assert!(!SubnetTAO::<Test>::contains_key(net));
     });
 }
@@ -137,14 +139,14 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         let reg_at = NetworkRegisteredAt::<Test>::get(net);
         NetworkRegistrationStartBlock::<Test>::put(reg_at.saturating_add(1));
 
-        let (s1_hot, s1_cold, a1) = (U256::from(201), U256::from(301), 300u128);
-        let (s2_hot, s2_cold, a2) = (U256::from(202), U256::from(302), 700u128);
+        let (s1_hot, s1_cold, a1) = (U256::from(201), U256::from(301), 300u64);
+        let (s2_hot, s2_cold, a2) = (U256::from(202), U256::from(302), 700u64);
 
-        Alpha::<Test>::insert((s1_hot, s1_cold, net), U64F64::from_num(a1));
-        Alpha::<Test>::insert((s2_hot, s2_cold, net), U64F64::from_num(a2));
+        AlphaV2::<Test>::insert((s1_hot, s1_cold, net), sfser_from_u64(a1));
+        AlphaV2::<Test>::insert((s2_hot, s2_cold, net), sfser_from_u64(a2));
 
-        TotalHotkeyAlpha::<Test>::insert(s1_hot, net, AlphaCurrency::from(a1 as u64));
-        TotalHotkeyAlpha::<Test>::insert(s2_hot, net, AlphaCurrency::from(a2 as u64));
+        TotalHotkeyAlpha::<Test>::insert(s1_hot, net, AlphaCurrency::from(a1));
+        TotalHotkeyAlpha::<Test>::insert(s2_hot, net, AlphaCurrency::from(a2));
 
         let pot: u64 = 10_000;
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(pot));
@@ -156,9 +158,9 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         let owner_before = SubtensorModule::get_coldkey_balance(&oc);
 
         // Expected τ shares with largest remainder
-        let total = a1 + a2;
-        let prod1 = a1 * (pot as u128);
-        let prod2 = a2 * (pot as u128);
+        let total = (a1 + a2) as u128;
+        let prod1 = (a1 as u128) * (pot as u128);
+        let prod2 = (a2 as u128) * (pot as u128);
         let share1 = (prod1 / total) as u64;
         let share2 = (prod2 / total) as u64;
         let mut distributed = share1 + share2;
@@ -202,7 +204,7 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         );
 
         // α entries for dissolved subnet gone
-        assert!(Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net));
+        assert!(AlphaV2::<Test>::iter().all(|((_h, _c, n), _)| n != net));
     });
 }
 
@@ -635,7 +637,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
         let sh = U256::from(23);
         let sc = U256::from(24);
 
-        Alpha::<Test>::insert((sh, sc, net), U64F64::from_num(1_000u64));
+        AlphaV2::<Test>::insert((sh, sc, net), sfser_from_u64(1_000u64));
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0)); // zero TAO
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
@@ -647,7 +649,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
 
         // No reward distributed, α-out cleared.
         assert_eq!(after, before);
-        assert!(Alpha::<Test>::iter().next().is_none());
+        assert!(AlphaV2::<Test>::iter().next().is_none());
     });
 }
 
@@ -679,8 +681,8 @@ fn dissolve_rounding_remainder_distribution() {
         let (s1h, s1c) = (U256::from(63), U256::from(64));
         let (s2h, s2c) = (U256::from(65), U256::from(66));
 
-        Alpha::<Test>::insert((s1h, s1c, net), U64F64::from_num(3u128));
-        Alpha::<Test>::insert((s2h, s2c, net), U64F64::from_num(2u128));
+        AlphaV2::<Test>::insert((s1h, s1c, net), sfser_from_u64(3u64));
+        AlphaV2::<Test>::insert((s2h, s2c, net), sfser_from_u64(2u64));
 
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(1)); // TAO pot = 1
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
@@ -703,7 +705,7 @@ fn dissolve_rounding_remainder_distribution() {
         assert_eq!(c2_after, c2_before);
 
         // α records for subnet gone; TAO key gone
-        assert!(Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net));
+        assert!(AlphaV2::<Test>::iter().all(|((_h, _c, n), _)| n != net));
         assert!(!SubnetTAO::<Test>::contains_key(net));
     });
 }
@@ -748,8 +750,8 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         ));
 
         // 4. α-out snapshot
-        let a1: u128 = Alpha::<Test>::get((h1, c1, netuid)).saturating_to_num();
-        let a2: u128 = Alpha::<Test>::get((h2, c2, netuid)).saturating_to_num();
+        let a1: u128 = sfser_to_u128(&AlphaV2::<Test>::get((h1, c1, netuid)));
+        let a2: u128 = sfser_to_u128(&AlphaV2::<Test>::get((h2, c2, netuid)));
         let atotal = a1 + a2;
 
         // 5. TAO pot & lock
@@ -799,8 +801,8 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         );
 
         // 11. α entries cleared for the subnet
-        assert!(!Alpha::<Test>::contains_key((h1, c1, netuid)));
-        assert!(!Alpha::<Test>::contains_key((h2, c2, netuid)));
+        assert!(!AlphaV2::<Test>::contains_key((h1, c1, netuid)));
+        assert!(!AlphaV2::<Test>::contains_key((h2, c2, netuid)));
     });
 }
 
@@ -856,7 +858,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         let mut alpha = [0u128; N];
         let mut alpha_sum: u128 = 0;
         for i in 0..N {
-            alpha[i] = Alpha::<Test>::get((hot[i], cold[i], netuid)).saturating_to_num();
+            alpha[i] = sfser_to_u128(&AlphaV2::<Test>::get((hot[i], cold[i], netuid)));
             alpha_sum += alpha[i];
         }
 
@@ -937,7 +939,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         );
 
         // α cleared for dissolved subnet & related counters reset
-        assert!(Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != netuid));
+        assert!(AlphaV2::<Test>::iter().all(|((_h, _c, n), _)| n != netuid));
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid), 0.into());
         assert_eq!(SubnetAlphaOut::<Test>::get(netuid), 0.into());
         assert_eq!(SubtensorModule::get_subnet_locked_balance(netuid), 0.into());
@@ -1775,7 +1777,6 @@ fn test_tempo_greater_than_weight_set_rate_limit() {
     })
 }
 
-#[allow(clippy::indexing_slicing)]
 #[test]
 fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state() {
     new_test_ext(0).execute_with(|| {
@@ -1812,29 +1813,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             &cold_lps[1..5], // net3: B,C,D,E
         ];
 
-        // Multiple bands/sizes → many positions per cold across nets, using mixed hotkeys.
-        // let bands: [i32; 3] = [5, 13, 30];
-        // let liqs: [u64; 3] = [400_000, 700_000, 1_100_000];
-
-        // TODO: Revise when user liquidity is available
-        // Helper: add a V3 position via a (hot, cold) pair.
-        // let add_pos = |net: NetUid, hot: U256, cold: U256, band: i32, liq: u64| {
-        //     let ct = pallet_subtensor_swap::CurrentTick::<Test>::get(net);
-        //     let lo = ct.saturating_sub(band);
-        //     let hi = ct.saturating_add(band);
-        //     pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(net, true);
-        //     assert_ok!(pallet_subtensor_swap::Pallet::<Test>::add_liquidity(
-        //         RuntimeOrigin::signed(cold),
-        //         hot,
-        //         net,
-        //         lo,
-        //         hi,
-        //         liq
-        //     ));
-        // };
-
         // ────────────────────────────────────────────────────────────────────
-        // 1) Create many subnets, enable V3, fix price at tick=0 (sqrt≈1)
+        // 1) Create many subnets, fix price at tick=0
         // ────────────────────────────────────────────────────────────────────
         let mut nets: Vec<NetUid> = Vec::new();
         for i in 0..NUM_NETS {
@@ -1845,20 +1825,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             SubtensorModule::set_target_registrations_per_interval(net, 1_000u16);
             Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
             SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
-
-            assert_ok!(
-                pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
-                    RuntimeOrigin::root(),
-                    net,
-                    true
-                )
-            );
-
-            // Price/tick pinned so LP math stays stable (sqrt(1)).
-            let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
-            let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1) price");
-            pallet_subtensor_swap::CurrentTick::<Test>::set(net, ct0);
-            pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net, sqrt1);
 
             nets.push(net);
         }
@@ -1940,10 +1906,10 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         }
 
         // Capture **pair‑level** α snapshot per net (pre‑LP).
-        for ((hot, cold, net), amt) in Alpha::<Test>::iter() {
+        for ((hot, cold, net), amt) in AlphaV2::<Test>::iter() {
             if let Some(&ni) = net_index.get(&net)
                 && lp_sets_per_net[ni].contains(&cold) {
-                    let a: u128 = amt.saturating_to_num();
+                    let a: u128 = sfser_to_u128(&amt);
                     if a > 0 {
                         alpha_pairs_per_net
                             .entry(net)
@@ -1952,24 +1918,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                     }
                 }
         }
-
-        // ────────────────────────────────────────────────────────────────────
-        // 4) Add many V3 positions per cold across nets, alternating hotkeys
-        // ────────────────────────────────────────────────────────────────────
-        // TODO: Revise when user liquidity is available
-        // for (ni, &net) in nets.iter().enumerate() {
-        //     let participants = lp_sets_per_net[ni];
-        //     for (pi, &cold) in participants.iter().enumerate() {
-        //         let [hot1, hot2] = cold_to_hots[&cold];
-        //         let hots = [hot1, hot2];
-        //         for k in 0..3 {
-        //             let band = bands[(pi + k) % bands.len()];
-        //             let liq = liqs[(ni + k) % liqs.len()];
-        //             let hot = hots[k % hots.len()];
-        //             add_pos(net, hot, cold, band, liq);
-        //         }
-        //     }
-        // }
 
         // Snapshot τ balances AFTER LP adds (to measure actual principal debit).
         let mut tao_after_adds: BTreeMap<U256, u64> = BTreeMap::new();
@@ -2086,7 +2034,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // For each dissolved net, check α ledgers gone, network removed, and swap state clean.
         for &net in nets.iter() {
             assert!(
-                Alpha::<Test>::iter().all(|((_h, _c, n), _)| n != net),
+                AlphaV2::<Test>::iter().all(|((_h, _c, n), _)| n != net),
                 "alpha ledger not fully cleared for net {net:?}"
             );
             assert!(
@@ -2094,44 +2042,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "subnet {net:?} still exists"
             );
             assert!(
-                pallet_subtensor_swap::Ticks::<Test>::iter_prefix(net)
-                    .next()
-                    .is_none(),
-                "ticks not cleared for net {net:?}"
-            );
-            assert!(
-                !pallet_subtensor_swap::Positions::<Test>::iter()
-                    .any(|((n, _owner, _pid), _)| n == net),
-                "swap positions not fully cleared for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::FeeGlobalTao::<Test>::get(net).saturating_to_num::<u64>(),
-                0,
-                "FeeGlobalTao nonzero for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::FeeGlobalAlpha::<Test>::get(net).saturating_to_num::<u64>(),
-                0,
-                "FeeGlobalAlpha nonzero for net {net:?}"
-            );
-            assert_eq!(
-                pallet_subtensor_swap::CurrentLiquidity::<Test>::get(net),
-                0,
-                "CurrentLiquidity not zero for net {net:?}"
-            );
-            assert!(
                 !pallet_subtensor_swap::SwapV3Initialized::<Test>::get(net),
                 "SwapV3Initialized still set"
-            );
-            assert!(
-                !pallet_subtensor_swap::EnabledUserLiquidity::<Test>::get(net),
-                "EnabledUserLiquidity still set"
-            );
-            assert!(
-                pallet_subtensor_swap::TickIndexBitmapWords::<Test>::iter_prefix((net,))
-                    .next()
-                    .is_none(),
-                "TickIndexBitmapWords not cleared for net {net:?}"
             );
         }
 
@@ -2146,18 +2058,6 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         SubtensorModule::set_target_registrations_per_interval(net_new, 1_000u16);
         Emission::<Test>::insert(net_new, Vec::<AlphaCurrency>::new());
         SubtensorModule::set_subnet_locked_balance(net_new, TaoCurrency::from(0));
-
-        assert_ok!(
-            pallet_subtensor_swap::Pallet::<Test>::toggle_user_liquidity(
-                RuntimeOrigin::root(),
-                net_new,
-                true
-            )
-        );
-        let ct0 = pallet_subtensor_swap::tick::TickIndex::new_unchecked(0);
-        let sqrt1 = ct0.try_to_sqrt_price().expect("sqrt(1)");
-        pallet_subtensor_swap::CurrentTick::<Test>::set(net_new, ct0);
-        pallet_subtensor_swap::AlphaSqrtPrice::<Test>::set(net_new, sqrt1);
 
         // Compute the exact min stake per the pallet rule: DefaultMinStake + fee(DefaultMinStake).
         let min_stake = DefaultMinStake::<Test>::get();
@@ -2178,7 +2078,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             register_ok_neuron(net_new, hot1, cold, 7777);
 
             let before_tao = SubtensorModule::get_coldkey_balance(&cold);
-            let a_prev: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
+            let a_prev: u64 = sfser_to_u128(&AlphaV2::<Test>::get((hot1, cold, net_new))) as u64;
 
             // Expected α for this exact τ, using the same sim path as the pallet.
 			let order = GetAlphaForTao::<Test>::with_amount(min_amount_required);
@@ -2197,7 +2097,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             ));
 
             let after_tao = SubtensorModule::get_coldkey_balance(&cold);
-            let a_new: u64 = Alpha::<Test>::get((hot1, cold, net_new)).saturating_to_num();
+            let a_new: u64 = sfser_to_u128(&AlphaV2::<Test>::get((hot1, cold, net_new))) as u64;
             let a_delta = a_new.saturating_sub(a_prev);
 
             // τ decreased by exactly the amount we sent.
@@ -2213,118 +2113,5 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "α minted mismatch for cold {cold:?} (hot {hot1:?}) on new net (αΔ {a_delta}, expected {expected_alpha_out})"
             );
         }
-
-        // Ensure V3 still functional on new net: add a small position for the first cold using its hot1
-        // TODO: Revise when user liquidity is available
-        // let who_cold = cold_lps[0];
-        // let [who_hot, _] = cold_to_hots[&who_cold];
-        // add_pos(net_new, who_hot, who_cold, 8, 123_456);
-        // assert!(
-        //     pallet_subtensor_swap::Positions::<Test>::iter()
-        //         .any(|((n, owner, _pid), _)| n == net_new && owner == who_cold),
-        //     "new position not recorded on the re-registered net"
-        // );
-    });
-}
-
-#[test]
-fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
-    new_test_ext(0).execute_with(|| {
-        // Create a subnet we can dissolve.
-        let owner_cold = U256::from(123);
-        let owner_hot = U256::from(456);
-        let net = add_dynamic_network(&owner_hot, &owner_cold);
-
-        // We'll use two mechanisms for this subnet.
-        MechanismCountCurrent::<Test>::insert(net, MechId::from(2));
-        let m0 = MechId::from(0u8);
-        let m1 = MechId::from(1u8);
-
-        let idx0 = SubtensorModule::get_mechanism_storage_index(net, m0);
-        let idx1 = SubtensorModule::get_mechanism_storage_index(net, m1);
-
-        // Minimal content to ensure each storage actually has keys for BOTH mechanisms.
-
-        // --- Weights (DMAP: (netuid_index, uid) -> Vec<(dest_uid, weight_u16)>)
-        Weights::<Test>::insert(idx0, 0u16, vec![(1u16, 1u16)]);
-        Weights::<Test>::insert(idx1, 0u16, vec![(2u16, 1u16)]);
-
-        // --- Bonds (DMAP: (netuid_index, uid) -> Vec<(dest_uid, weight_u16)>)
-        Bonds::<Test>::insert(idx0, 0u16, vec![(1u16, 1u16)]);
-        Bonds::<Test>::insert(idx1, 0u16, vec![(2u16, 1u16)]);
-
-        // --- TimelockedWeightCommits (DMAP: (netuid_index, epoch) -> VecDeque<...>)
-        let hotkey = U256::from(1);
-        TimelockedWeightCommits::<Test>::insert(
-            idx0,
-            1u64,
-            VecDeque::from([(hotkey, 1u64, Default::default(), Default::default())]),
-        );
-        TimelockedWeightCommits::<Test>::insert(
-            idx1,
-            2u64,
-            VecDeque::from([(hotkey, 2u64, Default::default(), Default::default())]),
-        );
-
-        // --- Incentive (MAP: netuid_index -> Vec<u16>)
-        Incentive::<Test>::insert(idx0, vec![1u16, 2u16]);
-        Incentive::<Test>::insert(idx1, vec![3u16, 4u16]);
-
-        // --- LastUpdate (MAP: netuid_index -> Vec<u64>)
-        LastUpdate::<Test>::insert(idx0, vec![42u64]);
-        LastUpdate::<Test>::insert(idx1, vec![84u64]);
-
-        // Sanity: keys are present before dissolve.
-        assert!(Weights::<Test>::contains_key(idx0, 0u16));
-        assert!(Weights::<Test>::contains_key(idx1, 0u16));
-        assert!(Bonds::<Test>::contains_key(idx0, 0u16));
-        assert!(Bonds::<Test>::contains_key(idx1, 0u16));
-        assert!(TimelockedWeightCommits::<Test>::contains_key(idx0, 1u64));
-        assert!(TimelockedWeightCommits::<Test>::contains_key(idx1, 2u64));
-        assert!(Incentive::<Test>::contains_key(idx0));
-        assert!(Incentive::<Test>::contains_key(idx1));
-        assert!(LastUpdate::<Test>::contains_key(idx0));
-        assert!(LastUpdate::<Test>::contains_key(idx1));
-        assert!(MechanismCountCurrent::<Test>::contains_key(net));
-
-        // --- Dissolve the subnet ---
-        assert_ok!(SubtensorModule::do_dissolve_network(net));
-
-        // After dissolve, ALL mechanism-scoped items must be cleared for ALL mechanisms.
-
-        // Weights/Bonds double-maps should have no entries under either index.
-        assert!(Weights::<Test>::iter_prefix(idx0).next().is_none());
-        assert!(Weights::<Test>::iter_prefix(idx1).next().is_none());
-        assert!(Bonds::<Test>::iter_prefix(idx0).next().is_none());
-        assert!(Bonds::<Test>::iter_prefix(idx1).next().is_none());
-
-        // WeightCommits (OptionQuery) should have no keys remaining.
-        assert!(WeightCommits::<Test>::iter_prefix(idx0).next().is_none());
-        assert!(WeightCommits::<Test>::iter_prefix(idx1).next().is_none());
-        assert!(!WeightCommits::<Test>::contains_key(idx0, owner_hot));
-        assert!(!WeightCommits::<Test>::contains_key(idx1, owner_cold));
-
-        // TimelockedWeightCommits (ValueQuery) — ensure both prefix spaces empty and keys gone.
-        assert!(
-            TimelockedWeightCommits::<Test>::iter_prefix(idx0)
-                .next()
-                .is_none()
-        );
-        assert!(
-            TimelockedWeightCommits::<Test>::iter_prefix(idx1)
-                .next()
-                .is_none()
-        );
-        assert!(!TimelockedWeightCommits::<Test>::contains_key(idx0, 1u64));
-        assert!(!TimelockedWeightCommits::<Test>::contains_key(idx1, 2u64));
-
-        // Single-map per-mechanism vectors cleared.
-        assert!(!Incentive::<Test>::contains_key(idx0));
-        assert!(!Incentive::<Test>::contains_key(idx1));
-        assert!(!LastUpdate::<Test>::contains_key(idx0));
-        assert!(!LastUpdate::<Test>::contains_key(idx1));
-
-        // MechanismCountCurrent cleared
-        assert!(!MechanismCountCurrent::<Test>::contains_key(net));
     });
 }

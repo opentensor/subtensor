@@ -20,6 +20,7 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -1055,4 +1056,15 @@ pub fn commit_dummy(who: U256, netuid: NetUid) {
         netuid,
         hash
     ));
+}
+
+#[allow(dead_code)]
+pub fn sfser_to_u128(sf_ser: &SafeFloatSerializable) -> u128 {
+    let alpha_f64: f64 = SafeFloat::from(sf_ser).into();
+    alpha_f64 as u128
+}
+
+#[allow(dead_code)]
+pub fn sfser_from_u64(val: u64) -> SafeFloatSerializable {
+    SafeFloatSerializable::from(&SafeFloat::from(val))
 }

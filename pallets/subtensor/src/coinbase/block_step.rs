@@ -33,6 +33,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::run_auto_claim_root_divs(last_block_hash);
         // --- 9. Populate root coldkey maps.
         Self::populate_root_coldkey_staking_maps();
+        Self::populate_root_coldkey_staking_maps_v2();
 
         // Return ok.
         Ok(())
