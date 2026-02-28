@@ -1003,3 +1003,155 @@ fn get_alpha_price_returns_encoded_price() {
         );
     });
 }
+
+#[test]
+fn get_voting_power_returns_encoded_value() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9001);
+        let owner_coldkey = U256::from(9002);
+        let hotkey = U256::from(9003);
+        let caller = U256::from(9004);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        let expected_voting_power: u64 = 1_000_000_000_000;
+        pallet_subtensor::VotingPower::<mock::Test>::insert(netuid, hotkey, expected_voting_power);
+
+        let mut env = MockEnv::new(
+            FunctionId::GetVotingPowerV1,
+            caller,
+            (netuid, hotkey).encode(),
+        );
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert!(env.charged_weight().is_none());
+
+        let output_power: u64 = Decode::decode(&mut &env.output()[..]).unwrap();
+        assert_eq!(output_power, expected_voting_power);
+    });
+}
+
+#[test]
+fn get_voting_power_returns_zero_when_not_set() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9101);
+        let owner_coldkey = U256::from(9102);
+        let hotkey = U256::from(9103);
+        let caller = U256::from(9104);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Don't set any voting power
+
+        let mut env = MockEnv::new(
+            FunctionId::GetVotingPowerV1,
+            caller,
+            (netuid, hotkey).encode(),
+        );
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert!(env.charged_weight().is_none());
+
+        let output_power: u64 = Decode::decode(&mut &env.output()[..]).unwrap();
+        assert_eq!(output_power, 0);
+    });
+}
+
+#[test]
+fn get_total_voting_power_returns_sum() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9201);
+        let owner_coldkey = U256::from(9202);
+        let hotkey1 = U256::from(9203);
+        let hotkey2 = U256::from(9204);
+        let hotkey3 = U256::from(9205);
+        let caller = U256::from(9206);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        let power1: u64 = 1_000_000_000_000;
+        let power2: u64 = 2_000_000_000_000;
+        let power3: u64 = 3_000_000_000_000;
+        pallet_subtensor::VotingPower::<mock::Test>::insert(netuid, hotkey1, power1);
+        pallet_subtensor::VotingPower::<mock::Test>::insert(netuid, hotkey2, power2);
+        pallet_subtensor::VotingPower::<mock::Test>::insert(netuid, hotkey3, power3);
+
+        let mut env = MockEnv::new(FunctionId::GetTotalVotingPowerV1, caller, netuid.encode());
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert!(env.charged_weight().is_none());
+
+        let total_power: u64 = Decode::decode(&mut &env.output()[..]).unwrap();
+        assert_eq!(total_power, power1 + power2 + power3);
+    });
+}
+
+#[test]
+fn is_voting_power_tracking_enabled_returns_status() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9301);
+        let owner_coldkey = U256::from(9302);
+        let caller = U256::from(9303);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Initially should be false
+        let mut env = MockEnv::new(
+            FunctionId::IsVotingPowerTrackingEnabledV1,
+            caller,
+            netuid.encode(),
+        );
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert!(env.charged_weight().is_none());
+
+        let enabled: bool = Decode::decode(&mut &env.output()[..]).unwrap();
+        assert!(!enabled);
+
+        // Now enable tracking
+        pallet_subtensor::VotingPowerTrackingEnabled::<mock::Test>::insert(netuid, true);
+
+        let mut env = MockEnv::new(
+            FunctionId::IsVotingPowerTrackingEnabledV1,
+            caller,
+            netuid.encode(),
+        );
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+
+        let enabled: bool = Decode::decode(&mut &env.output()[..]).unwrap();
+        assert!(enabled);
+    });
+}
+
+#[test]
+fn get_voting_power_disable_at_block_returns_value() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9401);
+        let owner_coldkey = U256::from(9402);
+        let caller = U256::from(9403);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        let expected_block: u64 = 123_456;
+        pallet_subtensor::VotingPowerDisableAtBlock::<mock::Test>::insert(netuid, expected_block);
+
+        let mut env = MockEnv::new(
+            FunctionId::GetVotingPowerDisableAtBlockV1,
+            caller,
+            netuid.encode(),
+        );
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert!(env.charged_weight().is_none());
+
+        let disable_at_block: u64 = Decode::decode(&mut &env.output()[..]).unwrap();
+        assert_eq!(disable_at_block, expected_block);
+    });
+}
