@@ -1923,7 +1923,7 @@ mod dispatches {
         /// * `netuid` - The subnet ID
         ///
         /// # Events
-        /// Emits a `TokensBurned` event on success.
+        /// Emits a `AlphaBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
             Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
