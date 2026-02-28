@@ -14,10 +14,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, features = ["derive"] }
 environmental.workspace = true
 frame-support.workspace = true
+num-traits = { workspace = true, features = ["libm"] }
 scale-info.workspace = true
 serde.workspace = true
+sp-arithmetic.workspace = true
 sp-core.workspace = true
 sp-runtime.workspace = true
+sp-rpc = { workspace = true, optional = true }
 substrate-fixed.workspace = true
 subtensor-macros.workspace = true
 runtime-common.workspace = true
@@ -34,10 +37,13 @@ std = [
 	"codec/std",
 	"environmental/std",
 	"frame-support/std",
+	"num-traits/std",
 	"scale-info/std",
 	"serde/std",
+	"sp-arithmetic/std",
 	"sp-core/std",
 	"sp-runtime/std",
+	"sp-rpc",
 	"substrate-fixed/std",
 	"runtime-common/std"
 ]

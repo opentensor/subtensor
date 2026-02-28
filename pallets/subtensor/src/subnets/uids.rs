@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
             emissions.sort_by_key(|(uid, _)| *uid);
 
             // Extract the final uids and emissions after trimming and sorting
-            let (trimmed_uids, trimmed_emissions): (Vec<usize>, Vec<AlphaCurrency>) =
+            let (trimmed_uids, trimmed_emissions): (Vec<usize>, Vec<AlphaBalance>) =
                 emissions.into_iter().unzip();
 
             // Get all current arrays from storage
@@ -393,11 +393,11 @@ impl<T: Config> Pallet<T> {
 
     /// Returns the stake of the uid on network or 0 if it doesnt exist.
     ///
-    pub fn get_stake_for_uid_and_subnetwork(netuid: NetUid, neuron_uid: u16) -> AlphaCurrency {
+    pub fn get_stake_for_uid_and_subnetwork(netuid: NetUid, neuron_uid: u16) -> AlphaBalance {
         if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
             Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid)
         } else {
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         }
     }
 

@@ -393,8 +393,8 @@ fn split_emissions_even_division() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(5u16);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(5u8)); // 5 sub-subnets
-        let out = SubtensorModule::split_emissions(netuid, AlphaCurrency::from(25u64));
-        assert_eq!(out, vec![AlphaCurrency::from(5u64); 5]);
+        let out = SubtensorModule::split_emissions(netuid, AlphaBalance::from(25u64));
+        assert_eq!(out, vec![AlphaBalance::from(5u64); 5]);
     });
 }
 
@@ -403,14 +403,14 @@ fn split_emissions_rounding_to_first() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(6u16);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(4u8)); // 4 sub-subnets
-        let out = SubtensorModule::split_emissions(netuid, AlphaCurrency::from(10u64)); // 10 / 4 = 2, rem=2
+        let out = SubtensorModule::split_emissions(netuid, AlphaBalance::from(10u64)); // 10 / 4 = 2, rem=2
         assert_eq!(
             out,
             vec![
-                AlphaCurrency::from(4u64), // 2 + remainder(2)
-                AlphaCurrency::from(2u64),
-                AlphaCurrency::from(2u64),
-                AlphaCurrency::from(2u64),
+                AlphaBalance::from(4u64), // 2 + remainder(2)
+                AlphaBalance::from(2u64),
+                AlphaBalance::from(2u64),
+                AlphaBalance::from(2u64),
             ]
         );
     });
@@ -422,15 +422,15 @@ fn split_emissions_fibbonacci() {
         let netuid = NetUid::from(5u16);
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(5u8)); // 5 sub-subnets
         MechanismEmissionSplit::<Test>::insert(netuid, vec![3450, 6899, 10348, 17247, 27594]);
-        let out = SubtensorModule::split_emissions(netuid, AlphaCurrency::from(19u64));
+        let out = SubtensorModule::split_emissions(netuid, AlphaBalance::from(19u64));
         assert_eq!(
             out,
             vec![
-                AlphaCurrency::from(1u64),
-                AlphaCurrency::from(2u64),
-                AlphaCurrency::from(3u64),
-                AlphaCurrency::from(5u64),
-                AlphaCurrency::from(8u64),
+                AlphaBalance::from(1u64),
+                AlphaBalance::from(2u64),
+                AlphaBalance::from(3u64),
+                AlphaBalance::from(5u64),
+                AlphaBalance::from(8u64),
             ]
         );
     });
@@ -461,7 +461,7 @@ pub fn mock_epoch_state(netuid: NetUid, ck0: U256, hk0: U256, ck1: U256, hk1: U2
     BlockAtRegistration::<Test>::insert(netuid, 1, 1u64);
 
     // Add stake
-    let stake_amount = AlphaCurrency::from(1_000_000_000); // 1 Alpha
+    let stake_amount = AlphaBalance::from(1_000_000_000); // 1 Alpha
     SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
         &hk0,
         &ck0,
@@ -511,7 +511,7 @@ fn epoch_with_mechanisms_produces_per_mechanism_incentive() {
         let hk0 = U256::from(2);
         let ck1 = U256::from(3);
         let hk1 = U256::from(4);
-        let emission = AlphaCurrency::from(1_000_000_000);
+        let emission = AlphaBalance::from(1_000_000_000);
 
         mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
         SubtensorModule::epoch_with_mechanisms(netuid, emission);
@@ -536,7 +536,7 @@ fn epoch_with_mechanisms_updates_bonds() {
         let hk0 = U256::from(2);
         let ck1 = U256::from(3);
         let hk1 = U256::from(4);
-        let emission = AlphaCurrency::from(1_000_000_000);
+        let emission = AlphaBalance::from(1_000_000_000);
 
         mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
 
@@ -572,7 +572,7 @@ fn epoch_with_mechanisms_incentives_proportional_to_weights() {
         let ck1 = U256::from(3);
         let hk1 = U256::from(4);
         let hk2 = U256::from(6);
-        let emission = AlphaCurrency::from(1_000_000_000);
+        let emission = AlphaBalance::from(1_000_000_000);
 
         mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
         mock_3_neurons(netuid, hk2);
@@ -627,7 +627,7 @@ fn epoch_with_mechanisms_persists_and_aggregates_all_terms() {
         let ck1 = U256::from(3);
         let hk1 = U256::from(4);
         let hk2 = U256::from(6);
-        let emission = AlphaCurrency::from(1_000_000_000u64);
+        let emission = AlphaBalance::from(1_000_000_000u64);
 
         // Healthy minimal state and 3rd neuron
         mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
@@ -801,7 +801,7 @@ fn epoch_with_mechanisms_no_weight_no_incentive() {
         let ck1 = U256::from(3);
         let hk1 = U256::from(4);
         let hk2 = U256::from(5); // No weight miner
-        let emission = AlphaCurrency::from(1_000_000_000);
+        let emission = AlphaBalance::from(1_000_000_000);
 
         mock_epoch_state(netuid, ck0, hk0, ck1, hk1);
         mock_3_neurons(netuid, hk2);
@@ -841,9 +841,9 @@ fn neuron_dereg_cleans_weights_across_subids() {
         Emission::<Test>::insert(
             netuid,
             vec![
-                AlphaCurrency::from(1u64),
-                AlphaCurrency::from(9u64),
-                AlphaCurrency::from(3u64),
+                AlphaBalance::from(1u64),
+                AlphaBalance::from(9u64),
+                AlphaBalance::from(3u64),
             ],
         );
         Consensus::<Test>::insert(netuid, vec![21u16, 88u16, 44u16]);
@@ -907,7 +907,7 @@ fn clear_neuron_handles_absent_rows_gracefully() {
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(1u8)); // single sub-subnet
 
         // Minimal vectors with non-zero at index 0 (we will clear UID=0)
-        Emission::<Test>::insert(netuid, vec![AlphaCurrency::from(5u64)]);
+        Emission::<Test>::insert(netuid, vec![AlphaBalance::from(5u64)]);
         Consensus::<Test>::insert(netuid, vec![6u16]);
         Dividends::<Test>::insert(netuid, vec![7u16]);
 
@@ -918,7 +918,7 @@ fn clear_neuron_handles_absent_rows_gracefully() {
         // Emission/Consensus/Dividends zeroed at index 0
         assert_eq!(
             Emission::<Test>::get(netuid),
-            vec![AlphaCurrency::from(0u64)]
+            vec![AlphaBalance::from(0u64)]
         );
 
         assert_eq!(Consensus::<Test>::get(netuid), vec![0u16]);
@@ -951,7 +951,7 @@ fn test_set_mechanism_weights_happy_path_sets_row_under_subid() {
         // Make caller a permitted validator with stake
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1008,7 +1008,7 @@ fn test_set_mechanism_weights_above_mechanism_count_fails() {
         // Make caller a permitted validator with stake
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1066,7 +1066,7 @@ fn test_commit_reveal_mechanism_weights_ok() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1150,7 +1150,7 @@ fn test_commit_reveal_above_mechanism_count_fails() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1);
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1237,8 +1237,8 @@ fn test_reveal_crv3_commits_sub_success() {
 
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid2, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &U256::from(3), netuid, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &U256::from(4), netuid, 1.into());
 
@@ -1342,7 +1342,7 @@ fn test_crv3_above_mechanism_count_fails() {
         let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey2).expect("uid2");
 
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &U256::from(3), netuid, 1.into());
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
@@ -1412,7 +1412,7 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
         // make validator with stake
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &U256::from(2),
@@ -1523,29 +1523,29 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
         // (leave Weights/Bonds empty for all rows on this sub-subnet)
 
         // stake proportions: uid0:uid1:uid2 = 10:30:60
-        SubtensorModule::add_balance_to_coldkey_account(&ck0, 10);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 30);
-        SubtensorModule::add_balance_to_coldkey_account(&ck2, 60);
+        SubtensorModule::add_balance_to_coldkey_account(&ck0, 10.into());
+        SubtensorModule::add_balance_to_coldkey_account(&ck1, 30.into());
+        SubtensorModule::add_balance_to_coldkey_account(&ck2, 60.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk0,
             &ck0,
             netuid,
-            AlphaCurrency::from(10),
+            AlphaBalance::from(10),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
             netuid,
-            AlphaCurrency::from(30),
+            AlphaBalance::from(30),
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk2,
             &ck2,
             netuid,
-            AlphaCurrency::from(60),
+            AlphaBalance::from(60),
         );
 
-        let emission = AlphaCurrency::from(1_000_000u64);
+        let emission = AlphaBalance::from(1_000_000u64);
 
         // --- act: run epoch on this sub-subnet only ---
         let out = SubtensorModule::epoch_mechanism(netuid, mecid, emission);

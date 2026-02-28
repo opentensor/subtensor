@@ -1,8 +1,9 @@
 use super::*;
+// use frame_support::traits::{Currency as BalancesCurrency, Get, Imbalance};
 use frame_support::traits::Get;
 use safe_math::*;
 use substrate_fixed::{transcendental::log2, types::I96F32};
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::TaoBalance;
 
 impl<T: Config> Pallet<T> {
     /// Calculates the block emission based on the total issuance.
@@ -16,7 +17,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * 'Result<u64, &'static str>': The calculated block emission rate or error.
     ///
-    pub fn get_block_emission() -> Result<TaoCurrency, &'static str> {
+    pub fn get_block_emission() -> Result<TaoBalance, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
         Self::get_block_emission_for_issuance(Self::get_total_issuance().into()).map(Into::into)
     }

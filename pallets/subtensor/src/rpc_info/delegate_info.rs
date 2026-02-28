@@ -6,7 +6,7 @@ use substrate_fixed::types::U64F64;
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use codec::Compact;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 #[freeze_struct("1fafc4fcf28cba7a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -158,11 +158,11 @@ impl<T: Config> Pallet<T> {
         delegatee: T::AccountId,
     ) -> Vec<(
         DelegateInfo<T::AccountId>,
-        (Compact<NetUid>, Compact<AlphaCurrency>),
+        (Compact<NetUid>, Compact<AlphaBalance>),
     )> {
         let mut delegates: Vec<(
             DelegateInfo<T::AccountId>,
-            (Compact<NetUid>, Compact<AlphaCurrency>),
+            (Compact<NetUid>, Compact<AlphaBalance>),
         )> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list

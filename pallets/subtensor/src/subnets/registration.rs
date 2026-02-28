@@ -2,7 +2,7 @@ use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{NetUid, Token};
 use subtensor_swap_interface::SwapHandler;
 use system::pallet_prelude::BlockNumberFor;
 
@@ -374,9 +374,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 1_000_000_000_000;
-        Self::increase_issuance(100_000_000_000.into()); // We are creating tokens here from the coinbase.
+        Self::increase_issuance(100_000_000_000_u64.into()); // We are creating tokens here from the coinbase.
 
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
+        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add.into());
 
         // --- 6. Deposit successful event.
         log::debug!("Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) ");
@@ -458,7 +458,7 @@ impl<T: Config> Pallet<T> {
 
         let owner_ck = SubnetOwner::<T>::get(netuid);
         let immortal_hotkeys = Self::get_immune_owner_hotkeys(netuid, &owner_ck);
-        let emissions: Vec<AlphaCurrency> = Emission::<T>::get(netuid);
+        let emissions: Vec<AlphaBalance> = Emission::<T>::get(netuid);
 
         // Single pass:
         // - count current non‑immortal & non‑immune UIDs,
@@ -466,8 +466,8 @@ impl<T: Config> Pallet<T> {
         let mut free_count: u16 = 0;
 
         // (emission, reg_block, uid)
-        let mut best_non_immune: Option<(AlphaCurrency, u64, u16)> = None;
-        let mut best_immune: Option<(AlphaCurrency, u64, u16)> = None;
+        let mut best_non_immune: Option<(AlphaBalance, u64, u16)> = None;
+        let mut best_immune: Option<(AlphaBalance, u64, u16)> = None;
 
         for uid in 0..n {
             let hk = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
@@ -484,11 +484,11 @@ impl<T: Config> Pallet<T> {
             let emission = emissions
                 .get(uid as usize)
                 .cloned()
-                .unwrap_or(AlphaCurrency::ZERO);
+                .unwrap_or(AlphaBalance::ZERO);
             let reg_block = Self::get_neuron_block_at_registration(netuid, uid);
 
             // Helper to decide if (e, b, u) beats the current best.
-            let consider = |best: &mut Option<(AlphaCurrency, u64, u16)>| match best {
+            let consider = |best: &mut Option<(AlphaBalance, u64, u16)>| match best {
                 None => *best = Some((emission, reg_block, uid)),
                 Some((be, bb, bu)) => {
                     let better = if emission != *be {

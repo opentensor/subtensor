@@ -7,7 +7,7 @@ use frame_support::traits::{
 };
 use safe_math::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::*;
@@ -27,24 +27,24 @@ impl<T: Config> Pallet<T> {
 
     // Returns the total amount of stake in the staking table.
     //
-    pub fn get_total_stake() -> TaoCurrency {
+    pub fn get_total_stake() -> TaoBalance {
         TotalStake::<T>::get()
     }
 
     // Increases the total amount of stake by the passed amount.
     //
-    pub fn increase_total_stake(increment: TaoCurrency) {
+    pub fn increase_total_stake(increment: TaoBalance) {
         TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
     }
 
     // Decreases the total amount of stake by the passed amount.
     //
-    pub fn decrease_total_stake(decrement: TaoCurrency) {
+    pub fn decrease_total_stake(decrement: TaoBalance) {
         TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
     /// Returns the total amount of stake (in TAO) under a hotkey (delegative or otherwise)
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> TaoCurrency {
+    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> TaoBalance {
         Self::get_all_subnet_netuids()
             .into_iter()
             .map(|netuid| {
@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
 
     // Returns the total amount of stake under a coldkey
     //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> TaoCurrency {
+    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> TaoBalance {
         let hotkeys = StakingHotkeys::<T>::get(coldkey);
         hotkeys
             .iter()
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_stake_for_coldkey_on_subnet(
         coldkey: &T::AccountId,
         netuid: NetUid,
-    ) -> TaoCurrency {
+    ) -> TaoBalance {
         let hotkeys = StakingHotkeys::<T>::get(coldkey);
         hotkeys
             .iter()
@@ -305,9 +305,9 @@ impl<T: Config> Pallet<T> {
     pub fn remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<TaoCurrency, DispatchError> {
-        if amount == 0 {
-            return Ok(TaoCurrency::ZERO);
+    ) -> Result<TaoBalance, DispatchError> {
+        if amount.is_zero() {
+            return Ok(TaoBalance::ZERO);
         }
 
         let credit = <T as Config>::Currency::withdraw(
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        if credit == 0 {
+        if credit.is_zero() {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
@@ -330,9 +330,9 @@ impl<T: Config> Pallet<T> {
     pub fn kill_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<u64, DispatchError> {
-        if amount == 0 {
-            return Ok(0);
+    ) -> Result<TaoBalance, DispatchError> {
+        if amount.is_zero() {
+            return Ok(0.into());
         }
 
         let credit = <T as Config>::Currency::withdraw(
@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        if credit == 0 {
+        if credit.is_zero() {
             return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
@@ -356,7 +356,7 @@ impl<T: Config> Pallet<T> {
         T::SwapInterface::is_user_liquidity_enabled(netuid)
     }
 
-    pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaCurrency) {
+    pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaBalance) {
         // TODO: record recycled alpha in a tracker
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(amount);
@@ -413,7 +413,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaCurrency) {
+    pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaBalance) {
         // Do nothing; TODO: record burned alpha in a tracker
     }
 }

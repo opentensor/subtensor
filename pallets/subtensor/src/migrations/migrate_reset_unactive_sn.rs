@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn get_unactive_sn_netuids<T: Config>(
-    pool_initial_alpha: AlphaCurrency,
+    pool_initial_alpha: AlphaBalance,
 ) -> (Vec<NetUid>, Weight) {
     // Loop over all subnets, if the AlphaIssuance is > pool_initial_alpha
     // but FirstEmissionBlockNumber is None
@@ -42,8 +42,8 @@ pub fn migrate_reset_unactive_sn<T: Config>() -> Weight {
     );
 
     // From init_new_network
-    let pool_initial_tao: TaoCurrency = Pallet::<T>::get_network_min_lock();
-    let pool_initial_alpha: AlphaCurrency = pool_initial_tao.to_u64().into();
+    let pool_initial_tao: TaoBalance = Pallet::<T>::get_network_min_lock();
+    let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
 
     let (unactive_netuids, w) = get_unactive_sn_netuids::<T>(pool_initial_alpha);
     weight = weight.saturating_add(w);

@@ -6,23 +6,23 @@ use safe_math::*;
 use sp_std::collections::btree_map::IntoIter;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
-use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex};
 
 #[derive(Debug, Default)]
 pub struct EpochTerms {
     pub uid: usize,
     pub dividend: u16,
     pub incentive: u16,
-    pub validator_emission: AlphaCurrency,
-    pub server_emission: AlphaCurrency,
+    pub validator_emission: AlphaBalance,
+    pub server_emission: AlphaBalance,
     pub stake_weight: u16,
     pub active: bool,
-    pub emission: AlphaCurrency,
+    pub emission: AlphaBalance,
     pub consensus: u16,
     pub validator_trust: u16,
     pub new_validator_permit: bool,
     pub bond: Vec<(u16, u16)>,
-    pub stake: AlphaCurrency,
+    pub stake: AlphaBalance,
 }
 
 pub struct EpochOutput<T: frame_system::Config>(pub BTreeMap<T::AccountId, EpochTerms>);
@@ -61,8 +61,8 @@ impl<T: Config> Pallet<T> {
     /// Legacy epoch function interface (TODO: Is only used for tests, remove)
     pub fn epoch(
         netuid: NetUid,
-        rao_emission: AlphaCurrency,
-    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+        rao_emission: AlphaBalance,
+    ) -> Vec<(T::AccountId, AlphaBalance, AlphaBalance)> {
         // Run mechanism-style epoch
         let output = Self::epoch_mechanism(netuid, MechId::MAIN, rao_emission);
 
@@ -80,8 +80,8 @@ impl<T: Config> Pallet<T> {
     /// Legacy epoch_dense function interface (TODO: Is only used for tests, remove)
     pub fn epoch_dense(
         netuid: NetUid,
-        rao_emission: AlphaCurrency,
-    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+        rao_emission: AlphaBalance,
+    ) -> Vec<(T::AccountId, AlphaBalance, AlphaBalance)> {
         Self::epoch_dense_mechanism(netuid, MechId::MAIN, rao_emission)
     }
 
@@ -147,8 +147,8 @@ impl<T: Config> Pallet<T> {
     pub fn epoch_dense_mechanism(
         netuid: NetUid,
         mecid: MechId,
-        rao_emission: AlphaCurrency,
-    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+        rao_emission: AlphaBalance,
+    ) -> Vec<(T::AccountId, AlphaBalance, AlphaBalance)> {
         // Calculate netuid storage index
         let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
 
@@ -449,7 +449,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
-        let server_emission: Vec<AlphaCurrency> = server_emission
+        let server_emission: Vec<AlphaBalance> = server_emission
             .iter()
             .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
@@ -458,7 +458,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
-        let validator_emission: Vec<AlphaCurrency> = validator_emission
+        let validator_emission: Vec<AlphaBalance> = validator_emission
             .iter()
             .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
@@ -468,9 +468,9 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
-        let combined_emission: Vec<AlphaCurrency> = combined_emission
+        let combined_emission: Vec<AlphaBalance> = combined_emission
             .iter()
-            .map(|e: &I96F32| AlphaCurrency::from(e.saturating_to_num::<u64>()))
+            .map(|e: &I96F32| AlphaBalance::from(e.saturating_to_num::<u64>()))
             .collect();
 
         log::trace!("nSE: {:?}", &normalized_server_emission);
@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
     pub fn epoch_mechanism(
         netuid: NetUid,
         mecid: MechId,
-        rao_emission: AlphaCurrency,
+        rao_emission: AlphaBalance,
     ) -> EpochOutput<T> {
         // Calculate netuid storage index
         let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
@@ -925,7 +925,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|se: &I32F32| I96F32::saturating_from_num(*se).saturating_mul(float_rao_emission))
             .collect();
-        let server_emission: Vec<AlphaCurrency> = server_emission
+        let server_emission: Vec<AlphaBalance> = server_emission
             .iter()
             .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
@@ -934,7 +934,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ve: &I32F32| I96F32::saturating_from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
-        let validator_emission: Vec<AlphaCurrency> = validator_emission
+        let validator_emission: Vec<AlphaBalance> = validator_emission
             .iter()
             .map(|e: &I96F32| e.saturating_to_num::<u64>().into())
             .collect();
@@ -944,9 +944,9 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|ce: &I32F32| I96F32::saturating_from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
-        let combined_emission: Vec<AlphaCurrency> = combined_emission
+        let combined_emission: Vec<AlphaBalance> = combined_emission
             .iter()
-            .map(|e: &I96F32| AlphaCurrency::from(e.saturating_to_num::<u64>()))
+            .map(|e: &I96F32| AlphaBalance::from(e.saturating_to_num::<u64>()))
             .collect();
 
         log::trace!(

@@ -25,19 +25,19 @@ pub fn migrate_fix_root_tao_and_alpha_in<T: Config>() -> Weight {
     let reserve_diff = total_unstaked.saturating_sub(total_staked);
     let volume_diff = (total_unstaked as u128).saturating_add(total_staked as u128);
     SubnetTAO::<T>::mutate(NetUid::ROOT, |amount| {
-        *amount = amount.saturating_sub(TaoCurrency::from(reserve_diff));
+        *amount = amount.saturating_sub(reserve_diff.into());
     });
     SubnetAlphaIn::<T>::mutate(NetUid::ROOT, |amount| {
-        *amount = amount.saturating_add(AlphaCurrency::from(reserve_diff));
+        *amount = amount.saturating_add(AlphaBalance::from(reserve_diff));
     });
     SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |amount| {
-        *amount = amount.saturating_sub(AlphaCurrency::from(reserve_diff));
+        *amount = amount.saturating_sub(AlphaBalance::from(reserve_diff));
     });
     SubnetVolume::<T>::mutate(NetUid::ROOT, |amount| {
         *amount = amount.saturating_add(volume_diff);
     });
     TotalStake::<T>::mutate(|amount| {
-        *amount = amount.saturating_sub(TaoCurrency::from(reserve_diff));
+        *amount = amount.saturating_sub(reserve_diff.into());
     });
 
     weight = weight.saturating_add(T::DbWeight::get().writes(5));

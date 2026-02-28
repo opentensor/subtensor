@@ -14,7 +14,7 @@ use sp_core::{Encode, Pair};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
-use subtensor_runtime_common::{AccountId, Balance, Signature};
+use subtensor_runtime_common::{AccountId, Balance, Signature, TaoBalance, Token};
 
 use std::{sync::Arc, time::Duration};
 
@@ -136,7 +136,9 @@ pub fn create_benchmark_extrinsic(
         check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
         frame_system::CheckWeight::<runtime::Runtime>::new(),
         transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
-            pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+            pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(
+                TaoBalance::ZERO,
+            ),
         ),
         sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
         pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),

@@ -1,6 +1,6 @@
 use super::*;
 use sp_core::Get;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
     ///
@@ -206,8 +206,8 @@ impl<T: Config> Pallet<T> {
 
         // The initial TAO is the locked amount
         // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha.
-        let pool_initial_tao: TaoCurrency = Self::get_network_min_lock();
-        let pool_initial_alpha: AlphaCurrency = pool_initial_tao.to_u64().into();
+        let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
+        let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
 
@@ -217,20 +217,20 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
-        SubnetTaoProvided::<T>::insert(netuid_to_register, TaoCurrency::ZERO);
-        SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaCurrency::ZERO);
-        SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaCurrency::ZERO);
+        SubnetTaoProvided::<T>::insert(netuid_to_register, TaoBalance::ZERO);
+        SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
+        SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
         RAORecycledForRegistration::<T>::insert(
             netuid_to_register,
             actual_tao_lock_amount_less_pool_tao,
         );
 
-        if actual_tao_lock_amount_less_pool_tao > TaoCurrency::ZERO {
+        if actual_tao_lock_amount_less_pool_tao > TaoBalance::ZERO {
             Self::recycle_tao(actual_tao_lock_amount_less_pool_tao);
         }
 
-        if actual_tao_lock_amount > TaoCurrency::ZERO && pool_initial_tao > TaoCurrency::ZERO {
+        if actual_tao_lock_amount > TaoBalance::ZERO && pool_initial_tao > TaoBalance::ZERO {
             // Record in TotalStake the initial TAO in the pool.
             Self::increase_total_stake(pool_initial_tao);
         }

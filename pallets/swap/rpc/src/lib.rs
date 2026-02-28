@@ -11,7 +11,7 @@ use jsonrpsee::{
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
 pub use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
 
@@ -23,14 +23,14 @@ pub trait SwapRpcApi<BlockHash> {
     fn sim_swap_tao_for_alpha(
         &self,
         netuid: NetUid,
-        tao: TaoCurrency,
+        tao: TaoBalance,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "swap_simSwapAlphaForTao")]
     fn sim_swap_alpha_for_tao(
         &self,
         netuid: NetUid,
-        alpha: AlphaCurrency,
+        alpha: AlphaBalance,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }
@@ -95,7 +95,7 @@ where
     fn sim_swap_tao_for_alpha(
         &self,
         netuid: NetUid,
-        tao: TaoCurrency,
+        tao: TaoBalance,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -113,7 +113,7 @@ where
     fn sim_swap_alpha_for_tao(
         &self,
         netuid: NetUid,
-        alpha: AlphaCurrency,
+        alpha: AlphaBalance,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();

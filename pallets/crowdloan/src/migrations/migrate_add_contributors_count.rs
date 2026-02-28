@@ -170,6 +170,7 @@ mod tests {
                 put_raw(&key, &crowdloan.encode());
 
                 for (contributor, amount) in contributions {
+                    let amount = TaoBalance::from(amount);
                     Contributions::<Test>::insert(id as u32, contributor, amount);
                 }
             }
