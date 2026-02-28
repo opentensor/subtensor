@@ -50,7 +50,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{traits::Get, weights::{Weight, constants::ParityDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_utility`.
@@ -167,7 +167,7 @@ impl WeightInfo for () {
 		Weight::from_parts(4_034_000, 3997)
 			// Standard Error: 2_323
 			.saturating_add(Weight::from_parts(4_914_560, 0).saturating_mul(c.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
 	}
 	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
 	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -179,7 +179,7 @@ impl WeightInfo for () {
 		//  Estimated: `3997`
 		// Minimum execution time: 5_866_000 picoseconds.
 		Weight::from_parts(6_097_000, 3997)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
 	}
 	/// Storage: `SafeMode::EnteredUntil` (r:1 w:0)
 	/// Proof: `SafeMode::EnteredUntil` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -194,7 +194,7 @@ impl WeightInfo for () {
 		Weight::from_parts(4_075_000, 3997)
 			// Standard Error: 2_176
 			.saturating_add(Weight::from_parts(5_127_263, 0).saturating_mul(c.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
 	}
 	fn dispatch_as() -> Weight {
 		// Proof Size summary in bytes:
@@ -216,7 +216,7 @@ impl WeightInfo for () {
 		Weight::from_parts(4_035_000, 3997)
 			// Standard Error: 1_682
 			.saturating_add(Weight::from_parts(4_902_729, 0).saturating_mul(c.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
 	}
 	fn dispatch_as_fallible() -> Weight {
 		// Proof Size summary in bytes:
@@ -235,6 +235,6 @@ impl WeightInfo for () {
 		//  Estimated: `7004`
 		// Minimum execution time: 11_273_000 picoseconds.
 		Weight::from_parts(11_571_000, 7004)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
 	}
 }

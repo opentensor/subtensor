@@ -24,7 +24,7 @@
 #![allow(unused_imports)]
 #![allow(missing_docs)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{traits::Get, weights::{Weight, constants::ParityDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_commitments`.
@@ -52,7 +52,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Sudo setting rate limit for commitments
 	fn set_rate_limit() -> Weight {
 		Weight::from_parts(10_000_000, 2000)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
 	}
 }
 
@@ -68,13 +68,13 @@ impl WeightInfo for () {
 		//  Estimated: `6344`
 		// Minimum execution time: 28_000_000 picoseconds.
 		Weight::from_parts(28_000_000, 6344)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 
 	/// Sudo setting rate limit for commitments
 	fn set_rate_limit() -> Weight {
 		Weight::from_parts(10_000_000, 2000)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
 	}
 }
