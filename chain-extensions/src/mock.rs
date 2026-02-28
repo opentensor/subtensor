@@ -18,6 +18,7 @@ use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::*;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -25,7 +26,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, NetUid, TaoCurrency};
+use subtensor_runtime_common::{
+    AlphaCurrency, AuthorshipInfo, NetUid, TaoCurrency, rate_limiting::RateLimitUsageKey,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -299,9 +302,6 @@ parameter_types! {
     pub const InitialMinChildKeyTake: u16 = 0; // 0 %;
     pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
-    pub const InitialServingRateLimit: u64 = 0; // No limit.
-    pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
-    pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
@@ -327,7 +327,6 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
@@ -384,9 +383,6 @@ impl pallet_subtensor::Config for Test {
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
-    type InitialServingRateLimit = InitialServingRateLimit;
-    type InitialTxRateLimit = InitialTxRateLimit;
-    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -397,7 +393,6 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
@@ -418,6 +413,7 @@ impl pallet_subtensor::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type RateLimiting = NoRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
 }
@@ -455,6 +451,42 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
     fn purge_netuid(_netuid: NetUid) {}
+}
+
+pub struct NoRateLimiting;
+
+impl RateLimitingInterface for NoRateLimiting {
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
+    type CallMetadata = RuntimeCall;
+    type Limit = BlockNumber;
+    type Scope = subtensor_runtime_common::NetUid;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+
+    fn rate_limit<TargetArg>(_target: TargetArg, _scope: Option<Self::Scope>) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+    ) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn set_last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+        _block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+    }
 }
 
 parameter_types! {
@@ -693,11 +725,6 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
     SubtokenEnabled::<Test>::insert(netuid, true);
     netuid
-}
-
-#[allow(dead_code)]
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
 }
 
 #[allow(dead_code)]

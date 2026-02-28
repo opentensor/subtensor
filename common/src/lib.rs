@@ -19,6 +19,7 @@ pub use evm_context::*;
 
 mod currency;
 mod evm_context;
+pub mod rate_limiting;
 
 /// Balance of an account.
 pub type Balance = u64;

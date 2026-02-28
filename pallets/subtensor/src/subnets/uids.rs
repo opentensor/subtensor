@@ -1,9 +1,13 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
-use sp_runtime::Percent;
+use rate_limiting_interface::RateLimitingInterface;
+use sp_runtime::{Percent, SaturatedConversion};
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use sp_std::{cmp, vec};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{
+    MechId, NetUid,
+    rate_limiting::{self, RateLimitUsageKey},
+};
 
 impl<T: Config> Pallet<T> {
     /// Returns the number of filled slots on a network.
@@ -112,9 +116,20 @@ impl<T: Config> Pallet<T> {
         Emission::<T>::mutate(netuid, |v| v.push(0.into()));
         Consensus::<T>::mutate(netuid, |v| v.push(0));
         for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+            let mecid: MechId = mecid.into();
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
             Incentive::<T>::mutate(netuid_index, |v| v.push(0));
             Self::set_last_update_for_uid(netuid_index, next_uid, block_number);
+            let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                netuid,
+                mecid,
+                uid: next_uid,
+            };
+            T::RateLimiting::set_last_seen(
+                rate_limiting::GROUP_WEIGHTS_SET,
+                Some(usage),
+                Some(block_number.saturated_into()),
+            );
         }
         Dividends::<T>::mutate(netuid, |v| v.push(0));
         ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
@@ -265,19 +280,54 @@ impl<T: Config> Pallet<T> {
 
             // Update incentives/lastupdates for mechanisms
             for mecid in 0..mechanisms_count {
-                let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+                let mecid: MechId = mecid.into();
+                let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
                 let incentive = Incentive::<T>::get(netuid_index);
                 let lastupdate = LastUpdate::<T>::get(netuid_index);
                 let mut trimmed_incentive = Vec::with_capacity(trimmed_uids.len());
                 let mut trimmed_lastupdate = Vec::with_capacity(trimmed_uids.len());
+                let mut trimmed_last_seen = Vec::with_capacity(trimmed_uids.len());
 
                 for uid in &trimmed_uids {
                     trimmed_incentive.push(incentive.get(*uid).cloned().unwrap_or_default());
                     trimmed_lastupdate.push(lastupdate.get(*uid).cloned().unwrap_or_default());
+                    let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                        netuid,
+                        mecid,
+                        uid: *uid as u16,
+                    };
+                    trimmed_last_seen.push(T::RateLimiting::last_seen(
+                        rate_limiting::GROUP_WEIGHTS_SET,
+                        Some(usage),
+                    ));
                 }
 
                 Incentive::<T>::insert(netuid_index, trimmed_incentive);
                 LastUpdate::<T>::insert(netuid_index, trimmed_lastupdate);
+
+                for uid in 0..current_n {
+                    let usage = RateLimitUsageKey::SubnetMechanismNeuron { netuid, mecid, uid };
+                    T::RateLimiting::set_last_seen(
+                        rate_limiting::GROUP_WEIGHTS_SET,
+                        Some(usage),
+                        None,
+                    );
+                }
+                for (new_uid, last_seen) in trimmed_last_seen.into_iter().enumerate() {
+                    let Some(block) = last_seen else {
+                        continue;
+                    };
+                    let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                        netuid,
+                        mecid,
+                        uid: new_uid as u16,
+                    };
+                    T::RateLimiting::set_last_seen(
+                        rate_limiting::GROUP_WEIGHTS_SET,
+                        Some(usage),
+                        Some(block),
+                    );
+                }
             }
 
             // Create mapping from old uid to new compressed uid

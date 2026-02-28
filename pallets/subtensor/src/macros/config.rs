@@ -8,6 +8,7 @@ mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
+    use rate_limiting_interface::RateLimitingInterface;
     use subtensor_runtime_common::AuthorshipInfo;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
@@ -56,6 +57,17 @@ mod config {
 
         ///  Interface to clean commitments on network dissolution.
         type CommitmentsInterface: CommitmentsInterface;
+
+        /// Read-only interface for querying rate limiting configuration and usage.
+        type RateLimiting: RateLimitingInterface<
+                GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+                CallMetadata = <Self as Config>::RuntimeCall,
+                Limit = BlockNumberFor<Self>,
+                Scope = subtensor_runtime_common::NetUid,
+                UsageKey = subtensor_runtime_common::rate_limiting::RateLimitUsageKey<
+                    Self::AccountId,
+                >,
+            >;
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;
@@ -175,15 +187,6 @@ mod config {
         /// Initial weights version key.
         #[pallet::constant]
         type InitialWeightsVersionKey: Get<u64>;
-        /// Initial serving rate limit.
-        #[pallet::constant]
-        type InitialServingRateLimit: Get<u64>;
-        /// Initial transaction rate limit.
-        #[pallet::constant]
-        type InitialTxRateLimit: Get<u64>;
-        /// Initial delegate take transaction rate limit.
-        #[pallet::constant]
-        type InitialTxDelegateTakeRateLimit: Get<u64>;
         /// Initial childkey take transaction rate limit.
         #[pallet::constant]
         type InitialTxChildKeyTakeRateLimit: Get<u64>;
@@ -202,9 +205,6 @@ mod config {
         /// Initial lock reduction interval.
         #[pallet::constant]
         type InitialNetworkLockReductionInterval: Get<u64>;
-        /// Initial network creation rate limit
-        #[pallet::constant]
-        type InitialNetworkRateLimit: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
         type KeySwapCost: Get<u64>;

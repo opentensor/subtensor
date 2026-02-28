@@ -52,27 +52,14 @@ impl<T: Config> Pallet<T> {
         let max_take = MaxDelegateTake::<T>::get();
         ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
-        // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_delegate_take_rate_limit(
-                Self::get_last_tx_block_delegate_take(&hotkey),
-                block
-            ),
-            Error::<T>::DelegateTxRateLimitExceeded
-        );
-
-        // Set last block for rate limiting
-        Self::set_last_tx_block_delegate_take(&hotkey, block);
-
-        // --- 6. Set the new take value.
+        // --- 5. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
 
-        // --- 7. Emit the take value.
+        // --- 6. Emit the take value.
         log::debug!("TakeIncreased( coldkey:{coldkey:?}, hotkey:{hotkey:?}, take:{take:?} )");
         Self::deposit_event(Event::TakeIncreased(coldkey, hotkey, take));
 
-        // --- 8. Ok and return.
+        // --- 7. Ok and return.
         Ok(())
     }
 }

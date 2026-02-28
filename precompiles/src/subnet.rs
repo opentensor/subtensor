@@ -5,11 +5,12 @@ use frame_support::traits::ConstU32;
 use frame_support::traits::IsSubType;
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
+use pallet_rate_limiting::{RateLimitKind, RateLimitTarget};
 use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
-use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable};
+use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, SaturatedConversion};
 use sp_std::vec;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{Currency, NetUid, rate_limiting};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -22,15 +23,18 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_admin_utils::Config
-        + pallet_shield::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
@@ -51,14 +55,17 @@ where
         + pallet_subtensor::Config
         + pallet_shield::Config
         + pallet_admin_utils::Config
-        + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + pallet_rate_limiting::Config<
+            LimitScope = NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_subtensor_proxy::Config
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
@@ -164,9 +171,9 @@ where
     #[precompile::public("getServingRateLimit(uint16)")]
     #[precompile::view]
     fn get_serving_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::ServingRateLimit::<R>::get(NetUid::from(
-            netuid,
-        )))
+        Ok(pallet_subtensor::Pallet::<R>::get_serving_rate_limit(
+            NetUid::from(netuid),
+        ))
     }
 
     #[precompile::public("setServingRateLimit(uint16,uint64)")]
@@ -176,9 +183,10 @@ where
         netuid: u16,
         serving_rate_limit: u64,
     ) -> EvmResult<()> {
-        let call = pallet_admin_utils::Call::<R>::sudo_set_serving_rate_limit {
-            netuid: netuid.into(),
-            serving_rate_limit,
+        let call = pallet_rate_limiting::Call::<R>::set_rate_limit {
+            target: RateLimitTarget::Group(subtensor_runtime_common::rate_limiting::GROUP_SERVE),
+            scope: Some(netuid.into()),
+            limit: RateLimitKind::Exact(serving_rate_limit.saturated_into()),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(
@@ -268,9 +276,11 @@ where
     #[precompile::public("getWeightsSetRateLimit(uint16)")]
     #[precompile::view]
     fn get_weights_set_rate_limit(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u64> {
-        Ok(pallet_subtensor::WeightsSetRateLimit::<R>::get(
-            NetUid::from(netuid),
-        ))
+        let target = RateLimitTarget::Group(rate_limiting::GROUP_WEIGHTS_SET);
+        let scope = Some(NetUid::from(netuid));
+        let limit =
+            pallet_rate_limiting::Pallet::<R>::resolved_limit(&target, &scope).unwrap_or_default();
+        Ok(limit.saturated_into())
     }
 
     #[precompile::public("setWeightsSetRateLimit(uint16,uint64)")]

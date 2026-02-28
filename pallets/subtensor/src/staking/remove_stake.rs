@@ -1,7 +1,13 @@
-use super::*;
+use rate_limiting_interface::RateLimitingInterface;
+use sp_runtime::Saturating;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{
+    AlphaCurrency, Currency, NetUid, TaoCurrency,
+    rate_limiting::{self, RateLimitUsageKey},
+};
 use subtensor_swap_interface::{Order, SwapHandler};
+
+use super::*;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -226,6 +232,7 @@ impl<T: Config> Pallet<T> {
         // 3. Get all netuids.
         let netuids = Self::get_all_subnet_netuids();
         log::debug!("All subnet netuids: {netuids:?}");
+        let staking_ops_span = T::RateLimiting::rate_limit(rate_limiting::GROUP_STAKING_OPS, None);
 
         // 4. Iterate through all subnets and remove stake.
         let mut total_tao_unstaked = TaoCurrency::ZERO;
@@ -235,6 +242,25 @@ impl<T: Config> Pallet<T> {
             }
             // If not Root network.
             if !netuid.is_root() {
+                // Manually filter out rate-limited subnets.
+                if let Some(span) = staking_ops_span
+                    && !span.is_zero()
+                {
+                    let usage_key = RateLimitUsageKey::ColdkeyHotkeySubnet {
+                        coldkey: coldkey.clone(),
+                        hotkey: hotkey.clone(),
+                        netuid,
+                    };
+                    if let Some(last_seen) = T::RateLimiting::last_seen(
+                        rate_limiting::GROUP_STAKING_OPS,
+                        Some(usage_key),
+                    ) {
+                        let current = <frame_system::Pallet<T>>::block_number();
+                        if current.saturating_sub(last_seen) < span {
+                            continue;
+                        }
+                    }
+                }
                 // Ensure that the hotkey has enough stake to withdraw.
                 let alpha_unstaked =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -280,7 +306,6 @@ impl<T: Config> Pallet<T> {
             NetUid::ROOT,
             total_tao_unstaked,
             T::SwapInterface::max_price(),
-            false, // no limit for Root subnet
             false,
         )?;
 

@@ -8234,6 +8234,7 @@ dependencies = [
  "num-traits",
  "pallet-commitments",
  "pallet-drand",
+ "pallet-rate-limiting",
  "pallet-shield",
  "pallet-subtensor",
  "pallet-subtensor-swap-rpc",
@@ -8354,6 +8355,8 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-preimage",
+ "pallet-rate-limiting",
+ "pallet-rate-limiting-runtime-api",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -8377,6 +8380,7 @@ dependencies = [
  "precompile-utils",
  "rand_chacha 0.3.1",
  "scale-info",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
  "smallvec",
@@ -8783,6 +8787,7 @@ dependencies = [
  "pallet-subtensor",
  "pallet-subtensor-swap",
  "parity-scale-codec",
+ "rate-limiting-interface",
  "scale-info",
  "sp-consensus-aura",
  "sp-consensus-grandpa",
@@ -10264,6 +10269,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-rate-limiting"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "rate-limiting-interface",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "subtensor-macros",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "pallet-rate-limiting-rpc"
+version = "0.1.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-rate-limiting-runtime-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "pallet-rate-limiting-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "pallet-rate-limiting",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-std",
+ "subtensor-macros",
+ "subtensor-runtime-common",
+]
+
+[[package]]
 name = "pallet-recovery"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=71629fd93b6c12a362a5cfb6331accef9b2b2b61#71629fd93b6c12a362a5cfb6331accef9b2b2b61"
@@ -10752,6 +10802,7 @@ dependencies = [
  "polkadot-runtime-common",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
+ "rate-limiting-interface",
  "safe-math",
  "scale-info",
  "serde",
@@ -13648,6 +13699,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
  "rand_core 0.9.3",
+]
+
+[[package]]
+name = "rate-limiting-interface"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-std",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -18022,6 +18085,7 @@ dependencies = [
  "pallet-subtensor-utility",
  "pallet-timestamp",
  "parity-scale-codec",
+ "rate-limiting-interface",
  "scale-info",
  "sp-core",
  "sp-io",
@@ -18094,6 +18158,7 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
+ "pallet-rate-limiting",
  "pallet-shield",
  "pallet-subtensor",
  "pallet-subtensor-proxy",
@@ -18168,6 +18233,7 @@ dependencies = [
  "pallet-subtensor-swap",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "rate-limiting-interface",
  "scale-info",
  "smallvec",
  "sp-consensus-aura",

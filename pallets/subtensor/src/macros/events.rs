@@ -75,8 +75,6 @@ mod events {
         ValidatorPruneLenSet(NetUid, u64),
         /// the scaling law power has been set for a subnet.
         ScalingLawPowerSet(NetUid, u16),
-        /// weights set rate limit has been set for a subnet.
-        WeightsSetRateLimitSet(NetUid, u64),
         /// immunity period is set for a subnet.
         ImmunityPeriodSet(NetUid, u16),
         /// bonds moving average is set for a subnet.
@@ -101,24 +99,16 @@ mod events {
         MinDifficultySet(NetUid, u64),
         /// setting max difficulty on a network.
         MaxDifficultySet(NetUid, u64),
-        /// setting the prometheus serving rate limit.
-        ServingRateLimitSet(NetUid, u64),
         /// setting burn on a network.
         BurnSet(NetUid, TaoCurrency),
         /// setting max burn on a network.
         MaxBurnSet(NetUid, TaoCurrency),
         /// setting min burn on a network.
         MinBurnSet(NetUid, TaoCurrency),
-        /// setting the transaction rate limit.
-        TxRateLimitSet(u64),
-        /// setting the delegate take transaction rate limit.
-        TxDelegateTakeRateLimitSet(u64),
         /// setting the childkey take transaction rate limit.
         TxChildKeyTakeRateLimitSet(u64),
         /// setting the admin freeze window length (last N blocks of tempo)
         AdminFreezeWindowSet(u16),
-        /// setting the owner hyperparameter rate limit in epochs
-        OwnerHyperparamRateLimitSet(u16),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
         /// maximum childkey take set
@@ -143,8 +133,6 @@ mod events {
         Faucet(T::AccountId, u64),
         /// the subnet owner cut is set.
         SubnetOwnerCutSet(u16),
-        /// the network creation rate limit is set.
-        NetworkRateLimitSet(u64),
         /// the network immunity period is set.
         NetworkImmunityPeriodSet(u64),
         /// the start call delay is set.

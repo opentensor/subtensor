@@ -1228,7 +1228,6 @@ fn test_add_stake_fees_go_to_block_builder() {
         let (_, swap_fee) = mock::swap_tao_to_alpha(sn.subnets[0].netuid, stake_amount.into());
 
         SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, stake_amount * 10_u64);
-        remove_stake_rate_limit_for_tests(&sn.hotkeys[0], &sn.coldkey, sn.subnets[0].netuid);
 
         // Stake
         let balance_before = Balances::free_balance(sn.coldkey);

@@ -61,6 +61,24 @@ mod subnet;
 mod uid_lookup;
 mod voting_power;
 
+pub use crate::extensions::PrecompileTxExtensionProvider;
+
+pub trait PrecompileRuntime:
+    Send + Sync + scale_info::TypeInfo + PrecompileTxExtensionProvider
+where
+    <Self as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+}
+
+impl<T> PrecompileRuntime for T
+where
+    T: Send + Sync + scale_info::TypeInfo + PrecompileTxExtensionProvider + frame_system::Config,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+}
+
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>
@@ -73,17 +91,20 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -110,17 +131,20 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -178,17 +202,20 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
-        + pallet_shield::Config
+        + pallet_rate_limiting::Config<
+            LimitScope = subtensor_runtime_common::NetUid,
+            GroupId = subtensor_runtime_common::rate_limiting::GroupId,
+            RuntimeCall = <R as frame_system::Config>::RuntimeCall,
+        > + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + ByteArray + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
         + From<pallet_proxy::Call<R>>
         + From<pallet_balances::Call<R>>
         + From<pallet_admin_utils::Call<R>>
+        + From<pallet_rate_limiting::Call<R>>
         + From<pallet_crowdloan::Call<R>>
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>

@@ -60,13 +60,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Sets the network rate limit and emit the `NetworkRateLimitSet` event
-    ///
-    pub fn set_network_rate_limit(limit: u64) {
-        NetworkRateLimit::<T>::set(limit);
-        Self::deposit_event(Event::NetworkRateLimitSet(limit));
-    }
-
     /// Checks if registrations are allowed for a given subnet.
     ///
     /// This function retrieves the subnet hyperparameters for the specified subnet and checks the
@@ -133,12 +126,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubNetRegistrationDisabled
         );
 
-        // --- 4. Rate limit for network registrations.
-        ensure!(
-            TransactionType::RegisterNetwork.passes_rate_limit::<T>(&coldkey),
-            Error::<T>::NetworkTxRateLimitExceeded
-        );
-
         // --- 5. Check if we need to prune a subnet (if at SubnetLimit).
         //         But do not prune yet; we only do it after all checks pass.
         let subnet_limit = Self::get_max_subnets();
@@ -170,7 +157,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
-        Self::set_network_last_lock_block(current_block);
 
         // --- 9. If we identified a subnet to prune, do it now.
         if let Some(prune_netuid) = recycle_netuid {

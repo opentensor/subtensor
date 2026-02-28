@@ -64,14 +64,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_serving_rate_limit() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 100u64/*serving_rate_limit*/)/*sudo_set_serving_rate_limit*/;
-    }
-
-    #[benchmark]
     fn sudo_set_max_difficulty() {
         // disable admin freeze window
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
@@ -95,19 +87,6 @@ mod benchmarks {
 
         #[extrinsic_call]
 		_(RawOrigin::Root, 1u16.into()/*netuid*/, 1000u64/*min_difficulty*/)/*sudo_set_min_difficulty*/;
-    }
-
-    #[benchmark]
-    fn sudo_set_weights_set_rate_limit() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        pallet_subtensor::Pallet::<T>::init_new_network(
-            1u16.into(), /*netuid*/
-            1u16,        /*tempo*/
-        );
-
-        #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 3u64/*rate_limit*/)/*sudo_set_weights_set_rate_limit*/;
     }
 
     #[benchmark]
@@ -408,12 +387,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_tx_rate_limit() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, 100u64);
-    }
-
-    #[benchmark]
     fn sudo_set_total_issuance() {
         #[extrinsic_call]
         _(RawOrigin::Root, 100u64.into());
@@ -438,12 +411,6 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_nominator_min_required_stake() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, 100u64);
-    }
-
-    #[benchmark]
-    fn sudo_set_tx_delegate_take_rate_limit() {
         #[extrinsic_call]
         _(RawOrigin::Root, 100u64);
     }
@@ -601,14 +568,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_owner_hparam_rate_limit() {
-        // disable admin freeze window
-        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
-        #[extrinsic_call]
-		_(RawOrigin::Root, 2u16/*epochs*/)/*sudo_set_owner_hparam_rate_limit*/;
-    }
-
-    #[benchmark]
     fn sudo_set_owner_immune_neuron_limit() {
         // disable admin freeze window
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
@@ -651,5 +610,9 @@ mod benchmarks {
         ); /* sudo_set_min_non_immune_uids() */
     }
 
-    //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
+    impl_benchmark_test_suite!(
+        AdminUtils,
+        crate::tests::mock::new_test_ext(),
+        crate::tests::mock::Test
+    );
 }

@@ -22,13 +22,15 @@ use frame_support::{
 use crate::migrations::migrate_storage;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
+use rate_limiting_interface::RateLimitingInterface;
 use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
+use sp_runtime::SaturatedConversion;
 use sp_runtime::{traits::Hash, traits::Zero};
 use substrate_fixed::types::extra::U2;
 use substrate_fixed::types::{I96F32, U64F64};
-use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency, rate_limiting};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -824,317 +826,6 @@ fn test_migrate_remove_commitments_rate_limit() {
         );
 
         assert!(!weight.is_zero(), "Migration weight should be non-zero");
-    });
-}
-
-#[test]
-fn test_migrate_network_last_registered() {
-    new_test_ext(1).execute_with(|| {
-        // ------------------------------
-        // Step 1: Simulate Old Storage Entry
-        // ------------------------------
-        const MIGRATION_NAME: &str = "migrate_network_last_registered";
-
-        let pallet_name = "SubtensorModule";
-        let storage_name = "NetworkLastRegistered";
-        let pallet_name_hash = twox_128(pallet_name.as_bytes());
-        let storage_name_hash = twox_128(storage_name.as_bytes());
-        let prefix = [pallet_name_hash, storage_name_hash].concat();
-
-        let mut full_key = prefix.clone();
-
-        let original_value: u64 = 123;
-        put_raw(&full_key, &original_value.encode());
-
-        let stored_before = get_raw(&full_key).expect("Expected RateLimit to exist");
-        assert_eq!(
-            u64::decode(&mut &stored_before[..]).expect("Failed to decode RateLimit"),
-            original_value
-        );
-
-        assert!(
-            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should not have run yet"
-        );
-
-        // ------------------------------
-        // Step 2: Run the Migration
-        // ------------------------------
-        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
-        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
-
-        assert!(
-            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should be marked as completed"
-        );
-
-        // ------------------------------
-        // Step 3: Verify Migration Effects
-        // ------------------------------
-
-        assert_eq!(
-            SubtensorModule::get_network_last_lock_block(),
-            original_value
-        );
-        assert_eq!(
-            get_raw(&full_key),
-            None,
-            "RateLimit storage should have been cleared"
-        );
-
-        assert!(!weight.is_zero(), "Migration weight should be non-zero");
-    });
-}
-
-#[allow(deprecated)]
-#[test]
-fn test_migrate_last_block_tx() {
-    new_test_ext(1).execute_with(|| {
-        // ------------------------------
-        // Step 1: Simulate Old Storage Entry
-        // ------------------------------
-        const MIGRATION_NAME: &str = "migrate_last_tx_block";
-
-        let test_account: U256 = U256::from(1);
-        let original_value: u64 = 123;
-
-        LastTxBlock::<Test>::insert(test_account, original_value);
-
-        assert!(
-            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should not have run yet"
-        );
-
-        // ------------------------------
-        // Step 2: Run the Migration
-        // ------------------------------
-        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
-        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
-
-        assert!(
-            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should be marked as completed"
-        );
-
-        // ------------------------------
-        // Step 3: Verify Migration Effects
-        // ------------------------------
-
-        assert_eq!(
-            SubtensorModule::get_last_tx_block(&test_account),
-            original_value
-        );
-        assert!(
-            !LastTxBlock::<Test>::contains_key(test_account),
-            "RateLimit storage should have been cleared"
-        );
-
-        assert!(!weight.is_zero(), "Migration weight should be non-zero");
-    });
-}
-
-#[allow(deprecated)]
-#[test]
-fn test_migrate_last_tx_block_childkey_take() {
-    new_test_ext(1).execute_with(|| {
-        // ------------------------------
-        // Step 1: Simulate Old Storage Entry
-        // ------------------------------
-        const MIGRATION_NAME: &str = "migrate_last_tx_block_childkey_take";
-
-        let test_account: U256 = U256::from(1);
-        let original_value: u64 = 123;
-
-        LastTxBlockChildKeyTake::<Test>::insert(test_account, original_value);
-
-        assert!(
-            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should not have run yet"
-        );
-
-        // ------------------------------
-        // Step 2: Run the Migration
-        // ------------------------------
-        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
-        migrate_obsolete_rate_limiting_last_blocks_storage::<Test>();
-
-        assert!(
-            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should be marked as completed"
-        );
-
-        // ------------------------------
-        // Step 3: Verify Migration Effects
-        // ------------------------------
-
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_childkey_take(&test_account),
-            original_value
-        );
-        assert!(
-            !LastTxBlockChildKeyTake::<Test>::contains_key(test_account),
-            "RateLimit storage should have been cleared"
-        );
-
-        assert!(!weight.is_zero(), "Migration weight should be non-zero");
-    });
-}
-
-#[allow(deprecated)]
-#[test]
-fn test_migrate_last_tx_block_delegate_take() {
-    new_test_ext(1).execute_with(|| {
-        // ------------------------------
-        // Step 1: Simulate Old Storage Entry
-        // ------------------------------
-        const MIGRATION_NAME: &str = "migrate_last_tx_block_delegate_take";
-
-        let test_account: U256 = U256::from(1);
-        let original_value: u64 = 123;
-
-        LastTxBlockDelegateTake::<Test>::insert(test_account, original_value);
-
-        assert!(
-            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should not have run yet"
-        );
-
-        // ------------------------------
-        // Step 2: Run the Migration
-        // ------------------------------
-        let weight = crate::migrations::migrate_rate_limiting_last_blocks::
-        migrate_last_tx_block_delegate_take::<Test>();
-
-        assert!(
-            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
-            "Migration should be marked as completed"
-        );
-
-        // ------------------------------
-        // Step 3: Verify Migration Effects
-        // ------------------------------
-
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&test_account),
-            original_value
-        );
-        assert!(
-            !LastTxBlockDelegateTake::<Test>::contains_key(test_account),
-            "RateLimit storage should have been cleared"
-        );
-
-        assert!(!weight.is_zero(), "Migration weight should be non-zero");
-    });
-}
-
-#[test]
-fn test_migrate_rate_limit_keys() {
-    new_test_ext(1).execute_with(|| {
-        const MIGRATION_NAME: &[u8] = b"migrate_rate_limit_keys";
-        let prefix = {
-            let pallet_prefix = twox_128("SubtensorModule".as_bytes());
-            let storage_prefix = twox_128("LastRateLimitedBlock".as_bytes());
-            [pallet_prefix, storage_prefix].concat()
-        };
-
-        // Seed new-format entries that must survive the migration untouched.
-        let new_last_account = U256::from(10);
-        SubtensorModule::set_last_tx_block(&new_last_account, 555);
-        let new_child_account = U256::from(11);
-        SubtensorModule::set_last_tx_block_childkey(&new_child_account, 777);
-        let new_delegate_account = U256::from(12);
-        SubtensorModule::set_last_tx_block_delegate_take(&new_delegate_account, 888);
-
-        // Legacy NetworkLastRegistered entry (index 1)
-        let mut legacy_network_key = prefix.clone();
-        legacy_network_key.push(1u8);
-        sp_io::storage::set(&legacy_network_key, &111u64.encode());
-
-        // Legacy LastTxBlock entry (index 2) for an account that already has a new-format value.
-        let mut legacy_last_key = prefix.clone();
-        legacy_last_key.push(2u8);
-        legacy_last_key.extend_from_slice(&new_last_account.encode());
-        sp_io::storage::set(&legacy_last_key, &666u64.encode());
-
-        // Legacy LastTxBlockChildKeyTake entry (index 3)
-        let legacy_child_account = U256::from(3);
-        ChildKeys::<Test>::insert(
-            legacy_child_account,
-            NetUid::from(0),
-            vec![(0u64, U256::from(99))],
-        );
-        let mut legacy_child_key = prefix.clone();
-        legacy_child_key.push(3u8);
-        legacy_child_key.extend_from_slice(&legacy_child_account.encode());
-        sp_io::storage::set(&legacy_child_key, &333u64.encode());
-
-        // Legacy LastTxBlockDelegateTake entry (index 4)
-        let legacy_delegate_account = U256::from(4);
-        Delegates::<Test>::insert(legacy_delegate_account, 500u16);
-        let mut legacy_delegate_key = prefix.clone();
-        legacy_delegate_key.push(4u8);
-        legacy_delegate_key.extend_from_slice(&legacy_delegate_account.encode());
-        sp_io::storage::set(&legacy_delegate_key, &444u64.encode());
-
-        let weight = crate::migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<Test>();
-        assert!(
-            HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
-            "Migration should be marked as executed"
-        );
-        assert!(!weight.is_zero(), "Migration weight should be non-zero");
-
-        // Legacy entries were migrated and cleared.
-        assert_eq!(
-            SubtensorModule::get_network_last_lock_block(),
-            111u64,
-            "Network last lock block should match migrated value"
-        );
-        assert!(
-            sp_io::storage::get(&legacy_network_key).is_none(),
-            "Legacy network entry should be cleared"
-        );
-
-        assert_eq!(
-            SubtensorModule::get_last_tx_block(&new_last_account),
-            666u64,
-            "LastTxBlock should reflect the merged legacy value"
-        );
-        assert!(
-            sp_io::storage::get(&legacy_last_key).is_none(),
-            "Legacy LastTxBlock entry should be cleared"
-        );
-
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_childkey_take(&legacy_child_account),
-            333u64,
-            "Child key take block should be migrated"
-        );
-        assert!(
-            sp_io::storage::get(&legacy_child_key).is_none(),
-            "Legacy child take entry should be cleared"
-        );
-
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&legacy_delegate_account),
-            444u64,
-            "Delegate take block should be migrated"
-        );
-        assert!(
-            sp_io::storage::get(&legacy_delegate_key).is_none(),
-            "Legacy delegate take entry should be cleared"
-        );
-
-        // New-format entries remain untouched.
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_childkey_take(&new_child_account),
-            777u64,
-            "Existing child take entry should be preserved"
-        );
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&new_delegate_account),
-            888u64,
-            "Existing delegate take entry should be preserved"
-        );
     });
 }
 
@@ -2020,69 +1711,7 @@ fn test_migrate_subnet_limit_to_default() {
 }
 
 #[test]
-fn test_migrate_network_lock_reduction_interval_and_decay() {
-    new_test_ext(0).execute_with(|| {
-        const FOUR_DAYS: u64 = 28_800;
-        const EIGHT_DAYS: u64 = 57_600;
-        const ONE_WEEK_BLOCKS: u64 = 50_400;
-
-        // ── pre ──────────────────────────────────────────────────────────────
-        assert!(
-            !HasMigrationRun::<Test>::get(b"migrate_network_lock_reduction_interval".to_vec()),
-            "HasMigrationRun should be false before migration"
-        );
-
-        // ensure current_block > 0
-        step_block(1);
-        let current_block_before = Pallet::<Test>::get_current_block_as_u64();
-
-        // ── run migration ────────────────────────────────────────────────────
-        let weight = crate::migrations::migrate_network_lock_reduction_interval::migrate_network_lock_reduction_interval::<Test>();
-        assert!(!weight.is_zero(), "migration weight should be > 0");
-
-        // ── params & flags ───────────────────────────────────────────────────
-        assert_eq!(NetworkLockReductionInterval::<Test>::get(), EIGHT_DAYS);
-        assert_eq!(NetworkRateLimit::<Test>::get(), FOUR_DAYS);
-        assert_eq!(
-            Pallet::<Test>::get_network_last_lock(),
-            1_000_000_000_000u64.into(), // 1000 TAO in rao
-            "last_lock should be 1_000_000_000_000 rao"
-        );
-
-        // last_lock_block should be set one week in the future
-        let last_lock_block = Pallet::<Test>::get_network_last_lock_block();
-        let expected_block = current_block_before + ONE_WEEK_BLOCKS;
-        assert_eq!(
-            last_lock_block,
-            expected_block,
-            "last_lock_block should be current + ONE_WEEK_BLOCKS"
-        );
-
-        // registration start block should match the same future block
-        assert_eq!(
-            NetworkRegistrationStartBlock::<Test>::get(),
-            expected_block,
-            "NetworkRegistrationStartBlock should equal last_lock_block"
-        );
-
-        // lock cost should be 2000 TAO immediately after migration
-        let lock_cost_now = Pallet::<Test>::get_network_lock_cost();
-        assert_eq!(
-            lock_cost_now,
-            2_000_000_000_000u64.into(),
-            "lock cost should be 2000 TAO right after migration"
-        );
-
-        assert!(
-            HasMigrationRun::<Test>::get(b"migrate_network_lock_reduction_interval".to_vec()),
-            "HasMigrationRun should be true after migration"
-        );
-    });
-}
-
-#[test]
 fn test_migrate_restore_subnet_locked_65_128() {
-    use sp_runtime::traits::SaturatedConversion;
     new_test_ext(0).execute_with(|| {
         let name = b"migrate_restore_subnet_locked".to_vec();
         assert!(
@@ -2202,116 +1831,6 @@ fn test_migrate_restore_subnet_locked_65_128() {
         assert_eq!(
             before, after,
             "re-running the migration should not change storage"
-        );
-    });
-}
-
-#[test]
-fn test_migrate_network_lock_cost_2500_sets_price_and_decay() {
-    new_test_ext(0).execute_with(|| {
-        // ── constants ───────────────────────────────────────────────────────
-        const RAO_PER_TAO: u64 = 1_000_000_000;
-        const TARGET_COST_TAO: u64 = 2_500;
-        const TARGET_COST_RAO: u64 = TARGET_COST_TAO * RAO_PER_TAO;
-        const NEW_LAST_LOCK_RAO: u64 = (TARGET_COST_TAO / 2) * RAO_PER_TAO;
-
-        let migration_key = b"migrate_network_lock_cost_2500".to_vec();
-
-        // ── pre ──────────────────────────────────────────────────────────────
-        assert!(
-            !HasMigrationRun::<Test>::get(migration_key.clone()),
-            "HasMigrationRun should be false before migration"
-        );
-
-        // Ensure current_block > 0 so mult == 2 in get_network_lock_cost()
-        step_block(1);
-        let current_block_before = Pallet::<Test>::get_current_block_as_u64();
-
-        // Snapshot interval to ensure migration doesn't change it
-        let interval_before = NetworkLockReductionInterval::<Test>::get();
-
-        // ── run migration ────────────────────────────────────────────────────
-        let weight = crate::migrations::migrate_network_lock_cost_2500::migrate_network_lock_cost_2500::<Test>();
-        assert!(!weight.is_zero(), "migration weight should be > 0");
-
-        // ── asserts: params & flags ─────────────────────────────────────────
-        assert_eq!(
-            Pallet::<Test>::get_network_last_lock(),
-            NEW_LAST_LOCK_RAO.into(),
-            "last_lock should be set to 1,250 TAO (in rao)"
-        );
-        assert_eq!(
-            Pallet::<Test>::get_network_last_lock_block(),
-            current_block_before,
-            "last_lock_block should be set to the current block"
-        );
-
-        // Lock cost should be exactly 2,500 TAO immediately after migration
-        let lock_cost_now = Pallet::<Test>::get_network_lock_cost();
-        assert_eq!(
-            lock_cost_now,
-            TARGET_COST_RAO.into(),
-            "lock cost should be 2,500 TAO right after migration"
-        );
-
-        // Interval should be unchanged by this migration
-        assert_eq!(
-            NetworkLockReductionInterval::<Test>::get(),
-            interval_before,
-            "lock reduction interval should not be modified by this migration"
-        );
-
-        assert!(
-            HasMigrationRun::<Test>::get(migration_key.clone()),
-            "HasMigrationRun should be true after migration"
-        );
-
-        // ── decay check (1 block later) ─────────────────────────────────────
-        // Expected: cost = max(min_lock, 2*L - floor(L / eff_interval) * delta_blocks)
-        let eff_interval = Pallet::<Test>::get_lock_reduction_interval();
-        let per_block_decrement: u64 = if eff_interval == 0 {
-            0
-        } else {
-            NEW_LAST_LOCK_RAO / eff_interval
-        };
-
-        let min_lock_rao: u64 = Pallet::<Test>::get_network_min_lock().to_u64();
-
-        step_block(1);
-        let expected_after_1: u64 =
-            core::cmp::max(min_lock_rao, TARGET_COST_RAO - per_block_decrement);
-        let lock_cost_after_1 = Pallet::<Test>::get_network_lock_cost();
-        assert_eq!(
-            lock_cost_after_1,
-            expected_after_1.into(),
-            "lock cost should decay by one per-block step after 1 block"
-        );
-
-        // ── idempotency: running the migration again should do nothing ──────
-        let last_lock_before_rerun = Pallet::<Test>::get_network_last_lock();
-        let last_lock_block_before_rerun = Pallet::<Test>::get_network_last_lock_block();
-        let cost_before_rerun = Pallet::<Test>::get_network_lock_cost();
-
-        let _weight2 = crate::migrations::migrate_network_lock_cost_2500::migrate_network_lock_cost_2500::<Test>();
-
-        assert!(
-            HasMigrationRun::<Test>::get(migration_key.clone()),
-            "HasMigrationRun remains true on second run"
-        );
-        assert_eq!(
-            Pallet::<Test>::get_network_last_lock(),
-            last_lock_before_rerun,
-            "second run should not modify last_lock"
-        );
-        assert_eq!(
-            Pallet::<Test>::get_network_last_lock_block(),
-            last_lock_block_before_rerun,
-            "second run should not modify last_lock_block"
-        );
-        assert_eq!(
-            Pallet::<Test>::get_network_lock_cost(),
-            cost_before_rerun,
-            "second run should not change current lock cost"
         );
     });
 }
@@ -2547,15 +2066,25 @@ fn test_migrate_clear_rank_trust_pruning_maps_removes_entries() {
     });
 }
 fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
+    let mut register_network = |hotkey: U256, coldkey: U256| {
+        let netuid = add_dynamic_network_without_emission_block(&hotkey, &coldkey);
+        <Test as crate::Config>::RateLimiting::set_last_seen(
+            rate_limiting::GROUP_REGISTER_NETWORK,
+            None,
+            Some(SubtensorModule::get_current_block_as_u64()),
+        );
+        netuid
+    };
+
     // Register some subnets
-    let netuid0 = add_dynamic_network_without_emission_block(&U256::from(0), &U256::from(0));
-    let netuid1 = add_dynamic_network_without_emission_block(&U256::from(1), &U256::from(1));
-    let netuid2 = add_dynamic_network_without_emission_block(&U256::from(2), &U256::from(2));
+    let netuid0 = register_network(U256::from(0), U256::from(0));
+    let netuid1 = register_network(U256::from(1), U256::from(1));
+    let netuid2 = register_network(U256::from(2), U256::from(2));
     let inactive_netuids = vec![netuid0, netuid1, netuid2];
     // Add active subnets
-    let netuid3 = add_dynamic_network_without_emission_block(&U256::from(3), &U256::from(3));
-    let netuid4 = add_dynamic_network_without_emission_block(&U256::from(4), &U256::from(4));
-    let netuid5 = add_dynamic_network_without_emission_block(&U256::from(5), &U256::from(5));
+    let netuid3 = register_network(U256::from(3), U256::from(3));
+    let netuid4 = register_network(U256::from(4), U256::from(4));
+    let netuid5 = register_network(U256::from(5), U256::from(5));
     let active_netuids = vec![netuid3, netuid4, netuid5];
     let netuids: Vec<NetUid> = inactive_netuids
         .iter()

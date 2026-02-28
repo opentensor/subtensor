@@ -388,7 +388,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         PendingOwnerCut::<Test>::insert(net, AlphaCurrency::from(1));
         BlocksSinceLastStep::<Test>::insert(net, 1u64);
         LastMechansimStepBlock::<Test>::insert(net, 1u64);
-        ServingRateLimit::<Test>::insert(net, 1u64);
         Rho::<Test>::insert(net, 1u16);
         AlphaSigmoidSteepness::<Test>::insert(net, 1i16);
 
@@ -399,7 +398,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         BondsMovingAverage::<Test>::insert(net, 1u64);
         BondsPenalty::<Test>::insert(net, 1u16);
         BondsResetOn::<Test>::insert(net, true);
-        WeightsSetRateLimit::<Test>::insert(net, 1u64);
         ValidatorPruneLen::<Test>::insert(net, 1u64);
         ScalingLawPower::<Test>::insert(net, 1u16);
         TargetRegistrationsPerInterval::<Test>::insert(net, 1u16);
@@ -548,7 +546,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!PendingOwnerCut::<Test>::contains_key(net));
         assert!(!BlocksSinceLastStep::<Test>::contains_key(net));
         assert!(!LastMechansimStepBlock::<Test>::contains_key(net));
-        assert!(!ServingRateLimit::<Test>::contains_key(net));
         assert!(!Rho::<Test>::contains_key(net));
         assert!(!AlphaSigmoidSteepness::<Test>::contains_key(net));
 
@@ -559,7 +556,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!BondsMovingAverage::<Test>::contains_key(net));
         assert!(!BondsPenalty::<Test>::contains_key(net));
         assert!(!BondsResetOn::<Test>::contains_key(net));
-        assert!(!WeightsSetRateLimit::<Test>::contains_key(net));
         assert!(!ValidatorPruneLen::<Test>::contains_key(net));
         assert!(!ScalingLawPower::<Test>::contains_key(net));
         assert!(!TargetRegistrationsPerInterval::<Test>::contains_key(net));

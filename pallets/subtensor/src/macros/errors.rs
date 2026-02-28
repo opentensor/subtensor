@@ -79,16 +79,13 @@ mod errors {
         SettingWeightsTooFast,
         /// A validator is attempting to set weights from a validator with incorrect weight version.
         IncorrectWeightVersionKey,
+        /// DEPRECATED
         /// An axon or prometheus serving exceeded the rate limit for a registered neuron.
         ServingRateLimitExceeded,
         /// The caller is attempting to set weights with more UIDs than allowed.
         UidsLengthExceedUidsInSubNet, // 32
         /// A transactor exceeded the rate limit for add network transaction.
         NetworkTxRateLimitExceeded,
-        /// A transactor exceeded the rate limit for delegate transaction.
-        DelegateTxRateLimitExceeded,
-        /// A transactor exceeded the rate limit for setting or swapping hotkey.
-        HotKeySetTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for staking.
         StakingRateLimitExceeded,
         /// Registration is disabled.
@@ -180,8 +177,6 @@ mod errors {
         RevealTooEarly,
         /// Attempted to batch reveal weights with mismatched vector input lenghts.
         InputLengthsUnequal,
-        /// A transactor exceeded the rate limit for setting weights.
-        CommittingWeightsTooFast,
         /// Stake amount is too low.
         AmountTooLow,
         /// Not enough liquidity.
@@ -216,8 +211,6 @@ mod errors {
         SameNetuid,
         /// The caller does not have enough balance for the operation.
         InsufficientBalance,
-        /// Too frequent staking operations
-        StakingOperationRateLimitExceeded,
         /// Invalid lease beneficiary to register the leased network.
         InvalidLeaseBeneficiary,
         /// Lease cannot end in the past.

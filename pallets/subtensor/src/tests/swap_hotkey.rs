@@ -710,64 +710,6 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_tx_rate_limit_exceeded --exact --nocapture
-#[test]
-fn test_swap_hotkey_tx_rate_limit_exceeded() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let tempo: u16 = 13;
-        let old_hotkey = U256::from(1);
-        let new_hotkey_1 = U256::from(2);
-        let new_hotkey_2 = U256::from(4);
-        let coldkey = U256::from(3);
-        let swap_cost = 1_000_000_000u64 * 2;
-
-        let tx_rate_limit = 1;
-
-        // Get the current transaction rate limit
-        let current_tx_rate_limit = SubtensorModule::get_tx_rate_limit();
-        log::info!("current_tx_rate_limit: {current_tx_rate_limit:?}");
-
-        // Set the transaction rate limit
-        SubtensorModule::set_tx_rate_limit(tx_rate_limit);
-        // assert the rate limit is set to 1000 blocks
-        assert_eq!(SubtensorModule::get_tx_rate_limit(), tx_rate_limit);
-
-        // Setup initial state
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
-
-        // Perform the first swap
-        assert_ok!(SubtensorModule::do_swap_hotkey(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            &old_hotkey,
-            &new_hotkey_1,
-            None
-        ));
-
-        // Attempt to perform another swap immediately, which should fail due to rate limit
-        assert_err!(
-            SubtensorModule::do_swap_hotkey(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                &new_hotkey_1,
-                &new_hotkey_2,
-                None
-            ),
-            Error::<Test>::HotKeySetTxRateLimitExceeded
-        );
-
-        // move in time past the rate limit
-        step_block(1001);
-        assert_ok!(SubtensorModule::do_swap_hotkey(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            &new_hotkey_1,
-            &new_hotkey_2,
-            None
-        ));
-    });
-}
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_do_swap_hotkey_err_not_owner --exact --nocapture
 #[test]
 fn test_do_swap_hotkey_err_not_owner() {
@@ -1003,7 +945,6 @@ fn test_swap_hotkey_error_cases() {
         // Set up initial state
         Owner::<Test>::insert(old_hotkey, coldkey);
         TotalNetworks::<Test>::put(1);
-        SubtensorModule::set_last_tx_block(&coldkey, 0);
 
         // Test not enough balance
         let swap_cost = SubtensorModule::get_key_swap_cost();
@@ -1377,51 +1318,6 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
 
         // Check for SubnetOwnerHotkey
         assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), new_hotkey);
-    });
-}
-
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_hotkey_swap_rate_limits --exact --nocapture
-#[test]
-fn test_swap_hotkey_swap_rate_limits() {
-    new_test_ext(1).execute_with(|| {
-        let old_hotkey = U256::from(1);
-        let new_hotkey = U256::from(2);
-        let coldkey = U256::from(3);
-        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
-
-        let last_tx_block = 123;
-        let delegate_take_block = 4567;
-        let child_key_take_block = 8910;
-
-        // Set the last tx block for the old hotkey
-        SubtensorModule::set_last_tx_block(&old_hotkey, last_tx_block);
-        // Set the last delegate take block for the old hotkey
-        SubtensorModule::set_last_tx_block_delegate_take(&old_hotkey, delegate_take_block);
-        // Set last childkey take block for the old hotkey
-        SubtensorModule::set_last_tx_block_childkey(&old_hotkey, child_key_take_block);
-
-        // Perform the swap
-        assert_ok!(SubtensorModule::do_swap_hotkey(
-            RuntimeOrigin::signed(coldkey),
-            &old_hotkey,
-            &new_hotkey,
-            None
-        ));
-
-        // Check for new hotkey
-        assert_eq!(
-            SubtensorModule::get_last_tx_block(&new_hotkey),
-            last_tx_block
-        );
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&new_hotkey),
-            delegate_take_block
-        );
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_childkey_take(&new_hotkey),
-            child_key_take_block
-        );
     });
 }
 
