@@ -2750,7 +2750,7 @@ fn test_trim_to_max_allowed_uids() {
                 NetUid::from(42),
                 new_max_n
             ),
-            pallet_subtensor::Error::<Test>::SubnetNotExists
+            Error::<Test>::SubnetDoesNotExist
         );
 
         // New max n less than lower bound
