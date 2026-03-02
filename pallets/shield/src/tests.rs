@@ -21,7 +21,7 @@ use stc_shield::MemoryShieldKeystore;
 #[test]
 fn announce_rejects_signed_origin() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), None);
+        set_authors(Some(author(1)), None);
         assert_noop!(
             MevShield::announce_next_key(RuntimeOrigin::signed(1), Some(valid_pk())),
             sp_runtime::DispatchError::BadOrigin
@@ -32,7 +32,7 @@ fn announce_rejects_signed_origin() {
 #[test]
 fn announce_shifts_next_into_current() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), Some(2));
+        set_authors(Some(author(1)), Some(author(2)));
 
         let old_next = valid_pk_b();
         NextKey::<Test>::put(old_next.clone());
@@ -49,7 +49,7 @@ fn announce_shifts_next_into_current() {
 #[test]
 fn announce_stores_key_in_author_keys() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), None);
+        set_authors(Some(author(1)), None);
         let pk = valid_pk();
 
         assert_ok!(MevShield::announce_next_key(
@@ -57,17 +57,17 @@ fn announce_stores_key_in_author_keys() {
             Some(pk.clone()),
         ));
 
-        assert_eq!(AuthorKeys::<Test>::get(1u64), Some(pk));
+        assert_eq!(AuthorKeys::<Test>::get(author(1)), Some(pk));
     });
 }
 
 #[test]
 fn announce_sets_next_key_from_next_author() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), Some(2));
+        set_authors(Some(author(1)), Some(author(2)));
 
         let pk_b = valid_pk_b();
-        AuthorKeys::<Test>::insert(2u64, pk_b.clone());
+        AuthorKeys::<Test>::insert(author(2), pk_b.clone());
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
@@ -81,7 +81,7 @@ fn announce_sets_next_key_from_next_author() {
 #[test]
 fn announce_next_key_none_when_next_author_has_no_key() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), Some(2));
+        set_authors(Some(author(1)), Some(author(2)));
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
@@ -95,7 +95,7 @@ fn announce_next_key_none_when_next_author_has_no_key() {
 #[test]
 fn announce_next_key_none_when_no_next_author() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), None);
+        set_authors(Some(author(1)), None);
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
@@ -109,7 +109,7 @@ fn announce_next_key_none_when_no_next_author() {
 #[test]
 fn announce_rejects_bad_pk_length() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), None);
+        set_authors(Some(author(1)), None);
         let bad_pk: ShieldPublicKey = BoundedVec::truncate_from(vec![0x01; 100]);
 
         assert_noop!(
@@ -122,12 +122,12 @@ fn announce_rejects_bad_pk_length() {
 #[test]
 fn announce_none_pk_removes_author_key() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(1), None);
-        AuthorKeys::<Test>::insert(1u64, valid_pk());
+        set_authors(Some(author(1)), None);
+        AuthorKeys::<Test>::insert(author(1), valid_pk());
 
         assert_ok!(MevShield::announce_next_key(RuntimeOrigin::none(), None));
 
-        assert!(AuthorKeys::<Test>::get(1u64).is_none());
+        assert!(AuthorKeys::<Test>::get(author(1)).is_none());
     });
 }
 
@@ -342,7 +342,7 @@ mod migration_tests {
 
             // Current storage that must survive.
             NextKey::<Test>::put(valid_pk());
-            AuthorKeys::<Test>::insert(1u64, valid_pk_b());
+            AuthorKeys::<Test>::insert(author(1), valid_pk_b());
 
             // Sanity: legacy values exist.
             assert_eq!(count_keys("Submissions"), 5);
@@ -358,7 +358,7 @@ mod migration_tests {
 
             // Current storage untouched.
             assert_eq!(NextKey::<Test>::get(), Some(valid_pk()));
-            assert_eq!(AuthorKeys::<Test>::get(1u64), Some(valid_pk_b()));
+            assert_eq!(AuthorKeys::<Test>::get(author(1)), Some(valid_pk_b()));
 
             // Migration was recorded.
             let mig_key = BoundedVec::truncate_from(b"migrate_clear_v1_storage".to_vec());

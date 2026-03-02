@@ -1,7 +1,10 @@
 use crate as pallet_shield;
 use crate::MLKEM768_PK_LEN;
 
-use frame_support::{BoundedVec, construct_runtime, derive_impl};
+use frame_support::traits::{ConstBool, ConstU64};
+use frame_support::{BoundedVec, construct_runtime, derive_impl, parameter_types};
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::sr25519;
 use sp_runtime::{BuildStorage, generic, testing::TestSignature};
 use std::cell::RefCell;
 use stp_shield::ShieldPublicKey;
@@ -15,14 +18,38 @@ pub type DecodableBlock =
 construct_runtime!(
     pub enum Test {
         System: frame_system = 0,
-        MevShield: pallet_shield = 1,
-        Utility: pallet_subtensor_utility = 2,
+        Timestamp: pallet_timestamp = 1,
+        Aura: pallet_aura = 2,
+        MevShield: pallet_shield = 3,
+        Utility: pallet_subtensor_utility = 4,
     }
 );
+
+const SLOT_DURATION: u64 = 6000;
+
+parameter_types! {
+    pub const SlotDuration: u64 = SLOT_DURATION;
+    pub const MaxAuthorities: u32 = 32;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type Block = Block;
+}
+
+impl pallet_timestamp::Config for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
+    type WeightInfo = ();
+}
+
+impl pallet_aura::Config for Test {
+    type AuthorityId = AuraId;
+    type DisabledValidators = ();
+    type MaxAuthorities = MaxAuthorities;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
+    type SlotDuration = SlotDuration;
 }
 
 impl pallet_subtensor_utility::Config for Test {
@@ -32,31 +59,47 @@ impl pallet_subtensor_utility::Config for Test {
 }
 
 thread_local! {
-    pub static CURRENT_AUTHOR: RefCell<Option<u64>> = const { RefCell::new(None) };
-    pub static NEXT_AUTHOR: RefCell<Option<u64>> = const { RefCell::new(None) };
+    static MOCK_CURRENT: RefCell<Option<AuraId>> = const { RefCell::new(None) };
+    static MOCK_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
 }
 
 pub struct MockFindAuthors;
 
 impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
-    fn find_current_author() -> Option<u64> {
-        CURRENT_AUTHOR.with(|a| *a.borrow())
+    fn find_current_author() -> Option<AuraId> {
+        // Thread-local override (unit tests) → Aura fallback (benchmarks).
+        MOCK_CURRENT.with(|c| c.borrow().clone()).or_else(|| {
+            let slot = Aura::current_slot_from_digests()?;
+            let auths = pallet_aura::Authorities::<Test>::get().into_inner();
+            auths.get(*slot as usize % auths.len()).cloned()
+        })
     }
-    fn find_next_author() -> Option<u64> {
-        NEXT_AUTHOR.with(|a| *a.borrow())
+    fn find_next_author() -> Option<AuraId> {
+        // If thread-local was set, use it (Some(None) = explicitly no next).
+        if let Some(val) = MOCK_NEXT.with(|n| n.borrow().clone()) {
+            return val;
+        }
+        // Aura fallback for benchmarks.
+        let next_slot = Aura::current_slot_from_digests()?.checked_add(1)?;
+        let auths = pallet_aura::Authorities::<Test>::get().into_inner();
+        auths.get(next_slot as usize % auths.len()).cloned()
     }
 }
 
 impl pallet_shield::Config for Test {
-    type AuthorityId = u64;
+    type AuthorityId = AuraId;
     type FindAuthors = MockFindAuthors;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    RuntimeGenesisConfig::default()
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
         .build_storage()
         .expect("valid genesis")
-        .into()
+        .into();
+    ext.register_extension(sp_keystore::KeystoreExt::new(
+        sp_keystore::testing::MemoryKeystore::new(),
+    ));
+    ext
 }
 
 pub fn valid_pk() -> ShieldPublicKey {
@@ -67,9 +110,14 @@ pub fn valid_pk_b() -> ShieldPublicKey {
     BoundedVec::truncate_from(vec![0x99; MLKEM768_PK_LEN])
 }
 
-pub fn set_authors(current: Option<u64>, next: Option<u64>) {
-    CURRENT_AUTHOR.with(|a| *a.borrow_mut() = current);
-    NEXT_AUTHOR.with(|a| *a.borrow_mut() = next);
+/// Create a deterministic `AuraId` from a simple index for tests.
+pub fn author(n: u8) -> AuraId {
+    AuraId::from(sr25519::Public::from_raw([n; 32]))
+}
+
+pub fn set_authors(current: Option<AuraId>, next: Option<AuraId>) {
+    MOCK_CURRENT.with(|c| *c.borrow_mut() = current);
+    MOCK_NEXT.with(|n| *n.borrow_mut() = Some(next));
 }
 
 pub fn nest_call(call: RuntimeCall, depth: usize) -> RuntimeCall {
