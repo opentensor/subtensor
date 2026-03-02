@@ -8,9 +8,7 @@ use frame_support::{
     traits::{Everything, Hooks, PrivilegeCmp},
     weights::IdentityFee,
 };
-use frame_system::{
-    self as system, EnsureRoot, RawOrigin, limits,
-};
+use frame_system::{self as system, EnsureRoot, RawOrigin, limits};
 pub use pallet_subtensor::*;
 pub use sp_core::U256;
 use sp_core::{ConstU64, H256};
