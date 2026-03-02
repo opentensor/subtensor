@@ -626,10 +626,7 @@ impl<T: Config> Pallet<T> {
         };
 
         if !refund.is_zero() {
-            WeightMeterWrapper!(
-                meter_weight,
-                T::DbWeight::get().reads(1) + T::DbWeight::get().writes(1)
-            );
+            WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads_writes(1, 1));
             Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
         }
 
