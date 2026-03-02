@@ -164,13 +164,20 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
     ) -> Option<Self::Extrinsic> {
         use sp_runtime::traits::StaticLookup;
 
+        // Transaction validity period from block hash included in signature
+        // Has to a power of 2. 256 blocks yields to 3072 s = 51.2 minutes.
+        let validity_period = 256_u64;
+        let current_block = frame_system::Pallet::<Runtime>::block_number();
+        // Transaction validity era starts at the current block
+        let era = Era::mortal(validity_period, current_block as u64);
+
         let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
         let extra: TransactionExtensions = (
             frame_system::CheckNonZeroSender::<Runtime>::new(),
             frame_system::CheckSpecVersion::<Runtime>::new(),
             frame_system::CheckTxVersion::<Runtime>::new(),
             frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+            frame_system::CheckEra::<Runtime>::from(era),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
             ChargeTransactionPaymentWrapper::new(
