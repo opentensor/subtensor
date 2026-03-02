@@ -67,12 +67,12 @@ where
     type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
     fn create_bare(call: RuntimeCall) -> Self::Extrinsic {
-        Extrinsic::new_inherent(call)
+        Extrinsic::new_bare(call)
     }
 }
 
