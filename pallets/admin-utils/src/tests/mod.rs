@@ -23,7 +23,7 @@ use crate::Error;
 use crate::pallet::PrecompileEnable;
 use mock::*;
 
-mod mock;
+pub(crate) mod mock;
 
 #[test]
 fn test_sudo_set_default_take() {
