@@ -296,13 +296,22 @@ impl<T: Config> FindAuthors<T> for () {
 ///
 /// Performs ML-KEM-768 decapsulation followed by XChaCha20-Poly1305 AEAD decryption.
 /// Runs entirely in WASM — no host functions needed.
-fn unshield(dec_key_bytes: &[u8], shielded_tx: &ShieldedTransaction) -> Option<alloc::vec::Vec<u8>> {
-    let dec_key =
-        DecapsulationKey::<MlKem768Params>::from_bytes(dec_key_bytes.try_into().ok()?);
+fn unshield(
+    dec_key_bytes: &[u8],
+    shielded_tx: &ShieldedTransaction,
+) -> Option<alloc::vec::Vec<u8>> {
+    let dec_key = DecapsulationKey::<MlKem768Params>::from_bytes(dec_key_bytes.try_into().ok()?);
     let ciphertext = Ciphertext::<MlKem768>::try_from(shielded_tx.kem_ct.as_slice()).ok()?;
     let shared_secret = dec_key.decapsulate(&ciphertext).ok()?;
 
     let aead = XChaCha20Poly1305::new(shared_secret.as_slice().into());
     let nonce = XNonce::from_slice(&shielded_tx.nonce);
-    aead.decrypt(nonce, Payload { msg: &shielded_tx.aead_ct, aad: &[] }).ok()
+    aead.decrypt(
+        nonce,
+        Payload {
+            msg: &shielded_tx.aead_ct,
+            aad: &[],
+        },
+    )
+    .ok()
 }
