@@ -176,31 +176,6 @@ where
     }
 }
 
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
-where
-    RuntimeCall: From<LocalCall>,
-{
-    fn create_signed_transaction<
-        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
-        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
-        _public: Self::Public,
-        _account: Self::AccountId,
-        nonce: Self::Nonce,
-    ) -> Option<Self::Extrinsic> {
-        // Create a dummy sr25519 signature from a raw byte array
-        let dummy_raw = [0u8; 64];
-        let dummy_signature = sp_core::sr25519::Signature::from(dummy_raw);
-        let signature = test_crypto::Signature::from(dummy_signature);
-        Some(UncheckedExtrinsic::new_signed(
-            call,
-            nonce.into(),
-            signature,
-            (),
-        ))
-    }
-}
-
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()

@@ -76,22 +76,6 @@ where
     }
 }
 
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
-where
-    RuntimeCall: From<LocalCall>,
-{
-    fn create_signed_transaction<
-        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
-        call: RuntimeCall,
-        _public: <Signature as Verify>::Signer,
-        _account: AccountId,
-        nonce: u64,
-    ) -> Option<Self::Extrinsic> {
-        Some(Extrinsic::new_signed(call, nonce, (), ()))
-    }
-}
-
 parameter_types! {
     pub const UnsignedPriority: u64 = 1 << 20;
 }
