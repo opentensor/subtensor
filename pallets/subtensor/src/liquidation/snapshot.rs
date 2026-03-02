@@ -28,10 +28,13 @@ impl<T: Config> Pallet<T> {
         }
 
         // Start or resume iteration
-        let iter: sp_std::boxed::Box<dyn Iterator<Item = (T::AccountId, T::AccountId, NetUid)>> = match &cursor {
-            Some(raw_key) => sp_std::boxed::Box::new(Alpha::<T>::iter_keys_from(raw_key.to_vec())),
-            None => sp_std::boxed::Box::new(Alpha::<T>::iter_keys()),
-        };
+        let iter: sp_std::boxed::Box<dyn Iterator<Item = (T::AccountId, T::AccountId, NetUid)>> =
+            match &cursor {
+                Some(raw_key) => {
+                    sp_std::boxed::Box::new(Alpha::<T>::iter_keys_from(raw_key.to_vec()))
+                }
+                None => sp_std::boxed::Box::new(Alpha::<T>::iter_keys()),
+            };
 
         let mut count = 0u64;
         let mut last_raw_key: Option<sp_std::vec::Vec<u8>>;
@@ -92,16 +95,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Build an incomplete `ChunkResult` from a raw cursor key.
-    fn save_snapshot_cursor(
-        last_raw_key: Option<sp_std::vec::Vec<u8>>,
-        count: u64,
-    ) -> ChunkResult {
+    fn save_snapshot_cursor(last_raw_key: Option<sp_std::vec::Vec<u8>>, count: u64) -> ChunkResult {
         let cursor = last_raw_key.and_then(|k| {
             k.try_into()
                 .map_err(|_| {
-                    log::warn!(
-                        "Snapshot cursor exceeds BoundedVec capacity, restarting iteration"
-                    );
+                    log::warn!("Snapshot cursor exceeds BoundedVec capacity, restarting iteration");
                 })
                 .ok()
         });

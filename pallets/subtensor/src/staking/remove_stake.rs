@@ -239,7 +239,10 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
             if Self::is_subnet_liquidating(netuid) {
-                log::debug!("do_unstake_all_alpha: skipping liquidating subnet {:?}", netuid);
+                log::debug!(
+                    "do_unstake_all_alpha: skipping liquidating subnet {:?}",
+                    netuid
+                );
                 continue;
             }
             // If not Root network.

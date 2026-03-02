@@ -70,7 +70,8 @@ fn setup_liquidation_state(netuid: NetUid, tao_pot: u64) {
 fn test_calculate_share_no_overflow() {
     new_test_ext(1).execute_with(|| {
         // Max u64 pot, large alpha values — must not overflow
-        let share = SubtensorModule::calculate_share(u64::MAX, u128::from(u64::MAX), u128::from(u64::MAX));
+        let share =
+            SubtensorModule::calculate_share(u64::MAX, u128::from(u64::MAX), u128::from(u64::MAX));
         assert_eq!(share, u64::MAX); // 100% of pot
     });
 }
@@ -110,7 +111,11 @@ fn test_distribution_sum_never_exceeds_pot() {
 
         let mut sum = 0u64;
         for _ in 0..n {
-            sum = sum.saturating_add(SubtensorModule::calculate_share(tao_pot, alpha_per, total_alpha));
+            sum = sum.saturating_add(SubtensorModule::calculate_share(
+                tao_pot,
+                alpha_per,
+                total_alpha,
+            ));
         }
         assert!(sum <= tao_pot, "sum {} exceeded pot {}", sum, tao_pot);
     });
@@ -126,7 +131,11 @@ fn test_distribution_dust_handling() {
 
         let mut sum = 0u64;
         for _ in 0..n {
-            sum = sum.saturating_add(SubtensorModule::calculate_share(tao_pot, alpha_per, total_alpha));
+            sum = sum.saturating_add(SubtensorModule::calculate_share(
+                tao_pot,
+                alpha_per,
+                total_alpha,
+            ));
         }
         let dust = tao_pot.saturating_sub(sum);
         // With 1M / 3, each gets 333333, sum = 999999, dust = 1
@@ -1225,7 +1234,8 @@ fn test_total_tao_conserved() {
         let mut total_distributed = 0u64;
         for (i, (_, cold)) in stakers.iter().enumerate() {
             let bal = SubtensorModule::get_coldkey_balance(cold);
-            total_distributed = total_distributed.saturating_add(bal.saturating_sub(initial_balances[i]));
+            total_distributed =
+                total_distributed.saturating_add(bal.saturating_sub(initial_balances[i]));
         }
 
         let issuance_after: u64 = TotalIssuance::<Test>::get().into();
@@ -1343,7 +1353,10 @@ fn test_no_storage_leaks() {
 
         // === Subnet removed from network tracking ===
         assert!(!NetworksAdded::<Test>::get(netuid));
-        assert_eq!(TotalNetworks::<Test>::get(), total_networks_before.saturating_sub(1));
+        assert_eq!(
+            TotalNetworks::<Test>::get(),
+            total_networks_before.saturating_sub(1)
+        );
 
         // === Hyperparams cleared (try_get returns Err when entry removed) ===
         assert!(
@@ -1823,8 +1836,7 @@ fn test_liquidation_started_event_details() {
         let num_stakers = 3u32;
         let alpha_per = 10_000u64;
 
-        let (netuid, _stakers) =
-            setup_subnet_with_stakers(hotkey, coldkey, num_stakers, alpha_per);
+        let (netuid, _stakers) = setup_subnet_with_stakers(hotkey, coldkey, num_stakers, alpha_per);
 
         let tao_pot = 500_000u64;
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_pot));
@@ -1845,7 +1857,10 @@ fn test_liquidation_started_event_details() {
                 None
             }
         });
-        assert!(started.is_some(), "LiquidationStarted event must be emitted");
+        assert!(
+            started.is_some(),
+            "LiquidationStarted event must be emitted"
+        );
         let (evt_netuid, evt_started_at, evt_estimated, _evt_stakers) = started.unwrap();
         assert_eq!(evt_netuid, netuid, "Event netuid should match");
         assert!(evt_started_at > 0, "started_at should be non-zero");
@@ -2654,7 +2669,10 @@ fn test_distribution_multiple_coldkeys_same_hotkey() {
             balance_a > balance_b,
             "Cold A (60%) should get more than B (40%)"
         );
-        assert!(balance_a.saturating_add(balance_b) <= tao_pot, "Total <= pot");
+        assert!(
+            balance_a.saturating_add(balance_b) <= tao_pot,
+            "Total <= pot"
+        );
     });
 }
 

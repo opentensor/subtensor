@@ -126,16 +126,28 @@ impl<T: Config> Pallet<T> {
         let cursor_slice = cursor.as_ref().map(|c| c.as_slice());
 
         let result = match NeuronDataMap::from(map_idx) {
-            NeuronDataMap::BlockAtRegistration => BlockAtRegistration::<T>::clear_prefix(netuid, limit, cursor_slice),
+            NeuronDataMap::BlockAtRegistration => {
+                BlockAtRegistration::<T>::clear_prefix(netuid, limit, cursor_slice)
+            }
             NeuronDataMap::Axons => Axons::<T>::clear_prefix(netuid, limit, cursor_slice),
-            NeuronDataMap::NeuronCertificates => NeuronCertificates::<T>::clear_prefix(netuid, limit, cursor_slice),
+            NeuronDataMap::NeuronCertificates => {
+                NeuronCertificates::<T>::clear_prefix(netuid, limit, cursor_slice)
+            }
             NeuronDataMap::Prometheus => Prometheus::<T>::clear_prefix(netuid, limit, cursor_slice),
-            NeuronDataMap::AlphaDividendsPerSubnet => AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, limit, cursor_slice),
-            NeuronDataMap::PendingChildKeys => PendingChildKeys::<T>::clear_prefix(netuid, limit, cursor_slice),
-            NeuronDataMap::AssociatedEvmAddress => AssociatedEvmAddress::<T>::clear_prefix(netuid, limit, cursor_slice),
+            NeuronDataMap::AlphaDividendsPerSubnet => {
+                AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, limit, cursor_slice)
+            }
+            NeuronDataMap::PendingChildKeys => {
+                PendingChildKeys::<T>::clear_prefix(netuid, limit, cursor_slice)
+            }
+            NeuronDataMap::AssociatedEvmAddress => {
+                AssociatedEvmAddress::<T>::clear_prefix(netuid, limit, cursor_slice)
+            }
             NeuronDataMap::Uids => Uids::<T>::clear_prefix(netuid, limit, cursor_slice),
             NeuronDataMap::Keys => Keys::<T>::clear_prefix(netuid, limit, cursor_slice),
-            NeuronDataMap::LastHotkeySwapOnNetuid => LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, limit, cursor_slice),
+            NeuronDataMap::LastHotkeySwapOnNetuid => {
+                LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, limit, cursor_slice)
+            }
             NeuronDataMap::VectorStorage => {
                 Rank::<T>::remove(netuid);
                 Trust::<T>::remove(netuid);
@@ -156,7 +168,10 @@ impl<T: Config> Pallet<T> {
             Some(raw) => match Self::bound_cursor(raw, netuid) {
                 Some(bounded) => ChunkResult::Incomplete {
                     weight_used: used,
-                    phase: LiquidationPhase::ClearNeuronData { map_idx, cursor: Some(bounded) },
+                    phase: LiquidationPhase::ClearNeuronData {
+                        map_idx,
+                        cursor: Some(bounded),
+                    },
                 },
                 None => ChunkResult::Incomplete {
                     weight_used: used,
@@ -210,10 +225,8 @@ impl<T: Config> Pallet<T> {
             Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, modified);
             count = count.saturating_add(1);
             if count >= items_per_budget {
-                let used = Weight::from_parts(
-                    u64::from(count).saturating_mul(WEIGHT_PER_MATRIX_ENTRY),
-                    0,
-                );
+                let used =
+                    Weight::from_parts(u64::from(count).saturating_mul(WEIGHT_PER_MATRIX_ENTRY), 0);
                 return ChunkResult::Incomplete {
                     weight_used: used,
                     phase: LiquidationPhase::ClearRootWeights {
@@ -254,7 +267,9 @@ impl<T: Config> Pallet<T> {
             };
         }
 
-        let end_idx = cursor_idx.saturating_add(items_per_budget).min(snapshot_len);
+        let end_idx = cursor_idx
+            .saturating_add(items_per_budget)
+            .min(snapshot_len);
         let mut weight_used = Weight::zero();
 
         for i in cursor_idx..end_idx {
@@ -380,10 +395,18 @@ impl<T: Config> Pallet<T> {
         }
 
         let result = match MatrixMap::from(map_idx) {
-            MatrixMap::WeightCommits => WeightCommits::<T>::clear_prefix(netuid_index, limit, cursor_slice),
-            MatrixMap::TimelockedWeightCommits => TimelockedWeightCommits::<T>::clear_prefix(netuid_index, limit, cursor_slice),
-            MatrixMap::CRV3WeightCommits => CRV3WeightCommits::<T>::clear_prefix(netuid_index, limit, cursor_slice),
-            MatrixMap::CRV3WeightCommitsV2 => CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, limit, cursor_slice),
+            MatrixMap::WeightCommits => {
+                WeightCommits::<T>::clear_prefix(netuid_index, limit, cursor_slice)
+            }
+            MatrixMap::TimelockedWeightCommits => {
+                TimelockedWeightCommits::<T>::clear_prefix(netuid_index, limit, cursor_slice)
+            }
+            MatrixMap::CRV3WeightCommits => {
+                CRV3WeightCommits::<T>::clear_prefix(netuid_index, limit, cursor_slice)
+            }
+            MatrixMap::CRV3WeightCommitsV2 => {
+                CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, limit, cursor_slice)
+            }
             MatrixMap::Bonds => Bonds::<T>::clear_prefix(netuid_index, limit, cursor_slice),
             MatrixMap::Weights => Weights::<T>::clear_prefix(netuid_index, limit, cursor_slice),
             MatrixMap::NextMechanism => {
@@ -466,16 +489,24 @@ impl<T: Config> Pallet<T> {
             TwoKeyMap::ChildkeyTake => bounded_remove_by_netuid!(ChildkeyTake::<T>, netuid, limit),
             TwoKeyMap::ChildKeys => bounded_remove_by_netuid!(ChildKeys::<T>, netuid, limit),
             TwoKeyMap::ParentKeys => bounded_remove_by_netuid!(ParentKeys::<T>, netuid, limit),
-            TwoKeyMap::LastHotkeyEmissionOnNetuid => bounded_remove_by_netuid!(LastHotkeyEmissionOnNetuid::<T>, netuid, limit),
-            TwoKeyMap::TotalHotkeyAlphaLastEpoch => bounded_remove_by_netuid!(TotalHotkeyAlphaLastEpoch::<T>, netuid, limit),
-            TwoKeyMap::IsNetworkMember => bounded_remove_by_netuid!(IsNetworkMember::<T>, netuid, limit),
+            TwoKeyMap::LastHotkeyEmissionOnNetuid => {
+                bounded_remove_by_netuid!(LastHotkeyEmissionOnNetuid::<T>, netuid, limit)
+            }
+            TwoKeyMap::TotalHotkeyAlphaLastEpoch => {
+                bounded_remove_by_netuid!(TotalHotkeyAlphaLastEpoch::<T>, netuid, limit)
+            }
+            TwoKeyMap::IsNetworkMember => {
+                bounded_remove_by_netuid!(IsNetworkMember::<T>, netuid, limit)
+            }
             TwoKeyMap::HotkeyAlphaAndShares => Self::clear_hotkey_alpha_and_shares(netuid, limit),
             TwoKeyMap::LeasesAndIdentity => Self::clear_leases_and_identity(netuid),
             TwoKeyMap::Done => return ChunkResult::Complete(Weight::from_parts(FIXED_OVERHEAD, 0)),
         };
 
         let weight_used = Weight::from_parts(
-            (count as u64).max(1).saturating_mul(WEIGHT_PER_NEURON_CLEAR),
+            (count as u64)
+                .max(1)
+                .saturating_mul(WEIGHT_PER_NEURON_CLEAR),
             0,
         );
 

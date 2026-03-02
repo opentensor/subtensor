@@ -60,8 +60,14 @@ impl<T: Config> Pallet<T> {
         let tempo = Tempo::<T>::get(netuid) as u64;
         let target_blocks = tempo.max(MIN_LIQUIDATION_BLOCKS);
         let weight_per_block = Weight::from_parts(
-            total_weight.ref_time().checked_div(target_blocks).unwrap_or(0),
-            total_weight.proof_size().checked_div(target_blocks).unwrap_or(0),
+            total_weight
+                .ref_time()
+                .checked_div(target_blocks)
+                .unwrap_or(0),
+            total_weight
+                .proof_size()
+                .checked_div(target_blocks)
+                .unwrap_or(0),
         );
 
         // 5-6. Create liquidation state
