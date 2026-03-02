@@ -1168,6 +1168,7 @@ fn test_sudo_set_liquid_alpha_enabled() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
         let enabled: bool = true;
+        NetworksAdded::<Test>::insert(netuid, true);
         assert_eq!(!enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
 
         assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
@@ -2749,7 +2750,7 @@ fn test_trim_to_max_allowed_uids() {
                 NetUid::from(42),
                 new_max_n
             ),
-            pallet_subtensor::Error::<Test>::SubnetNotExists
+            Error::<Test>::SubnetDoesNotExist
         );
 
         // New max n less than lower bound

@@ -655,6 +655,11 @@ pub mod pallet {
             registration_allowed: bool,
         ) -> DispatchResult {
             ensure_root(origin)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::set_network_registration_allowed(
                 netuid,
                 registration_allowed,
@@ -1258,6 +1263,10 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::LiquidAlphaEnabled.into()],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_liquid_alpha_enabled(netuid, enabled);
             log::debug!("LiquidAlphaEnableToggled( netuid: {netuid:?}, Enabled: {enabled:?} ) ");
@@ -1285,6 +1294,10 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::AlphaValues.into()],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             let res = pallet_subtensor::Pallet::<T>::do_set_alpha_values(
                 origin, netuid, alpha_low, alpha_high,
@@ -1458,6 +1471,10 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::TransferEnabled.into()],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             let res = pallet_subtensor::Pallet::<T>::toggle_transfer(netuid, toggle);
             if res.is_ok() {
@@ -1493,6 +1510,10 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::RecycleOrBurn.into()],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::set_recycle_or_burn(netuid, recycle_or_burn);
@@ -1604,6 +1625,10 @@ pub mod pallet {
             ema_halving: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::EMAPriceHalvingBlocks::<T>::set(netuid, ema_halving);
 
             log::debug!(
@@ -1688,6 +1713,10 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::Yuma3Enabled.into()],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_yuma3_enabled(netuid, enabled);
 
@@ -1724,6 +1753,10 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::BondsResetEnabled.into()],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_bonds_reset(netuid, enabled);
 
@@ -1839,6 +1872,10 @@ pub mod pallet {
                 netuid,
                 &[Hyperparameter::ImmuneNeuronLimit.into()],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
             pallet_subtensor::Pallet::<T>::set_owner_immune_neuron_limit(netuid, immune_neurons)?;
             pallet_subtensor::Pallet::<T>::record_owner_rl(
@@ -1907,6 +1944,10 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MechanismCountUpdate],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_mechanism_count(netuid, mechanism_count)?;
@@ -1934,6 +1975,10 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MechanismEmission],
             )?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::do_set_emission_split(netuid, maybe_split)?;
@@ -1965,6 +2010,12 @@ pub mod pallet {
                 netuid,
                 &[TransactionType::MaxUidsTrimming],
             )?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             pallet_subtensor::Pallet::<T>::trim_to_max_allowed_uids(netuid, max_n)?;
@@ -2090,6 +2141,10 @@ pub mod pallet {
             min: u16,
         ) -> DispatchResult {
             ensure_root(origin)?;
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
             pallet_subtensor::Pallet::<T>::set_min_non_immune_uids(netuid, min);
             Ok(())
         }

@@ -16,11 +16,10 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::CommitmentsInterface;
+use frame_support::weights::{Weight, WeightMeter};
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency};
-use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
@@ -210,190 +209,353 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubnetNotExists
         );
 
-        Self::finalize_all_subnet_root_dividends(netuid);
+        let mut dissolved_networks = DissolvedNetworks::<T>::get();
+        ensure!(
+            !dissolved_networks.contains(&netuid),
+            Error::<T>::NetworkAlreadyDissolved
+        );
 
-        // --- Perform the cleanup before removing the network.
-        T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
-        Self::destroy_alpha_in_out_stakes(netuid)?;
-        T::SwapInterface::clear_protocol_liquidity(netuid)?;
-        T::CommitmentsInterface::purge_netuid(netuid);
+        // TODO Most of data cleanup is done in the block hook, should we charge the user for this?
 
-        // --- Remove the network
-        Self::remove_network(netuid);
+        // Just remove the network from the added networks, it is used to check if the network is existed.
+        NetworksAdded::<T>::remove(netuid);
+        // Reduce the total networks count.
+        TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
+
+        dissolved_networks.push(netuid);
+        DissolvedNetworks::<T>::set(dissolved_networks);
+
+        log::info!("NetworkRemoved( netuid:{netuid:?} )");
 
         // --- Emit the NetworkRemoved event
-        log::info!("NetworkRemoved( netuid:{netuid:?} )");
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
         Ok(())
     }
 
-    pub fn remove_network(netuid: NetUid) {
-        // --- 1. Get the owner and remove from SubnetOwner.
-        let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
+    pub fn remove_network(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetOwner::<T>::remove(netuid);
 
         // --- 2. Remove network count.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetworkN::<T>::remove(netuid);
 
-        // --- 3. Remove netuid from added networks.
-        NetworksAdded::<T>::remove(netuid);
-
-        // --- 4. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n: &mut u16| *n = n.saturating_sub(1));
-
         // --- 5. Remove various network-related storages.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         NetworkRegisteredAt::<T>::remove(netuid);
 
         // --- 6. Remove incentive mechanism memory.
-        let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Uids::<T>::clear_prefix(netuid, 1024, None)
+        );
+
         let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
-        let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
-
-        // --- 8. Iterate over stored weights and fill the matrix.
-        for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
-            // Create a new vector to hold modified weights.
-            let mut modified_weights = weights_i.clone();
-            for (subnet_id, weight) in modified_weights.iter_mut() {
-                // If the root network had a weight pointing to this netuid, set it to 0
-                if subnet_id == &u16::from(netuid) {
-                    *weight = 0;
-                }
-            }
-            Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, modified_weights);
-        }
-
-        // --- 9. Remove various network-related parameters.
-        Rank::<T>::remove(netuid);
-        Trust::<T>::remove(netuid);
-        Active::<T>::remove(netuid);
-        Emission::<T>::remove(netuid);
-
-        Consensus::<T>::remove(netuid);
-        Dividends::<T>::remove(netuid);
-        PruningScores::<T>::remove(netuid);
-        ValidatorPermit::<T>::remove(netuid);
-        ValidatorTrust::<T>::remove(netuid);
+        let keys_len = keys.len() as u64;
+        WeightMeterWrapper!(
+            weight_meter,
+            T::DbWeight::get().reads_writes(keys_len, keys_len)
+        );
 
         for (_uid, key) in keys {
             IsNetworkMember::<T>::remove(key, netuid);
         }
 
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Keys::<T>::clear_prefix(netuid, 1024, None)
+        );
+
+        // --- 8. Iterate over stored weights and fill the matrix.
+        for (uid_i, weights_i) in Weights::<T>::iter_prefix(NetUidStorageIndex::ROOT) {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+            // Create a new vector to hold modified weights.
+            let mut modified_weights = weights_i.clone();
+            for (subnet_id, weight) in modified_weights.iter_mut() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                // If the root network had a weight pointing to this netuid, set it to 0
+                if subnet_id == &u16::from(netuid) {
+                    WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+                    *weight = 0;
+                }
+            }
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+            Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, modified_weights);
+        }
+
+        // --- 9. Remove various network-related parameters.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        Rank::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        Trust::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        Active::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        Emission::<T>::remove(netuid);
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        Consensus::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        Dividends::<T>::remove(netuid);
+        PruningScores::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        ValidatorPermit::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        ValidatorTrust::<T>::remove(netuid);
+
         // --- 10. Erase network parameters.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Tempo::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Kappa::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Difficulty::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxAllowedUids::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ImmunityPeriod::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ActivityCutoff::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MinAllowedWeights::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         RegistrationsThisInterval::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         POWRegistrationsThisInterval::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
         // --- 11. AMM / price / accounting.
         // SubnetTAO, SubnetAlpha{In,InProvided,Out} are already cleared during dissolve/destroy.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetAlphaInEmission::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetAlphaOutEmission::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetTaoInEmission::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetVolume::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetMovingPrice::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetTaoFlow::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetEmaTaoFlow::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         TokenSymbol::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetMechanism::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetOwnerHotkey::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         NetworkRegistrationAllowed::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         NetworkPowRegistrationAllowed::<T>::remove(netuid);
 
         // --- 14. Locks & toggles.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         TransferToggle::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetLocked::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LargestLocked::<T>::remove(netuid);
 
         // --- 15. Mechanism step / emissions bookkeeping.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FirstEmissionBlockNumber::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingValidatorEmission::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingServerEmission::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingRootAlphaDivs::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingOwnerCut::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BlocksSinceLastStep::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LastMechansimStepBlock::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LastAdjustmentBlock::<T>::remove(netuid);
 
         // --- 16. Serving / rho / curves, and other per-net controls.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ServingRateLimit::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Rho::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AlphaSigmoidSteepness::<T>::remove(netuid);
 
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxAllowedValidators::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AdjustmentInterval::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsMovingAverage::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsPenalty::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsResetOn::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         WeightsSetRateLimit::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ValidatorPruneLen::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ScalingLawPower::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         TargetRegistrationsPerInterval::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AdjustmentAlpha::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         CommitRevealWeightsEnabled::<T>::remove(netuid);
 
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Burn::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MinBurn::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxBurn::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MinDifficulty::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxDifficulty::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         RegistrationsThisBlock::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         EMAPriceHalvingBlocks::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         RAORecycledForRegistration::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxRegistrationsPerBlock::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         WeightsVersionKey::<T>::remove(netuid);
 
         // --- 17. Subtoken / feature flags.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LiquidAlphaOn::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Yuma3On::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AlphaValues::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubtokenEnabled::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ImmuneOwnerUidsLimit::<T>::remove(netuid);
 
         // --- 18. Consensus aux vectors.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         StakeWeight::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LoadedEmission::<T>::remove(netuid);
 
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
-        let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            BlockAtRegistration::<T>::clear_prefix(netuid, 1024, None)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Axons::<T>::clear_prefix(netuid, 1024, None)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Prometheus::<T>::clear_prefix(netuid, 1024, None)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, 1024, None)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            PendingChildKeys::<T>::clear_prefix(netuid, 1024, None)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            AssociatedEvmAddress::<T>::clear_prefix(netuid, 1024, None)
+        );
 
         // Commit-reveal / weights commits (all per-net prefixes):
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(mechanisms as u64));
         for subid in 0..mechanisms {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
             let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
+
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             LastUpdate::<T>::remove(netuid_index);
+
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             Incentive::<T>::remove(netuid_index);
-            let _ = WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            let _ = TimelockedWeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            let _ = CRV3WeightCommits::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            let _ = CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            let _ = Bonds::<T>::clear_prefix(netuid_index, u32::MAX, None);
-            let _ = Weights::<T>::clear_prefix(netuid_index, u32::MAX, None);
+
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                WeightCommits::<T>::clear_prefix(netuid_index, 1024, None)
+            );
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                TimelockedWeightCommits::<T>::clear_prefix(netuid_index, 1024, None)
+            );
+
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                CRV3WeightCommits::<T>::clear_prefix(netuid_index, 1024, None)
+            );
+
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, 1024, None)
+            );
+
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                Bonds::<T>::clear_prefix(netuid_index, 1024, None)
+            );
+
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                Weights::<T>::clear_prefix(netuid_index, 1024, None)
+            );
         }
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         RevealPeriodEpochs::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MechanismCountCurrent::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MechanismEmissionSplit::<T>::remove(netuid);
 
         // Last hotkey swap (DMAP where netuid is FIRST key → easy)
-        let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, 1024, None)
+        );
 
         // --- 20. Identity maps across versions (netuid-scoped).
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
@@ -402,88 +564,143 @@ impl<T: Config> Pallet<T> {
 
         // ChildkeyTake: (hot, netuid) → u16
         {
+            let mut read_count = 0_u64;
             let to_rm: sp_std::vec::Vec<T::AccountId> = ChildkeyTake::<T>::iter()
-                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .filter(|(_, n, _)| {
+                    read_count = read_count.saturating_add(1);
+                    *n == netuid
+                })
+                .map(|(hot, _, _)| hot)
                 .collect();
+            WeightMeterWrapper!(
+                weight_meter,
+                T::DbWeight::get().reads_writes(read_count, read_count)
+            );
             for hot in to_rm {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 ChildkeyTake::<T>::remove(&hot, netuid);
             }
         }
         // ChildKeys: (parent, netuid) → Vec<...>
         {
+            let mut read_count = 0_u64;
             let to_rm: sp_std::vec::Vec<T::AccountId> = ChildKeys::<T>::iter()
-                .filter_map(|(parent, n, _)| if n == netuid { Some(parent) } else { None })
+                .filter(|(_, n, _)| {
+                    read_count = read_count.saturating_add(1);
+                    *n == netuid
+                })
+                .map(|(parent, _, _)| parent)
                 .collect();
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
             for parent in to_rm {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 ChildKeys::<T>::remove(&parent, netuid);
             }
         }
         // ParentKeys: (child, netuid) → Vec<...>
         {
+            let mut read_count = 0_u64;
             let to_rm: sp_std::vec::Vec<T::AccountId> = ParentKeys::<T>::iter()
-                .filter_map(|(child, n, _)| if n == netuid { Some(child) } else { None })
+                .filter(|(_, n, _)| {
+                    read_count = read_count.saturating_add(1);
+                    *n == netuid
+                })
+                .map(|(child, _, _)| child)
                 .collect();
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
             for child in to_rm {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 ParentKeys::<T>::remove(&child, netuid);
             }
         }
         // LastHotkeyEmissionOnNetuid: (hot, netuid) → α
         {
+            let mut read_count = 0_u64;
             let to_rm: sp_std::vec::Vec<T::AccountId> = LastHotkeyEmissionOnNetuid::<T>::iter()
-                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .filter(|(_, n, _)| {
+                    read_count = read_count.saturating_add(1);
+                    *n == netuid
+                })
+                .map(|(hot, _, _)| hot)
                 .collect();
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
             for hot in to_rm {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 LastHotkeyEmissionOnNetuid::<T>::remove(&hot, netuid);
             }
         }
         // TotalHotkeyAlphaLastEpoch: (hot, netuid) → ...
         // (TotalHotkeyAlpha and TotalHotkeyShares were already removed during dissolve.)
         {
+            let mut read_count = 0_u64;
             let to_rm_alpha_last: sp_std::vec::Vec<T::AccountId> =
                 TotalHotkeyAlphaLastEpoch::<T>::iter()
-                    .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                    .filter(|(_, n, _)| {
+                        read_count = read_count.saturating_add(1);
+                        *n == netuid
+                    })
+                    .map(|(hot, _, _)| hot)
                     .collect();
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
             for hot in to_rm_alpha_last {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 TotalHotkeyAlphaLastEpoch::<T>::remove(&hot, netuid);
             }
         }
         // TransactionKeyLastBlock NMAP: (hot, netuid, name) → u64
         {
+            let mut read_count = 0_u64;
             let to_rm: sp_std::vec::Vec<(T::AccountId, u16)> = TransactionKeyLastBlock::<T>::iter()
-                .filter_map(
-                    |((hot, n, name), _)| if n == netuid { Some((hot, name)) } else { None },
-                )
+                .filter(|((_, n, _), _)| {
+                    read_count = read_count.saturating_add(1);
+                    *n == netuid
+                })
+                .map(|((hot, _, name), _)| (hot, name))
                 .collect();
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
             for (hot, name) in to_rm {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 TransactionKeyLastBlock::<T>::remove((hot, netuid, name));
             }
         }
         // StakingOperationRateLimiter NMAP: (hot, cold, netuid) → bool
         {
+            let mut read_count = 0_u64;
             let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> =
                 StakingOperationRateLimiter::<T>::iter()
-                    .filter_map(
-                        |((hot, cold, n), _)| {
-                            if n == netuid { Some((hot, cold)) } else { None }
-                        },
-                    )
+                    .filter(|((_, _, n), _)| {
+                        read_count = read_count.saturating_add(1);
+                        *n == netuid
+                    })
+                    .map(|((hot, cold, _), _)| (hot, cold))
                     .collect();
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
+
             for (hot, cold) in to_rm {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
             }
         }
 
         // --- 22. Subnet leasing: remove mapping and any lease-scoped state linked to this netuid.
-        if let Some(lease_id) = SubnetUidToLeaseId::<T>::take(netuid) {
+        if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
+            // Fixed: Import the macro type to resolve the error
+            LoopRemovePrefixWithWeightMeter!(
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                SubnetLeaseShares::<T>::clear_prefix(lease_id, 1024, None)
+            );
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             SubnetLeases::<T>::remove(lease_id);
-            let _ = SubnetLeaseShares::<T>::clear_prefix(lease_id, u32::MAX, None);
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             AccumulatedLeaseDividends::<T>::remove(lease_id);
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+            SubnetUidToLeaseId::<T>::remove(netuid);
         }
 
         // --- Final removal logging.
-        log::debug!(
-            "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"
-        );
+        log::debug!("remove_network: netuid={netuid} removed successfully");
+        weight_meter.consumed()
     }
 
     #[allow(clippy::arithmetic_side_effects)]

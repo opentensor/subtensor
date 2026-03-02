@@ -53,6 +53,10 @@ impl<T: Config> Pallet<T> {
         let mut next_netuid = NetUid::from(1); // do not allow creation of root
         let netuids = Self::get_all_subnet_netuids();
         loop {
+            if DissolvedNetworks::<T>::get().contains(&next_netuid) {
+                next_netuid = next_netuid.next();
+                continue;
+            }
             if !netuids.contains(&next_netuid) {
                 break next_netuid;
             }

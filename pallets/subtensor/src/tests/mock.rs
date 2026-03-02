@@ -348,7 +348,9 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(_netuid: NetUid) {}
+    fn purge_netuid(_netuid: NetUid, _remaining_weight: Weight) -> Weight {
+        Weight::from(0)
+    }
 }
 
 parameter_types! {
@@ -698,6 +700,14 @@ pub(crate) fn run_to_block_ext(n: u64, enable_events: bool) {
         SubtensorModule::on_initialize(System::block_number());
         Scheduler::on_initialize(System::block_number());
     }
+}
+
+#[allow(dead_code)]
+pub(crate) fn run_block_idle() {
+    SubtensorModule::on_idle(
+        System::block_number(),
+        Weight::from_parts(u64::MAX, u64::MAX),
+    );
 }
 
 #[allow(dead_code)]

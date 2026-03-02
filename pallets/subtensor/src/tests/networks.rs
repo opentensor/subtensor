@@ -67,6 +67,34 @@ fn dissolve_no_stakers_no_alpha_no_emission() {
 }
 
 #[test]
+fn dissolve_defers_cleanup_until_on_idle() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(11);
+        let owner_hot = U256::from(12);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        assert!(SubnetOwner::<Test>::contains_key(net));
+        assert!(NetworkRegisteredAt::<Test>::contains_key(net));
+        assert!(!DissolvedNetworks::<Test>::get().contains(&net));
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Network is no longer considered "existing" but data is not cleaned yet.
+        assert!(!SubtensorModule::if_subnet_exist(net));
+        assert!(DissolvedNetworks::<Test>::get().contains(&net));
+        assert!(SubnetOwner::<Test>::contains_key(net));
+        assert!(NetworkRegisteredAt::<Test>::contains_key(net));
+
+        // Cleanup happens in on_idle.
+        run_block_idle();
+
+        assert!(!SubnetOwner::<Test>::contains_key(net));
+        assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
+        assert!(!DissolvedNetworks::<Test>::get().contains(&net));
+    });
+}
+
+#[test]
 fn dissolve_refunds_full_lock_cost_when_no_emission() {
     new_test_ext(0).execute_with(|| {
         let cold = U256::from(3);
@@ -84,6 +112,7 @@ fn dissolve_refunds_full_lock_cost_when_no_emission() {
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&cold);
 
         assert_eq!(TaoCurrency::from(after), TaoCurrency::from(before) + lock);
@@ -113,6 +142,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // Dissolve
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // Cold-key received full pot
         let after = SubtensorModule::get_coldkey_balance(&s_cold);
@@ -184,6 +214,7 @@ fn dissolve_two_stakers_pro_rata_distribution() {
 
         // Dissolve
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // Cold-keys received their τ shares
         assert_eq!(
@@ -260,6 +291,7 @@ fn dissolve_owner_cut_refund_logic() {
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&oc);
 
         assert!(after > before); // some refund is expected
@@ -455,6 +487,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Dissolve
         // ------------------------------------------------------------------
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // ------------------------------------------------------------------
         // Items that must be COMPLETELY REMOVED
@@ -639,10 +672,12 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
         SubnetTAO::<Test>::insert(net, TaoCurrency::from(0)); // zero TAO
         SubtensorModule::set_subnet_locked_balance(net, TaoCurrency::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaCurrency>::new());
+
         TotalHotkeyAlpha::<Test>::insert(sh, net, AlphaCurrency::from(1_000u64));
 
         let before = SubtensorModule::get_coldkey_balance(&sc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&sc);
 
         // No reward distributed, α-out cleared.
@@ -694,6 +729,7 @@ fn dissolve_rounding_remainder_distribution() {
 
         // 3. Run full dissolve flow
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // 4. s1 (larger remainder) should get +1 τ on cold-key
         let c1_after = SubtensorModule::get_coldkey_balance(&s1c);
@@ -763,7 +799,10 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // 7. Run the (now credit-to-coldkey) logic
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // 8. Expected τ shares via largest remainder
         let prod1 = (tao_pot as u128) * a1;
@@ -918,7 +957,10 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         let expected_refund = lock.saturating_sub(owner_emission_tao);
 
         // ── 6) run distribution (credits τ to coldkeys, wipes α state) ─────
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // ── 7) post checks ──────────────────────────────────────────────────
         for i in 0..N {
@@ -1001,7 +1043,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // Run the path under test
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // Owner received their refund…
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1047,7 +1092,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // Run the path under test
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
 
         // No refund for non‑legacy
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1081,7 +1129,10 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
 
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
-        assert_ok!(SubtensorModule::destroy_alpha_in_out_stakes(netuid));
+        SubtensorModule::destroy_alpha_in_out_stakes(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // No refund possible when lock = 0
@@ -1398,6 +1449,31 @@ fn register_network_prunes_and_recycles_netuid() {
         assert_eq!(SubnetOwner::<Test>::get(n1), new_cold);
         assert_eq!(SubnetOwnerHotkey::<Test>::get(n1), new_hot);
         assert_eq!(SubnetOwner::<Test>::get(n2), n2_cold);
+    });
+}
+
+#[test]
+fn register_network_skips_dissolved_netuid() {
+    new_test_ext(0).execute_with(|| {
+        let dissolved = NetUid::from(1);
+        DissolvedNetworks::<Test>::put(vec![dissolved]);
+
+        let cold = U256::from(60);
+        let hot = U256::from(61);
+        let needed: u64 = SubtensorModule::get_network_lock_cost().into();
+        SubtensorModule::add_balance_to_coldkey_account(&cold, needed.saturating_mul(10));
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(cold),
+            &hot,
+            1,
+            None,
+        ));
+
+        assert!(!NetworksAdded::<Test>::get(dissolved));
+        let expected = NetUid::from(2);
+        assert!(NetworksAdded::<Test>::get(expected));
+        assert_eq!(SubnetOwner::<Test>::get(expected), cold);
     });
 }
 
@@ -2022,6 +2098,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         for &net in nets.iter() {
             assert_ok!(SubtensorModule::do_dissolve_network(net));
         }
+        run_block_idle();
 
         // ────────────────────────────────────────────────────────────────────
         // 7) Assertions: τ balances, α gone, nets removed, swap state clean
@@ -2289,6 +2366,7 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
 
         // --- Dissolve the subnet ---
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // After dissolve, ALL mechanism-scoped items must be cleared for ALL mechanisms.
 

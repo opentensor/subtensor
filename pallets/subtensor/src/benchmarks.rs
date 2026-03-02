@@ -1764,4 +1764,20 @@ mod pallet_benchmarks {
             Some(limit),
         );
     }
+
+    #[benchmark]
+    fn dissolve_network() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let coldkey: T::AccountId = account("Owner", 0, 1);
+
+        // Initialize network
+        Subtensor::<T>::init_new_network(netuid, tempo);
+
+        // Set network owner
+        SubnetOwner::<T>::insert(netuid, coldkey.clone());
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, coldkey.clone(), netuid);
+    }
 }

@@ -837,8 +837,8 @@ impl ProxyInterface<AccountId> for Proxier {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(netuid: NetUid) {
-        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid);
+    fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid, remaining_weight)
     }
 }
 
@@ -959,7 +959,8 @@ pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn can_commit(netuid: NetUid, address: &AccountId) -> bool {
-        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
+        SubtensorModule::if_subnet_exist(netuid)
+            && SubtensorModule::is_hotkey_registered_on_network(netuid, address)
     }
 
     #[cfg(feature = "runtime-benchmarks")]

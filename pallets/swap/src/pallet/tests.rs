@@ -2001,7 +2001,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
 
         // ACT: users-only liquidation then protocol clear
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // ASSERT: positions cleared (both user and protocol)
         assert_eq!(
@@ -2086,7 +2086,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
 
 //         // Users-only dissolve, then clear protocol liquidity/state.
 //         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
-//         assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+//         Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX)));
 
 //         // ASSERT: positions & ticks gone, state reset
 //         assert_eq!(
@@ -2131,6 +2131,7 @@ fn test_liquidate_non_v3_uninitialized_ok_and_clears() {
         );
 
         // ACT
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // ASSERT: Defensive clears leave no residues and do not panic
@@ -2187,8 +2188,7 @@ fn test_liquidate_idempotent() {
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // Now clear protocol liquidity/state—also idempotent.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // State remains empty
         assert!(
@@ -2296,7 +2296,7 @@ fn liquidate_v3_refunds_user_funds_and_clears_state() {
         );
 
         // Clear protocol liquidity and V3 state now.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // User position(s) are gone and all V3 state cleared.
         assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
@@ -2358,7 +2358,7 @@ fn refund_alpha_single_provider_exact() {
         );
 
         // Clear protocol liquidity and V3 state now.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // --- State is cleared.
         assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
@@ -2628,7 +2628,7 @@ fn test_dissolve_v3_green_path_refund_tao_stake_alpha_and_clear_state() {
         }
 
         // Now clear protocol liquidity & state and assert full reset.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         let protocol_id = Pallet::<Test>::protocol_account_id();
         assert_eq!(Pallet::<Test>::count_positions(netuid, &cold), 0);
@@ -2693,7 +2693,7 @@ fn test_clear_protocol_liquidity_green_path() {
 
         // --- Act ---
         // Green path: just clear protocol liquidity and wipe all V3 state.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // --- Assert: all protocol positions removed ---
         let prot_positions_after =
@@ -2728,7 +2728,8 @@ fn test_clear_protocol_liquidity_green_path() {
         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
 
         // --- And it's idempotent ---
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+
         assert!(
             Positions::<Test>::iter_prefix_values((netuid, protocol_id))
                 .next()

@@ -1,5 +1,6 @@
 use frame_support::pallet_macros::pallet_section;
-
+// use subtensor_commitments_interface::CommitmentsHandler;
+// use subtensor_swap_interface::SwapHandler;
 /// A [`pallet_section`] that defines the events for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
@@ -177,6 +178,12 @@ mod hooks {
             // Self::check_total_stake()?;
             Ok(())
         }
+
+        fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
+            limit.saturating_sub(Self::remove_data_for_dissolved_networks(
+                limit.saturating_div(2),
+            ))
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -215,6 +222,44 @@ mod hooks {
                 }
             }
             weight
+        }
+
+        // Clean the data for dissolved networks
+        //
+        // # Args:
+        // 	* 'remaining_weight': (Weight):
+        // 		- The remaining weight for the function.
+        //
+        // # Returns:
+        // 	* 'Weight': The weight consumed by the function.
+        //
+        fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
+            let mut remaining_weight = remaining_weight;
+            let dissolved_networks = DissolvedNetworks::<T>::get();
+
+            for netuid in dissolved_networks.iter() {
+                let weight_used =
+                    Self::finalize_all_subnet_root_dividends(*netuid, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                let weight_used = Self::destroy_alpha_in_out_stakes(*netuid, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                let weight_used =
+                    T::SwapInterface::clear_protocol_liquidity(*netuid, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                let weight_used = T::CommitmentsInterface::purge_netuid(*netuid, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                let weight_used = Self::remove_network(*netuid, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                DissolvedNetworks::<T>::mutate(|networks| networks.retain(|n| *n != *netuid));
+
+                Self::deposit_event(Event::DissolvedNetworkDataCleaned { netuid: *netuid });
+            }
+            remaining_weight
         }
     }
 }

@@ -25,6 +25,7 @@ use sp_core::Get;
 use sp_runtime::{DispatchError, transaction_validity::TransactionValidityError};
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
+pub use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, WeightMeterWrapper};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -89,6 +90,7 @@ pub mod pallet {
         traits::{
             OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
+        weights::Weight,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
@@ -1891,6 +1893,10 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
+    /// --- ITEM ( dissolved_networks ) Networks dissolved but some storage not removed yet
+    #[pallet::storage]
+    pub type DissolvedNetworks<T> = StorageValue<_, Vec<NetUid>, ValueQuery>;
+
     // =======================================
     // ==== VotingPower Storage  ====
     // =======================================
@@ -2746,5 +2752,5 @@ impl<T> ProxyInterface<T> for () {
 
 /// Pallets that hold per-subnet commitments implement this to purge all state for `netuid`.
 pub trait CommitmentsInterface {
-    fn purge_netuid(netuid: NetUid);
+    fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> Weight;
 }

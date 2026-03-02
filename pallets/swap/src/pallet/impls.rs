@@ -1,24 +1,30 @@
-use core::ops::Neg;
-
-use frame_support::storage::{TransactionOutcome, transactional};
-use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
-use safe_math::*;
-use sp_arithmetic::helpers_128bit;
-use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
-use substrate_fixed::types::{I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
-};
-use subtensor_swap_interface::{
-    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
-};
-
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep, SwapStepAction};
 use crate::{
     SqrtPrice,
     position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
+};
+use core::ops::Neg;
+
+use frame_support::storage::{TransactionOutcome, transactional};
+use frame_support::{
+    ensure,
+    pallet_prelude::DispatchError,
+    traits::Get,
+    weights::{Weight, WeightMeter},
+};
+use safe_math::*;
+use sp_arithmetic::helpers_128bit;
+
+use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
+use substrate_fixed::types::{I64F64, U64F64, U96F32};
+use subtensor_runtime_common::{
+    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, LoopRemovePrefixWithWeightMeter, NetUid,
+    SubnetInfo, TaoCurrency, WeightMeterWrapper,
+};
+use subtensor_swap_interface::{
+    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
 };
 
 const MAX_SWAP_ITERATIONS: u16 = 1000;
@@ -153,7 +159,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
-    ) {
+    ) -> (TaoCurrency, AlphaCurrency) {
         // Update protocol position with new liquidity
         let protocol_account_id = Self::protocol_account_id();
         let mut positions =
@@ -211,6 +217,7 @@ impl<T: Config> Pallet<T> {
                 Self::add_liquidity_at_index(netuid, position.tick_high, liquidity_delta, true);
             }
         }
+        (tao_delta, alpha_delta)
     }
 
     /// Executes a token swap on the specified subnet.
@@ -950,7 +957,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
-    pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
+    pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let protocol_account = Self::protocol_account_id();
 
         // 1) Force-close only protocol positions, burning proceeds.
@@ -968,9 +978,16 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
 
+        WeightMeterWrapper!(
+            weight_meter,
+            T::DbWeight::get().reads(protocol_pos_ids.len() as u64)
+        );
+
         for pos_id in protocol_pos_ids {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(2, 2));
             match Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
                 Ok(rm) => {
+                    WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
                     let alpha_total_from_pool: AlphaCurrency =
                         rm.alpha.saturating_add(rm.fee_alpha);
                     let tao_total_from_pool: TaoCurrency = rm.tao.saturating_add(rm.fee_tao);
@@ -998,29 +1015,54 @@ impl<T: Config> Pallet<T> {
         // 2) Clear active tick index entries, then all swap state (idempotent even if empty/non‑V3).
         let active_ticks: sp_std::vec::Vec<TickIndex> =
             Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
+
+        WeightMeterWrapper!(
+            weight_meter,
+            T::DbWeight::get().reads_writes(active_ticks.len() as u64, active_ticks.len() as u64)
+        );
         for ti in active_ticks {
             ActiveTickIndexManager::<T>::remove(netuid, ti);
         }
 
-        let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
-        let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Positions::<T>::clear_prefix((netuid,), 1024, None)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Ticks::<T>::clear_prefix(netuid, 1024, None)
+        );
 
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeGlobalTao::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeGlobalAlpha::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         CurrentLiquidity::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         CurrentTick::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AlphaSqrtPrice::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SwapV3Initialized::<T>::remove(netuid);
 
-        let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            TickIndexBitmapWords::<T>::clear_prefix((netuid,), 1024, None)
+        );
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeRate::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         EnabledUserLiquidity::<T>::remove(netuid);
 
         log::debug!(
             "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
         );
 
-        Ok(())
+        weight_meter.consumed()
     }
 }
 
@@ -1149,8 +1191,12 @@ impl<T: Config> SwapHandler for Pallet<T> {
         netuid: NetUid,
         tao_delta: TaoCurrency,
         alpha_delta: AlphaCurrency,
-    ) {
-        Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
+    ) -> (TaoCurrency, AlphaCurrency) {
+        Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta)
+    }
+
+    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        Self::do_clear_protocol_liquidity(netuid, remaining_weight)
     }
 
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
@@ -1161,8 +1207,5 @@ impl<T: Config> SwapHandler for Pallet<T> {
     }
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
         EnabledUserLiquidity::<T>::insert(netuid, enabled)
-    }
-    fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
-        Self::do_clear_protocol_liquidity(netuid)
     }
 }

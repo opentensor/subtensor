@@ -1,5 +1,6 @@
 use super::*;
-use frame_support::weights::Weight;
+use crate::WeightMeterWrapper;
+use frame_support::weights::{Weight, WeightMeter};
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
@@ -131,6 +132,10 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
+        if DissolvedNetworks::<T>::get().contains(&netuid) {
+            log::debug!("root claim on subnet {netuid} is skipped, network is dissolved");
+            return; // no-op
+        }
         // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
@@ -389,15 +394,27 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
+    pub fn finalize_all_subnet_root_dividends(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
-        for hotkey in hotkeys.iter() {
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
+        // Iterate directly without collecting to avoid unnecessary allocation
+        for hotkey in RootClaimable::<T>::iter_keys() {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+            let mut claimable = RootClaimable::<T>::get(&hotkey);
+            if claimable.contains_key(&netuid) {
                 claimable.remove(&netuid);
-            });
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+                RootClaimable::<T>::insert(&hotkey, claimable);
+            }
+
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         }
 
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            RootClaimed::<T>::clear_prefix((netuid,), 1024, None)
+        );
+        weight_meter.consumed()
     }
 }
