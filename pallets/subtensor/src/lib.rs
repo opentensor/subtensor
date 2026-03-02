@@ -52,7 +52,7 @@ pub use extensions::*;
 pub use guards::*;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
@@ -1227,7 +1227,7 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    /// --- ITEM ( global_block_emission )    
+    /// --- ITEM ( global_block_emission )
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
 
@@ -1267,7 +1267,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type TotalStake<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
 
-    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.         
+    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.
     #[pallet::storage]
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
 
