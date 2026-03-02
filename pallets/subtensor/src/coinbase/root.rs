@@ -203,7 +203,15 @@ impl<T: Config> Pallet<T> {
     /// * 'MechanismDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
+    /// Start a multi-block liquidation of a subnet. Replaces the old
+    /// single-block atomic dissolution.
     pub fn do_dissolve_network(netuid: NetUid) -> dispatch::DispatchResult {
+        Self::start_liquidation(netuid)
+    }
+
+    /// Legacy atomic dissolution — used by force_complete_all_phases
+    /// for emergency/rollback paths only.
+    pub fn do_dissolve_network_atomic(netuid: NetUid) -> dispatch::DispatchResult {
         // --- The network exists?
         ensure!(
             Self::if_subnet_exist(netuid) && netuid != NetUid::ROOT,

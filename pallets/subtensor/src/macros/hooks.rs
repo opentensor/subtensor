@@ -49,6 +49,11 @@ mod hooks {
             }
         }
 
+        /// Process liquidations with leftover block weight.
+        fn on_idle(_block_number: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+            Self::process_liquidations(remaining_weight)
+        }
+
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
             let mut weight = frame_support::weights::Weight::from_parts(0, 0);
@@ -175,6 +180,7 @@ mod hooks {
             Self::check_total_issuance()?;
             // Disabled: https://github.com/opentensor/subtensor/pull/1166
             // Self::check_total_stake()?;
+            Self::check_liquidation_state()?;
             Ok(())
         }
     }
