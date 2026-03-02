@@ -5,12 +5,10 @@ use core::num::NonZeroU64;
 use crate::TransactionFeeHandler;
 use frame_support::{
     PalletId, assert_ok, derive_impl, parameter_types,
-    traits::{Everything, Hooks, InherentBuilder, PrivilegeCmp},
+    traits::{Everything, Hooks, PrivilegeCmp},
     weights::IdentityFee,
 };
-use frame_system::{
-    self as system, EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase,
-};
+use frame_system::{self as system, EnsureRoot, RawOrigin, limits};
 pub use pallet_subtensor::*;
 pub use sp_core::U256;
 use sp_core::{ConstU64, H256};
@@ -506,39 +504,12 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for Test
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Test
 where
     RuntimeCall: From<LocalCall>,
 {
     fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-        UncheckedExtrinsic::new_inherent(call)
-    }
-}
-
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
-where
-    RuntimeCall: From<LocalCall>,
-{
-    fn create_signed_transaction<
-        C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
-        call: <Self as CreateTransactionBase<LocalCall>>::RuntimeCall,
-        _public: Self::Public,
-        _account: Self::AccountId,
-        nonce: Self::Nonce,
-    ) -> Option<Self::Extrinsic> {
-        let extra: TransactionExtensions = (
-            frame_system::CheckNonZeroSender::<Test>::new(),
-            frame_system::CheckWeight::<Test>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0),
-        );
-
-        Some(UncheckedExtrinsic::new_signed(
-            call,
-            nonce.into(),
-            (),
-            extra,
-        ))
+        UncheckedExtrinsic::new_bare(call)
     }
 }
 

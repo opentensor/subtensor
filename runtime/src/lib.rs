@@ -54,7 +54,6 @@ use sp_core::{
     crypto::{ByteArray, KeyTypeId},
 };
 use sp_runtime::Cow;
-use sp_runtime::generic::Era;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
@@ -150,44 +149,6 @@ where
 impl frame_system::offchain::CreateBare<pallet_drand::Call<Runtime>> for Runtime {
     fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_bare(call)
-    }
-}
-
-impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>> for Runtime {
-    fn create_signed_transaction<
-        S: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
-    >(
-        call: RuntimeCall,
-        public: Self::Public,
-        account: Self::AccountId,
-        nonce: Self::Nonce,
-    ) -> Option<Self::Extrinsic> {
-        use sp_runtime::traits::StaticLookup;
-
-        let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
-        let extra: TransactionExtensions = (
-            frame_system::CheckNonZeroSender::<Runtime>::new(),
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
-            check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
-            frame_system::CheckWeight::<Runtime>::new(),
-            ChargeTransactionPaymentWrapper::new(
-                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-            ),
-            SudoTransactionExtension::<Runtime>::new(),
-            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
-            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
-            frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
-        );
-
-        let raw_payload = SignedPayload::new(call.clone(), extra.clone()).ok()?;
-        let signature = raw_payload.using_encoded(|payload| S::sign(payload, public))?;
-
-        Some(UncheckedExtrinsic::new_signed(
-            call, address, signature, extra,
-        ))
     }
 }
 
