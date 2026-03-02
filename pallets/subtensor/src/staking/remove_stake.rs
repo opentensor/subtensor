@@ -448,6 +448,7 @@ impl<T: Config> Pallet<T> {
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(1));
         let reg_at: u64 = NetworkRegisteredAt::<T>::get(netuid);
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(1));
+
         let start_block: u64 = NetworkRegistrationStartBlock::<T>::get();
         let should_refund_owner: bool = reg_at < start_block;
 
@@ -583,6 +584,7 @@ impl<T: Config> Pallet<T> {
             // Credit each share directly to coldkey free balance.
             for p in portions {
                 if p.share > 0 {
+                    WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads_writes(1, 1));
                     Self::add_balance_to_coldkey_account(&p.cold, p.share);
                 }
             }
@@ -591,6 +593,7 @@ impl<T: Config> Pallet<T> {
         // 7) Destroy all α-in/α-out state for this subnet.
         // 7.a) Remove every (hot, cold, netuid) α entry.
         for (hot, cold) in keys_to_remove {
+            WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
             Alpha::<T>::remove((hot, cold, netuid));
         }
         // 7.b) Clear share‑pool totals for each hotkey on this subnet.
@@ -623,7 +626,10 @@ impl<T: Config> Pallet<T> {
         };
 
         if !refund.is_zero() {
-            WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
+            WeightMeterWrapper!(
+                meter_weight,
+                T::DbWeight::get().reads(1) + T::DbWeight::get().writes(1)
+            );
             Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
         }
 
