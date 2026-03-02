@@ -9514,6 +9514,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-derivatives"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "substrate-fixed",
+ "subtensor-macros",
+ "subtensor-runtime-common",
+]
+
+[[package]]
 name = "pallet-dev-mode"
 version = "23.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=71629fd93b6c12a362a5cfb6331accef9b2b2b61#71629fd93b6c12a362a5cfb6331accef9b2b2b61"
