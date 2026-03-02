@@ -3,8 +3,16 @@
 
 extern crate alloc;
 
+use chacha20poly1305::{
+    KeyInit, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Payload},
+};
 use frame_support::{pallet_prelude::*, traits::IsSubType};
 use frame_system::{ensure_none, ensure_signed, pallet_prelude::*};
+use ml_kem::{
+    Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
+    kem::{Decapsulate, DecapsulationKey},
+};
 use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
 use stp_shield::{
     INHERENT_IDENTIFIER, InherentType, LOG_TARGET, ShieldPublicKey, ShieldedTransaction,
@@ -252,23 +260,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn try_unshield_tx<Block: BlockT>(
+        dec_key_bytes: alloc::vec::Vec<u8>,
         shielded_tx: ShieldedTransaction,
     ) -> Option<<Block as BlockT>::Extrinsic> {
-        let mut shared_secret = [0u8; 32];
-        stp_io::crypto::mlkem768_decapsulate(&shielded_tx.kem_ct, &mut shared_secret).inspect_err(
-            |e| log::debug!(target: LOG_TARGET, "Failed to decapsulate shielded transaction: {:?}", e),
-        ).ok()?;
-
-        let plaintext = stp_io::crypto::aead_decrypt(
-            &shared_secret,
-            &shielded_tx.nonce,
-            &shielded_tx.aead_ct,
-            &[],
-        )
-        .inspect_err(
-            |e| log::debug!(target: LOG_TARGET, "Failed to decrypt shielded transaction: {:?}", e),
-        )
-        .ok()?;
+        let plaintext = unshield(&dec_key_bytes, &shielded_tx).or_else(|| {
+            log::debug!(target: LOG_TARGET, "Failed to unshield transaction");
+            None
+        })?;
 
         if plaintext.is_empty() {
             return None;
@@ -292,4 +290,19 @@ impl<T: Config> FindAuthors<T> for () {
     fn find_next_author() -> Option<T::AuthorityId> {
         None
     }
+}
+
+/// Decrypt a shielded transaction using the raw decapsulation key bytes.
+///
+/// Performs ML-KEM-768 decapsulation followed by XChaCha20-Poly1305 AEAD decryption.
+/// Runs entirely in WASM — no host functions needed.
+fn unshield(dec_key_bytes: &[u8], shielded_tx: &ShieldedTransaction) -> Option<alloc::vec::Vec<u8>> {
+    let dec_key =
+        DecapsulationKey::<MlKem768Params>::from_bytes(dec_key_bytes.try_into().ok()?);
+    let ciphertext = Ciphertext::<MlKem768>::try_from(shielded_tx.kem_ct.as_slice()).ok()?;
+    let shared_secret = dec_key.decapsulate(&ciphertext).ok()?;
+
+    let aead = XChaCha20Poly1305::new(shared_secret.as_slice().into());
+    let nonce = XNonce::from_slice(&shielded_tx.nonce);
+    aead.decrypt(nonce, Payload { msg: &shielded_tx.aead_ct, aad: &[] }).ok()
 }

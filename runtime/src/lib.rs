@@ -2619,8 +2619,8 @@ impl_runtime_apis! {
             MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
         }
 
-        fn try_unshield_tx(shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
-            MevShield::try_unshield_tx::<Block>(shielded_tx)
+        fn try_unshield_tx(dec_key_bytes: Vec<u8>, shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+            MevShield::try_unshield_tx::<Block>(dec_key_bytes, shielded_tx)
         }
     }
 }

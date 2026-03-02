@@ -44,4 +44,4 @@ Each block includes an `announce_next_key` inherent that:
 ## Dependencies
 
 - [`stp-shield`](https://github.com/opentensor/polkadot-sdk) — shared types (`ShieldedTransaction`, `ShieldPublicKey`, `InherentType`)
-- [`stp-io`](../../primitives/io) — host functions for ML-KEM decapsulation and AEAD decryption
+- `ml-kem` / `chacha20poly1305` — cryptographic primitives for in-WASM decryption

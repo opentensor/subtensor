@@ -3,10 +3,9 @@ use crate::{AuthorKeys, CurrentKey, Error, HasMigrationRun, NextKey};
 
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
-use sp_runtime::BuildStorage;
 use sp_runtime::testing::TestSignature;
 use sp_runtime::traits::{Block as BlockT, Hash};
-use stp_shield::{ShieldKeystore, ShieldKeystoreExt, ShieldPublicKey, ShieldedTransaction};
+use stp_shield::{ShieldKeystore, ShieldPublicKey, ShieldedTransaction};
 
 use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
@@ -18,7 +17,6 @@ use ml_kem::{
 };
 use rand_chacha::{ChaChaRng, rand_core::SeedableRng};
 use stc_shield::MemoryShieldKeystore;
-use std::sync::Arc;
 
 #[test]
 fn announce_rejects_signed_origin() {
@@ -279,10 +277,10 @@ fn try_decode_shielded_tx_returns_none_when_depth_exceeded() {
 #[test]
 fn try_unshield_tx_decrypts_extrinsic() {
     let mut rng = ChaChaRng::from_seed([42u8; 32]);
-    let keystore = Arc::new(MemoryShieldKeystore::new());
+    let keystore = MemoryShieldKeystore::new();
 
-    // Client side: read the announced public key and encapsulate.
-    let pk_bytes = keystore.next_public_key().unwrap();
+    // Client side: read the announced encapsulation key and encapsulate.
+    let pk_bytes = keystore.next_enc_key().unwrap();
     let enc_key =
         EncapsulationKey::<MlKem768Params>::from_bytes(pk_bytes.as_slice().try_into().unwrap());
     let (kem_ct, shared_secret) = enc_key.encapsulate(&mut rng).unwrap();
@@ -309,6 +307,7 @@ fn try_unshield_tx_decrypts_extrinsic() {
 
     // Roll keystore so next -> current (author side).
     keystore.roll_for_next_slot().unwrap();
+    let dec_key_bytes = keystore.current_dec_key().unwrap();
 
     let shielded_tx = ShieldedTransaction {
         key_hash: [0u8; 16],
@@ -317,22 +316,11 @@ fn try_unshield_tx_decrypts_extrinsic() {
         aead_ct,
     };
 
-    // Build externalities with ShieldKeystoreExt registered.
-    let storage = RuntimeGenesisConfig::default()
-        .build_storage()
-        .expect("valid genesis");
-    let mut ext = sp_io::TestExternalities::new(storage);
-    ext.register_extension(ShieldKeystoreExt::from(
-        keystore as Arc<dyn stp_shield::ShieldKeystore>,
-    ));
+    let result = crate::Pallet::<Test>::try_unshield_tx::<Block>(dec_key_bytes, shielded_tx);
+    assert!(result.is_some());
 
-    ext.execute_with(|| {
-        let result = crate::Pallet::<Test>::try_unshield_tx::<Block>(shielded_tx);
-        assert!(result.is_some());
-
-        let decoded = result.unwrap();
-        assert_eq!(decoded.encode(), inner_uxt.encode());
-    });
+    let decoded = result.unwrap();
+    assert_eq!(decoded.encode(), inner_uxt.encode());
 }
 
 // ---------------------------------------------------------------------------

@@ -8518,7 +8518,6 @@ dependencies = [
  "sp-timestamp",
  "sp-transaction-pool",
  "stc-shield",
- "stp-io",
  "stp-shield",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
@@ -8628,7 +8627,6 @@ dependencies = [
  "sp-tracing",
  "sp-transaction-pool",
  "sp-version",
- "stp-io",
  "stp-shield",
  "substrate-fixed",
  "substrate-wasm-builder",
@@ -10800,7 +10798,6 @@ dependencies = [
  "sp-std",
  "sp-weights",
  "stc-shield",
- "stp-io",
  "stp-shield",
  "subtensor-macros",
  "subtensor-runtime-common",
@@ -18397,8 +18394,6 @@ dependencies = [
 [[package]]
 name = "sp-crypto-hashing"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc9927a7f81334ed5b8a98a4a978c81324d12bd9713ec76b5c68fd410174c5eb"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -19646,11 +19641,9 @@ dependencies = [
 [[package]]
 name = "stc-shield"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=63332fd67a3e676b064b5ecde8ddad308714e42f#63332fd67a3e676b064b5ecde8ddad308714e42f"
 dependencies = [
  "anyhow",
  "async-trait",
- "chacha20poly1305",
  "futures",
  "hex",
  "log",
@@ -19666,24 +19659,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "stp-io"
-version = "0.1.0"
-dependencies = [
- "parity-scale-codec",
- "sp-externalities",
- "sp-runtime-interface",
- "stp-shield",
-]
-
-[[package]]
 name = "stp-shield"
 version = "0.1.0"
-source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=63332fd67a3e676b064b5ecde8ddad308714e42f#63332fd67a3e676b064b5ecde8ddad308714e42f"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-externalities",
  "sp-inherents",
  "sp-runtime",
 ]
