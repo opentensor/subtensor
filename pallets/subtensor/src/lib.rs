@@ -38,6 +38,7 @@ pub mod coinbase;
 pub mod epoch;
 pub mod extensions;
 pub mod guards;
+pub mod liquidation;
 pub mod macros;
 pub mod migrations;
 pub mod rpc_info;
@@ -79,6 +80,9 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 #[allow(clippy::expect_used)]
 pub mod pallet {
     use crate::RateLimitKey;
+    use crate::liquidation::types::{
+        LiquidationPhaseTag, LiquidationState, LiquidationWarning, PendingRegistration,
+    };
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
@@ -2420,6 +2424,44 @@ pub mod pallet {
     #[pallet::storage]
     pub type PendingChildKeyCooldown<T: Config> =
         StorageValue<_, u64, ValueQuery, DefaultPendingChildKeyCooldown<T>>;
+
+    // ============================
+    // ==== Liquidation Storage ===
+    // ============================
+
+    /// Subnets currently in liquidation
+    #[pallet::storage]
+    pub type LiquidatingSubnets<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, LiquidationState<BlockNumberFor<T>>, OptionQuery>;
+
+    /// Snapshot of staker data for distribution (built during SnapshotStakers phase).
+    /// Indexed by (netuid, sequential_index) -> (hotkey, coldkey, alpha_value).
+    #[pallet::storage]
+    pub type LiquidationStakerSnapshot<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        NetUid,
+        Twox64Concat,
+        u32,
+        (T::AccountId, T::AccountId, u128),
+        OptionQuery,
+    >;
+
+    /// Count of entries in the staker snapshot for a liquidating subnet.
+    #[pallet::storage]
+    pub type LiquidationSnapshotCount<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, u32, ValueQuery>;
+
+    /// Cooldown period before netuid can be reused (prevents stale state inheritance).
+    #[pallet::storage]
+    pub type NetuidCooldown<T: Config> =
+        StorageMap<_, Twox64Concat, NetUid, BlockNumberFor<T>, OptionQuery>;
+
+    /// Pending registration waiting for liquidation to complete.
+    /// Only one pending registration at a time (since only one liquidation at a time).
+    #[pallet::storage]
+    pub type PendingSubnetRegistration<T: Config> =
+        StorageValue<_, PendingRegistration<T::AccountId>, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
