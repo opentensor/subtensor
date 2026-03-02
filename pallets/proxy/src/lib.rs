@@ -674,6 +674,44 @@ pub mod pallet {
                 Pays::Yes.into()
             })
         }
+
+        /// Set whether the real account pays transaction fees for proxy calls made by a
+        /// specific delegate.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the real (delegator)
+        /// account that has an existing proxy relationship with the delegate.
+        ///
+        /// Parameters:
+        /// - `delegate`: The proxy account for which to set the fee payment preference.
+        /// - `pays_fee`: If `true`, the real account will pay fees for proxy calls made by
+        ///   this delegate. If `false`, the delegate pays (default behavior).
+        #[pallet::call_index(11)]
+        #[pallet::weight(T::WeightInfo::set_real_pays_fee(T::MaxProxies::get()))]
+        pub fn set_real_pays_fee(
+            origin: OriginFor<T>,
+            delegate: AccountIdLookupOf<T>,
+            pays_fee: bool,
+        ) -> DispatchResult {
+            let real = ensure_signed(origin)?;
+            let delegate = T::Lookup::lookup(delegate)?;
+
+            // Verify proxy relationship exists
+            Self::find_proxy(&real, &delegate, None)?;
+
+            if pays_fee {
+                RealPaysFee::<T>::insert(&real, &delegate, ());
+            } else {
+                RealPaysFee::<T>::remove(&real, &delegate);
+            }
+
+            Self::deposit_event(Event::RealPaysFeeSet {
+                real,
+                delegate,
+                pays_fee,
+            });
+
+            Ok(())
+        }
     }
 
     #[pallet::event]
@@ -726,6 +764,12 @@ pub mod pallet {
             kind: DepositKind,
             old_deposit: BalanceOf<T>,
             new_deposit: BalanceOf<T>,
+        },
+        /// The real-pays-fee setting was updated for a proxy relationship.
+        RealPaysFeeSet {
+            real: T::AccountId,
+            delegate: T::AccountId,
+            pays_fee: bool,
         },
     }
 
@@ -795,6 +839,21 @@ pub mod pallet {
     #[pallet::storage]
     pub type LastCallResult<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, DispatchResult, OptionQuery>;
+
+    /// Tracks which (real, delegate) pairs have opted in to the real account paying
+    /// transaction fees for proxy calls made by the delegate.
+    /// Existence of an entry means the real account pays; absence means the delegate pays
+    /// (default).
+    #[pallet::storage]
+    pub type RealPaysFee<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        T::AccountId, // real
+        Twox64Concat,
+        T::AccountId, // delegate
+        (),
+        OptionQuery,
+    >;
 
     #[pallet::view_functions]
     impl<T: Config> Pallet<T> {
@@ -951,6 +1010,9 @@ impl<T: Config> Pallet<T> {
             if !proxies.is_empty() {
                 *x = Some((proxies, new_deposit))
             }
+            // Clean up real-pays-fee flag for this specific proxy relationship
+            RealPaysFee::<T>::remove(delegator, &delegatee);
+
             Self::deposit_event(Event::<T>::ProxyRemoved {
                 delegator: delegator.clone(),
                 delegatee,
@@ -1081,5 +1143,12 @@ impl<T: Config> Pallet<T> {
     pub fn remove_all_proxy_delegates(delegator: &T::AccountId) {
         let (_, old_deposit) = Proxies::<T>::take(delegator);
         T::Currency::unreserve(delegator, old_deposit);
+        // Clean up all real-pays-fee flags for this delegator
+        let _ = RealPaysFee::<T>::clear_prefix(delegator, u32::MAX, None);
+    }
+
+    /// Check if the real account has opted in to paying fees for a specific delegate.
+    pub fn is_real_pays_fee(real: &T::AccountId, delegate: &T::AccountId) -> bool {
+        RealPaysFee::<T>::contains_key(real, delegate)
     }
 }

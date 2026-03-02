@@ -10781,6 +10781,8 @@ dependencies = [
 name = "pallet-subtensor-proxy"
 version = "40.1.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
  "pallet-balances",
  "pallet-subtensor-utility",
  "parity-scale-codec",
