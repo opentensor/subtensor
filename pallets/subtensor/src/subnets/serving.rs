@@ -69,6 +69,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
+        Self::ensure_not_liquidating(netuid)?;
 
         // Validate user input
         Self::validate_serve_axon(
@@ -182,6 +183,8 @@ impl<T: Config> Pallet<T> {
             Self::is_hotkey_registered_on_any_network(&hotkey_id),
             Error::<T>::HotKeyNotRegisteredInNetwork
         );
+
+        Self::ensure_not_liquidating(netuid)?;
 
         // We get the previous axon info assoicated with this ( netuid, uid )
         let mut prev_prometheus = Self::get_prometheus_info(netuid, &hotkey_id);

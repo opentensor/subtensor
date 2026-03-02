@@ -83,6 +83,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::SubNetRegistrationDisabled
         );
 
+        // --- 3.5. Ensure the subnet is not being liquidated.
+        Self::ensure_not_liquidating(netuid)?;
+
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!(
             Self::get_registrations_this_block(netuid)
@@ -247,6 +250,9 @@ impl<T: Config> Pallet<T> {
             Self::get_network_pow_registration_allowed(netuid),
             Error::<T>::SubNetRegistrationDisabled
         );
+
+        // --- 3.5. Ensure the subnet is not being liquidated.
+        Self::ensure_not_liquidating(netuid)?;
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!(
