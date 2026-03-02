@@ -62,8 +62,6 @@ pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
 pallet-subtensor-proxy.workspace = true
 pallet-aura.workspace = true
-pallet-timestamp.workspace = true
-sp-consensus-aura.workspace = true
 subtensor-runtime-common.workspace = true
 pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
@@ -94,6 +92,7 @@ try-runtime = [
 	"pallet-subtensor-proxy/try-runtime",
 	"pallet-subtensor-utility/try-runtime",
 	"pallet-shield/try-runtime",
+	"pallet-aura/try-runtime",
 ]
 default = ["std"]
 std = [
@@ -122,9 +121,7 @@ std = [
 	"pallet-subtensor-proxy/std",
 	"pallet-subtensor-swap/std",
 	"pallet-shield/std",
-	"pallet-timestamp/std",
 	"pallet-aura/std",
-	"sp-consensus-aura/std",
 	"subtensor-swap-interface/std",
 	"pallet-subtensor-utility/std",
 	"safe-math/std",
@@ -142,8 +139,6 @@ std = [
 	"serde_json/std",
 	"sha2/std",
 	"rand/std",
-	"pallet-shield/std",
-	"sp-consensus-aura/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

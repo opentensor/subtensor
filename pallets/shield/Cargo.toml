@@ -49,6 +49,10 @@ rand_chacha = { workspace = true, optional = true }
 stc-shield.workspace = true
 pallet-subtensor-utility.workspace = true
 rand_chacha.workspace = true
+pallet-timestamp.workspace = true
+pallet-aura.workspace = true
+sp-consensus-aura.workspace = true
+sp-keystore.workspace = true
 
 [features]
 default = ["std"]
@@ -83,6 +87,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor-utility/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks",
 	"pallet-aura",
 	"sp-consensus-aura",
 	"rand_chacha",
