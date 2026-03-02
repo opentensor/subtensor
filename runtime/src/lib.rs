@@ -10,7 +10,6 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use core::num::NonZeroU64;
 
-mod base_call_filter;
 pub mod check_nonce;
 mod migrations;
 pub mod sudo_wrapper;
@@ -43,10 +42,9 @@ use pallet_subtensor::rpc_info::{
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_swap_runtime_api::{SimSwapResult, SubnetPrice};
+use pallet_subtensor_swap_runtime_api::SimSwapResult;
 use pallet_subtensor_utility as pallet_utility;
 use runtime_common::prod_or_fast;
-use safe_math::FixedExt;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_babe::BabeConfiguration;
@@ -72,15 +70,11 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use substrate_fixed::types::U64F64;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
-use crate::base_call_filter::NoNestingCallFilter;
-use crate::base_call_filter::SafeModeWhitelistedCalls;
-use core::marker::PhantomData;
 pub use frame_support::{
     StorageValue, construct_runtime, parameter_types,
     traits::{
@@ -100,11 +94,14 @@ pub use pallet_balances::Call as BalancesCall;
 use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use scale_info::TypeInfo;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+
+use core::marker::PhantomData;
+
+use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -243,7 +240,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 381,
+    spec_version: 386,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -276,6 +273,28 @@ parameter_types! {
     pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
         ::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
     pub const SS58Prefix: u8 = 42;
+}
+
+pub struct NoNestingCallFilter;
+
+impl Contains<RuntimeCall> for NoNestingCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Utility(inner) => {
+                let calls = match inner {
+                    pallet_utility::Call::force_batch { calls } => calls,
+                    pallet_utility::Call::batch { calls } => calls,
+                    pallet_utility::Call::batch_all { calls } => calls,
+                    _ => &Vec::new(),
+                };
+
+                !calls.iter().any(|call| {
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+				})
+            }
+            _ => true,
+        }
+    }
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -334,6 +353,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
+    type DispatchGuard = pallet_subtensor::CheckColdkeySwap<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -409,6 +429,25 @@ parameter_types! {
     pub const DisallowPermissionlessEntering: Option<Balance> = None;
     pub const DisallowPermissionlessExtending: Option<Balance> = None;
     pub const DisallowPermissionlessRelease: Option<BlockNumber> = None;
+}
+
+pub struct SafeModeWhitelistedCalls;
+impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
+    fn contains(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::Sudo(_)
+                | RuntimeCall::Multisig(_)
+                | RuntimeCall::System(_)
+                | RuntimeCall::SafeMode(_)
+                | RuntimeCall::Timestamp(_)
+                | RuntimeCall::SubtensorModule(
+                    pallet_subtensor::Call::set_weights { .. }
+                        | pallet_subtensor::Call::serve_axon { .. }
+                )
+                | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
+        )
+    }
 }
 
 impl pallet_safe_mode::Config for Runtime {
@@ -1131,6 +1170,7 @@ impl pallet_subtensor::Config for Runtime {
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1_000_000) };
 }
@@ -1142,6 +1182,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
     type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
@@ -2486,26 +2527,14 @@ impl_runtime_apis! {
 
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
         fn current_alpha_price(netuid: NetUid) -> u64 {
+            use substrate_fixed::types::U96F32;
+
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
-                .saturating_mul(U64F64::from_num(1_000_000_000))
+                .saturating_mul(U96F32::from_num(1_000_000_000))
                 .saturating_to_num()
         }
 
-        fn current_alpha_price_all() -> Vec<SubnetPrice> {
-            pallet_subtensor::Pallet::<Runtime>::get_all_subnet_netuids()
-                .into_iter()
-                .map(|netuid| {
-                    SubnetPrice {
-                        netuid,
-                        price: Self::current_alpha_price(netuid),
-                    }
-                })
-                .collect()
-        }
-
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
-            let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
-            let no_slippage_alpha = U64F64::saturating_from_num(u64::from(tao)).safe_div(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
@@ -2518,23 +2547,17 @@ impl_runtime_apis! {
                     alpha_amount: 0.into(),
                     tao_fee:      0.into(),
                     alpha_fee:    0.into(),
-                    tao_slippage: 0.into(),
-                    alpha_slippage: 0.into(),
                 },
                 |sr| SimSwapResult {
                     tao_amount:   sr.amount_paid_in.into(),
                     alpha_amount: sr.amount_paid_out.into(),
                     tao_fee:      sr.fee_paid.into(),
                     alpha_fee:    0.into(),
-                    tao_slippage: 0.into(),
-                    alpha_slippage: no_slippage_alpha.saturating_sub(sr.amount_paid_out.into()).into(),
                 },
             )
         }
 
         fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
-            let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
-            let no_slippage_tao = U64F64::saturating_from_num(u64::from(alpha)).saturating_mul(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
             // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
@@ -2547,16 +2570,12 @@ impl_runtime_apis! {
                     alpha_amount: 0.into(),
                     tao_fee:      0.into(),
                     alpha_fee:    0.into(),
-                    tao_slippage: 0.into(),
-                    alpha_slippage: 0.into(),
                 },
                 |sr| SimSwapResult {
                     tao_amount:   sr.amount_paid_out.into(),
                     alpha_amount: sr.amount_paid_in.into(),
                     tao_fee:      0.into(),
                     alpha_fee:    sr.fee_paid.into(),
-                    tao_slippage: no_slippage_tao.saturating_sub(sr.amount_paid_out.into()).into(),
-                    alpha_slippage: 0.into(),
                 },
             )
         }

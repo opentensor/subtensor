@@ -418,8 +418,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// In the corner case when SubnetTAO(2) == SubnetTAO(1), no slippage is going to occur.
     ///
-    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3 or balancers.
-    /// We need an updated one.
+    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3. We need an updated one.
     ///
     pub fn get_max_amount_move(
         origin_netuid: NetUid,
@@ -472,8 +471,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
-        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid);
-        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid);
+        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(origin_netuid));
+        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(destination_netuid));
         if subnet_tao_1.is_zero() || subnet_tao_2.is_zero() {
             return Err(Error::<T>::ZeroMaxStakeAmount.into());
         }
@@ -481,8 +482,10 @@ impl<T: Config> Pallet<T> {
         let subnet_tao_2_float: U64F64 = U64F64::saturating_from_num(subnet_tao_2);
 
         // Corner case: SubnetAlphaIn for any of two subnets is zero
-        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid);
-        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid);
+        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(origin_netuid));
+        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(destination_netuid));
         if alpha_in_1.is_zero() || alpha_in_2.is_zero() {
             return Err(Error::<T>::ZeroMaxStakeAmount.into());
         }

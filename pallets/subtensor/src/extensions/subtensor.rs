@@ -1,7 +1,4 @@
-use crate::{
-    BalancesCall, Call, CheckColdkeySwap, Config, CustomTransactionError, Error, Pallet,
-    TransactionType,
-};
+use crate::{BalancesCall, Call, Config, CustomTransactionError, Error, Pallet, TransactionType};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
@@ -90,18 +87,10 @@ where
 
 impl<T> TransactionExtension<CallOf<T>> for SubtensorTransactionExtension<T>
 where
-    T: Config
-        + Send
-        + Sync
-        + TypeInfo
-        + pallet_balances::Config
-        + pallet_subtensor_proxy::Config
-        + pallet_shield::Config,
+    T: Config + Send + Sync + TypeInfo + pallet_balances::Config,
     CallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<Call<T>>
-        + IsSubType<BalancesCall<T>>
-        + IsSubType<pallet_subtensor_proxy::Call<T>>
-        + IsSubType<pallet_shield::Call<T>>,
+        + IsSubType<BalancesCall<T>>,
     OriginOf<T>: AsSystemOriginSigner<T::AccountId> + Clone,
 {
     const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
@@ -124,17 +113,6 @@ where
         let Some(who) = origin.as_system_origin_signer() else {
             return Ok((Default::default(), (), origin));
         };
-
-        // TODO: move into tx extension pipeline but require node upgrade
-        CheckColdkeySwap::<T>::new().validate(
-            origin.clone(),
-            call,
-            _info,
-            _len,
-            _self_implicit,
-            _inherited_implication,
-            _source,
-        )?;
 
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
