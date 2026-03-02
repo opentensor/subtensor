@@ -24,6 +24,7 @@ mod registration;
 mod serving;
 mod staking;
 mod staking2;
+mod submetagraph;
 mod subnet;
 mod subnet_emissions;
 mod swap_coldkey;
