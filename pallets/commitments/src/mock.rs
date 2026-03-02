@@ -3,9 +3,8 @@ use crate as pallet_commitments;
 use frame_support::{
     derive_impl,
     pallet_prelude::{Get, TypeInfo},
-    traits::{ConstU32, ConstU64, InherentBuilder},
+    traits::{ConstU32, ConstU64},
 };
-use frame_system::offchain::CreateTransactionBase;
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage,
