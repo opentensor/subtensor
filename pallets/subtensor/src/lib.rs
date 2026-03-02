@@ -52,7 +52,7 @@ pub use extensions::*;
 pub use guards::*;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
