@@ -106,9 +106,8 @@ describe("▶ transfer_stake extrinsic", () => {
 
     log.info(`Origin stake before: ${originStakeBefore}`);
 
-    // Transfer stake to destination coldkey
-    // Use raw U64F64 value for the extrinsic
     const originStakeRaw = await getStakeRaw(api, hotkeyAddress, originColdkeyAddress, netuid);
+    const transferAmount = originStakeRaw / 2n;
     await transferStake(
       api,
       originColdkey,
@@ -116,7 +115,7 @@ describe("▶ transfer_stake extrinsic", () => {
       hotkeyAddress,
       netuid,
       netuid,
-      originStakeRaw
+      transferAmount
     );
 
     // Verify destination received stake
