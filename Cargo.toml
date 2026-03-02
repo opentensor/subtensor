@@ -73,7 +73,6 @@ subtensor-runtime-common = { default-features = false, path = "common" }
 subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
-stp-io = { path = "primitives/io", default-features = false }
 stp-shield = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "63332fd67a3e676b064b5ecde8ddad308714e42f", default-features = false }
 stc-shield = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "63332fd67a3e676b064b5ecde8ddad308714e42f", default-features = false }
 

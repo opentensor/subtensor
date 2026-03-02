@@ -16,6 +16,5 @@ pub type HostFunctions = (
     frame_benchmarking::benchmarking::HostFunctions,
     sp_crypto_ec_utils::bls12_381::host_calls::HostFunctions,
     ProofSize,
-    stp_io::SubtensorHostFunctions,
 );
 pub type RuntimeExecutor = WasmExecutor<HostFunctions>;
