@@ -81,6 +81,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
+        // 2.5. Ensure the subnet is not being liquidated.
+        Self::ensure_not_liquidating(netuid)?;
+
         // 3. Ensure the hotkey is registered on the network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, &who),
@@ -471,6 +474,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
+        // --- 2.5. Ensure the subnet is not being liquidated.
+        Self::ensure_not_liquidating(netuid)?;
+
         // --- 3. Mutate the WeightCommits to retrieve existing commits for the user.
         WeightCommits::<T>::try_mutate_exists(
             netuid_index,
@@ -773,6 +779,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Check to see if this is a valid network and sub-subnet.
         Self::ensure_mechanism_exists(netuid, mecid)?;
+
+        // --- 3.5. Ensure the subnet is not being liquidated.
+        Self::ensure_not_liquidating(netuid)?;
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
         ensure!(

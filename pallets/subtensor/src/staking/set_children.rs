@@ -498,6 +498,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
+        Self::ensure_not_liquidating(netuid)?;
+
         // Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
             !netuid.is_root(),
@@ -711,6 +713,8 @@ impl<T: Config> Pallet<T> {
             take <= Self::get_max_childkey_take(),
             Error::<T>::InvalidChildkeyTake
         );
+
+        Self::ensure_not_liquidating(netuid)?;
 
         let current_take = Self::get_childkey_take(&hotkey, netuid);
         // Check the rate limit for increasing childkey take case

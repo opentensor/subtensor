@@ -2569,5 +2569,22 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
+
+        /// Force-complete a stuck liquidation. Root-only.
+        /// WARNING: This may exceed normal block weight.
+        #[pallet::call_index(133)]
+        #[pallet::weight(Weight::from_parts(1_000_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(100))
+            .saturating_add(T::DbWeight::get().writes(100)))]
+        pub fn force_complete_liquidation(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let state = LiquidatingSubnets::<T>::get(netuid).ok_or(Error::<T>::NotLiquidating)?;
+
+            Self::force_complete_all_phases(netuid, state)?;
+
+            Self::deposit_event(Event::LiquidationForceCompleted { netuid });
+            Ok(())
+        }
     }
 }

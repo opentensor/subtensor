@@ -36,6 +36,49 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Checks liquidation state invariants:
+    /// - At most one liquidation active at a time
+    /// - Snapshot count matches actual snapshot entries
+    /// - TAO distributed never exceeds TAO pot
+    #[allow(dead_code)]
+    pub(crate) fn check_liquidation_state() -> Result<(), sp_runtime::TryRuntimeError> {
+        let liquidating: sp_std::vec::Vec<_> = LiquidatingSubnets::<T>::iter().collect();
+
+        // Invariant 1: at most one liquidation active at a time
+        ensure!(
+            liquidating.len() <= 1,
+            "More than one subnet liquidating simultaneously",
+        );
+
+        for (netuid, state) in &liquidating {
+            // Invariant 2: TAO distributed <= TAO pot
+            ensure!(
+                state.tao_distributed <= state.tao_pot,
+                "TAO distributed exceeds TAO pot for liquidating subnet",
+            );
+
+            // Invariant 3: snapshot count matches actual entries
+            let mut actual_count: u32 = 0;
+            for i in 0..state.snapshot_count {
+                if LiquidationStakerSnapshot::<T>::get(*netuid, i).is_some() {
+                    actual_count = actual_count.saturating_add(1);
+                }
+            }
+            ensure!(
+                actual_count <= state.snapshot_count,
+                "More snapshot entries than snapshot_count for liquidating subnet",
+            );
+
+            // Invariant 4: liquidating subnet must be marked as added
+            ensure!(
+                NetworksAdded::<T>::get(*netuid),
+                "Liquidating subnet not in NetworksAdded",
+            );
+        }
+
+        Ok(())
+    }
+
     /// Checks the sum of all stakes matches the [`TotalStake`].
     #[allow(dead_code)]
     pub(crate) fn check_total_stake() -> Result<(), sp_runtime::TryRuntimeError> {

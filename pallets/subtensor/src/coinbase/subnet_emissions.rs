@@ -8,6 +8,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnets_to_emit_to(subnets: &[NetUid]) -> Vec<NetUid> {
         // Filter out root subnet.
         // Filter out subnets with no first emission block number.
+        // Skip liquidating subnets — no emissions during wind-down
         subnets
             .iter()
             .filter(|netuid| !netuid.is_root())
@@ -18,6 +19,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_network_registration_allowed(*netuid)
                     || Self::get_network_pow_registration_allowed(*netuid)
             })
+            .filter(|netuid| !Self::is_subnet_liquidating(**netuid))
             .copied()
             .collect()
     }

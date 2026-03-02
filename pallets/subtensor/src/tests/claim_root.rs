@@ -1369,7 +1369,7 @@ fn test_claim_root_on_network_deregistration() {
 
         // Claim root via network deregistration
 
-        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        assert_ok!(SubtensorModule::do_dissolve_network_atomic(netuid));
 
         assert!(!RootClaimed::<Test>::contains_key((
             netuid, &hotkey, &coldkey,

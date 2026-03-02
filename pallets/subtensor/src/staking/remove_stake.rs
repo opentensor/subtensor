@@ -49,6 +49,7 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::ensure_subtoken_enabled(netuid)?;
+        Self::ensure_not_liquidating(netuid)?;
 
         // 1.1. Cap the alpha_unstaked at available Alpha because user might be paying transaxtion fees
         // in Alpha and their total is already reduced by now.
@@ -142,6 +143,10 @@ impl<T: Config> Pallet<T> {
             if !SubtokenEnabled::<T>::get(netuid) {
                 continue;
             }
+            if Self::is_subnet_liquidating(netuid) {
+                log::debug!("do_unstake_all: skipping liquidating subnet {:?}", netuid);
+                continue;
+            }
             // Ensure that the hotkey has enough stake to withdraw.
             let alpha_unstaked =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
@@ -231,6 +236,13 @@ impl<T: Config> Pallet<T> {
         let mut total_tao_unstaked = TaoCurrency::ZERO;
         for netuid in netuids.into_iter() {
             if !SubtokenEnabled::<T>::get(netuid) {
+                continue;
+            }
+            if Self::is_subnet_liquidating(netuid) {
+                log::debug!(
+                    "do_unstake_all_alpha: skipping liquidating subnet {:?}",
+                    netuid
+                );
                 continue;
             }
             // If not Root network.
@@ -342,6 +354,8 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "do_remove_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid: {netuid:?}, alpha_unstaked:{alpha_unstaked:?} )"
         );
+
+        Self::ensure_not_liquidating(netuid)?;
 
         // 2. Calculate the maximum amount that can be executed with price limit
         let max_amount = Self::get_max_amount_remove(netuid, limit_price)?;

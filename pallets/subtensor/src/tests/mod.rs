@@ -12,6 +12,7 @@ mod epoch;
 mod epoch_logs;
 mod evm;
 mod leasing;
+mod liquidation;
 mod math;
 mod mechanism;
 mod migration;
