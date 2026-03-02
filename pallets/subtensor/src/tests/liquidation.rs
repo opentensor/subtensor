@@ -36,7 +36,7 @@ fn setup_subnet_with_stakers(
 
         // Set alpha directly in storage
         Alpha::<Test>::insert((&hot, &cold, netuid), U64F64::from_num(alpha_per_staker));
-        TotalHotkeyAlpha::<Test>::insert(&hot, netuid, AlphaCurrency::from(alpha_per_staker));
+        TotalHotkeyAlpha::<Test>::insert(hot, netuid, AlphaCurrency::from(alpha_per_staker));
         stakers.push((hot, cold));
     }
 
@@ -770,7 +770,7 @@ fn test_liquidation_single_staker() {
             (&staker_hot, &staker_cold, netuid),
             U64F64::from_num(alpha_amount),
         );
-        TotalHotkeyAlpha::<Test>::insert(&staker_hot, netuid, AlphaCurrency::from(alpha_amount));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, netuid, AlphaCurrency::from(alpha_amount));
 
         // Set TAO pot
         let tao_pot = 100_000u64;
@@ -965,7 +965,7 @@ fn test_liquidation_timeout_triggers_emergency() {
             (&staker_hot, &staker_cold, netuid),
             U64F64::from_num(50_000u64),
         );
-        TotalHotkeyAlpha::<Test>::insert(&staker_hot, netuid, AlphaCurrency::from(50_000u64));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, netuid, AlphaCurrency::from(50_000u64));
 
         // Add a pending registration
         let reg_cold = U256::from(200);
@@ -1294,7 +1294,7 @@ fn test_no_storage_leaks() {
             (&staker_hot, &staker_cold, netuid),
             U64F64::from_num(50_000u64),
         );
-        TotalHotkeyAlpha::<Test>::insert(&staker_hot, netuid, AlphaCurrency::from(50_000u64));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, netuid, AlphaCurrency::from(50_000u64));
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(100_000u64));
 
         // Verify some hyperparams exist before liquidation
@@ -1324,11 +1324,11 @@ fn test_no_storage_leaks() {
         Dividends::<Test>::insert(netuid, vec![0u16; 1]);
 
         // Set child/parent keys that should be cleared
-        ChildKeys::<Test>::insert(&hotkey, netuid, vec![(100u64, staker_hot)]);
-        ParentKeys::<Test>::insert(&staker_hot, netuid, vec![(100u64, hotkey)]);
+        ChildKeys::<Test>::insert(hotkey, netuid, vec![(100u64, staker_hot)]);
+        ParentKeys::<Test>::insert(staker_hot, netuid, vec![(100u64, hotkey)]);
 
         // Set IsNetworkMember entries that should be cleared
-        IsNetworkMember::<Test>::insert(&staker_hot, netuid, true);
+        IsNetworkMember::<Test>::insert(staker_hot, netuid, true);
 
         let total_networks_before: u16 = TotalNetworks::<Test>::get();
 
@@ -1388,14 +1388,14 @@ fn test_no_storage_leaks() {
         assert!(Dividends::<Test>::get(netuid).is_empty());
 
         // === Two-key maps cleared ===
-        assert!(ChildKeys::<Test>::get(&hotkey, netuid).is_empty());
-        assert!(ParentKeys::<Test>::get(&staker_hot, netuid).is_empty());
+        assert!(ChildKeys::<Test>::get(hotkey, netuid).is_empty());
+        assert!(ParentKeys::<Test>::get(staker_hot, netuid).is_empty());
         assert!(
-            !IsNetworkMember::<Test>::get(&staker_hot, netuid),
+            !IsNetworkMember::<Test>::get(staker_hot, netuid),
             "IsNetworkMember should be cleared"
         );
         assert_eq!(
-            TotalHotkeyAlpha::<Test>::get(&staker_hot, netuid),
+            TotalHotkeyAlpha::<Test>::get(staker_hot, netuid),
             AlphaCurrency::from(0u64)
         );
 
@@ -2438,14 +2438,14 @@ fn test_distribution_unequal_alpha_proportional() {
         let a_cold = U256::from(11);
         let alpha_a: u64 = 750_000;
         Alpha::<Test>::insert((&a_hot, &a_cold, netuid), U64F64::from_num(alpha_a));
-        TotalHotkeyAlpha::<Test>::insert(&a_hot, netuid, AlphaCurrency::from(alpha_a));
+        TotalHotkeyAlpha::<Test>::insert(a_hot, netuid, AlphaCurrency::from(alpha_a));
 
         // Staker B: 25% of alpha
         let b_hot = U256::from(20);
         let b_cold = U256::from(21);
         let alpha_b: u64 = 250_000;
         Alpha::<Test>::insert((&b_hot, &b_cold, netuid), U64F64::from_num(alpha_b));
-        TotalHotkeyAlpha::<Test>::insert(&b_hot, netuid, AlphaCurrency::from(alpha_b));
+        TotalHotkeyAlpha::<Test>::insert(b_hot, netuid, AlphaCurrency::from(alpha_b));
 
         let tao_pot = 1_000_000u64;
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_pot));
@@ -2510,8 +2510,8 @@ fn test_liquidation_does_not_affect_other_subnet_alpha() {
             (&staker_hot, &staker_cold, netuid_b),
             U64F64::from_num(alpha_val),
         );
-        TotalHotkeyAlpha::<Test>::insert(&staker_hot, netuid_a, AlphaCurrency::from(alpha_val));
-        TotalHotkeyAlpha::<Test>::insert(&staker_hot, netuid_b, AlphaCurrency::from(alpha_val));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, netuid_a, AlphaCurrency::from(alpha_val));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, netuid_b, AlphaCurrency::from(alpha_val));
 
         SubnetTAO::<Test>::insert(netuid_a, TaoCurrency::from(500_000u64));
         TotalIssuance::<Test>::put(TaoCurrency::from(10_000_000u64));
@@ -2536,7 +2536,7 @@ fn test_liquidation_does_not_affect_other_subnet_alpha() {
         );
 
         // Subnet B's TotalHotkeyAlpha should be preserved
-        let tha_b: u64 = TotalHotkeyAlpha::<Test>::get(&staker_hot, netuid_b).into();
+        let tha_b: u64 = TotalHotkeyAlpha::<Test>::get(staker_hot, netuid_b).into();
         assert_eq!(tha_b, alpha_val, "Other subnet TotalHotkeyAlpha preserved");
 
         // Subnet A's alpha should be removed
@@ -2568,7 +2568,7 @@ fn test_pending_registration_refunded_if_hotkey_transferred() {
         let other_cold = U256::from(200);
 
         // Create the hotkey as owned by other_cold
-        Owner::<Test>::insert(&reg_hot, other_cold);
+        Owner::<Test>::insert(reg_hot, other_cold);
 
         let cost = 100_000u64;
         PendingSubnetRegistration::<Test>::put(PendingRegistration {
@@ -2631,7 +2631,7 @@ fn test_distribution_multiple_coldkeys_same_hotkey() {
         Alpha::<Test>::insert((&shared_hot, &cold_a, netuid), U64F64::from_num(alpha_a));
         Alpha::<Test>::insert((&shared_hot, &cold_b, netuid), U64F64::from_num(alpha_b));
         TotalHotkeyAlpha::<Test>::insert(
-            &shared_hot,
+            shared_hot,
             netuid,
             AlphaCurrency::from(alpha_a.saturating_add(alpha_b)),
         );
@@ -2678,8 +2678,8 @@ fn test_distribution_multiple_hotkeys_same_coldkey() {
 
         Alpha::<Test>::insert((&hot_a, &cold, netuid), U64F64::from_num(alpha_a));
         Alpha::<Test>::insert((&hot_b, &cold, netuid), U64F64::from_num(alpha_b));
-        TotalHotkeyAlpha::<Test>::insert(&hot_a, netuid, AlphaCurrency::from(alpha_a));
-        TotalHotkeyAlpha::<Test>::insert(&hot_b, netuid, AlphaCurrency::from(alpha_b));
+        TotalHotkeyAlpha::<Test>::insert(hot_a, netuid, AlphaCurrency::from(alpha_a));
+        TotalHotkeyAlpha::<Test>::insert(hot_b, netuid, AlphaCurrency::from(alpha_b));
 
         let tao_pot = 1_000_000u64;
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_pot));
@@ -2765,7 +2765,7 @@ fn test_snapshot_works_incrementally_across_blocks() {
             let hot = U256::from(100u32.saturating_add(i.saturating_mul(2)));
             let cold = U256::from(101u32.saturating_add(i.saturating_mul(2)));
             Alpha::<Test>::insert((&hot, &cold, netuid), U64F64::from_num(50_000u64));
-            TotalHotkeyAlpha::<Test>::insert(&hot, netuid, AlphaCurrency::from(50_000u64));
+            TotalHotkeyAlpha::<Test>::insert(hot, netuid, AlphaCurrency::from(50_000u64));
         }
 
         let tao_pot = 500_000u64;
@@ -2830,7 +2830,7 @@ fn test_distribution_works_incrementally() {
             let hot = U256::from(100u32.saturating_add(i.saturating_mul(2)));
             let cold = U256::from(101u32.saturating_add(i.saturating_mul(2)));
             Alpha::<Test>::insert((&hot, &cold, netuid), U64F64::from_num(alpha_per));
-            TotalHotkeyAlpha::<Test>::insert(&hot, netuid, AlphaCurrency::from(alpha_per));
+            TotalHotkeyAlpha::<Test>::insert(hot, netuid, AlphaCurrency::from(alpha_per));
             stakers.push((hot, cold));
         }
 
@@ -2917,7 +2917,7 @@ fn test_force_complete_distributes_tao_to_stakers() {
             (&staker_hot, &staker_cold, netuid),
             U64F64::from_num(alpha_val),
         );
-        TotalHotkeyAlpha::<Test>::insert(&staker_hot, netuid, AlphaCurrency::from(alpha_val));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, netuid, AlphaCurrency::from(alpha_val));
 
         let tao_pot = 1_000_000u64;
         SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(tao_pot));
@@ -2958,13 +2958,13 @@ fn test_snapshot_only_captures_target_subnet() {
         let hot_a = U256::from(10);
         let cold_a = U256::from(11);
         Alpha::<Test>::insert((&hot_a, &cold_a, netuid_a), U64F64::from_num(100_000u64));
-        TotalHotkeyAlpha::<Test>::insert(&hot_a, netuid_a, AlphaCurrency::from(100_000u64));
+        TotalHotkeyAlpha::<Test>::insert(hot_a, netuid_a, AlphaCurrency::from(100_000u64));
 
         // Staker on subnet B (should NOT be snapshotted)
         let hot_b = U256::from(20);
         let cold_b = U256::from(21);
         Alpha::<Test>::insert((&hot_b, &cold_b, netuid_b), U64F64::from_num(200_000u64));
-        TotalHotkeyAlpha::<Test>::insert(&hot_b, netuid_b, AlphaCurrency::from(200_000u64));
+        TotalHotkeyAlpha::<Test>::insert(hot_b, netuid_b, AlphaCurrency::from(200_000u64));
 
         SubnetTAO::<Test>::insert(netuid_a, TaoCurrency::from(500_000u64));
         TotalIssuance::<Test>::put(TaoCurrency::from(10_000_000u64));
