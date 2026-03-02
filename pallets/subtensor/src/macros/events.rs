@@ -528,5 +528,86 @@ mod events {
             /// Alpha burned
             alpha: AlphaCurrency,
         },
+
+        // ============================
+        // ==== Liquidation Events ====
+        // ============================
+        /// Subnet liquidation has started.
+        LiquidationStarted {
+            /// The subnet being liquidated
+            netuid: NetUid,
+            /// Block number when liquidation started
+            started_at: BlockNumberFor<T>,
+            /// Estimated blocks to complete
+            #[codec(compact)]
+            estimated_blocks: u64,
+            /// Estimated number of stakers
+            #[codec(compact)]
+            staker_count: u32,
+        },
+        /// A liquidation phase has completed.
+        LiquidationPhaseCompleted {
+            /// The subnet being liquidated
+            netuid: NetUid,
+            /// The phase that completed
+            phase: LiquidationPhaseTag,
+        },
+        /// Subnet liquidation fully completed.
+        LiquidationCompleted {
+            /// The subnet that was liquidated
+            netuid: NetUid,
+            /// Total blocks taken
+            #[codec(compact)]
+            total_blocks: u64,
+            /// Total TAO distributed to stakers
+            #[codec(compact)]
+            tao_distributed: u64,
+            /// Number of stakers paid
+            #[codec(compact)]
+            stakers_paid: u32,
+        },
+        /// Liquidation timed out — emergency finalization triggered.
+        LiquidationTimeout {
+            /// The subnet that timed out
+            netuid: NetUid,
+            /// The phase at which timeout occurred
+            phase_at_timeout: LiquidationPhaseTag,
+        },
+        /// Non-critical warning during liquidation.
+        LiquidationWarning {
+            /// The subnet with the warning
+            netuid: NetUid,
+            /// Warning details
+            warning: LiquidationWarning,
+        },
+        /// Root force-completed a stuck liquidation.
+        LiquidationForceCompleted {
+            /// The subnet that was force-completed
+            netuid: NetUid,
+        },
+        /// Subnet registration stored as pending (waiting for liquidation to complete).
+        RegistrationPending {
+            /// Registrant's coldkey
+            coldkey: T::AccountId,
+            /// Registrant's hotkey
+            hotkey: T::AccountId,
+        },
+        /// Pending subnet registration auto-completed after liquidation.
+        RegistrationCompleted {
+            /// Registrant's coldkey
+            coldkey: T::AccountId,
+            /// Registrant's hotkey
+            hotkey: T::AccountId,
+            /// The netuid assigned
+            netuid: NetUid,
+        },
+        /// Pending registration refunded due to emergency finalization.
+        PendingRegistrationRefunded {
+            /// Refund recipient
+            coldkey: T::AccountId,
+            /// Amount refunded
+            #[codec(compact)]
+            amount: u64,
+        },
     }
 }

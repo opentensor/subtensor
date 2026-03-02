@@ -286,5 +286,23 @@ mod errors {
         ColdkeySwapAnnounced,
         /// A coldkey swap for this account is under dispute.
         ColdkeySwapDisputed,
+        /// Operation attempted on a subnet that is currently being liquidated.
+        SubnetLiquidating,
+        /// Liquidation already in progress for this subnet.
+        SubnetAlreadyLiquidating,
+        /// The root network cannot be liquidated.
+        CannotLiquidateRoot,
+        /// Target subnet is not currently in liquidation.
+        NotLiquidating,
+        /// The netuid slot is in its post-liquidation cooldown period.
+        NetuidInCooldown,
+        /// Another liquidation is already in progress system-wide.
+        LiquidationInProgress,
+        /// A pending registration already exists for the current liquidation.
+        PendingRegistrationExists,
+        /// No subnet eligible for pruning.
+        NoSubnetToPrune,
+        /// Force-complete exceeded maximum iterations without finishing.
+        LiquidationStuck,
     }
 }
