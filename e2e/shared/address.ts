@@ -9,6 +9,8 @@ import { getPolkadotSigner } from "polkadot-api/signer";
 import { PolkadotSigner } from "polkadot-api";
 import { randomBytes } from "crypto";
 import { ss58Address } from "@polkadot-labs/hdkd-helpers";
+import { encodeAddress, blake2AsU8a } from "@polkadot/util-crypto";
+import { hexToU8a } from "@polkadot/util";
 
 export const SS58_PREFIX = 42;
 
@@ -46,4 +48,34 @@ export const getAliceSigner = () => getSignerFromPath("//Alice");
 
 export function convertPublicKeyToSs58(publicKey: Uint8Array): string {
   return ss58Address(publicKey, SS58_PREFIX);
+}
+
+// ─── EVM ADDRESS UTILITIES ──────────────────────────────────────────────────
+
+/**
+ * Convert an Ethereum H160 address to a Substrate public key.
+ * Uses the "evm:" prefix and blake2 hash.
+ */
+export function convertH160ToPublicKey(ethAddress: string): Uint8Array {
+  const prefix = "evm:";
+  const prefixBytes = new TextEncoder().encode(prefix);
+  const addressBytes = hexToU8a(
+    ethAddress.startsWith("0x") ? ethAddress : `0x${ethAddress}`
+  );
+  const combined = new Uint8Array(prefixBytes.length + addressBytes.length);
+
+  // Concatenate prefix and Ethereum address
+  combined.set(prefixBytes);
+  combined.set(addressBytes, prefixBytes.length);
+
+  // Hash the combined data (the public key)
+  return blake2AsU8a(combined);
+}
+
+/**
+ * Convert an Ethereum H160 address to SS58 format.
+ */
+export function convertH160ToSS58(ethAddress: string): string {
+  const publicKey = convertH160ToPublicKey(ethAddress);
+  return encodeAddress(publicKey, SS58_PREFIX);
 }
