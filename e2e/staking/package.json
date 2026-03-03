@@ -4,16 +4,14 @@
   "type": "module",
   "license": "ISC",
   "scripts": {
-    "test": "tsx node_modules/mocha/bin/mocha.js --timeout 999999 --retries 1 --file setup.ts --extension ts \"test/**/*.ts\""
+    "test": "vitest run"
   },
   "dependencies": {
-    "e2e-shared": "workspace:*",
-    "mocha": "^11.1.0",
-    "tsx": "^4.21.0"
+    "e2e-shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
   },
   "prettier": {
     "singleQuote": false,

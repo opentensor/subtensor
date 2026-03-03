@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -6,7 +6,6 @@ import {
   forceSetBalance,
   getBalance,
   addNewSubnetwork,
-  burnedRegister,
   startCall,
   addStake,
   removeStakeLimit,
@@ -22,7 +21,7 @@ describe("▶ remove_stake_limit extrinsic", () => {
   const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
   let netuid: number;
 
-  before(async () => {
+  beforeAll(async () => {
     const api = await getDevnetApi();
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
@@ -40,7 +39,7 @@ describe("▶ remove_stake_limit extrinsic", () => {
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
     const balanceBefore = await getBalance(api, coldkeyAddress);
     log.info(`Stake before: ${stakeBefore}, Balance before: ${balanceBefore}`);
-    assert.ok(stakeBefore > 0n, "Should have stake before removal");
+    expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
 
     // Remove stake with limit price and allow partial fills
     const unstakeAmount = tao(30);
@@ -49,7 +48,7 @@ describe("▶ remove_stake_limit extrinsic", () => {
 
     // Verify balance increased (received TAO from unstaking)
     const balanceAfter = await getBalance(api, coldkeyAddress);
-    assert.ok(balanceAfter > balanceBefore, `Balance should increase: before=${balanceBefore}, after=${balanceAfter}`);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
 
     log.info("✅ Successfully removed stake with limit (allow partial).");
   });
@@ -64,7 +63,7 @@ describe("▶ remove_stake_limit extrinsic", () => {
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
     const balanceBefore = await getBalance(api, coldkeyAddress);
     log.info(`Stake before: ${stakeBefore}, Balance before: ${balanceBefore}`);
-    assert.ok(stakeBefore > 0n, "Should have stake before removal");
+    expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
 
     // Remove stake with limit price (fill or kill mode)
     const unstakeAmount = tao(30);
@@ -73,7 +72,7 @@ describe("▶ remove_stake_limit extrinsic", () => {
 
     // Verify balance increased (received TAO from unstaking)
     const balanceAfter = await getBalance(api, coldkeyAddress);
-    assert.ok(balanceAfter > balanceBefore, `Balance should increase: before=${balanceBefore}, after=${balanceAfter}`);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
 
     log.info("✅ Successfully removed stake with limit (fill or kill).");
   });

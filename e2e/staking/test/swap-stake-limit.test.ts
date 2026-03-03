@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -48,7 +48,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const stake1Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid1);
     const stake2Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid2);
-    assert.ok(stake1Before > 0n, "Should have stake on subnet1 before swap");
+    expect(stake1Before, "Should have stake on subnet1 before swap").toBeGreaterThan(0n);
 
     log.info(`Stake on netuid1 before: ${stake1Before}, Stake on netuid2 before: ${stake2Before}`);
 
@@ -56,7 +56,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
     // Use raw U64F64 value for the extrinsic
     const stake1Raw = await getStakeRaw(api, hotkey1Address, coldkeyAddress, netuid1);
     const swapAmount = stake1Raw / 2n;
-    const limitPrice = tao(1) * 99n / 100n; // 0.99 TAO
+    const limitPrice = (tao(1) * 99n) / 100n; // 0.99 TAO
     await swapStakeLimit(api, coldkey, hotkey1Address, netuid1, netuid2, swapAmount, limitPrice, true);
 
     // Verify stakes changed
@@ -65,8 +65,8 @@ describe("▶ swap_stake_limit extrinsic", () => {
 
     log.info(`Stake on netuid1 after: ${stake1After}, Stake on netuid2 after: ${stake2After}`);
 
-    assert.ok(stake1After < stake1Before, `Stake on subnet1 should decrease: before=${stake1Before}, after=${stake1After}`);
-    assert.ok(stake2After > stake2Before, `Stake on subnet2 should increase: before=${stake2Before}, after=${stake2After}`);
+    expect(stake1After, "Stake on subnet1 should decrease").toBeLessThan(stake1Before);
+    expect(stake2After, "Stake on subnet2 should increase").toBeGreaterThan(stake2Before);
 
     log.info("✅ Successfully swapped stake with price limit (allow partial).");
   });
@@ -103,7 +103,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const stake1Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid1);
     const stake2Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid2);
-    assert.ok(stake1Before > 0n, "Should have stake on subnet1 before swap");
+    expect(stake1Before, "Should have stake on subnet1 before swap").toBeGreaterThan(0n);
 
     log.info(`Stake on netuid1 before: ${stake1Before}, Stake on netuid2 before: ${stake2Before}`);
 
@@ -120,8 +120,8 @@ describe("▶ swap_stake_limit extrinsic", () => {
 
     log.info(`Stake on netuid1 after: ${stake1After}, Stake on netuid2 after: ${stake2After}`);
 
-    assert.ok(stake1After < stake1Before, `Stake on subnet1 should decrease: before=${stake1Before}, after=${stake1After}`);
-    assert.ok(stake2After > stake2Before, `Stake on subnet2 should increase: before=${stake2Before}, after=${stake2After}`);
+    expect(stake1After, "Stake on subnet1 should decrease").toBeLessThan(stake1Before);
+    expect(stake2After, "Stake on subnet2 should increase").toBeGreaterThan(stake2Before);
 
     log.info("✅ Successfully swapped stake with price limit (fill or kill).");
   });

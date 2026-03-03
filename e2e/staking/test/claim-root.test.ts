@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -15,14 +15,12 @@ import {
   addStake,
   getStake,
   claimRoot,
-  getTempo,
   sudoSetTempo,
   waitForBlocks,
   getRootClaimable,
   getRootClaimed,
   isSubtokenEnabled,
   sudoSetSubtokenEnabled,
-  isNetworkAdded,
   sudoSetAdminFreezeWindow,
   sudoSetEmaPriceHalvingPeriod,
   getSubnetTAO,
@@ -56,7 +54,7 @@ describe("▶ set_root_claim_type extrinsic", () => {
     const claimTypeAfter = await getRootClaimType(api, coldkeyAddress);
     log.info(`Root claim type after: ${claimTypeAfter}`);
 
-    assert.strictEqual(claimTypeAfter, "Keep", `Expected claim type to be Keep, got ${claimTypeAfter}`);
+    expect(claimTypeAfter).toBe("Keep");
 
     log.info("✅ Successfully set root claim type to Keep.");
   });
@@ -73,7 +71,7 @@ describe("▶ set_root_claim_type extrinsic", () => {
     await setRootClaimType(api, coldkey, "Keep");
     const claimTypeBefore = await getRootClaimType(api, coldkeyAddress);
     log.info(`Root claim type before: ${claimTypeBefore}`);
-    assert.strictEqual(claimTypeBefore, "Keep", "Should be Keep before changing to Swap");
+    expect(claimTypeBefore).toBe("Keep");
 
     // Set root claim type to Swap
     await setRootClaimType(api, coldkey, "Swap");
@@ -82,7 +80,7 @@ describe("▶ set_root_claim_type extrinsic", () => {
     const claimTypeAfter = await getRootClaimType(api, coldkeyAddress);
     log.info(`Root claim type after: ${claimTypeAfter}`);
 
-    assert.strictEqual(claimTypeAfter, "Swap", `Expected claim type to be Swap, got ${claimTypeAfter}`);
+    expect(claimTypeAfter).toBe("Swap");
 
     log.info("✅ Successfully set root claim type to Swap.");
   });
@@ -107,9 +105,9 @@ describe("▶ set_root_claim_type extrinsic", () => {
     const claimTypeAfter = await getRootClaimType(api, coldkeyAddress);
     log.info(`Root claim type after: ${JSON.stringify(claimTypeAfter)}`);
 
-    assert.strictEqual(typeof claimTypeAfter, "object", "Expected claim type to be an object");
-    assert.strictEqual((claimTypeAfter as { type: string }).type, "KeepSubnets", "Expected type to be KeepSubnets");
-    assert.deepStrictEqual((claimTypeAfter as { subnets: number[] }).subnets, subnetsToKeep, "Expected subnets to match");
+    expect(typeof claimTypeAfter).toBe("object");
+    expect((claimTypeAfter as { type: string }).type).toBe("KeepSubnets");
+    expect((claimTypeAfter as { subnets: number[] }).subnets).toEqual(subnetsToKeep);
 
     log.info("✅ Successfully set root claim type to KeepSubnets.");
   });
@@ -131,7 +129,7 @@ describe("▶ sudo_set_num_root_claims extrinsic", () => {
     const numClaimsAfter = await getNumRootClaims(api);
     log.info(`Num root claims after: ${numClaimsAfter}`);
 
-    assert.strictEqual(numClaimsAfter, newValue, `Expected num root claims to be ${newValue}, got ${numClaimsAfter}`);
+    expect(numClaimsAfter).toBe(newValue);
 
     log.info("✅ Successfully set num root claims.");
   });
@@ -168,7 +166,7 @@ describe("▶ sudo_set_root_claim_threshold extrinsic", () => {
     log.info(`Root claim threshold after: ${thresholdAfter}`);
 
     const expectedStoredValue = newThreshold * (1n << 32n); // I96F32 encoding
-    assert.strictEqual(thresholdAfter, expectedStoredValue, `Expected threshold to be ${expectedStoredValue}, got ${thresholdAfter}`);
+    expect(thresholdAfter).toBe(expectedStoredValue);
 
     log.info("✅ Successfully set root claim threshold.");
   });
@@ -213,7 +211,7 @@ describe("▶ claim_root extrinsic", () => {
       await sudoSetSubtokenEnabled(api, ROOT_NETUID, true);
       const subtokenEnabledAfter = await isSubtokenEnabled(api, ROOT_NETUID);
       log.info(`ROOT subtoken enabled: ${subtokenEnabledAfter}`);
-      assert.strictEqual(subtokenEnabledAfter, true, "ROOT subtoken should be enabled");
+      expect(subtokenEnabledAfter).toBe(true);
     }
 
     // Create TWO dynamic subnets - needed for root_sell_flag to become true
@@ -258,7 +256,7 @@ describe("▶ claim_root extrinsic", () => {
     // Verify root stake was added
     const rootStake = await getStake(api, owner1HotkeyAddress, stakerColdkeyAddress, ROOT_NETUID);
     log.info(`Root stake: ${rootStake}`);
-    assert.ok(rootStake > 0n, "Should have stake on root subnet");
+    expect(rootStake, "Should have stake on root subnet").toBeGreaterThan(0n);
 
     // Add stake to both dynamic subnets (owner stake to enable emissions flow)
     const subnetStakeAmount = tao(50);
@@ -274,7 +272,7 @@ describe("▶ claim_root extrinsic", () => {
     await setRootClaimType(api, stakerColdkey, "Keep");
     const claimType = await getRootClaimType(api, stakerColdkeyAddress);
     log.info(`Root claim type: ${claimType}`);
-    assert.strictEqual(claimType, "Keep", "Should have Keep claim type");
+    expect(claimType).toBe("Keep");
 
     // Wait for blocks to:
     // 1. Allow moving prices to converge (need sum > 1.0 for root_sell_flag)
@@ -330,10 +328,7 @@ describe("▶ claim_root extrinsic", () => {
     log.info(`RootClaimed value: ${rootClaimed}`);
 
     // Verify dividends were claimed
-    assert.ok(
-      stakerSubnetStakeAfter > stakerSubnetStakeBefore,
-      `Stake should increase after claiming root dividends: before=${stakerSubnetStakeBefore}, after=${stakerSubnetStakeAfter}`
-    );
+    expect(stakerSubnetStakeAfter, "Stake should increase after claiming root dividends").toBeGreaterThan(stakerSubnetStakeBefore);
     log.info(`✅ Root claim successful: stake increased from ${stakerSubnetStakeBefore} to ${stakerSubnetStakeAfter}`);
   });
 
@@ -414,7 +409,7 @@ describe("▶ claim_root extrinsic", () => {
     await setRootClaimType(api, stakerColdkey, "Swap");
     const claimType = await getRootClaimType(api, stakerColdkeyAddress);
     log.info(`Root claim type: ${claimType}`);
-    assert.strictEqual(claimType, "Swap", "Should have Swap claim type");
+    expect(claimType).toBe("Swap");
 
     // Wait for blocks
     const blocksToWait = 25;
@@ -449,10 +444,7 @@ describe("▶ claim_root extrinsic", () => {
     log.info(`RootClaimed value: ${rootClaimed}`);
 
     // With Swap type, ROOT stake should increase (not dynamic subnet stake)
-    assert.ok(
-      rootStakeAfter > rootStakeBefore,
-      `ROOT stake should increase after claiming with Swap type: before=${rootStakeBefore}, after=${rootStakeAfter}`
-    );
+    expect(rootStakeAfter, "ROOT stake should increase after claiming with Swap type").toBeGreaterThan(rootStakeBefore);
     log.info(`✅ Root claim with Swap successful: ROOT stake increased from ${rootStakeBefore} to ${rootStakeAfter}`);
   });
 

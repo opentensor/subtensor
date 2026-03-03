@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -21,7 +21,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
   const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
   let netuid: number;
 
-  before(async () => {
+  beforeAll(async () => {
     const api = await getDevnetApi();
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
@@ -39,7 +39,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
     const balanceBefore = await getBalance(api, coldkeyAddress);
     log.info(`Stake before: ${stakeBefore}, Balance before: ${balanceBefore}`);
-    assert.ok(stakeBefore > 0n, "Should have stake before removal");
+    expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
 
     // Remove all stake with a reasonable limit price (low limit to avoid slippage rejection)
     // Using a low limit price (0.09 TAO per alpha) allows the transaction to succeed
@@ -51,8 +51,8 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     const balanceAfter = await getBalance(api, coldkeyAddress);
     log.info(`Stake after: ${stakeAfter}, Balance after: ${balanceAfter}`);
 
-    assert.strictEqual(stakeAfter, 0n, `Stake should be zero after full removal, got ${stakeAfter}`);
-    assert.ok(balanceAfter > balanceBefore, `Balance should increase: before=${balanceBefore}, after=${balanceAfter}`);
+    expect(stakeAfter, "Stake should be zero after full removal").toBe(0n);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
 
     log.info("✅ Successfully removed all stake with price limit.");
   });
@@ -67,7 +67,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
     const balanceBefore = await getBalance(api, coldkeyAddress);
     log.info(`Stake before: ${stakeBefore}, Balance before: ${balanceBefore}`);
-    assert.ok(stakeBefore > 0n, "Should have stake before removal");
+    expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
 
     // Remove all stake without limit price (undefined = no slippage protection)
     await removeStakeFullLimit(api, coldkey, hotkeyAddress, netuid, undefined);
@@ -77,8 +77,8 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     const balanceAfter = await getBalance(api, coldkeyAddress);
     log.info(`Stake after: ${stakeAfter}, Balance after: ${balanceAfter}`);
 
-    assert.strictEqual(stakeAfter, 0n, `Stake should be zero after full removal, got ${stakeAfter}`);
-    assert.ok(balanceAfter > balanceBefore, `Balance should increase: before=${balanceBefore}, after=${balanceAfter}`);
+    expect(stakeAfter, "Stake should be zero after full removal").toBe(0n);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
 
     log.info("✅ Successfully removed all stake without price limit.");
   });

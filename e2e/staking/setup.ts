@@ -83,10 +83,7 @@ async function stopNetwork() {
   nodeLog("Network stopped");
 }
 
-before(async function () {
-  // Increase timeout for network startup (2 minutes)
-  this.timeout(120000);
-
+export async function setup() {
   // Start the network
   await startNetwork();
 
@@ -98,15 +95,12 @@ before(async function () {
   // By default, the lock cost doubles with each subnet registration and decays over 14 days (100,800 blocks).
   // Without this, tests creating multiple subnets would fail with CannotAffordLockCost.
   await sudoSetLockReductionInterval(api, 1);
-});
+}
 
-after(async function () {
-  // Increase timeout for cleanup
-  this.timeout(30000);
-
+export async function teardown() {
   // Destroy the API client first
   destroyClient();
 
   // Stop the network
   await stopNetwork();
-});
+}

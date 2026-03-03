@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -56,8 +56,8 @@ describe("▶ unstake_all_alpha extrinsic", () => {
     const stake1Before = await getStake(api, stakerAddress, coldkeyAddress, netuid1);
     const stake2Before = await getStake(api, stakerAddress, coldkeyAddress, netuid2);
 
-    assert.ok(stake1Before > 0n, "Should have stake in subnet 1 before unstake_all_alpha");
-    assert.ok(stake2Before > 0n, "Should have stake in subnet 2 before unstake_all_alpha");
+    expect(stake1Before, "Should have stake in subnet 1 before unstake_all_alpha").toBeGreaterThan(0n);
+    expect(stake2Before, "Should have stake in subnet 2 before unstake_all_alpha").toBeGreaterThan(0n);
     log.info(`Stake1 before: ${stake1Before}, Stake2 before: ${stake2Before}`);
 
     // Unstake all alpha - this removes stake from dynamic subnets and restakes to root
@@ -70,8 +70,8 @@ describe("▶ unstake_all_alpha extrinsic", () => {
     log.info(`Stake1 after: ${stake1After}, Stake2 after: ${stake2After}`);
 
     // Since stakerHotkey is not the owner of either subnet, all stake should be removed
-    assert.strictEqual(stake1After, 0n, `Stake1 should be zero after unstake_all_alpha, got ${stake1After}`);
-    assert.strictEqual(stake2After, 0n, `Stake2 should be zero after unstake_all_alpha, got ${stake2After}`);
+    expect(stake1After, "Stake1 should be zero after unstake_all_alpha").toBe(0n);
+    expect(stake2After, "Stake2 should be zero after unstake_all_alpha").toBe(0n);
 
     log.info("✅ Successfully unstaked all alpha from multiple subnets to root.");
   });

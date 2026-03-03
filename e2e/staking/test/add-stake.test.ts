@@ -1,11 +1,10 @@
-import * as assert from "assert";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
   convertPublicKeyToSs58,
   forceSetBalance,
   addNewSubnetwork,
-  burnedRegister,
   startCall,
   addStake,
   getStake,
@@ -20,7 +19,7 @@ describe("▶ add_stake extrinsic", () => {
   const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
   let netuid: number;
 
-  before(async () => {
+  beforeAll(async () => {
     const api = await getDevnetApi();
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
@@ -40,7 +39,7 @@ describe("▶ add_stake extrinsic", () => {
 
     // Verify stake increased
     const stakeAfter = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
-    assert.ok(stakeAfter > stakeBefore, `Stake should increase: before=${stakeBefore}, after=${stakeAfter}`);
+    expect(stakeAfter, "Stake should increase after adding stake").toBeGreaterThan(stakeBefore);
 
     log.info("✅ Successfully added stake.");
   });

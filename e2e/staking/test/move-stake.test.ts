@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -45,7 +45,7 @@ describe("▶ move_stake extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const originStakeBefore = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid1);
     const destStakeBefore = await getStake(api, destinationHotkeyAddress, coldkeyAddress, netuid2);
-    assert.ok(originStakeBefore > 0n, "Origin hotkey should have stake before move");
+    expect(originStakeBefore, "Origin hotkey should have stake before move").toBeGreaterThan(0n);
 
     log.info(`Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`);
 
@@ -53,15 +53,7 @@ describe("▶ move_stake extrinsic", () => {
     // Use raw U64F64 value for the extrinsic
     const originStakeRaw = await getStakeRaw(api, originHotkeyAddress, coldkeyAddress, netuid1);
     const moveAmount = originStakeRaw / 2n;
-    await moveStake(
-      api,
-      coldkey,
-      originHotkeyAddress,
-      destinationHotkeyAddress,
-      netuid1,
-      netuid2,
-      moveAmount
-    );
+    await moveStake(api, coldkey, originHotkeyAddress, destinationHotkeyAddress, netuid1, netuid2, moveAmount);
 
     // Verify stakes changed
     const originStakeAfter = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid1);
@@ -69,8 +61,8 @@ describe("▶ move_stake extrinsic", () => {
 
     log.info(`Origin stake (netuid1) after: ${originStakeAfter}, Destination stake (netuid2) after: ${destStakeAfter}`);
 
-    assert.ok(originStakeAfter < originStakeBefore, `Origin stake should decrease: before=${originStakeBefore}, after=${originStakeAfter}`);
-    assert.ok(destStakeAfter > destStakeBefore, `Destination stake should increase: before=${destStakeBefore}, after=${destStakeAfter}`);
+    expect(originStakeAfter, "Origin stake should decrease").toBeLessThan(originStakeBefore);
+    expect(destStakeAfter, "Destination stake should increase").toBeGreaterThan(destStakeBefore);
 
     log.info("✅ Successfully moved stake to another hotkey across subnets.");
   });
@@ -103,7 +95,7 @@ describe("▶ move_stake extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const originStakeBefore = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid);
     const destStakeBefore = await getStake(api, destinationHotkeyAddress, coldkeyAddress, netuid);
-    assert.ok(originStakeBefore > 0n, "Origin hotkey should have stake before move");
+    expect(originStakeBefore, "Origin hotkey should have stake before move").toBeGreaterThan(0n);
 
     log.info(`Origin stake before: ${originStakeBefore}, Destination stake before: ${destStakeBefore}`);
 
@@ -111,15 +103,7 @@ describe("▶ move_stake extrinsic", () => {
     // Use raw U64F64 value for the extrinsic
     const originStakeRaw = await getStakeRaw(api, originHotkeyAddress, coldkeyAddress, netuid);
     const moveAmount = originStakeRaw / 2n;
-    await moveStake(
-      api,
-      coldkey,
-      originHotkeyAddress,
-      destinationHotkeyAddress,
-      netuid,
-      netuid,
-      moveAmount
-    );
+    await moveStake(api, coldkey, originHotkeyAddress, destinationHotkeyAddress, netuid, netuid, moveAmount);
 
     // Verify stakes changed
     const originStakeAfter = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid);
@@ -127,8 +111,8 @@ describe("▶ move_stake extrinsic", () => {
 
     log.info(`Origin stake after: ${originStakeAfter}, Destination stake after: ${destStakeAfter}`);
 
-    assert.ok(originStakeAfter < originStakeBefore, `Origin stake should decrease: before=${originStakeBefore}, after=${originStakeAfter}`);
-    assert.ok(destStakeAfter > destStakeBefore, `Destination stake should increase: before=${destStakeBefore}, after=${destStakeAfter}`);
+    expect(originStakeAfter, "Origin stake should decrease").toBeLessThan(originStakeBefore);
+    expect(destStakeAfter, "Destination stake should increase").toBeGreaterThan(destStakeBefore);
 
     log.info("✅ Successfully moved stake to another hotkey on the same subnet.");
   });

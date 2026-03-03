@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -47,7 +47,7 @@ describe("▶ transfer_stake extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const originStakeBefore = await getStake(api, hotkey1Address, originColdkeyAddress, netuid1);
     const destStakeBefore = await getStake(api, hotkey1Address, destinationColdkeyAddress, netuid2);
-    assert.ok(originStakeBefore > 0n, "Origin should have stake before transfer");
+    expect(originStakeBefore, "Origin should have stake before transfer").toBeGreaterThan(0n);
 
     log.info(`Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`);
 
@@ -55,15 +55,7 @@ describe("▶ transfer_stake extrinsic", () => {
     // Use raw U64F64 value for the extrinsic
     const originStakeRaw = await getStakeRaw(api, hotkey1Address, originColdkeyAddress, netuid1);
     const transferAmount = originStakeRaw / 2n;
-    await transferStake(
-      api,
-      originColdkey,
-      destinationColdkeyAddress,
-      hotkey1Address,
-      netuid1,
-      netuid2,
-      transferAmount
-    );
+    await transferStake(api, originColdkey, destinationColdkeyAddress, hotkey1Address, netuid1, netuid2, transferAmount);
 
     // Verify stakes changed
     const originStakeAfter = await getStake(api, hotkey1Address, originColdkeyAddress, netuid1);
@@ -71,8 +63,8 @@ describe("▶ transfer_stake extrinsic", () => {
 
     log.info(`Origin stake (netuid1) after: ${originStakeAfter}, Destination stake (netuid2) after: ${destStakeAfter}`);
 
-    assert.ok(originStakeAfter < originStakeBefore, `Origin stake should decrease: before=${originStakeBefore}, after=${originStakeAfter}`);
-    assert.ok(destStakeAfter > destStakeBefore, `Destination stake should increase: before=${destStakeBefore}, after=${destStakeAfter}`);
+    expect(originStakeAfter, "Origin stake should decrease").toBeLessThan(originStakeBefore);
+    expect(destStakeAfter, "Destination stake should increase").toBeGreaterThan(destStakeBefore);
 
     log.info("✅ Successfully transferred stake to another coldkey across subnets.");
   });
@@ -102,21 +94,15 @@ describe("▶ transfer_stake extrinsic", () => {
 
     // Get initial stake (converted from U64F64 for display)
     const originStakeBefore = await getStake(api, hotkeyAddress, originColdkeyAddress, netuid);
-    assert.ok(originStakeBefore > 0n, "Origin should have stake before transfer");
+    expect(originStakeBefore, "Origin should have stake before transfer").toBeGreaterThan(0n);
 
     log.info(`Origin stake before: ${originStakeBefore}`);
 
+    // Transfer stake to destination coldkey
+    // Use raw U64F64 value for the extrinsic, transfer half to avoid AmountTooLow error
     const originStakeRaw = await getStakeRaw(api, hotkeyAddress, originColdkeyAddress, netuid);
     const transferAmount = originStakeRaw / 2n;
-    await transferStake(
-      api,
-      originColdkey,
-      destinationColdkeyAddress,
-      hotkeyAddress,
-      netuid,
-      netuid,
-      transferAmount
-    );
+    await transferStake(api, originColdkey, destinationColdkeyAddress, hotkeyAddress, netuid, netuid, transferAmount);
 
     // Verify destination received stake
     const originStakeAfter = await getStake(api, hotkeyAddress, originColdkeyAddress, netuid);
@@ -124,8 +110,8 @@ describe("▶ transfer_stake extrinsic", () => {
 
     log.info(`Origin stake after: ${originStakeAfter}, Destination stake after: ${destStakeAfter}`);
 
-    assert.ok(originStakeAfter < originStakeBefore, `Origin stake should decrease after transfer`);
-    assert.ok(destStakeAfter > 0n, `Destination stake should be non-zero after transfer`);
+    expect(originStakeAfter, "Origin stake should decrease after transfer").toBeLessThan(originStakeBefore);
+    expect(destStakeAfter, "Destination stake should be non-zero after transfer").toBeGreaterThan(0n);
 
     log.info("✅ Successfully transferred stake to another coldkey.");
   });

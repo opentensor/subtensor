@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect, beforeAll } from "vitest";
 import {
   getDevnetApi,
   getRandomSubstrateKeypair,
@@ -6,7 +6,6 @@ import {
   forceSetBalance,
   getBalance,
   addNewSubnetwork,
-  burnedRegister,
   startCall,
   addStake,
   removeStake,
@@ -23,7 +22,7 @@ describe("▶ remove_stake extrinsic", () => {
   const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
   let netuid: number;
 
-  before(async () => {
+  beforeAll(async () => {
     const api = await getDevnetApi();
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
@@ -40,7 +39,7 @@ describe("▶ remove_stake extrinsic", () => {
     // Get initial stake and balance (converted from U64F64 for display)
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
     const balanceBefore = await getBalance(api, coldkeyAddress);
-    assert.ok(stakeBefore > 0n, "Should have stake before removal");
+    expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
 
     // Remove stake (amount is in alpha units - use raw U64F64 value)
     const stakeRaw = await getStakeRaw(api, hotkeyAddress, coldkeyAddress, netuid);
@@ -49,7 +48,7 @@ describe("▶ remove_stake extrinsic", () => {
 
     // Verify balance increased (received TAO from unstaking)
     const balanceAfter = await getBalance(api, coldkeyAddress);
-    assert.ok(balanceAfter > balanceBefore, `Balance should increase: before=${balanceBefore}, after=${balanceAfter}`);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
 
     log.info("✅ Successfully removed stake.");
   });
