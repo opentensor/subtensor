@@ -142,7 +142,7 @@ jobs:
       - name: Run tests
         working-directory: e2e
         env:
-          # Use fast-runtime binary for staking package, release binary for others
+          # Use fast-runtime binary for staking and contracts, release binary for others
           # Path is relative to package directory (e2e/<package>/)
-          BINARY_PATH: ${{ matrix.package == 'e2e-staking' && '../../target/fast/node-subtensor' || '../../target/release/node-subtensor' }}
+          BINARY_PATH: ${{ (matrix.package == 'e2e-staking' || matrix.package == 'e2e-contracts') && '../../target/fast/node-subtensor' || '../../target/release/node-subtensor' }}
         run: pnpm --filter ${{ matrix.package }} test
