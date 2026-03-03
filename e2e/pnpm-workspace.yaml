@@ -2,6 +2,7 @@ packages:
   - shared
   - shield
   - staking
+  - contracts
 
 catalog:
   "@noble/ciphers": "^2.1.1"

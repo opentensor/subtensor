@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@polkadot/keyring": "catalog:",
+    "@polkadot/util": "catalog:",
+    "@polkadot/util-crypto": "catalog:",
     "@polkadot-api/descriptors": "file:../.papi/descriptors",
     "@polkadot-labs/hdkd": "catalog:",
     "@polkadot-labs/hdkd-helpers": "catalog:",
