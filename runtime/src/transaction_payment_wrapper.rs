@@ -261,9 +261,11 @@ where
     ) -> Result<Self::Pre, TransactionValidityError> {
         self.inner.prepare(val, origin, call, info, len)
     }
+
     fn metadata() -> Vec<TransactionExtensionMetadata> {
         ChargeTransactionPayment::<T>::metadata()
     }
+
     fn post_dispatch_details(
         pre: Self::Pre,
         info: &DispatchInfoOf<RuntimeCallOf<T>>,
