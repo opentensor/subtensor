@@ -82,4 +82,5 @@ runtime-benchmarks = [
 	"pallet-scheduler/runtime-benchmarks",	
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks",
 ]

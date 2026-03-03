@@ -79,6 +79,8 @@ std = [
 	"pallet-subtensor-utility/std",
 	"stc-shield/std",
 	"subtensor-runtime-common/std",
+	"sp-keystore/std",
+	"pallet-timestamp/std",
 ]
 
 runtime-benchmarks = [
@@ -88,6 +90,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor-utility/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
 	"pallet-aura",
 	"sp-consensus-aura",
 	"rand_chacha",
@@ -99,4 +102,5 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-subtensor-utility/try-runtime",
+	"pallet-timestamp/try-runtime",
 ]
