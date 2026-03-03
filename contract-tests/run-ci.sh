@@ -45,7 +45,7 @@ bash get-metadata.sh
 
 sleep 5
 
-yarn install --frozen-lockfile
+yarn install
 
 yarn run test
 TEST_EXIT_CODE=$?
