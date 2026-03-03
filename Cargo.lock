@@ -9517,12 +9517,15 @@ dependencies = [
 name = "pallet-derivatives"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-subtensor-swap",
  "parity-scale-codec",
+ "safe-math",
  "scale-info",
  "sp-core",
  "sp-io",
@@ -9531,6 +9534,7 @@ dependencies = [
  "substrate-fixed",
  "subtensor-macros",
  "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]

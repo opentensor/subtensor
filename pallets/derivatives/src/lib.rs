@@ -9,36 +9,44 @@ use frame_support::{
     PalletId,
     dispatch::GetDispatchInfo,
     pallet_prelude::*,
-    sp_runtime::{
-        RuntimeDebug,
-        traits::Dispatchable,
-    },
-    traits::{
-        Get, IsSubType, fungible,
-    },
+    sp_runtime::{RuntimeDebug, traits::Dispatchable},
+    traits::{Get, IsSubType},
 };
 use frame_system::pallet_prelude::*;
+use safe_math::*;
 use scale_info::TypeInfo;
 use weights::WeightInfo;
 
 pub use pallet::*;
 use substrate_fixed::types::U96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, TaoCurrency};
 
 mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
 
-pub type CurrencyOf<T> = <T as Config>::Currency;
+// pub type CurrencyOf<T> = <T as Config>::Currency;
 
-pub type BalanceOf<T> =
-    <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+// pub type BalanceOf<T> =
+//     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[derive(Encode, Clone, Decode, DecodeWithMemTracking, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+    Encode,
+    Clone,
+    Decode,
+    DecodeWithMemTracking,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    RuntimeDebug,
+    TypeInfo,
+    MaxEncodedLen,
+)]
 pub enum PositionType {
-    Short
+    Short,
 }
 
 /// Derivative position
@@ -66,15 +74,17 @@ pub struct DerivativePosition<AccountId> {
 /// Trait for integration with the swap
 pub trait DerivativeSwapInterface {
     /// Buy alpha with a given tao amount
-    fn buy(&mut self, netuid: NetUid, tao: TaoCurrency) -> AlphaCurrency;
+    fn buy(netuid: NetUid, tao: TaoCurrency) -> AlphaCurrency;
     /// Buy tao with a given alpha amount
-    fn sell(&mut self, netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency;
-    /// Get the amount of tao needed to buy the given amount of alpha 
-    fn get_tao_for_alpha_amount(&mut self, netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency;
+    fn sell(netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency;
+    /// Get the amount of tao needed to buy the given amount of alpha
+    fn get_tao_for_alpha_amount(netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency;
     /// Mint alpha
-    fn mint_alpha(&mut self, netuid: NetUid, alpha: AlphaCurrency);
+    fn mint_alpha(netuid: NetUid, alpha: AlphaCurrency);
     /// Burn alpha
-    fn burn_alpha(&mut self, netuid: NetUid, alpha: AlphaCurrency);
+    fn burn_alpha(netuid: NetUid, alpha: AlphaCurrency);
+    /// Get alpha EMA price
+    fn get_alpha_ema_price(netuid: NetUid) -> U96F32;
 }
 
 pub type PositionInfoOf<T> = DerivativePosition<<T as frame_system::Config>::AccountId>;
@@ -100,9 +110,12 @@ pub mod pallet {
             + IsSubType<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>;
 
-        /// The currency mechanism.
-        type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
-            + fungible::Mutate<Self::AccountId>;
+        /// Operations with balances and stakes
+        type BalanceOps: BalanceOps<Self::AccountId>;
+
+        // /// The currency mechanism.
+        // type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
+        //     + fungible::Mutate<Self::AccountId>;
 
         /// The weight information for the pallet.
         type WeightInfo: WeightInfo;
@@ -113,12 +126,19 @@ pub mod pallet {
 
         /// The mechanism to swap, mint, and burn
         type SwapInterface: DerivativeSwapInterface;
+
+        /// Collateral ratio per billion
+        type CollateralRatio: Get<u64>;
     }
 
     /// A map of open positions
     #[pallet::storage]
     pub type Positions<T: Config> =
         StorageMap<_, Twox64Concat, DerivativePositionId, PositionInfoOf<T>, OptionQuery>;
+
+    /// Position ID counter
+    #[pallet::storage]
+    pub type LastPositionId<T> = StorageValue<_, DerivativePositionId, ValueQuery>;
 
     /// TODO: Structure that allows efficient search of positions by liquidation price
     // #[pallet::storage]
@@ -147,14 +167,13 @@ pub mod pallet {
             pos_type: PositionType,
             size: AlphaCurrency,
             close_price: U96F32, // Average close price
-            liquidation: bool, // Whether position was liquidated or closed voluntarily
-            partial: bool, // Partial or full close
+            liquidation: bool,   // Whether position was liquidated or closed voluntarily
+            partial: bool,       // Partial or full close
         },
     }
 
     #[pallet::error]
-    pub enum Error<T> {
-    }
+    pub enum Error<T> {}
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -171,7 +190,6 @@ pub mod pallet {
             // Execute liquidations here
             todo!();
         }
-
     }
 
     #[pallet::call]
@@ -197,18 +215,77 @@ pub mod pallet {
             Pays::Yes
         ))]
         pub fn open_short(
-            _origin: T::RuntimeOrigin,
-            _hotkey: T::AccountId,
-            _netuid: NetUid,
-            _tao_amount: TaoCurrency,
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            tao_amount: TaoCurrency,
         ) -> DispatchResult {
-            todo!()
+            let coldkey = ensure_signed(origin)?;
+
+            // Withdraw collateral
+            let tao_collateral = T::BalanceOps::decrease_balance(&coldkey, tao_amount)?;
+
+            // Set off the collateral ratio
+            let collateral_ratio = Self::get_collateral_ratio();
+            let position_tao: TaoCurrency = U96F32::saturating_from_num(tao_collateral)
+                .safe_div(collateral_ratio)
+                .saturating_to_num::<u64>()
+                .into();
+
+            // Get current alpha price and mint alpha_amount = (tao_amount / ema_price)
+            let ema_price = T::SwapInterface::get_alpha_ema_price(netuid);
+            let tao_amount_fixed = U96F32::saturating_from_num(position_tao);
+            let alpha_amount_fixed = tao_amount_fixed.safe_div(ema_price);
+            let alpha_amount = AlphaCurrency::from(alpha_amount_fixed.saturating_to_num::<u64>());
+            T::SwapInterface::mint_alpha(netuid, alpha_amount);
+
+            // Sell minted alpha
+            let tao_proceeds = T::SwapInterface::sell(netuid, alpha_amount);
+
+            // Calculate liquidation price
+            // TBD
+            let liquidation_price = U96F32::saturating_from_num(1000.);
+
+            // Create position
+            let mut position_id = LastPositionId::<T>::get();
+            position_id = position_id.saturating_add(1);
+            LastPositionId::<T>::set(position_id);
+            Positions::<T>::insert(
+                position_id,
+                DerivativePosition {
+                    netuid,
+                    owner_coldkey: coldkey.clone(),
+                    hotkey: hotkey.clone(),
+                    pos_type: PositionType::Short,
+                    liquidation_price,
+                    tao_collateral,
+                    tao_proceeds,
+                    size: alpha_amount,
+                },
+            );
+
+            // Emit event
+            Self::deposit_event(Event::Opened {
+                position_id,
+                netuid,
+                coldkey,
+                hotkey,
+                pos_type: PositionType::Short,
+                collateral: tao_collateral,
+                size: alpha_amount,
+                open_price: ema_price,
+            });
+
+            Ok(())
         }
 
         /// Close a short position at the specified subnet and hotkey.
         ///
-        ///   - Buy alpha_amount from pool, burn it
-        ///   - Credit received TAO to coldkey balance
+        ///   - Buy alpha_amount from pool with collateral, burn it
+        ///     - If the result is less alpha than was minted, take more alpha from
+        ///       reserves to match
+        ///     - If the result is more alpha than was minted, sell the difference
+        ///       and credit the received TAO to coldkey balance
         ///   - Update position accordingly
         ///
         /// Parameters:
@@ -231,9 +308,12 @@ pub mod pallet {
         ) -> DispatchResult {
             todo!()
         }
-
     }
 }
 
-// impl<T: Config> Pallet<T> {
-// }
+impl<T: Config> Pallet<T> {
+    pub fn get_collateral_ratio() -> U96F32 {
+        U96F32::saturating_from_num(T::CollateralRatio::get())
+            .safe_div(U96F32::saturating_from_num(1_000_000_000))
+    }
+}

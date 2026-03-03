@@ -13,6 +13,7 @@ repository = "https://github.com/opentensor/subtensor"
 workspace = true
 
 [dependencies]
+safe-math.workspace = true
 subtensor-macros.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 codec = { workspace = true, features = ["max-encoded-len"] }
@@ -20,13 +21,18 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-balances.workspace = true
+pallet-subtensor-swap.workspace = true
 sp-core.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 substrate-fixed.workspace = true
 subtensor-runtime-common.workspace = true
+subtensor-swap-interface.workspace = true
 log.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
 
 [features]
 default = ["std"]
@@ -40,10 +46,13 @@ std = [
   "sp-runtime/std",
   "sp-std/std",
   "log/std",
+  "safe-math/std",
   "sp-core/std",
   "substrate-fixed/std",
 	"subtensor-runtime-common/std",
+  "subtensor-swap-interface/std",
   "pallet-balances/std",
+  "pallet-subtensor-swap/std",
 ]
 runtime-benchmarks = [
   "frame-benchmarking/runtime-benchmarks",
