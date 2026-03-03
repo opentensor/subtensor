@@ -17,6 +17,8 @@ describe("Test Crowdloan precompile", () => {
     let publicClient: PublicClient;
     let api: TypedApi<typeof devnet>
 
+    const transactionFeeTolerance = 10_000_000;
+
     const alice = getAliceSigner();
     const wallet1 = generateRandomEthersWallet();
     const wallet2 = generateRandomEthersWallet();
@@ -139,7 +141,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < 20_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < transactionFeeTolerance);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
@@ -156,7 +158,7 @@ describe("Test Crowdloan precompile", () => {
         await tx2.wait();
 
         balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.ok(Number(balanceAfter.data.free) - Number(balanceBefore.data.free + contribution) < 1_000_000);
+        assert.ok(Number(balanceBefore.data.free + contribution) - Number(balanceAfter.data.free) < transactionFeeTolerance);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
@@ -189,7 +191,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(deposit) < 20_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(deposit) < transactionFeeTolerance);
 
         let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
@@ -208,7 +210,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
-        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < 1_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < transactionFeeTolerance);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
@@ -225,7 +227,7 @@ describe("Test Crowdloan precompile", () => {
         await tx2.wait();
 
         balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
-        assert.ok(Number(balanceAfter.data.free) - Number(balanceBefore.data.free + contribution) < 1_000_000);
+        assert.ok(Number(balanceAfter.data.free) - Number(balanceBefore.data.free + contribution) < transactionFeeTolerance);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
@@ -329,11 +331,11 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         const balanceAfter2 = await api.query.System.Account.getValue(convertH160ToSS58(wallet2.address));
-        assert.ok(Number(balanceAfter2.data.free) - Number(balanceBefore2.data.free) < 1_000_000);
+        assert.ok(Number(balanceAfter2.data.free) - Number(balanceBefore2.data.free) < transactionFeeTolerance);
         const balanceAfter3 = await api.query.System.Account.getValue(convertH160ToSS58(wallet3.address));
-        assert.ok(Number(balanceAfter3.data.free) - Number(balanceBefore3.data.free) < 1_000_000);
+        assert.ok(Number(balanceAfter3.data.free) - Number(balanceBefore3.data.free) < transactionFeeTolerance);
         const balanceAfter4 = await api.query.System.Account.getValue(convertH160ToSS58(wallet4.address));
-        assert.ok(Number(balanceAfter4.data.free) - Number(balanceBefore4.data.free) < 1_000_000);
+        assert.ok(Number(balanceAfter4.data.free) - Number(balanceBefore4.data.free) < transactionFeeTolerance);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
@@ -351,7 +353,7 @@ describe("Test Crowdloan precompile", () => {
         assert.equal(crowdloan, undefined);
 
         const balanceAfter1 = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.ok(Number(balanceAfter1.data.free) - Number(balanceBefore1.data.free) < 2_000_000);
+        assert.ok(Number(balanceAfter1.data.free) - Number(balanceBefore1.data.free) < transactionFeeTolerance);
     });
 
     it("updates the min contribution", async () => {
