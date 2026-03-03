@@ -16,6 +16,6 @@ RUNTIME_WASM=./target/production/wbuild/node-subtensor-runtime/node_subtensor_ru
   --genesis-builder-preset=benchmark \
   --wasm-execution=compiled \
   --pallet=pallet_subtensor \
-  --extrinsic="$dissolve_network" \
+  --extrinsic="$EXTRINSIC" \
   --steps 50 \
   --repeat 5 \
