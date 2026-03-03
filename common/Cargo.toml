@@ -30,6 +30,11 @@ workspace = true
 default = ["std"]
 approx = ["dep:approx"]
 fast-runtime = []
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"runtime-common/runtime-benchmarks",
+]
 std = [
 	"codec/std",
 	"environmental/std",
@@ -39,5 +44,5 @@ std = [
 	"sp-core/std",
 	"sp-runtime/std",
 	"substrate-fixed/std",
-	"runtime-common/std"
+	"runtime-common/std",
 ]
