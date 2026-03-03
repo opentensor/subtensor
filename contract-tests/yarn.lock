@@ -2424,7 +2424,7 @@ pkg-types@^1.3.1:
     mlly "^1.7.4"
     pathe "^2.0.1"
 
-polkadot-api@^1.22.0:
+polkadot-api@^1.23.3:
   version "1.23.3"
   resolved "https://registry.yarnpkg.com/polkadot-api/-/polkadot-api-1.23.3.tgz#8d70dc4afd8e00c736a5657342db18be489984e6"
   integrity sha512-wOWli6Cfk3bO1u/W8qmwriCIKxATkNea8Jyg1jj7GzAqafxy295BYPzYHy2mJZCQ0PAVFPR4/JvCXocTLBsp5A==
