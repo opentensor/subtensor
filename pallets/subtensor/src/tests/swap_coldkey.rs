@@ -33,12 +33,7 @@ use crate::*;
 use crate::{Call, Error};
 
 fn run_to_block(n: u64) {
-    System::run_to_block_with::<AllPalletsWithSystem>(
-        n,
-        frame_system::RunToBlockHooks::default().before_finalize(|bn| {
-            Timestamp::set_timestamp(bn);
-        }),
-    );
+    System::run_to_block::<AllPalletsWithSystem>(n);
 }
 
 #[test]

@@ -24,7 +24,7 @@ use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage, Percent,
-    traits::{BadOrigin, BlakeTwo256, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
@@ -94,6 +94,11 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
+}
+
+impl pallet_shield::Config for Test {
+    type AuthorityId = sp_core::sr25519::Public;
+    type FindAuthors = ();
 }
 
 pub struct NoNestingCallFilter;
