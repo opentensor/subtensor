@@ -180,9 +180,7 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-            limit.saturating_sub(Self::remove_data_for_dissolved_networks(
-                limit.saturating_div(2),
-            ))
+            limit.saturating_sub(Self::remove_data_for_dissolved_networks(limit))
         }
     }
 
@@ -231,7 +229,7 @@ mod hooks {
         // 		- The remaining weight for the function.
         //
         // # Returns:
-        // 	* 'Weight': The weight consumed by the function.
+        // 	* 'Weight': The weight remaining after the function.
         //
         fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
             let mut remaining_weight = remaining_weight;
