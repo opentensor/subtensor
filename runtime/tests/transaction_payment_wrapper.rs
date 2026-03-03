@@ -7,7 +7,7 @@ use frame_support::{
 use node_subtensor_runtime::{
     BuildStorage, NORMAL_DISPATCH_BASE_PRIORITY, OPERATIONAL_DISPATCH_PRIORITY, Proxy, Runtime,
     RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System, SystemCall,
-    transaction_payment_wrapper,
+    transaction_payment_wrapper::ChargeTransactionPaymentWrapper,
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
@@ -128,9 +128,7 @@ fn validate_call_with_info(
     call: &RuntimeCall,
     info: &DispatchInfo,
 ) -> Result<(ValidTransaction, Val<Runtime>), TransactionValidityError> {
-    let ext = transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<Runtime>::new(
-        ChargeTransactionPayment::from(0u64),
-    );
+    let ext = ChargeTransactionPaymentWrapper::<Runtime>::new(0u64);
     let (valid_tx, val, _origin) = ext.validate(
         origin,
         call,
