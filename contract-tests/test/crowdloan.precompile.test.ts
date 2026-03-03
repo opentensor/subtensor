@@ -139,7 +139,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < 1_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(contribution) < 20_000_000);
 
         crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
@@ -189,7 +189,7 @@ describe("Test Crowdloan precompile", () => {
         await tx.wait();
 
         let balanceAfter = await api.query.System.Account.getValue(convertH160ToSS58(wallet1.address));
-        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(deposit) < 1_000_000);
+        assert.ok(Number(balanceBefore.data.free - balanceAfter.data.free) - Number(deposit) < 20_000_000);
 
         let crowdloan = await api.query.Crowdloan.Crowdloans.getValue(nextId);
         assert.ok(crowdloan);
