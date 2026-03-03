@@ -1,5 +1,5 @@
-import { subtensor } from "@polkadot-api/descriptors";
-import { TypedApi } from "polkadot-api";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
+import { TypedApi, TxCallData } from "polkadot-api";
 import { KeyPair } from "@polkadot-labs/hdkd-helpers";
 import { getSignerFromKeypair, getAliceSigner } from "./address.js";
 import { waitForTransactionWithRetry } from "./transactions.js";
@@ -505,4 +505,22 @@ export async function getTotalHotkeyAlpha(
   netuid: number,
 ): Promise<bigint> {
   return await api.query.SubtensorModule.TotalHotkeyAlpha.getValue(hotkey, netuid);
+}
+
+/**
+ * Send a proxy call on behalf of another account.
+ */
+export async function sendProxyCall(
+  api: TypedApi<typeof subtensor>,
+  calldata: TxCallData,
+  ss58Address: string,
+  keypair: KeyPair
+): Promise<void> {
+  const signer = getSignerFromKeypair(keypair);
+  const tx = api.tx.Proxy.proxy({
+    call: calldata,
+    real: MultiAddress.Id(ss58Address),
+    force_proxy_type: undefined,
+  });
+  await waitForTransactionWithRetry(api, tx, signer, "proxy_call");
 }

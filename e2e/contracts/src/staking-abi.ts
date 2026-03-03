@@ -1,3 +1,55 @@
+// Staking precompile V1 contract address and ABI
+export const ISTAKING_ADDRESS = "0x0000000000000000000000000000000000000801";
+
+export const IStakingABI = [
+  {
+    inputs: [{ internalType: "bytes32", name: "delegate", type: "bytes32" }],
+    name: "addProxy",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "bytes32", name: "hotkey", type: "bytes32" },
+      { internalType: "uint256", name: "netuid", type: "uint256" },
+    ],
+    name: "addStake",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "bytes32", name: "delegate", type: "bytes32" }],
+    name: "removeProxy",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "bytes32", name: "hotkey", type: "bytes32" },
+      { internalType: "bytes32", name: "coldkey", type: "bytes32" },
+      { internalType: "uint256", name: "netuid", type: "uint256" },
+    ],
+    name: "getStake",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "bytes32", name: "hotkey", type: "bytes32" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "uint256", name: "netuid", type: "uint256" },
+    ],
+    name: "removeStake",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+];
+
 // Staking precompile V2 contract address and ABI
 export const ISTAKING_V2_ADDRESS = "0x0000000000000000000000000000000000000805";
 
