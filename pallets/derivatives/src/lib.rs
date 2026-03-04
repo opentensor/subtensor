@@ -50,13 +50,9 @@ pub enum PositionType {
 }
 
 /// Derivative position
-#[freeze_struct("4c42c445dd17e071")]
+#[freeze_struct("bf80645cdc8a430")]
 #[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct DerivativePosition<AccountId> {
-    /// Subnet ID where the position is open
-    pub netuid: NetUid,
-    /// The coldkey of account holding this position
-    pub owner_coldkey: AccountId,
     /// The hotkey against which the Alpha in this position is accounted
     pub hotkey: AccountId,
     /// Type of the position
@@ -88,8 +84,6 @@ pub trait DerivativeSwapInterface {
 }
 
 pub type PositionInfoOf<T> = DerivativePosition<<T as frame_system::Config>::AccountId>;
-
-pub type DerivativePositionId = u64;
 
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
@@ -133,12 +127,15 @@ pub mod pallet {
 
     /// A map of open positions
     #[pallet::storage]
-    pub type Positions<T: Config> =
-        StorageMap<_, Twox64Concat, DerivativePositionId, PositionInfoOf<T>, OptionQuery>;
-
-    /// Position ID counter
-    #[pallet::storage]
-    pub type LastPositionId<T> = StorageValue<_, DerivativePositionId, ValueQuery>;
+    pub type Positions<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        PositionInfoOf<T>,
+        OptionQuery,
+    >;
 
     /// TODO: Structure that allows efficient search of positions by liquidation price
     // #[pallet::storage]
@@ -149,7 +146,6 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// A position was opened
         Opened {
-            position_id: DerivativePositionId,
             netuid: NetUid,
             coldkey: T::AccountId,
             hotkey: T::AccountId,
@@ -160,7 +156,6 @@ pub mod pallet {
         },
         /// A position was closed
         Closed {
-            position_id: DerivativePositionId,
             netuid: NetUid,
             coldkey: T::AccountId,
             hotkey: T::AccountId,
@@ -242,31 +237,18 @@ pub mod pallet {
             // Sell minted alpha
             let tao_proceeds = T::SwapInterface::sell(netuid, alpha_amount);
 
-            // Calculate liquidation price
-            // TBD
-            let liquidation_price = U96F32::saturating_from_num(1000.);
-
-            // Create position
-            let mut position_id = LastPositionId::<T>::get();
-            position_id = position_id.saturating_add(1);
-            LastPositionId::<T>::set(position_id);
-            Positions::<T>::insert(
-                position_id,
-                DerivativePosition {
-                    netuid,
-                    owner_coldkey: coldkey.clone(),
-                    hotkey: hotkey.clone(),
-                    pos_type: PositionType::Short,
-                    liquidation_price,
-                    tao_collateral,
-                    tao_proceeds,
-                    size: alpha_amount,
-                },
+            // Create/update position
+            Self::upsert_short_position_add(
+                coldkey.clone(),
+                hotkey.clone(), 
+                netuid,
+                tao_collateral,
+                tao_proceeds,
+                alpha_amount,
             );
 
             // Emit event
             Self::deposit_event(Event::Opened {
-                position_id,
                 netuid,
                 coldkey,
                 hotkey,
@@ -315,5 +297,49 @@ impl<T: Config> Pallet<T> {
     pub fn get_collateral_ratio() -> U96F32 {
         U96F32::saturating_from_num(T::CollateralRatio::get())
             .safe_div(U96F32::saturating_from_num(1_000_000_000))
+    }
+
+    pub fn upsert_short_position_add(
+        coldkey: T::AccountId,
+        hotkey: T::AccountId, 
+        netuid: NetUid,
+        tao_collateral: TaoCurrency,
+        tao_proceeds: TaoCurrency,
+        size: AlphaCurrency,
+    ) {
+        let mut liquidation_price;
+        let new_position = if let Some(position) = Positions::<T>::get((coldkey.clone(), netuid)) {
+            // Update liquidation price
+            // TBD
+            liquidation_price = U96F32::saturating_from_num(1000.);
+
+            let new_collateral = u64::from(tao_collateral).saturating_add(u64::from(position.tao_collateral));
+            let new_proceeds = u64::from(tao_proceeds).saturating_add(u64::from(position.tao_proceeds));
+            let new_size = u64::from(size).saturating_add(u64::from(position.size));
+
+            DerivativePosition {
+                hotkey,
+                pos_type: PositionType::Short,
+                liquidation_price,
+                tao_collateral: new_collateral.into(),
+                tao_proceeds: new_proceeds.into(),
+                size: new_size.into(),
+            }
+        } else {
+            // Calculate liquidation price
+            // TBD
+            liquidation_price = U96F32::saturating_from_num(1000.);
+
+            DerivativePosition {
+                hotkey,
+                pos_type: PositionType::Short,
+                liquidation_price,
+                tao_collateral,
+                tao_proceeds,
+                size,
+            }
+        };
+
+        Positions::<T>::insert((coldkey, netuid), new_position);
     }
 }

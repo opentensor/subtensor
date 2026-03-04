@@ -11,6 +11,16 @@ use subtensor_swap_interface::{Order, SwapHandler};
 // Run all tests here:
 // cargo test --package pallet-derivatives --lib -- tests --nocapture
 
+// Test plan:
+//   - Open
+//     - Open normally
+//     - Open when a position is already open (adds)
+//   - Close
+//     - Close normally
+//     - Open - buy - liquidate before we run out of alpha
+//     - Close partially
+//   - Open, close partially, open more
+
 #[test]
 fn test_open_short_ok() {
     new_test_ext().execute_with(|| {
@@ -62,10 +72,7 @@ fn test_open_short_ok() {
         assert!(price_before > price_after);
 
         // Position was created
-        let position_id = LastPositionId::<Test>::get();
-        let position = Positions::<Test>::get(position_id).unwrap();
-        assert_eq!(position.netuid, netuid);
-        assert_eq!(position.owner_coldkey, COLDKEY1);
+        let position = Positions::<Test>::get((COLDKEY1, netuid)).unwrap();
         assert_eq!(position.hotkey, HOTKEY1);
         assert_eq!(position.pos_type, PositionType::Short);
         // assert_eq!(position.liquidation_price, ??);
@@ -90,9 +97,44 @@ fn test_open_short_ok() {
 #[test]
 fn test_close_short_ok() {
     new_test_ext().execute_with(|| {
+        // Setup network and balances (both ema price and price are 0.001)
         let netuid = NetUid::from(1);
+        let balance_initial = TaoCurrency::from(10_000_000_000);
+        let position_tao = TaoCurrency::from(1_000_000_000);
         TaoReserve::set_mock_reserve(netuid, 1_000_000_000.into());
-        AlphaReserve::set_mock_reserve(netuid, 100_000_000_000.into());
+        AlphaReserve::set_mock_reserve(netuid, 1_000_000_000_000.into());
+        MockBalanceOps::increase_balance(&COLDKEY1, balance_initial);
+        let alpha_out_before = MockSwap::get_alpha_out(netuid);
+        let ema_price = MockSwap::get_alpha_ema_price(netuid).to_num::<f64>();
+        let price_before = MockSwap::get_current_price(netuid).to_num::<f64>();
+
+        // Expected alpha to mint
+        let collateral_ratio = Derivatives::get_collateral_ratio().to_num::<f64>();
+        let expected_minted_alpha =
+            (u64::from(position_tao) as f64 / (collateral_ratio * ema_price)) as u64;
+
+        // Simulate swap to estimate tao proceeds
+        let order = GetTaoForAlpha::with_amount(expected_minted_alpha);
+        let expected_tao_proceeds =
+            <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::sim_swap(netuid, order)
+                .map(|r| r.amount_paid_out.to_u64())
+                .unwrap_or_default();
+
+        // Open short
+        assert_ok!(Pallet::<Test>::open_short(
+            RuntimeOrigin::signed(COLDKEY1),
+            HOTKEY1,
+            netuid,
+            position_tao
+        ));
+
+        // Get coldkey balance before closing
+        let balance_before = MockBalanceOps::tao_balance(&COLDKEY1);
+
+        // Close the position
+
+
+
 
         assert_ok!(Pallet::<Test>::close_short(
             RuntimeOrigin::signed(COLDKEY1),
