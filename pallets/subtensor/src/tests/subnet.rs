@@ -122,14 +122,22 @@ fn test_do_start_call_fail_for_set_again() {
         let hotkey_account_id = U256::from(1);
         let burn_cost = TaoCurrency::from(1000);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        // Create the network first. Network init helpers may overwrite defaults.
         add_network_without_emission_block(netuid, tempo, 0);
         assert_eq!(FirstEmissionBlockNumber::<Test>::get(netuid), None);
-
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
 
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        // Set burn AFTER network creation so it is not overwritten.
+        SubtensorModule::set_burn(netuid, burn_cost);
+
+        // Fund coldkey based on the actual burn.
+        let burn_u64: u64 = SubtensorModule::get_burn(netuid).to_u64();
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            burn_u64
+                .saturating_add(ExistentialDeposit::get())
+                .saturating_add(10_000),
+        );
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -688,15 +696,28 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
         let hotkey_account_2_id: U256 = U256::from(3);
 
         let burn_cost = TaoCurrency::from(1000);
-        // Set the burn cost
-        SubtensorModule::set_burn(netuid, burn_cost);
-        // Add the networks with subtoken disabled
+
+        // Add the networks with subtoken disabled.
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
-        // Give enough to burned register
+
+        // Ensure reserves exist for swap/burn path.
+        mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
+        mock::setup_reserves(netuid2, 1_000_000_000.into(), 1_000_000_000.into());
+
+        // Set burn AFTER network creation for BOTH networks.
+        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_burn(netuid2, burn_cost);
+
+        // Fund enough to burned-register twice + keep-alive buffer.
+        let burn_1: u64 = SubtensorModule::get_burn(netuid).to_u64();
+        let burn_2: u64 = SubtensorModule::get_burn(netuid2).to_u64();
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
-            burn_cost.to_u64() * 2 + 5_000,
+            burn_1
+                .saturating_add(burn_2)
+                .saturating_add(ExistentialDeposit::get())
+                .saturating_add(5_000),
         );
 
         // Should be possible to burned register before enable is activated
