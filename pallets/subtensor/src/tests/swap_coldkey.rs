@@ -21,7 +21,9 @@ use sp_runtime::traits::Hash;
 use sp_runtime::traits::{DispatchInfoOf, DispatchTransaction, TransactionExtension};
 use sp_runtime::{DispatchError, traits::TxBaseImplication};
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaBalance, CustomTransactionError, SubnetInfo, TaoBalance, Token};
+use subtensor_runtime_common::{
+    AlphaBalance, CustomTransactionError, SubnetInfo, TaoBalance, Token,
+};
 use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
 use super::mock;

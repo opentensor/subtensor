@@ -29,18 +29,18 @@ mod pallet_benchmarks {
     use super::*;
 
     fn seed_swap_reserves<T: Config>(netuid: NetUid) {
-        let tao_reserve = TaoCurrency::from(150_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoBalance::from(150_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
         set_reserves::<T>(netuid, tao_reserve, alpha_in);
     }
 
-    fn set_reserves<T: Config>(netuid: NetUid, tao_reserve: TaoCurrency, alpha_in: AlphaCurrency) {
+    fn set_reserves<T: Config>(netuid: NetUid, tao_reserve: TaoBalance, alpha_in: AlphaBalance) {
         SubnetTAO::<T>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<T>::insert(netuid, alpha_in);
     }
 
-    fn benchmark_registration_burn() -> TaoCurrency {
-        TaoCurrency::from(1_000_000)
+    fn benchmark_registration_burn() -> TaoBalance {
+        TaoBalance::from(1_000_000)
     }
 
     #[benchmark]
@@ -842,7 +842,7 @@ mod pallet_benchmarks {
             origin.clone()
         ));
 
-        set_reserves::<T>(netuid, deposit, AlphaCurrency::from(deposit.to_u64()));
+        set_reserves::<T>(netuid, deposit, AlphaBalance::from(deposit.to_u64()));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -893,7 +893,6 @@ mod pallet_benchmarks {
         let hotkey: T::AccountId = account("Alice", 0, seed);
         Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
-        let limit = TaoCurrency::from(1_000_000_000);
         let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
         let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
         set_reserves::<T>(netuid, tao_reserve, alpha_in);
@@ -1024,7 +1023,7 @@ mod pallet_benchmarks {
             hot.clone()
         ));
 
-        set_reserves::<T>(netuid, deposit, AlphaCurrency::from(deposit.to_u64()));
+        set_reserves::<T>(netuid, deposit, AlphaBalance::from(deposit.to_u64()));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -1078,8 +1077,8 @@ mod pallet_benchmarks {
             hot.clone()
         ));
 
-        set_reserves::<T>(netuid1, deposit, AlphaCurrency::from(deposit.to_u64()));
-        set_reserves::<T>(netuid2, deposit, AlphaCurrency::from(deposit.to_u64()));
+        set_reserves::<T>(netuid1, deposit, AlphaBalance::from(deposit.to_u64()));
+        set_reserves::<T>(netuid2, deposit, AlphaBalance::from(deposit.to_u64()));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -1391,8 +1390,8 @@ mod pallet_benchmarks {
 
         set_reserves::<T>(
             netuid,
-            TaoCurrency::from(150_000_000_000_u64),
-            AlphaCurrency::from(100_000_000_000_u64),
+            TaoBalance::from(150_000_000_000_u64),
+            AlphaBalance::from(100_000_000_000_u64),
         );
 
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 1000000u32.into());
@@ -1440,7 +1439,6 @@ mod pallet_benchmarks {
         let hotkey: T::AccountId = account("Alice", 0, seed);
         Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
-        let limit = TaoCurrency::from(1_000_000_000);
         let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
         let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
         set_reserves::<T>(netuid, tao_reserve, alpha_in);
@@ -1822,8 +1820,8 @@ mod pallet_benchmarks {
         let amount = TaoBalance::from(44_000_000_000_u64);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), balance_update);
 
-        let tao_reserve = TaoCurrency::from(150_000_000_000_u64);
-        let alpha_in = AlphaCurrency::from(100_000_000_000_u64);
+        let tao_reserve = TaoBalance::from(150_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
         set_reserves::<T>(netuid, tao_reserve, alpha_in);
 
         assert_ok!(Subtensor::<T>::do_burned_registration(

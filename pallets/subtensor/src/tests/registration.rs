@@ -9,7 +9,9 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use subtensor_runtime_common::{AlphaBalance, CustomTransactionError, NetUid, NetUidStorageIndex, Token};
+use subtensor_runtime_common::{
+    AlphaBalance, CustomTransactionError, NetUid, NetUidStorageIndex, Token,
+};
 
 use super::mock;
 use super::mock::*;

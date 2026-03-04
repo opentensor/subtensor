@@ -71,8 +71,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use substrate_fixed::types::U96F32;
 use stp_shield::ShieldedTransaction;
+use substrate_fixed::types::U96F32;
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -198,9 +198,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 frame_system::CheckWeight::<Runtime>::new(),
             ),
             (
-                ChargeTransactionPaymentWrapper::new(
-                    pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0.into())
-                ),
+                ChargeTransactionPaymentWrapper::new(TaoBalance::new(0)),
                 SudoTransactionExtension::<Runtime>::new(),
                 pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
                 pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
