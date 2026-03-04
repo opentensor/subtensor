@@ -1,0 +1,68 @@
+name: Test Fireactions Rustdocs Dry-Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to validate"
+        required: true
+        default: "fireactions-runners"
+      dry_run:
+        description: "Must remain true for this test workflow"
+        required: true
+        default: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-fireactions-rustdocs-dryrun-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-docs-dryrun:
+    runs-on: [self-hosted, fireactions]
+    timeout-minutes: 90
+    steps:
+      - name: Enforce dry-run mode
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+            echo "dry_run must be true for this workflow."
+            exit 1
+          fi
+
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Dependency gate (no installs)
+        run: |
+          set -euo pipefail
+          for cmd in clang curl pkg-config llvm-config protoc; do
+            command -v "$cmd"
+          done
+          pkg-config --exists openssl
+          pkg-config --exists libudev
+
+      - name: Install Rust toolchain (run-specific)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Generate documentation
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --document-private-items
+
+      - name: Generate index.html
+        run: |
+          echo "<meta http-equiv=refresh content=0;url=wasm_oidc_plugin/index.html>" > target/doc/index.html
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdocs-dryrun
+          path: target/doc
+          if-no-files-found: error

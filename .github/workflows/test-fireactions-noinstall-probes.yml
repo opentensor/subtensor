@@ -1,0 +1,136 @@
+name: Test Fireactions No-Install Probes
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to validate"
+        required: true
+        default: "fireactions-runners"
+      dry_run:
+        description: "Must remain true for this test workflow"
+        required: true
+        default: "true"
+
+concurrency:
+  group: test-fireactions-noinstall-probes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probes:
+    runs-on: [self-hosted, fireactions]
+    timeout-minutes: 20
+    steps:
+      - name: Enforce dry-run mode
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+            echo "dry_run must be true for this workflow."
+            exit 1
+          fi
+
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Probe runner dependencies (no installs)
+        run: |
+          set +e
+          MISSING=0
+          REPORT="$GITHUB_WORKSPACE/noinstall-probes-report.md"
+          {
+            echo "# Fireactions No-Install Probe Report"
+            echo
+            echo "- Ref: \`${{ github.event.inputs.ref }}\`"
+            echo "- Runner: \`self-hosted, fireactions\`"
+            echo
+            echo "## Command Checks"
+          } > "$REPORT"
+
+          check_cmd() {
+            if command -v "$1" >/dev/null 2>&1; then
+              echo "- [x] $1" >> "$REPORT"
+            else
+              echo "- [ ] $1 (missing)" >> "$REPORT"
+              MISSING=$((MISSING + 1))
+            fi
+          }
+
+          check_cmd docker
+          check_cmd gh
+          check_cmd jq
+          check_cmd git
+          check_cmd curl
+          check_cmd unzip
+          check_cmd bc
+          check_cmd make
+          check_cmd clang
+          check_cmd pkg-config
+          check_cmd protoc
+          check_cmd llvm-config
+          check_cmd gcc-aarch64-linux-gnu
+          check_cmd gcc-x86-64-linux-gnu
+          check_cmd node
+          check_cmd npm
+
+          {
+            echo
+            echo "## Functional Checks"
+          } >> "$REPORT"
+
+          if docker buildx version >/dev/null 2>&1; then
+            echo "- [x] docker buildx plugin" >> "$REPORT"
+          else
+            echo "- [ ] docker buildx plugin (missing)" >> "$REPORT"
+            MISSING=$((MISSING + 1))
+          fi
+
+          if docker compose version >/dev/null 2>&1; then
+            echo "- [x] docker compose plugin" >> "$REPORT"
+          else
+            echo "- [ ] docker compose plugin (missing)" >> "$REPORT"
+            MISSING=$((MISSING + 1))
+          fi
+
+          if pkg-config --exists openssl; then
+            echo "- [x] pkg-config openssl" >> "$REPORT"
+          else
+            echo "- [ ] pkg-config openssl (missing)" >> "$REPORT"
+            MISSING=$((MISSING + 1))
+          fi
+
+          if pkg-config --exists libudev; then
+            echo "- [x] pkg-config libudev" >> "$REPORT"
+          else
+            echo "- [ ] pkg-config libudev (missing)" >> "$REPORT"
+            MISSING=$((MISSING + 1))
+          fi
+
+          if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
+            echo "- [x] ca-certificates bundle" >> "$REPORT"
+          else
+            echo "- [ ] ca-certificates bundle (missing)" >> "$REPORT"
+            MISSING=$((MISSING + 1))
+          fi
+
+          {
+            echo
+            echo "## Result"
+            echo
+            echo "- Missing checks: $MISSING"
+          } >> "$REPORT"
+
+          cat "$REPORT"
+
+          if [ "$MISSING" -gt 0 ]; then
+            echo "Dependency probe failed with $MISSING missing checks."
+            exit 1
+          fi
+
+      - name: Upload probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fireactions-noinstall-probes-report
+          path: noinstall-probes-report.md
+          if-no-files-found: error

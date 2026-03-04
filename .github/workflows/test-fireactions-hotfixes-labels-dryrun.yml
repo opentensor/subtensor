@@ -1,0 +1,109 @@
+name: Test Fireactions Hotfixes and Labels Dry-Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to validate"
+        required: true
+        default: "fireactions-runners"
+      dry_run:
+        description: "Must remain true for this test workflow"
+        required: true
+        default: "true"
+      pr_number:
+        description: "PR number for payload rendering"
+        required: true
+        default: "1"
+      base_ref:
+        description: "Simulated PR base branch"
+        required: true
+        default: "main"
+      head_ref:
+        description: "Simulated PR head branch"
+        required: true
+        default: "feature/fireactions-test"
+      label_name:
+        description: "Simulated label name"
+        required: true
+        default: "breaking-change"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-fireactions-hotfixes-labels-dryrun-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  payload-dryrun:
+    runs-on: [self-hosted, fireactions]
+    timeout-minutes: 20
+    steps:
+      - name: Enforce dry-run mode
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+            echo "dry_run must be true for this workflow."
+            exit 1
+          fi
+
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Dependency gate (no installs)
+        run: |
+          set -euo pipefail
+          for cmd in curl jq; do
+            command -v "$cmd"
+          done
+
+      - name: Render and validate payloads (no API writes)
+        run: |
+          set -euo pipefail
+          REPORT="hotfixes-labels-dryrun-report.md"
+          {
+            echo "# Hotfixes + Labels Dry-Run Report"
+            echo
+            echo "- Ref: \`${{ github.event.inputs.ref }}\`"
+            echo "- PR: \`${{ github.event.inputs.pr_number }}\`"
+            echo "- base_ref: \`${{ github.event.inputs.base_ref }}\`"
+            echo "- head_ref: \`${{ github.event.inputs.head_ref }}\`"
+            echo "- label_name: \`${{ github.event.inputs.label_name }}\`"
+            echo
+          } > "$REPORT"
+
+          if [ "${{ github.event.inputs.base_ref }}" = "main" ] && [ "${{ github.event.inputs.head_ref }}" != "testnet" ]; then
+            HOTFIX_LABEL_PAYLOAD='{"labels":["hotfix"]}'
+            echo "$HOTFIX_LABEL_PAYLOAD" | jq -e '.labels | index("hotfix")' >/dev/null
+            echo "## Hotfix payload" >> "$REPORT"
+            echo '```json' >> "$REPORT"
+            echo "$HOTFIX_LABEL_PAYLOAD" | jq >> "$REPORT"
+            echo '```' >> "$REPORT"
+          else
+            echo "Hotfix condition not met; label/comment payload generation skipped." >> "$REPORT"
+          fi
+
+          if [ "${{ github.event.inputs.label_name }}" = "breaking-change" ]; then
+            BREAKING_BODY='@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
+            BREAKING_PAYLOAD="$(jq -n --arg body "$BREAKING_BODY" '{body: $body}')"
+            echo "$BREAKING_PAYLOAD" | jq -e '.body | length > 0' >/dev/null
+            echo >> "$REPORT"
+            echo "## Breaking-change comment payload" >> "$REPORT"
+            echo '```json' >> "$REPORT"
+            echo "$BREAKING_PAYLOAD" | jq >> "$REPORT"
+            echo '```' >> "$REPORT"
+          else
+            echo "breaking-change label condition not met; payload generation skipped." >> "$REPORT"
+          fi
+
+          cat "$REPORT"
+
+      - name: Upload dry-run report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotfixes-labels-dryrun
+          path: hotfixes-labels-dryrun-report.md
+          if-no-files-found: error

@@ -1,0 +1,116 @@
+name: Test Fireactions Apply Benchmark Patch Dry-Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to validate"
+        required: true
+        default: "fireactions-runners"
+      dry_run:
+        description: "Must remain true for this test workflow"
+        required: true
+        default: "true"
+      pr_number:
+        description: "PR number to fetch benchmark artifact from (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: test-fireactions-apply-benchmark-patch-dryrun-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply-dryrun:
+    runs-on: [self-hosted, fireactions]
+    timeout-minutes: 30
+    steps:
+      - name: Enforce dry-run mode
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+            echo "dry_run must be true for this workflow."
+            exit 1
+          fi
+
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Dependency gate (no installs)
+        run: |
+          set -euo pipefail
+          for cmd in gh git tar; do
+            command -v "$cmd"
+          done
+
+      - name: Download latest bench patch artifact from benchmark workflow
+        if: ${{ github.event.inputs.pr_number != '' }}
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: run-benchmarks.yml
+          pr: ${{ github.event.inputs.pr_number }}
+          name: bench-patch
+          path: .
+          allow_forks: true
+          check_artifacts: true
+          search_artifacts: true
+          workflow_conclusion: ""
+          if_no_artifact_found: warn
+
+      - name: Extract bench patch archive
+        run: |
+          set -euo pipefail
+          if [ -f "bench-patch.tgz" ]; then
+            tar -xzf bench-patch.tgz
+          elif [ -f "bench-patch/bench-patch.tgz" ]; then
+            tar -xzf bench-patch/bench-patch.tgz
+          else
+            echo "No bench patch archive found."
+          fi
+
+      - name: Validate patch apply in dry-run mode
+        run: |
+          set -euo pipefail
+          {
+            echo "# Apply Benchmark Patch Dry-Run Report"
+            echo
+            echo "- Ref: \`${{ github.event.inputs.ref }}\`"
+            echo "- PR: \`${{ github.event.inputs.pr_number }}\`"
+            echo
+          } > apply-benchmark-patch-dryrun-report.md
+
+          if [ ! -f ".bench_patch/benchmark_patch.diff" ]; then
+            echo "No benchmark_patch.diff found; nothing to validate." >> apply-benchmark-patch-dryrun-report.md
+            cat apply-benchmark-patch-dryrun-report.md
+            exit 0
+          fi
+
+          if git apply --check ".bench_patch/benchmark_patch.diff"; then
+            echo "Patch check succeeded." >> apply-benchmark-patch-dryrun-report.md
+            git apply --index --3way ".bench_patch/benchmark_patch.diff"
+            echo >> apply-benchmark-patch-dryrun-report.md
+            echo "## Diff stat" >> apply-benchmark-patch-dryrun-report.md
+            git diff --cached --stat >> apply-benchmark-patch-dryrun-report.md
+          else
+            echo "Patch check failed." >> apply-benchmark-patch-dryrun-report.md
+            cat apply-benchmark-patch-dryrun-report.md
+            exit 1
+          fi
+
+          cat apply-benchmark-patch-dryrun-report.md
+
+      - name: Upload dry-run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apply-benchmark-patch-dryrun
+          path: |
+            apply-benchmark-patch-dryrun-report.md
+            .bench_patch/benchmark_patch.diff
+          if-no-files-found: warn

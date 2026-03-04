@@ -12,16 +12,15 @@ jobs:
     runs-on: [self-hosted, fireactions]
     timeout-minutes: 30
     steps:
+      - name: Enforce no-install campaign mode
+        run: |
+          echo "No system package installs are allowed in this validation campaign."
+
       - name: Check runner identity
         run: |
           whoami
           id
           groups
-
-      - name: Install compatibility dependency
-        run: |
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" bc
 
       - name: Verify required tools
         run: |

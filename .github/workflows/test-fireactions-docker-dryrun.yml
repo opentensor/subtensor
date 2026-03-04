@@ -1,0 +1,61 @@
+name: Test Fireactions Docker Dry-Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to validate"
+        required: true
+        default: "fireactions-runners"
+      dry_run:
+        description: "Must remain true for this test workflow"
+        required: true
+        default: "true"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: test-fireactions-docker-dryrun-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-dryrun:
+    runs-on: [self-hosted, fireactions]
+    timeout-minutes: 45
+    steps:
+      - name: Enforce dry-run mode
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+            echo "dry_run must be true for this workflow."
+            exit 1
+          fi
+
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Dependency gate (no installs)
+        run: |
+          set -euo pipefail
+          for cmd in docker git; do
+            command -v "$cmd"
+          done
+          docker version
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (dry-run, no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: false
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ github.repository }}:dryrun-${{ github.run_id }}
