@@ -17,9 +17,48 @@ mod mock;
 #[test]
 fn test_remove_stake_fees_tao() {
     new_test_ext().execute_with(|| {
+        use frame_support::traits::Hooks;
+        use sp_runtime::traits::SaturatedConversion;
+
+        type BN = frame_system::pallet_prelude::BlockNumberFor<Test>;
+
+        // Advance blocks and run hooks so staking-op rate limit windows reset.
+        let mut jump_blocks = |delta: u64| {
+            let current_bn: BN = frame_system::Pallet::<Test>::block_number();
+
+            // Finish current block.
+            <SubtensorModule as Hooks<BN>>::on_finalize(current_bn);
+            <frame_system::Pallet<Test> as Hooks<BN>>::on_finalize(current_bn);
+
+            let current_u64: u64 = current_bn.saturated_into();
+            // Use a delta that won’t land on tempo boundaries (tempo is set to 10 in setup_subnets).
+            let next_u64: u64 = current_u64.saturating_add(delta);
+            let next_bn: BN = next_u64.saturated_into();
+
+            frame_system::Pallet::<Test>::set_block_number(next_bn);
+
+            // Start next block.
+            <frame_system::Pallet<Test> as Hooks<BN>>::on_initialize(next_bn);
+            <SubtensorModule as Hooks<BN>>::on_initialize(next_bn);
+        };
+
         let stake_amount = TAO;
         let unstake_amount = AlphaCurrency::from(TAO / 50);
+
+        // setup_subnets() -> register_ok_neuron() calls SubtensorModule::register(...)
+        // which now requires sufficient balance to stake during registration.
+        // setup_subnets() uses coldkey=10000 and first neuron hotkey=20001.
+        let register_prefund = stake_amount
+            .saturating_mul(10_000) // generous buffer
+            .saturating_add(ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(10000), register_prefund);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(20001), register_prefund);
+
         let sn = setup_subnets(1, 1);
+
+        // Avoid staking-op rate limit between registration and staking.
+        jump_blocks(1_000_001);
+
         setup_stake(
             sn.subnets[0].netuid,
             &sn.coldkey,
@@ -27,6 +66,9 @@ fn test_remove_stake_fees_tao() {
             stake_amount,
         );
         SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO);
+
+        // Avoid staking-op rate limit between add_stake and remove_stake.
+        jump_blocks(1_000_001);
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
         let (expected_unstaked_tao, _swap_fee) =
@@ -48,13 +90,20 @@ fn test_remove_stake_fees_tao() {
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
         let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
-        assert_ok!(ext.dispatch_transaction(
-            RuntimeOrigin::signed(sn.coldkey).into(),
-            call,
-            &info,
-            0,
-            0,
-        ));
+
+        // dispatch_transaction() is nested:
+        // - Outer Result: validation / payment extension checks
+        // - Inner Result: actual runtime call dispatch result
+        let inner = ext
+            .dispatch_transaction(
+                RuntimeOrigin::signed(sn.coldkey).into(),
+                call,
+                &info,
+                0,
+                0,
+            )
+            .expect("Expected Ok(_) from dispatch_transaction (validation)");
+        assert_ok!(inner);
 
         let final_balance = Balances::free_balance(sn.coldkey);
         let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -71,7 +120,6 @@ fn test_remove_stake_fees_tao() {
         assert_eq!(actual_alpha_fee, AlphaCurrency::from(0));
     });
 }
-
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_fees_alpha --exact --show-output
 #[test]
 #[ignore]
@@ -323,12 +371,19 @@ fn test_remove_stake_not_enough_balance_for_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
         let sn = setup_subnets(1, 1);
-        setup_stake(
-            sn.subnets[0].netuid,
+
+        SubtensorModule::add_balance_to_coldkey_account(
             &sn.coldkey,
-            &sn.hotkeys[0],
-            stake_amount,
+            stake_amount
+                .saturating_mul(2) // buffer so staking doesn't attempt to drain the account
+                .saturating_add(ExistentialDeposit::get()),
         );
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(sn.coldkey),
+            sn.hotkeys[0],
+            sn.subnets[0].netuid,
+            stake_amount.into(), 
+        ));
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
         let current_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -470,12 +525,20 @@ fn test_remove_stake_failing_transaction_tao_fees() {
         let stake_amount = TAO;
         let unstake_amount = AlphaCurrency::from(TAO / 50);
         let sn = setup_subnets(1, 1);
-        setup_stake(
-            sn.subnets[0].netuid,
+
+        SubtensorModule::add_balance_to_coldkey_account(
             &sn.coldkey,
-            &sn.hotkeys[0],
-            stake_amount,
+            stake_amount
+                .saturating_mul(2) // buffer so staking doesn't attempt to drain the account
+                .saturating_add(ExistentialDeposit::get()),
         );
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(sn.coldkey),
+            sn.hotkeys[0],
+            sn.subnets[0].netuid,
+            stake_amount.into(),
+        ));
+
         SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO);
 
         // Make unstaking fail by reducing liquidity to critical
