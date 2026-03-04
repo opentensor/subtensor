@@ -60,7 +60,82 @@ fn test_swap_owned_hotkeys() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --lib -- tests::swap_hotkey::test_revert_hotkey_swap --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_revert_hotkey_swap_stake_is_not_lost --exact --nocapture
+#[test]
+fn test_revert_hotkey_swap_stake_is_not_lost() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let tempo: u16 = 13;
+        let hk1 = U256::from(1);
+        let hk2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let swap_cost = 1_000_000_000u64 * 2;
+
+        // Setup
+        add_network(netuid, tempo, 0);
+        add_network(netuid2, tempo, 0);
+        register_ok_neuron(netuid, hk1, coldkey, 0);
+        register_ok_neuron(netuid2, hk1, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+
+        let hk1_stake_before_increase =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid);
+        assert!(hk1_stake_before_increase == 0.into(), "hk1 should have empty stake");
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &coldkey,
+            netuid,
+            1_000_000_000u64.into(),
+        );
+
+        let hk1_stake_before_swap =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid);
+        assert!(hk1_stake_before_swap == 1_000_000_000.into(), "hk1 should have stake before swap");
+
+        step_block(20);
+
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &hk1,
+            &hk2,
+            Some(netuid)
+        ));
+
+        step_block(20);
+
+        let hk2_stake_before_revert =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk2, &coldkey, netuid);
+        let hk1_stake_before_revert =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid);
+
+        assert_eq!(hk1_stake_before_revert, 0.into());
+
+        // Revert: hk2 -> hk1
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &hk2,
+            &hk1,
+            Some(netuid)
+        ));
+
+        let hk1_stake_after_revert =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid);
+        let hk2_stake_after_revert =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk2, &coldkey, netuid);
+
+        assert_eq!(
+            hk1_stake_after_revert,
+            hk2_stake_before_revert,
+        );
+
+        // hk2 should be empty
+        assert_eq!(hk2_stake_after_revert, 0.into(), "hk2 should have no stake after revert");
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_revert_hotkey_swap --exact --nocapture
 // This test confirms, that the old hotkey can be reverted after the hotkey swap
 #[test]
 fn test_revert_hotkey_swap() {
