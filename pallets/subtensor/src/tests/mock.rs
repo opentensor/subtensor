@@ -748,37 +748,69 @@ pub(crate) fn next_block() -> u64 {
     block
 }
 
-#[allow(dead_code)]
 pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
     _start_nonce: u64,
 ) {
-    // Ensure reserves exist for swap/burn path.
+    // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
     let reserve: u64 = 1_000_000_000_000;
-    setup_reserves(netuid, reserve.into(), reserve.into());
+    let tao_reserve = SubnetTAO::<Test>::get(netuid);
+    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)
+        .saturating_add(SubnetAlphaInProvided::<Test>::get(netuid));
 
-    RegistrationsThisInterval::<Test>::insert(
-        netuid,
-        RegistrationsThisInterval::<Test>::get(netuid) + 1,
-    );
-
-    // Ensure coldkey has enough to pay the current burn.
-    let burn: TaoCurrency = SubtensorModule::get_burn(netuid);
-    let burn_u64: u64 = burn.into();
-    let bal = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-
-    if bal < burn_u64 {
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_u64 - bal + 10);
+    if tao_reserve.is_zero() && alpha_reserve.is_zero() {
+        setup_reserves(netuid, reserve.into(), reserve.into());
     }
 
-    let result = SubtensorModule::burned_register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
-        netuid,
-        hotkey_account_id,
-    );
-    assert_ok!(result);
+    // Ensure coldkey has enough to pay the current burn AND is not fully drained to zero.
+    // This avoids ZeroBalanceAfterWithdrawn in burned_register.
+    let top_up_for_burn = |netuid: NetUid, cold: U256| {
+        let burn: TaoCurrency = SubtensorModule::get_burn(netuid);
+        let burn_u64: u64 = burn.to_u64();
+
+        // Make sure something remains after withdrawal even if ED is 0 in tests.
+        let ed: u64 = ExistentialDeposit::get();
+        let min_remaining: u64 = ed.max(1);
+
+        // Small buffer for safety (fees / rounding / future changes).
+        let buffer: u64 = 10;
+
+        let min_balance_needed: u64 = burn_u64
+            .saturating_add(min_remaining)
+            .saturating_add(buffer);
+
+        let bal: u64 = SubtensorModule::get_coldkey_balance(&cold);
+        if bal < min_balance_needed {
+            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+        }
+    };
+
+    top_up_for_burn(netuid, coldkey_account_id);
+
+    let origin = <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id);
+    let result = SubtensorModule::burned_register(origin.clone(), netuid, hotkey_account_id);
+
+    match result {
+        Ok(()) => {
+            // success
+        }
+        Err(e)
+            if e == Error::<Test>::TooManyRegistrationsThisInterval.into()
+                || e == Error::<Test>::NotEnoughBalanceToStake.into()
+                || e == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
+        {
+            // Re-top-up and retry once (burn can be state-dependent).
+            top_up_for_burn(netuid, coldkey_account_id);
+
+            assert_ok!(SubtensorModule::burned_register(origin, netuid, hotkey_account_id));
+        }
+        Err(e) => {
+            panic!("Expected Ok(_). Got Err({e:?})");
+        }
+    }
+
     log::info!(
         "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
