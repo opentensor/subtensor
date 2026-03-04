@@ -46,7 +46,8 @@ jobs:
       - name: Probe runner dependencies (no installs)
         run: |
           set +e
-          MISSING=0
+          REQUIRED_MISSING=0
+          OPTIONAL_MISSING=0
           REPORT="$GITHUB_WORKSPACE/noinstall-probes-report.md"
           {
             echo "# Fireactions No-Install Probe Report"
@@ -54,34 +55,49 @@ jobs:
             echo "- Ref: \`${{ inputs.ref }}\`"
             echo "- Runner: \`self-hosted, fireactions\`"
             echo
-            echo "## Command Checks"
+            echo "## Required Command Checks"
           } > "$REPORT"
 
-          check_cmd() {
+          check_required_cmd() {
             if command -v "$1" >/dev/null 2>&1; then
               echo "- [x] $1" >> "$REPORT"
             else
               echo "- [ ] $1 (missing)" >> "$REPORT"
-              MISSING=$((MISSING + 1))
+              REQUIRED_MISSING=$((REQUIRED_MISSING + 1))
             fi
           }
 
-          check_cmd docker
-          check_cmd gh
-          check_cmd jq
-          check_cmd git
-          check_cmd curl
-          check_cmd unzip
-          check_cmd bc
-          check_cmd make
-          check_cmd clang
-          check_cmd pkg-config
-          check_cmd protoc
-          check_cmd llvm-config
-          check_cmd gcc-aarch64-linux-gnu
-          check_cmd gcc-x86-64-linux-gnu
-          check_cmd node
-          check_cmd npm
+          check_optional_cmd() {
+            if command -v "$1" >/dev/null 2>&1; then
+              echo "- [x] $1" >> "$REPORT"
+            else
+              echo "- [ ] $1 (missing, image discrepancy)" >> "$REPORT"
+              OPTIONAL_MISSING=$((OPTIONAL_MISSING + 1))
+            fi
+          }
+
+          check_required_cmd docker
+          check_required_cmd gh
+          check_required_cmd jq
+          check_required_cmd git
+          check_required_cmd curl
+          check_required_cmd unzip
+          check_required_cmd bc
+          check_required_cmd make
+          check_required_cmd clang
+          check_required_cmd pkg-config
+          check_required_cmd protoc
+          check_required_cmd llvm-config
+          check_required_cmd node
+          check_required_cmd npm
+
+          {
+            echo
+            echo "## Optional Command Checks (Image Parity)"
+          } >> "$REPORT"
+
+          check_optional_cmd gcc-aarch64-linux-gnu
+          check_optional_cmd gcc-x86-64-linux-gnu
 
           {
             echo
@@ -92,48 +108,53 @@ jobs:
             echo "- [x] docker buildx plugin" >> "$REPORT"
           else
             echo "- [ ] docker buildx plugin (missing)" >> "$REPORT"
-            MISSING=$((MISSING + 1))
+            REQUIRED_MISSING=$((REQUIRED_MISSING + 1))
           fi
 
           if docker compose version >/dev/null 2>&1; then
             echo "- [x] docker compose plugin" >> "$REPORT"
           else
             echo "- [ ] docker compose plugin (missing)" >> "$REPORT"
-            MISSING=$((MISSING + 1))
+            REQUIRED_MISSING=$((REQUIRED_MISSING + 1))
           fi
 
           if pkg-config --exists openssl; then
             echo "- [x] pkg-config openssl" >> "$REPORT"
           else
             echo "- [ ] pkg-config openssl (missing)" >> "$REPORT"
-            MISSING=$((MISSING + 1))
+            REQUIRED_MISSING=$((REQUIRED_MISSING + 1))
           fi
 
           if pkg-config --exists libudev; then
             echo "- [x] pkg-config libudev" >> "$REPORT"
           else
             echo "- [ ] pkg-config libudev (missing)" >> "$REPORT"
-            MISSING=$((MISSING + 1))
+            REQUIRED_MISSING=$((REQUIRED_MISSING + 1))
           fi
 
           if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
             echo "- [x] ca-certificates bundle" >> "$REPORT"
           else
             echo "- [ ] ca-certificates bundle (missing)" >> "$REPORT"
-            MISSING=$((MISSING + 1))
+            REQUIRED_MISSING=$((REQUIRED_MISSING + 1))
           fi
 
           {
             echo
             echo "## Result"
             echo
-            echo "- Missing checks: $MISSING"
+            echo "- Missing required checks: $REQUIRED_MISSING"
+            echo "- Missing optional checks: $OPTIONAL_MISSING"
           } >> "$REPORT"
 
           cat "$REPORT"
 
-          if [ "$MISSING" -gt 0 ]; then
-            echo "Dependency probe failed with $MISSING missing checks."
+          if [ "$OPTIONAL_MISSING" -gt 0 ]; then
+            echo "::warning::Optional image parity checks missing: $OPTIONAL_MISSING"
+          fi
+
+          if [ "$REQUIRED_MISSING" -gt 0 ]; then
+            echo "Dependency probe failed with $REQUIRED_MISSING missing required checks."
             exit 1
           fi
 

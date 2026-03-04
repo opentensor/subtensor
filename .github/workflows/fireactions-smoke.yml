@@ -55,6 +55,7 @@ jobs:
 
       - name: Verify required tools
         run: |
+          set -euo pipefail
           for cmd in docker gh jq git curl unzip bc; do
             command -v "$cmd"
           done
@@ -63,7 +64,7 @@ jobs:
           jq --version
           git --version
           curl --version
-          unzip --version
+          unzip -v | head -n 2
           bc --version || bc -v
 
       - name: Install Rust toolchain

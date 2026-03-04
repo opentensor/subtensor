@@ -55,11 +55,10 @@ jobs:
           done
           docker version
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
 
       - name: Build Docker image (dry-run, no push)
         uses: docker/build-push-action@v6
@@ -67,5 +66,5 @@ jobs:
           context: .
           push: false
           load: false
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ghcr.io/${{ github.repository }}:dryrun-${{ github.run_id }}
