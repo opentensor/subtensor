@@ -2569,5 +2569,25 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
+
+        /// --- The extrinsic is a combination of add_stake and fees token transfer
+        #[pallet::call_index(133)]
+        #[pallet::weight((
+            Weight::from_parts(273_000_000, 2_500)
+                .saturating_add(T::DbWeight::get().reads(26_u64))
+                .saturating_add(T::DbWeight::get().writes(17_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn add_stake_payable(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_staked: TaoCurrency,
+            coldkey_fees_tank: T::AccountId,
+            amount_fees: TaoCurrency
+        ) -> DispatchResult {
+            Self::do_add_stake_payable(origin, hotkey, netuid, amount_staked, coldkey_fees_tank, amount_fees).map(|_| ())
+        }
     }
 }

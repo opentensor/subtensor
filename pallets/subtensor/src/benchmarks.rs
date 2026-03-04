@@ -156,6 +156,44 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn add_stake_payable() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+
+        let seed: u32 = 1;
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let app_coldkey: T::AccountId = account("cold", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        let total_stake = TaoCurrency::from(1_000_000_000);
+        let amount = TaoCurrency::from(60_000_000);
+        let amount_fees = TaoCurrency::from(1000);
+
+        seed_swap_reserves::<T>(netuid);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, total_stake.into());
+        assert_ok!(Subtensor::<T>::do_burned_registration(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey.clone(),
+            netuid,
+            amount,
+            app_coldkey,
+            amount_fees,
+        );
+    }
+
+    #[benchmark]
     fn serve_axon() {
         let netuid = NetUid::from(1);
         let caller: T::AccountId = whitelisted_caller();
