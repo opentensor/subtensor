@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance};
+use subtensor_runtime_common::{CustomTransactionError, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,

@@ -10,7 +10,6 @@ use frame_system::{self as system, ensure_signed};
 pub use pallet::*;
 
 use codec::{Decode, Encode};
-use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::{
     dispatch::{self, DispatchResult, DispatchResultWithPostInfo},
     ensure,
@@ -22,7 +21,7 @@ use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
 use scale_info::TypeInfo;
 use sp_core::Get;
-use sp_runtime::{DispatchError, transaction_validity::TransactionValidityError};
+use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token, TokenReserve};
 
@@ -52,7 +51,7 @@ pub use extensions::*;
 pub use guards::*;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
@@ -1227,7 +1226,7 @@ pub mod pallet {
     /// ==================
     /// ==== Coinbase ====
     /// ==================
-    /// --- ITEM ( global_block_emission )    
+    /// --- ITEM ( global_block_emission )
     #[pallet::storage]
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
 
@@ -1267,7 +1266,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type TotalStake<T> = StorageValue<_, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
-    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.         
+    /// --- ITEM ( moving_alpha ) -- subnet moving alpha.
     #[pallet::storage]
     pub type SubnetMovingAlpha<T> = StorageValue<_, I96F32, ValueQuery, DefaultMovingAlpha<T>>;
 
@@ -2482,70 +2481,6 @@ pub mod pallet {
             );
             Ok(())
         }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum CustomTransactionError {
-    /// Deprecated: coldkey swap now uses announcements and check moved to DispatchGuard
-    #[deprecated]
-    ColdkeyInSwapSchedule,
-    StakeAmountTooLow,
-    BalanceTooLow,
-    SubnetNotExists,
-    HotkeyAccountDoesntExist,
-    NotEnoughStakeToWithdraw,
-    RateLimitExceeded,
-    InsufficientLiquidity,
-    SlippageTooHigh,
-    TransferDisallowed,
-    HotKeyNotRegisteredInNetwork,
-    InvalidIpAddress,
-    ServingRateLimitExceeded,
-    InvalidPort,
-    BadRequest,
-    ZeroMaxAmount,
-    InvalidRevealRound,
-    CommitNotFound,
-    CommitBlockNotInRevealRange,
-    InputLengthsUnequal,
-    UidNotFound,
-    EvmKeyAssociateRateLimitExceeded,
-}
-
-impl From<CustomTransactionError> for u8 {
-    fn from(variant: CustomTransactionError) -> u8 {
-        match variant {
-            #[allow(deprecated)]
-            CustomTransactionError::ColdkeyInSwapSchedule => 0,
-            CustomTransactionError::StakeAmountTooLow => 1,
-            CustomTransactionError::BalanceTooLow => 2,
-            CustomTransactionError::SubnetNotExists => 3,
-            CustomTransactionError::HotkeyAccountDoesntExist => 4,
-            CustomTransactionError::NotEnoughStakeToWithdraw => 5,
-            CustomTransactionError::RateLimitExceeded => 6,
-            CustomTransactionError::InsufficientLiquidity => 7,
-            CustomTransactionError::SlippageTooHigh => 8,
-            CustomTransactionError::TransferDisallowed => 9,
-            CustomTransactionError::HotKeyNotRegisteredInNetwork => 10,
-            CustomTransactionError::InvalidIpAddress => 11,
-            CustomTransactionError::ServingRateLimitExceeded => 12,
-            CustomTransactionError::InvalidPort => 13,
-            CustomTransactionError::BadRequest => 255,
-            CustomTransactionError::ZeroMaxAmount => 14,
-            CustomTransactionError::InvalidRevealRound => 15,
-            CustomTransactionError::CommitNotFound => 16,
-            CustomTransactionError::CommitBlockNotInRevealRange => 17,
-            CustomTransactionError::InputLengthsUnequal => 18,
-            CustomTransactionError::UidNotFound => 19,
-            CustomTransactionError::EvmKeyAssociateRateLimitExceeded => 20,
-        }
-    }
-}
-
-impl From<CustomTransactionError> for TransactionValidityError {
-    fn from(variant: CustomTransactionError) -> Self {
-        TransactionValidityError::Invalid(InvalidTransaction::Custom(variant.into()))
     }
 }
 

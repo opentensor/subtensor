@@ -62,20 +62,19 @@ pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
 pallet-subtensor-proxy.workspace = true
 pallet-aura.workspace = true
-pallet-timestamp.workspace = true
-sp-consensus-aura.workspace = true
 subtensor-runtime-common.workspace = true
 pallet-subtensor-swap.workspace = true
 sp-version.workspace = true
 # Substrate
 sp-tracing.workspace = true
-rand.workspace = true
+rand = { workspace = true, features = ["thread_rng"] }
 sp-core.workspace = true
 sp-std.workspace = true
 pallet-preimage.workspace = true
 tracing.workspace = true
 tracing-log.workspace = true
 tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
+pallet-shield = { workspace = true, features = ["std"] }
 
 [features]
 try-runtime = [
@@ -93,7 +92,6 @@ try-runtime = [
 	"pallet-subtensor-proxy/try-runtime",
 	"pallet-subtensor-utility/try-runtime",
 	"pallet-shield/try-runtime",
-	"pallet-timestamp/try-runtime",
 	"pallet-aura/try-runtime",
 ]
 default = ["std"]
@@ -123,9 +121,7 @@ std = [
 	"pallet-subtensor-proxy/std",
 	"pallet-subtensor-swap/std",
 	"pallet-shield/std",
-	"pallet-timestamp/std",
 	"pallet-aura/std",
-	"sp-consensus-aura/std",
 	"subtensor-swap-interface/std",
 	"pallet-subtensor-utility/std",
 	"safe-math/std",
@@ -141,7 +137,8 @@ std = [
 	"scale-info/std",
 	"serde/std",
 	"serde_json/std",
-	"sha2/std"
+	"sha2/std",
+	"rand/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -160,7 +157,7 @@ runtime-benchmarks = [
 	"pallet-subtensor-swap/runtime-benchmarks",
 	"pallet-subtensor-utility/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
-	"pallet-timestamp/runtime-benchmarks"
+	"subtensor-runtime-common/runtime-benchmarks",
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]

@@ -14,7 +14,7 @@ use sp_runtime::{DispatchResult, RuntimeAppPublic, Vec, traits::Member};
 mod benchmarking;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 #[deny(missing_docs)]
 #[frame_support::pallet]
