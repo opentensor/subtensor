@@ -220,6 +220,7 @@ std = [
 	"sp-io/std",
 	"sp-tracing/std",
 	"log/std",
+	"safe-math/std",
 	"sp-storage/std",
 	"sp-genesis-builder/std",
 	"subtensor-precompiles/std",
