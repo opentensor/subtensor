@@ -71,6 +71,7 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
         let hk2 = U256::from(2);
         let coldkey = U256::from(3);
         let swap_cost = 1_000_000_000u64 * 2;
+        let stake2 = 1_000_000_000u64;
 
         // Setup
         add_network(netuid, tempo, 0);
@@ -103,6 +104,13 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
             Some(netuid)
         ));
 
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &coldkey,
+            netuid,
+            stake2.into(),
+        );
+
         step_block(20);
 
         let hk2_stake_before_revert =
@@ -110,7 +118,7 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
         let hk1_stake_before_revert =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid);
 
-        assert_eq!(hk1_stake_before_revert, 0.into());
+        assert_eq!(hk1_stake_before_revert, stake2.into());
 
         // Revert: hk2 -> hk1
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -127,7 +135,7 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
 
         assert_eq!(
             hk1_stake_after_revert,
-            hk2_stake_before_revert,
+            hk2_stake_before_revert + stake2.into(),
         );
 
         // hk2 should be empty
