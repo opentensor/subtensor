@@ -1,0 +1,53 @@
+name: Fireactions Smoke
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: fireactions-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, fireactions]
+    timeout-minutes: 30
+    steps:
+      - name: Check runner identity
+        run: |
+          whoami
+          id
+          groups
+
+      - name: Install compatibility dependency
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" bc
+
+      - name: Verify required tools
+        run: |
+          for cmd in docker gh jq git curl unzip bc; do
+            command -v "$cmd"
+          done
+          docker --version
+          gh --version
+          jq --version
+          git --version
+          curl --version
+          unzip --version
+          bc --version || bc -v
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Verify Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+          command -v cargo
+
+      - name: Run Docker smoke test
+        run: |
+          docker pull hello-world:latest
+          docker run --rm hello-world:latest

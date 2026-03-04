@@ -13,7 +13,7 @@ permissions:
 jobs:
   apply:
     if: ${{ github.event.label.name == 'apply-benchmark-patch' }}
-    runs-on: Benchmarking
+    runs-on: [self-hosted, fireactions]
 
     steps:
       - name: Check out PR branch
