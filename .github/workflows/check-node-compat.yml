@@ -16,7 +16,7 @@ env:
 jobs:
   build:
     name: build ${{ matrix.version.name }}
-    runs-on: [self-hosted, fireactions-highmem]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
     if: contains(github.event.pull_request.labels.*.name, 'check-node-compat')
     env:
         RUST_BACKTRACE: full
@@ -63,7 +63,7 @@ jobs:
           
   test:
     needs: [build]
-    runs-on: [self-hosted, fireactions-standard]
+    runs-on: [self-hosted, fireactions-bench, fireactions-standard]
     steps:
       - name: Download old node binary
         uses: actions/download-artifact@v4

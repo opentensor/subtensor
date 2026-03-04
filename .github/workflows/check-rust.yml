@@ -17,15 +17,16 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  VERBOSE: ${{ github.events.input.verbose }}
+  VERBOSE: ${{ github.event.inputs.verbose }}
 
 jobs:
   # runs cargo fmt
   cargo-fmt:
     name: cargo fmt
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-low]
     env:
       RUST_BACKTRACE: full
+      CARGO_BUILD_JOBS: 2
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
@@ -67,10 +68,11 @@ jobs:
 
   cargo-clippy-default-features:
     name: cargo clippy
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
@@ -97,11 +99,12 @@ jobs:
 
   cargo-check-lints:
     name: check custom lints
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-standard]
     env:
       RUSTFLAGS: -D warnings
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 4
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
@@ -130,10 +133,11 @@ jobs:
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
@@ -161,10 +165,11 @@ jobs:
   # runs cargo test --workspace --all-features
   cargo-test:
     name: cargo test
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highperf]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
@@ -191,10 +196,11 @@ jobs:
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:
     name: cargo fix
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
@@ -230,7 +236,9 @@ jobs:
 
   check-feature-propagation:
     name: zepter run check
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-standard]
+    env:
+      CARGO_BUILD_JOBS: 4
 
     steps:
       - name: Checkout

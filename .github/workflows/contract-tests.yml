@@ -17,16 +17,17 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  VERBOSE: ${{ github.events.input.verbose }}
+  VERBOSE: ${{ github.event.inputs.verbose }}
 
 permissions:
   contents: read
 
 jobs:
   run:
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highperf]
     env:
       RUST_BACKTRACE: full
+      CARGO_BUILD_JOBS: 6
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4

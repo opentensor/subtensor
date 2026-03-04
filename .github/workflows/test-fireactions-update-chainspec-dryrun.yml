@@ -31,11 +31,12 @@ concurrency:
 
 jobs:
   update-chainspecs-dryrun:
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
     timeout-minutes: 120
     env:
       CARGO_TERM_COLOR: always
       RUST_BACKTRACE: full
+      CARGO_BUILD_JOBS: 6
     steps:
       - name: Enforce dry-run mode
         run: |

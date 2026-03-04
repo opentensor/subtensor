@@ -12,10 +12,11 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: 4
 
 jobs:
   build:
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-standard]
 
     steps:
       - name: Checkout code
@@ -54,7 +55,7 @@ jobs:
 
   deploy:
         needs: build
-        runs-on: [self-hosted, fireactions]
+        runs-on: [self-hosted, fireactions-bench, fireactions-standard]
 
         permissions:
             pages: write

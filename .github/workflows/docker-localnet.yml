@@ -95,7 +95,7 @@ jobs:
       matrix:
         platform:
           # triple names used `in scripts/install_prebuilt_binaries.sh` file
-          - runner: [self-hosted, fireactions]
+          - runner: [self-hosted, fireactions-highmem]
             triple: x86_64-unknown-linux-gnu
             arch: amd64
           - runner: [ubuntu-24.04-arm]
@@ -105,6 +105,8 @@ jobs:
         runtime: ["fast-runtime", "non-fast-runtime"]
 
     runs-on: ${{ matrix.platform.runner }}
+    env:
+      CARGO_BUILD_JOBS: 6
 
     steps:
       - name: Checkout code
@@ -162,7 +164,7 @@ jobs:
   # Collect all artifacts and publish them to docker repo
   docker:
     needs: [setup, artifacts]
-    runs-on: [self-hosted, fireactions]
+    runs-on: [self-hosted, fireactions-bench, fireactions-highperf]
     defaults:
       run:
         working-directory: ${{ github.workspace }}
