@@ -2429,7 +2429,7 @@ fn test_distribute_emission_no_miners_all_drained() {
             init_stake.into(),
         );
 
-        // IMPORTANT: assert on ALPHA stake, not TAO-valued total stake (price may not be 1.0)
+        // assert on ALPHA stake
         let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
@@ -2537,7 +2537,6 @@ fn test_distribute_emission_zero_emission() {
 
         run_to_block_no_epoch(netuid, 50);
 
-        // ---- Key fix:
         // First, do a drain pass so any accumulated pending emission is consumed.
         // This makes the *second* call a true "zero emission + zero pending" check.
         SubtensorModule::distribute_emission(
@@ -3232,7 +3231,6 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         let drained_server: u64 = pending_server_before.saturating_add(server_add_last);
         let drained_validator: u64 = pending_validator_before.saturating_add(validator_add_last);
 
-        // === KEY FIX ===
         // epoch_with_mechanisms receives total_alpha_minus_owner_cut = drained_server + drained_validator (root is recycled here),
         // and the mechanism splits that total into incentive/dividend budgets internally.
         // Therefore incentive budget is half of that total.
