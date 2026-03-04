@@ -1,4 +1,7 @@
 use super::*;
+use frame_support::{
+    traits::{fungible::*, tokens::Preservation},
+};
 use safe_math::*;
 use share_pool::{SafeFloat, SharePool, SharePoolDataOperations};
 use sp_std::{collections::btree_map::BTreeMap, ops::Neg};
@@ -1032,6 +1035,27 @@ impl<T: Config> Pallet<T> {
         ));
 
         Ok(tao_equivalent)
+    }
+
+    pub fn do_transfer_fees(
+        from: &<T as frame_system::Config>::AccountId,
+        to: <T as frame_system::Config>::AccountId,
+        amount: TaoCurrency,
+    ) -> Result<(), Error<T>> {
+        <T as Config>::Currency::transfer(
+            &from,
+            &to,
+            amount.into(),
+            Preservation::Expendable,
+        ).map_err(|_| Error::<T>::BalanceWithdrawalError)?;
+
+        Self::deposit_event(Event::FeesTransferred(
+            from.clone(),
+            to.clone(),
+            amount,
+        ));
+
+        Ok(())
     }
 
     pub fn get_alpha_share_pool(
