@@ -21,10 +21,10 @@ on:
         required: true
         default: check-devnet
 
-run-name: bench-check-spec-version | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+run-name: bench-check-spec-version | ${{ github.event.inputs.sweep_id }} | ${{ github.event.inputs.bench_job_key }} | ${{ github.event.inputs.runner_label }} | rep-${{ github.event.inputs.rep }}
 
 concurrency:
-  group: bench-check-spec-version-${{ inputs.sweep_id }}-${{ inputs.bench_job_key }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  group: bench-check-spec-version-${{ github.event.inputs.sweep_id }}-${{ github.event.inputs.bench_job_key }}-${{ github.event.inputs.runner_label }}-rep-${{ github.event.inputs.rep }}
   cancel-in-progress: false
 
 env:
@@ -33,16 +33,16 @@ env:
 
 jobs:
   check-spec-version:
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     steps:
       - name: Resolve target network URI
         id: net
         run: |
-          case "${{ inputs.bench_job_key }}" in
+          case "${{ github.event.inputs.bench_job_key }}" in
             check-devnet) echo "uri=wss://dev.chain.opentensor.ai:443" >> "$GITHUB_OUTPUT" ;;
             check-finney) echo "uri=wss://entrypoint-finney.opentensor.ai:443" >> "$GITHUB_OUTPUT" ;;
             check-testnet) echo "uri=wss://test.finney.opentensor.ai:443" >> "$GITHUB_OUTPUT" ;;
-            *) echo "Unsupported bench_job_key: ${{ inputs.bench_job_key }}"; exit 1 ;;
+            *) echo "Unsupported bench_job_key: ${{ github.event.inputs.bench_job_key }}"; exit 1 ;;
           esac
       - name: Dependencies
         run: |
@@ -53,7 +53,7 @@ jobs:
           toolchain: stable
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: Swatinem/rust-cache@v2
         with:
           key: bench-spec-version

@@ -21,10 +21,10 @@ on:
         required: true
         default: run
 
-run-name: bench-contract-tests | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+run-name: bench-contract-tests | ${{ github.event.inputs.sweep_id }} | ${{ github.event.inputs.bench_job_key }} | ${{ github.event.inputs.runner_label }} | rep-${{ github.event.inputs.rep }}
 
 concurrency:
-  group: bench-contract-tests-${{ inputs.sweep_id }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  group: bench-contract-tests-${{ github.event.inputs.sweep_id }}-${{ github.event.inputs.runner_label }}-rep-${{ github.event.inputs.rep }}
   cancel-in-progress: false
 
 env:
@@ -35,15 +35,15 @@ permissions:
 
 jobs:
   run:
-    if: ${{ inputs.bench_job_key == 'run' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'run' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       RUST_BACKTRACE: full
       CARGO_BUILD_JOBS: 6
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable

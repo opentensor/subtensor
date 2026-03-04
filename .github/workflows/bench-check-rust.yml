@@ -21,10 +21,10 @@ on:
         required: true
         default: cargo-test
 
-run-name: bench-check-rust | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+run-name: bench-check-rust | ${{ github.event.inputs.sweep_id }} | ${{ github.event.inputs.bench_job_key }} | ${{ github.event.inputs.runner_label }} | rep-${{ github.event.inputs.rep }}
 
 concurrency:
-  group: bench-check-rust-${{ inputs.sweep_id }}-${{ inputs.bench_job_key }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  group: bench-check-rust-${{ github.event.inputs.sweep_id }}-${{ github.event.inputs.bench_job_key }}-${{ github.event.inputs.runner_label }}-rep-${{ github.event.inputs.rep }}
   cancel-in-progress: false
 
 env:
@@ -32,16 +32,16 @@ env:
 
 jobs:
   cargo-fmt:
-    if: ${{ inputs.bench_job_key == 'cargo-fmt' }}
+    if: ${{ github.event.inputs.bench_job_key == 'cargo-fmt' }}
     name: cargo fmt
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       RUST_BACKTRACE: full
       CARGO_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
@@ -68,9 +68,9 @@ jobs:
           echo "$output"
 
   cargo-clippy-default-features:
-    if: ${{ inputs.bench_job_key == 'cargo-clippy' }}
+    if: ${{ github.event.inputs.bench_job_key == 'cargo-clippy' }}
     name: cargo clippy
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -78,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
@@ -94,9 +94,9 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
 
   cargo-check-lints:
-    if: ${{ inputs.bench_job_key == 'cargo-check-lints' }}
+    if: ${{ github.event.inputs.bench_job_key == 'cargo-check-lints' }}
     name: check custom lints
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       RUSTFLAGS: -D warnings
       RUST_BACKTRACE: full
@@ -105,7 +105,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
@@ -124,9 +124,9 @@ jobs:
           echo "No warnings found."
 
   cargo-clippy-all-features:
-    if: ${{ inputs.bench_job_key == 'cargo-clippy-all-features' }}
+    if: ${{ github.event.inputs.bench_job_key == 'cargo-clippy-all-features' }}
     name: cargo clippy --all-features
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -134,7 +134,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
@@ -150,9 +150,9 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   cargo-test:
-    if: ${{ inputs.bench_job_key == 'cargo-test' }}
+    if: ${{ github.event.inputs.bench_job_key == 'cargo-test' }}
     name: cargo test
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -160,7 +160,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
@@ -175,9 +175,9 @@ jobs:
       - run: cargo test --workspace --all-features
 
   cargo-fix:
-    if: ${{ inputs.bench_job_key == 'cargo-fix' }}
+    if: ${{ github.event.inputs.bench_job_key == 'cargo-fix' }}
     name: cargo fix
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -185,7 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
@@ -206,16 +206,16 @@ jobs:
           fi
 
   check-feature-propagation:
-    if: ${{ inputs.bench_job_key == 'check-feature-propagation' }}
+    if: ${{ github.event.inputs.bench_job_key == 'check-feature-propagation' }}
     name: zepter run check
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     env:
       CARGO_BUILD_JOBS: 4
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Install dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update

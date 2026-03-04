@@ -25,10 +25,10 @@ on:
         required: false
         default: "2483"
 
-run-name: bench-fireactions-light | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+run-name: bench-fireactions-light | ${{ github.event.inputs.sweep_id }} | ${{ github.event.inputs.bench_job_key }} | ${{ github.event.inputs.runner_label }} | rep-${{ github.event.inputs.rep }}
 
 concurrency:
-  group: bench-fireactions-light-${{ inputs.sweep_id }}-${{ inputs.bench_job_key }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  group: bench-fireactions-light-${{ github.event.inputs.sweep_id }}-${{ github.event.inputs.bench_job_key }}-${{ github.event.inputs.runner_label }}-rep-${{ github.event.inputs.rep }}
   cancel-in-progress: false
 
 permissions:
@@ -39,13 +39,13 @@ permissions:
 
 jobs:
   smoke:
-    if: ${{ inputs.bench_job_key == 'smoke' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'smoke' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Verify required tools
         run: |
           set -euo pipefail
@@ -65,13 +65,13 @@ jobs:
           docker run --rm hello-world:latest
 
   noinstall-probes:
-    if: ${{ inputs.bench_job_key == 'probes' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'probes' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Probe runner dependencies
         run: |
           set +e
@@ -88,8 +88,8 @@ jobs:
           [ "$REQUIRED_MISSING" -eq 0 ]
 
   update-chainspecs-dryrun:
-    if: ${{ inputs.bench_job_key == 'update-chainspecs-dryrun' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'update-chainspecs-dryrun' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 120
     env:
       CARGO_TERM_COLOR: always
@@ -98,7 +98,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Dependency gate
         run: |
           set -euo pipefail
@@ -114,15 +114,15 @@ jobs:
       - run: ./scripts/build_all_chainspecs.sh
 
   build-docs-dryrun:
-    if: ${{ inputs.bench_job_key == 'build-docs-dryrun' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'build-docs-dryrun' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 90
     env:
       CARGO_BUILD_JOBS: 4
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Dependency gate
         run: |
           set -euo pipefail
@@ -140,13 +140,13 @@ jobs:
           args: --document-private-items
 
   publish-dryrun:
-    if: ${{ inputs.bench_job_key == 'publish-dryrun' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'publish-dryrun' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Dependency gate
         run: |
           set -euo pipefail
@@ -165,13 +165,13 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:dryrun-${{ github.run_id }}
 
   apply-dryrun:
-    if: ${{ inputs.bench_job_key == 'apply-dryrun' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'apply-dryrun' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Dependency gate
         run: |
           set -euo pipefail
@@ -179,11 +179,11 @@ jobs:
             command -v "$cmd"
           done
       - name: Download latest bench patch artifact from benchmark workflow
-        if: ${{ inputs.pr_number != '' }}
+        if: ${{ github.event.inputs.pr_number != '' }}
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: run-benchmarks.yml
-          pr: ${{ inputs.pr_number }}
+          pr: ${{ github.event.inputs.pr_number }}
           name: bench-patch
           path: .
           allow_forks: true
@@ -206,13 +206,13 @@ jobs:
           fi
 
   payload-dryrun:
-    if: ${{ inputs.bench_job_key == 'payload-dryrun' }}
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    if: ${{ github.event.inputs.bench_job_key == 'payload-dryrun' }}
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Dependency gate
         run: |
           set -euo pipefail

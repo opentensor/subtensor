@@ -21,10 +21,10 @@ on:
         required: true
         default: artifacts-fast-runtime
 
-run-name: bench-docker-localnet | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+run-name: bench-docker-localnet | ${{ github.event.inputs.sweep_id }} | ${{ github.event.inputs.bench_job_key }} | ${{ github.event.inputs.runner_label }} | rep-${{ github.event.inputs.rep }}
 
 concurrency:
-  group: bench-docker-localnet-${{ inputs.sweep_id }}-${{ inputs.bench_job_key }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  group: bench-docker-localnet-${{ github.event.inputs.sweep_id }}-${{ github.event.inputs.bench_job_key }}-${{ github.event.inputs.runner_label }}-rep-${{ github.event.inputs.rep }}
   cancel-in-progress: false
 
 permissions:
@@ -34,20 +34,20 @@ permissions:
 
 jobs:
   setup:
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     outputs:
       ref: ${{ steps.vars.outputs.ref }}
       tag: ${{ steps.vars.outputs.tag }}
     steps:
       - id: vars
         run: |
-          echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          echo "ref=${{ github.event.inputs.ref }}" >> "$GITHUB_OUTPUT"
           echo "tag=dryrun-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
   artifacts:
     name: Node • ${{ matrix.runtime }} • amd64
     needs: setup
-    if: ${{ inputs.bench_job_key == 'docker' || inputs.bench_job_key == matrix.key }}
+    if: ${{ github.event.inputs.bench_job_key == 'docker' || github.event.inputs.bench_job_key == matrix.key }}
     strategy:
       fail-fast: false
       matrix:
@@ -56,7 +56,7 @@ jobs:
             key: artifacts-fast-runtime
           - runtime: non-fast-runtime
             key: artifacts-non-fast-runtime
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 120
     env:
       CARGO_BUILD_JOBS: 6
@@ -105,9 +105,9 @@ jobs:
           if-no-files-found: error
 
   docker:
-    if: ${{ inputs.bench_job_key == 'docker' }}
+    if: ${{ github.event.inputs.bench_job_key == 'docker' }}
     needs: [setup, artifacts]
-    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    runs-on: [self-hosted, ${{ github.event.inputs.runner_label }}]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
