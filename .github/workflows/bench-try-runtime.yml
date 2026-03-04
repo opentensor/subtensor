@@ -1,0 +1,114 @@
+name: Bench Try Runtime
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to benchmark
+        required: true
+        default: fireactions-runners
+      runner_label:
+        description: Fireactions benchmark label
+        required: true
+      sweep_id:
+        description: Sweep identifier
+        required: true
+      rep:
+        description: Repetition number
+        required: true
+      bench_job_key:
+        description: Job selector
+        required: true
+        default: check-finney
+
+run-name: bench-try-runtime | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+
+concurrency:
+  group: bench-try-runtime-${{ inputs.sweep_id }}-${{ inputs.bench_job_key }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-devnet:
+    if: ${{ inputs.bench_job_key == 'check-devnet' }}
+    name: check devnet
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      CARGO_BUILD_JOBS: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-try-runtime
+      - uses: paritytech/try-runtime-gha@v0.1.0
+        with:
+          runtime-package: node-subtensor-runtime
+          node-uri: wss://dev.chain.opentensor.ai:443
+          checks: all
+          extra-args: --disable-spec-version-check --no-weight-warnings
+
+  check-testnet:
+    if: ${{ inputs.bench_job_key == 'check-testnet' }}
+    name: check testnet
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      CARGO_BUILD_JOBS: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-try-runtime
+      - uses: paritytech/try-runtime-gha@v0.1.0
+        with:
+          runtime-package: node-subtensor-runtime
+          node-uri: wss://archive.dev.opentensor.ai:8443
+          checks: all
+          extra-args: --disable-spec-version-check --no-weight-warnings
+
+  check-finney:
+    if: ${{ inputs.bench_job_key == 'check-finney' }}
+    name: check finney
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      CARGO_BUILD_JOBS: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config unzip
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-try-runtime
+          cache-on-failure: true
+      - uses: paritytech/try-runtime-gha@v0.1.0
+        with:
+          runtime-package: node-subtensor-runtime
+          node-uri: wss://archive.dev.opentensor.ai:443
+          checks: all
+          extra-args: --disable-spec-version-check --no-weight-warnings

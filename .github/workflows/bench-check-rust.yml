@@ -1,0 +1,230 @@
+name: Bench Check Rust
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to benchmark
+        required: true
+        default: fireactions-runners
+      runner_label:
+        description: Fireactions benchmark label
+        required: true
+      sweep_id:
+        description: Sweep identifier
+        required: true
+      rep:
+        description: Repetition number
+        required: true
+      bench_job_key:
+        description: Job selector
+        required: true
+        default: cargo-test
+
+run-name: bench-check-rust | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+
+concurrency:
+  group: bench-check-rust-${{ inputs.sweep_id }}-${{ inputs.bench_job_key }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cargo-fmt:
+    if: ${{ inputs.bench_job_key == 'cargo-fmt' }}
+    name: cargo fmt
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      RUST_BACKTRACE: full
+      CARGO_BUILD_JOBS: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-cargo-fmt
+          cache-on-failure: true
+      - name: cargo fmt
+        run: |
+          set -euo pipefail
+          output=$(cargo fmt --check --all 2>&1) || {
+            echo "$output"
+            exit 1
+          }
+          if echo "$output" | grep -qiE "(the compiler unexpectedly panicked|panicked at|Internal Compiler Error|ICE|error: the compiler unexpectedly panicked)"; then
+            echo "$output"
+            exit 1
+          fi
+          echo "$output"
+
+  cargo-clippy-default-features:
+    if: ${{ inputs.bench_job_key == 'cargo-clippy' }}
+    name: cargo clippy
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-clippy-default-features
+          cache-on-failure: true
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  cargo-check-lints:
+    if: ${{ inputs.bench_job_key == 'cargo-check-lints' }}
+    name: check custom lints
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      RUSTFLAGS: -D warnings
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-lints
+          cache-on-failure: true
+      - name: check lints
+        run: |
+          set -o pipefail
+          cargo check 2>&1 | sed -r "s/\x1B\[[0-9;]*[mK]//g" | grep "warning:" && exit 1
+          echo "No warnings found."
+
+  cargo-clippy-all-features:
+    if: ${{ inputs.bench_job_key == 'cargo-clippy-all-features' }}
+    name: cargo clippy --all-features
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-clippy-all-features
+          cache-on-failure: true
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  cargo-test:
+    if: ${{ inputs.bench_job_key == 'cargo-test' }}
+    name: cargo test
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-cargo-test
+          cache-on-failure: true
+      - run: cargo test --workspace --all-features
+
+  cargo-fix:
+    if: ${{ inputs.bench_job_key == 'cargo-fix' }}
+    name: cargo fix
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+      CARGO_BUILD_JOBS: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench-cargo-fix
+          cache-on-failure: true
+      - name: cargo fix --workspace
+        run: |
+          cargo fix --workspace
+          if ! git diff --exit-code; then
+            echo "There are local changes after running cargo fix --workspace"
+            exit 1
+          fi
+
+  check-feature-propagation:
+    if: ${{ inputs.bench_job_key == 'check-feature-propagation' }}
+    name: zepter run check
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    env:
+      CARGO_BUILD_JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: zepter
+      - run: zepter run check

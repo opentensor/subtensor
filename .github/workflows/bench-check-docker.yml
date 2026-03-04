@@ -1,0 +1,40 @@
+name: Bench Check Docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to benchmark
+        required: true
+        default: fireactions-runners
+      runner_label:
+        description: Fireactions benchmark label
+        required: true
+      sweep_id:
+        description: Sweep identifier
+        required: true
+      rep:
+        description: Repetition number
+        required: true
+      bench_job_key:
+        description: Job selector
+        required: true
+        default: build
+
+run-name: bench-check-docker | ${{ inputs.sweep_id }} | ${{ inputs.bench_job_key }} | ${{ inputs.runner_label }} | rep-${{ inputs.rep }}
+
+concurrency:
+  group: bench-check-docker-${{ inputs.sweep_id }}-${{ inputs.runner_label }}-rep-${{ inputs.rep }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: ${{ inputs.bench_job_key == 'build' }}
+    runs-on: [self-hosted, ${{ inputs.runner_label }}]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: docker/setup-qemu-action@v2
+      - uses: docker/setup-buildx-action@v2
+      - run: docker build .
