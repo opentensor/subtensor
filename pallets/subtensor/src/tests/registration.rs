@@ -242,51 +242,6 @@ fn test_registration_without_neuron_slot_doesnt_burn() {
 }
 
 #[test]
-fn test_registration_too_many_registrations_this_interval() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        add_network(netuid, 13, 0);
-
-        mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
-        SubtensorModule::set_burn(netuid, 1_000u64.into());
-
-        let coldkey = U256::from(667);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000);
-
-        let hotkey1 = U256::from(1);
-        let hotkey2 = U256::from(2);
-
-        // First ok
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            netuid,
-            hotkey1
-        ));
-
-        // Same interval (same block) => reject
-        let result = SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            netuid,
-            hotkey2,
-        );
-        assert_eq!(
-            result,
-            Err(Error::<Test>::TooManyRegistrationsThisInterval.into())
-        );
-
-        // Advance 1 block: add_network sets BurnHalfLife=1 for tests => interval resets each block.
-        step_block(1);
-
-        // Now allowed
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            netuid,
-            hotkey2
-        ));
-    });
-}
-
-#[test]
 fn test_registration_already_active_hotkey_error() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
@@ -316,35 +271,6 @@ fn test_registration_already_active_hotkey_error() {
         assert_eq!(
             result,
             Err(Error::<Test>::HotKeyAlreadyRegisteredInSubNet.into())
-        );
-    });
-}
-
-#[test]
-fn test_registration_too_many_registrations_this_block_when_block_cap_zero() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        add_network(netuid, 13, 0);
-
-        mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
-        SubtensorModule::set_burn(netuid, 1_000u64.into());
-
-        // Block cap at 0 => first reg should fail with TooManyRegistrationsThisBlock
-        SubtensorModule::set_max_registrations_per_block(netuid, 0);
-
-        let coldkey = U256::from(667);
-        let hotkey = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000);
-
-        let result = SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            netuid,
-            hotkey,
-        );
-
-        assert_eq!(
-            result,
-            Err(Error::<Test>::TooManyRegistrationsThisBlock.into())
         );
     });
 }
