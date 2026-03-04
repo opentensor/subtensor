@@ -2705,10 +2705,7 @@ fn test_migrate_reset_unactive_sn() {
 
         for netuid in active_netuids.iter().chain(inactive_netuids.iter()) {
             locked_before.insert(*netuid, SubnetLocked::<Test>::get(*netuid));
-            rao_recycled_before.insert(
-                *netuid,
-                RAORecycledForRegistration::<Test>::get(netuid),
-            );
+            rao_recycled_before.insert(*netuid, RAORecycledForRegistration::<Test>::get(netuid));
         }
 
         // Run the migration

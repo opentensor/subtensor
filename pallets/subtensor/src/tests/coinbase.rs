@@ -13,6 +13,7 @@ use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use pallet_subtensor_swap::position::PositionId;
+use safe_math::FixedExt;
 use sp_core::U256;
 use substrate_fixed::{
     transcendental::sqrt,
@@ -20,7 +21,6 @@ use substrate_fixed::{
 };
 use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
 use subtensor_swap_interface::{SwapEngine, SwapHandler};
-use safe_math::FixedExt;
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -2430,11 +2430,8 @@ fn test_distribute_emission_no_miners_all_drained() {
         );
 
         // assert on ALPHA stake
-        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-        );
+        let alpha_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         assert_eq!(alpha_before, init_stake.into());
 
         // Set the weight of root TAO to be 0%, so only alpha is effective.
@@ -2449,11 +2446,8 @@ fn test_distribute_emission_no_miners_all_drained() {
             AlphaCurrency::ZERO,
         );
 
-        let alpha_baseline = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-        );
+        let alpha_baseline =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
         // Set emission to 1 million (alpha units)
         let emission = AlphaCurrency::from(1_000_000);
@@ -2467,18 +2461,11 @@ fn test_distribute_emission_no_miners_all_drained() {
             AlphaCurrency::ZERO,
         );
 
-        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-        );
+        let alpha_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
         // With a single staker and no miners, all emission should end up on that stake.
-        assert_abs_diff_eq!(
-            alpha_after,
-            alpha_baseline + emission,
-            epsilon = 2.into()
-        );
+        assert_abs_diff_eq!(alpha_after, alpha_baseline + emission, epsilon = 2.into());
     });
 }
 
@@ -2511,11 +2498,8 @@ fn test_distribute_emission_zero_emission() {
         );
 
         // Assert on ALPHA stake, not TAO-valued total stake.
-        let alpha_initial = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-        );
+        let alpha_initial =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         assert_eq!(alpha_initial, init_stake.into());
 
         // Set the weight of root TAO to be 0%, so only alpha is effective.
@@ -2551,11 +2535,8 @@ fn test_distribute_emission_zero_emission() {
         Incentive::<Test>::remove(NetUidStorageIndex::from(netuid));
         Dividends::<Test>::remove(netuid);
 
-        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-        );
+        let alpha_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
         // Now: no new emission AND no pending emission => stake must not change.
         SubtensorModule::distribute_emission(
@@ -2566,11 +2547,8 @@ fn test_distribute_emission_zero_emission() {
             AlphaCurrency::ZERO,
         );
 
-        let alpha_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey,
-            &coldkey,
-            netuid,
-        );
+        let alpha_after =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
         assert_eq!(alpha_after, alpha_before);
 
@@ -3067,7 +3045,10 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             &validator_miner_coldkey,
             stake + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(&miner_coldkey, stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &miner_coldkey,
+            stake + ExistentialDeposit::get(),
+        );
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
@@ -3143,7 +3124,11 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             new_root_alpha_divs, old_root_alpha_divs,
             "Root alpha divs should not increase"
         );
-        assert_eq!(new_root_alpha_divs, AlphaCurrency::ZERO, "Root alpha divs should be zero");
+        assert_eq!(
+            new_root_alpha_divs,
+            AlphaCurrency::ZERO,
+            "Root alpha divs should be zero"
+        );
 
         // --- Measure miner stake before the epoch-triggering block
         let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(

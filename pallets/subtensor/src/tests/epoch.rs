@@ -565,7 +565,9 @@ fn test_1_graph() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64(),
+            stake_amount
+                + ExistentialDeposit::get()
+                + SubtensorModule::get_network_min_lock().to_u64(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -1371,7 +1373,9 @@ fn test_active_stake() {
         for key in 0..n as u64 {
             SubtensorModule::add_balance_to_coldkey_account(
                 &U256::from(key),
-                stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64(),
+                stake
+                    + ExistentialDeposit::get()
+                    + SubtensorModule::get_network_min_lock().to_u64(),
             );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
@@ -2735,7 +2739,9 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
     for key in 0..n as u64 {
         SubtensorModule::add_balance_to_coldkey_account(
             &U256::from(key),
-            max_stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64(),
+            max_stake
+                + ExistentialDeposit::get()
+                + SubtensorModule::get_network_min_lock().to_u64(),
         );
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,

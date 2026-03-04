@@ -642,8 +642,7 @@ fn test_add_stake_partial_below_min_stake_fails() {
         assert!(current_price.to_num::<f64>() > 0.0);
 
         // Set "max spend" to ~1 TAO around current price
-        let current_price_scaled =
-            (current_price.to_num::<f64>() * 1_000_000_000_f64) as u64;
+        let current_price_scaled = (current_price.to_num::<f64>() * 1_000_000_000_f64) as u64;
         let max_spend = current_price_scaled.saturating_add(1);
 
         // Add stake with partial flag on
@@ -984,11 +983,7 @@ fn test_remove_stake_total_issuance_no_change() {
         let issuance_after_stake = Balances::total_issuance();
 
         // Staking burns `amount` from balances issuance in this system design.
-        assert_abs_diff_eq!(
-            issuance_before,
-            issuance_after_stake + amount,
-            epsilon = 1
-        );
+        assert_abs_diff_eq!(issuance_before, issuance_after_stake + amount, epsilon = 1);
 
         // Remove all stake
         let stake_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(

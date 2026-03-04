@@ -25,7 +25,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency, Currency};
+use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -697,7 +697,11 @@ pub fn register_ok_neuron(
             // Re-top-up and retry once (burn can be state-dependent).
             top_up_for_burn(netuid, coldkey_account_id);
 
-            assert_ok!(SubtensorModule::burned_register(origin, netuid, hotkey_account_id));
+            assert_ok!(SubtensorModule::burned_register(
+                origin,
+                netuid,
+                hotkey_account_id
+            ));
         }
         Err(e) => {
             panic!("Expected Ok(_). Got Err({e:?})");

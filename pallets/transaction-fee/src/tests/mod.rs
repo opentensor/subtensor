@@ -95,13 +95,7 @@ fn test_remove_stake_fees_tao() {
         // - Outer Result: validation / payment extension checks
         // - Inner Result: actual runtime call dispatch result
         let inner = ext
-            .dispatch_transaction(
-                RuntimeOrigin::signed(sn.coldkey).into(),
-                call,
-                &info,
-                0,
-                0,
-            )
+            .dispatch_transaction(RuntimeOrigin::signed(sn.coldkey).into(), call, &info, 0, 0)
             .expect("Expected Ok(_) from dispatch_transaction (validation)");
         assert_ok!(inner);
 
@@ -382,7 +376,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
             RuntimeOrigin::signed(sn.coldkey),
             sn.hotkeys[0],
             sn.subnets[0].netuid,
-            stake_amount.into(), 
+            stake_amount.into(),
         ));
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha

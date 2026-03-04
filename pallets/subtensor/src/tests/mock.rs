@@ -804,7 +804,11 @@ pub fn register_ok_neuron(
             // Re-top-up and retry once (burn can be state-dependent).
             top_up_for_burn(netuid, coldkey_account_id);
 
-            assert_ok!(SubtensorModule::burned_register(origin, netuid, hotkey_account_id));
+            assert_ok!(SubtensorModule::burned_register(
+                origin,
+                netuid,
+                hotkey_account_id
+            ));
         }
         Err(e) => {
             panic!("Expected Ok(_). Got Err({e:?})");
