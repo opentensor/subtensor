@@ -120,8 +120,10 @@ impl DerivativeSwapInterface for MockSwap {
         .unwrap();
         swap_result.amount_paid_out
     }
-    fn get_tao_for_alpha_amount(_netuid: NetUid, _alpha: AlphaCurrency) -> TaoCurrency {
-        todo!();
+    fn get_tao_for_alpha_amount(netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency {
+        <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::get_tao_amount_for_alpha(
+            netuid, alpha,
+        )
     }
     fn mint_alpha(netuid: NetUid, alpha: AlphaCurrency) {
         let old = Self::get_alpha_out(netuid);
