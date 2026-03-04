@@ -2,6 +2,25 @@ name: Fireactions Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to validate"
+        required: true
+        default: "fireactions-runners"
+      dry_run:
+        description: "Must remain true for this validation workflow"
+        required: true
+        default: "true"
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+        default: "fireactions-runners"
+      dry_run:
+        required: false
+        type: string
+        default: "true"
 
 concurrency:
   group: fireactions-smoke-${{ github.ref }}
@@ -12,6 +31,18 @@ jobs:
     runs-on: [self-hosted, fireactions]
     timeout-minutes: 30
     steps:
+      - name: Enforce dry-run mode
+        run: |
+          if [ "${{ inputs.dry_run }}" != "true" ]; then
+            echo "dry_run must be true for this workflow."
+            exit 1
+          fi
+
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
       - name: Enforce no-install campaign mode
         run: |
           echo "No system package installs are allowed in this validation campaign."

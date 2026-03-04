@@ -11,6 +11,16 @@ on:
         description: "Must remain true for this test workflow"
         required: true
         default: "true"
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+        default: "fireactions-runners"
+      dry_run:
+        required: false
+        type: string
+        default: "true"
 
 permissions:
   contents: read
@@ -29,7 +39,7 @@ jobs:
     steps:
       - name: Enforce dry-run mode
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+          if [ "${{ inputs.dry_run }}" != "true" ]; then
             echo "dry_run must be true for this workflow."
             exit 1
           fi
@@ -37,7 +47,7 @@ jobs:
       - name: Checkout target ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: Dependency gate (no installs)
         run: |
@@ -64,7 +74,7 @@ jobs:
           {
             echo "# Update Chainspec Dry-Run Report"
             echo
-            echo "- Ref: \`${{ github.event.inputs.ref }}\`"
+            echo "- Ref: \`${{ inputs.ref }}\`"
             echo
             if git diff --quiet; then
               echo "No changes detected."

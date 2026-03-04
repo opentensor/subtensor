@@ -15,6 +15,20 @@ on:
         description: "PR number to fetch benchmark artifact from (optional)"
         required: false
         default: ""
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+        default: "fireactions-runners"
+      dry_run:
+        required: false
+        type: string
+        default: "true"
+      pr_number:
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -32,7 +46,7 @@ jobs:
     steps:
       - name: Enforce dry-run mode
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+          if [ "${{ inputs.dry_run }}" != "true" ]; then
             echo "dry_run must be true for this workflow."
             exit 1
           fi
@@ -40,7 +54,7 @@ jobs:
       - name: Checkout target ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: Dependency gate (no installs)
         run: |
@@ -50,11 +64,11 @@ jobs:
           done
 
       - name: Download latest bench patch artifact from benchmark workflow
-        if: ${{ github.event.inputs.pr_number != '' }}
+        if: ${{ inputs.pr_number != '' }}
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: run-benchmarks.yml
-          pr: ${{ github.event.inputs.pr_number }}
+          pr: ${{ inputs.pr_number }}
           name: bench-patch
           path: .
           allow_forks: true
@@ -80,8 +94,8 @@ jobs:
           {
             echo "# Apply Benchmark Patch Dry-Run Report"
             echo
-            echo "- Ref: \`${{ github.event.inputs.ref }}\`"
-            echo "- PR: \`${{ github.event.inputs.pr_number }}\`"
+            echo "- Ref: \`${{ inputs.ref }}\`"
+            echo "- PR: \`${{ inputs.pr_number }}\`"
             echo
           } > apply-benchmark-patch-dryrun-report.md
 

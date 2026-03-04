@@ -27,6 +27,32 @@ on:
         description: "Simulated label name"
         required: true
         default: "breaking-change"
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+        default: "fireactions-runners"
+      dry_run:
+        required: false
+        type: string
+        default: "true"
+      pr_number:
+        required: false
+        type: string
+        default: "1"
+      base_ref:
+        required: false
+        type: string
+        default: "main"
+      head_ref:
+        required: false
+        type: string
+        default: "feature/fireactions-test"
+      label_name:
+        required: false
+        type: string
+        default: "breaking-change"
 
 permissions:
   contents: read
@@ -42,7 +68,7 @@ jobs:
     steps:
       - name: Enforce dry-run mode
         run: |
-          if [ "${{ github.event.inputs.dry_run }}" != "true" ]; then
+          if [ "${{ inputs.dry_run }}" != "true" ]; then
             echo "dry_run must be true for this workflow."
             exit 1
           fi
@@ -50,7 +76,7 @@ jobs:
       - name: Checkout target ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: Dependency gate (no installs)
         run: |
@@ -66,15 +92,15 @@ jobs:
           {
             echo "# Hotfixes + Labels Dry-Run Report"
             echo
-            echo "- Ref: \`${{ github.event.inputs.ref }}\`"
-            echo "- PR: \`${{ github.event.inputs.pr_number }}\`"
-            echo "- base_ref: \`${{ github.event.inputs.base_ref }}\`"
-            echo "- head_ref: \`${{ github.event.inputs.head_ref }}\`"
-            echo "- label_name: \`${{ github.event.inputs.label_name }}\`"
+            echo "- Ref: \`${{ inputs.ref }}\`"
+            echo "- PR: \`${{ inputs.pr_number }}\`"
+            echo "- base_ref: \`${{ inputs.base_ref }}\`"
+            echo "- head_ref: \`${{ inputs.head_ref }}\`"
+            echo "- label_name: \`${{ inputs.label_name }}\`"
             echo
           } > "$REPORT"
 
-          if [ "${{ github.event.inputs.base_ref }}" = "main" ] && [ "${{ github.event.inputs.head_ref }}" != "testnet" ]; then
+          if [ "${{ inputs.base_ref }}" = "main" ] && [ "${{ inputs.head_ref }}" != "testnet" ]; then
             HOTFIX_LABEL_PAYLOAD='{"labels":["hotfix"]}'
             echo "$HOTFIX_LABEL_PAYLOAD" | jq -e '.labels | index("hotfix")' >/dev/null
             echo "## Hotfix payload" >> "$REPORT"
@@ -85,7 +111,7 @@ jobs:
             echo "Hotfix condition not met; label/comment payload generation skipped." >> "$REPORT"
           fi
 
-          if [ "${{ github.event.inputs.label_name }}" = "breaking-change" ]; then
+          if [ "${{ inputs.label_name }}" = "breaking-change" ]; then
             BREAKING_BODY='@opentensor/cerebrum / @opentensor/gyrus / @opentensor/cortex breaking change detected! Please prepare accordingly!'
             BREAKING_PAYLOAD="$(jq -n --arg body "$BREAKING_BODY" '{body: $body}')"
             echo "$BREAKING_PAYLOAD" | jq -e '.body | length > 0' >/dev/null
