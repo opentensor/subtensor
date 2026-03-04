@@ -1555,7 +1555,7 @@ fn test_swap_owner_check_swap_record_clean_up() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_revert_hotkey_swap_stake_is_not_lost --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_stake_is_not_lost --exact --nocapture
 #[test]
 fn test_revert_hotkey_swap_stake_is_not_lost() {
     new_test_ext(1).execute_with(|| {
@@ -1638,7 +1638,7 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey::test_revert_hotkey_swap --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap --exact --nocapture
 // This test confirms, that the old hotkey can be reverted after the hotkey swap
 #[test]
 fn test_revert_hotkey_swap() {
@@ -1677,5 +1677,72 @@ fn test_revert_hotkey_swap() {
             &old_hotkey,
             Some(netuid)
         ));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_parent_child_keys --exact --nocapture
+#[test]
+fn test_revert_hotkey_swap_parent_child_keys() {
+    new_test_ext(1).execute_with(|| {
+        let hk1 = U256::from(1);
+        let hk2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let parent1 = U256::from(4);
+        let parent2 = U256::from(5);
+        let netuid = add_dynamic_network(&hk1, &coldkey);
+        let netuid2 = add_dynamic_network(&hk2, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+
+        let parents = vec![(100u64, parent1), (200u64, parent2)];
+
+        ParentKeys::<Test>::insert(hk1, netuid, parents.clone());
+
+        ChildKeys::<Test>::insert(parent1, netuid, vec![(100u64, hk1)]);
+        ChildKeys::<Test>::insert(parent2, netuid, vec![(200u64, hk1)]);
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk1,
+            &hk2,
+            Some(netuid)
+        ));
+
+        // Verify ParentKeys swap
+        assert_eq!(ParentKeys::<Test>::get(hk2, netuid), parents);
+        assert!(ParentKeys::<Test>::get(hk1, netuid).is_empty());
+
+        // Verify ChildKeys update for parents
+        assert_eq!(ChildKeys::<Test>::get(parent1, netuid), vec![(100u64, hk2)]);
+        assert_eq!(ChildKeys::<Test>::get(parent2, netuid), vec![(200u64, hk2)]);
+
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk2,
+            &hk1,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            ParentKeys::<Test>::get(hk1, netuid),
+            parents,
+            "ParentKeys must be restored to hk1 after revert"
+        );
+        assert!(
+            ParentKeys::<Test>::get(hk2, netuid).is_empty(),
+            "hk2 must have no ParentKeys after revert"
+        );
+
+        assert_eq!(
+            ChildKeys::<Test>::get(parent1, netuid),
+            vec![(100u64, hk1)],
+            "parent1 ChildKeys must point back to hk1 after revert"
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(parent2, netuid),
+            vec![(200u64, hk1)],
+            "parent2 ChildKeys must point back to hk1 after revert"
+        );
     });
 }
