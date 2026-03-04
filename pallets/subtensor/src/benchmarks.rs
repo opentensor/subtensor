@@ -817,7 +817,7 @@ mod pallet_benchmarks {
             netuid,
             amount_to_be_staked,
             limit,
-            false,
+            true,
         );
     }
 
@@ -935,7 +935,7 @@ mod pallet_benchmarks {
             netuid,
             amount_unstaked,
             limit,
-            false,
+            true,
         );
     }
 
