@@ -118,7 +118,6 @@ mod tests {
             }),
             RuntimeCall::SubtensorModule(crate::Call::dispute_coldkey_swap {}),
             RuntimeCall::Shield(pallet_shield::Call::submit_encrypted {
-                commitment: HashingOf::<Test>::hash_of(&U256::from(42)),
                 ciphertext: BoundedVec::truncate_from(vec![1, 2, 3, 4]),
             }),
         ]

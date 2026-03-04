@@ -16,10 +16,12 @@ use subtensor_macros::freeze_struct;
 
 pub use currency::*;
 pub use evm_context::*;
+pub use transaction_error::*;
 
 mod currency;
 mod evm_context;
 pub mod rate_limiting;
+mod transaction_error;
 
 /// Balance of an account.
 pub type Balance = u64;

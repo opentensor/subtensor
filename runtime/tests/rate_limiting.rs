@@ -5,8 +5,7 @@ use codec::{Compact, Encode};
 use frame_support::{assert_ok, traits::Get};
 use node_subtensor_runtime::{
     Executive, HotkeySwapOnSubnetInterval, Runtime, RuntimeCall, SignedPayload,
-    SubtensorInitialTxDelegateTakeRateLimit, System, TransactionExtensions, UncheckedExtrinsic,
-    check_nonce,
+    SubtensorInitialTxDelegateTakeRateLimit, System, TxExtension, UncheckedExtrinsic, check_nonce,
     rate_limiting::legacy::{Hyperparameter, RateLimitKey, storage as legacy_storage},
     sudo_wrapper, transaction_payment_wrapper,
 };
@@ -55,27 +54,25 @@ fn assert_extrinsic_rate_limited(account_id: &AccountId, pair: &sr25519::Pair, c
 }
 
 fn signed_extrinsic(call: RuntimeCall, pair: &sr25519::Pair, nonce: u32) -> UncheckedExtrinsic {
-    let check_metadata_hash =
-        frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false);
-
-    let extra: TransactionExtensions = (
-        frame_system::CheckNonZeroSender::<Runtime>::new(),
-        frame_system::CheckSpecVersion::<Runtime>::new(),
-        frame_system::CheckTxVersion::<Runtime>::new(),
-        frame_system::CheckGenesis::<Runtime>::new(),
-        frame_system::CheckEra::<Runtime>::from(Era::Immortal),
-        check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
-        frame_system::CheckWeight::<Runtime>::new(),
-        transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
-        ),
-        sudo_wrapper::SudoTransactionExtension::<Runtime>::new(),
-        pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
-        pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+    let extra: TxExtension = (
         (
-            check_metadata_hash,
+            frame_system::CheckNonZeroSender::<Runtime>::new(),
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+            check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
+            frame_system::CheckWeight::<Runtime>::new(),
+        ),
+        (
+            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(0),
+            sudo_wrapper::SudoTransactionExtension::<Runtime>::new(),
+            pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             node_subtensor_runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
         ),
+        frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
     );
 
     let payload = SignedPayload::new(call.clone(), extra.clone()).expect("signed payload");
