@@ -565,7 +565,7 @@ fn test_1_graph() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount + ExistentialDeposit::get(),
+            stake_amount + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -603,7 +603,6 @@ fn test_1_graph() {
         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
     });
 }
-
 // Test an epoch on a graph with two items.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::epoch::test_10_graph --exact --show-output --nocapture
 #[test]
@@ -1024,7 +1023,10 @@ fn test_bonds() {
 
 		// === Register [validator1, validator2, validator3, validator4, server1, server2, server3, server4]
 		for key in 0..n as u64 {
-			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
+			SubtensorModule::add_balance_to_coldkey_account(
+                &U256::from(key),
+                max_stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64()
+            );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as frame_system::Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
 			SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet( &U256::from(key), &U256::from(key), netuid, stakes[key as usize].into() );
@@ -1367,7 +1369,10 @@ fn test_active_stake() {
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
+            SubtensorModule::add_balance_to_coldkey_account(
+                &U256::from(key),
+                stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64(),
+            );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -1585,7 +1590,12 @@ fn test_outdated_weights() {
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
+            SubtensorModule::add_balance_to_coldkey_account(
+                &U256::from(key),
+                stake
+                    + ExistentialDeposit::get()
+                    + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+            );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -1673,6 +1683,12 @@ fn test_outdated_weights() {
 
         // === Dereg server2 at uid3 (least emission) + register new key over uid3
         let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
+        SubtensorModule::add_balance_to_coldkey_account(
+            &U256::from(new_key),
+            stake
+                + ExistentialDeposit::get()
+                + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+        );
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
             block_number,
@@ -1753,7 +1769,7 @@ fn test_outdated_weights() {
     });
 }
 
-// Test the zero emission handling and fallback under zero effective weight conditions, to ensure non-zero effective emission.
+/// Test the zero emission handling and fallback under zero effective weight conditions, to ensure non-zero effective emission.
 #[test]
 fn test_zero_weights() {
     new_test_ext(1).execute_with(|| {
@@ -1772,6 +1788,10 @@ fn test_zero_weights() {
 
         // === Register [validator, server]
         for key in 0..n as u64 {
+            SubtensorModule::add_balance_to_coldkey_account(
+                &U256::from(key),
+                ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+            );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -1881,6 +1901,10 @@ fn test_zero_weights() {
         // === Outdate weights by reregistering servers
         for new_key in n..n + (n / 2) {
             // register a new key while at max capacity, which means the least emission uid will be deregistered
+            SubtensorModule::add_balance_to_coldkey_account(
+                &U256::from(new_key),
+                ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+            );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -1977,7 +2001,12 @@ fn test_deregistered_miner_bonds() {
         // === Register [validator1, validator2, server1, server2]
         let block_number = System::block_number();
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
+            SubtensorModule::add_balance_to_coldkey_account(
+                &U256::from(key),
+                stake
+                    + ExistentialDeposit::get()
+                    + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+            );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
                 block_number,
@@ -2056,6 +2085,12 @@ fn test_deregistered_miner_bonds() {
         // === Dereg server2 at uid3 (least emission) + register new key over uid3
         let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
         let block_number = System::block_number();
+        SubtensorModule::add_balance_to_coldkey_account(
+            &U256::from(new_key),
+            stake
+                + ExistentialDeposit::get()
+                + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+        );
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
             block_number,
@@ -2172,7 +2207,9 @@ fn test_validator_permits() {
                     for key in 0..network_n as u64 {
                         SubtensorModule::add_balance_to_coldkey_account(
                             &U256::from(key),
-                            stake[key as usize],
+                            stake[key as usize]
+                                + ExistentialDeposit::get()
+                                + SubtensorModule::get_network_min_lock().to_u64(),
                         );
                         let (nonce, work): (u64, Vec<u8>) =
                             SubtensorModule::create_work_for_block_number(
@@ -2696,7 +2733,10 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
 
     // === Register
     for key in 0..n as u64 {
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &U256::from(key),
+            max_stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64(),
+        );
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
             block_number,
@@ -3833,7 +3873,9 @@ fn test_last_update_size_mismatch() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount + ExistentialDeposit::get(),
+            stake_amount
+                + ExistentialDeposit::get()
+                + (SubtensorModule::get_network_min_lock().to_u64() * 2),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
