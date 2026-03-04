@@ -2693,10 +2693,23 @@ fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
 #[test]
 fn test_migrate_reset_unactive_sn() {
     new_test_ext(1).execute_with(|| {
+        use sp_std::collections::btree_map::BTreeMap;
+
         let (active_netuids, inactive_netuids) = do_setup_unactive_sn();
 
         let initial_tao = Pallet::<Test>::get_network_min_lock();
         let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
+
+        let mut locked_before: BTreeMap<NetUid, TaoCurrency> = BTreeMap::new();
+        let mut rao_recycled_before: BTreeMap<NetUid, TaoCurrency> = BTreeMap::new();
+
+        for netuid in active_netuids.iter().chain(inactive_netuids.iter()) {
+            locked_before.insert(*netuid, SubnetLocked::<Test>::get(*netuid));
+            rao_recycled_before.insert(
+                *netuid,
+                RAORecycledForRegistration::<Test>::get(netuid),
+            );
+        }
 
         // Run the migration
         let w = crate::migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<Test>();
@@ -2704,12 +2717,19 @@ fn test_migrate_reset_unactive_sn() {
 
         // Verify the results
         for netuid in &inactive_netuids {
-            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao = if (actual_tao_lock_amount < initial_tao) {
-                TaoCurrency::ZERO
-            } else {
-                actual_tao_lock_amount - initial_tao
-            };
+            let netuid = *netuid;
+
+            assert_eq!(
+                SubnetLocked::<Test>::get(netuid),
+                *locked_before.get(&netuid).unwrap(),
+                "SubnetLocked unexpectedly changed for inactive subnet {netuid:?}"
+            );
+            assert_eq!(
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap(),
+                "RAORecycledForRegistration unexpectedly changed for inactive subnet {netuid:?}"
+            );
+
             assert_eq!(
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
@@ -2722,13 +2742,8 @@ fn test_migrate_reset_unactive_sn() {
                 PendingRootAlphaDivs::<Test>::get(netuid),
                 AlphaCurrency::ZERO
             );
-            assert_eq!(
-                // not modified
-                RAORecycledForRegistration::<Test>::get(netuid),
-                actual_tao_lock_amount_less_pool_tao
-            );
             assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                *netuid
+                netuid
             ));
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
@@ -2758,7 +2773,7 @@ fn test_migrate_reset_unactive_sn() {
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
                     AlphaCurrency::ZERO
                 );
-                assert_ne!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                assert_ne!(RootClaimable::<Test>::get(hk).get(&netuid), None);
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
@@ -2772,8 +2787,19 @@ fn test_migrate_reset_unactive_sn() {
 
         // !!! Make sure the active subnets were not reset
         for netuid in &active_netuids {
-            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount - initial_tao;
+            let netuid = *netuid;
+
+            assert_eq!(
+                SubnetLocked::<Test>::get(netuid),
+                *locked_before.get(&netuid).unwrap(),
+                "SubnetLocked unexpectedly changed for active subnet {netuid:?}"
+            );
+            assert_eq!(
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap(),
+                "RAORecycledForRegistration unexpectedly changed for active subnet {netuid:?}"
+            );
+
             assert_ne!(
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaCurrency::ZERO
@@ -2787,9 +2813,9 @@ fn test_migrate_reset_unactive_sn() {
                 AlphaCurrency::ZERO
             );
             assert_eq!(
-                // not modified
+                // unchanged (already asserted above via snapshot)
                 RAORecycledForRegistration::<Test>::get(netuid),
-                actual_tao_lock_amount_less_pool_tao
+                *rao_recycled_before.get(&netuid).unwrap()
             );
             assert_ne!(SubnetTaoInEmission::<Test>::get(netuid), TaoCurrency::ZERO);
             assert_ne!(
@@ -2801,7 +2827,7 @@ fn test_migrate_reset_unactive_sn() {
                 AlphaCurrency::ZERO
             );
             assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                *netuid
+                netuid
             ));
             assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
@@ -2822,7 +2848,7 @@ fn test_migrate_reset_unactive_sn() {
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
                     AlphaCurrency::ZERO
                 );
-                assert!(RootClaimable::<Test>::get(hk).contains_key(netuid));
+                assert!(RootClaimable::<Test>::get(hk).contains_key(&netuid));
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
