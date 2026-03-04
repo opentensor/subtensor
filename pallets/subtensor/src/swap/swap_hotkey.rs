@@ -57,11 +57,13 @@ impl<T: Config> Pallet<T> {
 
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
-        // 7. Ensure the new hotkey is not already registered on any network
-        ensure!(
-            !Self::is_hotkey_registered_on_any_network(new_hotkey),
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet
-        );
+        // 7. Ensure the new hotkey is not already registered on any network, only if netuid is none
+        if netuid.is_none() {
+            ensure!(
+                !Self::is_hotkey_registered_on_any_network(new_hotkey),
+                Error::<T>::HotKeyAlreadyRegisteredInSubNet
+            );
+        }
 
         // 8. Swap LastTxBlock
         let last_tx_block: u64 = Self::get_last_tx_block(old_hotkey);

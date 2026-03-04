@@ -60,6 +60,48 @@ fn test_swap_owned_hotkeys() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --lib -- tests::swap_hotkey::test_revert_hotkey_swap --exact --nocapture
+// This test confirms, that the old hotkey can be reverted after the hotkey swap
+#[test]
+fn test_revert_hotkey_swap() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let tempo: u16 = 13;
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let swap_cost = 1_000_000_000u64 * 2;
+
+        // Setup initial state
+        add_network(netuid, tempo, 0);
+        add_network(netuid2, tempo, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        register_ok_neuron(netuid2, old_hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+        step_block(20);
+
+        // Perform the first swap (only on netuid)
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid)
+        ));
+
+        assert!(SubtensorModule::is_hotkey_registered_on_any_network(&old_hotkey));
+
+        step_block(20);
+
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &new_hotkey,
+            &old_hotkey,
+            Some(netuid)
+        ));
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_swap_total_hotkey_stake --exact --nocapture
 #[test]
 fn test_swap_total_hotkey_stake() {
