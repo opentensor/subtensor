@@ -143,6 +143,7 @@ pub fn create_benchmark_extrinsic(
             pallet_shield::CheckShieldedTxValidity::<runtime::Runtime>::new(),
             pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
             pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
+            runtime::rate_limiting::UnwrappedRateLimitTransactionExtension::new(),
         ),
         frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(true),
     );
@@ -160,7 +161,7 @@ pub fn create_benchmark_extrinsic(
                 (),
                 (),
             ),
-            ((), (), (), (), ()),
+            ((), (), (), (), (), ()),
             None,
         ),
     );

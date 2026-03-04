@@ -62,7 +62,6 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
     SubnetworkN::<Test>::insert(netuid, network_n);
     ActivityCutoff::<Test>::insert(netuid, ACTIVITY_CUTOFF);
     Tempo::<Test>::insert(netuid, TEMPO);
-    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
     MechanismCountCurrent::<Test>::insert(netuid, MechId::from(mechanism_count));
 
     // Setup neurons
