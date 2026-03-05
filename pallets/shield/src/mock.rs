@@ -61,6 +61,7 @@ impl pallet_subtensor_utility::Config for Test {
 thread_local! {
     static MOCK_CURRENT: RefCell<Option<AuraId>> = const { RefCell::new(None) };
     static MOCK_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
+    static MOCK_NEXT_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
 }
 
 pub struct MockFindAuthors;
@@ -74,6 +75,7 @@ impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
             auths.get(*slot as usize % auths.len()).cloned()
         })
     }
+
     fn find_next_author() -> Option<AuraId> {
         // If thread-local was set, use it (Some(None) = explicitly no next).
         if let Some(val) = MOCK_NEXT.with(|n| n.borrow().clone()) {
@@ -83,6 +85,15 @@ impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
         let next_slot = Aura::current_slot_from_digests()?.checked_add(1)?;
         let auths = pallet_aura::Authorities::<Test>::get().into_inner();
         auths.get(next_slot as usize % auths.len()).cloned()
+    }
+
+    fn find_next_next_author() -> Option<AuraId> {
+        if let Some(val) = MOCK_NEXT_NEXT.with(|n| n.borrow().clone()) {
+            return val;
+        }
+        let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
+        let auths = pallet_aura::Authorities::<Test>::get().into_inner();
+        auths.get(slot as usize % auths.len()).cloned()
     }
 }
 
@@ -115,9 +126,10 @@ pub fn author(n: u8) -> AuraId {
     AuraId::from(sr25519::Public::from_raw([n; 32]))
 }
 
-pub fn set_authors(current: Option<AuraId>, next: Option<AuraId>) {
+pub fn set_authors(current: Option<AuraId>, next: Option<AuraId>, next_next: Option<AuraId>) {
     MOCK_CURRENT.with(|c| *c.borrow_mut() = current);
     MOCK_NEXT.with(|n| *n.borrow_mut() = Some(next));
+    MOCK_NEXT_NEXT.with(|n| *n.borrow_mut() = Some(next_next));
 }
 
 pub fn nest_call(call: RuntimeCall, depth: usize) -> RuntimeCall {

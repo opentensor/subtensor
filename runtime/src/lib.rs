@@ -144,6 +144,14 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
 
         authorities.get(next_author_index as usize).cloned()
     }
+
+    fn find_next_next_author() -> Option<AuraId> {
+        let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
+        let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
+        let author_index = slot % authorities.len() as u64;
+
+        authorities.get(author_index as usize).cloned()
+    }
 }
 
 impl pallet_shield::Config for Runtime {
@@ -2650,6 +2658,10 @@ impl_runtime_apis! {
     impl stp_shield::ShieldApi<Block> for Runtime {
         fn try_decode_shielded_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
             MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
+        }
+
+        fn is_shielded_using_current_key(key_hash: &[u8; 16]) -> bool {
+            MevShield::is_shielded_using_current_key(key_hash)
         }
 
         fn try_unshield_tx(dec_key_bytes: Vec<u8>, shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
