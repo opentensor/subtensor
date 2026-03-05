@@ -1,7 +1,7 @@
 use super::*;
 use safe_math::*;
 use substrate_fixed::types::{U96F32, U110F18};
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -14,7 +14,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         // --- 2. Get the current coinbase emission.
         let block_emission: U96F32 = U96F32::saturating_from_num(
             Self::get_block_emission()
-                .unwrap_or(TaoCurrency::ZERO)
+                .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );
         log::debug!("Block emission: {block_emission:?}");
@@ -240,10 +240,10 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     ///
     pub fn upgraded_burn(
         netuid: NetUid,
-        current_burn: TaoCurrency,
+        current_burn: TaoBalance,
         registrations_this_interval: u16,
         target_registrations_per_interval: u16,
-    ) -> TaoCurrency {
+    ) -> TaoBalance {
         let updated_burn: U110F18 = U110F18::saturating_from_num(current_burn)
             .saturating_mul(U110F18::saturating_from_num(
                 registrations_this_interval.saturating_add(target_registrations_per_interval),

@@ -3,6 +3,7 @@
 use super::{SubtensorChainExtension, SubtensorExtensionEnv, mock};
 use crate::types::{FunctionId, Output};
 use codec::{Decode, Encode};
+use frame_support::pallet_prelude::Zero;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::RetVal;
@@ -11,7 +12,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, Currency as CurrencyTrait, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 type AccountId = <mock::Test as frame_system::Config>::AccountId;
@@ -82,15 +83,15 @@ fn remove_stake_full_limit_success_with_limit_price() {
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
         mock::setup_reserves(
             netuid,
-            TaoCurrency::from(130_000_000_000),
-            AlphaCurrency::from(110_000_000_000),
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            TaoBalance::from(stake_amount_raw + 1_000_000_000),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -111,7 +112,7 @@ fn remove_stake_full_limit_success_with_limit_price() {
         let mut env = MockEnv::new(
             FunctionId::RemoveStakeFullLimitV1,
             coldkey,
-            (hotkey, netuid, Option::<TaoCurrency>::None).encode(),
+            (hotkey, netuid, Option::<TaoBalance>::None).encode(),
         )
         .with_expected_weight(expected_weight);
 
@@ -140,20 +141,20 @@ fn swap_stake_limit_with_tight_price_returns_slippage_error() {
         let coldkey = U256::from(5701);
         let hotkey = U256::from(5702);
 
-        let stake_alpha = AlphaCurrency::from(150_000_000_000u64);
+        let stake_alpha = AlphaBalance::from(150_000_000_000u64);
 
         let netuid_a = mock::add_dynamic_network(&owner_hotkey_a, &owner_coldkey_a);
         let netuid_b = mock::add_dynamic_network(&owner_hotkey_b, &owner_coldkey_b);
 
         mock::setup_reserves(
             netuid_a,
-            TaoCurrency::from(150_000_000_000),
-            AlphaCurrency::from(110_000_000_000),
+            TaoBalance::from(150_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
         );
         mock::setup_reserves(
             netuid_b,
-            TaoCurrency::from(120_000_000_000),
-            AlphaCurrency::from(90_000_000_000),
+            TaoBalance::from(120_000_000_000_u64),
+            AlphaBalance::from(90_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid_a, hotkey, coldkey, 0);
@@ -177,8 +178,8 @@ fn swap_stake_limit_with_tight_price_returns_slippage_error() {
                 &hotkey, &coldkey, netuid_b,
             );
 
-        let alpha_to_swap: AlphaCurrency = (alpha_origin_before.to_u64() / 8).into();
-        let limit_price: TaoCurrency = 100u64.into();
+        let alpha_to_swap: AlphaBalance = (alpha_origin_before.to_u64() / 8).into();
+        let limit_price: TaoBalance = 100u64.into();
 
         let expected_weight = Weight::from_parts(411_500_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(35))
@@ -221,15 +222,15 @@ fn remove_stake_limit_success_respects_price_limit() {
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
         mock::setup_reserves(
             netuid,
-            TaoCurrency::from(120_000_000_000),
-            AlphaCurrency::from(100_000_000_000),
+            TaoBalance::from(120_000_000_000_u64),
+            AlphaBalance::from(100_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            TaoBalance::from(stake_amount_raw + 1_000_000_000),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -251,9 +252,9 @@ fn remove_stake_limit_success_respects_price_limit() {
                 netuid.into(),
             );
         let limit_price_value = (current_price.to_num::<f64>() * 990_000_000f64).round() as u64;
-        let limit_price: TaoCurrency = limit_price_value.into();
+        let limit_price: TaoBalance = limit_price_value.into();
 
-        let alpha_to_unstake: AlphaCurrency = (alpha_before.to_u64() / 2).into();
+        let alpha_to_unstake: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
         let expected_weight = Weight::from_parts(377_400_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
@@ -291,21 +292,21 @@ fn add_stake_limit_success_executes_within_price_guard() {
         let coldkey = U256::from(5501);
         let hotkey = U256::from(5502);
         let amount_raw: u64 = 900_000_000_000;
-        let limit_price: TaoCurrency = 24_000_000_000u64.into();
+        let limit_price: TaoBalance = 24_000_000_000u64.into();
 
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         mock::setup_reserves(
             netuid,
-            TaoCurrency::from(150_000_000_000),
-            AlphaCurrency::from(100_000_000_000),
+            TaoBalance::from(150_000_000_000_u64),
+            AlphaBalance::from(100_000_000_000_u64),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            amount_raw + 1_000_000_000,
+            (amount_raw + 1_000_000_000).into(),
         );
 
         let stake_before =
@@ -324,7 +325,7 @@ fn add_stake_limit_success_executes_within_price_guard() {
             (
                 hotkey,
                 netuid,
-                TaoCurrency::from(amount_raw),
+                TaoBalance::from(amount_raw),
                 limit_price,
                 true,
             )
@@ -343,7 +344,7 @@ fn add_stake_limit_success_executes_within_price_guard() {
         let balance_after = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
         assert!(stake_after > stake_before);
-        assert!(stake_after > AlphaCurrency::ZERO);
+        assert!(stake_after > AlphaBalance::ZERO);
         assert!(balance_after < balance_before);
     });
 }
@@ -367,12 +368,12 @@ fn swap_stake_success_moves_between_subnets() {
         mock::setup_reserves(
             netuid_a,
             stake_amount_raw.saturating_mul(18).into(),
-            AlphaCurrency::from(stake_amount_raw.saturating_mul(30)),
+            AlphaBalance::from(stake_amount_raw.saturating_mul(30)),
         );
         mock::setup_reserves(
             netuid_b,
             stake_amount_raw.saturating_mul(20).into(),
-            AlphaCurrency::from(stake_amount_raw.saturating_mul(28)),
+            AlphaBalance::from(stake_amount_raw.saturating_mul(28)),
         );
 
         mock::register_ok_neuron(netuid_a, hotkey, coldkey, 0);
@@ -380,7 +381,7 @@ fn swap_stake_success_moves_between_subnets() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -400,7 +401,7 @@ fn swap_stake_success_moves_between_subnets() {
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey, &coldkey, netuid_b,
             );
-        let alpha_to_swap: AlphaCurrency = (alpha_origin_before.to_u64() / 3).into();
+        let alpha_to_swap: AlphaBalance = (alpha_origin_before.to_u64() / 3).into();
 
         let expected_weight = Weight::from_parts(351_300_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(35))
@@ -450,14 +451,14 @@ fn transfer_stake_success_moves_between_coldkeys() {
         mock::setup_reserves(
             netuid,
             stake_amount_raw.saturating_mul(15).into(),
-            AlphaCurrency::from(stake_amount_raw.saturating_mul(25)),
+            AlphaBalance::from(stake_amount_raw.saturating_mul(25)),
         );
 
         mock::register_ok_neuron(netuid, hotkey, origin_coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &origin_coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -475,7 +476,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
                 &origin_coldkey,
                 netuid,
             );
-        let alpha_to_transfer: AlphaCurrency = (alpha_before.to_u64() / 3).into();
+        let alpha_to_transfer: AlphaBalance = (alpha_before.to_u64() / 3).into();
 
         let expected_weight = Weight::from_parts(160_300_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(13))
@@ -533,7 +534,7 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
         mock::setup_reserves(
             netuid,
             stake_amount_raw.saturating_mul(15).into(),
-            AlphaCurrency::from(stake_amount_raw.saturating_mul(25)),
+            AlphaBalance::from(stake_amount_raw.saturating_mul(25)),
         );
 
         mock::register_ok_neuron(netuid, origin_hotkey, coldkey, 0);
@@ -541,7 +542,7 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -559,7 +560,7 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
                 &coldkey,
                 netuid,
             );
-        let alpha_to_move: AlphaCurrency = (alpha_before.to_u64() / 2).into();
+        let alpha_to_move: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
         let expected_weight = Weight::from_parts(164_300_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(15))
@@ -615,13 +616,13 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
         mock::setup_reserves(
             netuid,
             stake_amount_raw.saturating_mul(20).into(),
-            AlphaCurrency::from(stake_amount_raw.saturating_mul(30)),
+            AlphaBalance::from(stake_amount_raw.saturating_mul(30)),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -648,7 +649,7 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey, &coldkey, netuid,
             );
-        assert!(subnet_alpha <= AlphaCurrency::from(1_000));
+        assert!(subnet_alpha <= AlphaBalance::from(1_000));
 
         let root_alpha =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -656,7 +657,7 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
                 &coldkey,
                 NetUid::ROOT,
             );
-        assert!(root_alpha > AlphaCurrency::ZERO);
+        assert!(root_alpha > AlphaBalance::ZERO);
     });
 }
 
@@ -668,7 +669,7 @@ fn add_proxy_success_creates_proxy_relationship() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &delegator,
-            1_000_000_000,
+            1_000_000_000.into(),
         );
 
         assert_eq!(
@@ -706,7 +707,7 @@ fn remove_proxy_success_removes_proxy_relationship() {
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &delegator,
-            1_000_000_000,
+            1_000_000_000.into(),
         );
 
         let mut add_env = MockEnv::new(FunctionId::AddProxyV1, delegator, delegate.encode());
@@ -831,18 +832,19 @@ fn add_stake_success_updates_stake_and_returns_success_code() {
         let hotkey = U256::from(202);
         let min_stake = DefaultMinStake::<mock::Test>::get();
         let amount_raw = min_stake.to_u64().saturating_mul(10);
-        let amount: TaoCurrency = amount_raw.into();
+        let amount: TaoBalance = amount_raw.into();
 
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
         mock::setup_reserves(
             netuid,
             (amount_raw * 1_000_000).into(),
-            AlphaCurrency::from(amount_raw * 10_000_000),
+            AlphaBalance::from(amount_raw * 10_000_000),
         );
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey, amount_raw,
+            &coldkey,
+            amount_raw.into(),
         );
 
         assert!(
@@ -867,7 +869,7 @@ fn add_stake_success_updates_stake_and_returns_success_code() {
 
         let total_stake =
             pallet_subtensor::Pallet::<mock::Test>::get_total_stake_for_hotkey(&hotkey);
-        assert!(total_stake > TaoCurrency::ZERO);
+        assert!(total_stake > TaoBalance::ZERO);
     });
 }
 
@@ -882,7 +884,7 @@ fn remove_stake_with_no_stake_returns_amount_too_low() {
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         let min_stake = DefaultMinStake::<mock::Test>::get();
-        let amount: AlphaCurrency = AlphaCurrency::from(min_stake.to_u64());
+        let amount: AlphaBalance = AlphaBalance::from(min_stake.to_u64());
 
         let expected_weight = Weight::from_parts(196_800_000, 0)
             .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(19))
@@ -924,13 +926,13 @@ fn unstake_all_success_unstakes_balance() {
         mock::setup_reserves(
             netuid,
             stake_amount_raw.saturating_mul(10).into(),
-            AlphaCurrency::from(stake_amount_raw.saturating_mul(20)),
+            AlphaBalance::from(stake_amount_raw.saturating_mul(20)),
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
         pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount_raw + 1_000_000_000,
+            (stake_amount_raw + 1_000_000_000).into(),
         );
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
@@ -959,7 +961,7 @@ fn unstake_all_success_unstakes_balance() {
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey, &coldkey, netuid,
             );
-        assert!(remaining_alpha <= AlphaCurrency::from(1_000));
+        assert!(remaining_alpha <= AlphaBalance::from(1_000));
 
         let post_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
         assert!(post_balance > pre_balance);
@@ -976,8 +978,8 @@ fn get_alpha_price_returns_encoded_price() {
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
         // Set up reserves to establish a price
-        let tao_reserve = TaoCurrency::from(150_000_000_000u64);
-        let alpha_reserve = AlphaCurrency::from(100_000_000_000u64);
+        let tao_reserve = TaoBalance::from(150_000_000_000u64);
+        let alpha_reserve = AlphaBalance::from(100_000_000_000u64);
         mock::setup_reserves(netuid, tao_reserve, alpha_reserve);
 
         // Get expected price from swap handler

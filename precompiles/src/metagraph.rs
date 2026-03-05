@@ -5,7 +5,7 @@ use fp_evm::{ExitError, PrecompileFailure, PrecompileHandle};
 use pallet_subtensor::AxonInfo as SubtensorModuleAxonInfo;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{NetUid, Token};
 
 use crate::PrecompileExt;
 

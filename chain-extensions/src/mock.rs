@@ -25,7 +25,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -57,7 +57,7 @@ pub type AccountId = U256;
 
 // Balance of an account.
 #[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = TaoBalance;
 
 // An index to a block.
 #[allow(dead_code)]
@@ -75,7 +75,7 @@ pub struct WeightToBalance;
 
 impl Convert<Weight, Balance> for WeightToBalance {
     fn convert(weight: Weight) -> Balance {
-        weight.ref_time()
+        weight.ref_time().into()
     }
 }
 
@@ -223,7 +223,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<TaoBalance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -241,9 +241,9 @@ parameter_types! {
 
 parameter_types! {
     pub ContractsSchedule: pallet_contracts::Schedule<Test> = Default::default();
-    pub const ContractsDepositPerByte: Balance = 1;
-    pub const ContractsDepositPerItem: Balance = 10;
-    pub const ContractsDefaultDepositLimit: Balance = 1_000_000_000;
+    pub const ContractsDepositPerByte: Balance = TaoBalance::new(1);
+    pub const ContractsDepositPerItem: Balance = TaoBalance::new(10);
+    pub const ContractsDefaultDepositLimit: Balance = TaoBalance::new(1_000_000_000);
     pub const ContractsCodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
     pub const ContractsMaxDelegateDependencies: u32 = 32;
     pub const ContractsMaxCodeLen: u32 = 120_000;
@@ -254,12 +254,12 @@ parameter_types! {
 }
 
 parameter_types! {
-    pub const ProxyDepositBase: Balance = 1;
-    pub const ProxyDepositFactor: Balance = 1;
+    pub const ProxyDepositBase: Balance = TaoBalance::new(1);
+    pub const ProxyDepositFactor: Balance = TaoBalance::new(1);
     pub const MaxProxies: u32 = 32;
     pub const MaxPending: u32 = 32;
-    pub const AnnouncementDepositBase: Balance = 1;
-    pub const AnnouncementDepositFactor: Balance = 1;
+    pub const AnnouncementDepositBase: Balance = TaoBalance::new(1);
+    pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
 }
 
 pub struct MockAuthorshipProvider;
@@ -277,8 +277,8 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = 1;
-    pub const TransactionByteFee: Balance = 100;
+    pub const ExistentialDeposit: Balance = TaoBalance::new(1);
+    pub const TransactionByteFee: Balance = TaoBalance::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialAlphaSigmoidSteepness: i16 = 1000;
@@ -306,8 +306,8 @@ parameter_types! {
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
-    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
-    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
+    pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -339,7 +339,7 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const InitialStartCallDelay: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
-    pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
+    pub const InitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(10_000_000);
     pub const HotkeySwapOnSubnetInterval: u64 = 15; // 15 block, should be bigger than subnet number, then trigger clean up for all subnets
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
@@ -486,8 +486,8 @@ impl pallet_utility::Config for Test {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = 1;
-    pub const PreimageByteDeposit: Balance = 1;
+    pub const PreimageBaseDeposit: Balance = TaoBalance::new(1);
+    pub const PreimageByteDeposit: Balance = TaoBalance::new(1);
 }
 
 impl pallet_preimage::Config for Test {
@@ -701,7 +701,7 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 }
 
 #[allow(dead_code)]
-pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }
