@@ -11,7 +11,9 @@ use super::mock::*;
 use crate::*;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
+use std::collections::BTreeSet;
 use substrate_fixed::types::U64F64;
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner --exact --nocapture
 #[test]
 fn test_swap_owner() {
@@ -2079,6 +2081,125 @@ fn test_revert_voting_power_transfers_on_hotkey_swap() {
             SubtensorModule::get_voting_power(netuid, &hk2),
             0,
             "hk2 must have no voting power after revert"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_claim_root_with_swap_hotkey --exact --nocapture
+#[test]
+fn test_revert_claim_root_with_swap_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hk1 = U256::from(1002);
+        let hk2 = U256::from(1003);
+        let coldkey = U256::from(1004);
+
+        let netuid = add_dynamic_network(&hk1, &owner_coldkey);
+        let netuid2 = add_dynamic_network(&hk1, &owner_coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX);
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        let root_stake = 2_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let pending_root_alpha = 1_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            RootClaimTypeEnum::Keep
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        let stake_after_claim: u64 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid)
+                .into();
+
+        let hk1_root_claimed = RootClaimed::<Test>::get((netuid, &hk1, &coldkey));
+        let hk1_claimable = *RootClaimable::<Test>::get(hk1)
+            .get(&netuid)
+            .expect("claimable must exist before swap");
+
+        assert_eq!(u128::from(stake_after_claim), hk1_root_claimed);
+        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner_coldkey),
+            &hk1,
+            &hk2,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid, &hk1, &coldkey)),
+            0u128,
+            "hk1 RootClaimed must be zero after swap"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid, &hk2, &coldkey)),
+            hk1_root_claimed,
+            "hk2 must have hk1's RootClaimed after swap"
+        );
+        assert!(!RootClaimable::<Test>::get(hk1).contains_key(&netuid));
+        assert_eq!(
+            *RootClaimable::<Test>::get(hk2)
+                .get(&netuid)
+                .expect("claimable must exist on hk2 after swap"),
+            hk1_claimable,
+            "hk2 must have hk1's RootClaimable after swap"
+        );
+
+        // Revert: hk2 -> hk1
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner_coldkey),
+            &hk2,
+            &hk1,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid, &hk2, &coldkey)),
+            0u128,
+            "hk2 RootClaimed must be zero after revert"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid, &hk1, &coldkey)),
+            hk1_root_claimed,
+            "hk1 RootClaimed must be restored after revert"
+        );
+
+        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
+        assert_eq!(
+            *RootClaimable::<Test>::get(hk1)
+                .get(&netuid)
+                .expect("claimable must exist on hk1 after revert"),
+            hk1_claimable,
+            "hk1 RootClaimable must be restored after revert"
         );
     });
 }
