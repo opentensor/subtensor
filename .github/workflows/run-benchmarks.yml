@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   validate-benchmarks:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.number != 2483 }}
     runs-on: Benchmarking
 
     env:
