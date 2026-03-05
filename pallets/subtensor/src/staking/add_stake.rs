@@ -1,5 +1,5 @@
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::*;
@@ -41,8 +41,8 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: TaoCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+        stake_to_be_added: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
@@ -124,10 +124,10 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: TaoCurrency,
-        limit_price: TaoCurrency,
+        stake_to_be_added: TaoBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
-    ) -> Result<AlphaCurrency, DispatchError> {
+    ) -> Result<AlphaBalance, DispatchError> {
         // 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!(
@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2. Calculate the maximum amount that can be executed with price limit
-        let max_amount: TaoCurrency = Self::get_max_amount_add(netuid, limit_price)?.into();
+        let max_amount: TaoBalance = Self::get_max_amount_add(netuid, limit_price)?.into();
         let mut possible_stake = stake_to_be_added;
         if possible_stake > max_amount {
             possible_stake = max_amount;
@@ -176,7 +176,7 @@ impl<T: Config> Pallet<T> {
     // Returns the maximum amount of RAO that can be executed with price limit
     pub fn get_max_amount_add(
         netuid: NetUid,
-        limit_price: TaoCurrency,
+        limit_price: TaoBalance,
     ) -> Result<u64, DispatchError> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or

@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
-        if remaining_balance > 0 {
+        if remaining_balance > 0.into() {
             Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
             Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
         }
@@ -49,7 +49,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Charges the swap cost from the coldkey's account and recycles the tokens.
-    pub fn charge_swap_cost(coldkey: &T::AccountId, swap_cost: TaoCurrency) -> DispatchResult {
+    pub fn charge_swap_cost(coldkey: &T::AccountId, swap_cost: TaoBalance) -> DispatchResult {
         let burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost.into())
             .map_err(|_| Error::<T>::NotEnoughBalanceToPaySwapColdKey)?;
 

@@ -1,0 +1,22 @@
+{
+  "name": "e2e-shared",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./node.js": "./node.ts",
+    "./chainspec.js": "./chainspec.ts",
+    "./sequencer.js": "./sequencer.ts",
+    "./client.js": "./client.ts"
+  },
+  "dependencies": {
+    "@polkadot/keyring": "catalog:",
+    "@polkadot-api/descriptors": "file:../.papi/descriptors",
+    "@polkadot-labs/hdkd": "catalog:",
+    "@polkadot-labs/hdkd-helpers": "catalog:",
+    "polkadot-api": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

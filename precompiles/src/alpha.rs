@@ -6,7 +6,7 @@ use precompile_utils::EvmResult;
 use sp_core::U256;
 use sp_std::vec::Vec;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{NetUid, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 use crate::PrecompileExt;

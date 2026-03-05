@@ -39,7 +39,7 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
-use subtensor_runtime_common::{Currency, NetUid, ProxyType};
+use subtensor_runtime_common::{NetUid, ProxyType, Token};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 

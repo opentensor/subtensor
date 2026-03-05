@@ -30,6 +30,7 @@ use subtensor_swap_interface::SwapHandler;
 use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_std::vec::Vec;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{
     AlphaCurrency, AuthorshipInfo, Balance, Currency, NetUid, TaoCurrency,
 };
@@ -43,17 +44,17 @@ type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 
 pub struct LinearWeightToFee;
 impl WeightToFeePolynomial for LinearWeightToFee {
-    type Balance = Balance;
+    type Balance = TaoBalance;
 
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
-        let coefficient = WeightToFeeCoefficient {
-            coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(500_000), // 0.5 unit per weight
+        let coefficient: WeightToFeeCoefficient<Self::Balance> = WeightToFeeCoefficient {
+            coeff_integer: TaoBalance::new(0),
+            coeff_frac: Perbill::from_parts(50_000),
             negative: false,
             degree: 1,
         };
 
-        smallvec![coefficient]
+        smallvec![coefficient] as WeightToFeeCoefficients<Self::Balance>
     }
 }
 
@@ -62,13 +63,13 @@ pub trait AlphaFeeHandler<T: frame_system::Config> {
     fn can_withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
+        tao_amount: TaoBalance,
     ) -> bool;
     fn withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
-    ) -> (AlphaCurrency, TaoCurrency);
+        tao_amount: TaoBalance,
+    ) -> (AlphaBalance, TaoBalance);
     fn get_all_netuids_for_coldkey_and_hotkey(
         coldkey: &AccountIdOf<T>,
         hotkey: &AccountIdOf<T>,
@@ -84,27 +85,21 @@ impl<T> Default for TransactionFeeHandler<T> {
     }
 }
 
-impl<T>
-    OnUnbalanced<
-        FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-        >,
-    > for TransactionFeeHandler<T>
+type BalancesImbalanceOf<T> = FungibleImbalance<
+    <T as pallet_balances::Config>::Balance,
+    DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+    IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
+>;
+
+impl<T> OnUnbalanced<BalancesImbalanceOf<T>> for TransactionFeeHandler<T>
 where
-    T: frame_system::Config,
-    T: pallet_subtensor::Config,
-    T: pallet_balances::Config<Balance = u64>,
-    T: AuthorshipInfo<AccountIdOf<T>>,
+    T: frame_system::Config
+        + pallet_balances::Config
+        + pallet_subtensor::Config
+        + AuthorshipInfo<AccountIdOf<T>>,
+    <T as pallet_balances::Config>::Balance: Into<TaoBalance> + Copy,
 {
-    fn on_nonzero_unbalanced(
-        imbalance: FungibleImbalance<
-            u64,
-            DecreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-            IncreaseIssuance<AccountIdOf<T>, pallet_balances::Pallet<T>>,
-        >,
-    ) {
+    fn on_nonzero_unbalanced(imbalance: BalancesImbalanceOf<T>) {
         if let Some(author) = T::author() {
             // Pay block author
             let _ = <pallet_balances::Pallet<T> as Balanced<_>>::resolve(&author, imbalance);
@@ -135,7 +130,7 @@ where
     fn can_withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
+        tao_amount: TaoBalance,
     ) -> bool {
         if alpha_vec.len() != 1 {
             // Multi-subnet alpha fee deduction is prohibited.
@@ -160,8 +155,8 @@ where
     fn withdraw_in_alpha(
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
-        tao_amount: TaoCurrency,
-    ) -> (AlphaCurrency, TaoCurrency) {
+        tao_amount: TaoBalance,
+    ) -> (AlphaBalance, TaoBalance) {
         if alpha_vec.len() != 1 {
             return (0.into(), 0.into());
         }
@@ -314,7 +309,7 @@ where
     CallOf<T>: IsSubType<pallet_subtensor::Call<T>>,
     F: Balanced<T::AccountId>,
     OU: OnUnbalanced<Credit<T::AccountId, F>> + AlphaFeeHandler<T>,
-    <F as Inspect<AccountIdOf<T>>>::Balance: Into<u64> + From<u64>,
+    <F as Inspect<AccountIdOf<T>>>::Balance: Into<TaoBalance> + From<TaoBalance>,
 {
     type LiquidityInfo = Option<WithdrawnFee<T, F>>;
     type Balance = <F as Inspect<<T as frame_system::Config>::AccountId>>::Balance;

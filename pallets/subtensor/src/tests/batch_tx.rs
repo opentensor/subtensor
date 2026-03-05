@@ -24,17 +24,17 @@ fn test_batch_txs() {
             vec![
                 RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: bob,
-                    value: 1_000_000_000
+                    value: 1_000_000_000.into()
                 }),
                 RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: charlie,
-                    value: 1_000_000_000
+                    value: 1_000_000_000.into()
                 })
             ]
         ));
-        assert_eq!(Balances::total_balance(&alice), 6_000_000_000);
-        assert_eq!(Balances::total_balance(&bob), 2_000_000_000);
-        assert_eq!(Balances::total_balance(&charlie), 2_000_000_000);
+        assert_eq!(Balances::total_balance(&alice), 6_000_000_000_u64.into());
+        assert_eq!(Balances::total_balance(&bob), 2_000_000_000_u64.into());
+        assert_eq!(Balances::total_balance(&charlie), 2_000_000_000_u64.into());
     });
 }
 
@@ -48,12 +48,12 @@ fn test_cant_nest_batch_txs() {
             calls: vec![
                 RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: bob,
-                    value: 1_000_000_000,
+                    value: 1_000_000_000.into(),
                 }),
                 RuntimeCall::Utility(pallet_utility::Call::batch {
                     calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                         dest: charlie,
-                        value: 1_000_000_000,
+                        value: 1_000_000_000.into(),
                     })],
                 }),
             ],
@@ -71,7 +71,7 @@ fn test_can_batch_txs() {
         let call = RuntimeCall::Utility(pallet_utility::Call::batch {
             calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                 dest: bob,
-                value: 1_000_000_000,
+                value: 1_000_000_000.into(),
             })],
         });
 
@@ -88,7 +88,7 @@ fn test_cant_nest_batch_diff_batch_txs() {
             calls: vec![RuntimeCall::Utility(pallet_utility::Call::force_batch {
                 calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: charlie,
-                    value: 1_000_000_000,
+                    value: 1_000_000_000.into(),
                 })],
             })],
         });
@@ -99,7 +99,7 @@ fn test_cant_nest_batch_diff_batch_txs() {
             calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch {
                 calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: charlie,
-                    value: 1_000_000_000,
+                    value: 1_000_000_000.into(),
                 })],
             })],
         });
@@ -110,7 +110,7 @@ fn test_cant_nest_batch_diff_batch_txs() {
             calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch_all {
                 calls: vec![RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: charlie,
-                    value: 1_000_000_000,
+                    value: 1_000_000_000.into(),
                 })],
             })],
         });

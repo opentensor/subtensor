@@ -79,8 +79,8 @@ mod genesis {
             let hotkey = DefaultAccount::<T>::get();
             SubnetMechanism::<T>::insert(netuid, 1); // Make dynamic.
             Owner::<T>::insert(hotkey.clone(), hotkey.clone());
-            SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(10_000_000_000));
-            SubnetTAO::<T>::insert(netuid, TaoCurrency::from(10_000_000_000));
+            SubnetAlphaIn::<T>::insert(netuid, AlphaBalance::from(10_000_000_000_u64));
+            SubnetTAO::<T>::insert(netuid, TaoBalance::from(10_000_000_000_u64));
             NetworksAdded::<T>::insert(netuid, true);
             TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
             SubnetworkN::<T>::insert(netuid, 0);
@@ -90,7 +90,7 @@ mod genesis {
             Tempo::<T>::insert(netuid, 100);
             NetworkRegistrationAllowed::<T>::insert(netuid, true);
             SubnetOwner::<T>::insert(netuid, hotkey.clone());
-            SubnetLocked::<T>::insert(netuid, TaoCurrency::from(1));
+            SubnetLocked::<T>::insert(netuid, TaoBalance::from(1));
             LargestLocked::<T>::insert(netuid, 1);
             AlphaV2::<T>::insert(
                 // Lock the initial funds making this key the owner.
@@ -100,14 +100,14 @@ mod genesis {
             TotalHotkeyAlpha::<T>::insert(
                 hotkey.clone(),
                 netuid,
-                AlphaCurrency::from(1_000_000_000),
+                AlphaBalance::from(1_000_000_000),
             );
             TotalHotkeySharesV2::<T>::insert(
                 hotkey.clone(),
                 netuid,
                 SafeFloatSerializable::from(&SafeFloat::from(1_000_000_000)),
             );
-            SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::from(1_000_000_000));
+            SubnetAlphaOut::<T>::insert(netuid, AlphaBalance::from(1_000_000_000));
             let mut staking_hotkeys = StakingHotkeys::<T>::get(hotkey.clone());
             if !staking_hotkeys.contains(&hotkey) {
                 staking_hotkeys.push(hotkey.clone());

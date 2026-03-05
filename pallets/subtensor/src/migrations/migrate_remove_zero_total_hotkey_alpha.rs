@@ -31,7 +31,7 @@ pub fn migrate_remove_zero_total_hotkey_alpha<T: Config>() -> Weight {
 
     // For each (hotkey, netuid, alpha) entry, remove if alpha == 0
     for (hotkey, netuid, alpha) in TotalHotkeyAlpha::<T>::iter() {
-        if alpha == 0.into() {
+        if alpha.is_zero() {
             TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
             removed_entries_count = removed_entries_count.saturating_add(1);
         }

@@ -3,7 +3,7 @@ use frame_support::weights::Weight;
 use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{Currency, MechId, NetUid};
+use subtensor_runtime_common::{MechId, NetUid, Token};
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.

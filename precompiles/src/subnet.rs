@@ -9,7 +9,7 @@ use precompile_utils::{EvmResult, prelude::BoundedString};
 use sp_core::H256;
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable};
 use sp_std::vec;
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{NetUid, Token};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
