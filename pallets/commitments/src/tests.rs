@@ -2,7 +2,7 @@
 
 use codec::Encode;
 use sp_std::prelude::*;
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{NetUid, TaoBalance};
 
 #[cfg(test)]
 use crate::{
@@ -133,7 +133,7 @@ fn set_commitment_works() {
 
         let commitment =
             Pallet::<Test>::commitment_of(NetUid::from(1), 1).expect("Expected not to panic");
-        let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
+        let initial_deposit = <Test as Config>::InitialDeposit::get();
         assert_eq!(commitment.deposit, initial_deposit);
         assert_eq!(commitment.block, 1);
         assert_eq!(Pallet::<Test>::last_commitment(NetUid::from(1), 1), Some(1));
@@ -179,9 +179,9 @@ fn set_commitment_updates_deposit() {
             1.into(),
             info1
         ));
-        let initial_deposit: u64 = <Test as Config>::InitialDeposit::get();
-        let field_deposit: u64 = <Test as Config>::FieldDeposit::get();
-        let expected_deposit1: u64 = initial_deposit + 2u64 * field_deposit;
+        let initial_deposit = <Test as Config>::InitialDeposit::get();
+        let field_deposit = <Test as Config>::FieldDeposit::get();
+        let expected_deposit1 = initial_deposit + field_deposit * 2.into();
         assert_eq!(
             Pallet::<Test>::commitment_of(NetUid::from(1), 1)
                 .expect("Expected not to panic")
@@ -194,7 +194,7 @@ fn set_commitment_updates_deposit() {
             1.into(),
             info2
         ));
-        let expected_deposit2: u64 = initial_deposit + 3u64 * field_deposit;
+        let expected_deposit2 = initial_deposit + field_deposit * 3.into();
         assert_eq!(
             Pallet::<Test>::commitment_of(NetUid::from(1), 1)
                 .expect("Expected not to panic")
@@ -1169,13 +1169,13 @@ fn set_commitment_unreserve_leftover_fails() {
         let netuid = NetUid::from(999);
         let who = 99;
 
-        Balances::make_free_balance_be(&who, 10_000);
+        Balances::make_free_balance_be(&who, 10_000.into());
 
-        let fake_deposit = 100;
-        let dummy_info = CommitmentInfo {
+        let fake_deposit: TaoBalance = 100.into();
+        let dummy_info = CommitmentInfo::<TestMaxFields> {
             fields: BoundedVec::try_from(vec![]).expect("empty fields is fine"),
         };
-        let registration = Registration {
+        let registration = Registration::<TaoBalance, TestMaxFields, u64> {
             deposit: fake_deposit,
             info: dummy_info,
             block: 0u64.into(),
@@ -1184,10 +1184,10 @@ fn set_commitment_unreserve_leftover_fails() {
         CommitmentOf::<Test>::insert(netuid, who, registration);
 
         assert_ok!(Balances::reserve(&who, fake_deposit));
-        assert_eq!(Balances::reserved_balance(who), 100);
+        assert_eq!(Balances::reserved_balance(who), 100.into());
 
-        Balances::unreserve(&who, 10_000);
-        assert_eq!(Balances::reserved_balance(who), 0);
+        Balances::unreserve(&who, 10_000.into());
+        assert_eq!(Balances::reserved_balance(who), 0.into());
 
         let commit_small = Box::new(CommitmentInfo {
             fields: BoundedVec::try_from(vec![]).expect("no fields is fine"),
@@ -1775,7 +1775,7 @@ fn set_commitment_works_with_multiple_raw_fields() {
             Box::new(info_multiple)
         ));
 
-        let expected_deposit: BalanceOf<Test> = initial_deposit + 3u64 * field_deposit;
+        let expected_deposit: BalanceOf<Test> = initial_deposit + field_deposit * 3u64.into();
         let stored = CommitmentOf::<Test>::get(NetUid::from(99), 12345).expect("Should be stored");
         assert_eq!(
             stored.deposit, expected_deposit,
@@ -1805,7 +1805,7 @@ fn set_commitment_works_with_multiple_raw_fields() {
             Box::new(info_two_fields)
         ));
 
-        let expected_deposit2: BalanceOf<Test> = initial_deposit + 2u64 * field_deposit;
+        let expected_deposit2: BalanceOf<Test> = initial_deposit + field_deposit * 2u64.into();
         let stored2 = CommitmentOf::<Test>::get(NetUid::from(99), 12345).expect("Should be stored");
         assert_eq!(
             stored2.deposit, expected_deposit2,

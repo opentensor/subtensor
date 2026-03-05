@@ -2,21 +2,21 @@ extern crate alloc;
 
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 use super::*;
 
-#[freeze_struct("28269be895d7b5ba")]
+#[freeze_struct("8cef3fae262a623e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct StakeInfo<AccountId: TypeInfo + Encode + Decode> {
     hotkey: AccountId,
     coldkey: AccountId,
     netuid: Compact<NetUid>,
-    stake: Compact<AlphaCurrency>,
+    stake: Compact<AlphaBalance>,
     locked: Compact<u64>,
-    emission: Compact<AlphaCurrency>,
-    tao_emission: Compact<TaoCurrency>,
+    emission: Compact<AlphaBalance>,
+    tao_emission: Compact<TaoBalance>,
     drain: Compact<u64>,
     is_registered: bool,
 }
@@ -44,7 +44,7 @@ impl<T: Config> Pallet<T> {
                     }
                     let emission = AlphaDividendsPerSubnet::<T>::get(*netuid_i, &hotkey_i);
                     // Tao dividends were removed
-                    let tao_emission = TaoCurrency::ZERO;
+                    let tao_emission = TaoBalance::ZERO;
                     let is_registered: bool =
                         Self::is_hotkey_registered_on_network(*netuid_i, hotkey_i);
                     stake_info_for_coldkey.push(StakeInfo {
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
         );
         let emission = AlphaDividendsPerSubnet::<T>::get(netuid, &hotkey_account);
         // Tao dividends were removed
-        let tao_emission = TaoCurrency::ZERO;
+        let tao_emission = TaoBalance::ZERO;
         let is_registered: bool = Self::is_hotkey_registered_on_network(netuid, &hotkey_account);
 
         Some(StakeInfo {
@@ -130,7 +130,7 @@ impl<T: Config> Pallet<T> {
             0_u64
         } else {
             let netuid = destination.or(origin).map(|v| v.1).unwrap_or_default();
-            T::SwapInterface::approx_fee_amount(netuid.into(), TaoCurrency::from(amount)).to_u64()
+            T::SwapInterface::approx_fee_amount(netuid.into(), TaoBalance::from(amount)).to_u64()
         }
     }
 }

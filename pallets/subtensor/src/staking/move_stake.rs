@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
+        alpha_amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // Check that the origin is signed by the origin_hotkey.
         let coldkey = ensure_signed(origin)?;
@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
+        alpha_amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
+        alpha_amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -255,8 +255,8 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
-        limit_price: TaoCurrency,
+        alpha_amount: AlphaBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
@@ -302,12 +302,12 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
-        maybe_limit_price: Option<TaoCurrency>,
+        alpha_amount: AlphaBalance,
+        maybe_limit_price: Option<TaoBalance>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
         set_limit: bool,
-    ) -> Result<TaoCurrency, DispatchError> {
+    ) -> Result<TaoBalance, DispatchError> {
         // Cap the alpha_amount at available Alpha because user might be paying transaxtion fees
         // in Alpha and their total is already reduced by now.
         let alpha_available = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -423,8 +423,8 @@ impl<T: Config> Pallet<T> {
     pub fn get_max_amount_move(
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        limit_price: TaoCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+        limit_price: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
         let tao = U64F64::saturating_from_num(1_000_000_000);
 
         // Corner case: both subnet IDs are root or stao
@@ -436,7 +436,7 @@ impl<T: Config> Pallet<T> {
             if limit_price > tao.saturating_to_num::<u64>().into() {
                 return Err(Error::<T>::ZeroMaxStakeAmount.into());
             } else {
-                return Ok(AlphaCurrency::MAX);
+                return Ok(AlphaBalance::MAX);
             }
         }
 
@@ -446,7 +446,7 @@ impl<T: Config> Pallet<T> {
             && (SubnetMechanism::<T>::get(destination_netuid) == 1)
         {
             if limit_price.is_zero() {
-                return Ok(AlphaCurrency::MAX);
+                return Ok(AlphaBalance::MAX);
             } else {
                 // The destination price is reverted because the limit_price is origin_price / destination_price
                 let destination_subnet_price = tao
@@ -508,7 +508,7 @@ impl<T: Config> Pallet<T> {
 
         // Corner case: limit_price is zero
         if limit_price.is_zero() {
-            return Ok(AlphaCurrency::MAX);
+            return Ok(AlphaBalance::MAX);
         }
 
         // Main case
