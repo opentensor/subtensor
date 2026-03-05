@@ -170,7 +170,6 @@ if [ $BUILD_ONLY -eq 0 ]; then
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
   (
-    export RUST_LOG=basic_authorship=debug,txpool=debug
     ("${one_start[@]}" 2>&1) &
     ("${two_start[@]}" 2>&1) &
     ("${three_start[@]}" 2>&1)
