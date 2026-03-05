@@ -89,6 +89,7 @@ echo "*** Chainspec built and output to file"
 # Generate node keys
 "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/one
 "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/two
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/three
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
@@ -96,6 +97,7 @@ else
   echo "*** Purging previous state..."
   "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/two --chain="$FULL_PATH" >/dev/null 2>&1
   "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/one --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/three --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
 fi
 
@@ -130,17 +132,48 @@ if [ $BUILD_ONLY -eq 0 ]; then
     --unsafe-force-node-key-generation
   )
 
+  # Insert //Three keys manually (no --three shorthand exists in Substrate)
+  "$BUILD_DIR/release/node-subtensor" key insert \
+    --base-path /tmp/three \
+    --chain="$FULL_PATH" \
+    --scheme Sr25519 \
+    --suri "//Three" \
+    --key-type aura
+  "$BUILD_DIR/release/node-subtensor" key insert \
+    --base-path /tmp/three \
+    --chain="$FULL_PATH" \
+    --scheme Ed25519 \
+    --suri "//Three" \
+    --key-type gran
+
+  three_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/three
+    --chain="$FULL_PATH"
+    --name Three
+    --port 30336
+    --rpc-port 9946
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+  )
+
   # Provide RUN_IN_DOCKER local environment variable if run script in the docker image
   if [ "${RUN_IN_DOCKER}" == "1" ]; then
     one_start+=(--unsafe-rpc-external)
     two_start+=(--unsafe-rpc-external)
+    three_start+=(--unsafe-rpc-external)
   fi
 
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
   (
+    export RUST_LOG=basic_authorship=debug,txpool=debug
     ("${one_start[@]}" 2>&1) &
-    ("${two_start[@]}" 2>&1)
+    ("${two_start[@]}" 2>&1) &
+    ("${three_start[@]}" 2>&1)
     wait
   )
 fi
