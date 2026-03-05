@@ -10,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use core::num::NonZeroU64;
 
+pub mod check_mortality;
 pub mod check_nonce;
 mod migrations;
 pub mod sudo_wrapper;
@@ -193,7 +194,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 frame_system::CheckSpecVersion::<Runtime>::new(),
                 frame_system::CheckTxVersion::<Runtime>::new(),
                 frame_system::CheckGenesis::<Runtime>::new(),
-                frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+                check_mortality::CheckMortality::<Runtime>::from(Era::Immortal),
                 check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
                 frame_system::CheckWeight::<Runtime>::new(),
             ),
@@ -1670,7 +1671,7 @@ pub type SystemTxExtension = (
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
-    frame_system::CheckEra<Runtime>,
+    check_mortality::CheckMortality<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
 );
