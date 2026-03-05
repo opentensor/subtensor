@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect, beforeAll } from "vitest";
 import { subtensor } from "@polkadot-api/descriptors";
 import { TypedApi } from "polkadot-api";
 import { ethers } from "ethers";
@@ -33,7 +33,7 @@ describe("Test neuron precompile add remove stake", () => {
   let api: TypedApi<typeof subtensor>;
   let netuid: number;
 
-  before(async () => {
+  beforeAll(async () => {
     api = await getDevnetApi();
 
     await forceSetBalance(api, convertPublicKeyToSs58(hotkey.publicKey));
@@ -69,14 +69,14 @@ describe("Test neuron precompile add remove stake", () => {
       await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet1.address), currentNetuid)
     );
 
-    assert.ok(stakeFromContract > stakeBefore);
+    expect(stakeFromContract, "Stake from contract should increase").toBeGreaterThan(stakeBefore);
 
     const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
       convertPublicKeyToSs58(hotkey.publicKey),
       convertH160ToSS58(wallet1.address),
       currentNetuid
     );
-    assert.ok(stakeAfter > stakeBefore);
+    expect(stakeAfter, "Stake should increase after adding").toBeGreaterThan(stakeBefore);
 
     log.info("Can add stake via V1 contract");
   });
@@ -99,14 +99,14 @@ describe("Test neuron precompile add remove stake", () => {
       await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet2.address), currentNetuid)
     );
 
-    assert.ok(stakeFromContract > stakeBefore);
+    expect(stakeFromContract, "Stake from contract should increase").toBeGreaterThan(stakeBefore);
 
     const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
       convertPublicKeyToSs58(hotkey.publicKey),
       convertH160ToSS58(wallet2.address),
       currentNetuid
     );
-    assert.ok(stakeAfter > stakeBefore);
+    expect(stakeAfter, "Stake should increase after adding").toBeGreaterThan(stakeBefore);
 
     log.info("Can add stake via V2 contract");
   });
@@ -123,25 +123,22 @@ describe("Test neuron precompile add remove stake", () => {
 
     const contract = new ethers.Contract(ISTAKING_ADDRESS, IStakingABI, wallet1);
 
-    try {
+    await expect(async () => {
       const tx = await contract.addStake(hotkey.publicKey, wrongNetuid, { value: stakeBalance.toString() });
       await tx.wait();
-      assert.fail("Transaction should have failed");
-    } catch {
-      // Transaction failed as expected
-    }
+    }).rejects.toThrow();
 
     const stakeFromContract = BigInt(
       await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet1.address), wrongNetuid)
     );
-    assert.equal(stakeFromContract, stakeBefore);
+    expect(stakeFromContract, "Stake should not change").toBe(stakeBefore);
 
     const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
       convertPublicKeyToSs58(hotkey.publicKey),
       convertH160ToSS58(wallet1.address),
       wrongNetuid
     );
-    assert.equal(stakeAfter, stakeBefore);
+    expect(stakeAfter, "Stake should not change").toBe(stakeBefore);
 
     log.info("Cannot add stake to non-existent subnet (V1)");
   });
@@ -158,25 +155,22 @@ describe("Test neuron precompile add remove stake", () => {
 
     const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
 
-    try {
+    await expect(async () => {
       const tx = await contract.addStake(hotkey.publicKey, stakeBalance.toString(), wrongNetuid);
       await tx.wait();
-      assert.fail("Transaction should have failed");
-    } catch {
-      // Transaction failed as expected
-    }
+    }).rejects.toThrow();
 
     const stakeFromContract = BigInt(
       await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet2.address), wrongNetuid)
     );
-    assert.equal(stakeFromContract, stakeBefore);
+    expect(stakeFromContract, "Stake should not change").toBe(stakeBefore);
 
     const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
       convertPublicKeyToSs58(hotkey.publicKey),
       convertH160ToSS58(wallet2.address),
       wrongNetuid
     );
-    assert.equal(stakeAfter, stakeBefore);
+    expect(stakeAfter, "Stake should not change").toBe(stakeBefore);
 
     log.info("Cannot add stake to non-existent subnet (V2)");
   });
@@ -195,16 +189,16 @@ describe("Test neuron precompile add remove stake", () => {
       await contractV2.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet1.address), currentNetuid)
     );
 
-    assert.equal(stakeFromContractV1, tao(stakeFromContractV2));
+    expect(stakeFromContractV1, "V1 and V2 stakes should match").toBe(tao(stakeFromContractV2));
 
     const totalColdkeyStakeOnSubnet = Number(
       await contractV2.getTotalColdkeyStakeOnSubnet(convertH160ToPublicKey(wallet1.address), currentNetuid)
     );
 
     // Check the value is not undefined and is greater than or equal to the stake from contract V2
-    assert.ok(totalColdkeyStakeOnSubnet !== undefined);
+    expect(totalColdkeyStakeOnSubnet, "Total coldkey stake should be defined").toBeDefined();
     // Is greater than or equal to the stake from contract V2 because of emission
-    assert.ok(totalColdkeyStakeOnSubnet >= stakeFromContractV2);
+    expect(totalColdkeyStakeOnSubnet, "Total coldkey stake should be >= stake from V2").toBeGreaterThanOrEqual(stakeFromContractV2);
 
     log.info("Can get stake via contract read methods");
   });
@@ -224,7 +218,7 @@ describe("Test neuron precompile add remove stake", () => {
     const stakeAfterRemove = BigInt(
       await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet1.address), currentNetuid)
     );
-    assert.ok(stakeAfterRemove < stakeBeforeRemove);
+    expect(stakeAfterRemove, "Stake should decrease after removal").toBeLessThan(stakeBeforeRemove);
 
     log.info("Can remove stake via V1 contract");
   });
@@ -245,7 +239,7 @@ describe("Test neuron precompile add remove stake", () => {
       await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet2.address), currentNetuid)
     );
 
-    assert.ok(stakeAfterRemove < stakeBeforeRemove);
+    expect(stakeAfterRemove, "Stake should decrease after removal").toBeLessThan(stakeBeforeRemove);
 
     log.info("Can remove stake via V2 contract");
   });
@@ -258,7 +252,7 @@ describe("Test neuron precompile add remove stake", () => {
     // First, check we don't have proxies
     const ss58Address = convertH160ToSS58(wallet1.address);
     const initProxies = await api.query.Proxy.Proxies.getValue(ss58Address);
-    assert.equal(initProxies[0].length, 0);
+    expect(initProxies[0].length, "Should have no proxies initially").toBe(0);
 
     // Initialize the contract
     const contract = new ethers.Contract(ISTAKING_ADDRESS, IStakingABI, wallet1);
@@ -268,7 +262,7 @@ describe("Test neuron precompile add remove stake", () => {
     await tx.wait();
 
     const proxiesAfterAdd = await api.query.Proxy.Proxies.getValue(ss58Address);
-    assert.equal(proxiesAfterAdd[0][0].delegate, convertPublicKeyToSs58(proxy.publicKey));
+    expect(proxiesAfterAdd[0][0].delegate, "Proxy should be added").toBe(convertPublicKeyToSs58(proxy.publicKey));
 
     const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(
       convertPublicKeyToSs58(hotkey.publicKey),
@@ -289,14 +283,14 @@ describe("Test neuron precompile add remove stake", () => {
       currentNetuid
     );
 
-    assert.ok(stakeAfter > stakeBefore);
+    expect(stakeAfter, "Stake should increase via proxy call").toBeGreaterThan(stakeBefore);
 
     // Test "remove"
     tx = await contract.removeProxy(proxy.publicKey);
     await tx.wait();
 
     const proxiesAfterRemove = await api.query.Proxy.Proxies.getValue(ss58Address);
-    assert.equal(proxiesAfterRemove[0].length, 0);
+    expect(proxiesAfterRemove[0].length, "Proxy should be removed").toBe(0);
 
     log.info("Can add/remove proxy via V1 contract");
   });
@@ -307,7 +301,7 @@ describe("Test neuron precompile add remove stake", () => {
     // First, check we don't have proxies
     const ss58Address = convertH160ToSS58(wallet1.address);
     const initProxies = await api.query.Proxy.Proxies.getValue(ss58Address);
-    assert.equal(initProxies[0].length, 0);
+    expect(initProxies[0].length, "Should have no proxies initially").toBe(0);
 
     // Initialize the contract
     const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet1);
@@ -317,7 +311,7 @@ describe("Test neuron precompile add remove stake", () => {
     await tx.wait();
 
     const proxiesAfterAdd = await api.query.Proxy.Proxies.getValue(ss58Address);
-    assert.equal(proxiesAfterAdd[0][0].delegate, convertPublicKeyToSs58(proxy.publicKey));
+    expect(proxiesAfterAdd[0][0].delegate, "Proxy should be added").toBe(convertPublicKeyToSs58(proxy.publicKey));
 
     const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(
       convertPublicKeyToSs58(hotkey.publicKey),
@@ -339,14 +333,14 @@ describe("Test neuron precompile add remove stake", () => {
       currentNetuid
     );
 
-    assert.ok(stakeAfter > stakeBefore);
+    expect(stakeAfter, "Stake should increase via proxy call").toBeGreaterThan(stakeBefore);
 
     // Test "remove"
     tx = await contract.removeProxy(proxy.publicKey);
     await tx.wait();
 
     const proxiesAfterRemove = await api.query.Proxy.Proxies.getValue(ss58Address);
-    assert.equal(proxiesAfterRemove[0].length, 0);
+    expect(proxiesAfterRemove[0].length, "Proxy should be removed").toBe(0);
 
     log.info("Can add/remove proxy via V2 contract");
   });

@@ -83,10 +83,7 @@ async function stopNetwork() {
   nodeLog("Network stopped");
 }
 
-before(async function () {
-  // Increase timeout for network startup (2 minutes)
-  this.timeout(120000);
-
+export async function setup() {
   // Start the network
   await startNetwork();
 
@@ -96,15 +93,12 @@ before(async function () {
 
   // Set lock reduction interval to 1 block to make network registration lock cost decay instantly.
   await sudoSetLockReductionInterval(api, 1);
-});
+}
 
-after(async function () {
-  // Increase timeout for cleanup
-  this.timeout(30000);
-
+export async function teardown() {
   // Destroy the API client first
   destroyClient();
 
   // Stop the network
   await stopNetwork();
-});
+}

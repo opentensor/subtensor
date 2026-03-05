@@ -1,4 +1,4 @@
-import * as assert from "assert";
+import { describe, it, expect, beforeAll } from "vitest";
 import { subtensor } from "@polkadot-api/descriptors";
 import { TypedApi } from "polkadot-api";
 import { ethers } from "ethers";
@@ -25,7 +25,7 @@ describe("Test staking precompile add remove limit methods", () => {
 
   let api: TypedApi<typeof subtensor>;
 
-  before(async () => {
+  beforeAll(async () => {
     api = await getDevnetApi();
     await forceSetBalance(api, convertPublicKeyToSs58(hotkey.publicKey));
     await forceSetBalance(api, convertPublicKeyToSs58(coldkey.publicKey));
@@ -60,7 +60,7 @@ describe("Test staking precompile add remove limit methods", () => {
         netuid
       );
 
-      assert.ok(alphaAfterAddStake > alpha);
+      expect(alphaAfterAddStake, "Alpha should increase after adding stake with limit").toBeGreaterThan(alpha);
       log.info("✅ Wallet 1 added stake with limit");
     });
 
@@ -85,7 +85,7 @@ describe("Test staking precompile add remove limit methods", () => {
         netuid
       );
 
-      assert.ok(alphaAfterRemoveStake < alpha);
+      expect(alphaAfterRemoveStake, "Alpha should decrease after removing stake").toBeLessThan(alpha);
       log.info("✅ Wallet 1 removed stake with limit price");
     });
   });
@@ -112,7 +112,7 @@ describe("Test staking precompile add remove limit methods", () => {
         netuid
       );
 
-      assert.ok(alphaAfterAddStake > alpha);
+      expect(alphaAfterAddStake, "Alpha should increase after adding stake with limit").toBeGreaterThan(alpha);
       log.info("✅ Wallet 2 added stake with limit");
     });
 
@@ -137,7 +137,7 @@ describe("Test staking precompile add remove limit methods", () => {
         netuid
       );
 
-      assert.ok(alphaAfterRemoveStake < alpha);
+      expect(alphaAfterRemoveStake, "Alpha should decrease after removing stake full").toBeLessThan(alpha);
       log.info("✅ Wallet 2 removed stake full");
     });
   });
