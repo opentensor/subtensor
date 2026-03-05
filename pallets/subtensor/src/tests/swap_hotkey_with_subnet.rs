@@ -1680,25 +1680,35 @@ fn test_revert_hotkey_swap() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_parent_child_keys --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_parent_hotkey_childkey_maps --exact --nocapture
 #[test]
-fn test_revert_hotkey_swap_parent_child_keys() {
+fn test_revert_hotkey_swap_parent_hotkey_childkey_maps() {
     new_test_ext(1).execute_with(|| {
         let hk1 = U256::from(1);
-        let hk2 = U256::from(2);
-        let coldkey = U256::from(3);
-        let parent1 = U256::from(4);
-        let parent2 = U256::from(5);
+        let coldkey = U256::from(2);
+        let child = U256::from(3);
+        let child_other = U256::from(4);
+        let hk2 = U256::from(5);
+
         let netuid = add_dynamic_network(&hk1, &coldkey);
-        let netuid2 = add_dynamic_network(&hk2, &coldkey);
+        let netuid2 = add_dynamic_network(&hk1, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hk1);
 
-        let parents = vec![(100u64, parent1), (200u64, parent2)];
+        mock_set_children(&coldkey, &hk1, netuid, &[(u64::MAX, child)]);
+        step_rate_limit(&TransactionType::SetChildren, netuid);
+        mock_schedule_children(&coldkey, &hk1, netuid, &[(u64::MAX, child_other)]);
 
-        ParentKeys::<Test>::insert(hk1, netuid, parents.clone());
-
-        ChildKeys::<Test>::insert(parent1, netuid, vec![(100u64, hk1)]);
-        ChildKeys::<Test>::insert(parent2, netuid, vec![(200u64, hk1)]);
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, hk1)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(hk1, netuid),
+            vec![(u64::MAX, child)]
+        );
+        let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, hk1);
+        assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -1708,14 +1718,22 @@ fn test_revert_hotkey_swap_parent_child_keys() {
             Some(netuid)
         ));
 
-        // Verify ParentKeys swap
-        assert_eq!(ParentKeys::<Test>::get(hk2, netuid), parents);
-        assert!(ParentKeys::<Test>::get(hk1, netuid).is_empty());
+        assert_eq!(
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, hk2)]
+        );
+        assert_eq!(
+            ChildKeys::<Test>::get(hk2, netuid),
+            vec![(u64::MAX, child)]
+        );
+        assert_eq!(
+            PendingChildKeys::<Test>::get(netuid, hk2),
+            existing_pending_child_keys
+        );
+        assert!(ChildKeys::<Test>::get(hk1, netuid).is_empty());
+        assert!(PendingChildKeys::<Test>::get(netuid, hk1).0.is_empty());
 
-        // Verify ChildKeys update for parents
-        assert_eq!(ChildKeys::<Test>::get(parent1, netuid), vec![(100u64, hk2)]);
-        assert_eq!(ChildKeys::<Test>::get(parent2, netuid), vec![(200u64, hk2)]);
-
+        // Revert: hk2 -> hk1
         step_block(20);
         assert_ok!(SubtensorModule::do_swap_hotkey(
             RuntimeOrigin::signed(coldkey),
@@ -1725,24 +1743,205 @@ fn test_revert_hotkey_swap_parent_child_keys() {
         ));
 
         assert_eq!(
-            ParentKeys::<Test>::get(hk1, netuid),
-            parents,
-            "ParentKeys must be restored to hk1 after revert"
+            ParentKeys::<Test>::get(child, netuid),
+            vec![(u64::MAX, hk1)],
+            "ParentKeys must point back to hk1 after revert"
         );
-        assert!(
-            ParentKeys::<Test>::get(hk2, netuid).is_empty(),
-            "hk2 must have no ParentKeys after revert"
+        assert_eq!(
+            ChildKeys::<Test>::get(hk1, netuid),
+            vec![(u64::MAX, child)],
+            "ChildKeys must be restored to hk1 after revert"
+        );
+        assert_eq!(
+            PendingChildKeys::<Test>::get(netuid, hk1),
+            existing_pending_child_keys,
+            "PendingChildKeys must be restored to hk1 after revert"
         );
 
+        assert!(
+            ChildKeys::<Test>::get(hk2, netuid).is_empty(),
+            "hk2 must have no ChildKeys after revert"
+        );
+        assert!(
+            PendingChildKeys::<Test>::get(netuid, hk2).0.is_empty(),
+            "hk2 must have no PendingChildKeys after revert"
+        );
+    })
+}
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_uids_and_keys --exact --nocapture
+#[test]
+fn test_revert_hotkey_swap_uids_and_keys() {
+    new_test_ext(1).execute_with(|| {
+        let uid = 5u16;
+        let hk1 = U256::from(1);
+        let hk2 = U256::from(2);
+        let coldkey = U256::from(3);
+
+        let netuid = add_dynamic_network(&hk1, &coldkey);
+        let netuid2 = add_dynamic_network(&hk1, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+
+        IsNetworkMember::<Test>::insert(hk1, netuid, true);
+        Uids::<Test>::insert(netuid, hk1, uid);
+        Keys::<Test>::insert(netuid, uid, hk1);
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk1,
+            &hk2,
+            Some(netuid)
+        ));
+
+        assert_eq!(Uids::<Test>::get(netuid, hk1), None);
+        assert_eq!(Uids::<Test>::get(netuid, hk2), Some(uid));
+        assert_eq!(Keys::<Test>::get(netuid, uid), hk2);
+
+        // Revert: hk2 -> hk1
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk2,
+            &hk1,
+            Some(netuid)
+        ));
+
         assert_eq!(
-            ChildKeys::<Test>::get(parent1, netuid),
-            vec![(100u64, hk1)],
-            "parent1 ChildKeys must point back to hk1 after revert"
+            Uids::<Test>::get(netuid, hk2),
+            None,
+            "hk2 must have no uid after revert"
         );
         assert_eq!(
-            ChildKeys::<Test>::get(parent2, netuid),
-            vec![(200u64, hk1)],
-            "parent2 ChildKeys must point back to hk1 after revert"
+            Uids::<Test>::get(netuid, hk1),
+            Some(uid),
+            "hk1 must have its uid restored after revert"
+        );
+        assert_eq!(
+            Keys::<Test>::get(netuid, uid),
+            hk1,
+            "Keys must point back to hk1 after revert"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_auto_stake_destination --exact --nocapture
+#[test]
+fn test_revert_hotkey_swap_auto_stake_destination() {
+    new_test_ext(1).execute_with(|| {
+        let hk1 = U256::from(1);
+        let hk2 = U256::from(2);
+        let coldkey = U256::from(3);
+        let netuid = NetUid::from(2u16);
+        let netuid2 = NetUid::from(3u16);
+        let staker1 = U256::from(4);
+        let staker2 = U256::from(5);
+        let coldkeys = vec![staker1, staker2, coldkey];
+
+        add_network(netuid, 1, 0);
+        add_network(netuid2, 1, 0);
+        register_ok_neuron(netuid, hk1, coldkey, 0);
+        register_ok_neuron(netuid2, hk1, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+
+        AutoStakeDestinationColdkeys::<Test>::insert(hk1, netuid, coldkeys.clone());
+        AutoStakeDestination::<Test>::insert(coldkey, netuid, hk1);
+        AutoStakeDestination::<Test>::insert(staker1, netuid, hk1);
+        AutoStakeDestination::<Test>::insert(staker2, netuid, hk1);
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk1,
+            &hk2,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            AutoStakeDestinationColdkeys::<Test>::get(hk2, netuid),
+            coldkeys
+        );
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(hk1, netuid).is_empty());
+        assert_eq!(AutoStakeDestination::<Test>::get(coldkey, netuid), Some(hk2));
+        assert_eq!(AutoStakeDestination::<Test>::get(staker1, netuid), Some(hk2));
+        assert_eq!(AutoStakeDestination::<Test>::get(staker2, netuid), Some(hk2));
+
+        // Revert: hk2 -> hk1
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk2,
+            &hk1,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            AutoStakeDestinationColdkeys::<Test>::get(hk1, netuid),
+            coldkeys,
+            "AutoStakeDestinationColdkeys must be restored to hk1 after revert"
+        );
+        assert!(
+            AutoStakeDestinationColdkeys::<Test>::get(hk2, netuid).is_empty(),
+            "hk2 must have no AutoStakeDestinationColdkeys after revert"
+        );
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(coldkey, netuid),
+            Some(hk1),
+            "coldkey AutoStakeDestination must point back to hk1 after revert"
+        );
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(staker1, netuid),
+            Some(hk1),
+            "staker1 AutoStakeDestination must point back to hk1 after revert"
+        );
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(staker2, netuid),
+            Some(hk1),
+            "staker2 AutoStakeDestination must point back to hk1 after revert"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_subnet_owner --exact --nocapture
+#[test]
+fn test_revert_hotkey_swap_subnet_owner() {
+    new_test_ext(1).execute_with(|| {
+        let hk1 = U256::from(1);
+        let hk2 = U256::from(2);
+        let coldkey = U256::from(3);
+
+        let netuid = add_dynamic_network(&hk1, &coldkey);
+        let netuid2 = add_dynamic_network(&hk1, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), hk1);
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk1,
+            &hk2,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            SubnetOwnerHotkey::<Test>::get(netuid),
+            hk2,
+            "hk2 must be subnet owner after swap"
+        );
+
+        // Revert: hk2 -> hk1
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk2,
+            &hk1,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            SubnetOwnerHotkey::<Test>::get(netuid),
+            hk1,
+            "hk1 must be restored as subnet owner after revert"
         );
     });
 }
