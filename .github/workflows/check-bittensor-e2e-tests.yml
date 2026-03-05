@@ -26,7 +26,6 @@ env:
 
 jobs:
   check-label:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.number != 2483 }}
     runs-on: ubuntu-latest
     outputs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests || steps.set-default.outputs.skip-bittensor-e2e-tests }}

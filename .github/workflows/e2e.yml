@@ -19,8 +19,9 @@ permissions:
 jobs:
   # Build the node binary in both variants and share as artifacts.
   build:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.number != 2483 }}
-    runs-on: [self-hosted, type-ccx33]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem, type-ccx33]
     timeout-minutes: 60
     strategy:
       matrix:
@@ -65,7 +66,6 @@ jobs:
 
   # Discover e2e packages that have a "test" script.
   discover:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.number != 2483 }}
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.find.outputs.packages }}
@@ -96,8 +96,10 @@ jobs:
   # Run each e2e package's tests in parallel.
   test:
     needs: [build, discover]
-    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.number != 2483) && needs.discover.outputs.packages != '[]' }}
-    runs-on: [self-hosted, type-ccx33]
+    if: ${{ needs.discover.outputs.packages != '[]' }}
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem, type-ccx33]
     timeout-minutes: 30
     strategy:
       fail-fast: false
