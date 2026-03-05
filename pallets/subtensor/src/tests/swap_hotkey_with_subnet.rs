@@ -1963,7 +1963,7 @@ fn test_revert_hotkey_swap_dividends() {
         let amount = 10_000;
         let shares = U64F64::from_num(123456);
 
-        TotalHotkeyAlpha::<Test>::insert(hk1, netuid, AlphaBalance::from(amount).into());
+        TotalHotkeyAlpha::<Test>::insert(hk1, netuid, AlphaBalance::from(amount));
         TotalHotkeyAlphaLastEpoch::<Test>::insert(hk1, netuid, AlphaBalance::from(amount * 2));
         TotalHotkeyShares::<Test>::insert(hk1, netuid, U64F64::from_num(shares));
         Alpha::<Test>::insert((hk1, coldkey, netuid), U64F64::from_num(amount));
