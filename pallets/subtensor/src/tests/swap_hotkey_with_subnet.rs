@@ -2047,3 +2047,38 @@ fn test_revert_hotkey_swap_dividends() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_voting_power_transfers_on_hotkey_swap --exact --nocapture
+#[test]
+fn test_revert_voting_power_transfers_on_hotkey_swap() {
+    new_test_ext(1).execute_with(|| {
+        let hk1 = U256::from(1);
+        let hk2 = U256::from(99);
+        let coldkey = U256::from(2);
+        let netuid = add_dynamic_network(&hk1, &coldkey);
+        let voting_power_value = 5_000_000_000_000_u64;
+
+        VotingPower::<Test>::insert(netuid, hk1, voting_power_value);
+        assert_eq!(SubtensorModule::get_voting_power(netuid, &hk1), voting_power_value);
+        assert_eq!(SubtensorModule::get_voting_power(netuid, &hk2), 0);
+
+        SubtensorModule::swap_voting_power_for_hotkey(&hk1, &hk2, netuid);
+
+        assert_eq!(SubtensorModule::get_voting_power(netuid, &hk1), 0);
+        assert_eq!(SubtensorModule::get_voting_power(netuid, &hk2), voting_power_value);
+
+        // Revert: hk2 -> hk1
+        SubtensorModule::swap_voting_power_for_hotkey(&hk2, &hk1, netuid);
+
+        assert_eq!(
+            SubtensorModule::get_voting_power(netuid, &hk1),
+            voting_power_value,
+            "hk1 voting power must be fully restored after revert"
+        );
+        assert_eq!(
+            SubtensorModule::get_voting_power(netuid, &hk2),
+            0,
+            "hk2 must have no voting power after revert"
+        );
+    });
+}
