@@ -1579,7 +1579,10 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
 
         let hk1_stake_before_increase =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid);
-        assert!(hk1_stake_before_increase == 0.into(), "hk1 should have empty stake");
+        assert!(
+            hk1_stake_before_increase == 0.into(),
+            "hk1 should have empty stake"
+        );
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
@@ -1590,7 +1593,10 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
 
         let hk1_stake_before_swap =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid);
-        assert!(hk1_stake_before_swap == 1_000_000_000.into(), "hk1 should have stake before swap");
+        assert!(
+            hk1_stake_before_swap == 1_000_000_000.into(),
+            "hk1 should have stake before swap"
+        );
 
         step_block(20);
 
@@ -1636,7 +1642,11 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
         );
 
         // hk2 should be empty
-        assert_eq!(hk2_stake_after_revert, 0.into(), "hk2 should have no stake after revert");
+        assert_eq!(
+            hk2_stake_after_revert,
+            0.into(),
+            "hk2 should have no stake after revert"
+        );
     });
 }
 
@@ -1669,7 +1679,9 @@ fn test_revert_hotkey_swap() {
             Some(netuid)
         ));
 
-        assert!(SubtensorModule::is_hotkey_registered_on_any_network(&old_hotkey));
+        assert!(SubtensorModule::is_hotkey_registered_on_any_network(
+            &old_hotkey
+        ));
 
         step_block(20);
 
@@ -1705,10 +1717,7 @@ fn test_revert_hotkey_swap_parent_hotkey_childkey_maps() {
             ParentKeys::<Test>::get(child, netuid),
             vec![(u64::MAX, hk1)]
         );
-        assert_eq!(
-            ChildKeys::<Test>::get(hk1, netuid),
-            vec![(u64::MAX, child)]
-        );
+        assert_eq!(ChildKeys::<Test>::get(hk1, netuid), vec![(u64::MAX, child)]);
         let existing_pending_child_keys = PendingChildKeys::<Test>::get(netuid, hk1);
         assert_eq!(existing_pending_child_keys.0, vec![(u64::MAX, child_other)]);
 
@@ -1724,10 +1733,7 @@ fn test_revert_hotkey_swap_parent_hotkey_childkey_maps() {
             ParentKeys::<Test>::get(child, netuid),
             vec![(u64::MAX, hk2)]
         );
-        assert_eq!(
-            ChildKeys::<Test>::get(hk2, netuid),
-            vec![(u64::MAX, child)]
-        );
+        assert_eq!(ChildKeys::<Test>::get(hk2, netuid), vec![(u64::MAX, child)]);
         assert_eq!(
             PendingChildKeys::<Test>::get(netuid, hk2),
             existing_pending_child_keys
@@ -1863,9 +1869,18 @@ fn test_revert_hotkey_swap_auto_stake_destination() {
             coldkeys
         );
         assert!(AutoStakeDestinationColdkeys::<Test>::get(hk1, netuid).is_empty());
-        assert_eq!(AutoStakeDestination::<Test>::get(coldkey, netuid), Some(hk2));
-        assert_eq!(AutoStakeDestination::<Test>::get(staker1, netuid), Some(hk2));
-        assert_eq!(AutoStakeDestination::<Test>::get(staker2, netuid), Some(hk2));
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(coldkey, netuid),
+            Some(hk2)
+        );
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(staker1, netuid),
+            Some(hk2)
+        );
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(staker2, netuid),
+            Some(hk2)
+        );
 
         // Revert: hk2 -> hk1
         step_block(20);
@@ -1977,16 +1992,46 @@ fn test_revert_hotkey_swap_dividends() {
             Some(netuid)
         ));
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hk1, netuid), AlphaBalance::ZERO);
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hk2, netuid), AlphaBalance::from(amount));
-        assert_eq!(TotalHotkeyAlphaLastEpoch::<Test>::get(hk1, netuid), AlphaBalance::ZERO);
-        assert_eq!(TotalHotkeyAlphaLastEpoch::<Test>::get(hk2, netuid), AlphaBalance::from(amount * 2));
-        assert_eq!(TotalHotkeyShares::<Test>::get(hk1, netuid), U64F64::from_num(0));
-        assert_eq!(TotalHotkeyShares::<Test>::get(hk2, netuid), U64F64::from_num(shares));
-        assert_eq!(Alpha::<Test>::get((hk1, coldkey, netuid)), U64F64::from_num(0));
-        assert_eq!(Alpha::<Test>::get((hk2, coldkey, netuid)), U64F64::from_num(amount));
-        assert_eq!(AlphaDividendsPerSubnet::<Test>::get(netuid, hk1), AlphaBalance::ZERO);
-        assert_eq!(AlphaDividendsPerSubnet::<Test>::get(netuid, hk2), AlphaBalance::from(amount));
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(hk1, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(hk2, netuid),
+            AlphaBalance::from(amount)
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hk1, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hk2, netuid),
+            AlphaBalance::from(amount * 2)
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(hk1, netuid),
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(hk2, netuid),
+            U64F64::from_num(shares)
+        );
+        assert_eq!(
+            Alpha::<Test>::get((hk1, coldkey, netuid)),
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            Alpha::<Test>::get((hk2, coldkey, netuid)),
+            U64F64::from_num(amount)
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hk1),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hk2),
+            AlphaBalance::from(amount)
+        );
 
         // Revert: hk2 -> hk1
         step_block(20);
@@ -2061,13 +2106,19 @@ fn test_revert_voting_power_transfers_on_hotkey_swap() {
         let voting_power_value = 5_000_000_000_000_u64;
 
         VotingPower::<Test>::insert(netuid, hk1, voting_power_value);
-        assert_eq!(SubtensorModule::get_voting_power(netuid, &hk1), voting_power_value);
+        assert_eq!(
+            SubtensorModule::get_voting_power(netuid, &hk1),
+            voting_power_value
+        );
         assert_eq!(SubtensorModule::get_voting_power(netuid, &hk2), 0);
 
         SubtensorModule::swap_voting_power_for_hotkey(&hk1, &hk2, netuid);
 
         assert_eq!(SubtensorModule::get_voting_power(netuid, &hk1), 0);
-        assert_eq!(SubtensorModule::get_voting_power(netuid, &hk2), voting_power_value);
+        assert_eq!(
+            SubtensorModule::get_voting_power(netuid, &hk2),
+            voting_power_value
+        );
 
         // Revert: hk2 -> hk1
         SubtensorModule::swap_voting_power_for_hotkey(&hk2, &hk1, netuid);
