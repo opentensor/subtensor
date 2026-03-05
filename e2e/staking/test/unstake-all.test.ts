@@ -11,6 +11,7 @@ import {
   addStake,
   unstakeAll,
   getStake,
+  sudoSetTempo,
   tao,
   log,
 } from "e2e-shared";
@@ -44,6 +45,10 @@ describe("▶ unstake_all extrinsic", () => {
     // Create second subnet with owner2
     const netuid2 = await addNewSubnetwork(api, owner2Hotkey, coldkey);
     await startCall(api, netuid2, coldkey);
+
+    // Set high tempo to prevent emissions during test
+    await sudoSetTempo(api, netuid1, 10000);
+    await sudoSetTempo(api, netuid2, 10000);
 
     // Register stakerHotkey on both subnets (it's not the owner)
     await burnedRegister(api, netuid1, stakerAddress, coldkey);

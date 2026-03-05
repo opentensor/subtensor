@@ -11,6 +11,7 @@ import {
   addStake,
   removeStakeFullLimit,
   getStake,
+  sudoSetTempo,
   tao,
   log,
 } from "e2e-shared";
@@ -32,6 +33,8 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     await forceSetBalance(api, coldkeyAddress);
     netuid = await addNewSubnetwork(api, ownerHotkey, coldkey);
     await startCall(api, netuid, coldkey);
+    // Set high tempo to prevent emissions during test
+    await sudoSetTempo(api, netuid, 10000);
     // Register staker hotkey (not the owner)
     await burnedRegister(api, netuid, stakerAddress, coldkey);
   });

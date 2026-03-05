@@ -10,6 +10,7 @@ import {
   addStake,
   unstakeAllAlpha,
   getStake,
+  sudoSetTempo,
   tao,
   log,
 } from "e2e-shared";
@@ -44,6 +45,10 @@ describe("▶ unstake_all_alpha extrinsic", () => {
     const netuid2 = await addNewSubnetwork(api, owner2Hotkey, coldkey);
     await startCall(api, netuid2, coldkey);
 
+    // Set very high tempo to prevent emissions during test
+    await sudoSetTempo(api, netuid1, 10000);
+    await sudoSetTempo(api, netuid2, 10000);
+
     // Register stakerHotkey on both subnets (it's not the owner)
     await burnedRegister(api, netuid1, stakerAddress, coldkey);
     await burnedRegister(api, netuid2, stakerAddress, coldkey);
@@ -70,11 +75,9 @@ describe("▶ unstake_all_alpha extrinsic", () => {
     log.info(`Stake1 after: ${stake1After}, Stake2 after: ${stake2After}`);
 
     // Since stakerHotkey is not the owner of either subnet, all stake should be removed
-    // Allow small epsilon for emissions that may accumulate during test execution
-    // Observed residual: ~0.01 TAO from emissions during test
-    const epsilon = tao(1) / 10n; // 0.1 TAO tolerance
-    expect(stake1After, "Stake1 should be approximately zero after unstake_all_alpha").toBeLessThan(epsilon);
-    expect(stake2After, "Stake2 should be approximately zero after unstake_all_alpha").toBeLessThan(epsilon);
+    // High tempo prevents emissions during test, so expect exact zero
+    expect(stake1After, "Stake1 should be zero after unstake_all_alpha").toBe(0n);
+    expect(stake2After, "Stake2 should be zero after unstake_all_alpha").toBe(0n);
 
     log.info("✅ Successfully unstaked all alpha from multiple subnets to root.");
   });
