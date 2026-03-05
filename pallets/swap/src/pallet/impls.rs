@@ -1198,7 +1198,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
                 let alpha_reserve = u64::from(T::AlphaReserve::reserve(netuid.into())) as u128;
                 let tao_da = tao_reserve.saturating_mul(u64::from(alpha_amount) as u128);
                 let new_alpha_reserve =
-                    alpha_reserve.saturating_add(u64::from(alpha_amount) as u128);
+                    alpha_reserve.saturating_sub(u64::from(alpha_amount) as u128);
                 let mut tao_amount_u128 = tao_da.safe_div(new_alpha_reserve);
                 if tao_amount_u128 > u64::MAX as u128 {
                     tao_amount_u128 = u64::MAX as u128;

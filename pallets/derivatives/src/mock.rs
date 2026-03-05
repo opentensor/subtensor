@@ -7,7 +7,8 @@
 use crate::{DerivativeSwapInterface, DispatchError};
 use core::num::NonZeroU64;
 use frame_support::{
-    PalletId, derive_impl, parameter_types,
+    ensure, PalletId, derive_impl, parameter_types,
+    pallet_prelude::DispatchResult,
     traits::{OnFinalize, OnInitialize},
 };
 use sp_runtime::{BuildStorage, traits::IdentityLookup};
@@ -70,10 +71,6 @@ impl pallet_balances::Config for Test {
     type AccountStore = System;
 }
 
-parameter_types! {
-    pub const DerivativesPalletId: PalletId = PalletId(*b"bt/deriv");
-}
-
 pub struct MockSwap;
 
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
@@ -94,7 +91,7 @@ impl MockSwap {
 }
 
 impl DerivativeSwapInterface for MockSwap {
-    fn buy(netuid: NetUid, tao: TaoCurrency) -> AlphaCurrency {
+    fn buy(netuid: NetUid, tao: TaoCurrency) -> Result<AlphaCurrency, DispatchError> {
         let order = GetAlphaForTao::with_amount(tao);
         let max_price = <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::max_price();
         let swap_result = <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::swap(
@@ -103,11 +100,15 @@ impl DerivativeSwapInterface for MockSwap {
             max_price,
             true,
             false,
-        )
-        .unwrap();
-        swap_result.amount_paid_out
+        )?;
+        // Update reserves (swap pallet doesn't do that)
+        let alpha_in_old = AlphaReserve::reserve(netuid);
+        let tao_in_old = TaoReserve::reserve(netuid);
+        AlphaReserve::set_mock_reserve(netuid, alpha_in_old - swap_result.amount_paid_out);
+        TaoReserve::set_mock_reserve(netuid, tao_in_old + swap_result.amount_paid_in);
+        Ok(swap_result.amount_paid_out)
     }
-    fn sell(netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency {
+    fn sell(netuid: NetUid, alpha: AlphaCurrency) -> Result<TaoCurrency, DispatchError> {
         let order = GetTaoForAlpha::with_amount(alpha);
         let min_price = <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::min_price();
         let swap_result = <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::swap(
@@ -116,13 +117,22 @@ impl DerivativeSwapInterface for MockSwap {
             min_price,
             true,
             false,
-        )
-        .unwrap();
-        swap_result.amount_paid_out
+        )?;
+        // Update reserves (swap pallet doesn't do that)
+        let alpha_in_old = AlphaReserve::reserve(netuid);
+        let tao_in_old = TaoReserve::reserve(netuid);
+        AlphaReserve::set_mock_reserve(netuid, alpha_in_old + swap_result.amount_paid_in);
+        TaoReserve::set_mock_reserve(netuid, tao_in_old - swap_result.amount_paid_out);
+        Ok(swap_result.amount_paid_out)
     }
     fn get_tao_for_alpha_amount(netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency {
         <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::get_tao_amount_for_alpha(
             netuid, alpha,
+        )
+    }
+    fn get_alpha_for_tao_amount(netuid: NetUid, tao: TaoCurrency) -> AlphaCurrency {
+        <pallet_subtensor_swap::Pallet<Test> as SwapHandler>::get_alpha_amount_for_tao(
+            netuid, tao,
         )
     }
     fn mint_alpha(netuid: NetUid, alpha: AlphaCurrency) {
@@ -140,19 +150,28 @@ impl DerivativeSwapInterface for MockSwap {
     fn get_alpha_ema_price(_netuid: NetUid) -> U96F32 {
         U96F32::from_num(0.001)
     }
+    fn decrease_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) -> DispatchResult {
+        // TODO: Implement the removal on the swap level (so that it updates the price)
+
+        let alpha_in = AlphaReserve::reserve(netuid);
+        ensure!(alpha <= alpha_in, DispatchError::Other("Alpha out of bounds"));
+        AlphaReserve::set_mock_reserve(netuid, alpha_in - alpha);
+        Ok(())
+    }
 }
 
 parameter_types! {
     pub const CollateralRatio: u64 = 2_000_000_000;
+    pub const MinPositionSize: TaoCurrency = TaoCurrency::new(1_000_000_000);
 }
 
 impl pallet_derivatives::Config for Test {
-    type PalletId = DerivativesPalletId;
     type BalanceOps = MockBalanceOps;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type SwapInterface = MockSwap;
     type CollateralRatio = CollateralRatio;
+    type MinPositionSize = MinPositionSize;
 }
 
 #[allow(dead_code)]
@@ -277,8 +296,10 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         tao: TaoCurrency,
     ) -> Result<TaoCurrency, DispatchError> {
         let old = Self::tao_balance(coldkey);
+        if old < tao {
+            return Err(DispatchError::Other("Insufficient balance"));
+        }
         MOCK_TAO_BALANCES.with(|m| {
-            // Just panic on underflows
             m.borrow_mut().insert(*coldkey, old - tao);
         });
         Ok(tao)
@@ -304,8 +325,10 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         alpha: AlphaCurrency,
     ) -> Result<AlphaCurrency, DispatchError> {
         let old = Self::alpha_balance(netuid, coldkey, hotkey);
+        if old < alpha {
+            return Err(DispatchError::Other("Insufficient stake"));
+        }
         MOCK_ALPHA_BALANCES.with(|m| {
-            // Just panic on underflows
             m.borrow_mut().insert(*coldkey, old - alpha);
         });
         Ok(alpha)

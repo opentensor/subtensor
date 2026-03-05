@@ -6,7 +6,6 @@ extern crate alloc;
 use alloc::vec;
 use codec::{Decode, Encode};
 use frame_support::{
-    PalletId,
     dispatch::GetDispatchInfo,
     pallet_prelude::*,
     sp_runtime::{RuntimeDebug, traits::Dispatchable},
@@ -20,23 +19,19 @@ use weights::WeightInfo;
 pub use pallet::*;
 use substrate_fixed::types::U96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, BalanceOps, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaCurrency, BalanceOps, Currency, NetUid, TaoCurrency};
 
 mod benchmarking;
 mod mock;
 mod tests;
 pub mod weights;
 
-// pub type CurrencyOf<T> = <T as Config>::Currency;
-
-// pub type BalanceOf<T> =
-//     <CurrencyOf<T> as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
-
 #[derive(
     Encode,
     Clone,
     Decode,
     DecodeWithMemTracking,
+    Default,
     Eq,
     PartialEq,
     Ord,
@@ -46,12 +41,13 @@ pub mod weights;
     MaxEncodedLen,
 )]
 pub enum PositionType {
+    #[default]
     Short,
 }
 
 /// Derivative position
-#[freeze_struct("bf80645cdc8a430")]
-#[derive(Encode, Decode, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[freeze_struct("8a67a79bd2ec3369")]
+#[derive(Encode, Decode, Default, Eq, PartialEq, Ord, PartialOrd, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct DerivativePosition<AccountId> {
     /// The hotkey against which the Alpha in this position is accounted
     pub hotkey: AccountId,
@@ -70,17 +66,21 @@ pub struct DerivativePosition<AccountId> {
 /// Trait for integration with the swap
 pub trait DerivativeSwapInterface {
     /// Buy alpha with a given tao amount
-    fn buy(netuid: NetUid, tao: TaoCurrency) -> AlphaCurrency;
+    fn buy(netuid: NetUid, tao: TaoCurrency) -> Result<AlphaCurrency, DispatchError>;
     /// Buy tao with a given alpha amount
-    fn sell(netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency;
+    fn sell(netuid: NetUid, alpha: AlphaCurrency) -> Result<TaoCurrency, DispatchError>;
     /// Get the amount of tao needed to buy the given amount of alpha
     fn get_tao_for_alpha_amount(netuid: NetUid, alpha: AlphaCurrency) -> TaoCurrency;
+    /// Get the amount of alpha needed to buy the given amount of tao
+    fn get_alpha_for_tao_amount(netuid: NetUid, tao: TaoCurrency) -> AlphaCurrency;
     /// Mint alpha
     fn mint_alpha(netuid: NetUid, alpha: AlphaCurrency);
     /// Burn alpha
     fn burn_alpha(netuid: NetUid, alpha: AlphaCurrency);
     /// Get alpha EMA price
     fn get_alpha_ema_price(netuid: NetUid) -> U96F32;
+    /// Remove alpha from reserve and update price accordingly
+    fn decrease_alpha_reserve(netuid: NetUid, alpha: AlphaCurrency) -> DispatchResult;
 }
 
 pub type PositionInfoOf<T> = DerivativePosition<<T as frame_system::Config>::AccountId>;
@@ -114,15 +114,14 @@ pub mod pallet {
         /// The weight information for the pallet.
         type WeightInfo: WeightInfo;
 
-        /// The pallet id that will be used to keep collateral
-        #[pallet::constant]
-        type PalletId: Get<PalletId>;
-
         /// The mechanism to swap, mint, and burn
         type SwapInterface: DerivativeSwapInterface;
 
         /// Collateral ratio per billion
         type CollateralRatio: Get<u64>;
+
+        /// Minimum position size in TAO
+        type MinPositionSize: Get<TaoCurrency>;
     }
 
     /// A map of open positions
@@ -168,7 +167,16 @@ pub mod pallet {
     }
 
     #[pallet::error]
-    pub enum Error<T> {}
+    pub enum Error<T> {
+        /// No open position exists
+        NoOpenPosition,
+        /// Trying to close for greater size than open position
+        InsufficientPositionSize,
+        /// Position size is too low
+        AmountTooLow,
+        /// Insufficient TAO balance to open position
+        InsufficientBalance,
+    }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -217,8 +225,12 @@ pub mod pallet {
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
+            // Make sure position size is above the limit
+            ensure!(tao_amount >= T::MinPositionSize::get(), Error::<T>::AmountTooLow);
+
             // Withdraw collateral
-            let tao_collateral = T::BalanceOps::decrease_balance(&coldkey, tao_amount)?;
+            let tao_collateral = T::BalanceOps::decrease_balance(&coldkey, tao_amount)
+                .map_err(|_| Error::<T>::InsufficientBalance)?;
 
             // Set off the collateral ratio
             let collateral_ratio = Self::get_collateral_ratio();
@@ -235,7 +247,7 @@ pub mod pallet {
             T::SwapInterface::mint_alpha(netuid, alpha_amount);
 
             // Sell minted alpha
-            let tao_proceeds = T::SwapInterface::sell(netuid, alpha_amount);
+            let tao_proceeds = T::SwapInterface::sell(netuid, alpha_amount)?;
 
             // Create/update position
             Self::upsert_short_position_add(
@@ -263,17 +275,15 @@ pub mod pallet {
 
         /// Close a short position at the specified subnet and hotkey.
         ///
-        ///   - Buy alpha_amount from pool with collateral, burn it
-        ///     - If the result is less alpha than was minted, take more alpha from
-        ///       reserves to match
-        ///     - If the result is more alpha than was minted, sell the difference
-        ///       and credit the received TAO to coldkey balance
+        ///   - Buy position alpha amount from pool with collateral + proceeds, burn it
+        ///     - If total tao is not enough, remove the alpha remainder from
+        ///       the alpha reserve
+        ///     - If any total tao left, credit the remainder to the coldkey
+        ///       balance
         ///   - Update position accordingly
         ///
         /// Parameters:
-        /// - `hotkey`: The hotkey at which alpha is recorded
         /// - `netuid`: Subnet ID
-        /// - `alpha_amount`: Position size in alpha
         #[pallet::call_index(1)]
         #[pallet::weight((
             Weight::from_parts(100_000, 0)
@@ -283,12 +293,59 @@ pub mod pallet {
             Pays::Yes
         ))]
         pub fn close_short(
-            _origin: T::RuntimeOrigin,
-            _hotkey: T::AccountId,
-            _netuid: NetUid,
-            _alpha_amount: AlphaCurrency,
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
         ) -> DispatchResult {
-            todo!()
+            let coldkey = ensure_signed(origin)?;
+
+            // Get the current open short position
+            let maybe_position = Positions::<T>::get((coldkey.clone(), netuid));
+            let position = maybe_position.ok_or(Error::<T>::NoOpenPosition)?;
+
+            // Get the position size
+            let alpha_amount = position.size;
+
+            // Calculate how much tao we need to buy the minted alpha back
+            let tao_required_to_close = T::SwapInterface::get_tao_for_alpha_amount(netuid, alpha_amount);
+
+            // Buy minted alpha back
+            let alpha_amount_actual = T::SwapInterface::buy(netuid, tao_required_to_close)?;
+
+            // Calculate the position tao remainder and act accordingly
+            let total_tao = position.tao_collateral.saturating_add(position.tao_proceeds);
+            if total_tao > tao_required_to_close {
+                // Deposit remaining tao
+                let tao_remainder = total_tao.saturating_sub(tao_required_to_close);
+                T::BalanceOps::increase_balance(&coldkey, tao_remainder);
+            } 
+
+            // Calculate alpha needed to cover the loss if any and remove from alpha reserve
+            if alpha_amount > alpha_amount_actual {
+                let alpha_remainder = alpha_amount.saturating_sub(alpha_amount_actual);
+                T::SwapInterface::decrease_alpha_reserve(netuid, alpha_remainder)?;
+            }
+            T::SwapInterface::burn_alpha(netuid, alpha_amount);
+
+            // Calculate the average close price
+            let close_price = U96F32::saturating_from_num(u64::from(tao_required_to_close)).safe_div(U96F32::saturating_from_num(alpha_amount));
+
+            // Delete position
+            Positions::<T>::remove((coldkey.clone(), netuid));
+
+            // Emit event
+            Self::deposit_event(Event::Closed {
+                netuid,
+                coldkey,
+                hotkey,
+                pos_type: PositionType::Short,
+                size: alpha_amount,
+                close_price,
+                liquidation: false,
+                partial: false,
+            });
+
+            Ok(())
         }
     }
 }
@@ -307,7 +364,7 @@ impl<T: Config> Pallet<T> {
         tao_proceeds: TaoCurrency,
         size: AlphaCurrency,
     ) {
-        let mut liquidation_price;
+        let liquidation_price;
         let new_position = if let Some(position) = Positions::<T>::get((coldkey.clone(), netuid)) {
             // Update liquidation price
             // TBD
