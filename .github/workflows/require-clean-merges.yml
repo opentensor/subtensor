@@ -9,7 +9,7 @@ on:
 
 jobs:
   assert-clean-merges:
-    runs-on: [self-hosted, fireactions-bench, fireactions-low]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   publish-dryrun:
-    runs-on: [self-hosted, fireactions-bench, fireactions-highperf]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
     timeout-minutes: 45
     steps:
       - name: Enforce dry-run mode

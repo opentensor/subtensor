@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   comment_on_breaking_change:
-    runs-on: [self-hosted, fireactions-bench, fireactions-low]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
     steps:
       - name: Check if 'breaking change' label is added
         if: github.event.label.name == 'breaking-change'

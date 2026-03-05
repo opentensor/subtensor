@@ -95,7 +95,7 @@ jobs:
       matrix:
         platform:
           # triple names used `in scripts/install_prebuilt_binaries.sh` file
-          - runner: [self-hosted, fireactions-bench, fireactions-highmem]
+          - runner: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
             triple: x86_64-unknown-linux-gnu
             arch: amd64
           - runner: [ubuntu-24.04-arm]
@@ -164,7 +164,7 @@ jobs:
   # Collect all artifacts and publish them to docker repo
   docker:
     needs: [setup, artifacts]
-    runs-on: [self-hosted, fireactions-bench, fireactions-highperf]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
     defaults:
       run:
         working-directory: ${{ github.workspace }}

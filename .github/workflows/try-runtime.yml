@@ -14,7 +14,7 @@ jobs:
   check-devnet:
     name: check devnet
     if: github.base_ref != 'main'
-    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
     env:
       CARGO_BUILD_JOBS: 6
     steps:
@@ -47,7 +47,7 @@ jobs:
   check-testnet:
     name: check testnet
     if: github.base_ref != 'main'
-    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
     env:
       CARGO_BUILD_JOBS: 6
     steps:
@@ -80,7 +80,7 @@ jobs:
   check-finney:
     name: check finney
     # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
-    runs-on: [self-hosted, fireactions-bench, fireactions-highperf]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
     env:
       CARGO_BUILD_JOBS: 6
     steps:

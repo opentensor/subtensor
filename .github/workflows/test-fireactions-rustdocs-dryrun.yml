@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   build-docs-dryrun:
-    runs-on: [self-hosted, fireactions-bench, fireactions-standard]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
     timeout-minutes: 90
     env:
       CARGO_BUILD_JOBS: 4

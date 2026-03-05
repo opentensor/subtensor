@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   update-chainspecs-dryrun:
-    runs-on: [self-hosted, fireactions-bench, fireactions-highmem]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
     timeout-minutes: 120
     env:
       CARGO_TERM_COLOR: always

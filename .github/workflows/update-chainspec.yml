@@ -19,7 +19,7 @@ env:
 
 jobs:
   update-chainspecs:
-    runs-on: [self-hosted, fireactions-bench, fireactions-standard]
+    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
     permissions:
       contents: write
     if: >
