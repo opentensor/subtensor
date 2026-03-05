@@ -1945,3 +1945,105 @@ fn test_revert_hotkey_swap_subnet_owner() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_dividends --exact --nocapture
+#[test]
+fn test_revert_hotkey_swap_dividends() {
+    new_test_ext(1).execute_with(|| {
+        let hk1 = U256::from(1);
+        let hk2 = U256::from(2);
+        let coldkey = U256::from(3);
+
+        let netuid = add_dynamic_network(&hk1, &coldkey);
+        let netuid2 = add_dynamic_network(&hk1, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX);
+
+        let amount = 10_000;
+        let shares = U64F64::from_num(123456);
+
+        TotalHotkeyAlpha::<Test>::insert(hk1, netuid, AlphaCurrency::from(amount));
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(hk1, netuid, AlphaCurrency::from(amount * 2));
+        TotalHotkeyShares::<Test>::insert(hk1, netuid, U64F64::from_num(shares));
+        Alpha::<Test>::insert((hk1, coldkey, netuid), U64F64::from_num(amount));
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, hk1, AlphaCurrency::from(amount));
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk1,
+            &hk2,
+            Some(netuid)
+        ));
+
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hk1, netuid), AlphaCurrency::ZERO);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hk2, netuid), AlphaCurrency::from(amount));
+        assert_eq!(TotalHotkeyAlphaLastEpoch::<Test>::get(hk1, netuid), AlphaCurrency::ZERO);
+        assert_eq!(TotalHotkeyAlphaLastEpoch::<Test>::get(hk2, netuid), AlphaCurrency::from(amount * 2));
+        assert_eq!(TotalHotkeyShares::<Test>::get(hk1, netuid), U64F64::from_num(0));
+        assert_eq!(TotalHotkeyShares::<Test>::get(hk2, netuid), U64F64::from_num(shares));
+        assert_eq!(Alpha::<Test>::get((hk1, coldkey, netuid)), U64F64::from_num(0));
+        assert_eq!(Alpha::<Test>::get((hk2, coldkey, netuid)), U64F64::from_num(amount));
+        assert_eq!(AlphaDividendsPerSubnet::<Test>::get(netuid, hk1), AlphaCurrency::ZERO);
+        assert_eq!(AlphaDividendsPerSubnet::<Test>::get(netuid, hk2), AlphaCurrency::from(amount));
+
+        // Revert: hk2 -> hk1
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &hk2,
+            &hk1,
+            Some(netuid)
+        ));
+
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(hk2, netuid),
+            AlphaCurrency::ZERO,
+            "hk2 TotalHotkeyAlpha must be zero after revert"
+        );
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(hk1, netuid),
+            AlphaCurrency::from(amount),
+            "hk1 TotalHotkeyAlpha must be restored after revert"
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hk2, netuid),
+            AlphaCurrency::ZERO,
+            "hk2 TotalHotkeyAlphaLastEpoch must be zero after revert"
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hk1, netuid),
+            AlphaCurrency::from(amount * 2),
+            "hk1 TotalHotkeyAlphaLastEpoch must be restored after revert"
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(hk2, netuid),
+            U64F64::from_num(0),
+            "hk2 TotalHotkeyShares must be zero after revert"
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(hk1, netuid),
+            U64F64::from_num(shares),
+            "hk1 TotalHotkeyShares must be restored after revert"
+        );
+        assert_eq!(
+            Alpha::<Test>::get((hk2, coldkey, netuid)),
+            U64F64::from_num(0),
+            "hk2 Alpha must be zero after revert"
+        );
+        assert_eq!(
+            Alpha::<Test>::get((hk1, coldkey, netuid)),
+            U64F64::from_num(amount),
+            "hk1 Alpha must be restored after revert"
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hk2),
+            AlphaCurrency::ZERO,
+            "hk2 AlphaDividendsPerSubnet must be zero after revert"
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hk1),
+            AlphaCurrency::from(amount),
+            "hk1 AlphaDividendsPerSubnet must be restored after revert"
+        );
+    });
+}
