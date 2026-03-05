@@ -16,7 +16,9 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
 
     steps:
       - name: Checkout code
@@ -55,7 +57,9 @@ jobs:
 
   deploy:
         needs: build
-        runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+        runs-on:
+          group: fireactions
+          labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
 
         permissions:
             pages: write

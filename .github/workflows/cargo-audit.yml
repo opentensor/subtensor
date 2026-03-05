@@ -13,7 +13,9 @@ concurrency:
 jobs:
   cargo-audit:
     name: cargo audit
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
     env:
       CARGO_BUILD_JOBS: 4
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}

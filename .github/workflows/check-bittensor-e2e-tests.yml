@@ -196,7 +196,9 @@ jobs:
             arch: amd64
         runtime: ["fast-runtime", "non-fast-runtime"]
 
-    runs-on: ${{ matrix.platform.runner }}
+    runs-on:
+      group: fireactions
+      labels: ${{ matrix.platform.runner }}
     env:
       CARGO_BUILD_JOBS: 6
 

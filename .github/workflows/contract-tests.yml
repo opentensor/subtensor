@@ -24,7 +24,9 @@ permissions:
 
 jobs:
   run:
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
     env:
       RUST_BACKTRACE: full
       CARGO_BUILD_JOBS: 6

@@ -33,7 +33,9 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
     outputs:
       ref: ${{ steps.vars.outputs.ref }}
       tag: ${{ steps.vars.outputs.tag }}
@@ -58,7 +60,9 @@ jobs:
       fail-fast: false
       matrix:
         runtime: ["fast-runtime", "non-fast-runtime"]
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
     timeout-minutes: 120
     env:
       CARGO_BUILD_JOBS: 6
@@ -126,7 +130,9 @@ jobs:
 
   docker:
     needs: [setup, artifacts]
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
     timeout-minutes: 90
     steps:
       - name: Checkout target ref

@@ -23,7 +23,9 @@ jobs:
   # runs cargo fmt
   cargo-fmt:
     name: cargo fmt
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
     env:
       RUST_BACKTRACE: full
       CARGO_BUILD_JOBS: 2
@@ -68,7 +70,9 @@ jobs:
 
   cargo-clippy-default-features:
     name: cargo clippy
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -99,7 +103,9 @@ jobs:
 
   cargo-check-lints:
     name: check custom lints
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
     env:
       RUSTFLAGS: -D warnings
       RUST_BACKTRACE: full
@@ -133,7 +139,9 @@ jobs:
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -165,7 +173,9 @@ jobs:
   # runs cargo test --workspace --all-features
   cargo-test:
     name: cargo test
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -196,7 +206,9 @@ jobs:
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:
     name: cargo fix
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
     env:
       RUST_BACKTRACE: full
       SKIP_WASM_BUILD: 1
@@ -236,7 +248,9 @@ jobs:
 
   check-feature-propagation:
     name: zepter run check
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
     env:
       CARGO_BUILD_JOBS: 4
 

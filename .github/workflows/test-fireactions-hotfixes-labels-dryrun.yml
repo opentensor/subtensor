@@ -63,7 +63,9 @@ concurrency:
 
 jobs:
   payload-dryrun:
-    runs-on: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
+    runs-on:
+      group: fireactions
+      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
     timeout-minutes: 20
     steps:
       - name: Enforce dry-run mode
