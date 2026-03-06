@@ -5,7 +5,7 @@ use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
 use sp_runtime::testing::TestSignature;
 use sp_runtime::traits::{Block as BlockT, Hash};
-use stp_shield::{ShieldKeystore, ShieldPublicKey, ShieldedTransaction};
+use stp_shield::{ShieldEncKey, ShieldKeystore, ShieldedTransaction};
 
 use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
@@ -110,11 +110,11 @@ fn announce_next_key_none_when_no_next_next_author() {
 fn announce_rejects_bad_pk_length() {
     new_test_ext().execute_with(|| {
         set_authors(Some(author(1)), None);
-        let bad_pk: ShieldPublicKey = BoundedVec::truncate_from(vec![0x01; 100]);
+        let bad_pk: ShieldEncKey = BoundedVec::truncate_from(vec![0x01; 100]);
 
         assert_noop!(
             MevShield::announce_next_key(RuntimeOrigin::none(), Some(bad_pk)),
-            Error::<Test>::BadPublicKeyLen
+            Error::<Test>::BadEncKeyLen
         );
     });
 }

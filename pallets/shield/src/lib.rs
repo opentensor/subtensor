@@ -16,7 +16,8 @@ use ml_kem::{
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
 use stp_shield::{
-    INHERENT_IDENTIFIER, InherentType, LOG_TARGET, ShieldPublicKey, ShieldedTransaction,
+    INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
+    ShieldedTransaction,
 };
 
 use alloc::vec;
@@ -42,7 +43,6 @@ type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
 type CheckedOf<T, Context> = <T as Checkable<Context>>::Checked;
 type ApplyableCallOf<T> = <T as Applyable>::Call;
 
-const MLKEM768_PK_LEN: usize = 1184;
 const MAX_EXTRINSIC_DEPTH: u32 = 8;
 
 #[frame_support::pallet]
@@ -61,22 +61,22 @@ pub mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    /// Current block author's ML-KEM-768 public key (internal, not for encryption).
+    /// Current block author's ML-KEM-768 encapsulation key (internal, not for encryption).
     #[pallet::storage]
-    pub type CurrentKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
+    pub type CurrentKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
     /// Next block author's key, staged here before promoting to `CurrentKey`.
     #[pallet::storage]
-    pub type PendingKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
+    pub type PendingKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
     /// Key users should encrypt with (N+2 author's key).
     #[pallet::storage]
-    pub type NextKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
+    pub type NextKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
-    /// Per-author ML-KEM-768 public key, updated each time the author produces a block.
+    /// Per-author ML-KEM-768 encapsulation key, updated each time the author produces a block.
     #[pallet::storage]
     pub type AuthorKeys<T: Config> =
-        StorageMap<_, Twox64Concat, T::AuthorityId, ShieldPublicKey, OptionQuery>;
+        StorageMap<_, Twox64Concat, T::AuthorityId, ShieldEncKey, OptionQuery>;
 
     /// Stores whether some migration has been run.
     #[pallet::storage]
@@ -92,8 +92,8 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// The announced ML‑KEM public key length is invalid.
-        BadPublicKeyLen,
+        /// The announced ML‑KEM encapsulation key length is invalid.
+        BadEncKeyLen,
         /// Unreachable.
         Unreachable,
     }
@@ -113,9 +113,9 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Rotate the key chain and announce the current author's ML-KEM public key.
+        /// Rotate the key chain and announce the current author's ML-KEM encapsulation key.
         ///
-        /// Called as an inherent every block. `public_key` is `None` on node failure,
+        /// Called as an inherent every block. `enc_key` is `None` on node failure,
         /// which removes the author from future shielded tx eligibility.
         ///
         /// Key rotation order (using pre-update AuthorKeys):
@@ -129,7 +129,7 @@ pub mod pallet {
         .saturating_add(T::DbWeight::get().writes(3_u64)))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
-            public_key: Option<ShieldPublicKey>,
+            enc_key: Option<ShieldEncKey>,
         ) -> DispatchResult {
             ensure_none(origin)?;
 
@@ -159,12 +159,12 @@ pub mod pallet {
             }
 
             // 4. Update AuthorKeys after rotations for consistent reads above.
-            if let Some(public_key) = &public_key {
+            if let Some(enc_key) = &enc_key {
                 ensure!(
-                    public_key.len() == MLKEM768_PK_LEN,
-                    Error::<T>::BadPublicKeyLen
+                    enc_key.len() == MLKEM768_ENC_KEY_LEN,
+                    Error::<T>::BadEncKeyLen
                 );
-                AuthorKeys::<T>::insert(&author, public_key.clone());
+                AuthorKeys::<T>::insert(&author, enc_key.clone());
             } else {
                 AuthorKeys::<T>::remove(&author);
             }
@@ -176,7 +176,7 @@ pub mod pallet {
         ///
         /// Client‑side:
         ///
-        ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
+        ///   1. Read `NextKey` (ML‑KEM encapsulation key bytes) from storage.
         ///   2. Sign your extrinsic so that it can be executed when added to the pool,
         ///        i.e. you may need to increment the nonce if you submit using the same account.
         ///   3. Encrypt:
@@ -216,13 +216,13 @@ pub mod pallet {
         const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
         fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-            let public_key = data
+            let enc_key = data
                 .get_data::<InherentType>(&INHERENT_IDENTIFIER)
                 .inspect_err(
-                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded public key inherent data: {:?}", e),
+                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded enc key inherent data: {:?}", e),
                 )
                 .ok()??;
-            Some(Call::announce_next_key { public_key })
+            Some(Call::announce_next_key { enc_key })
         }
 
         fn is_inherent(call: &Self::Call) -> bool {

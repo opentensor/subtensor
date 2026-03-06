@@ -1,5 +1,5 @@
 use crate as pallet_shield;
-use crate::MLKEM768_PK_LEN;
+use stp_shield::MLKEM768_ENC_KEY_LEN;
 
 use frame_support::traits::{ConstBool, ConstU64};
 use frame_support::{BoundedVec, construct_runtime, derive_impl, parameter_types};
@@ -7,7 +7,7 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::sr25519;
 use sp_runtime::{BuildStorage, generic, testing::TestSignature};
 use std::cell::RefCell;
-use stp_shield::ShieldPublicKey;
+use stp_shield::ShieldEncKey;
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -101,12 +101,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     ext
 }
 
-pub fn valid_pk() -> ShieldPublicKey {
-    BoundedVec::truncate_from(vec![0x42; MLKEM768_PK_LEN])
+pub fn valid_pk() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x42; MLKEM768_ENC_KEY_LEN])
 }
 
-pub fn valid_pk_b() -> ShieldPublicKey {
-    BoundedVec::truncate_from(vec![0x99; MLKEM768_PK_LEN])
+pub fn valid_pk_b() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x99; MLKEM768_ENC_KEY_LEN])
 }
 
 /// Create a deterministic `AuraId` from a simple index for tests.

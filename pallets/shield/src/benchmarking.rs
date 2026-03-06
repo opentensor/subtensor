@@ -112,28 +112,28 @@ mod benches {
         deposit_slot_digest::<T>(0);
 
         // Pre-populate PendingKey so CurrentKey ← PendingKey writes.
-        let old_pending: ShieldPublicKey = BoundedVec::truncate_from(vec![0x99; MLKEM768_PK_LEN]);
+        let old_pending: ShieldEncKey = BoundedVec::truncate_from(vec![0x99; MLKEM768_ENC_KEY_LEN]);
         PendingKey::<T>::put(old_pending.clone());
 
         // Pre-populate NextKey so PendingKey ← NextKey writes.
-        let old_next: ShieldPublicKey = BoundedVec::truncate_from(vec![0x77; MLKEM768_PK_LEN]);
+        let old_next: ShieldEncKey = BoundedVec::truncate_from(vec![0x77; MLKEM768_ENC_KEY_LEN]);
         NextKey::<T>::put(old_next.clone());
 
         // Pre-populate AuthorKeys for charlie (next-next) so NextKey gets set.
-        let charlie_key: ShieldPublicKey = BoundedVec::truncate_from(vec![0x55; MLKEM768_PK_LEN]);
+        let charlie_key: ShieldEncKey = BoundedVec::truncate_from(vec![0x55; MLKEM768_ENC_KEY_LEN]);
         let charlie_id: <T as pallet::Config>::AuthorityId = charlie.into();
         AuthorKeys::<T>::insert(&charlie_id, charlie_key.clone());
 
-        let public_key: ShieldPublicKey = BoundedVec::truncate_from(vec![0x42; MLKEM768_PK_LEN]);
+        let enc_key: ShieldEncKey = BoundedVec::truncate_from(vec![0x42; MLKEM768_ENC_KEY_LEN]);
 
         #[extrinsic_call]
-        announce_next_key(RawOrigin::None, Some(public_key.clone()));
+        announce_next_key(RawOrigin::None, Some(enc_key.clone()));
 
         assert_eq!(CurrentKey::<T>::get(), Some(old_pending));
         assert_eq!(PendingKey::<T>::get(), Some(old_next));
         assert_eq!(NextKey::<T>::get(), Some(charlie_key));
         let alice_id: <T as pallet::Config>::AuthorityId = alice.into();
-        assert_eq!(AuthorKeys::<T>::get(&alice_id), Some(public_key));
+        assert_eq!(AuthorKeys::<T>::get(&alice_id), Some(enc_key));
     }
 
     /// Worst-case `submit_encrypted`: max-size ciphertext (8192 bytes) with
