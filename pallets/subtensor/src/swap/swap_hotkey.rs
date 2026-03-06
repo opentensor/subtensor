@@ -65,6 +65,14 @@ impl<T: Config> Pallet<T> {
             );
         }
 
+        // 7.1. Ensure the hotkey is not registered on the network before, if netuid is provided
+        if let Some(netuid) = netuid {
+            ensure!(
+                !Self::is_hotkey_registered_on_specific_network(new_hotkey, netuid),
+                Error::<T>::HotKeyAlreadyRegisteredInSubNet
+            );
+        }
+
         // 8. Swap LastTxBlock
         let last_tx_block: u64 = Self::get_last_tx_block(old_hotkey);
         Self::set_last_tx_block(new_hotkey, last_tx_block);
