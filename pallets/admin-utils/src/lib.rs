@@ -32,7 +32,7 @@ pub mod pallet {
     };
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::{I64F64, I96F32, U64F64};
-    use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
+    use subtensor_runtime_common::{MechId, NetUid, TaoBalance};
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -741,7 +741,7 @@ pub mod pallet {
         pub fn sudo_set_min_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
-            min_burn: TaoCurrency,
+            min_burn: TaoBalance,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
@@ -782,7 +782,7 @@ pub mod pallet {
         pub fn sudo_set_max_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
-            max_burn: TaoCurrency,
+            max_burn: TaoBalance,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
@@ -1033,7 +1033,7 @@ pub mod pallet {
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_total_issuance(
             origin: OriginFor<T>,
-            total_issuance: TaoCurrency,
+            total_issuance: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1069,7 +1069,7 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)))]
         pub fn sudo_set_network_min_lock_cost(
             origin: OriginFor<T>,
-            lock_cost: TaoCurrency,
+            lock_cost: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1122,7 +1122,7 @@ pub mod pallet {
         pub fn sudo_set_rao_recycled(
             origin: OriginFor<T>,
             netuid: NetUid,
-            rao_recycled: TaoCurrency,
+            rao_recycled: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(

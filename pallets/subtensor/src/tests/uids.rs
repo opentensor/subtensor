@@ -5,7 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::{H160, U256};
-use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex};
 
 /********************************************
     tests for uids.rs file
@@ -109,7 +109,7 @@ fn test_replace_neuron() {
         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, neuron_uid), 0);
         assert_eq!(
             SubtensorModule::get_emission_for_uid(netuid, neuron_uid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             SubtensorModule::get_consensus_for_uid(netuid, neuron_uid),

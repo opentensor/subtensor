@@ -90,7 +90,7 @@ where
                 .map(|b| b.unique_saturated_into())
                 .unwrap_or(0),
             netuid: lease.netuid.into(),
-            cost: lease.cost,
+            cost: lease.cost.into(),
         })
     }
 
@@ -150,9 +150,9 @@ where
         };
 
         let crowdloan_call = pallet_crowdloan::Call::<R>::create {
-            deposit: crowdloan_deposit,
-            min_contribution: crowdloan_min_contribution,
-            cap: crowdloan_cap,
+            deposit: crowdloan_deposit.into(),
+            min_contribution: crowdloan_min_contribution.into(),
+            cap: crowdloan_cap.into(),
             end: crowdloan_end.into(),
             call: Some(leasing_call),
             target_address: None,
