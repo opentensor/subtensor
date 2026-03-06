@@ -24,7 +24,9 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
-use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, NetUid, WeightMeterWrapper};
+use subtensor_runtime_common::{
+    BATCH_SIZE, LoopRemovePrefixWithWeightMeter, NetUid, WeightMeterWrapper,
+};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
@@ -569,31 +571,36 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            CommitmentOf::<T>::clear_prefix(netuid, 1024, None)
+            BATCH_SIZE,
+            CommitmentOf::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            LastCommitment::<T>::clear_prefix(netuid, 1024, None)
+            BATCH_SIZE,
+            LastCommitment::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            LastBondsReset::<T>::clear_prefix(netuid, 1024, None)
+            BATCH_SIZE,
+            LastBondsReset::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            RevealedCommitments::<T>::clear_prefix(netuid, 1024, None)
+            BATCH_SIZE,
+            RevealedCommitments::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            UsedSpaceOf::<T>::clear_prefix(netuid, 1024, None)
+            BATCH_SIZE,
+            UsedSpaceOf::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));

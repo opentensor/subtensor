@@ -25,7 +25,9 @@ use sp_core::Get;
 use sp_runtime::{DispatchError, transaction_validity::TransactionValidityError};
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
-pub use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, WeightMeterWrapper};
+pub use subtensor_runtime_common::{
+    BATCH_SIZE, LoopRemovePrefixWithWeightMeter, WeightMeterWrapper,
+};
 
 // ============================
 //	==== Benchmark Imports =====

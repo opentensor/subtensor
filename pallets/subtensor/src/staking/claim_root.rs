@@ -413,7 +413,8 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            RootClaimed::<T>::clear_prefix((netuid,), 1024, None)
+            BATCH_SIZE,
+            RootClaimed::<T>::clear_prefix((netuid,), BATCH_SIZE, None)
         );
         weight_meter.consumed()
     }

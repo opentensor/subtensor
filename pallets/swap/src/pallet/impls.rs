@@ -20,8 +20,8 @@ use sp_arithmetic::helpers_128bit;
 use sp_runtime::{DispatchResult, Vec, traits::AccountIdConversion};
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, LoopRemovePrefixWithWeightMeter, NetUid,
-    SubnetInfo, TaoCurrency, WeightMeterWrapper,
+    AlphaCurrency, BATCH_SIZE, BalanceOps, Currency, CurrencyReserve,
+    LoopRemovePrefixWithWeightMeter, NetUid, SubnetInfo, TaoCurrency, WeightMeterWrapper,
 };
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
@@ -1027,12 +1027,14 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            Positions::<T>::clear_prefix((netuid,), 1024, None)
+            BATCH_SIZE,
+            Positions::<T>::clear_prefix((netuid,), BATCH_SIZE, None)
         );
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            Ticks::<T>::clear_prefix(netuid, 1024, None)
+            BATCH_SIZE,
+            Ticks::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -1051,7 +1053,8 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            TickIndexBitmapWords::<T>::clear_prefix((netuid,), 1024, None)
+            BATCH_SIZE,
+            TickIndexBitmapWords::<T>::clear_prefix((netuid,), BATCH_SIZE, None)
         );
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeRate::<T>::remove(netuid);

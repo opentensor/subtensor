@@ -455,11 +455,13 @@ macro_rules! WeightMeterWrapper {
     }};
 }
 
+pub const BATCH_SIZE: u32 = 1024;
+
 #[macro_export]
 macro_rules! LoopRemovePrefixWithWeightMeter {
-    ( $meter:expr, $weight:expr, $body:expr ) => {{
+    ( $meter:expr, $weight:expr, $batch_size:expr, $body:expr ) => {{
         loop {
-            if !$meter.can_consume($weight.saturating_mul(1024)) {
+            if !$meter.can_consume($weight.saturating_mul($batch_size as u64)) {
                 return $meter.consumed();
             }
             let result = $body;
@@ -477,6 +479,9 @@ macro_rules! LoopRemovePrefixWithWeightMeter {
 mod tests {
     use super::*;
     use frame_support::weights::WeightMeter;
+    const REF_TIME_WEIGHT: u64 = 100;
+    const PROOF_SIZE_WEIGHT: u64 = 100;
+    const BATCH_SIZE_U64: u64 = BATCH_SIZE as u64;
 
     struct TestBody {
         count: u64,
@@ -524,42 +529,87 @@ mod tests {
     fn test_loop(
         remaining_weight: Weight,
         weight: Weight,
-        mut body: TestBody,
+        body: &mut TestBody,
         number: u64,
     ) -> Weight {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-        LoopRemovePrefixWithWeightMeter!(weight_meter, weight, body.execute(number));
+        LoopRemovePrefixWithWeightMeter!(weight_meter, weight, BATCH_SIZE, body.execute(number));
         weight_meter.consumed()
     }
 
     #[test]
     fn test_weight_meter_wrapper() {
-        let remaining_weight = Weight::from_parts(200, 200);
-        let used_weight = test_weight(remaining_weight, Weight::from_parts(100, 100));
+        // enough to consume one ref and one proof
+        let remaining_weight = Weight::from_parts(REF_TIME_WEIGHT * 2, PROOF_SIZE_WEIGHT * 2);
+        let used_weight = test_weight(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+        );
         assert_eq!(used_weight, Weight::from_parts(100, 100));
 
-        let used_weight = test_weight(remaining_weight, Weight::from_parts(300, 300));
+        // not enough to consume three ref and three proof
+        let used_weight = test_weight(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT * 3, PROOF_SIZE_WEIGHT * 3),
+        );
         assert_eq!(used_weight, Weight::from_parts(0, 0));
     }
 
     #[test]
     fn test_loop_remove_prefix_with_weight_meter() {
         // remaining weight matches the body count
-        let body = TestBody::new(1024);
-        let remaining_weight = Weight::from_parts(100 * 1024, 100 * 1024);
-        let used_weight = test_loop(remaining_weight, Weight::from_parts(100, 100), body, 1024);
-        assert_eq!(used_weight, Weight::from_parts(100, 100) * 1024);
+        let mut body = TestBody::new(BATCH_SIZE as u64);
+        let remaining_weight = Weight::from_parts(
+            REF_TIME_WEIGHT * BATCH_SIZE as u64,
+            PROOF_SIZE_WEIGHT * BATCH_SIZE as u64,
+        );
+        let used_weight = test_loop(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+            &mut body,
+            BATCH_SIZE as u64,
+        );
+        assert_eq!(
+            used_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * BATCH_SIZE as u64
+        );
+        assert_eq!(body.count, 0);
 
         // remaining weight is less than the body count
-        let body = TestBody::new(1025);
-        let remaining_weight = Weight::from_parts(100 * 1024, 100 * 1024);
-        let used_weight = test_loop(remaining_weight, Weight::from_parts(100, 100), body, 1024);
-        assert_eq!(used_weight, Weight::from_parts(100, 100) * 1024);
+        let count = BATCH_SIZE_U64 + 1;
+        let mut body = TestBody::new(count);
+        let remaining_weight = Weight::from_parts(
+            REF_TIME_WEIGHT * BATCH_SIZE_U64,
+            PROOF_SIZE_WEIGHT * BATCH_SIZE_U64,
+        );
+        let used_weight = test_loop(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+            &mut body,
+            BATCH_SIZE_U64,
+        );
+        assert_eq!(
+            used_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * BATCH_SIZE_U64
+        );
+        assert_eq!(body.count, 1);
 
         // remaining weight is more than the body count
-        let body = TestBody::new(1025);
-        let remaining_weight = Weight::from_parts(100 * 1024 * 2, 100 * 1024 * 2);
-        let used_weight = test_loop(remaining_weight, Weight::from_parts(100, 100), body, 1024);
-        assert_eq!(used_weight, Weight::from_parts(100, 100) * 1025);
+        let mut body = TestBody::new(count);
+        let remaining_weight = Weight::from_parts(
+            REF_TIME_WEIGHT * BATCH_SIZE_U64 * 2,
+            PROOF_SIZE_WEIGHT * BATCH_SIZE_U64 * 2,
+        );
+        let used_weight = test_loop(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+            &mut body,
+            BATCH_SIZE_U64,
+        );
+        assert_eq!(
+            used_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * count
+        );
+        assert_eq!(body.count, 0);
     }
 }
