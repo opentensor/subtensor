@@ -2,8 +2,6 @@ import { writeFile, readFile, rm, mkdir } from "node:fs/promises";
 import {
   generateChainSpec,
   insertKeys,
-  getGenesisPatch,
-  addAuthority,
 } from "e2e-shared/chainspec.js";
 import {
   startNode,
@@ -35,10 +33,6 @@ const nodes: Node[] = [];
 
 const BINARY_PATH = process.env.BINARY_PATH || "../../target/release/node-subtensor";
 
-// The local chain spec has 2 built-in authorities (One, Two).
-// We add "Three" dynamically by patching the chain spec JSON.
-const EXTRA_AUTHORITY_SEEDS = ["Three"];
-
 type NodeConfig = Omit<NodeOptions, "binaryPath" | "chainSpec"> & {
   keySeed?: string;
 };
@@ -62,12 +56,7 @@ export async function setup() {
 
   await mkdir("/tmp/subtensor-e2e/shield", { recursive: true });
 
-  await generateChainSpec(BINARY_PATH, CHAIN_SPEC_PATH, (spec) => {
-    const patch = getGenesisPatch(spec);
-    for (const seed of EXTRA_AUTHORITY_SEEDS) {
-      addAuthority(patch, seed);
-    }
-  });
+  await generateChainSpec(BINARY_PATH, CHAIN_SPEC_PATH);
 
   for (const config of NODE_CONFIGS) {
     await rm(config.basePath, { recursive: true, force: true });
