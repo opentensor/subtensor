@@ -102,8 +102,7 @@ mod benches {
     fn announce_next_key() {
         let alice = sr25519_generate(KeyTypeId(*b"aura"), Some("//Alice".as_bytes().to_vec()));
         let bob = sr25519_generate(KeyTypeId(*b"aura"), Some("//Bob".as_bytes().to_vec()));
-        let charlie =
-            sr25519_generate(KeyTypeId(*b"aura"), Some("//Charlie".as_bytes().to_vec()));
+        let charlie = sr25519_generate(KeyTypeId(*b"aura"), Some("//Charlie".as_bytes().to_vec()));
 
         // Seed Aura with [alice, bob, charlie].
         seed_aura_authorities::<T>(&[alice, bob, charlie]);
