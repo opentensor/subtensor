@@ -106,10 +106,9 @@ fn localnet_genesis(
     // Check if the environment variable is set
     if let Ok(bt_wallet) = env::var("BT_DEFAULT_TOKEN_WALLET") {
         if let Ok(decoded_wallet) = Ss58Codec::from_ss58check(&bt_wallet) {
-            if !balances
-                .iter()
-                .any(|(account, _)| account == &decoded_wallet)
-            {
+            if let Some(existing) = balances.iter_mut().find(|(acc, _)| acc == &decoded_wallet) {
+                existing.1 = 1_000_000_000_000_000u128;
+            } else {
                 balances.push((decoded_wallet, 1_000_000_000_000_000u128));
             }
         } else {
