@@ -16,7 +16,7 @@ use subtensor_macros::freeze_struct;
 /// Substrate's minimum mortal Era is 4 blocks (smallest power-of-two ≥ 4).
 /// Limiting encrypted txs to this value ensures stuck transactions evict from
 /// the fork-aware tx pool within a handful of blocks.
-const MAX_SHIELD_ERA_PERIOD: u64 = 64;
+const MAX_SHIELD_ERA_PERIOD: u64 = 8;
 
 /// A transparent wrapper around [`frame_system::CheckMortality`] that additionally
 /// enforces a short Era period for [`pallet_shield::Call::submit_encrypted`] transactions.
@@ -181,9 +181,9 @@ mod tests {
     #[test]
     fn shield_tx_with_era_too_long_rejected() {
         new_test_ext().execute_with(|| {
-            // Period 128 > MAX_SHIELD_ERA_PERIOD (64)
+            // Period 16 > MAX_SHIELD_ERA_PERIOD (8)
             assert_eq!(
-                validate_era_check(Era::mortal(128, 1), &submit_encrypted_call()),
+                validate_era_check(Era::mortal(16, 1), &submit_encrypted_call()),
                 Err(InvalidTransaction::Stale.into())
             );
         });
@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn shield_tx_with_max_allowed_era_accepted() {
         new_test_ext().execute_with(|| {
-            assert!(validate_era_check(Era::mortal(64, 1), &submit_encrypted_call()).is_ok());
+            assert!(validate_era_check(Era::mortal(8, 1), &submit_encrypted_call()).is_ok());
         });
     }
 
