@@ -22,26 +22,31 @@ use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_core::crypto::KeyTypeId;
 use sp_io::crypto::sr25519_generate;
 
-/// Seed Aura authorities from sr25519 public keys.
-fn seed_aura_authorities<T>(pubkeys: &[sr25519::Public])
+/// Set Aura authorities directly from sr25519 public keys.
+fn set_aura_authorities<T>(pubkeys: &[sr25519::Public])
 where
     T: pallet::Config + pallet_aura::Config,
     <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
 {
-    pallet_aura::Authorities::<T>::mutate(|auths| {
-        for pk in pubkeys {
-            let auth_id: <T as pallet_aura::Config>::AuthorityId = (*pk).into();
-            let _ = auths.try_push(auth_id);
-        }
-    });
+    let auths: BoundedVec<
+        <T as pallet_aura::Config>::AuthorityId,
+        <T as pallet_aura::Config>::MaxAuthorities,
+    > = BoundedVec::truncate_from(pubkeys.iter().map(|pk| (*pk).into()).collect());
+    pallet_aura::Authorities::<T>::put(auths);
 }
 
-/// Deposit an Aura pre-runtime digest for the given slot.
-fn deposit_slot_digest<T: frame_system::Config>(slot: u64) {
-    frame_system::Pallet::<T>::deposit_log(sp_runtime::DigestItem::PreRuntime(
-        AURA_ENGINE_ID,
-        slot.encode(),
-    ));
+/// Initialize a block with an Aura pre-runtime digest for the given slot.
+///
+/// Uses `System::initialize` (like real block production) so the digest
+/// survives `commit_db()` in the benchmark framework.
+fn initialize_block_with_slot<T: frame_system::Config>(slot: u64) {
+    let digest = sp_runtime::Digest {
+        logs: vec![sp_runtime::DigestItem::PreRuntime(
+            AURA_ENGINE_ID,
+            slot.encode(),
+        )],
+    };
+    frame_system::Pallet::<T>::initialize(&1u32.into(), &Default::default(), &digest);
 }
 
 /// Build a real max-size encrypted ciphertext (8192 bytes wire format).
@@ -104,11 +109,13 @@ mod benches {
         let bob = sr25519_generate(KeyTypeId(*b"aura"), Some("//Bob".as_bytes().to_vec()));
         let charlie = sr25519_generate(KeyTypeId(*b"aura"), Some("//Charlie".as_bytes().to_vec()));
 
-        // Seed Aura with [alice, bob, charlie].
-        seed_aura_authorities::<T>(&[alice, bob, charlie]);
+        // Set Aura authorities directly: [alice, bob, charlie].
+        set_aura_authorities::<T>(&[alice, bob, charlie]);
 
-        // Slot 0 → current=alice, next_next=charlie.
-        deposit_slot_digest::<T>(0);
+        // Initialize block with slot 0 digest via System::initialize.
+        // This survives commit_db() unlike deposit_log().
+        // Slot 0 → current=alice(0%3), next_next=charlie(2%3).
+        initialize_block_with_slot::<T>(0);
 
         // Pre-populate PendingKey so CurrentKey ← PendingKey writes.
         let old_pending: ShieldEncKey = BoundedVec::truncate_from(vec![0x99; MLKEM768_ENC_KEY_LEN]);
