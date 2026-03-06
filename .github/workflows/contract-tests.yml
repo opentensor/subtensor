@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   run:
-    runs-on: [self-hosted, type-ccx13]
+    runs-on: [self-hosted, type-ccx43]
     env:
       RUST_BACKTRACE: full
     steps:
@@ -49,11 +49,20 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler nodejs pkg-config
 
+      - name: Build node-subtensor and Ink contracts
+        run: |
+          cd ${{ github.workspace }}
+          rustup component add rust-src
+          cargo install cargo-contract
+          cargo build --workspace --profile release --features fast-runtime
+          cd contract-tests/bittensor
+          cargo contract build --release
+
       - name: Run tests
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 120
-          max_attempts: 3
+          max_attempts: 5
           retry_wait_seconds: 60
           command: |
             cd ${{ github.workspace }}
