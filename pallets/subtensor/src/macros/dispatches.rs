@@ -746,6 +746,30 @@ mod dispatches {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
+        /// --- The extrinsic is a combination of remove_stake and fees token transfer
+        #[pallet::call_index(137)]
+        #[pallet::weight((Weight::from_parts(252_000_000, 2289)
+        .saturating_add(T::DbWeight::get().reads(30))
+        .saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
+        pub fn remove_stake_payable(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_unstaked: AlphaCurrency,
+            coldkey_fees_tank: T::AccountId,
+            amount_fees: TaoCurrency,
+        ) -> DispatchResult {
+            Self::do_remove_stake_payable(
+                origin,
+                hotkey,
+                netuid,
+                amount_unstaked,
+                coldkey_fees_tank,
+                amount_fees,
+            )
+            .map(|_| ())
+        }
+
         /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
         /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         ///

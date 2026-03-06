@@ -82,7 +82,10 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin.clone())?;
 
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added.saturating_add(amount_fees).into()),
+            Self::can_remove_balance_from_coldkey_account(
+                &coldkey,
+                stake_to_be_added.saturating_add(amount_fees).into()
+            ),
             Error::<T>::NotEnoughBalanceToStake
         );
 

@@ -1078,6 +1078,67 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn remove_stake_payable() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        // Set our total stake to 1000 TAO
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000.into());
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+
+        let app_coldkey: T::AccountId = account("cold", 0, seed);
+        let amount_fees = TaoCurrency::from(1000);
+        let tao_reserve = TaoCurrency::from(150_000_000_000);
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
+
+        let wallet_bal = 1000_000_000_000u64.into();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
+
+        assert_ok!(Subtensor::<T>::do_burned_registration(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let u64_staked_amt = 1000_000_000_000u64;
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            u64_staked_amt.into()
+        ));
+
+        let amount_unstaked = AlphaCurrency::from(30_000_000_000);
+
+        // Remove stake limit for benchmark
+        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey.clone(),
+            netuid,
+            amount_unstaked,
+            app_coldkey,
+            amount_fees,
+        );
+    }
+
+    #[benchmark]
     fn swap_stake_limit() {
         let coldkey: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
         let hot: T::AccountId = account("A", 0, 1);

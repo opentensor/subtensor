@@ -612,4 +612,20 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    pub fn do_remove_stake_payable(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        amount_unstaked: AlphaCurrency,
+        coldkey_fees_tank: T::AccountId,
+        amount_fees: TaoCurrency,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin.clone())?;
+
+        frame_support::storage::with_storage_layer(|| {
+            Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
+            Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
+        })
+    }
 }

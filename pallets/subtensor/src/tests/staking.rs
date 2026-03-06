@@ -5317,7 +5317,10 @@ fn test_add_stake_payable_is_ok() {
 
         // add network
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&subnet_owner_coldkey, owner_balance_before);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &subnet_owner_coldkey,
+            owner_balance_before,
+        );
         SubtensorModule::add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
         SubtensorModule::add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
@@ -5334,8 +5337,16 @@ fn test_add_stake_payable_is_ok() {
         let app_owner_balance_after = Balances::free_balance(app_coldkey);
         let actor_balance_after = Balances::free_balance(actor_coldkey);
 
-        assert_eq!(app_owner_balance_before + amount_fees, app_owner_balance_after, "app owner balance after should include fees");
-        assert_eq!(actor_balance_before -  amount_fees - amount_stake, actor_balance_after, "actor balance after be decreased by stake + fees");
+        assert_eq!(
+            app_owner_balance_before + amount_fees,
+            app_owner_balance_after,
+            "app owner balance after should include fees"
+        );
+        assert_eq!(
+            actor_balance_before - amount_fees - amount_stake,
+            actor_balance_after,
+            "actor balance after be decreased by stake + fees"
+        );
 
         let events = System::events();
 
@@ -5381,20 +5392,23 @@ fn test_add_stake_payable_actor_insufficient_balance() {
 
         // add network
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&subnet_owner_coldkey, owner_balance_before);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &subnet_owner_coldkey,
+            owner_balance_before,
+        );
         SubtensorModule::add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
         SubtensorModule::add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
         // Should fail because of insufficient balance to pay for fees
         assert_err!(
             SubtensorModule::add_stake_payable(
-            RuntimeOrigin::signed(actor_coldkey),
-            subnet_owner_hotkey,
-            netuid,
-            amount_stake.into(),
-            app_coldkey,
-            amount_fees.into()
-        ),
+                RuntimeOrigin::signed(actor_coldkey),
+                subnet_owner_hotkey,
+                netuid,
+                amount_stake.into(),
+                app_coldkey,
+                amount_fees.into()
+            ),
             Error::<Test>::NotEnoughBalanceToStake
         );
     });
