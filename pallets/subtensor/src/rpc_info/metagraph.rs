@@ -8,9 +8,9 @@ use pallet_commitments::GetCommitments;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex, TaoBalance};
 
-#[freeze_struct("6fc49d5a7dc0e339")]
+#[freeze_struct("fbab6d1e7f3c69ae")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
@@ -33,17 +33,17 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     blocks_since_last_step: Compact<u64>, // blocks since last epoch.
 
     // Subnet emission terms
-    subnet_emission: Compact<u64>,     // subnet emission via stao
-    alpha_in: Compact<AlphaCurrency>,  // amount of alpha in reserve
-    alpha_out: Compact<AlphaCurrency>, // amount of alpha outstanding
-    tao_in: Compact<TaoCurrency>,      // amount of tao injected per block
-    alpha_out_emission: Compact<AlphaCurrency>, // amount injected in alpha reserves per block
-    alpha_in_emission: Compact<AlphaCurrency>, // amount injected outstanding per block
-    tao_in_emission: Compact<TaoCurrency>, // amount of tao injected per block
-    pending_alpha_emission: Compact<AlphaCurrency>, // pending alpha to be distributed
-    pending_root_emission: Compact<TaoCurrency>, // pending tao for root divs to be distributed
-    subnet_volume: Compact<u128>,      // volume of the subnet in TAO
-    moving_price: I96F32,              // subnet moving price.
+    subnet_emission: Compact<u64>,    // subnet emission via stao
+    alpha_in: Compact<AlphaBalance>,  // amount of alpha in reserve
+    alpha_out: Compact<AlphaBalance>, // amount of alpha outstanding
+    tao_in: Compact<TaoBalance>,      // amount of tao injected per block
+    alpha_out_emission: Compact<AlphaBalance>, // amount injected in alpha reserves per block
+    alpha_in_emission: Compact<AlphaBalance>, // amount injected outstanding per block
+    tao_in_emission: Compact<TaoBalance>, // amount of tao injected per block
+    pending_alpha_emission: Compact<AlphaBalance>, // pending alpha to be distributed
+    pending_root_emission: Compact<TaoBalance>, // pending tao for root divs to be distributed
+    subnet_volume: Compact<u128>,     // volume of the subnet in TAO
+    moving_price: I96F32,             // subnet moving price.
 
     // Hparams for epoch
     rho: Compact<u16>,   // subnet rho param
@@ -60,15 +60,15 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Registration
     num_uids: Compact<u16>,
     max_uids: Compact<u16>,
-    burn: Compact<TaoCurrency>,             // current burn cost
+    burn: Compact<TaoBalance>,              // current burn cost
     difficulty: Compact<u64>,               // current difficulty
     registration_allowed: bool,             // allows registrations
     pow_registration_allowed: bool,         // pow registration enabled
     immunity_period: Compact<u16>,          // subnet miner immunity period
     min_difficulty: Compact<u64>,           // min pow difficulty
     max_difficulty: Compact<u64>,           // max pow difficulty
-    min_burn: Compact<TaoCurrency>,         // min tao burn
-    max_burn: Compact<TaoCurrency>,         // max tao burn
+    min_burn: Compact<TaoBalance>,          // min tao burn
+    max_burn: Compact<TaoBalance>,          // max tao burn
     adjustment_alpha: Compact<u64>,         // adjustment speed for registration params
     adjustment_interval: Compact<u16>,      // pow and burn adjustment interval
     target_regs_per_interval: Compact<u16>, // target registrations per interval
@@ -94,23 +94,23 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     validator_permit: Vec<bool>,                // Val permit per UID
     pruning_score: Vec<Compact<u16>>,           // Pruning per UID
     last_update: Vec<Compact<u64>>,             // Last update per UID
-    emission: Vec<Compact<AlphaCurrency>>,      // Emission per UID
+    emission: Vec<Compact<AlphaBalance>>,       // Emission per UID
     dividends: Vec<Compact<u16>>,               // Dividends per UID
     incentives: Vec<Compact<u16>>,              // Mining incentives per UID
     consensus: Vec<Compact<u16>>,               // Consensus per UID
     trust: Vec<Compact<u16>>,                   // Trust per UID
     rank: Vec<Compact<u16>>,                    // Rank per UID
     block_at_registration: Vec<Compact<u64>>,   // Reg block per UID
-    alpha_stake: Vec<Compact<AlphaCurrency>>,   // Alpha staked per UID
-    tao_stake: Vec<Compact<TaoCurrency>>,       // TAO staked per UID
-    total_stake: Vec<Compact<TaoCurrency>>,     // Total stake per UID
+    alpha_stake: Vec<Compact<AlphaBalance>>,    // Alpha staked per UID
+    tao_stake: Vec<Compact<TaoBalance>>,        // TAO staked per UID
+    total_stake: Vec<Compact<TaoBalance>>,      // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Vec<(AccountId, Compact<TaoCurrency>)>, // List of dividend payouts in tao via root.
-    alpha_dividends_per_hotkey: Vec<(AccountId, Compact<AlphaCurrency>)>, // List of dividend payout in alpha via subnet.
+    tao_dividends_per_hotkey: Vec<(AccountId, Compact<TaoBalance>)>, // List of dividend payouts in tao via root.
+    alpha_dividends_per_hotkey: Vec<(AccountId, Compact<AlphaBalance>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("56156d51c66190e8")]
+#[freeze_struct("3ff2befdb7b393ea")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
@@ -134,16 +134,16 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
 
     // Subnet emission terms
     subnet_emission: Option<Compact<u64>>, // subnet emission via stao
-    alpha_in: Option<Compact<AlphaCurrency>>, // amount of alpha in reserve
-    alpha_out: Option<Compact<AlphaCurrency>>, // amount of alpha outstanding
-    tao_in: Option<Compact<TaoCurrency>>,  // amount of tao injected per block
-    alpha_out_emission: Option<Compact<AlphaCurrency>>, // amount injected in alpha reserves per block
-    alpha_in_emission: Option<Compact<AlphaCurrency>>,  // amount injected outstanding per block
-    tao_in_emission: Option<Compact<TaoCurrency>>,      // amount of tao injected per block
-    pending_alpha_emission: Option<Compact<AlphaCurrency>>, // pending alpha to be distributed
-    pending_root_emission: Option<Compact<TaoCurrency>>, // panding tao for root divs to be distributed
-    subnet_volume: Option<Compact<u128>>,                // volume of the subnet in TAO
-    moving_price: Option<I96F32>,                        // subnet moving price.
+    alpha_in: Option<Compact<AlphaBalance>>, // amount of alpha in reserve
+    alpha_out: Option<Compact<AlphaBalance>>, // amount of alpha outstanding
+    tao_in: Option<Compact<TaoBalance>>,   // amount of tao injected per block
+    alpha_out_emission: Option<Compact<AlphaBalance>>, // amount injected in alpha reserves per block
+    alpha_in_emission: Option<Compact<AlphaBalance>>,  // amount injected outstanding per block
+    tao_in_emission: Option<Compact<TaoBalance>>,      // amount of tao injected per block
+    pending_alpha_emission: Option<Compact<AlphaBalance>>, // pending alpha to be distributed
+    pending_root_emission: Option<Compact<TaoBalance>>, // panding tao for root divs to be distributed
+    subnet_volume: Option<Compact<u128>>,               // volume of the subnet in TAO
+    moving_price: Option<I96F32>,                       // subnet moving price.
 
     // Hparams for epoch
     rho: Option<Compact<u16>>,   // subnet rho param
@@ -160,15 +160,15 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Registration
     num_uids: Option<Compact<u16>>,
     max_uids: Option<Compact<u16>>,
-    burn: Option<Compact<TaoCurrency>>,        // current burn cost
+    burn: Option<Compact<TaoBalance>>,         // current burn cost
     difficulty: Option<Compact<u64>>,          // current difficulty
     registration_allowed: Option<bool>,        // allows registrations
     pow_registration_allowed: Option<bool>,    // pow registration enabled
     immunity_period: Option<Compact<u16>>,     // subnet miner immunity period
     min_difficulty: Option<Compact<u64>>,      // min pow difficulty
     max_difficulty: Option<Compact<u64>>,      // max pow difficulty
-    min_burn: Option<Compact<TaoCurrency>>,    // min tao burn
-    max_burn: Option<Compact<TaoCurrency>>,    // max tao burn
+    min_burn: Option<Compact<TaoBalance>>,     // min tao burn
+    max_burn: Option<Compact<TaoBalance>>,     // max tao burn
     adjustment_alpha: Option<Compact<u64>>,    // adjustment speed for registration params
     adjustment_interval: Option<Compact<u16>>, // pow and burn adjustment interval
     target_regs_per_interval: Option<Compact<u16>>, // target registrations per interval
@@ -194,20 +194,20 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     validator_permit: Option<Vec<bool>>, // Val permit per UID
     pruning_score: Option<Vec<Compact<u16>>>, // Pruning per UID
     last_update: Option<Vec<Compact<u64>>>, // Last update per UID
-    emission: Option<Vec<Compact<AlphaCurrency>>>, // Emission per UID
+    emission: Option<Vec<Compact<AlphaBalance>>>, // Emission per UID
     dividends: Option<Vec<Compact<u16>>>, // Dividends per UID
     incentives: Option<Vec<Compact<u16>>>, // Mining incentives per UID
     consensus: Option<Vec<Compact<u16>>>, // Consensus per UID
     trust: Option<Vec<Compact<u16>>>, // Trust per UID
     rank: Option<Vec<Compact<u16>>>,  // Rank per UID
     block_at_registration: Option<Vec<Compact<u64>>>, // Reg block per UID
-    alpha_stake: Option<Vec<Compact<AlphaCurrency>>>, // Alpha staked per UID
-    tao_stake: Option<Vec<Compact<TaoCurrency>>>, // TAO staked per UID
-    total_stake: Option<Vec<Compact<TaoCurrency>>>, // Total stake per UID
+    alpha_stake: Option<Vec<Compact<AlphaBalance>>>, // Alpha staked per UID
+    tao_stake: Option<Vec<Compact<TaoBalance>>>, // TAO staked per UID
+    total_stake: Option<Vec<Compact<TaoBalance>>>, // Total stake per UID
 
     // Dividend break down.
-    tao_dividends_per_hotkey: Option<Vec<(AccountId, Compact<TaoCurrency>)>>, // List of dividend payouts in tao via root
-    alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<AlphaCurrency>)>>, // List of dividend payout in alpha via subnet
+    tao_dividends_per_hotkey: Option<Vec<(AccountId, Compact<TaoBalance>)>>, // List of dividend payouts in tao via root
+    alpha_dividends_per_hotkey: Option<Vec<(AccountId, Compact<AlphaBalance>)>>, // List of dividend payout in alpha via subnet
 
     // validators
     validators: Option<Vec<Compact<u16>>>, // List of validators
@@ -641,11 +641,11 @@ impl<T: Config> Pallet<T> {
             identities.push(IdentitiesV2::<T>::get(coldkey.clone()));
             axons.push(Self::get_axon_info(netuid, &hotkey));
         }
-        let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> = vec![];
-        let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaCurrency>)> = vec![];
+        let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoBalance>)> = vec![];
+        let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaBalance>)> = vec![];
         for hotkey in hotkeys.clone() {
             // Tao dividends were removed
-            let tao_divs = TaoCurrency::ZERO;
+            let tao_divs = TaoBalance::ZERO;
             let alpha_divs = AlphaDividendsPerSubnet::<T>::get(netuid, hotkey.clone());
             tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
             alpha_dividends_per_hotkey.push((hotkey.clone(), alpha_divs.into()));
@@ -697,7 +697,7 @@ impl<T: Config> Pallet<T> {
             pending_alpha_emission: PendingValidatorEmission::<T>::get(netuid)
                 .saturating_add(PendingServerEmission::<T>::get(netuid))
                 .into(), // pending alpha to be distributed
-            pending_root_emission: TaoCurrency::from(0u64).into(), // panding tao for root divs to be distributed
+            pending_root_emission: TaoBalance::ZERO.into(), // panding tao for root divs to be distributed
             subnet_volume: subnet_volume.into(),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
 
@@ -783,16 +783,16 @@ impl<T: Config> Pallet<T> {
             block_at_registration,            // Reg block per UID
             alpha_stake: alpha_stake_fl
                 .iter()
-                .map(|xi| Compact::from(AlphaCurrency::from(fixed64_to_u64(*xi))))
-                .collect::<Vec<Compact<AlphaCurrency>>>(), // Alpha staked per UID
+                .map(|xi| Compact::from(AlphaBalance::from(fixed64_to_u64(*xi))))
+                .collect::<Vec<Compact<AlphaBalance>>>(), // Alpha staked per UID
             tao_stake: tao_stake_fl
                 .iter()
-                .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
-                .collect::<Vec<Compact<TaoCurrency>>>(), // TAO staked per UID
+                .map(|xi| Compact::from(TaoBalance::from(fixed64_to_u64(*xi))))
+                .collect::<Vec<Compact<TaoBalance>>>(), // TAO staked per UID
             total_stake: total_stake_fl
                 .iter()
-                .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
-                .collect::<Vec<Compact<TaoCurrency>>>(), // Total stake per UID
+                .map(|xi| Compact::from(TaoBalance::from(fixed64_to_u64(*xi))))
+                .collect::<Vec<Compact<TaoBalance>>>(), // Total stake per UID
 
             // Dividend break down.
             tao_dividends_per_hotkey,
@@ -1011,7 +1011,7 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::PendingRootEmission) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                pending_root_emission: Some(TaoCurrency::from(0u64).into()),
+                pending_root_emission: Some(TaoBalance::from(0u64).into()),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::SubnetVolume) => SelectiveMetagraph {
@@ -1366,8 +1366,8 @@ impl<T: Config> Pallet<T> {
                     alpha_stake: Some(
                         alpha_stake_fl
                             .iter()
-                            .map(|xi| Compact::from(AlphaCurrency::from(fixed64_to_u64(*xi))))
-                            .collect::<Vec<Compact<AlphaCurrency>>>(),
+                            .map(|xi| Compact::from(AlphaBalance::from(fixed64_to_u64(*xi))))
+                            .collect::<Vec<Compact<AlphaBalance>>>(),
                     ),
                     ..Default::default()
                 }
@@ -1380,8 +1380,8 @@ impl<T: Config> Pallet<T> {
                     tao_stake: Some(
                         tao_stake_fl
                             .iter()
-                            .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
-                            .collect::<Vec<Compact<TaoCurrency>>>(),
+                            .map(|xi| Compact::from(TaoBalance::from(fixed64_to_u64(*xi))))
+                            .collect::<Vec<Compact<TaoBalance>>>(),
                     ),
                     ..Default::default()
                 }
@@ -1394,8 +1394,8 @@ impl<T: Config> Pallet<T> {
                     total_stake: Some(
                         total_stake_fl
                             .iter()
-                            .map(|xi| Compact::from(TaoCurrency::from(fixed64_to_u64(*xi))))
-                            .collect::<Vec<Compact<TaoCurrency>>>(),
+                            .map(|xi| Compact::from(TaoBalance::from(fixed64_to_u64(*xi))))
+                            .collect::<Vec<Compact<TaoBalance>>>(),
                     ),
                     ..Default::default()
                 }
@@ -1409,11 +1409,10 @@ impl<T: Config> Pallet<T> {
                     let hotkey = Keys::<T>::get(netuid, uid);
                     hotkeys.push(hotkey.clone());
                 }
-                let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoCurrency>)> =
-                    vec![];
+                let mut tao_dividends_per_hotkey: Vec<(T::AccountId, Compact<TaoBalance>)> = vec![];
                 for hotkey in hotkeys.clone() {
                     // Tao dividends were removed
-                    let tao_divs = TaoCurrency::ZERO;
+                    let tao_divs = TaoBalance::ZERO;
                     tao_dividends_per_hotkey.push((hotkey.clone(), tao_divs.into()));
                 }
                 SelectiveMetagraph {
@@ -1423,7 +1422,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             Some(SelectiveMetagraphIndex::AlphaDividendsPerHotkey) => {
-                let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaCurrency>)> =
+                let mut alpha_dividends_per_hotkey: Vec<(T::AccountId, Compact<AlphaBalance>)> =
                     vec![];
                 let n: u16 = Self::get_subnetwork_n(netuid);
                 let mut hotkeys: Vec<T::AccountId> = vec![];

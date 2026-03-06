@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::weights::WeightMeter;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 impl<T: Config> Pallet<T> {
@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: AlphaCurrency,
+        alpha_unstaked: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -229,7 +229,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("All subnet netuids: {netuids:?}");
 
         // 4. Iterate through all subnets and remove stake.
-        let mut total_tao_unstaked = TaoCurrency::ZERO;
+        let mut total_tao_unstaked = TaoBalance::ZERO;
         for netuid in netuids.into_iter() {
             if !SubtokenEnabled::<T>::get(netuid) {
                 continue;
@@ -334,8 +334,8 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: AlphaCurrency,
-        limit_price: TaoCurrency,
+        alpha_unstaked: AlphaBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -391,14 +391,14 @@ impl<T: Config> Pallet<T> {
     // Returns the maximum amount of RAO that can be executed with price limit
     pub fn get_max_amount_remove(
         netuid: NetUid,
-        limit_price: TaoCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+        limit_price: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // lower, then max_amount equals u64::MAX, otherwise it is 0.
         if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
             if limit_price <= 1_000_000_000.into() {
-                return Ok(AlphaCurrency::MAX);
+                return Ok(AlphaBalance::MAX);
             } else {
                 return Err(Error::<T>::ZeroMaxStakeAmount.into());
             }
@@ -420,7 +420,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        limit_price: Option<TaoCurrency>,
+        limit_price: Option<TaoBalance>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin.clone())?;
 
@@ -442,7 +442,7 @@ impl<T: Config> Pallet<T> {
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(1));
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(1));
-        let lock_cost: TaoCurrency = Self::get_subnet_locked_balance(netuid);
+        let lock_cost: TaoBalance = Self::get_subnet_locked_balance(netuid);
 
         // Determine if this subnet is eligible for a lock refund (legacy).
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(1));
@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
         //      - get the current alpha issuance,
         //      - apply owner fraction to get owner α,
         //      - price that α using a *simulated* AMM swap.
-        let mut owner_emission_tao = TaoCurrency::ZERO;
+        let mut owner_emission_tao = TaoBalance::ZERO;
         if should_refund_owner && !lock_cost.is_zero() {
             WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(1));
             let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
@@ -478,9 +478,9 @@ impl<T: Config> Pallet<T> {
                         .saturating_mul(cur_price)
                         .floor()
                         .saturating_to_num::<u64>();
-                    TaoCurrency::from(val_u64)
+                    val_u64.into()
                 } else {
-                    TaoCurrency::ZERO
+                    TaoBalance::ZERO
                 };
             }
         }
@@ -533,7 +533,7 @@ impl<T: Config> Pallet<T> {
 
         // 5) Determine the TAO pot and pre-adjust accounting to avoid double counting.
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads(1));
-        let pot_tao: TaoCurrency = SubnetTAO::<T>::get(netuid);
+        let pot_tao: TaoBalance = SubnetTAO::<T>::get(netuid);
         let pot_u64: u64 = pot_tao.into();
 
         if pot_u64 > 0 {
@@ -585,7 +585,7 @@ impl<T: Config> Pallet<T> {
             for p in portions {
                 if p.share > 0 {
                     WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads_writes(1, 1));
-                    Self::add_balance_to_coldkey_account(&p.cold, p.share);
+                    Self::add_balance_to_coldkey_account(&p.cold, p.share.into());
                 }
             }
         }
@@ -613,21 +613,21 @@ impl<T: Config> Pallet<T> {
 
         // Clear the locked balance on the subnet.
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
-        Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
+        Self::set_subnet_locked_balance(netuid, TaoBalance::ZERO);
 
         // 8) Finalize lock handling:
         //    - Legacy subnets (registered before NetworkRegistrationStartBlock) receive:
         //        refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
         //    - New subnets: no refund.
-        let refund: TaoCurrency = if should_refund_owner {
+        let refund: TaoBalance = if should_refund_owner {
             lock_cost.saturating_sub(owner_emission_tao)
         } else {
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         };
 
         if !refund.is_zero() {
             WeightMeterWrapper!(meter_weight, T::DbWeight::get().reads_writes(1, 1));
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
+            Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
         }
 
         meter_weight.consumed()
