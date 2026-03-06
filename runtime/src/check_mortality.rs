@@ -118,9 +118,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     use frame_support::pallet_prelude::{BoundedVec, ConstU32};
-    
+
     use sp_runtime::transaction_validity::InvalidTransaction;
 
     use crate::{Runtime, RuntimeCall, System};
