@@ -124,9 +124,9 @@ pub mod pallet {
         ///   3. NextKey     ← next-next author's key  (user-facing)
         ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(23_190_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2_u64))
-        .saturating_add(T::DbWeight::get().writes(3_u64)))]
+        #[pallet::weight(Weight::from_parts(33_230_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4_u64))
+        .saturating_add(T::DbWeight::get().writes(4_u64)))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             enc_key: Option<ShieldEncKey>,
