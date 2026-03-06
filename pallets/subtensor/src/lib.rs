@@ -2524,9 +2524,9 @@ use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
 #[derive(Clone)]
-pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
+pub struct TaoBalanceReserve<T: Config>(PhantomData<T>);
 
-impl<T: Config> TokenReserve<TaoBalance> for TaoCurrencyReserve<T> {
+impl<T: Config> TokenReserve<TaoBalance> for TaoBalanceReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoBalance {
         SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
@@ -2542,9 +2542,9 @@ impl<T: Config> TokenReserve<TaoBalance> for TaoCurrencyReserve<T> {
 }
 
 #[derive(Clone)]
-pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
+pub struct AlphaBalanceReserve<T: Config>(PhantomData<T>);
 
-impl<T: Config> TokenReserve<AlphaBalance> for AlphaCurrencyReserve<T> {
+impl<T: Config> TokenReserve<AlphaBalance> for AlphaBalanceReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaBalance {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
@@ -2560,9 +2560,9 @@ impl<T: Config> TokenReserve<AlphaBalance> for AlphaCurrencyReserve<T> {
 }
 
 pub type GetAlphaForTao<T> =
-    subtensor_swap_interface::GetAlphaForTao<TaoCurrencyReserve<T>, AlphaCurrencyReserve<T>>;
+    subtensor_swap_interface::GetAlphaForTao<TaoBalanceReserve<T>, AlphaBalanceReserve<T>>;
 pub type GetTaoForAlpha<T> =
-    subtensor_swap_interface::GetTaoForAlpha<AlphaCurrencyReserve<T>, TaoCurrencyReserve<T>>;
+    subtensor_swap_interface::GetTaoForAlpha<AlphaBalanceReserve<T>, TaoBalanceReserve<T>>;
 
 impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
     subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>

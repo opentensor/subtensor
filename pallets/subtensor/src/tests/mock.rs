@@ -21,7 +21,6 @@ use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBas
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
 use share_pool::{SafeFloat, SafeFloatSerializable};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -333,8 +332,8 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = TaoCurrencyReserve<Self>;
-    type AlphaReserve = AlphaCurrencyReserve<Self>;
+    type TaoReserve = TaoBalanceReserve<Self>;
+    type AlphaReserve = AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;

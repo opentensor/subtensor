@@ -537,9 +537,9 @@ mod events {
             /// Account that paid the transaction fee.
             who: T::AccountId,
             /// Exact fee deducted in Alpha units.
-            alpha_fee: AlphaCurrency,
+            alpha_fee: AlphaBalance,
             /// Resulting swapped TAO amount
-            tao_amount: TaoCurrency,
+            tao_amount: TaoBalance,
         },
     }
 }

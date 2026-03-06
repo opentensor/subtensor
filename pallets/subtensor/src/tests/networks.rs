@@ -7,7 +7,7 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
+use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 

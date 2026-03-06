@@ -5,7 +5,7 @@ use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use share_pool::{SafeFloat, SafeFloatSerializable};
 use sp_core::U256;
-use substrate_fixed::types::{U64F64, U96F32};
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
@@ -554,8 +554,8 @@ fn test_recycle_precision() {
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
         let stake = 200_000_u64;
-        let tao_reserve = TaoCurrency::from(1_000_000_000_u64);
-        let alpha_reserve = AlphaCurrency::from(1_000_000_000_u64);
+        let tao_reserve = TaoBalance::from(1_000_000_000_u64);
+        let alpha_reserve = AlphaBalance::from(1_000_000_000_u64);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_reserve);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
 
@@ -582,7 +582,7 @@ fn test_recycle_precision() {
             (&hotkey, &coldkey, netuid),
             SafeFloatSerializable::from(&denominator),
         );
-        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
 
         // recycle, expect error due to precision loss
         assert_ok!(SubtensorModule::recycle_alpha(
@@ -594,7 +594,7 @@ fn test_recycle_precision() {
 
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
-            AlphaCurrency::from(stake / 2)
+            AlphaBalance::from(stake / 2)
         );
     });
 }
@@ -607,8 +607,8 @@ fn test_burn_precision() {
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
         let stake = 200_000_u64;
-        let tao_reserve = TaoCurrency::from(1_000_000_000_u64);
-        let alpha_reserve = AlphaCurrency::from(1_000_000_000_u64);
+        let tao_reserve = TaoBalance::from(1_000_000_000_u64);
+        let alpha_reserve = AlphaBalance::from(1_000_000_000_u64);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_reserve);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
 
@@ -635,7 +635,7 @@ fn test_burn_precision() {
             (&hotkey, &coldkey, netuid),
             SafeFloatSerializable::from(&denominator),
         );
-        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaCurrency::from(stake));
+        TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
 
         // burn, expect error due to precision loss
         assert_ok!(SubtensorModule::burn_alpha(
@@ -647,7 +647,7 @@ fn test_burn_precision() {
 
         assert_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid),
-            AlphaCurrency::from(stake / 2)
+            AlphaBalance::from(stake / 2)
         );
     });
 }

@@ -16,6 +16,11 @@ num-traits.workspace = true
 safe-bigmath.workspace = true
 safe-math.workspace = true
 
+[dev-dependencies]
+sp-arithmetic.workspace = true
+rand  = { version = "0.8", features = ["std", "std_rng"] }
+rayon = "1.10"
+
 [lints]
 workspace = true
 
@@ -25,8 +30,10 @@ std = [
 	"codec/std",
 	"lencode/std",
     "log/std",
+    "rand/std",
 	"scale-info/std",
     "substrate-fixed/std",
+    "sp-arithmetic/std",
     "sp-std/std",
     "num-traits/std",
     "safe-math/std",

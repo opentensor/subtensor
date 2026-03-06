@@ -29,11 +29,9 @@ use subtensor_swap_interface::SwapHandler;
 // Misc
 use core::marker::PhantomData;
 use smallvec::smallvec;
+use sp_runtime::traits::SaturatedConversion;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{
-    AlphaCurrency, AuthorshipInfo, Balance, Currency, NetUid, TaoCurrency,
-};
+use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance};
 
 // Tests
 #[cfg(test)]
@@ -217,7 +215,7 @@ pub enum WithdrawnFee<T: frame_system::Config, F: Balanced<AccountIdOf<T>>> {
     // Contains withdrawn TAO amount
     Tao(Credit<AccountIdOf<T>, F>),
     // Contains withdrawn Alpha amount and resulting swapped TAO
-    Alpha((AlphaCurrency, TaoCurrency)),
+    Alpha((AlphaBalance, TaoBalance)),
 }
 
 /// Custom OnChargeTransaction implementation based on standard FungibleAdapter from transaction_payment
@@ -337,7 +335,7 @@ where
             Err(_) => {
                 let alpha_vec = Self::fees_in_alpha::<T>(who, call);
                 if !alpha_vec.is_empty() {
-                    let fee_u64: u64 = fee.into();
+                    let fee_u64: u64 = fee.saturated_into::<u64>();
                     let (alpha_fee, tao_amount) =
                         OU::withdraw_in_alpha(who, &alpha_vec, fee_u64.into());
                     return Ok(Some(WithdrawnFee::Alpha((alpha_fee, tao_amount))));
@@ -365,7 +363,7 @@ where
                 // Fallback to fees in Alpha if possible
                 let alpha_vec = Self::fees_in_alpha::<T>(who, call);
                 if !alpha_vec.is_empty() {
-                    let fee_u64: u64 = fee.into();
+                    let fee_u64: u64 = fee.saturated_into::<u64>();
                     if OU::can_withdraw_in_alpha(who, &alpha_vec, fee_u64.into()) {
                         return Ok(());
                     }
@@ -410,12 +408,8 @@ where
                 WithdrawnFee::Alpha((alpha_fee, tao_amount)) => {
                     if let Some(author) = T::author() {
                         // Pay block author
-                        let _ = F::deposit(
-                            &author,
-                            u64::from(tao_amount).into(),
-                            Precision::BestEffort,
-                        )
-                        .unwrap_or_else(|_| Debt::<T::AccountId, F>::zero());
+                        let _ = F::deposit(&author, tao_amount.into(), Precision::BestEffort)
+                            .unwrap_or_else(|_| Debt::<T::AccountId, F>::zero());
                     } else {
                         // Fallback: no author => do nothing
                     }

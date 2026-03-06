@@ -8,6 +8,7 @@ use lencode::{Decode as LenDecode, Encode as LenEncode};
 use num_traits::float::FloatCore as _;
 use safe_bigmath::*;
 use scale_info::TypeInfo;
+use sp_arithmetic::Perquintill;
 use sp_std::marker;
 use sp_std::ops::Neg;
 use sp_std::vec::Vec;
@@ -714,26 +715,26 @@ mod tests {
         pool.update_value_for_one(&1, 1);
         pool.update_value_for_one(&2, 1);
 
-        // // Huge emission resulting in 1M Alpha
-        // // Both stakers should have 500k Alpha each
-        // pool.update_value_for_all(999_999_999_999_998);
+        // Huge emission resulting in 1M Alpha
+        // Both stakers should have 500k Alpha each
+        pool.update_value_for_all(999_999_999_999_998);
 
-        // // Everyone unstakes almost everything, leaving 10 rao in the stake
-        // pool.update_value_for_one(&1, -499_999_999_999_990);
-        // pool.update_value_for_one(&2, -499_999_999_999_990);
+        // Everyone unstakes almost everything, leaving 10 rao in the stake
+        pool.update_value_for_one(&1, -499_999_999_999_990);
+        pool.update_value_for_one(&2, -499_999_999_999_990);
 
-        // // Huge emission resulting in 1M Alpha
-        // // Both stakers should have 500k Alpha each
-        // pool.update_value_for_all(999_999_999_999_980);
+        // Huge emission resulting in 1M Alpha
+        // Both stakers should have 500k Alpha each
+        pool.update_value_for_all(999_999_999_999_980);
 
-        // // Stakers add 1k Alpha each
-        // pool.update_value_for_one(&1, 1_000_000_000_000);
-        // pool.update_value_for_one(&2, 1_000_000_000_000);
+        // Stakers add 1k Alpha each
+        pool.update_value_for_one(&1, 1_000_000_000_000);
+        pool.update_value_for_one(&2, 1_000_000_000_000);
 
-        // let value1 = pool.get_value(&1) as f64;
-        // let value2 = pool.get_value(&2) as f64;
-        // assert_abs_diff_eq!(value1, 501_000_000_000_000_f64, epsilon = 1.);
-        // assert_abs_diff_eq!(value2, 501_000_000_000_000_f64, epsilon = 1.);
+        let value1 = pool.get_value(&1) as f64;
+        let value2 = pool.get_value(&2) as f64;
+        assert_abs_diff_eq!(value1, 501_000_000_000_000_f64, epsilon = 1.);
+        assert_abs_diff_eq!(value2, 501_000_000_000_000_f64, epsilon = 1.);
     }
 
     // cargo test --package share-pool --lib -- tests::test_denom_high_precision_many_small_unstakes --exact --show-output
@@ -935,8 +936,6 @@ mod tests {
                 1_000_000_000_000_000_000_012_u128,
                 2_i64,
             ),
-            // --- New tests start here ---
-
             // Small-ish + very large (10^22 + 42)
             // 42 * 10^0 + 1 * 10^22 ≈ 1e22 + 42
             // Normalized ≈ (1e21 + 4) * 10^1
@@ -1285,5 +1284,557 @@ mod tests {
             unstake_amount as f64,
             epsilon = unstake_amount as f64 / 1_000_000_000.
         );
+    }
+
+    // Below are the tests transplanted from balancer plus some new wide-range SafeFloat tests,
+    // all to ensure safety of bigmath crate
+
+    const ACCURACY: u64 = 1_000_000_000_000_000_000_u64;
+
+    fn exp_scaled(
+        w_base: Perquintill,
+        w_quote: Perquintill,
+        x: u64,
+        dx: i128,
+        base_quote: bool,
+    ) -> U64F64 {
+        let x_plus_dx = if dx >= 0 {
+            x.saturating_add(dx as u64)
+        } else {
+            x.saturating_sub(dx.neg() as u64)
+        };
+
+        if x_plus_dx == 0 {
+            return U64F64::saturating_from_num(0);
+        }
+
+        let w1: u128 = w_base.deconstruct() as u128;
+        let w2: u128 = w_quote.deconstruct() as u128;
+
+        let precision = 1024;
+        let x_safe = SafeInt::from(x);
+        let w1_safe = SafeInt::from(w1);
+        let w2_safe = SafeInt::from(w2);
+        let perquintill_scale = SafeInt::from(ACCURACY as u128);
+        let denominator = SafeInt::from(x_plus_dx);
+        log::debug!("x = {:?}", x);
+        log::debug!("dx = {:?}", dx);
+        log::debug!("x_safe = {:?}", x_safe);
+        log::debug!("denominator = {:?}", denominator);
+        log::debug!("w1_safe = {:?}", w1_safe);
+        log::debug!("w2_safe = {:?}", w2_safe);
+        log::debug!("precision = {:?}", precision);
+        log::debug!("perquintill_scale = {:?}", perquintill_scale);
+
+        let maybe_result_safe_int = if base_quote {
+            SafeInt::pow_ratio_scaled(
+                &x_safe,
+                &denominator,
+                &w1_safe,
+                &w2_safe,
+                precision,
+                &perquintill_scale,
+            )
+        } else {
+            SafeInt::pow_ratio_scaled(
+                &x_safe,
+                &denominator,
+                &w2_safe,
+                &w1_safe,
+                precision,
+                &perquintill_scale,
+            )
+        };
+
+        if let Some(result_safe_int) = maybe_result_safe_int
+            && let Some(result_u64) = result_safe_int.to_u64()
+        {
+            return U64F64::saturating_from_num(result_u64)
+                .checked_div(U64F64::saturating_from_num(ACCURACY))
+                .unwrap();
+        }
+        U64F64::saturating_from_num(0)
+    }
+
+    fn exp_base_quote(w_base: Perquintill, w_quote: Perquintill, x: u64, dx: u64) -> U64F64 {
+        exp_scaled(w_base, w_quote, x, dx as i128, true)
+    }
+
+    // Helper: convert Perquintill to f64 for comparison
+    fn perquintill_to_f64(p: Perquintill) -> f64 {
+        let parts = p.deconstruct() as f64;
+        parts / ACCURACY as f64
+    }
+
+    /// Test the broad range of w_quote values, usually should be ignored
+    // cargo test --package share-pool --lib -- tests::test_exp_quote_broad_range --exact --include-ignored --show-output
+    #[ignore]
+    #[test]
+    fn test_exp_quote_broad_range() {
+        let y = 1_000_000_000_000_u64;
+        let x = 100_000_000_000_000_u64;
+        let dx = 10_000_000_u64;
+
+        let mut prev = U64F64::from_num(1_000_000_000);
+        let mut last_progress = 0.;
+        let start = 100_000_000_000_u128;
+        let stop = 900_000_000_000_u128;
+        for num in (start..=stop).step_by(1000_usize) {
+            let w_base =
+                Perquintill::from_rational(1_000_000_000_000_u128 - num, 1_000_000_000_000_u128);
+            let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
+            let e = exp_base_quote(w_base, w_quote, x, dx);
+
+            let one = U64F64::from_num(1);
+            let dy = U64F64::from_num(y) * (one - e);
+
+            let progress = (num as f64 - start as f64) / (stop as f64 - start as f64);
+            if progress - last_progress >= 0.0001 {
+                // Replace with println for real-time progress
+                log::debug!("progress = {:?}%", progress * 100.);
+                log::debug!("dy = {:?}", dy);
+                last_progress = progress;
+            }
+
+            assert!(dy != U64F64::from_num(0));
+            assert!(dy <= prev);
+            prev = dy;
+        }
+    }
+
+    // cargo test --package share-pool --lib -- tests::test_exp_quote_fuzzy --exact --include-ignored --show-output
+    #[ignore]
+    #[test]
+    fn test_exp_quote_fuzzy() {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+        use rayon::prelude::*;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        const ITERATIONS: usize = 1_000_000_000;
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        (0..ITERATIONS)
+        .into_par_iter()
+        .for_each(|i| {
+            // Each iteration gets its own deterministic RNG.
+            // Seed depends on i, so runs are reproducible.
+            let mut rng = StdRng::seed_from_u64(42 + i as u64);
+            let max_supply: u64 = 21_000_000_000_000_000;
+            let full_range = true;
+
+            let x: u64 = rng.gen_range(1_000..=max_supply); // Alpha reserve
+            let y: u64 = if full_range {
+                // TAO reserve (allow huge prices)
+                rng.gen_range(1_000..=max_supply)
+            } else {
+                // TAO reserve (limit prices with 0-1000)
+                rng.gen_range(1_000..x.saturating_mul(1000).min(max_supply))
+            };
+            let dx: u64 = if full_range {
+                // Alhpa sold (allow huge values)
+                rng.gen_range(1_000..=21_000_000_000_000_000)
+            } else {
+                // Alhpa sold (do not sell more than 100% of what's in alpha reserve)
+                rng.gen_range(1_000..=x)
+            };
+            let w_numerator: u64 = rng.gen_range(ACCURACY / 10..=ACCURACY / 10 * 9);
+            let w_base = Perquintill::from_rational(ACCURACY - w_numerator, ACCURACY);
+            let w_quote = Perquintill::from_rational(w_numerator, ACCURACY);
+            let e = exp_base_quote(w_base, w_quote, x, dx);
+
+            let one = U64F64::from_num(1);
+            let dy = U64F64::from_num(y) * (one - e);
+
+            // Calculate expected in f64 and approx-assert
+            let w1 = perquintill_to_f64(w_base);
+            let w2 = perquintill_to_f64(w_quote);
+            let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
+            let dy_expected = y as f64 * (1. - e_expected);
+
+            let actual = dy.to_num::<f64>();
+            let eps = (dy_expected / 1_000_000.).clamp(1.0, 1000.0);
+
+            assert!(
+                (actual - dy_expected).abs() <= eps,
+                "dy mismatch:\n actual:   {}\n expected: {}\n eps: {}\nParameters:\n x:  {}\n y:  {}\n dx: {}\n w_numerator: {}\n",
+                actual, dy_expected, eps, x, y, dx, w_numerator,
+            );
+
+            // Assert that we aren't giving out more than reserve y
+            assert!(dy <= y, "dy = {},\ny =  {}", dy, y,);
+
+            // Print progress
+            let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
+            if done % 100_000_000 == 0 {
+                let progress = done as f64 / ITERATIONS as f64 * 100.0;
+                // Replace with println for real-time progress
+                log::debug!("progress = {progress:.4}%");
+            }
+        });
+    }
+
+    fn rel_err(a: f64, b: f64) -> f64 {
+        let denom = a.abs().max(b.abs()).max(1.0);
+        (a - b).abs() / denom
+    }
+
+    fn push_unique(v: &mut Vec<u128>, x: u128) {
+        if x != 0 && !v.contains(&x) {
+            v.push(x);
+        }
+    }
+
+    // cargo test --package share-pool --lib -- tests::test_safefloat_mul_div_wide_range --exact --include-ignored --show-output
+    #[test]
+    #[ignore = "long-running sweep test; run explicitly when needed"]
+    fn test_safefloat_mul_div_wide_range() {
+        use rayon::prelude::*;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        // Build mantissa corpus
+        let mut mantissas = Vec::<u128>::new();
+
+        let linear_steps: u128 = 200;
+        let linear_step = (SAFE_FLOAT_MAX / linear_steps).max(1);
+        let mut m = 1u128;
+        while m <= SAFE_FLOAT_MAX {
+            push_unique(&mut mantissas, m);
+            match m.checked_add(linear_step) {
+                Some(next) if next > m => m = next,
+                _ => break,
+            }
+        }
+        push_unique(&mut mantissas, SAFE_FLOAT_MAX);
+
+        let mut p = 1u128;
+        while p <= SAFE_FLOAT_MAX {
+            push_unique(&mut mantissas, p);
+            if p > 1 {
+                push_unique(&mut mantissas, p - 1);
+            }
+            if let Some(next) = p.checked_add(1) {
+                if next <= SAFE_FLOAT_MAX {
+                    push_unique(&mut mantissas, next);
+                }
+            }
+
+            match p.checked_mul(10) {
+                Some(next) if next > p && next <= SAFE_FLOAT_MAX => p = next,
+                _ => break,
+            }
+        }
+
+        for delta in [
+            0u128, 1, 2, 3, 7, 9, 10, 11, 99, 100, 101, 999, 1_000, 10_000,
+        ] {
+            if SAFE_FLOAT_MAX > delta {
+                push_unique(&mut mantissas, SAFE_FLOAT_MAX - delta);
+            }
+        }
+
+        mantissas.sort_unstable();
+        mantissas.dedup();
+
+        let exp_min: i64 = -120;
+        let exp_max: i64 = 120;
+        let exp_step: usize = 5;
+        let exponents: Vec<i64> = (exp_min..=exp_max).step_by(exp_step).collect();
+
+        // Precompute all (a, b) pairs as outer work items.
+        // Each Rayon task will then iterate all c's sequentially.
+        let mut outer_cases: Vec<(u128, i64, u128, i64)> = Vec::new();
+
+        for &ma in &mantissas {
+            for &ea in &exponents {
+                for &mb in &mantissas {
+                    for &eb in &exponents {
+                        outer_cases.push((ma, ea, mb, eb));
+                    }
+                }
+            }
+        }
+
+        let checked = Arc::new(AtomicUsize::new(0));
+        let skipped_non_finite = Arc::new(AtomicUsize::new(0));
+        let skipped_invalid_sf = Arc::new(AtomicUsize::new(0));
+
+        let progress_step = 10_000usize;
+        let total_outer = outer_cases.len();
+
+        outer_cases.into_par_iter().for_each(|(ma, ea, mb, eb)| {
+            let a = match SafeFloat::new(SafeInt::from(ma), ea) {
+                Some(x) => x,
+                None => {
+                    skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
+                    return;
+                }
+            };
+
+            let b = match SafeFloat::new(SafeInt::from(mb), eb) {
+                Some(x) => x,
+                None => {
+                    skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
+                    return;
+                }
+            };
+
+            for &mc in &mantissas {
+                for &ec in &exponents {
+                    let c = match SafeFloat::new(SafeInt::from(mc), ec) {
+                        Some(x) => x,
+                        None => {
+                            skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
+                            continue;
+                        }
+                    };
+
+                    let actual_sf = a.mul_div(&b, &c).unwrap();
+                    let actual: f64 = actual_sf.into();
+
+                    let expected =
+                        (ma as f64 * 10_f64.powi(ea as i32))
+                        * (mb as f64 * 10_f64.powi(eb as i32))
+                        / (mc as f64 * 10_f64.powi(ec as i32));
+
+                    if !expected.is_finite() || !actual.is_finite() {
+                        skipped_non_finite.fetch_add(1, Ordering::Relaxed);
+                        continue;
+                    }
+
+                    let err = rel_err(actual, expected);
+
+                    assert!(
+                        err <= 1e-12,
+                        concat!(
+                            "mul_div mismatch:\n",
+                            "  a = {}e{}\n",
+                            "  b = {}e{}\n",
+                            "  c = {}e{}\n",
+                            "  actual   = {:.20e}\n",
+                            "  expected = {:.20e}\n",
+                            "  rel_err  = {:.20e}"
+                        ),
+                        ma, ea, mb, eb, mc, ec, actual, expected, err
+                    );
+
+                    checked.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+
+            let done_outer = checked.load(Ordering::Relaxed);
+            if done_outer % progress_step == 0 {
+                let invalid = skipped_invalid_sf.load(Ordering::Relaxed);
+                let non_finite = skipped_non_finite.load(Ordering::Relaxed);
+                log::debug!(
+                    "progress: checked={}, skipped_invalid_sf={}, skipped_non_finite={}, outer_total={}",
+                    done_outer,
+                    invalid,
+                    non_finite,
+                    total_outer,
+                );
+            }
+        });
+
+        let checked = checked.load(Ordering::Relaxed);
+        let skipped_non_finite = skipped_non_finite.load(Ordering::Relaxed);
+        let skipped_invalid_sf = skipped_invalid_sf.load(Ordering::Relaxed);
+
+        println!(
+            "checked={}, skipped_non_finite={}, skipped_invalid_sf={}, mantissas={}, exponents={}, outer_cases={}",
+            checked,
+            skipped_non_finite,
+            skipped_invalid_sf,
+            mantissas.len(),
+            exponents.len(),
+            total_outer,
+        );
+
+        assert!(checked > 0, "test did not validate any finite cases");
+    }
+
+    #[test]
+    #[ignore = "long-running broad-range test; run explicitly when needed"]
+    fn test_safefloat_div_wide_range() {
+        use rayon::prelude::*;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        fn rel_err(a: f64, b: f64) -> f64 {
+            let denom = a.abs().max(b.abs()).max(1.0);
+            (a - b).abs() / denom
+        }
+
+        fn push_unique(v: &mut Vec<u128>, x: u128) {
+            if x != 0 && !v.contains(&x) {
+                v.push(x);
+            }
+        }
+
+        // Build a broad mantissa corpus:
+        // - coarse linear sweep
+        // - powers of 10 and neighbors
+        // - values near SAFE_FLOAT_MAX
+        let mut mantissas = Vec::<u128>::new();
+
+        let linear_steps: u128 = 200;
+        let linear_step = (SAFE_FLOAT_MAX / linear_steps).max(1);
+        let mut m = 1u128;
+        while m <= SAFE_FLOAT_MAX {
+            push_unique(&mut mantissas, m);
+            match m.checked_add(linear_step) {
+                Some(next) if next > m => m = next,
+                _ => break,
+            }
+        }
+        push_unique(&mut mantissas, SAFE_FLOAT_MAX);
+
+        let mut p = 1u128;
+        while p <= SAFE_FLOAT_MAX {
+            push_unique(&mut mantissas, p);
+            if p > 1 {
+                push_unique(&mut mantissas, p - 1);
+            }
+            if let Some(next) = p.checked_add(1) {
+                if next <= SAFE_FLOAT_MAX {
+                    push_unique(&mut mantissas, next);
+                }
+            }
+
+            match p.checked_mul(10) {
+                Some(next) if next > p && next <= SAFE_FLOAT_MAX => p = next,
+                _ => break,
+            }
+        }
+
+        for delta in [
+            0u128, 1, 2, 3, 7, 9, 10, 11, 99, 100, 101, 999, 1_000, 10_000,
+        ] {
+            if SAFE_FLOAT_MAX > delta {
+                push_unique(&mut mantissas, SAFE_FLOAT_MAX - delta);
+            }
+        }
+
+        mantissas.sort_unstable();
+        mantissas.dedup();
+
+        // Exponent sweep.
+        // Keep it large enough to stress normalization / exponent math,
+        // but still practical for f64 reference calculations.
+        let exp_min: i64 = -120;
+        let exp_max: i64 = 120;
+        let exp_step: usize = 5;
+        let exponents: Vec<i64> = (exp_min..=exp_max).step_by(exp_step).collect();
+
+        let m_len = mantissas.len();
+        let e_len = exponents.len();
+        let total_cases = m_len * e_len * m_len * e_len;
+
+        let checked = Arc::new(AtomicUsize::new(0));
+        let skipped_non_finite = Arc::new(AtomicUsize::new(0));
+        let skipped_invalid_sf = Arc::new(AtomicUsize::new(0));
+        let done_counter = Arc::new(AtomicUsize::new(0));
+
+        (0..total_cases).into_par_iter().for_each(|idx| {
+            let mut rem = idx;
+
+            let eb_idx = rem % e_len;
+            rem /= e_len;
+
+            let mb_idx = rem % m_len;
+            rem /= m_len;
+
+            let ea_idx = rem % e_len;
+            rem /= e_len;
+
+            let ma_idx = rem % m_len;
+
+            let ma = mantissas[ma_idx];
+            let ea = exponents[ea_idx];
+            let mb = mantissas[mb_idx];
+            let eb = exponents[eb_idx];
+
+            let a = match SafeFloat::new(SafeInt::from(ma), ea) {
+                Some(x) => x,
+                None => {
+                    skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
+                    done_counter.fetch_add(1, Ordering::Relaxed);
+                    return;
+                }
+            };
+
+            let b = match SafeFloat::new(SafeInt::from(mb), eb) {
+                Some(x) => x,
+                None => {
+                    skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
+                    done_counter.fetch_add(1, Ordering::Relaxed);
+                    return;
+                }
+            };
+
+            let actual_sf = match a.div(&b) {
+                Some(x) => x,
+                None => {
+                    skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
+                    done_counter.fetch_add(1, Ordering::Relaxed);
+                    return;
+                }
+            };
+
+            let actual: f64 = actual_sf.into();
+            let expected =
+                (ma as f64 * 10_f64.powi(ea as i32)) / (mb as f64 * 10_f64.powi(eb as i32));
+
+            if !actual.is_finite() || !expected.is_finite() {
+                skipped_non_finite.fetch_add(1, Ordering::Relaxed);
+            } else {
+                let err = rel_err(actual, expected);
+
+                assert!(
+                    err <= 1e-12,
+                    concat!(
+                        "div mismatch:\n",
+                        "  a = {}e{}\n",
+                        "  b = {}e{}\n",
+                        "  actual   = {:.20e}\n",
+                        "  expected = {:.20e}\n",
+                        "  rel_err  = {:.20e}"
+                    ),
+                    ma,
+                    ea,
+                    mb,
+                    eb,
+                    actual,
+                    expected,
+                    err
+                );
+
+                checked.fetch_add(1, Ordering::Relaxed);
+            }
+
+            let done = done_counter.fetch_add(1, Ordering::Relaxed) + 1;
+            if done % 10_000 == 0 {
+                let progress = done as f64 / total_cases as f64 * 100.0;
+                log::debug!("div progress = {progress:.4}%");
+            }
+        });
+
+        let checked = checked.load(Ordering::Relaxed);
+        let skipped_non_finite = skipped_non_finite.load(Ordering::Relaxed);
+        let skipped_invalid_sf = skipped_invalid_sf.load(Ordering::Relaxed);
+
+        println!(
+            "div checked={}, skipped_non_finite={}, skipped_invalid_sf={}, mantissas={}, exponents={}, total_cases={}",
+            checked,
+            skipped_non_finite,
+            skipped_invalid_sf,
+            mantissas.len(),
+            exponents.len(),
+            total_cases,
+        );
+
+        assert!(checked > 0, "div test did not validate any finite cases");
     }
 }

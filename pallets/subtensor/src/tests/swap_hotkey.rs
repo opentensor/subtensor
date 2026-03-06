@@ -935,7 +935,7 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
@@ -958,11 +958,11 @@ fn test_swap_stake_v2_success() {
         let mut weight = Weight::zero();
 
         // Initialize staking variables for old_hotkey
-        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaCurrency::from(amount));
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaBalance::from(amount));
         TotalHotkeyAlphaLastEpoch::<Test>::insert(
             old_hotkey,
             netuid,
-            AlphaCurrency::from(amount * 2),
+            AlphaBalance::from(amount * 2),
         );
         TotalHotkeySharesV2::<Test>::insert(
             old_hotkey,
@@ -973,7 +973,7 @@ fn test_swap_stake_v2_success() {
             (old_hotkey, coldkey, netuid),
             SafeFloatSerializable::from(&SafeFloat::from(U64F64::from_num(amount))),
         );
-        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaCurrency::from(amount));
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaBalance::from(amount));
 
         // Perform the swap
         SubtensorModule::perform_hotkey_swap_on_all_subnets(
@@ -986,7 +986,7 @@ fn test_swap_stake_v2_success() {
         // Verify the swap
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
@@ -994,11 +994,11 @@ fn test_swap_stake_v2_success() {
         );
         assert_eq!(
             TotalHotkeyAlphaLastEpoch::<Test>::get(old_hotkey, netuid),
-            AlphaCurrency::ZERO
+            AlphaBalance::ZERO
         );
         assert_eq!(
             TotalHotkeyAlphaLastEpoch::<Test>::get(new_hotkey, netuid),
-            AlphaCurrency::from(amount * 2)
+            AlphaBalance::from(amount * 2)
         );
         assert_eq!(
             f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(

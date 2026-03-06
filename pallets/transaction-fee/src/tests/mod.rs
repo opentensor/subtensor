@@ -2,8 +2,8 @@
 use crate::{AlphaFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler, TransactionSource};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::GetDispatchInfo;
-use frame_support::{assert_err, assert_ok};
 use frame_support::pallet_prelude::Zero;
+use frame_support::{assert_err, assert_ok};
 use pallet_subtensor_swap::AlphaSqrtPrice;
 use sp_runtime::{
     traits::{DispatchTransaction, TransactionExtension, TxBaseImplication},
@@ -70,7 +70,7 @@ fn test_remove_stake_fees_tao() {
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in TAO because ck has sufficient TAO balance
-        assert!(actual_tao_fee > 0);
+        assert!(actual_tao_fee > 0.into());
         assert_eq!(actual_alpha_fee, AlphaBalance::from(0));
 
         let events = System::events();
@@ -230,18 +230,18 @@ fn test_remove_stake_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha
-        assert_abs_diff_eq!(actual_tao_fee, 0, epsilon = 10);
+        assert_abs_diff_eq!(actual_tao_fee, 0.into(), epsilon = 10.into());
         assert!(actual_alpha_fee > 0.into());
 
         // Assert that swapped TAO from alpha fee goes to block author
         let block_builder_fee_portion = 1.;
         let expected_block_builder_swap_reward = swap_fee as f64 * block_builder_fee_portion;
-        let expected_tx_fee = 136000.; // Use very low value (0.000136) for less test flakiness
+        let expected_tx_fee = 14000.; // Use very low value (0.000014) for less test flakiness, value before we 10x tx fees
         let block_builder_balance_after = Balances::free_balance(block_builder);
         let actual_block_builder_reward =
             block_builder_balance_after - block_builder_balance_before;
         assert!(
-            actual_block_builder_reward as f64
+            u64::from(actual_block_builder_reward) as f64
                 >= expected_block_builder_swap_reward + expected_tx_fee
         );
 
@@ -745,7 +745,7 @@ fn test_remove_stake_limit_fees_alpha() {
         );
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
-        let alpha_fee = AlphaCurrency::from(24229); // This is measured alpha fee that matches the withdrawn tx fee
+        let alpha_fee = AlphaBalance::from(24229); // This is measured alpha fee that matches the withdrawn tx fee
         let (expected_burned_tao_fees, _swap_fee) =
             mock::swap_alpha_to_tao(sn.subnets[0].netuid, alpha_fee);
         let (expected_unstaked_tao_plus_fees, _swap_fee) =
@@ -796,7 +796,7 @@ fn test_remove_stake_limit_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha
-        assert_abs_diff_eq!(actual_tao_fee, 0, epsilon = 100,);
+        assert_abs_diff_eq!(actual_tao_fee, 0.into(), epsilon = 100.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -859,7 +859,7 @@ fn test_unstake_all_fees_alpha() {
         );
 
         // Give the coldkey TAO balance - now should unstake ok
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -940,7 +940,7 @@ fn test_unstake_all_alpha_fees_alpha() {
         );
 
         // Give the coldkey TAO balance - now should unstake ok
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -1420,7 +1420,7 @@ fn test_add_stake_fees_go_to_block_builder() {
 
         // Expect that block builder balance has increased by both the swap fee and the transaction fee
         let expected_block_builder_swap_reward = swap_fee as f64 * block_builder_fee_portion;
-        let expected_tx_fee = 136000.; // Use very low value (0.000136) for less test flakiness
+        let expected_tx_fee = 14000.; // Use very low value (0.000014) for less test flakiness, value before we 10x tx fees
         let block_builder_balance_after = Balances::free_balance(block_builder);
         let actual_reward = block_builder_balance_after - block_builder_balance_before;
         assert!(
