@@ -137,14 +137,6 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
         authorities.get(author_index as usize).cloned()
     }
 
-    fn find_next_author() -> Option<AuraId> {
-        let next_slot = Aura::current_slot_from_digests()?.checked_add(1)?;
-        let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
-        let next_author_index = next_slot % authorities.len() as u64;
-
-        authorities.get(next_author_index as usize).cloned()
-    }
-
     fn find_next_next_author() -> Option<AuraId> {
         let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
         let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();

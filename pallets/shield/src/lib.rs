@@ -120,7 +120,7 @@ pub mod pallet {
         ///
         /// Key rotation order (using pre-update AuthorKeys):
         ///   1. CurrentKey  ← PendingKey
-        ///   2. PendingKey  ← next author's key
+        ///   2. PendingKey  ← NextKey
         ///   3. NextKey     ← next-next author's key  (user-facing)
         ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
@@ -142,11 +142,9 @@ pub mod pallet {
                 CurrentKey::<T>::kill();
             }
 
-            // 2. PendingKey ← next author's key
-            if let Some(next_author) = T::FindAuthors::find_next_author()
-                && let Some(key) = AuthorKeys::<T>::get(&next_author)
-            {
-                PendingKey::<T>::put(key);
+            // 2. PendingKey ← NextKey (what was N+2 last block is now N+1)
+            if let Some(next_key) = NextKey::<T>::take() {
+                PendingKey::<T>::put(next_key);
             } else {
                 PendingKey::<T>::kill();
             }
@@ -296,15 +294,11 @@ impl<T: Config> Pallet<T> {
 
 pub trait FindAuthors<T: Config> {
     fn find_current_author() -> Option<T::AuthorityId>;
-    fn find_next_author() -> Option<T::AuthorityId>;
     fn find_next_next_author() -> Option<T::AuthorityId>;
 }
 
 impl<T: Config> FindAuthors<T> for () {
     fn find_current_author() -> Option<T::AuthorityId> {
-        None
-    }
-    fn find_next_author() -> Option<T::AuthorityId> {
         None
     }
     fn find_next_next_author() -> Option<T::AuthorityId> {

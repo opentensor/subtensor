@@ -21,7 +21,7 @@ use stc_shield::MemoryShieldKeystore;
 #[test]
 fn announce_rejects_signed_origin() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), None, None);
+        set_authors(Some(author(1)), None);
         assert_noop!(
             MevShield::announce_next_key(RuntimeOrigin::signed(1), Some(valid_pk())),
             sp_runtime::DispatchError::BadOrigin
@@ -32,7 +32,7 @@ fn announce_rejects_signed_origin() {
 #[test]
 fn announce_shifts_pending_into_current() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), Some(author(2)), None);
+        set_authors(Some(author(1)), None);
 
         let old_pending = valid_pk_b();
         PendingKey::<Test>::put(old_pending.clone());
@@ -49,7 +49,7 @@ fn announce_shifts_pending_into_current() {
 #[test]
 fn announce_stores_key_in_author_keys() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), None, None);
+        set_authors(Some(author(1)), None);
         let pk = valid_pk();
 
         assert_ok!(MevShield::announce_next_key(
@@ -64,7 +64,7 @@ fn announce_stores_key_in_author_keys() {
 #[test]
 fn announce_sets_next_key_from_next_next_author() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), Some(author(2)), Some(author(3)));
+        set_authors(Some(author(1)), Some(author(3)));
 
         let pk_b = valid_pk_b();
         AuthorKeys::<Test>::insert(author(3), pk_b.clone());
@@ -81,7 +81,7 @@ fn announce_sets_next_key_from_next_next_author() {
 #[test]
 fn announce_next_key_none_when_next_next_author_has_no_key() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), Some(author(2)), Some(author(3)));
+        set_authors(Some(author(1)), Some(author(3)));
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
@@ -95,7 +95,7 @@ fn announce_next_key_none_when_next_next_author_has_no_key() {
 #[test]
 fn announce_next_key_none_when_no_next_next_author() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), Some(author(2)), None);
+        set_authors(Some(author(1)), None);
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
@@ -109,7 +109,7 @@ fn announce_next_key_none_when_no_next_next_author() {
 #[test]
 fn announce_rejects_bad_pk_length() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), None, None);
+        set_authors(Some(author(1)), None);
         let bad_pk: ShieldPublicKey = BoundedVec::truncate_from(vec![0x01; 100]);
 
         assert_noop!(
@@ -122,7 +122,7 @@ fn announce_rejects_bad_pk_length() {
 #[test]
 fn announce_none_pk_removes_author_key() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), None, None);
+        set_authors(Some(author(1)), None);
         AuthorKeys::<Test>::insert(author(1), valid_pk());
 
         assert_ok!(MevShield::announce_next_key(RuntimeOrigin::none(), None));
@@ -134,7 +134,7 @@ fn announce_none_pk_removes_author_key() {
 #[test]
 fn announce_fails_when_no_current_author() {
     new_test_ext().execute_with(|| {
-        set_authors(None, None, None);
+        set_authors(None, None);
 
         assert_noop!(
             MevShield::announce_next_key(RuntimeOrigin::none(), Some(valid_pk())),
@@ -144,42 +144,28 @@ fn announce_fails_when_no_current_author() {
 }
 
 #[test]
-fn announce_stages_next_author_key_into_pending() {
+fn announce_shifts_next_key_into_pending() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), Some(author(2)), Some(author(3)));
+        set_authors(Some(author(1)), None);
 
-        let pk_next = valid_pk_b();
-        AuthorKeys::<Test>::insert(author(2), pk_next.clone());
+        let next_key = valid_pk_b();
+        NextKey::<Test>::put(next_key.clone());
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
             Some(valid_pk()),
         ));
 
-        assert_eq!(PendingKey::<Test>::get(), Some(pk_next));
+        assert_eq!(PendingKey::<Test>::get(), Some(next_key));
     });
 }
 
 #[test]
-fn announce_kills_pending_when_no_next_author() {
+fn announce_kills_pending_when_no_next_key() {
     new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), None, None);
+        set_authors(Some(author(1)), None);
         PendingKey::<Test>::put(valid_pk());
-
-        assert_ok!(MevShield::announce_next_key(
-            RuntimeOrigin::none(),
-            Some(valid_pk()),
-        ));
-
-        assert!(PendingKey::<Test>::get().is_none());
-    });
-}
-
-#[test]
-fn announce_kills_pending_when_next_author_has_no_key() {
-    new_test_ext().execute_with(|| {
-        set_authors(Some(author(1)), Some(author(2)), None);
-        PendingKey::<Test>::put(valid_pk());
+        // NextKey is not set.
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
@@ -193,22 +179,21 @@ fn announce_kills_pending_when_next_author_has_no_key() {
 #[test]
 fn announce_rotations_use_pre_update_author_keys() {
     new_test_ext().execute_with(|| {
-        // Author(1) is current, author(2) is next, author(1) is next_next
-        // (round-robin with 2 validators).
-        set_authors(Some(author(1)), Some(author(2)), Some(author(1)));
+        // Author(1) is current and also next_next (2-validator round-robin).
+        set_authors(Some(author(1)), Some(author(1)));
 
         let old_pk = valid_pk();
         let new_pk = valid_pk_b();
         AuthorKeys::<Test>::insert(author(1), old_pk.clone());
 
-        // Announce a NEW key for author(1). The rotation into NextKey should
-        // use the OLD key (snapshot before update).
+        // Announce a NEW key for author(1). NextKey should use the OLD key
+        // because AuthorKeys is updated after rotations.
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
             Some(new_pk.clone()),
         ));
 
-        // NextKey used old_pk (pre-update snapshot of author(1)'s key).
+        // NextKey read pre-update AuthorKeys[author(1)].
         assert_eq!(NextKey::<Test>::get(), Some(old_pk));
         // AuthorKeys now holds the newly announced key.
         assert_eq!(AuthorKeys::<Test>::get(author(1)), Some(new_pk));
