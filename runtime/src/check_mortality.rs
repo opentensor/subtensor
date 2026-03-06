@@ -9,6 +9,7 @@ use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, Implication, TransactionExtension, ValidateResult},
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
 };
+use subtensor_macros::freeze_struct;
 
 /// Maximum allowed Era period (in blocks) for `submit_encrypted` transactions.
 ///
@@ -28,6 +29,7 @@ const MAX_SHIELD_ERA_PERIOD: u64 = 64;
 /// longer than [`MAX_SHIELD_ERA_PERIOD`] is rejected immediately at pool submission
 /// with `InvalidTransaction::Stale`, preventing pool bloat from long-lived
 /// encrypted transactions that can never be decrypted.
+#[freeze_struct("3cb7a665d55d00e5")]
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckMortality<T: frame_system::Config + Send + Sync>(pub Era, PhantomData<T>);
