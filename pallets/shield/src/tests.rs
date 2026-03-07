@@ -96,7 +96,10 @@ fn announce_sets_next_key_from_next_next_author() {
         // All 3 active keys have expiration entries.
         assert_eq!(KeyExpiresAt::<Test>::get(key_hash(&pending)), Some(11)); // CurrentKey
         assert_eq!(KeyExpiresAt::<Test>::get(key_hash(&next)), Some(12)); // PendingKey
-        assert_eq!(KeyExpiresAt::<Test>::get(key_hash(&next_next_key)), Some(13)); // NextKey
+        assert_eq!(
+            KeyExpiresAt::<Test>::get(key_hash(&next_next_key)),
+            Some(13)
+        ); // NextKey
         assert_eq!(KeyExpiresAt::<Test>::iter().count(), 3);
     });
 }
