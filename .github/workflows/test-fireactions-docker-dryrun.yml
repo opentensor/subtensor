@@ -1,3 +1,4 @@
+# TEMPORARY: Remove before merging to main/devnet-ready
 name: Test Fireactions Docker Dry-Run
 
 on:
@@ -34,7 +35,7 @@ jobs:
   publish-dryrun:
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
     timeout-minutes: 45
     steps:
       - name: Enforce dry-run mode

@@ -21,7 +21,7 @@ jobs:
   update-chainspecs:
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
     permissions:
       contents: write
     if: >

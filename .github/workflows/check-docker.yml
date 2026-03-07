@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
 
     steps:
       - name: Checkout code

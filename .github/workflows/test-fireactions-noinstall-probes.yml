@@ -1,3 +1,4 @@
+# TEMPORARY: Remove before merging to main/devnet-ready
 name: Test Fireactions No-Install Probes
 
 on:
@@ -30,7 +31,7 @@ jobs:
   probes:
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-low]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-light]
     timeout-minutes: 20
     steps:
       - name: Enforce dry-run mode

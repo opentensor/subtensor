@@ -1,3 +1,4 @@
+# TEMPORARY: Remove before merging to main/devnet-ready
 name: Test Fireactions Validation Suite
 
 on:

@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
 
     steps:
       - name: Checkout code
@@ -59,7 +59,7 @@ jobs:
         needs: build
         runs-on:
           group: fireactions
-          labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-standard]
+          labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
 
         permissions:
             pages: write

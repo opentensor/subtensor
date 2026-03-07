@@ -16,7 +16,7 @@ jobs:
     if: github.base_ref != 'main'
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
     env:
       CARGO_BUILD_JOBS: 6
     steps:
@@ -51,7 +51,7 @@ jobs:
     if: github.base_ref != 'main'
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highmem]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
     env:
       CARGO_BUILD_JOBS: 6
     steps:
@@ -86,7 +86,7 @@ jobs:
     # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
     runs-on:
       group: fireactions
-      labels: [self-hosted, fireactions-bench, fireactions-bench-pr2483, fireactions-highperf]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
     env:
       CARGO_BUILD_JOBS: 6
     steps:
