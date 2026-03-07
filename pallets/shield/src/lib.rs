@@ -78,6 +78,15 @@ pub mod pallet {
     pub type AuthorKeys<T: Config> =
         StorageMap<_, Twox64Concat, T::AuthorityId, ShieldEncKey, OptionQuery>;
 
+    /// Maps a key hash (`xxhash128` of the encapsulation key) to the block number after which
+    /// no proposer will include a transaction encrypted with that key.
+    ///
+    /// Updated every block during rotation. Only the 3 active keys (Current, Pending, Next)
+    /// have entries; stale entries are removed to prevent unbounded growth.
+    #[pallet::storage]
+    pub type KeyExpiresAt<T: Config> =
+        StorageMap<_, Twox64Concat, [u8; 16], BlockNumberFor<T>, OptionQuery>;
+
     /// Stores whether some migration has been run.
     #[pallet::storage]
     pub type HasMigrationRun<T: Config> =
@@ -125,8 +134,8 @@ pub mod pallet {
         ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(33_230_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4_u64))
-        .saturating_add(T::DbWeight::get().writes(4_u64)))]
+        .saturating_add(T::DbWeight::get().reads(8_u64))
+        .saturating_add(T::DbWeight::get().writes(8_u64)))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             enc_key: Option<ShieldEncKey>,
@@ -134,6 +143,12 @@ pub mod pallet {
             ensure_none(origin)?;
 
             let author = T::FindAuthors::find_current_author().ok_or(Error::<T>::Unreachable)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+
+            // Remove expiration entry for the outgoing CurrentKey (about to be replaced).
+            if let Some(old_current) = CurrentKey::<T>::get() {
+                KeyExpiresAt::<T>::remove(twox_128(&old_current[..]));
+            }
 
             // 1. CurrentKey ← PendingKey
             if let Some(pending_key) = PendingKey::<T>::take() {
@@ -167,6 +182,20 @@ pub mod pallet {
                 AuthorKeys::<T>::insert(&author, enc_key.clone());
             } else {
                 AuthorKeys::<T>::remove(&author);
+            }
+
+            // 5. Set expiration blocks for the 3 active keys.
+            //    CurrentKey  → valid this block only, expires at now + 1
+            //    PendingKey  → becomes CurrentKey next block, expires at now + 2
+            //    NextKey     → becomes CurrentKey in 2 blocks, expires at now + 3
+            if let Some(ref k) = CurrentKey::<T>::get() {
+                KeyExpiresAt::<T>::insert(twox_128(&k[..]), now + 1u32.into());
+            }
+            if let Some(ref k) = PendingKey::<T>::get() {
+                KeyExpiresAt::<T>::insert(twox_128(&k[..]), now + 2u32.into());
+            }
+            if let Some(ref k) = NextKey::<T>::get() {
+                KeyExpiresAt::<T>::insert(twox_128(&k[..]), now + 3u32.into());
             }
 
             Ok(())

@@ -109,6 +109,18 @@ pub fn valid_pk_b() -> ShieldEncKey {
     BoundedVec::truncate_from(vec![0x99; MLKEM768_ENC_KEY_LEN])
 }
 
+pub fn valid_pk_c() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x55; MLKEM768_ENC_KEY_LEN])
+}
+
+pub fn valid_pk_d() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x77; MLKEM768_ENC_KEY_LEN])
+}
+
+pub fn key_hash(pk: &ShieldEncKey) -> [u8; 16] {
+    sp_io::hashing::twox_128(&pk[..])
+}
+
 /// Create a deterministic `AuraId` from a simple index for tests.
 pub fn author(n: u8) -> AuraId {
     AuraId::from(sr25519::Public::from_raw([n; 32]))

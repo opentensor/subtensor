@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::{AuthorKeys, CurrentKey, Error, HasMigrationRun, NextKey, PendingKey};
+use crate::{AuthorKeys, CurrentKey, Error, HasMigrationRun, KeyExpiresAt, NextKey, PendingKey};
 
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
@@ -32,6 +32,7 @@ fn announce_rejects_signed_origin() {
 #[test]
 fn announce_shifts_pending_into_current() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(5);
         set_authors(Some(author(1)), None);
 
         let old_pending = valid_pk_b();
@@ -42,7 +43,9 @@ fn announce_shifts_pending_into_current() {
             Some(valid_pk()),
         ));
 
-        assert_eq!(CurrentKey::<Test>::get(), Some(old_pending));
+        assert_eq!(CurrentKey::<Test>::get(), Some(old_pending.clone()));
+        // New CurrentKey gets an expiration entry.
+        assert_eq!(KeyExpiresAt::<Test>::get(key_hash(&old_pending)), Some(6));
     });
 }
 
@@ -64,17 +67,37 @@ fn announce_stores_key_in_author_keys() {
 #[test]
 fn announce_sets_next_key_from_next_next_author() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(10);
         set_authors(Some(author(1)), Some(author(3)));
 
-        let pk_b = valid_pk_b();
-        AuthorKeys::<Test>::insert(author(3), pk_b.clone());
+        // Pre-populate the full pipeline so all 3 positions are filled after rotation.
+        // Use distinct keys for each position to avoid hash collisions.
+        let old_current = valid_pk_d();
+        CurrentKey::<Test>::put(old_current.clone());
+        KeyExpiresAt::<Test>::insert(key_hash(&old_current), 11u64);
+
+        let pending = valid_pk_b(); // → CurrentKey
+        PendingKey::<Test>::put(pending.clone());
+        let next = valid_pk(); // → PendingKey
+        NextKey::<Test>::put(next.clone());
+
+        let next_next_key = valid_pk_c();
+        AuthorKeys::<Test>::insert(author(3), next_next_key.clone()); // → NextKey
 
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
             Some(valid_pk()),
         ));
 
-        assert_eq!(NextKey::<Test>::get(), Some(pk_b));
+        assert_eq!(NextKey::<Test>::get(), Some(next_next_key.clone()));
+
+        // Old CurrentKey's expiration entry is removed.
+        assert!(!KeyExpiresAt::<Test>::contains_key(key_hash(&old_current)));
+        // All 3 active keys have expiration entries.
+        assert_eq!(KeyExpiresAt::<Test>::get(key_hash(&pending)), Some(11)); // CurrentKey
+        assert_eq!(KeyExpiresAt::<Test>::get(key_hash(&next)), Some(12)); // PendingKey
+        assert_eq!(KeyExpiresAt::<Test>::get(key_hash(&next_next_key)), Some(13)); // NextKey
+        assert_eq!(KeyExpiresAt::<Test>::iter().count(), 3);
     });
 }
 
@@ -95,14 +118,18 @@ fn announce_next_key_none_when_next_next_author_has_no_key() {
 #[test]
 fn announce_next_key_none_when_no_next_next_author() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(1);
         set_authors(Some(author(1)), None);
 
+        // No PendingKey, no NextKey, no next-next author.
         assert_ok!(MevShield::announce_next_key(
             RuntimeOrigin::none(),
             Some(valid_pk()),
         ));
 
         assert!(NextKey::<Test>::get().is_none());
+        // No keys in any position → no expiration entries.
+        assert_eq!(KeyExpiresAt::<Test>::iter().count(), 0);
     });
 }
 
