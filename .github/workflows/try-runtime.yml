@@ -86,7 +86,7 @@ jobs:
     # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-tryruntime]
+      labels: [self-hosted, linux, x64, fireactions, fireactions-tryruntime-finney]
     env:
       CARGO_BUILD_JOBS: 6
     steps:
