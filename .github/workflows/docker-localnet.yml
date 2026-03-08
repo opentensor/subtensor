@@ -102,7 +102,7 @@ jobs:
 
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     env:
       CARGO_BUILD_JOBS: 6
 
@@ -164,7 +164,7 @@ jobs:
     needs: [setup, artifacts]
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     defaults:
       run:
         working-directory: ${{ github.workspace }}

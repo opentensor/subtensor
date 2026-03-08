@@ -12,7 +12,7 @@ jobs:
   handle-hotfix-pr:
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-light]
+      labels: [self-hosted, fireactions-light]
     steps:
       - name: Check if PR is a hotfix into `main`
         if: >

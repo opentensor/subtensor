@@ -34,7 +34,7 @@ jobs:
   build-docs-dryrun:
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-light]
+      labels: [self-hosted, fireactions-light]
     timeout-minutes: 90
     env:
       CARGO_BUILD_JOBS: 4

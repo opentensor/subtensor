@@ -34,7 +34,7 @@ jobs:
   update-chainspecs-dryrun:
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     timeout-minutes: 120
     env:
       CARGO_TERM_COLOR: always

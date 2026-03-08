@@ -36,7 +36,7 @@ jobs:
   setup:
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-light]
+      labels: [self-hosted, fireactions-light]
     outputs:
       ref: ${{ steps.vars.outputs.ref }}
       tag: ${{ steps.vars.outputs.tag }}
@@ -63,7 +63,7 @@ jobs:
         runtime: ["fast-runtime", "non-fast-runtime"]
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     timeout-minutes: 120
     env:
       CARGO_BUILD_JOBS: 6
@@ -133,7 +133,7 @@ jobs:
     needs: [setup, artifacts]
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     timeout-minutes: 90
     steps:
       - name: Checkout target ref

@@ -26,7 +26,7 @@ jobs:
   run:
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     env:
       RUST_BACKTRACE: full
       CARGO_BUILD_JOBS: 6

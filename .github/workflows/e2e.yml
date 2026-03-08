@@ -21,7 +21,7 @@ jobs:
   build:
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     timeout-minutes: 60
     strategy:
       matrix:
@@ -99,7 +99,7 @@ jobs:
     if: ${{ needs.discover.outputs.packages != '[]' }}
     runs-on:
       group: fireactions
-      labels: [self-hosted, linux, x64, fireactions, fireactions-heavy]
+      labels: [self-hosted, fireactions-heavy]
     timeout-minutes: 30
     strategy:
       fail-fast: false
