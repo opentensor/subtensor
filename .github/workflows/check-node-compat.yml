@@ -2,7 +2,7 @@ name: Check Node Compat
 
 on:
   pull_request:
-    types: [labeled, synchronize, opened, reopened]
+    types: [labeled]
     branches: [devnet-ready]
 
 concurrency:
@@ -11,24 +11,19 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_BUILD_JOBS: 4
 
 jobs:
   build:
     name: build ${{ matrix.version.name }}
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-heavy]
+    runs-on: [self-hosted, fireactions-heavy]
     if: contains(github.event.pull_request.labels.*.name, 'check-node-compat')
     env:
         RUST_BACKTRACE: full
     strategy:
       matrix:
         version:
-          - name: old
-            ref: "devnet-ready"
-          - name: new
-            ref: ${{ github.head_ref }}
+          - { name: old, ref: devnet-ready }
+          - { name: new, ref: ${{ github.head_ref }} }
 
     steps:
       - name: Install dependencies
@@ -65,9 +60,7 @@ jobs:
           
   test:
     needs: [build]
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-heavy]
+    runs-on: [self-hosted, fireactions-heavy]
     steps:
       - name: Download old node binary
         uses: actions/download-artifact@v4

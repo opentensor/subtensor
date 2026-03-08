@@ -13,11 +13,7 @@ concurrency:
 jobs:
   cargo-audit:
     name: cargo audit
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-light]
-    env:
-      CARGO_BUILD_JOBS: 4
+    runs-on: [self-hosted, fireactions-light]
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
     steps:
       - name: Check-out repositoroy under $GITHUB_WORKSPACE

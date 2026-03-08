@@ -14,14 +14,11 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  VERBOSE: ${{ github.event.inputs.verbose }}
-  CARGO_BUILD_JOBS: 4
+  VERBOSE: ${{ github.events.input.verbose }}
 
 jobs:
   update-chainspecs:
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-heavy]
+    runs-on: [self-hosted, fireactions-heavy]
     permissions:
       contents: write
     if: >

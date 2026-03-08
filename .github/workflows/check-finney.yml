@@ -2,7 +2,7 @@ name: Finney Deploy Check
 
 on:
   pull_request:
-    branches: [finney, main, devnet-ready]
+    branches: [finney, main]
     types: [labeled, unlabeled, synchronize, opened]
     
 concurrency:
@@ -11,20 +11,17 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_BUILD_JOBS: 4
 
 jobs:
   check-spec-version:
     name: Check spec_version bump
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-heavy]
+    runs-on: [self-hosted, fireactions-heavy]
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
     steps:
       - name: Dependencies
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config bc
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1

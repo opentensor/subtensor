@@ -27,9 +27,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-heavy]
+    runs-on: [self-hosted, fireactions-heavy]
 
     steps:
       - name: Determine Docker tag and ref

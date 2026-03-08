@@ -14,11 +14,7 @@ jobs:
   check-devnet:
     name: check devnet
     if: github.base_ref != 'main'
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-tryruntime]
-    env:
-      CARGO_BUILD_JOBS: 6
+    runs-on: [self-hosted, fireactions-tryruntime]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -49,11 +45,7 @@ jobs:
   check-testnet:
     name: check testnet
     if: github.base_ref != 'main'
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-tryruntime]
-    env:
-      CARGO_BUILD_JOBS: 6
+    runs-on: [self-hosted, fireactions-tryruntime]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -84,11 +76,7 @@ jobs:
   check-finney:
     name: check finney
     # if: github.base_ref == 'testnet' || github.base_ref == 'devnet' || github.base_ref == 'main'
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-tryruntime-finney]
-    env:
-      CARGO_BUILD_JOBS: 6
+    runs-on: [self-hosted, fireactions-tryruntime-finney]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

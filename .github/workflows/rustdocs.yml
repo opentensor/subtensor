@@ -12,13 +12,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  CARGO_BUILD_JOBS: 4
 
 jobs:
   build:
-    runs-on:
-      group: fireactions
-      labels: [self-hosted, fireactions-heavy]
+    runs-on: [self-hosted, fireactions-light]
 
     steps:
       - name: Checkout code
@@ -57,9 +54,7 @@ jobs:
 
   deploy:
         needs: build
-        runs-on:
-          group: fireactions
-          labels: [self-hosted, fireactions-heavy]
+        runs-on: [self-hosted, fireactions-light]
 
         permissions:
             pages: write
