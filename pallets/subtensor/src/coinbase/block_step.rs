@@ -1,6 +1,5 @@
 use super::*;
-use safe_math::*;
-use substrate_fixed::types::{U96F32, U110F18};
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoCurrency};
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
@@ -47,76 +46,6 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
             }
         }
     }
-
-    /// Updates burn price and resets per-block counters.
-    ///
-    /// Behavior:
-    /// - Every BurnHalfLife blocks: burn is halved and RegistrationsThisInterval is reset.
-    /// - Each block: if there were registrations in the previous block, burn is multiplied by BurnIncreaseMult^regs_prev.
-    /// - Each block: RegistrationsThisBlock is reset to 0 (for the new block).
-    pub fn update_registration_prices_for_networks() {
-        let current_block: u64 = Self::get_current_block_as_u64();
-
-        for (netuid, _) in NetworksAdded::<T>::iter() {
-            // --- 1) Apply halving + interval reset when BurnHalfLife elapses.
-            let half_life: u16 = BurnHalfLife::<T>::get(netuid);
-            if half_life > 0 {
-                let last_halving: u64 = BurnLastHalvingBlock::<T>::get(netuid);
-                let delta: u64 = current_block.saturating_sub(last_halving);
-
-                let intervals_passed: u64 = delta / half_life as u64;
-                if intervals_passed > 0 {
-                    // burn halves once per interval passed: burn /= 2^intervals_passed
-                    let burn_u64: u64 = Self::get_burn(netuid).into();
-                    let shift: u32 = core::cmp::min(intervals_passed, 64) as u32;
-                    let mut new_burn_u64: u64 = if shift >= 64 { 0 } else { burn_u64 >> shift };
-
-                    // Prevent stuck-at-zero behavior.
-                    if new_burn_u64 == 0 {
-                        new_burn_u64 = 1;
-                    }
-
-                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
-
-                    // Advance the halving anchor forward by whole intervals.
-                    BurnLastHalvingBlock::<T>::insert(
-                        netuid,
-                        last_halving
-                            .saturating_add(intervals_passed.saturating_mul(half_life as u64)),
-                    );
-
-                    // Reset interval counter (MaxRegistrationsPerInterval = 1 per half-life interval).
-                    RegistrationsThisInterval::<T>::insert(netuid, 0);
-                }
-            }
-
-            // --- 2) Apply post-registration bump.
-            //
-            // At the start of block N, RegistrationsThisBlock contains the count from block N-1.
-            // We skip bumping on root because root_register does not use burn-based pricing.
-            if !netuid.is_root() {
-                let regs_prev_block: u16 = RegistrationsThisBlock::<T>::get(netuid);
-                if regs_prev_block > 0 {
-                    let mult: u64 = BurnIncreaseMult::<T>::get(netuid).max(1);
-                    let bump: u64 = Self::saturating_pow_u64(mult, regs_prev_block);
-
-                    let burn_u64: u64 = Self::get_burn(netuid).into();
-                    let mut new_burn_u64: u64 = burn_u64.saturating_mul(bump);
-
-                    // Prevent stuck-at-zero behavior.
-                    if new_burn_u64 == 0 {
-                        new_burn_u64 = 1;
-                    }
-
-                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
-                }
-            }
-
-            // --- 3) Reset per-block registrations counter for the new block.
-            Self::set_registrations_this_block(netuid, 0);
-        }
-    }
-
     pub fn update_moving_prices() {
         let subnets_to_emit_to: Vec<NetUid> =
             Self::get_subnets_to_emit_to(&Self::get_all_subnet_netuids());

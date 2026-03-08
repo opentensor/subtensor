@@ -424,4 +424,97 @@ impl<T: Config> Pallet<T> {
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
         (nonce, vec_work)
     }
+
+    /// Updates neuron burn price.
+    ///
+    /// Behavior:
+    /// - Each non-genesis block: burn decays continuously by a per-block factor `f`,
+    ///   where `f ^ BurnHalfLife = 1/2`.
+    /// - Every BurnHalfLife completed blocks: `RegistrationsThisInterval` is reset and
+    ///   `BurnLastHalvingBlock` is advanced by whole intervals.
+    /// - Each block: if there were registrations in the previous block, burn is
+    ///   multiplied by `BurnIncreaseMult ^ regs_prev_block`.
+    /// - Each block: `RegistrationsThisBlock` is reset to 0 for the new block.
+    ///
+    /// Notes:
+    /// - This runs in `on_initialize(current_block)`.
+    /// - Therefore, interval timing is exclusive of the current block, i.e. based on
+    ///   `last_completed_block = current_block - 1`.
+    ///
+    pub fn update_registration_prices_for_networks() {
+        let current_block: u64 = Self::get_current_block_as_u64();
+        let last_completed_block: u64 = current_block.saturating_sub(1);
+
+        for (netuid, _) in NetworksAdded::<T>::iter() {
+            // --- 1) Apply continuous per-block decay + interval reset.
+            let half_life: u16 = BurnHalfLife::<T>::get(netuid);
+            let half_life_u64: u64 = u64::from(half_life);
+
+            if half_life_u64 > 0 {
+                // 1a) Continuous exponential decay, once per non-genesis block.
+                //
+                // Since this function runs every block in `on_initialize`, applying the
+                // per-block factor once here gives continuous exponential decay.
+                //
+                // We intentionally do NOT decay in block 1, because interval timing is
+                // exclusive of the current block and there is no completed prior block yet.
+                if current_block > 1 {
+                    let burn_u64: u64 = Self::get_burn(netuid).into();
+                    let factor_q32: u64 = Self::decay_factor_q32(half_life);
+
+                    let mut new_burn_u64: u64 = Self::mul_by_q32(burn_u64, factor_q32);
+
+                    // Prevent stuck-at-zero behavior.
+                    if new_burn_u64 == 0 {
+                        new_burn_u64 = 1;
+                    }
+
+                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
+                }
+
+                // 1b) Keep the existing half-life interval anchor behavior for resetting
+                // RegistrationsThisInterval. This is still exclusive of the current block.
+                let last_halving: u64 = BurnLastHalvingBlock::<T>::get(netuid);
+                let delta: u64 = last_completed_block.saturating_sub(last_halving);
+
+                let intervals_passed: u64 = Self::checked_div_or_zero_u64(delta, half_life_u64);
+
+                if intervals_passed > 0 {
+                    let anchor_advance: u64 = intervals_passed.saturating_mul(half_life_u64);
+
+                    BurnLastHalvingBlock::<T>::insert(
+                        netuid,
+                        last_halving.saturating_add(anchor_advance),
+                    );
+
+                    RegistrationsThisInterval::<T>::insert(netuid, 0);
+                }
+            }
+
+            // --- 2) Apply post-registration bump.
+            //
+            // At the start of block N, RegistrationsThisBlock contains the count from block N-1.
+            // We skip bumping on root because root_register does not use burn-based pricing.
+            if !netuid.is_root() {
+                let regs_prev_block: u16 = RegistrationsThisBlock::<T>::get(netuid);
+                if regs_prev_block > 0 {
+                    let mult: u64 = BurnIncreaseMult::<T>::get(netuid).max(1);
+                    let bump: u64 = Self::saturating_pow_u64(mult, regs_prev_block);
+
+                    let burn_u64: u64 = Self::get_burn(netuid).into();
+                    let mut new_burn_u64: u64 = burn_u64.saturating_mul(bump);
+
+                    // Prevent stuck-at-zero behavior.
+                    if new_burn_u64 == 0 {
+                        new_burn_u64 = 1;
+                    }
+
+                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
+                }
+            }
+
+            // --- 3) Reset per-block registrations counter for the new block.
+            Self::set_registrations_this_block(netuid, 0);
+        }
+    }
 }
