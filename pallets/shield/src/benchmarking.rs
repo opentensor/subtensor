@@ -117,10 +117,6 @@ mod benches {
         // Slot 0 → current=alice(0%3), next_next=charlie(2%3).
         initialize_block_with_slot::<T>(0);
 
-        // Pre-populate CurrentKey so its KeyExpiresAt entry gets cleaned up.
-        let old_current: ShieldEncKey = BoundedVec::truncate_from(vec![0xBB; MLKEM768_ENC_KEY_LEN]);
-        CurrentKey::<T>::put(old_current);
-
         // Pre-populate PendingKey so CurrentKey ← PendingKey writes.
         let old_pending: ShieldEncKey = BoundedVec::truncate_from(vec![0x99; MLKEM768_ENC_KEY_LEN]);
         PendingKey::<T>::put(old_pending.clone());
