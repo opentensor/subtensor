@@ -50,3 +50,6 @@ scripts/specs/local.json
 
 # Node modules
 node_modules
+
+# Claude Code configuration
+.claude
