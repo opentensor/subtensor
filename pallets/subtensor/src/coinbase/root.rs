@@ -18,9 +18,9 @@
 use super::*;
 use frame_support::weights::{Weight, WeightMeter};
 use safe_math::*;
+use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
-
 impl<T: Config> Pallet<T> {
     /// Fetches the total count of root network validators
     ///
@@ -255,15 +255,14 @@ impl<T: Config> Pallet<T> {
             Uids::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
-        let keys = Keys::<T>::iter_prefix(netuid).collect::<Vec<_>>();
-        let keys_len = keys.len() as u64;
-        WeightMeterWrapper!(
-            weight_meter,
-            T::DbWeight::get().reads_writes(keys_len, keys_len)
-        );
-
-        for (_uid, key) in keys {
-            IsNetworkMember::<T>::remove(key, netuid);
+        let mut keys_set = BTreeSet::new();
+        for (_uid, key) in Keys::<T>::iter_prefix(netuid) {
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+            if !keys_set.contains(&key) {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+                IsNetworkMember::<T>::remove(&key, netuid);
+                keys_set.insert(key);
+            }
         }
 
         LoopRemovePrefixWithWeightMeter!(
@@ -506,7 +505,6 @@ impl<T: Config> Pallet<T> {
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(mechanisms as u64));
         for subid in 0..mechanisms {
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
             let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
