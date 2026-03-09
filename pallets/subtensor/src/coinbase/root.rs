@@ -475,6 +475,12 @@ impl<T: Config> Pallet<T> {
             weight_meter,
             T::DbWeight::get().writes(1),
             BATCH_SIZE,
+            NeuronCertificates::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            BATCH_SIZE,
             Prometheus::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
         LoopRemovePrefixWithWeightMeter!(
@@ -565,7 +571,7 @@ impl<T: Config> Pallet<T> {
             weight_meter,
             T::DbWeight::get().writes(1),
             BATCH_SIZE,
-            LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, 1024, None)
+            LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, BATCH_SIZE, None)
         );
 
         // --- 20. Identity maps across versions (netuid-scoped).
@@ -576,103 +582,89 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 21. DMAP / NMAP where netuid is NOT the first key → iterate & remove.
-
-        // ChildkeyTake: (hot, netuid) → u16
         {
-            let mut read_count = 0_u64;
-            let to_rm: sp_std::vec::Vec<T::AccountId> = ChildkeyTake::<T>::iter()
-                .filter(|(_, n, _)| {
-                    read_count = read_count.saturating_add(1);
-                    *n == netuid
-                })
-                .map(|(hot, _, _)| hot)
-                .collect();
-            WeightMeterWrapper!(
-                weight_meter,
-                T::DbWeight::get().reads_writes(read_count, read_count)
-            );
+            let mut to_rm: sp_std::vec::Vec<T::AccountId> = Vec::new();
+            for (hot, _netuid, _) in ChildkeyTake::<T>::iter() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                if _netuid == netuid {
+                    to_rm.push(hot);
+                }
+            }
             for hot in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 ChildkeyTake::<T>::remove(&hot, netuid);
             }
         }
+
         // ChildKeys: (parent, netuid) → Vec<...>
         {
-            let mut read_count = 0_u64;
-            let to_rm: sp_std::vec::Vec<T::AccountId> = ChildKeys::<T>::iter()
-                .filter(|(_, n, _)| {
-                    read_count = read_count.saturating_add(1);
-                    *n == netuid
-                })
-                .map(|(parent, _, _)| parent)
-                .collect();
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
+            let mut to_rm: sp_std::vec::Vec<T::AccountId> = Vec::new();
+            for (parent, _netuid, _) in ChildKeys::<T>::iter() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                if _netuid == netuid {
+                    to_rm.push(parent);
+                }
+            }
             for parent in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 ChildKeys::<T>::remove(&parent, netuid);
             }
         }
+
         // ParentKeys: (child, netuid) → Vec<...>
         {
-            let mut read_count = 0_u64;
-            let to_rm: sp_std::vec::Vec<T::AccountId> = ParentKeys::<T>::iter()
-                .filter(|(_, n, _)| {
-                    read_count = read_count.saturating_add(1);
-                    *n == netuid
-                })
-                .map(|(child, _, _)| child)
-                .collect();
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
+            let mut to_rm: sp_std::vec::Vec<T::AccountId> = Vec::new();
+            for (child, _netuid, _) in ParentKeys::<T>::iter() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                if _netuid == netuid {
+                    to_rm.push(child);
+                }
+            }
             for child in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 ParentKeys::<T>::remove(&child, netuid);
             }
         }
+
         // LastHotkeyEmissionOnNetuid: (hot, netuid) → α
         {
-            let mut read_count = 0_u64;
-            let to_rm: sp_std::vec::Vec<T::AccountId> = LastHotkeyEmissionOnNetuid::<T>::iter()
-                .filter(|(_, n, _)| {
-                    read_count = read_count.saturating_add(1);
-                    *n == netuid
-                })
-                .map(|(hot, _, _)| hot)
-                .collect();
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
+            let mut to_rm: sp_std::vec::Vec<T::AccountId> = Vec::new();
+            for (hot, _netuid, _) in LastHotkeyEmissionOnNetuid::<T>::iter() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                if _netuid == netuid {
+                    to_rm.push(hot);
+                }
+            }
             for hot in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 LastHotkeyEmissionOnNetuid::<T>::remove(&hot, netuid);
             }
         }
+
         // TotalHotkeyAlphaLastEpoch: (hot, netuid) → ...
-        // (TotalHotkeyAlpha and TotalHotkeyShares were already removed during dissolve.)
         {
-            let mut read_count = 0_u64;
-            let to_rm_alpha_last: sp_std::vec::Vec<T::AccountId> =
-                TotalHotkeyAlphaLastEpoch::<T>::iter()
-                    .filter(|(_, n, _)| {
-                        read_count = read_count.saturating_add(1);
-                        *n == netuid
-                    })
-                    .map(|(hot, _, _)| hot)
-                    .collect();
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
-            for hot in to_rm_alpha_last {
+            let mut to_rm: sp_std::vec::Vec<T::AccountId> = Vec::new();
+            for (hot, _netuid, _) in TotalHotkeyAlphaLastEpoch::<T>::iter() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                if _netuid == netuid {
+                    to_rm.push(hot);
+                }
+            }
+            for hot in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 TotalHotkeyAlphaLastEpoch::<T>::remove(&hot, netuid);
             }
         }
+
         // TransactionKeyLastBlock NMAP: (hot, netuid, name) → u64
         {
-            let mut read_count = 0_u64;
-            let to_rm: sp_std::vec::Vec<(T::AccountId, u16)> = TransactionKeyLastBlock::<T>::iter()
-                .filter(|((_, n, _), _)| {
-                    read_count = read_count.saturating_add(1);
-                    *n == netuid
-                })
-                .map(|((hot, _, name), _)| (hot, name))
-                .collect();
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
+            let mut to_rm: sp_std::vec::Vec<(T::AccountId, u16)> = Vec::new();
+            for ((hot, _netuid, name), _) in TransactionKeyLastBlock::<T>::iter() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                if _netuid == netuid {
+                    to_rm.push((hot, name));
+                }
+            }
             for (hot, name) in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 TransactionKeyLastBlock::<T>::remove((hot, netuid, name));
@@ -680,17 +672,13 @@ impl<T: Config> Pallet<T> {
         }
         // StakingOperationRateLimiter NMAP: (hot, cold, netuid) → bool
         {
-            let mut read_count = 0_u64;
-            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> =
-                StakingOperationRateLimiter::<T>::iter()
-                    .filter(|((_, _, n), _)| {
-                        read_count = read_count.saturating_add(1);
-                        *n == netuid
-                    })
-                    .map(|((hot, cold, _), _)| (hot, cold))
-                    .collect();
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(read_count));
-
+            let mut to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> = Vec::new();
+            for ((hot, cold, _netuid), _) in StakingOperationRateLimiter::<T>::iter() {
+                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+                if _netuid == netuid {
+                    to_rm.push((hot, cold));
+                }
+            }
             for (hot, cold) in to_rm {
                 WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
                 StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
