@@ -123,6 +123,36 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn do_register_limit(
+        origin: T::RuntimeOrigin,
+        netuid: NetUid,
+        hotkey: T::AccountId,
+        limit_price: u64,
+    ) -> DispatchResult {
+        log::debug!(
+            "do_register_limit( netuid:{netuid:?} hotkey:{hotkey:?} limit_price:{limit_price:?} )"
+        );
+
+        // Minimal validation before reading/comparing burn.
+        ensure!(
+            !netuid.is_root(),
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
+        );
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Enforce caller limit before entering the shared registration path.
+        let registration_cost: TaoCurrency = Self::get_burn(netuid);
+        let limit_price_tao: TaoCurrency = TaoCurrency::from(limit_price);
+
+        ensure!(
+            registration_cost <= limit_price_tao,
+            Error::<T>::RegistrationPriceLimitExceeded
+        );
+
+        // Delegate the full shared registration flow.
+        Self::do_register(origin, netuid, hotkey)
+    }
+
     pub fn do_faucet(
         origin: T::RuntimeOrigin,
         block_number: u64,

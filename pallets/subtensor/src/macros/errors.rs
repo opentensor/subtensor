@@ -278,5 +278,7 @@ mod errors {
         PrecisionLoss,
         /// Deprecated call.
         Deprecated,
+        /// Registration Price Limit Exceeded
+        RegistrationPriceLimitExceeded,
     }
 }
