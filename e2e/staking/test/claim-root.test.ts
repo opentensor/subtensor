@@ -292,8 +292,8 @@ describe("▶ claim_root extrinsic", () => {
     const movingPrice2 = await getSubnetMovingPrice(api, netuid2);
     log.info(`SubnetMovingPrice - netuid1: ${movingPrice1}, netuid2: ${movingPrice2}`);
     // Note: Moving price is I96F32, so divide by 2^32 to get actual value
-    const mp1Float = Number(movingPrice1) / 2**32;
-    const mp2Float = Number(movingPrice2) / 2**32;
+    const mp1Float = Number(movingPrice1) / 2 ** 32;
+    const mp2Float = Number(movingPrice2) / 2 ** 32;
     log.info(`SubnetMovingPrice (float) - netuid1: ${mp1Float}, netuid2: ${mp2Float}, sum: ${mp1Float + mp2Float}`);
 
     const pendingDivs1 = await getPendingRootAlphaDivs(api, netuid1);
@@ -328,7 +328,9 @@ describe("▶ claim_root extrinsic", () => {
     log.info(`RootClaimed value: ${rootClaimed}`);
 
     // Verify dividends were claimed
-    expect(stakerSubnetStakeAfter, "Stake should increase after claiming root dividends").toBeGreaterThan(stakerSubnetStakeBefore);
+    expect(stakerSubnetStakeAfter, "Stake should increase after claiming root dividends").toBeGreaterThan(
+      stakerSubnetStakeBefore,
+    );
     log.info(`✅ Root claim successful: stake increased from ${stakerSubnetStakeBefore} to ${stakerSubnetStakeAfter}`);
   });
 
@@ -419,8 +421,8 @@ describe("▶ claim_root extrinsic", () => {
     // Debug: Check moving prices
     const movingPrice1 = await getSubnetMovingPrice(api, netuid1);
     const movingPrice2 = await getSubnetMovingPrice(api, netuid2);
-    const mp1Float = Number(movingPrice1) / 2**32;
-    const mp2Float = Number(movingPrice2) / 2**32;
+    const mp1Float = Number(movingPrice1) / 2 ** 32;
+    const mp2Float = Number(movingPrice2) / 2 ** 32;
     log.info(`SubnetMovingPrice (float) - netuid1: ${mp1Float}, netuid2: ${mp2Float}, sum: ${mp1Float + mp2Float}`);
 
     const pendingDivs1 = await getPendingRootAlphaDivs(api, netuid1);

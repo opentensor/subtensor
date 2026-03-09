@@ -1,8 +1,5 @@
 import { writeFile, readFile, rm, mkdir } from "node:fs/promises";
-import {
-  generateChainSpec,
-  insertKeys,
-} from "e2e-shared/chainspec.js";
+import { generateChainSpec, insertKeys } from "e2e-shared/chainspec.js";
 import {
   startNode,
   started,
@@ -136,7 +133,6 @@ export async function teardown() {
         }
       }
     }
-
   }
 
   // Clean up the entire suite directory in one shot.

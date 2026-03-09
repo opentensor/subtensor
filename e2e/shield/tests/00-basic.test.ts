@@ -149,9 +149,7 @@ describe("MEV Shield — encrypted transactions", () => {
         value: amount,
       }).sign(sender.signer, { nonce: nonce + 1 });
 
-      txPromises.push(
-        submitEncrypted(api, sender.signer, hexToU8a(innerTxHex), nextKey!, nonce),
-      );
+      txPromises.push(submitEncrypted(api, sender.signer, hexToU8a(innerTxHex), nextKey!, nonce));
     }
 
     await Promise.all(txPromises);

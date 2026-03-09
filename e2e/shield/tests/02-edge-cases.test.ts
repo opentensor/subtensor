@@ -4,12 +4,7 @@ import type { PolkadotClient, TypedApi } from "polkadot-api";
 import { hexToU8a } from "@polkadot/util";
 import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 import type { NetworkState } from "../setup.js";
-import {
-  connectClient,
-  createSigner,
-  getAccountNonce,
-  getBalance,
-} from "e2e-shared/client.js";
+import { connectClient, createSigner, getAccountNonce, getBalance } from "e2e-shared/client.js";
 import { getNextKey, submitEncrypted } from "../helpers.js";
 
 let client: PolkadotClient;

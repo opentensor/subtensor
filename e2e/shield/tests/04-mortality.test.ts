@@ -112,10 +112,7 @@ describe("MEV Shield — mortality eviction", () => {
       // Submit via raw RPC to get immediate feedback on pool acceptance.
       let txHash: string;
       try {
-        txHash = await extraClient._request(
-          "author_submitExtrinsic",
-          [signedHex],
-        );
+        txHash = await extraClient._request("author_submitExtrinsic", [signedHex]);
         log(`Tx submitted successfully, hash: ${txHash}`);
       } catch (err: unknown) {
         throw new Error(`Tx rejected at pool entry: ${err}`);
@@ -123,10 +120,7 @@ describe("MEV Shield — mortality eviction", () => {
 
       // Verify it's in the pool.
       await sleep(1_000);
-      const pending: string[] = await extraClient._request(
-        "author_pendingExtrinsics",
-        [],
-      );
+      const pending: string[] = await extraClient._request("author_pendingExtrinsics", []);
       log(`Pool has ${pending.length} pending tx(s)`);
 
       // Now poll until the tx disappears (mortality eviction).
@@ -139,10 +133,7 @@ describe("MEV Shield — mortality eviction", () => {
       while (Date.now() - start < maxPollMs) {
         await sleep(POLL_INTERVAL_MS);
 
-        const pending: string[] = await extraClient._request(
-          "author_pendingExtrinsics",
-          [],
-        );
+        const pending: string[] = await extraClient._request("author_pendingExtrinsics", []);
 
         if (pending.length === 0) {
           evicted = true;

@@ -34,6 +34,7 @@ pnpm --filter e2e-<name> test
 ```
 
 This creates a package with:
+
 - `package.json` — depends on `e2e-shared` and `polkadot-api`
 - `vitest.config.ts` — sequential execution, 120s timeout, alphabetical sequencer
 - `setup.ts` — global setup/teardown that spawns a 2-node network
