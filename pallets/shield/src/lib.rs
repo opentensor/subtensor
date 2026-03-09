@@ -135,7 +135,7 @@ pub mod pallet {
         ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(33_230_000, 0)
-        .saturating_add(T::DbWeight::get().reads(6_u64))
+        .saturating_add(T::DbWeight::get().reads(4_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
