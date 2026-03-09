@@ -29,7 +29,7 @@ const EXTRA_NODE = {
   name: "mortality-test",
   port: 30339,
   rpcPort: 9950,
-  basePath: "/tmp/subtensor-e2e/shield/mortality-test",
+  basePath: "/tmp/subtensor-e2e/shield-tests/mortality-test",
 };
 
 // MAX_SHIELD_ERA_PERIOD is 8 blocks. With 12s slots, that's ~96s.
@@ -38,7 +38,7 @@ const SLOT_DURATION_MS = 12_000;
 const POLL_INTERVAL_MS = 3_000;
 
 beforeAll(async () => {
-  const data = await readFile("/tmp/subtensor-e2e/shield/nodes.json", "utf-8");
+  const data = await readFile("/tmp/subtensor-e2e/shield-tests/nodes.json", "utf-8");
   state = JSON.parse(data);
 
   // Connect to an authority node for key queries.
@@ -61,7 +61,7 @@ beforeAll(async () => {
     ...EXTRA_NODE,
     pid: extraNode.process.pid!,
   });
-  await writeFile("/tmp/subtensor-e2e/shield/nodes.json", JSON.stringify(state, null, 2));
+  await writeFile("/tmp/subtensor-e2e/shield-tests/nodes.json", JSON.stringify(state, null, 2));
 
   ({ client: extraClient, api: extraApi } = await connectClient(EXTRA_NODE.rpcPort));
 });
