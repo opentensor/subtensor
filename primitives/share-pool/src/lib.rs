@@ -1,5 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![allow(clippy::result_unit_err)]
+#![allow(clippy::result_unit_err, clippy::indexing_slicing)]
 
 use codec::{Decode, Encode};
 use lencode::io::Cursor;
@@ -8,7 +8,6 @@ use lencode::{Decode as LenDecode, Encode as LenEncode};
 use num_traits::float::FloatCore as _;
 use safe_bigmath::*;
 use scale_info::TypeInfo;
-use sp_arithmetic::Perquintill;
 use sp_std::marker;
 use sp_std::ops::Neg;
 use sp_std::vec::Vec;
@@ -579,6 +578,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use lencode::io::Cursor;
     use lencode::{Decode, Encode};
+    use sp_arithmetic::Perquintill;
     use std::collections::BTreeMap;
     use substrate_fixed::types::U64F64;
 
@@ -1515,10 +1515,10 @@ mod tests {
             if p > 1 {
                 push_unique(&mut mantissas, p - 1);
             }
-            if let Some(next) = p.checked_add(1) {
-                if next <= SAFE_FLOAT_MAX {
-                    push_unique(&mut mantissas, next);
-                }
+            if let Some(next) = p.checked_add(1)
+                && next <= SAFE_FLOAT_MAX
+            {
+                push_unique(&mut mantissas, next);
             }
 
             match p.checked_mul(10) {
@@ -1697,10 +1697,10 @@ mod tests {
             if p > 1 {
                 push_unique(&mut mantissas, p - 1);
             }
-            if let Some(next) = p.checked_add(1) {
-                if next <= SAFE_FLOAT_MAX {
-                    push_unique(&mut mantissas, next);
-                }
+            if let Some(next) = p.checked_add(1)
+                && next <= SAFE_FLOAT_MAX
+            {
+                push_unique(&mut mantissas, next);
             }
 
             match p.checked_mul(10) {
