@@ -46,10 +46,10 @@ importers:
     dependencies:
       '@polkadot-api/descriptors':
         specifier: file:.papi/descriptors
-        version: file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2))
+        version: file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0))
       polkadot-api:
         specifier: 'catalog:'
-        version: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)
+        version: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0)
     devDependencies:
       prettier:
         specifier: 'catalog:'
@@ -59,7 +59,7 @@ importers:
     dependencies:
       '@polkadot-api/descriptors':
         specifier: file:../.papi/descriptors
-        version: file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2))
+        version: file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0))
       '@polkadot-labs/hdkd':
         specifier: 'catalog:'
         version: 0.0.25
@@ -71,14 +71,14 @@ importers:
         version: 14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)
       polkadot-api:
         specifier: 'catalog:'
-        version: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)
+        version: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.13
       vitest:
         specifier: 'catalog:'
-        version: 4.0.18(@types/node@24.10.13)
+        version: 4.0.18(@types/node@24.10.13)(tsx@4.21.0)
 
   shield:
     dependencies:
@@ -87,7 +87,7 @@ importers:
         version: 2.1.1
       '@polkadot-api/descriptors':
         specifier: file:../.papi/descriptors
-        version: file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2))
+        version: file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0))
       '@polkadot/util':
         specifier: 'catalog:'
         version: 14.0.1
@@ -102,14 +102,27 @@ importers:
         version: 2.5.0
       polkadot-api:
         specifier: 'catalog:'
-        version: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)
+        version: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 24.10.13
       vitest:
         specifier: 'catalog:'
-        version: 4.0.18(@types/node@24.10.13)
+        version: 4.0.18(@types/node@24.10.13)(tsx@4.21.0)
+
+  staking:
+    dependencies:
+      e2e-shared:
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.10.13
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.18(@types/node@24.10.13)(tsx@4.21.0)
 
 packages:
 
@@ -1017,6 +1030,9 @@ packages:
     resolution: {integrity: sha512-kVCxPF3vQM/N0B1PmoqVUqgHP+EeVjmZSQn+1oCRPxd2P21P2F19lIgbR3HBosbB1PUhOAoctJnfEn2GbN2eZA==}
     engines: {node: '>=18'}
 
+  get-tsconfig@4.13.6:
+    resolution: {integrity: sha512-shZT/QMiSHc/YBLxxOkMtgSid5HFoauqCE3/exfsEcwg1WkeqjG+V40yBbBrsD+jW2HDXcs28xOfcbm2jI8Ddw==}
+
   hosted-git-info@7.0.2:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
     engines: {node: ^16.14.0 || >=18.0.0}
@@ -1230,6 +1246,9 @@ packages:
     resolution: {integrity: sha512-qYg9KP24dD5qka9J47d0aVky0N+b4fTU89LN9iDnjB5waksiC49rvMB0PrUJQGoTmH50XPiqOvAjDfaijGxYZw==}
     engines: {node: '>=8'}
 
+  resolve-pkg-maps@1.0.0:
+    resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
+
   restore-cursor@5.1.0:
     resolution: {integrity: sha512-oMA2dcrw6u0YfxJQXm342bFKX/E4sG9rbTzO9ptUcR/e8A33cHuvStiYOwH7fszkZlZ1z/ta9AAoPk2F4qIOHA==}
     engines: {node: '>=18'}
@@ -1386,6 +1405,11 @@ packages:
         optional: true
       typescript:
         optional: true
+
+  tsx@4.21.0:
+    resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
 
   type-fest@4.41.0:
     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
@@ -1740,7 +1764,7 @@ snapshots:
 
   '@noble/hashes@2.0.1': {}
 
-  '@polkadot-api/cli@0.18.1(postcss@8.5.6)':
+  '@polkadot-api/cli@0.18.1(postcss@8.5.6)(tsx@4.21.0)':
     dependencies:
       '@commander-js/extra-typings': 14.0.0(commander@14.0.3)
       '@polkadot-api/codegen': 0.21.2
@@ -1766,7 +1790,7 @@ snapshots:
       read-pkg: 10.1.0
       rxjs: 7.8.2
       tsc-prog: 2.3.0(typescript@5.9.3)
-      tsup: 8.5.0(postcss@8.5.6)(typescript@5.9.3)
+      tsup: 8.5.0(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
       typescript: 5.9.3
       write-package: 7.2.0
     transitivePeerDependencies:
@@ -1788,9 +1812,9 @@ snapshots:
       '@polkadot-api/substrate-bindings': 0.17.0
       '@polkadot-api/utils': 0.2.0
 
-  '@polkadot-api/descriptors@file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2))':
+  '@polkadot-api/descriptors@file:.papi/descriptors(polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0))':
     dependencies:
-      polkadot-api: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)
+      polkadot-api: 1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0)
 
   '@polkadot-api/ink-contracts@0.4.6':
     dependencies:
@@ -2183,13 +2207,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.0.3
 
-  '@vitest/mocker@4.0.18(vite@7.3.1(@types/node@24.10.13))':
+  '@vitest/mocker@4.0.18(vite@7.3.1(@types/node@24.10.13)(tsx@4.21.0))':
     dependencies:
       '@vitest/spy': 4.0.18
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.1(@types/node@24.10.13)
+      vite: 7.3.1(@types/node@24.10.13)(tsx@4.21.0)
 
   '@vitest/pretty-format@4.0.18':
     dependencies:
@@ -2373,6 +2397,11 @@ snapshots:
       '@sec-ant/readable-stream': 0.4.1
       is-stream: 4.0.1
 
+  get-tsconfig@4.13.6:
+    dependencies:
+      resolve-pkg-maps: 1.0.0
+    optional: true
+
   hosted-git-info@7.0.2:
     dependencies:
       lru-cache: 10.4.3
@@ -2505,9 +2534,9 @@ snapshots:
       mlly: 1.8.0
       pathe: 2.0.3
 
-  polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2):
+  polkadot-api@1.23.3(postcss@8.5.6)(rxjs@7.8.2)(tsx@4.21.0):
     dependencies:
-      '@polkadot-api/cli': 0.18.1(postcss@8.5.6)
+      '@polkadot-api/cli': 0.18.1(postcss@8.5.6)(tsx@4.21.0)
       '@polkadot-api/ink-contracts': 0.4.6
       '@polkadot-api/json-rpc-provider': 0.0.4
       '@polkadot-api/known-chains': 0.9.18
@@ -2538,11 +2567,12 @@ snapshots:
       - utf-8-validate
       - yaml
 
-  postcss-load-config@6.0.1(postcss@8.5.6):
+  postcss-load-config@6.0.1(postcss@8.5.6)(tsx@4.21.0):
     dependencies:
       lilconfig: 3.1.3
     optionalDependencies:
       postcss: 8.5.6
+      tsx: 4.21.0
 
   postcss@8.5.6:
     dependencies:
@@ -2577,6 +2607,9 @@ snapshots:
   readdirp@4.1.2: {}
 
   resolve-from@5.0.0: {}
+
+  resolve-pkg-maps@1.0.0:
+    optional: true
 
   restore-cursor@5.1.0:
     dependencies:
@@ -2727,7 +2760,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  tsup@8.5.0(postcss@8.5.6)(typescript@5.9.3):
+  tsup@8.5.0(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.25.12)
       cac: 6.7.14
@@ -2738,7 +2771,7 @@ snapshots:
       fix-dts-default-cjs-exports: 1.0.1
       joycon: 3.1.1
       picocolors: 1.1.1
-      postcss-load-config: 6.0.1(postcss@8.5.6)
+      postcss-load-config: 6.0.1(postcss@8.5.6)(tsx@4.21.0)
       resolve-from: 5.0.0
       rollup: 4.57.1
       source-map: 0.8.0-beta.0
@@ -2754,6 +2787,14 @@ snapshots:
       - supports-color
       - tsx
       - yaml
+
+  tsx@4.21.0:
+    dependencies:
+      esbuild: 0.27.3
+      get-tsconfig: 4.13.6
+    optionalDependencies:
+      fsevents: 2.3.3
+    optional: true
 
   type-fest@4.41.0: {}
 
@@ -2780,7 +2821,7 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
-  vite@7.3.1(@types/node@24.10.13):
+  vite@7.3.1(@types/node@24.10.13)(tsx@4.21.0):
     dependencies:
       esbuild: 0.27.3
       fdir: 6.5.0(picomatch@4.0.3)
@@ -2791,11 +2832,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 24.10.13
       fsevents: 2.3.3
+      tsx: 4.21.0
 
-  vitest@4.0.18(@types/node@24.10.13):
+  vitest@4.0.18(@types/node@24.10.13)(tsx@4.21.0):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@24.10.13))
+      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@24.10.13)(tsx@4.21.0))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18
@@ -2812,7 +2854,7 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.3.1(@types/node@24.10.13)
+      vite: 7.3.1(@types/node@24.10.13)(tsx@4.21.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 24.10.13

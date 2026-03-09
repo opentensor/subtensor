@@ -1,6 +1,7 @@
 packages:
   - shared
   - shield
+  - staking
 
 catalog:
   "@noble/ciphers": "^2.1.1"
