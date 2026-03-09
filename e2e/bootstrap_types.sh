@@ -10,8 +10,11 @@
 #
 set -e
 
+BASE_DIR="/tmp/subtensor-e2e"
+mkdir -p $BASE_DIR
+
 BINARY="${BINARY_PATH:-../target/release/node-subtensor}"
-NODE_LOG="/tmp/subtensor-e2e/bootstrap-node.log"
+NODE_LOG="${BASE_DIR}/bootstrap-node.log"
 
 if [ "$1" != "--skip-build" ]; then
   echo "==> Building node-subtensor..."
