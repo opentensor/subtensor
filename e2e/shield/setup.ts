@@ -14,8 +14,9 @@ import {
   type NodeOptions,
 } from "e2e-shared/node.js";
 
-const CHAIN_SPEC_PATH = "/tmp/subtensor-e2e/shield/chain-spec.json";
-const STATE_FILE = "/tmp/subtensor-e2e/shield/nodes.json";
+const BASE_DIR = "/tmp/subtensor-e2e/shield-tests";
+const CHAIN_SPEC_PATH = `${BASE_DIR}/chain-spec.json`;
+const STATE_FILE = `${BASE_DIR}/nodes.json`;
 
 export type NetworkState = {
   binaryPath: string;
@@ -38,13 +39,13 @@ type NodeConfig = Omit<NodeOptions, "binaryPath" | "chainSpec"> & {
 };
 
 const NODE_CONFIGS: NodeConfig[] = [
-  { name: "one", port: 30333, rpcPort: 9944, basePath: "/tmp/subtensor-e2e/shield/one", validator: true },
-  { name: "two", port: 30334, rpcPort: 9945, basePath: "/tmp/subtensor-e2e/shield/two", validator: true },
+  { name: "one", port: 30333, rpcPort: 9944, basePath: `${BASE_DIR}/one`, validator: true },
+  { name: "two", port: 30334, rpcPort: 9945, basePath: `${BASE_DIR}/two`, validator: true },
   {
     name: "three",
     port: 30335,
     rpcPort: 9946,
-    basePath: "/tmp/subtensor-e2e/shield/three",
+    basePath: `${BASE_DIR}/three`,
     validator: true,
     keySeed: "//Three",
   },
@@ -54,7 +55,7 @@ export async function setup() {
   log(`Setting up ${NODE_CONFIGS.length}-node network for shield E2E tests`);
   log(`Binary path: ${BINARY_PATH}`);
 
-  await mkdir("/tmp/subtensor-e2e/shield", { recursive: true });
+  await mkdir(BASE_DIR, { recursive: true });
 
   await generateChainSpec(BINARY_PATH, CHAIN_SPEC_PATH);
 
@@ -139,7 +140,7 @@ export async function teardown() {
   }
 
   // Clean up the entire suite directory in one shot.
-  await rm("/tmp/subtensor-e2e/shield", { recursive: true, force: true });
+  await rm(BASE_DIR, { recursive: true, force: true });
 
   log("Teardown complete");
 }
