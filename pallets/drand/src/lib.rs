@@ -214,8 +214,8 @@ pub mod pallet {
         }
     }
 
-    /// Define a maximum length for the migration key
-    type MigrationKeyMaxLen = ConstU32<128>;
+   /// Define a maximum length for the migration key
+    pub type MigrationKeyMaxLen = ConstU32<128>;
 
     /// Storage for migration run status
     #[pallet::storage]
@@ -239,7 +239,7 @@ pub mod pallet {
     /// we only allow one transaction per block.
     /// This storage entry defines when new transaction is going to be accepted.
     #[pallet::storage]
-    pub(super) type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type NextUnsignedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -277,12 +277,10 @@ pub mod pallet {
             }
         }
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            /*let weight = */
-            frame_support::weights::Weight::from_parts(0, 0) /*;*/
-
-            //weight = weight.saturating_add(migrations::migrate_set_oldest_round::<T>());
-
-            //weight
+            // NOTE: migrations::migrate_set_oldest_round is defined but intentionally not
+            // triggered here until the runtime upgrade is scheduled. Uncomment and hook it
+            // in when the migration is ready to ship.
+            frame_support::weights::Weight::from_parts(0, 0)
         }
     }
 

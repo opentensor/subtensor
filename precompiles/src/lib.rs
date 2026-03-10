@@ -30,6 +30,7 @@ use crate::address_mapping::*;
 use crate::alpha::*;
 use crate::balance_transfer::*;
 use crate::crowdloan::*;
+use crate::drand::*;
 use crate::ed25519::*;
 use crate::extensions::*;
 use crate::leasing::*;
@@ -46,6 +47,7 @@ mod address_mapping;
 mod alpha;
 mod balance_transfer;
 mod crowdloan;
+mod drand;
 mod ed25519;
 mod extensions;
 mod leasing;
@@ -70,6 +72,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_drand::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -103,6 +106,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_drand::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -125,7 +129,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 26] {
+    pub fn used_addresses() -> [H160; 27] {
         [
             hash(1),
             hash(2),
@@ -153,6 +157,7 @@ where
             hash(LeasingPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
+            hash(DrandPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -166,6 +171,7 @@ where
         + pallet_subtensor_swap::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_crowdloan::Config
+        + pallet_drand::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -254,6 +260,9 @@ where
                     PrecompileEnum::AddressMapping,
                 )
             }
+            a if a == hash(DrandPrecompile::<R>::INDEX) => {
+                DrandPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Drand)
+            }
             _ => None,
         }
     }
@@ -289,5 +298,36 @@ fn parse_slice(data: &[u8], from: usize, to: usize) -> Result<&[u8], PrecompileF
         Err(PrecompileFailure::Error {
             exit_status: ExitError::InvalidRange,
         })
+    }
+}
+
+/// General-purpose extension for recording DB-read gas costs based on SCALE-encoded value size.
+///
+/// This trait is implemented for all `PrecompileHandle` types and is available to every
+/// precompile in this crate. It complements `PrecompileHandleExt::record_db_read`, which
+/// requires the caller to supply the byte size manually, by computing it automatically from
+/// the SCALE-encoded representation of the value just read from storage.
+///
+/// # Minimum cost
+/// A 1-byte minimum is enforced on every call so that a DB miss (where the value encodes
+/// to zero bytes) still incurs a measurable gas cost and cannot be used to spam free reads.
+pub trait PrecompileHandleExtStorage {
+    /// Records the DB-read cost proportional to the SCALE-encoded size of `value`.
+    /// The minimum charged size is 1 byte (see above).
+    fn record_db_read_encoded<R: pallet_evm::Config>(
+        &mut self,
+        value: &impl frame_support::pallet_prelude::Encode,
+    ) -> Result<(), PrecompileFailure>;
+}
+
+impl<T: PrecompileHandle> PrecompileHandleExtStorage for T {
+    fn record_db_read_encoded<R: pallet_evm::Config>(
+        &mut self,
+        value: &impl frame_support::pallet_prelude::Encode,
+    ) -> Result<(), PrecompileFailure> {
+        let size = value.encoded_size();
+        let cost = if size > 0 { size } else { 1 };
+        precompile_utils::prelude::PrecompileHandleExt::record_db_read::<R>(self, cost)
+            .map_err(|e| PrecompileFailure::Error { exit_status: e })
     }
 }

@@ -38,6 +38,7 @@ pallet-subtensor-swap.workspace = true
 pallet-admin-utils.workspace = true
 subtensor-swap-interface.workspace = true
 pallet-crowdloan.workspace = true
+pallet-drand.workspace = true
 
 [lints]
 workspace = true
@@ -54,6 +55,7 @@ std = [
 	"pallet-admin-utils/std",
 	"pallet-balances/std",
 	"pallet-crowdloan/std",
+	"pallet-drand/std",
 	"pallet-evm-precompile-bn128/std",
 	"pallet-evm-precompile-dispatch/std",
 	"pallet-evm-precompile-modexp/std",

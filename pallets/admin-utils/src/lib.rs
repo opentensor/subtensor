@@ -145,6 +145,8 @@ pub mod pallet {
         Leasing,
         /// Address mapping precompile
         AddressMapping,
+        /// Drand precompile
+        Drand,
     }
 
     #[pallet::type_value]
