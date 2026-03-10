@@ -1,6 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -18,7 +18,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn do_recycle_alpha(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
         netuid: NetUid,
     ) -> DispatchResult {
         let coldkey: T::AccountId = ensure_signed(origin)?;
@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn do_burn_alpha(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
         netuid: NetUid,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
@@ -133,6 +133,43 @@ impl<T: Config> Pallet<T> {
             actual_alpha_decrease,
             netuid,
         ));
+
+        Ok(())
+    }
+    pub(crate) fn do_add_stake_burn(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        amount: TaoBalance,
+        limit: Option<TaoBalance>,
+    ) -> DispatchResult {
+        Self::ensure_subnet_owner(origin.clone(), netuid)?;
+
+        let current_block = Self::get_current_block_as_u64();
+        let last_block = Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid));
+        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
+
+        ensure!(
+            last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
+            Error::<T>::AddStakeBurnRateLimitExceeded
+        );
+
+        let alpha = if let Some(limit) = limit {
+            Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
+        } else {
+            Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?
+        };
+
+        Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
+
+        Self::set_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid), current_block);
+
+        Self::deposit_event(Event::AddStakeBurn {
+            netuid,
+            hotkey,
+            amount,
+            alpha,
+        });
 
         Ok(())
     }

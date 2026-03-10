@@ -4,9 +4,9 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 
-#[freeze_struct("edd6bd3273dfea76")]
+#[freeze_struct("f691073111c39620")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -25,11 +25,11 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
     emission_values: Compact<u64>,
-    burn: Compact<TaoCurrency>,
+    burn: Compact<TaoBalance>,
     owner: AccountId,
 }
 
-#[freeze_struct("e5f66b14b33331c3")]
+#[freeze_struct("e8e028bf4fbc6741")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -48,12 +48,12 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
     emission_value: Compact<u64>,
-    burn: Compact<TaoCurrency>,
+    burn: Compact<TaoBalance>,
     owner: AccountId,
     identity: Option<SubnetIdentityV3>,
 }
 
-#[freeze_struct("24f0815487879ed3")]
+#[freeze_struct("fd2db338b156d251")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -70,8 +70,8 @@ pub struct SubnetHyperparams {
     activity_cutoff: Compact<u16>,
     pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
-    min_burn: Compact<TaoCurrency>,
-    max_burn: Compact<TaoCurrency>,
+    min_burn: Compact<TaoBalance>,
+    max_burn: Compact<TaoBalance>,
     bonds_moving_avg: Compact<u64>,
     max_regs_per_block: Compact<u16>,
     serving_rate_limit: Compact<u64>,
@@ -85,7 +85,7 @@ pub struct SubnetHyperparams {
     liquid_alpha_enabled: bool,
 }
 
-#[freeze_struct("2153c3f3bb01ef66")]
+#[freeze_struct("bb4666554020e789")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV2 {
     rho: Compact<u16>,
@@ -102,8 +102,8 @@ pub struct SubnetHyperparamsV2 {
     activity_cutoff: Compact<u16>,
     pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
-    min_burn: Compact<TaoCurrency>,
-    max_burn: Compact<TaoCurrency>,
+    min_burn: Compact<TaoBalance>,
+    max_burn: Compact<TaoBalance>,
     bonds_moving_avg: Compact<u64>,
     max_regs_per_block: Compact<u16>,
     serving_rate_limit: Compact<u64>,

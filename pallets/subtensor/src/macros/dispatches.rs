@@ -712,14 +712,14 @@ mod dispatches {
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(340_800_000, 0)
 		.saturating_add(T::DbWeight::get().reads(25_u64))
-		.saturating_add(T::DbWeight::get().writes(16_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: TaoCurrency,
+            amount_staked: TaoBalance,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked).map(|_| ())
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -761,7 +761,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: AlphaCurrency,
+            amount_unstaked: AlphaBalance,
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
@@ -1042,7 +1042,7 @@ mod dispatches {
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(354_200_000, 0)
 		.saturating_add(T::DbWeight::get().reads(47_u64))
-		.saturating_add(T::DbWeight::get().writes(40_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(39_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1069,16 +1069,14 @@ mod dispatches {
         ///
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
-        #[pallet::weight(
-            Weight::from_parts(183_600_000, 0)
-            .saturating_add(T::DbWeight::get().reads(17_u64))
-            .saturating_add(T::DbWeight::get().writes(10_u64))
-        )]
+        #[pallet::weight(Weight::from_parts(161_700_000, 0)
+        .saturating_add(T::DbWeight::get().reads(17_u64))
+        .saturating_add(T::DbWeight::get().writes(10_u64)))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
-            swap_cost: TaoCurrency,
+            swap_cost: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1157,13 +1155,9 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(69)]
-        #[pallet::weight((
-            Weight::from_parts(5_660_000, 0)
-            .saturating_add(T::DbWeight::get().reads(0))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(5_660_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
             origin: OriginFor<T>,
             tx_rate_limit: u64,
@@ -1185,13 +1179,9 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(76)]
-        #[pallet::weight((
-            Weight::from_parts(6_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(6_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_min_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_min_childkey_take(take);
@@ -1210,13 +1200,9 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(77)]
-        #[pallet::weight((
-            Weight::from_parts(6_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(6_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_max_childkey_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
             ensure_root(origin)?;
             Self::set_max_childkey_take(take);
@@ -1256,9 +1242,9 @@ mod dispatches {
         /// Remove a user's subnetwork
         /// The caller must be the owner of the network
         #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        #[pallet::weight(Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(31)))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
             _coldkey: T::AccountId,
@@ -1505,8 +1491,8 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(358_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(41_u64))
-        .saturating_add(T::DbWeight::get().writes(26_u64)), DispatchClass::Normal, Pays::Yes))]
+        .saturating_add(T::DbWeight::get().reads(40_u64))
+        .saturating_add(T::DbWeight::get().writes(24_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
@@ -1542,7 +1528,7 @@ mod dispatches {
             destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_move_stake(
                 origin,
@@ -1585,7 +1571,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_transfer_stake(
                 origin,
@@ -1619,8 +1605,8 @@ mod dispatches {
         #[pallet::call_index(87)]
         #[pallet::weight((
             Weight::from_parts(351_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(37_u64))
-            .saturating_add(T::DbWeight::get().writes(24_u64)),
+            .saturating_add(T::DbWeight::get().reads(36_u64))
+            .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1629,7 +1615,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_swap_stake(
                 origin,
@@ -1685,13 +1671,13 @@ mod dispatches {
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(402_900_000, 0)
 		.saturating_add(T::DbWeight::get().reads(25_u64))
-		.saturating_add(T::DbWeight::get().writes(16_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: TaoCurrency,
-            limit_price: TaoCurrency,
+            amount_staked: TaoBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_add_stake_limit(
@@ -1702,6 +1688,7 @@ mod dispatches {
                 limit_price,
                 allow_partial,
             )
+            .map(|_| ())
         }
 
         /// --- Removes stake from a hotkey on a subnet with a price limit.
@@ -1748,14 +1735,14 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(29_u64))
-		.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(28_u64))
+		.saturating_add(T::DbWeight::get().writes(13_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: AlphaCurrency,
-            limit_price: TaoCurrency,
+            amount_unstaked: AlphaBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_remove_stake_limit(
@@ -1792,8 +1779,8 @@ mod dispatches {
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(411_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(37_u64))
-            .saturating_add(T::DbWeight::get().writes(24_u64)),
+            .saturating_add(T::DbWeight::get().reads(36_u64))
+            .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1802,8 +1789,8 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
-            limit_price: TaoCurrency,
+            alpha_amount: AlphaBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_swap_stake_limit(
@@ -1921,7 +1908,7 @@ mod dispatches {
         pub fn recycle_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: AlphaCurrency,
+            amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_recycle_alpha(origin, hotkey, amount, netuid)
@@ -1946,7 +1933,7 @@ mod dispatches {
         pub fn burn_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: AlphaCurrency,
+            amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
@@ -1954,7 +1941,7 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight((Weight::from_parts(10_000, 0), DispatchClass::Operational, Pays::Yes))]
+        #[pallet::weight(Weight::from_parts(1_970_000_000_000, 0))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
@@ -1970,13 +1957,13 @@ mod dispatches {
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
         #[pallet::weight((Weight::from_parts(395_300_000, 10142)
-			.saturating_add(T::DbWeight::get().reads(29_u64))
-			.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
+			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().writes(13_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: NetUid,
-            limit_price: Option<TaoCurrency>,
+            limit_price: Option<TaoBalance>,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
         }
@@ -2095,7 +2082,7 @@ mod dispatches {
         /// * commit_reveal_version (`u16`):
         ///     - The client (bittensor-drand) version
         #[pallet::call_index(113)]
-        #[pallet::weight((Weight::from_parts(63_160_000, 0)
+        #[pallet::weight((Weight::from_parts(94_980_000, 0)
 		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
@@ -2224,9 +2211,9 @@ mod dispatches {
         /// Remove a subnetwork
         /// The caller must be root
         #[pallet::call_index(120)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        #[pallet::weight(Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(31)))]
         pub fn root_dissolve_network(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_dissolve_network(netuid)
@@ -2304,13 +2291,9 @@ mod dispatches {
 
         /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
-        #[pallet::weight((
-            Weight::from_parts(4_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(0_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(4_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(0_u64))
+        .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -2330,7 +2313,7 @@ mod dispatches {
             Weight::from_parts(5_711_000, 0)
             .saturating_add(T::DbWeight::get().reads(0_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
+            DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn sudo_set_root_claim_threshold(
@@ -2502,13 +2485,9 @@ mod dispatches {
         /// * `SubnetNotExist` - If the subnet does not exist.
         /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
         #[pallet::call_index(129)]
-        #[pallet::weight((
-            Weight::from_parts(10_000, 0)
-            .saturating_add(T::DbWeight::get().reads(2))
-            .saturating_add(T::DbWeight::get().writes(2)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(10_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2))
+        .saturating_add(T::DbWeight::get().writes(2)))]
         pub fn enable_voting_power_tracking(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2532,13 +2511,9 @@ mod dispatches {
         /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
         /// * `VotingPowerTrackingNotEnabled` - If voting power tracking is not enabled.
         #[pallet::call_index(130)]
-        #[pallet::weight((
-            Weight::from_parts(10_000, 0)
-            .saturating_add(T::DbWeight::get().reads(2))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(10_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn disable_voting_power_tracking(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2563,13 +2538,9 @@ mod dispatches {
         /// * `SubnetNotExist` - If the subnet does not exist.
         /// * `InvalidVotingPowerEmaAlpha` - If alpha is greater than 10^18 (1.0).
         #[pallet::call_index(131)]
-        #[pallet::weight((
-            Weight::from_parts(6_000, 0)
-            .saturating_add(T::DbWeight::get().reads(1))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
+        #[pallet::weight(Weight::from_parts(6_000, 0)
+        .saturating_add(T::DbWeight::get().reads(1))
+        .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_voting_power_ema_alpha(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2579,11 +2550,31 @@ mod dispatches {
             Self::do_set_voting_power_ema_alpha(netuid, alpha)
         }
 
+        /// --- The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
+        /// alpha token first and immediately burn the acquired amount of alpha (aka Subnet buyback).
+        #[pallet::call_index(132)]
+        #[pallet::weight((
+		    Weight::from_parts(368_000_000, 8556)
+			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().writes(16_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn add_stake_burn(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount: TaoBalance,
+            limit: Option<TaoBalance>,
+        ) -> DispatchResult {
+            Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
+        }
+
         /// User register a new subnetwork via burning token, but only if the
         /// on-chain burn price for this block is <= `limit_price`.
         ///
         /// `limit_price` is expressed in the same TaoCurrency/u64 units as `Burn`.
-        #[pallet::call_index(132)]
+        #[pallet::call_index(133)]
         #[pallet::weight((
             Weight::from_parts(354_200_000, 0)
                 .saturating_add(T::DbWeight::get().reads(47_u64))

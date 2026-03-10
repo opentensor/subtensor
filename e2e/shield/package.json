@@ -1,0 +1,21 @@
+{
+  "name": "e2e-shield",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "e2e-shared": "workspace:*",
+    "@noble/ciphers": "catalog:",
+    "@polkadot/util": "catalog:",
+    "@polkadot/util-crypto": "catalog:",
+    "@polkadot-api/descriptors": "file:../.papi/descriptors",
+    "mlkem": "catalog:",
+    "polkadot-api": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

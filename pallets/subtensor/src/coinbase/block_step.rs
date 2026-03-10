@@ -1,6 +1,6 @@
 use super::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{NetUid, TaoBalance};
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -14,7 +14,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         // --- 2. Get the current coinbase emission.
         let block_emission: U96F32 = U96F32::saturating_from_num(
             Self::get_block_emission()
-                .unwrap_or(TaoCurrency::ZERO)
+                .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );
         log::debug!("Block emission: {block_emission:?}");

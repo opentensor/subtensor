@@ -2,13 +2,14 @@
 use crate::TransactionSource;
 use frame_support::assert_ok;
 use frame_support::dispatch::GetDispatchInfo;
+use frame_support::pallet_prelude::Zero;
 use pallet_subtensor_swap::AlphaSqrtPrice;
 use sp_runtime::{
     traits::{DispatchTransaction, TransactionExtension, TxBaseImplication},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::AlphaCurrency;
+use subtensor_runtime_common::AlphaBalance;
 
 use mock::*;
 mod mock;
@@ -43,7 +44,7 @@ fn test_remove_stake_fees_tao() {
         };
 
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
 
         // setup_subnets() -> register_ok_neuron() calls SubtensorModule::register(...)
         // which now requires sufficient balance to stake during registration.
@@ -65,7 +66,7 @@ fn test_remove_stake_fees_tao() {
             &sn.hotkeys[0],
             stake_amount,
         );
-        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO);
+        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TaoBalance::from(TAO));
 
         // Avoid staking-op rate limit between add_stake and remove_stake.
         jump_blocks(1_000_001);
@@ -89,7 +90,7 @@ fn test_remove_stake_fees_tao() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
 
         // dispatch_transaction() is nested:
         // - Outer Result: validation / payment extension checks
@@ -106,12 +107,13 @@ fn test_remove_stake_fees_tao() {
             sn.subnets[0].netuid,
         );
 
-        let actual_tao_fee = balance_before + expected_unstaked_tao - final_balance;
+        let actual_tao_fee =
+            balance_before + TaoBalance::from(expected_unstaked_tao) - final_balance;
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in TAO because ck has sufficient TAO balance
-        assert!(actual_tao_fee > 0);
-        assert_eq!(actual_alpha_fee, AlphaCurrency::from(0));
+        assert!(actual_tao_fee > 0.into());
+        assert_eq!(actual_alpha_fee, AlphaBalance::from(0));
     });
 }
 // cargo test --package subtensor-transaction-fee --lib -- tests::test_remove_stake_fees_alpha --exact --show-output
@@ -120,7 +122,7 @@ fn test_remove_stake_fees_tao() {
 fn test_remove_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -155,7 +157,7 @@ fn test_remove_stake_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -171,11 +173,12 @@ fn test_remove_stake_fees_alpha() {
             sn.subnets[0].netuid,
         );
 
-        let actual_tao_fee = balance_before + expected_unstaked_tao - final_balance;
+        let actual_tao_fee =
+            balance_before + TaoBalance::from(expected_unstaked_tao) - final_balance;
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -217,7 +220,7 @@ fn test_remove_stake_root() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -230,12 +233,12 @@ fn test_remove_stake_root() {
         let alpha_after =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
 
-        let actual_tao_fee = balance_before + unstake_amount - final_balance;
+        let actual_tao_fee = balance_before + unstake_amount.into() - final_balance;
         let actual_alpha_fee =
-            AlphaCurrency::from(stake_amount) - alpha_after - unstake_amount.into();
+            AlphaBalance::from(stake_amount) - alpha_after - unstake_amount.into();
 
         // Remove stake extrinsic should pay fees in Alpha (withdrawn from staked TAO)
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -276,7 +279,7 @@ fn test_remove_stake_completely_root() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -334,7 +337,7 @@ fn test_remove_stake_completely_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -352,9 +355,9 @@ fn test_remove_stake_completely_fees_alpha() {
 
         // Effectively, the fee is paid in TAO in this case because user receives less TAO,
         // and all Alpha is gone, and it is not measurable in Alpha
-        let actual_fee = balance_before + expected_unstaked_tao - final_balance;
+        let actual_fee = balance_before + expected_unstaked_tao.into() - final_balance;
         assert_eq!(alpha_after, 0.into());
-        assert!(actual_fee > 0);
+        assert!(actual_fee > 0.into());
     });
 }
 
@@ -394,7 +397,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
         );
 
         // For-set Alpha balance to low
-        let new_current_stake = AlphaCurrency::from(1_000);
+        let new_current_stake = AlphaBalance::from(1_000);
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
@@ -411,7 +414,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         let result = ext.validate(
             RuntimeOrigin::signed(sn.coldkey).into(),
             &call.clone(),
@@ -461,7 +464,7 @@ fn test_remove_stake_edge_alpha() {
         );
 
         // For-set Alpha balance to low, but enough to pay tx fees at the current Alpha price
-        let new_current_stake = AlphaCurrency::from(1_000_000);
+        let new_current_stake = AlphaBalance::from(1_000_000);
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
@@ -478,7 +481,7 @@ fn test_remove_stake_edge_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         let result = ext.validate(
             RuntimeOrigin::signed(sn.coldkey).into(),
             &call.clone(),
@@ -517,7 +520,7 @@ fn test_remove_stake_edge_alpha() {
 fn test_remove_stake_failing_transaction_tao_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
 
         SubtensorModule::add_balance_to_coldkey_account(
@@ -533,10 +536,10 @@ fn test_remove_stake_failing_transaction_tao_fees() {
             stake_amount.into(),
         ));
 
-        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO);
+        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO.into());
 
         // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoBalance::from(1));
 
         // Remove stake
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -553,7 +556,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -572,7 +575,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
         let actual_tao_fee = balance_before - final_balance;
 
         // Remove stake extrinsic should pay fees in TAO because ck has sufficient TAO balance
-        assert!(actual_tao_fee > 0);
+        assert!(actual_tao_fee > 0.into());
         assert_eq!(alpha_before, alpha_after);
     });
 }
@@ -585,7 +588,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
 fn test_remove_stake_failing_transaction_alpha_fees() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -595,7 +598,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
         );
 
         // Make unstaking fail by reducing liquidity to critical
-        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoCurrency::from(1));
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoBalance::from(1));
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
@@ -619,7 +622,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -639,7 +642,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
         let actual_alpha_fee = alpha_before - alpha_after;
 
         // Remove stake extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
         assert!(actual_alpha_fee < unstake_amount);
     });
@@ -651,7 +654,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
 fn test_remove_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -688,7 +691,7 @@ fn test_remove_stake_limit_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -704,11 +707,11 @@ fn test_remove_stake_limit_fees_alpha() {
             sn.subnets[0].netuid,
         );
 
-        let actual_tao_fee = balance_before + expected_unstaked_tao - final_balance;
+        let actual_tao_fee = balance_before + expected_unstaked_tao.into() - final_balance;
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -758,7 +761,7 @@ fn test_unstake_all_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -771,8 +774,8 @@ fn test_unstake_all_fees_alpha() {
 
         // Effectively, the fee is paid in TAO in this case because user receives less TAO,
         // and all Alpha is gone, and it is not measurable in Alpha
-        let actual_fee = balance_before + expected_unstaked_tao - final_balance;
-        assert!(actual_fee > 0);
+        let actual_fee = balance_before + expected_unstaked_tao.into() - final_balance;
+        assert!(actual_fee > 0.into());
 
         // Check that all subnets got unstaked
         for i in 0..10 {
@@ -826,7 +829,7 @@ fn test_unstake_all_alpha_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -839,8 +842,8 @@ fn test_unstake_all_alpha_fees_alpha() {
 
         // Effectively, the fee is paid in TAO in this case because user receives less TAO,
         // and all Alpha is gone, and it is not measurable in Alpha
-        let actual_fee = balance_before + expected_unstaked_tao - final_balance;
-        assert!(actual_fee > 0);
+        let actual_fee = balance_before + expected_unstaked_tao.into() - final_balance;
+        assert!(actual_fee > 0.into());
 
         // Check that all subnets got unstaked
         for i in 0..10 {
@@ -860,7 +863,7 @@ fn test_unstake_all_alpha_fees_alpha() {
 fn test_move_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -893,7 +896,7 @@ fn test_move_stake_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -921,7 +924,7 @@ fn test_move_stake_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after_0 - unstake_amount;
 
         // Extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -933,7 +936,7 @@ fn test_transfer_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let destination_coldkey = U256::from(100000);
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -966,7 +969,7 @@ fn test_transfer_stake_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -994,7 +997,7 @@ fn test_transfer_stake_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after_0 - unstake_amount;
 
         // Extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -1005,7 +1008,7 @@ fn test_transfer_stake_fees_alpha() {
 fn test_swap_stake_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -1037,7 +1040,7 @@ fn test_swap_stake_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -1065,7 +1068,7 @@ fn test_swap_stake_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after_0 - unstake_amount;
 
         // Extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -1076,7 +1079,7 @@ fn test_swap_stake_fees_alpha() {
 fn test_swap_stake_limit_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let unstake_amount = AlphaCurrency::from(TAO / 50);
+        let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(2, 2);
         setup_stake(
             sn.subnets[0].netuid,
@@ -1110,7 +1113,7 @@ fn test_swap_stake_limit_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -1138,7 +1141,7 @@ fn test_swap_stake_limit_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after_0 - unstake_amount;
 
         // Extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -1149,7 +1152,7 @@ fn test_swap_stake_limit_fees_alpha() {
 fn test_burn_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let alpha_amount = AlphaCurrency::from(TAO / 50);
+        let alpha_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -1180,7 +1183,7 @@ fn test_burn_alpha_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -1200,7 +1203,7 @@ fn test_burn_alpha_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after_0 - alpha_amount;
 
         // Extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
     });
 }
@@ -1211,7 +1214,7 @@ fn test_burn_alpha_fees_alpha() {
 fn test_recycle_alpha_fees_alpha() {
     new_test_ext().execute_with(|| {
         let stake_amount = TAO;
-        let alpha_amount = AlphaCurrency::from(TAO / 50);
+        let alpha_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
         setup_stake(
             sn.subnets[0].netuid,
@@ -1242,7 +1245,7 @@ fn test_recycle_alpha_fees_alpha() {
 
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
-        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0);
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(sn.coldkey).into(),
             call,
@@ -1262,7 +1265,61 @@ fn test_recycle_alpha_fees_alpha() {
         let actual_alpha_fee = alpha_before - alpha_after_0 - alpha_amount;
 
         // Extrinsic should pay fees in Alpha
-        assert_eq!(actual_tao_fee, 0);
+        assert_eq!(actual_tao_fee, 0.into());
         assert!(actual_alpha_fee > 0.into());
+    });
+}
+
+// cargo test --package subtensor-transaction-fee --lib -- tests::test_add_stake_fees_go_to_block_builder --exact --show-output
+#[test]
+fn test_add_stake_fees_go_to_block_builder() {
+    new_test_ext().execute_with(|| {
+        // Portion of swap fees that should go to the block builder
+        let block_builder_fee_portion = 1.;
+
+        // Get the block builder balance
+        let block_builder = U256::from(MOCK_BLOCK_BUILDER);
+        let block_builder_balance_before = Balances::free_balance(block_builder);
+
+        let stake_amount = TAO;
+        let sn = setup_subnets(1, 1);
+
+        // Simulate add stake to get the expected TAO fee
+        let (_, swap_fee) = mock::swap_tao_to_alpha(sn.subnets[0].netuid, stake_amount.into());
+
+        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, (stake_amount * 10).into());
+        remove_stake_rate_limit_for_tests(&sn.hotkeys[0], &sn.coldkey, sn.subnets[0].netuid);
+
+        // Stake
+        let balance_before = Balances::free_balance(sn.coldkey);
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
+            hotkey: sn.hotkeys[0],
+            netuid: sn.subnets[0].netuid,
+            amount_staked: stake_amount.into(),
+        });
+
+        // Dispatch the extrinsic with ChargeTransactionPayment extension
+        let info = call.get_dispatch_info();
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
+        assert_ok!(ext.dispatch_transaction(
+            RuntimeOrigin::signed(sn.coldkey).into(),
+            call,
+            &info,
+            0,
+            0,
+        ));
+
+        let final_balance = Balances::free_balance(sn.coldkey);
+        let actual_tao_fee = balance_before - stake_amount.into() - final_balance;
+        assert!(!actual_tao_fee.is_zero());
+
+        // Expect that block builder balance has increased by both the swap fee and the transaction fee
+        let expected_block_builder_swap_reward = swap_fee as f64 * block_builder_fee_portion;
+        let expected_tx_fee = 0.000136; // Use very low value for less test flakiness
+        let block_builder_balance_after = Balances::free_balance(block_builder);
+        let actual_reward = block_builder_balance_after - block_builder_balance_before;
+        assert!(
+            u64::from(actual_reward) as f64 >= expected_block_builder_swap_reward + expected_tx_fee
+        );
     });
 }

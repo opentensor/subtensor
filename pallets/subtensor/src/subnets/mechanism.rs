@@ -6,7 +6,7 @@ use crate::epoch::run_epoch::EpochTerms;
 use alloc::collections::BTreeMap;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, MechId, NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex};
 
 pub type LeaseId = u32;
 
@@ -95,7 +95,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Set the desired valus of sub-subnet count for a subnet identified
+    pub fn ensure_max_uids_over_all_mechanisms(
+        max_uids: u16,
+        mechanism_count: MechId,
+    ) -> DispatchResult {
+        let max_uids_over_all_mechanisms =
+            max_uids.saturating_mul(u8::from(mechanism_count) as u16);
+        ensure!(
+            max_uids_over_all_mechanisms <= DefaultMaxAllowedUids::<T>::get(),
+            Error::<T>::TooManyUIDsPerMechanism
+        );
+        Ok(())
+    }
+
+    /// Set the desired value of mechanism count for a subnet identified
     /// by netuid
     pub fn do_set_mechanism_count(netuid: NetUid, mechanism_count: MechId) -> DispatchResult {
         // Make sure the subnet exists
@@ -113,6 +126,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidValue
         );
 
+        // Prevent chain bloat: Require max UIDs to be limited
+        let max_uids = MaxAllowedUids::<T>::get(netuid);
+        Self::ensure_max_uids_over_all_mechanisms(max_uids, mechanism_count)?;
+
         // Make sure we are not allowing numbers that will break the math
         ensure!(
             mechanism_count <= MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET),
@@ -120,6 +137,22 @@ impl<T: Config> Pallet<T> {
         );
 
         Self::update_mechanism_counts_if_needed(netuid, mechanism_count);
+
+        Ok(())
+    }
+
+    /// Set the global maximum number of mechanisms per subnet
+    pub fn do_set_max_mechanism_count(max_mechanism_count: MechId) -> DispatchResult {
+        // Max count cannot be zero
+        ensure!(max_mechanism_count > 0.into(), Error::<T>::InvalidValue);
+
+        // Make sure we are not allowing numbers that will break the math
+        ensure!(
+            max_mechanism_count <= MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET),
+            Error::<T>::InvalidValue
+        );
+
+        MaxMechanismCount::<T>::set(max_mechanism_count);
 
         Ok(())
     }
@@ -194,16 +227,16 @@ impl<T: Config> Pallet<T> {
     /// Split alpha emission in sub-subnet proportions
     /// stored in MechanismEmissionSplit
     ///
-    pub fn split_emissions(netuid: NetUid, alpha: AlphaCurrency) -> Vec<AlphaCurrency> {
+    pub fn split_emissions(netuid: NetUid, alpha: AlphaBalance) -> Vec<AlphaBalance> {
         let mechanism_count = u64::from(MechanismCountCurrent::<T>::get(netuid));
         let maybe_split = MechanismEmissionSplit::<T>::get(netuid);
 
         // Unset split means even distribution
-        let mut result: Vec<AlphaCurrency> = if let Some(split) = maybe_split {
+        let mut result: Vec<AlphaBalance> = if let Some(split) = maybe_split {
             split
                 .iter()
                 .map(|s| {
-                    AlphaCurrency::from(
+                    AlphaBalance::from(
                         (u64::from(alpha) as u128)
                             .saturating_mul(*s as u128)
                             .safe_div(u16::MAX as u128) as u64,
@@ -212,19 +245,19 @@ impl<T: Config> Pallet<T> {
                 .collect()
         } else {
             let per_mechanism = u64::from(alpha).safe_div(mechanism_count);
-            vec![AlphaCurrency::from(per_mechanism); mechanism_count as usize]
+            vec![AlphaBalance::from(per_mechanism); mechanism_count as usize]
         };
 
         // Trim / extend and pad with zeroes if result is shorter than mechanism_count
         if result.len() != mechanism_count as usize {
-            result.resize(mechanism_count as usize, 0u64.into()); // pad with AlphaCurrency::from(0)
+            result.resize(mechanism_count as usize, 0u64.into()); // pad with AlphaBalance::from(0)
         }
 
         // If there's any rounding error or lost due to truncation emission, credit it to mechanism 0
         let rounding_err =
             u64::from(alpha).saturating_sub(result.iter().map(|s| u64::from(*s)).sum());
         if let Some(cell) = result.first_mut() {
-            *cell = cell.saturating_add(AlphaCurrency::from(rounding_err));
+            *cell = cell.saturating_add(AlphaBalance::from(rounding_err));
         }
         result
     }
@@ -236,10 +269,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn weighted_acc_alpha(
-        existing: AlphaCurrency,
-        added: AlphaCurrency,
+        existing: AlphaBalance,
+        added: AlphaBalance,
         weight: U64F64,
-    ) -> AlphaCurrency {
+    ) -> AlphaBalance {
         U64F64::saturating_from_num(existing)
             .saturating_add(U64F64::saturating_from_num(added).saturating_mul(weight))
             .saturating_to_num::<u64>()
@@ -253,8 +286,8 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn epoch_with_mechanisms(
         netuid: NetUid,
-        rao_emission: AlphaCurrency,
-    ) -> Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> {
+        rao_emission: AlphaBalance,
+    ) -> Vec<(T::AccountId, AlphaBalance, AlphaBalance)> {
         let aggregated: BTreeMap<T::AccountId, EpochTerms> =
             Self::split_emissions(netuid, rao_emission)
                 .into_iter()
@@ -363,7 +396,7 @@ impl<T: Config> Pallet<T> {
         // Update voting power EMA for all validators on this subnet
         Self::update_voting_power_for_subnet(netuid, &aggregated);
 
-        // Remap BTreeMap back to Vec<(T::AccountId, AlphaCurrency, AlphaCurrency)> format
+        // Remap BTreeMap back to Vec<(T::AccountId, AlphaBalance, AlphaBalance)> format
         // for processing emissions in run_coinbase
         // Emission tuples ( hotkeys, server_emission, validator_emission )
         aggregated

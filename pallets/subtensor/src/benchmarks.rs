@@ -16,15 +16,32 @@ use sp_runtime::{
 };
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+use subtensor_swap_interface::SwapHandler;
 
 #[benchmarks(
     where
         T: pallet_balances::Config,
-        <T as pallet_balances::Config>::ExistentialDeposit: Get<u64>,
+        <T as pallet_balances::Config>::ExistentialDeposit: Get<TaoBalance>,
 )]
 mod pallet_benchmarks {
     use super::*;
+
+    fn seed_swap_reserves<T: Config>(netuid: NetUid) {
+        let tao_reserve = TaoBalance::from(150_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
+    }
+
+    fn set_reserves<T: Config>(netuid: NetUid, tao_reserve: TaoBalance, alpha_in: AlphaBalance) {
+        SubnetTAO::<T>::insert(netuid, tao_reserve);
+        SubnetAlphaIn::<T>::insert(netuid, alpha_in);
+    }
+
+    fn benchmark_registration_burn() -> TaoBalance {
+        TaoBalance::from(1_000_000)
+    }
 
     /// This helper funds an account with:
     /// - 2x burn fee
@@ -60,6 +77,7 @@ mod pallet_benchmarks {
         // Fund BOTH to be robust regardless of which account is charged internally.
         fund_for_registration::<T>(netuid, &coldkey);
         fund_for_registration::<T>(netuid, &hotkey);
+        Subtensor::<T>::set_difficulty(netuid, 1);
 
         let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work): (u64, Vec<u8>) =
@@ -90,6 +108,9 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_max_registrations_per_block(netuid, 4096);
         Subtensor::<T>::set_target_registrations_per_interval(netuid, 4096);
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, false);
+        SubnetTAO::<T>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
+        SubnetAlphaIn::<T>::insert(netuid, AlphaBalance::from(1_000_000_000_000_000_u64));
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         let mut seed: u32 = 1;
         let mut dests = Vec::new();
@@ -138,16 +159,17 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::init_new_network(netuid, tempo);
         SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 
         let seed: u32 = 1;
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
-        let total_stake = TaoCurrency::from(1_000_000_000);
-        let amount = TaoCurrency::from(60_000_000);
+        let total_stake = TaoBalance::from(1_000_000_000);
+        let amount = TaoBalance::from(60_000_000);
 
+        seed_swap_reserves::<T>(netuid);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, total_stake.into());
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -183,6 +205,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 
         Subtensor::<T>::set_burn(netuid, 1.into());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &caller);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -222,6 +245,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 
         Subtensor::<T>::set_burn(netuid, 1.into());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &caller);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -244,6 +268,24 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn burned_register() {
+        let netuid = NetUid::from(1);
+        let seed: u32 = 1;
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        let coldkey: T::AccountId = account("Test", 0, seed);
+
+        Subtensor::<T>::init_new_network(netuid, 1);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+
+        let amount: u64 = 1_000_000;
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount.into());
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), netuid, hotkey.clone());
+    }
+
+    #[benchmark]
     fn root_register() {
         let netuid = NetUid::from(1);
         let seed: u32 = 1;
@@ -252,13 +294,19 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::init_new_network(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
         assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+        Subtensor::<T>::init_new_network(NetUid::ROOT, 1);
+        Subtensor::<T>::set_network_registration_allowed(NetUid::ROOT, true);
+        Subtensor::<T>::set_network_pow_registration_allowed(NetUid::ROOT, true);
+        FirstEmissionBlockNumber::<T>::insert(NetUid::ROOT, 1);
+        SubtokenEnabled::<T>::insert(NetUid::ROOT, true);
 
         let amount: u64 = 100_000_000_000_000;
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
+        seed_swap_reserves::<T>(netuid);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount.into());
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(coldkey.clone()).into(),
@@ -278,7 +326,7 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::set_network_rate_limit(1);
         let amount: u64 = 100_000_000_000_000u64.saturating_mul(2);
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount.into());
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
@@ -304,6 +352,8 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::init_new_network(netuid, tempo);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
+        Subtensor::<T>::set_difficulty(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
 
         Subtensor::<T>::set_burn(netuid, 1.into());
@@ -336,6 +386,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, tempo);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
+        Subtensor::<T>::set_difficulty(netuid, 1);
 
         Subtensor::<T>::set_burn(netuid, 1.into());
         fund_for_registration::<T>(netuid, &coldkey);
@@ -357,12 +409,19 @@ mod pallet_benchmarks {
             salt.clone(),
             version_key,
         ));
-
+        let commit_block = Subtensor::<T>::get_current_block_as_u64();
         assert_ok!(Subtensor::<T>::commit_weights(
             RawOrigin::Signed(hotkey.clone()).into(),
             netuid,
-            commit_hash
+            commit_hash,
         ));
+
+        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
+        let reveal_block: BlockNumberFor<T> = first_reveal_block
+            .try_into()
+            .ok()
+            .expect("can't convert to block number");
+        frame_system::Pallet::<T>::set_block_number(reveal_block);
 
         #[extrinsic_call]
         _(
@@ -395,6 +454,7 @@ mod pallet_benchmarks {
         SubtokenEnabled::<T>::insert(netuid, true);
 
         Subtensor::<T>::set_burn(netuid, 1.into());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &coldkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -420,7 +480,7 @@ mod pallet_benchmarks {
 
         let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, swap_cost.to_u64() + ed);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, swap_cost + ed);
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey), new_coldkey_hash);
@@ -439,11 +499,41 @@ mod pallet_benchmarks {
         frame_system::Pallet::<T>::set_block_number(now + delay + 1u32.into());
 
         let netuid = NetUid::from(1);
+        Subtensor::<T>::init_new_network(netuid, 1);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+        Subtensor::<T>::set_difficulty(netuid, 1);
+
+        let block_number = Subtensor::<T>::get_current_block_as_u64();
+        let (nonce, work) =
+            Subtensor::<T>::create_work_for_block_number(netuid, block_number, 3, &hotkey1);
+        let _ = Subtensor::<T>::register(
+            RawOrigin::Signed(old_coldkey.clone()).into(),
+            netuid,
+            block_number,
+            nonce,
+            work.clone(),
+            hotkey1.clone(),
+            old_coldkey.clone(),
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(old_coldkey), new_coldkey);
+    }
+
+    #[benchmark]
+    fn swap_coldkey() {
+        let old_coldkey: T::AccountId = account("old_coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let hotkey1: T::AccountId = account("hotkey1", 0, 0);
+
+        let ed = <T as pallet_balances::Config>::ExistentialDeposit::get();
         let swap_cost = Subtensor::<T>::get_key_swap_cost();
         let free_balance_old = swap_cost + 12345.into();
 
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_difficulty(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::set_burn(netuid, 1.into());
 
@@ -510,6 +600,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
         Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
+        Subtensor::<T>::set_difficulty(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
 
         Subtensor::<T>::set_burn(netuid, 1.into());
@@ -528,6 +619,7 @@ mod pallet_benchmarks {
         let mut salts_list = Vec::new();
         let mut version_keys = Vec::new();
 
+        let commit_block = Subtensor::<T>::get_current_block_as_u64();
         for i in 0..num_commits {
             let uids = vec![0u16];
             let values = vec![i as u16];
@@ -555,6 +647,13 @@ mod pallet_benchmarks {
             version_keys.push(version_key_i);
         }
 
+        let (first_reveal_block, _) = Subtensor::<T>::get_reveal_blocks(netuid, commit_block);
+        let reveal_block: BlockNumberFor<T> = first_reveal_block
+            .try_into()
+            .ok()
+            .expect("can't convert to block number");
+        frame_system::Pallet::<T>::set_block_number(reveal_block);
+
         #[extrinsic_call]
         _(
             RawOrigin::Signed(hotkey.clone()),
@@ -576,7 +675,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
         fund_for_registration::<T>(netuid, &coldkey);
 
@@ -586,7 +685,7 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
-        let alpha_amount = AlphaCurrency::from(1_000_000);
+        let alpha_amount = AlphaBalance::from(1_000_000);
         SubnetAlphaOut::<T>::insert(netuid, alpha_amount * 2.into());
 
         Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -619,7 +718,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
         fund_for_registration::<T>(netuid, &coldkey);
 
@@ -630,7 +729,7 @@ mod pallet_benchmarks {
         ));
 
         let alpha_amount = 1_000_000;
-        SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::from(alpha_amount * 2));
+        SubnetAlphaOut::<T>::insert(netuid, AlphaBalance::from(alpha_amount * 2));
         Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
@@ -695,22 +794,19 @@ mod pallet_benchmarks {
 
         Subtensor::<T>::init_new_network(netuid, tempo);
         SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
 
-        let amount = 900_000_000_000;
-        let limit = TaoCurrency::from(6_000_000_000);
-        let amount_to_be_staked = TaoCurrency::from(44_000_000_000);
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
+        let initial_balance = TaoBalance::from(900_000_000_000_u64);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), initial_balance);
 
-        let tao_reserve = TaoCurrency::from(150_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
-        SubnetTAO::<T>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<T>::insert(netuid, alpha_in);
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(coldkey.clone()).into(),
@@ -718,6 +814,16 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
+        // Read current price and set limit price 0.1% higher, which is certainly getting hit
+        // by swapping 100 TAO
+        let current_price = T::SwapInterface::current_alpha_price(netuid);
+        let limit = current_price
+            .saturating_mul(U96F32::saturating_from_num(1_001_000_000))
+            .saturating_to_num::<u64>()
+            .into();
+        let amount_to_be_staked = TaoBalance::from(100_000_000_000_u64);
+
+        // Allow partial (worst case)
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),
@@ -725,7 +831,7 @@ mod pallet_benchmarks {
             netuid,
             amount_to_be_staked,
             limit,
-            false,
+            true,
         );
     }
 
@@ -751,8 +857,7 @@ mod pallet_benchmarks {
             origin.clone()
         ));
 
-        SubnetTAO::<T>::insert(netuid, deposit);
-        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(deposit.to_u64()));
+        set_reserves::<T>(netuid, deposit, AlphaBalance::from(deposit.to_u64()));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -760,7 +865,7 @@ mod pallet_benchmarks {
             origin.clone(),
             netuid,
             stake_tao,
-            TaoCurrency::MAX,
+            TaoBalance::MAX,
             false
         ));
 
@@ -788,7 +893,7 @@ mod pallet_benchmarks {
         let tempo: u16 = 1;
         let seed: u32 = 1;
 
-        Subtensor::<T>::increase_total_stake(1_000_000_000_000.into());
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000_u64.into());
 
         Subtensor::<T>::init_new_network(netuid, tempo);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
@@ -799,13 +904,11 @@ mod pallet_benchmarks {
 
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
-        let limit = TaoCurrency::from(1_000_000_000);
-        let tao_reserve = TaoCurrency::from(150_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
-        SubnetTAO::<T>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<T>::insert(netuid, alpha_in);
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
 
         let wallet_bal = 1000000u32.into();
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
@@ -816,14 +919,14 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
-        let u64_staked_amt = 100_000_000_000;
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
+        let staked_amt = TaoBalance::from(100_000_000_000_u64);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
 
         assert_ok!(Subtensor::<T>::add_stake(
             RawOrigin::Signed(coldkey.clone()).into(),
             hotkey.clone(),
             netuid,
-            u64_staked_amt.into()
+            staked_amt
         ));
 
         let amount_unstaked = AlphaCurrency::from(30_000_000_000);
@@ -837,7 +940,7 @@ mod pallet_benchmarks {
             netuid,
             amount_unstaked,
             limit,
-            false,
+            true,
         );
     }
 
@@ -857,19 +960,18 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid2, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid2, true);
 
-        let tao_reserve = TaoCurrency::from(150_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
-        SubnetTAO::<T>::insert(netuid1, tao_reserve);
-        SubnetAlphaIn::<T>::insert(netuid1, alpha_in);
+        let tao_reserve = TaoBalance::from(150_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
+        set_reserves::<T>(netuid1, tao_reserve, alpha_in);
         SubnetTAO::<T>::insert(netuid2, tao_reserve);
 
-        Subtensor::<T>::increase_total_stake(1_000_000_000_000.into());
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000_u64.into());
 
-        let amount = 900_000_000_000;
-        let limit_stake = TaoCurrency::from(6_000_000_000);
-        let limit_swap = TaoCurrency::from(1_000_000_000);
-        let amount_to_be_staked = TaoCurrency::from(440_000_000_000);
-        let amount_swapped = AlphaCurrency::from(30_000_000_000);
+        let amount = TaoBalance::from(900_000_000_000_u64);
+        let limit_stake = TaoBalance::from(6_000_000_000_u64);
+        let limit_swap = TaoBalance::from(1_000_000_000_u64);
+        let amount_to_be_staked = TaoBalance::from(440_000_000_000_u64);
+        let amount_swapped = AlphaBalance::from(30_000_000_000_u64);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -928,8 +1030,7 @@ mod pallet_benchmarks {
             hot.clone()
         ));
 
-        SubnetTAO::<T>::insert(netuid, deposit);
-        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(deposit.to_u64()));
+        set_reserves::<T>(netuid, deposit, AlphaBalance::from(deposit.to_u64()));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -937,7 +1038,7 @@ mod pallet_benchmarks {
             hot.clone(),
             netuid,
             stake_tao,
-            TaoCurrency::MAX,
+            TaoBalance::MAX,
             false
         ));
 
@@ -985,10 +1086,8 @@ mod pallet_benchmarks {
             hot.clone()
         ));
 
-        SubnetTAO::<T>::insert(netuid1, deposit);
-        SubnetAlphaIn::<T>::insert(netuid1, AlphaCurrency::from(deposit.to_u64()));
-        SubnetTAO::<T>::insert(netuid2, deposit);
-        SubnetAlphaIn::<T>::insert(netuid2, AlphaCurrency::from(deposit.to_u64()));
+        set_reserves::<T>(netuid1, deposit, AlphaBalance::from(deposit.to_u64()));
+        set_reserves::<T>(netuid2, deposit, AlphaBalance::from(deposit.to_u64()));
         TotalStake::<T>::set(deposit);
 
         assert_ok!(Subtensor::<T>::add_stake_limit(
@@ -996,7 +1095,7 @@ mod pallet_benchmarks {
             hot.clone(),
             netuid1,
             stake_tao,
-            TaoCurrency::MAX,
+            TaoBalance::MAX,
             false
         ));
 
@@ -1026,6 +1125,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
         Subtensor::<T>::set_burn(netuid, 1.into());
         fund_for_registration::<T>(netuid, &hotkey);
@@ -1095,9 +1195,11 @@ mod pallet_benchmarks {
     fn decrease_take() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);
-        let take: u16 = 100;
+        let min_take = Subtensor::<T>::get_min_delegate_take();
+        let take: u16 = min_take;
+        let current_take = min_take.saturating_add(1);
 
-        Delegates::<T>::insert(&hotkey, 200u16);
+        Delegates::<T>::insert(&hotkey, current_take);
         Owner::<T>::insert(&hotkey, &coldkey);
 
         #[extrinsic_call]
@@ -1126,7 +1228,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(1.into(), true);
         Subtensor::<T>::set_network_rate_limit(1);
         let amount: u64 = 9_999_999_999_999;
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, amount.into());
 
         #[extrinsic_call]
         _(
@@ -1295,10 +1397,13 @@ mod pallet_benchmarks {
 
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
-        SubnetTAO::<T>::insert(netuid, TaoCurrency::from(150_000_000_000));
-        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(100_000_000_000));
+        set_reserves::<T>(
+            netuid,
+            TaoBalance::from(150_000_000_000_u64),
+            AlphaBalance::from(100_000_000_000_u64),
+        );
 
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 1000000u32.into());
 
@@ -1308,14 +1413,14 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
-        let staked_amt = 100_000_000_000;
+        let staked_amt = TaoBalance::from(100_000_000_000_u64);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
 
         assert_ok!(Subtensor::<T>::add_stake(
             RawOrigin::Signed(coldkey.clone()).into(),
             hotkey.clone(),
             netuid,
-            staked_amt.into()
+            staked_amt
         ));
 
         StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
@@ -1341,13 +1446,11 @@ mod pallet_benchmarks {
 
         let coldkey: T::AccountId = account("Test", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
-        let limit = TaoCurrency::from(1_000_000_000);
-        let tao_reserve = TaoCurrency::from(150_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
-        SubnetTAO::<T>::insert(netuid, tao_reserve);
-        SubnetAlphaIn::<T>::insert(netuid, alpha_in);
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
 
         let wallet_bal = 1000000u32.into();
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
@@ -1358,14 +1461,21 @@ mod pallet_benchmarks {
             hotkey.clone()
         ));
 
-        let u64_staked_amt = 100_000_000_000;
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
+        // Read current price and set limit price 50% lower, which is not getting hit
+        // by swapping 1 TAO
+        let current_price = T::SwapInterface::current_alpha_price(netuid);
+        let limit = current_price
+            .saturating_mul(U96F32::saturating_from_num(500_000_000))
+            .saturating_to_num::<u64>()
+            .into();
+        let staked_amt = TaoBalance::from(1_000_000_000_u64);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
 
         assert_ok!(Subtensor::<T>::add_stake(
             RawOrigin::Signed(coldkey.clone()).into(),
             hotkey.clone(),
             netuid,
-            u64_staked_amt.into()
+            staked_amt
         ));
 
         StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
@@ -1384,20 +1494,20 @@ mod pallet_benchmarks {
         // Setup a crowdloan
         let crowdloan_id = 0;
         let beneficiary: T::AccountId = whitelisted_caller();
-        let deposit = 20_000_000_000; // 20 TAO
+        let deposit = TaoBalance::from(20_000_000_000_u64); // 20 TAO
         let now = frame_system::Pallet::<T>::block_number(); // not really important here
         let end = now + T::MaximumBlockDuration::get();
-        let cap = 2_000_000_000_000; // 2000 TAO
+        let cap = TaoBalance::from(2_000_000_000_000_u64); // 2000 TAO
 
         let funds_account: T::AccountId = account("funds", 0, 0);
-        Subtensor::<T>::add_balance_to_coldkey_account(&funds_account, cap);
+        Subtensor::<T>::add_balance_to_coldkey_account(&funds_account, cap.into());
 
         pallet_crowdloan::Crowdloans::<T>::insert(
             crowdloan_id,
             pallet_crowdloan::CrowdloanInfo {
                 creator: beneficiary.clone(),
                 deposit,
-                min_contribution: 0,
+                min_contribution: 0.into(),
                 end,
                 cap,
                 raised: cap,
@@ -1414,7 +1524,7 @@ mod pallet_benchmarks {
         pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, &beneficiary, deposit);
 
         let contributors = k - 1;
-        let amount = (cap - deposit) / contributors as u64;
+        let amount = (cap - deposit) / TaoBalance::from(contributors);
         for i in 0..contributors {
             let contributor = account::<T::AccountId>("contributor", i.try_into().unwrap(), 0);
             pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, contributor, amount);
@@ -1443,10 +1553,10 @@ mod pallet_benchmarks {
     fn terminate_lease(k: Linear<2, { T::MaxContributors::get() }>) {
         let crowdloan_id = 0;
         let beneficiary: T::AccountId = whitelisted_caller();
-        let deposit = 20_000_000_000; // 20 TAO
+        let deposit = TaoBalance::from(20_000_000_000_u64); // 20 TAO
         let now = frame_system::Pallet::<T>::block_number();
         let crowdloan_end = now + T::MaximumBlockDuration::get();
-        let cap = 2_000_000_000_000; // 2000 TAO
+        let cap = TaoBalance::from(2_000_000_000_000_u64); // 2000 TAO
 
         let funds_account: T::AccountId = account("funds", 0, 0);
         Subtensor::<T>::add_balance_to_coldkey_account(&funds_account, cap);
@@ -1456,7 +1566,7 @@ mod pallet_benchmarks {
             pallet_crowdloan::CrowdloanInfo {
                 creator: beneficiary.clone(),
                 deposit,
-                min_contribution: 0,
+                min_contribution: 0.into(),
                 end: crowdloan_end,
                 cap,
                 raised: cap,
@@ -1473,7 +1583,7 @@ mod pallet_benchmarks {
         pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, &beneficiary, deposit);
 
         let contributors = k - 1;
-        let amount = (cap - deposit) / contributors as u64;
+        let amount = (cap - deposit) / TaoBalance::from(contributors);
         for i in 0..contributors {
             let contributor = account::<T::AccountId>("contributor", i.try_into().unwrap(), 0);
             pallet_crowdloan::Contributions::<T>::insert(crowdloan_id, contributor, amount);
@@ -1639,10 +1749,10 @@ mod pallet_benchmarks {
         let pending_root_alpha = 10_000_000u64;
         Subtensor::<T>::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         let initial_stake =
@@ -1685,5 +1795,47 @@ mod pallet_benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Root, netuid, 100);
+    }
+
+    #[benchmark]
+    fn add_stake_burn() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+
+        SubnetOwner::<T>::set(netuid, coldkey.clone());
+
+        let balance_update = TaoBalance::from(900_000_000_000_u64);
+        let limit = TaoBalance::from(6_000_000_000_u64);
+        let amount = TaoBalance::from(44_000_000_000_u64);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), balance_update);
+
+        let tao_reserve = TaoBalance::from(150_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
+
+        assert_ok!(Subtensor::<T>::do_burned_registration(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey,
+            netuid,
+            amount,
+            Some(limit),
+        );
     }
 }

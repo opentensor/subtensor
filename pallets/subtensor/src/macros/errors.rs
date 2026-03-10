@@ -270,6 +270,8 @@ mod errors {
         InvalidRootClaimThreshold,
         /// Exceeded subnet limit number or zero.
         InvalidSubnetNumber,
+        /// The maximum allowed UIDs times mechanism count should not exceed 256.
+        TooManyUIDsPerMechanism,
         /// Voting power tracking is not enabled for this subnet.
         VotingPowerTrackingNotEnabled,
         /// Invalid voting power EMA alpha value (must be <= 10^18).
@@ -278,6 +280,12 @@ mod errors {
         PrecisionLoss,
         /// Deprecated call.
         Deprecated,
+        /// "Add stake and burn" exceeded the operation rate limit
+        AddStakeBurnRateLimitExceeded,
+        /// A coldkey swap has been announced for this account.
+        ColdkeySwapAnnounced,
+        /// A coldkey swap for this account is under dispute.
+        ColdkeySwapDisputed,
         /// Registration Price Limit Exceeded
         RegistrationPriceLimitExceeded,
     }

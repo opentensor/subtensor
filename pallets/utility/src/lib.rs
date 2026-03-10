@@ -61,10 +61,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{
-        DispatchClass::{Normal, Operational},
-        GetDispatchInfo, PostDispatchInfo, extract_actual_weight,
-    },
+    dispatch::{GetDispatchInfo, PostDispatchInfo, extract_actual_weight},
     traits::{IsSubType, OriginTrait, UnfilteredDispatchable},
 };
 use sp_core::TypeId;
@@ -198,9 +195,9 @@ pub mod pallet {
         /// event is deposited.
         #[pallet::call_index(0)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
+			let (dispatch_weight, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch(calls.len() as u32));
-			(dispatch_weight, dispatch_class, pays)
+			(dispatch_weight, DispatchClass::Normal, pays)
 		})]
         pub fn batch(
             origin: OriginFor<T>,
@@ -268,7 +265,7 @@ pub mod pallet {
 					// AccountData for inner call origin accountdata.
 					.saturating_add(T::DbWeight::get().reads_writes(1, 1))
 					.saturating_add(dispatch_info.call_weight),
-				dispatch_info.class,
+				DispatchClass::Normal,
 			)
 		})]
         pub fn as_derivative(
@@ -310,9 +307,9 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(2)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
+			let (dispatch_weight, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::batch_all(calls.len() as u32));
-			(dispatch_weight, dispatch_class, pays)
+			(dispatch_weight, DispatchClass::Normal, pays)
 		})]
         pub fn batch_all(
             origin: OriginFor<T>,
@@ -376,7 +373,7 @@ pub mod pallet {
 			(
 				T::WeightInfo::dispatch_as()
 					.saturating_add(dispatch_info.call_weight),
-				dispatch_info.class,
+				DispatchClass::Normal,
 			)
 		})]
         pub fn dispatch_as(
@@ -409,9 +406,9 @@ pub mod pallet {
         /// - O(C) where C is the number of calls to be batched.
         #[pallet::call_index(4)]
         #[pallet::weight({
-			let (dispatch_weight, dispatch_class, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
+			let (dispatch_weight, pays) = Pallet::<T>::weight_and_dispatch_class(calls);
 			let dispatch_weight = dispatch_weight.saturating_add(T::WeightInfo::force_batch(calls.len() as u32));
-			(dispatch_weight, dispatch_class, pays)
+			(dispatch_weight, DispatchClass::Normal, pays)
 		})]
         pub fn force_batch(
             origin: OriginFor<T>,
@@ -466,7 +463,7 @@ pub mod pallet {
         ///
         /// The dispatch origin for this call must be _Root_.
         #[pallet::call_index(5)]
-        #[pallet::weight((*weight, call.get_dispatch_info().class))]
+        #[pallet::weight((*weight, DispatchClass::Normal))]
         pub fn with_weight(
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
@@ -510,7 +507,7 @@ pub mod pallet {
 				T::WeightInfo::if_else()
 					.saturating_add(main.call_weight)
 					.saturating_add(fallback.call_weight),
-				if main.class == Operational && fallback.class == Operational { Operational } else { Normal },
+				DispatchClass::Normal,
 			)
 		})]
         pub fn if_else(
@@ -584,7 +581,7 @@ pub mod pallet {
 			(
 				T::WeightInfo::dispatch_as_fallible()
 					.saturating_add(dispatch_info.call_weight),
-				dispatch_info.class,
+				DispatchClass::Normal,
 			)
 		})]
         pub fn dispatch_as_fallible(
@@ -604,32 +601,20 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        /// Get the accumulated `weight` and the dispatch class for the given `calls`.
-        fn weight_and_dispatch_class(
-            calls: &[<T as Config>::RuntimeCall],
-        ) -> (Weight, DispatchClass, Pays) {
-            let dispatch_infos = calls.iter().map(|call| call.get_dispatch_info());
-            let pays = if dispatch_infos.clone().any(|di| di.pays_fee == Pays::No) {
-                Pays::No
-            } else {
-                Pays::Yes
-            };
-            let (dispatch_weight, dispatch_class) = dispatch_infos.fold(
-                (Weight::zero(), DispatchClass::Operational),
-                |(total_weight, dispatch_class): (Weight, DispatchClass), di| {
-                    (
-                        total_weight.saturating_add(di.call_weight),
-                        // If not all are `Operational`, we want to use `DispatchClass::Normal`.
-                        if di.class == DispatchClass::Normal {
-                            di.class
-                        } else {
-                            dispatch_class
-                        },
-                    )
-                },
-            );
+        /// Get the accumulated `weight` and `pays` for the given `calls`.
+        /// The outer dispatch class is intentionally always `Normal`.
+        fn weight_and_dispatch_class(calls: &[<T as Config>::RuntimeCall]) -> (Weight, Pays) {
+            let mut total_weight = Weight::zero();
+            let mut pays = Pays::No;
 
-            (dispatch_weight, dispatch_class, pays)
+            for di in calls.iter().map(|call| call.get_dispatch_info()) {
+                total_weight = total_weight.saturating_add(di.call_weight);
+                if di.pays_fee == Pays::Yes {
+                    pays = Pays::Yes;
+                }
+            }
+
+            (total_weight, pays)
         }
     }
 }
