@@ -2190,9 +2190,7 @@ fn test_revert_claim_root_with_swap_hotkey() {
                 .into();
 
         let hk1_root_claimed = RootClaimed::<Test>::get((netuid, &hk1, &coldkey));
-        let hk1_claimable = *RootClaimable::<Test>::get(hk1)
-            .get(&netuid)
-            .unwrap();
+        let hk1_claimable = *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap();
 
         assert_eq!(u128::from(stake_after_claim), hk1_root_claimed);
         assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
@@ -2217,9 +2215,7 @@ fn test_revert_claim_root_with_swap_hotkey() {
         );
         assert!(!RootClaimable::<Test>::get(hk1).contains_key(&netuid));
         assert_eq!(
-            *RootClaimable::<Test>::get(hk2)
-                .get(&netuid)
-                .unwrap(),
+            *RootClaimable::<Test>::get(hk2).get(&netuid).unwrap(),
             hk1_claimable,
             "hk2 must have hk1's RootClaimable after swap"
         );
@@ -2246,9 +2242,7 @@ fn test_revert_claim_root_with_swap_hotkey() {
 
         assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
         assert_eq!(
-            *RootClaimable::<Test>::get(hk1)
-                .get(&netuid)
-                .unwrap(),
+            *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap(),
             hk1_claimable,
             "hk1 RootClaimable must be restored after revert"
         );
