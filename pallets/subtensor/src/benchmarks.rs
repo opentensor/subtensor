@@ -1349,6 +1349,7 @@ mod pallet_benchmarks {
             old.clone(),
             new.clone(),
             None,
+            false,
         );
     }
 

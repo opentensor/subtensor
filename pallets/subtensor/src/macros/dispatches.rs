@@ -1051,7 +1051,15 @@ mod dispatches {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
-        /// The extrinsic for user to change its hotkey in subnet or all subnets.
+        /// ---- The extrinsic for user to change its hotkey in subnet or all subnets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction (must be signed by the coldkey).
+        /// * `hotkey` - The old hotkey to be swapped.
+        /// * `new_hotkey` - The new hotkey to replace the old one.
+        /// * `netuid` - Optional subnet ID. If `Some`, swap only on that subnet; if `None`, swap on all subnets.
+        /// * `maybe_keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
+        ///   is transferred to the new hotkey.
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
         .saturating_add(T::DbWeight::get().reads(52_u64))
@@ -1061,8 +1069,9 @@ mod dispatches {
             hotkey: T::AccountId,
             new_hotkey: T::AccountId,
             netuid: Option<NetUid>,
+            maybe_keep_stake: Option<bool>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid)
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, maybe_keep_stake)
         }
 
         /// Performs an arbitrary coldkey swap for any coldkey.

@@ -30,7 +30,8 @@ fn test_swap_owner() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None,
         ));
 
         assert_eq!(Owner::<Test>::get(old_hotkey), coldkey);
@@ -55,7 +56,8 @@ fn test_swap_owned_hotkeys() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         let hotkeys = OwnedHotkeys::<Test>::get(coldkey);
@@ -107,7 +109,8 @@ fn test_swap_total_hotkey_stake() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         // Verify that total hotkey stake swapped
@@ -141,7 +144,8 @@ fn test_swap_delegates() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert!(Delegates::<Test>::contains_key(old_hotkey));
@@ -166,7 +170,8 @@ fn test_swap_subnet_membership() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert!(!IsNetworkMember::<Test>::contains_key(old_hotkey, netuid));
@@ -195,7 +200,8 @@ fn test_swap_uids_and_keys() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(Uids::<Test>::get(netuid, old_hotkey), None);
@@ -226,7 +232,8 @@ fn test_swap_prometheus() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert!(!Prometheus::<Test>::contains_key(netuid, old_hotkey));
@@ -259,7 +266,8 @@ fn test_swap_axons() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert!(!Axons::<Test>::contains_key(netuid, old_hotkey));
@@ -289,7 +297,8 @@ fn test_swap_certificates() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert!(!NeuronCertificates::<Test>::contains_key(
@@ -329,7 +338,8 @@ fn test_swap_weight_commits() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert!(!WeightCommits::<Test>::contains_key(
@@ -369,7 +379,8 @@ fn test_swap_loaded_emission() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         let new_loaded_emission = LoadedEmission::<Test>::get(netuid);
@@ -398,7 +409,8 @@ fn test_swap_staking_hotkeys() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
@@ -448,7 +460,8 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -496,7 +509,8 @@ fn test_swap_hotkey_with_multiple_subnets() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid1)
+            Some(netuid1),
+            None
         ));
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -504,7 +518,8 @@ fn test_swap_hotkey_with_multiple_subnets() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey_2,
-            Some(netuid2)
+            Some(netuid2),
+            None
         ));
 
         assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid1));
@@ -556,7 +571,8 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         // Check if new_hotkey replaced old_hotkey in StakingHotkeys
@@ -593,7 +609,8 @@ fn test_swap_hotkey_with_no_stake() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         // Check if ownership transferred
@@ -665,7 +682,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid1)
+            Some(netuid1),
+            None
         ));
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -673,7 +691,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             RuntimeOrigin::signed(coldkey1),
             &old_hotkey,
             &new_hotkey_2,
-            Some(netuid2)
+            Some(netuid2),
+            None
         ));
 
         // Check ownership transfer
@@ -787,7 +806,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey_1,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Attempt to perform another swap immediately, which should fail due to rate limit
@@ -796,7 +816,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey_1,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::HotKeySetTxRateLimitExceeded
         );
@@ -808,6 +829,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &new_hotkey_1,
             &new_hotkey_2,
+            None,
             None
         ));
     });
@@ -836,7 +858,8 @@ fn test_do_swap_hotkey_err_not_owner() {
                 RuntimeOrigin::signed(not_owner_coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -863,7 +886,8 @@ fn test_swap_owner_old_hotkey_not_exist() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -897,7 +921,8 @@ fn test_swap_owner_new_hotkey_already_exists() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
@@ -939,7 +964,8 @@ fn test_swap_stake_success() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Verify the swap
@@ -1009,7 +1035,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
@@ -1024,7 +1051,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &old_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::NewHotKeyIsSameWithOld
         );
@@ -1037,7 +1065,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
@@ -1049,7 +1078,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(wrong_coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1060,7 +1090,8 @@ fn test_swap_hotkey_error_cases() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
     });
 }
@@ -1086,7 +1117,8 @@ fn test_swap_child_keys() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Verify the swap
@@ -1121,7 +1153,8 @@ fn test_swap_child_keys_self_loop() {
                 RuntimeOrigin::signed(coldkey),
                 old_hotkey,
                 new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::InvalidChild
         );
@@ -1161,7 +1194,8 @@ fn test_swap_parent_keys() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Verify ParentKeys swap
@@ -1206,7 +1240,8 @@ fn test_swap_multiple_subnets() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid1)
+            Some(netuid1),
+            None
         ),);
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -1214,7 +1249,8 @@ fn test_swap_multiple_subnets() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey_2,
-            Some(netuid2)
+            Some(netuid2),
+            None
         ),);
 
         // Verify the swap for both subnets
@@ -1263,7 +1299,8 @@ fn test_swap_complex_parent_child_structure() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Verify ParentKeys swap
@@ -1327,7 +1364,8 @@ fn test_swap_parent_hotkey_childkey_maps() {
             RuntimeOrigin::signed(coldkey),
             &parent_old,
             &parent_new,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Verify parent and child keys updates
@@ -1384,7 +1422,8 @@ fn test_swap_child_hotkey_childkey_maps() {
             RuntimeOrigin::signed(coldkey),
             &child_old,
             &child_new,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Verify parent and child keys updates
@@ -1424,7 +1463,8 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Check for SubnetOwnerHotkey
@@ -1460,7 +1500,8 @@ fn test_swap_hotkey_swap_rate_limits() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ),);
 
         // Check for new hotkey
@@ -1494,7 +1535,8 @@ fn test_swap_owner_failed_interval_not_passed() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                Some(netuid)
+                Some(netuid),
+                None
             ),
             Error::<Test>::HotKeySwapOnSubnetIntervalNotPassed,
         );
@@ -1517,7 +1559,8 @@ fn test_swap_owner_check_swap_block_set() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1542,7 +1585,8 @@ fn test_swap_owner_check_swap_record_clean_up() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1604,7 +1648,8 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &hk1,
             &hk2,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1628,7 +1673,8 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &hk2,
             &hk1,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         let hk1_stake_after_revert =
@@ -1676,7 +1722,8 @@ fn test_revert_hotkey_swap() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert!(SubtensorModule::is_hotkey_registered_on_any_network(
@@ -1689,7 +1736,8 @@ fn test_revert_hotkey_swap() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &new_hotkey,
             &old_hotkey,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
     });
 }
@@ -1726,7 +1774,8 @@ fn test_revert_hotkey_swap_parent_hotkey_childkey_maps() {
             RuntimeOrigin::signed(coldkey),
             &hk1,
             &hk2,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1747,7 +1796,8 @@ fn test_revert_hotkey_swap_parent_hotkey_childkey_maps() {
             RuntimeOrigin::signed(coldkey),
             &hk2,
             &hk1,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1798,7 +1848,8 @@ fn test_revert_hotkey_swap_uids_and_keys() {
             RuntimeOrigin::signed(coldkey),
             &hk1,
             &hk2,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(Uids::<Test>::get(netuid, hk1), None);
@@ -1811,7 +1862,8 @@ fn test_revert_hotkey_swap_uids_and_keys() {
             RuntimeOrigin::signed(coldkey),
             &hk2,
             &hk1,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1861,7 +1913,8 @@ fn test_revert_hotkey_swap_auto_stake_destination() {
             RuntimeOrigin::signed(coldkey),
             &hk1,
             &hk2,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1888,7 +1941,8 @@ fn test_revert_hotkey_swap_auto_stake_destination() {
             RuntimeOrigin::signed(coldkey),
             &hk2,
             &hk1,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1937,7 +1991,8 @@ fn test_revert_hotkey_swap_subnet_owner() {
             RuntimeOrigin::signed(coldkey),
             &hk1,
             &hk2,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1952,7 +2007,8 @@ fn test_revert_hotkey_swap_subnet_owner() {
             RuntimeOrigin::signed(coldkey),
             &hk2,
             &hk1,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -1989,7 +2045,8 @@ fn test_revert_hotkey_swap_dividends() {
             RuntimeOrigin::signed(coldkey),
             &hk1,
             &hk2,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -2039,7 +2096,8 @@ fn test_revert_hotkey_swap_dividends() {
             RuntimeOrigin::signed(coldkey),
             &hk2,
             &hk1,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -2200,7 +2258,8 @@ fn test_revert_claim_root_with_swap_hotkey() {
             RuntimeOrigin::signed(owner_coldkey),
             &hk1,
             &hk2,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
@@ -2226,7 +2285,8 @@ fn test_revert_claim_root_with_swap_hotkey() {
             RuntimeOrigin::signed(owner_coldkey),
             &hk2,
             &hk1,
-            Some(netuid)
+            Some(netuid),
+            None
         ));
 
         assert_eq!(
