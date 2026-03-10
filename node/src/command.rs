@@ -2,7 +2,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
     chain_spec,
-    cli::{Cli, Subcommand, SupportedConsensusMechanism},
+    cli::{Cli, HistoryBackfill, Subcommand, SupportedConsensusMechanism},
     consensus::BabeConsensus,
     ethereum::db_config_dir,
     service, sync_options,
@@ -62,7 +62,8 @@ pub fn run() -> sc_cli::Result<()> {
     let cmd = Cli::command();
     let arg_matches = cmd.get_matches();
     let cli = Cli::from_arg_matches(&arg_matches)?;
-    sync_options::set_skip_history_backfill(cli.skip_history_backfill);
+    let history_backfill = effective_history_backfill(&cli, &arg_matches);
+    sync_options::set_skip_history_backfill(matches!(history_backfill, HistoryBackfill::Skip));
 
     match &cli.subcommand {
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -237,7 +238,7 @@ pub fn run() -> sc_cli::Result<()> {
         Some(Subcommand::CloneState(cmd)) => {
             let runner = cli.create_runner(&cli.run)?;
             let cmd = cmd.clone();
-            runner.sync_run(move |_| crate::clone_spec::run(&cmd))
+            runner.sync_run(move |_| crate::clone_spec::run(&cmd, history_backfill))
         }
         // Start with the initial consensus type asked.
         None => {
@@ -248,6 +249,23 @@ pub fn run() -> sc_cli::Result<()> {
                 SupportedConsensusMechanism::Aura => start_aura_service(&arg_matches),
             }
         }
+    }
+}
+
+fn effective_history_backfill(cli: &Cli, arg_matches: &ArgMatches) -> HistoryBackfill {
+    // We keep a single global `--history-backfill` flag, but `build-test-clone` should default to
+    // `skip` when the operator didn't set the flag explicitly. This preserves `keep` as the default
+    // for normal node runs.
+    if matches!(
+        arg_matches.value_source("history_backfill"),
+        Some(ValueSource::CommandLine)
+    ) {
+        return cli.history_backfill;
+    }
+
+    match &cli.subcommand {
+        Some(Subcommand::CloneState(_)) => HistoryBackfill::Skip,
+        _ => HistoryBackfill::Keep,
     }
 }
 

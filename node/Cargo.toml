@@ -157,6 +157,7 @@ runtime-benchmarks = [
 	"node-subtensor-runtime/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -175,6 +176,7 @@ pow-faucet = []
 # in the near future.
 try-runtime = [
 	"node-subtensor-runtime/try-runtime",
+	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",

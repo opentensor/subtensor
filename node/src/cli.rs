@@ -36,11 +36,13 @@ pub struct Cli {
     #[command(flatten)]
     pub eth: EthConfiguration,
 
-    /// Skip creating historical gap-backfill during initial/catch-up sync.
+    /// Control historical gap-backfill during initial/catch-up sync.
     ///
-    /// This reduces sync time/disk usage but historical block data may be incomplete.
-    #[arg(long, default_value_t = false)]
-    pub skip_history_backfill: bool,
+    /// `keep` preserves complete history (default for normal node runs).
+    /// `skip` is faster/lighter but historical block data may be incomplete.
+    /// For `build-test-clone`, the implicit default is `skip` unless this flag is explicitly set.
+    #[arg(long, value_enum, default_value_t = HistoryBackfill::Keep)]
+    pub history_backfill: HistoryBackfill,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -100,16 +102,12 @@ pub struct CloneStateCmd {
     pub output: PathBuf,
 
     /// Sync mode for the temporary sync node.
-    #[arg(long, value_enum, default_value_t = CloneSyncMode::Warp)]
-    pub sync: CloneSyncMode,
+    #[arg(long, value_enum, default_value_t = sc_cli::SyncMode::Warp)]
+    pub sync: sc_cli::SyncMode,
 
     /// Database backend for the temporary sync/export node.
-    #[arg(long, value_enum, default_value_t = CloneDatabase::ParityDb)]
-    pub database: CloneDatabase,
-
-    /// Whether to keep or skip history backfill after state sync.
-    #[arg(long, value_enum, default_value_t = CloneHistoryBackfill::Skip)]
-    pub history_backfill: CloneHistoryBackfill,
+    #[arg(long, value_enum, default_value_t = sc_cli::Database::ParityDb)]
+    pub database: sc_cli::Database,
 
     /// RPC port used by the temporary sync node.
     #[arg(long, default_value_t = 9966)]
@@ -131,83 +129,36 @@ pub struct CloneStateCmd {
     #[arg(long, value_name = "BOOTNODE")]
     pub bootnodes: Vec<String>,
 
-    /// Include Alice in patched validator authorities.
+    /// Include Alice in patched validator authorities (default if no validator flags are passed).
     #[arg(long, default_value_t = false)]
     pub alice: bool,
 
-    /// Include Bob in patched validator authorities.
+    /// Include Bob in patched validator authorities (if any validator flag is set, only selected validators are used).
     #[arg(long, default_value_t = false)]
     pub bob: bool,
 
-    /// Include Charlie in patched validator authorities.
+    /// Include Charlie in patched validator authorities (if any validator flag is set, only selected validators are used).
     #[arg(long, default_value_t = false)]
     pub charlie: bool,
 }
 
-#[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum CloneSyncMode {
-    Warp,
-    Full,
-}
-
-impl AsRef<str> for CloneSyncMode {
-    fn as_ref(&self) -> &str {
-        match self {
-            CloneSyncMode::Warp => "warp",
-            CloneSyncMode::Full => "full",
-        }
-    }
-}
-
-impl fmt::Display for CloneSyncMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_ref())
-    }
-}
-
-#[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum CloneDatabase {
-    #[value(name = "auto")]
-    Auto,
-    #[value(name = "rocksdb")]
-    RocksDb,
-    #[value(name = "paritydb")]
-    ParityDb,
-}
-
-impl AsRef<str> for CloneDatabase {
-    fn as_ref(&self) -> &str {
-        match self {
-            CloneDatabase::Auto => "auto",
-            CloneDatabase::RocksDb => "rocksdb",
-            CloneDatabase::ParityDb => "paritydb",
-        }
-    }
-}
-
-impl fmt::Display for CloneDatabase {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_ref())
-    }
-}
-
 #[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
-pub enum CloneHistoryBackfill {
-    Keep,
+pub enum HistoryBackfill {
     #[default]
+    Keep,
     Skip,
 }
 
-impl AsRef<str> for CloneHistoryBackfill {
+impl AsRef<str> for HistoryBackfill {
     fn as_ref(&self) -> &str {
         match self {
-            CloneHistoryBackfill::Keep => "keep",
-            CloneHistoryBackfill::Skip => "skip",
+            HistoryBackfill::Keep => "keep",
+            HistoryBackfill::Skip => "skip",
         }
     }
 }
 
-impl fmt::Display for CloneHistoryBackfill {
+impl fmt::Display for HistoryBackfill {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_ref())
     }

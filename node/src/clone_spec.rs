@@ -13,7 +13,7 @@ use jsonrpsee::{
 use serde_json::{Value, json};
 use sp_runtime::codec::Encode;
 
-use crate::cli::{CloneHistoryBackfill, CloneStateCmd};
+use crate::cli::{CloneStateCmd, HistoryBackfill};
 
 type CloneResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -46,7 +46,7 @@ static VALIDATORS: &[Validator] = &[
 ];
 
 /// Execute `build-test-clone`: sync network state, export raw chainspec, apply clone patch.
-pub fn run(cmd: &CloneStateCmd) -> sc_cli::Result<()> {
+pub fn run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> sc_cli::Result<()> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
@@ -54,11 +54,11 @@ pub fn run(cmd: &CloneStateCmd) -> sc_cli::Result<()> {
         .map_err(|err| sc_cli::Error::Application(Box::new(err)))?;
 
     runtime
-        .block_on(async_run(cmd))
+        .block_on(async_run(cmd, history_backfill))
         .map_err(sc_cli::Error::Application)
 }
 
-async fn async_run(cmd: &CloneStateCmd) -> CloneResult<()> {
+async fn async_run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> CloneResult<()> {
     let validators = selected_validators(cmd);
     let selected_names = validators
         .iter()
@@ -73,11 +73,14 @@ async fn async_run(cmd: &CloneStateCmd) -> CloneResult<()> {
     }
 
     let current_exe = std::env::current_exe()?;
-    let database_arg = cmd.database.as_ref();
-    let sync_arg = cmd.sync.as_ref();
-    let skip_backfill = matches!(cmd.history_backfill, CloneHistoryBackfill::Skip);
+    let database_arg = database_arg(cmd.database);
+    let sync_arg = sync_arg(cmd.sync);
 
-    log::info!("build-test-clone: validators={selected_names}");
+    log::info!(
+        "build-test-clone: validators={} history_backfill={}",
+        selected_names,
+        history_backfill
+    );
 
     let mut sync_args = vec![
         "--base-path".to_string(),
@@ -99,15 +102,13 @@ async fn async_run(cmd: &CloneStateCmd) -> CloneResult<()> {
         "--no-mdns".to_string(),
         "--name".to_string(),
         "build-test-clone-sync".to_string(),
+        "--history-backfill".to_string(),
+        history_backfill.to_string(),
     ];
 
     for bootnode in &cmd.bootnodes {
         sync_args.push("--bootnodes".to_string());
         sync_args.push(bootnode.clone());
-    }
-
-    if skip_backfill {
-        sync_args.push("--skip-history-backfill".to_string());
     }
 
     log::info!("build-test-clone: starting sync node");
@@ -129,7 +130,7 @@ async fn async_run(cmd: &CloneStateCmd) -> CloneResult<()> {
 
     log::info!("build-test-clone: exporting raw state");
 
-    export_raw_state(&current_exe, cmd, database_arg, &raw_tmp)?;
+    export_raw_state(&current_exe, cmd, database_arg, history_backfill, &raw_tmp)?;
 
     log::info!("build-test-clone: applying clone patch");
 
@@ -161,9 +162,10 @@ async fn wait_for_sync_completion(sync_child: &mut Child, cmd: &CloneStateCmd) -
         cmd.sync_timeout_sec
     );
 
-    while let None = sync_child
+    while sync_child
         .try_wait()
         .map_err(|err| std::io::Error::other(format!("Failed to poll sync node process: {err}")))?
+        .is_none()
     {
         if start.elapsed() > timeout {
             return Err(format!(
@@ -236,6 +238,7 @@ fn export_raw_state(
     current_exe: &Path,
     cmd: &CloneStateCmd,
     database_arg: &str,
+    history_backfill: HistoryBackfill,
     raw_tmp: &Path,
 ) -> CloneResult<()> {
     let stdout = File::create(raw_tmp)?;
@@ -248,6 +251,8 @@ fn export_raw_state(
             &cmd.base_path.display().to_string(),
             "--database",
             database_arg,
+            "--history-backfill",
+            history_backfill.as_ref(),
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::from(stdout))
@@ -301,8 +306,8 @@ async fn rpc_call(rpc_client: &HttpClient, method: &str) -> CloneResult<Value> {
 fn parse_u64_field(value: &Value, field: &str) -> Option<u64> {
     let field_value = value.get(field)?;
 
-    if let Some(n) = field_value.as_u64() {
-        return Some(n);
+    if let Value::Number(number) = field_value {
+        return number.to_string().parse::<u64>().ok();
     }
 
     let s = field_value.as_str()?;
@@ -317,6 +322,26 @@ fn temp_raw_path() -> CloneResult<PathBuf> {
     Ok(std::env::temp_dir().join(format!("subtensor-clone-export-{epoch}.json")))
 }
 
+fn sync_arg(mode: sc_cli::SyncMode) -> &'static str {
+    match mode {
+        sc_cli::SyncMode::Full => "full",
+        sc_cli::SyncMode::Fast => "fast",
+        sc_cli::SyncMode::FastUnsafe => "fast-unsafe",
+        sc_cli::SyncMode::Warp => "warp",
+    }
+}
+
+fn database_arg(database: sc_cli::Database) -> &'static str {
+    match database {
+        #[cfg(feature = "rocksdb")]
+        sc_cli::Database::RocksDb => "rocksdb",
+        sc_cli::Database::ParityDb => "paritydb",
+        sc_cli::Database::Auto => "auto",
+        sc_cli::Database::ParityDbDeprecated => "paritydb-experimental",
+    }
+}
+
+#[allow(clippy::indexing_slicing)]
 fn selected_validators(cmd: &CloneStateCmd) -> Vec<Validator> {
     let explicit = cmd.alice || cmd.bob || cmd.charlie;
     let mut selected = Vec::new();
@@ -355,6 +380,10 @@ fn patch_raw_chainspec_file(
 }
 
 fn patch_raw_spec(spec: &mut Value, validators: &[Validator]) -> CloneResult<()> {
+    let sudo = validators
+        .first()
+        .ok_or_else(|| "at least one validator must be selected".to_string())?;
+
     let top = spec
         .pointer_mut("/genesis/raw/top")
         .and_then(Value::as_object_mut)
@@ -402,7 +431,7 @@ fn patch_raw_spec(spec: &mut Value, validators: &[Validator]) -> CloneResult<()>
 
     top.insert(
         storage_key("Sudo", "Key"),
-        Value::String(to_hex(&hex::decode(validators[0].sr25519_hex)?)),
+        Value::String(to_hex(&hex::decode(sudo.sr25519_hex)?)),
     );
 
     remove_by_prefix(top, &storage_prefix("Session"));
@@ -459,9 +488,10 @@ fn decode_hex_32(value: &str) -> CloneResult<[u8; 32]> {
 }
 
 #[cfg(test)]
+#[allow(clippy::indexing_slicing)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::cli::{CloneDatabase, CloneHistoryBackfill, CloneSyncMode};
 
     fn target_artifact_path(name: &str) -> PathBuf {
         let target_dir = std::env::var_os("CARGO_TARGET_DIR")
@@ -475,9 +505,8 @@ mod tests {
             chain: "finney".to_string(),
             base_path: target_artifact_path("base"),
             output: target_artifact_path("out.json"),
-            sync: CloneSyncMode::Warp,
-            database: CloneDatabase::ParityDb,
-            history_backfill: CloneHistoryBackfill::Skip,
+            sync: sc_cli::SyncMode::Warp,
+            database: sc_cli::Database::ParityDb,
             rpc_port: 9966,
             port: 30466,
             sync_timeout_sec: 10,
