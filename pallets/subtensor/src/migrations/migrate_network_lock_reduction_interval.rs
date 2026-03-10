@@ -30,7 +30,7 @@ pub fn migrate_network_lock_reduction_interval<T: Config>() -> Weight {
     NetworkRateLimit::<T>::put(FOUR_DAYS);
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-    Pallet::<T>::set_network_last_lock(TaoCurrency::from(1_000_000_000_000));
+    Pallet::<T>::set_network_last_lock(TaoBalance::from(1_000_000_000_000_u64));
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Hold price at 2000 TAO until day 7, then begin linear decay

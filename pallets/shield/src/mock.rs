@@ -1,5 +1,5 @@
 use crate as pallet_shield;
-use crate::MLKEM768_PK_LEN;
+use stp_shield::MLKEM768_ENC_KEY_LEN;
 
 use frame_support::traits::{ConstBool, ConstU64};
 use frame_support::{BoundedVec, construct_runtime, derive_impl, parameter_types};
@@ -7,7 +7,7 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::sr25519;
 use sp_runtime::{BuildStorage, generic, testing::TestSignature};
 use std::cell::RefCell;
-use stp_shield::ShieldPublicKey;
+use stp_shield::ShieldEncKey;
 
 pub type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -60,7 +60,7 @@ impl pallet_subtensor_utility::Config for Test {
 
 thread_local! {
     static MOCK_CURRENT: RefCell<Option<AuraId>> = const { RefCell::new(None) };
-    static MOCK_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
+    static MOCK_NEXT_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
 }
 
 pub struct MockFindAuthors;
@@ -74,15 +74,14 @@ impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
             auths.get(*slot as usize % auths.len()).cloned()
         })
     }
-    fn find_next_author() -> Option<AuraId> {
-        // If thread-local was set, use it (Some(None) = explicitly no next).
-        if let Some(val) = MOCK_NEXT.with(|n| n.borrow().clone()) {
+
+    fn find_next_next_author() -> Option<AuraId> {
+        if let Some(val) = MOCK_NEXT_NEXT.with(|n| n.borrow().clone()) {
             return val;
         }
-        // Aura fallback for benchmarks.
-        let next_slot = Aura::current_slot_from_digests()?.checked_add(1)?;
+        let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
         let auths = pallet_aura::Authorities::<Test>::get().into_inner();
-        auths.get(next_slot as usize % auths.len()).cloned()
+        auths.get(slot as usize % auths.len()).cloned()
     }
 }
 
@@ -102,12 +101,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     ext
 }
 
-pub fn valid_pk() -> ShieldPublicKey {
-    BoundedVec::truncate_from(vec![0x42; MLKEM768_PK_LEN])
+pub fn valid_pk() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x42; MLKEM768_ENC_KEY_LEN])
 }
 
-pub fn valid_pk_b() -> ShieldPublicKey {
-    BoundedVec::truncate_from(vec![0x99; MLKEM768_PK_LEN])
+pub fn valid_pk_b() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x99; MLKEM768_ENC_KEY_LEN])
 }
 
 /// Create a deterministic `AuraId` from a simple index for tests.
@@ -115,9 +114,9 @@ pub fn author(n: u8) -> AuraId {
     AuraId::from(sr25519::Public::from_raw([n; 32]))
 }
 
-pub fn set_authors(current: Option<AuraId>, next: Option<AuraId>) {
+pub fn set_authors(current: Option<AuraId>, next_next: Option<AuraId>) {
     MOCK_CURRENT.with(|c| *c.borrow_mut() = current);
-    MOCK_NEXT.with(|n| *n.borrow_mut() = Some(next));
+    MOCK_NEXT_NEXT.with(|n| *n.borrow_mut() = Some(next_next));
 }
 
 pub fn nest_call(call: RuntimeCall, depth: usize) -> RuntimeCall {

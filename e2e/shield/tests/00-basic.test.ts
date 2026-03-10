@@ -23,7 +23,7 @@ const bob = createSigner("//Bob");
 const charlie = createSigner("//Charlie");
 
 beforeAll(async () => {
-  const data = await readFile("/tmp/subtensor-e2e/shield/nodes.json", "utf-8");
+  const data = await readFile("/tmp/subtensor-e2e/shield-tests/nodes.json", "utf-8");
   state = JSON.parse(data);
   ({ client, api } = await connectClient(state.nodes[0].rpcPort));
 
@@ -124,7 +124,38 @@ describe("MEV Shield — encrypted transactions", () => {
     });
 
     // Pool validation rejects with FailedShieldedTxParsing (Custom code 23).
-    await expect(tx.signAndSubmit(alice.signer, { nonce })).rejects.toThrow();
+    await expect(
+      tx.signAndSubmit(alice.signer, { nonce, mortality: { mortal: true, period: 8 } }),
+    ).rejects.toThrow();
+  });
+
+  it("Multiple encrypted txs in same block", async () => {
+    // Use different signers to avoid nonce ordering issues between
+    // the outer wrappers and decrypted inner transactions.
+    const nextKey = await getNextKey(api);
+    expect(nextKey).toBeDefined();
+
+    const balanceBefore = await getBalance(api, charlie.address);
+
+    const senders = [alice, bob];
+    const amount = 1_000_000_000n;
+    const txPromises = [];
+
+    for (const sender of senders) {
+      const nonce = await getAccountNonce(api, sender.address);
+
+      const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+        dest: MultiAddress.Id(charlie.address),
+        value: amount,
+      }).sign(sender.signer, { nonce: nonce + 1 });
+
+      txPromises.push(submitEncrypted(api, sender.signer, hexToU8a(innerTxHex), nextKey!, nonce));
+    }
+
+    await Promise.all(txPromises);
+
+    const balanceAfter = await getBalance(api, charlie.address);
+    expect(balanceAfter).toBeGreaterThan(balanceBefore);
   });
 
   it("Wrong key hash is not included by the block proposer", async () => {
@@ -148,7 +179,10 @@ describe("MEV Shield — encrypted transactions", () => {
     const tx = api.tx.MevShield.submit_encrypted({
       ciphertext: Binary.fromBytes(tampered),
     });
-    const signedHex = await tx.sign(alice.signer, { nonce });
+    const signedHex = await tx.sign(alice.signer, {
+      nonce,
+      mortality: { mortal: true, period: 8 },
+    });
     // Send without waiting — the tx enters the pool but the block
     // proposer will skip it because the key_hash doesn't match.
     client.submit(signedHex).catch(() => {});
@@ -181,7 +215,10 @@ describe("MEV Shield — encrypted transactions", () => {
     const tx = api.tx.MevShield.submit_encrypted({
       ciphertext: Binary.fromBytes(ciphertext),
     });
-    const signedHex = await tx.sign(alice.signer, { nonce });
+    const signedHex = await tx.sign(alice.signer, {
+      nonce,
+      mortality: { mortal: true, period: 8 },
+    });
     // Send without waiting — the block proposer will reject because
     // key_hash no longer matches currentKey or nextKey.
     client.submit(signedHex).catch(() => {});
@@ -191,36 +228,5 @@ describe("MEV Shield — encrypted transactions", () => {
     // The inner transfer should NOT have executed.
     const balanceAfter = await getBalance(api, bob.address);
     expect(balanceAfter).toBe(balanceBefore);
-  });
-
-  it("Multiple encrypted txs in same block", async () => {
-    // Use different signers to avoid nonce ordering issues between
-    // the outer wrappers and decrypted inner transactions.
-    const nextKey = await getNextKey(api);
-    expect(nextKey).toBeDefined();
-
-    const balanceBefore = await getBalance(api, charlie.address);
-
-    const senders = [alice, bob];
-    const amount = 1_000_000_000n;
-    const txPromises = [];
-
-    for (const sender of senders) {
-      const nonce = await getAccountNonce(api, sender.address);
-
-      const innerTxHex = await api.tx.Balances.transfer_keep_alive({
-        dest: MultiAddress.Id(charlie.address),
-        value: amount,
-      }).sign(sender.signer, { nonce: nonce + 1 });
-
-      txPromises.push(
-        submitEncrypted(api, sender.signer, hexToU8a(innerTxHex), nextKey!, nonce),
-      );
-    }
-
-    await Promise.all(txPromises);
-
-    const balanceAfter = await getBalance(api, charlie.address);
-    expect(balanceAfter).toBeGreaterThan(balanceBefore);
   });
 });

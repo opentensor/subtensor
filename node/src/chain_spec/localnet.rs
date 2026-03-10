@@ -39,6 +39,7 @@ pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
             vec![
                 authority_keys_from_seed("One"),
                 authority_keys_from_seed("Two"),
+                authority_keys_from_seed("Three"),
             ]
         },
         // Pre-funded accounts
@@ -85,6 +86,10 @@ fn localnet_genesis(
             get_account_id_from_seed::<sr25519::Public>("Two"),
             2000000000000u128,
         ),
+        (
+            get_account_id_from_seed::<sr25519::Public>("Three"),
+            2000000000000u128,
+        ),
         // ETH
         (
             // Alith - 0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
@@ -101,7 +106,11 @@ fn localnet_genesis(
     // Check if the environment variable is set
     if let Ok(bt_wallet) = env::var("BT_DEFAULT_TOKEN_WALLET") {
         if let Ok(decoded_wallet) = Ss58Codec::from_ss58check(&bt_wallet) {
-            balances.push((decoded_wallet, 1_000_000_000_000_000u128));
+            if let Some(existing) = balances.iter_mut().find(|(acc, _)| acc == &decoded_wallet) {
+                existing.1 = 1_000_000_000_000_000u128;
+            } else {
+                balances.push((decoded_wallet, 1_000_000_000_000_000u128));
+            }
         } else {
             eprintln!("Invalid format for BT_DEFAULT_TOKEN_WALLET.");
         }

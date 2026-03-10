@@ -1,15 +1,14 @@
-use crate::{Call, Config, CurrentKey, NextKey, ShieldedTransaction};
+use crate::{Call, Config, ShieldedTransaction};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::pallet_prelude::*;
 use frame_support::traits::IsSubType;
 use scale_info::TypeInfo;
-use sp_io::hashing::twox_128;
 use sp_runtime::impl_tx_ext_default;
 use sp_runtime::traits::{
     AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
     ValidateResult,
 };
-use sp_runtime::transaction_validity::{TransactionSource, ValidTransaction};
+use sp_runtime::transaction_validity::TransactionSource;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::CustomTransactionError;
 
@@ -41,7 +40,13 @@ where
     type Val = ();
     type Pre = ();
 
-    impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; weight prepare);
+    impl_tx_ext_default!(<T as frame_system::Config>::RuntimeCall; prepare);
+
+    fn weight(&self, _call: &<T as frame_system::Config>::RuntimeCall) -> Weight {
+        // Some arbitrary weight added to account for the cost
+        // of reading the PendingKey from the proposer.
+        Weight::from_parts(1_000_000, 0).saturating_add(T::DbWeight::get().reads(1))
+    }
 
     fn validate(
         &self,
@@ -51,7 +56,7 @@ where
         _len: usize,
         _self_implicit: Self::Implicit,
         _inherited_implication: &impl Implication,
-        source: TransactionSource,
+        _source: TransactionSource,
     ) -> ValidateResult<Self::Val, <T as frame_system::Config>::RuntimeCall> {
         // Ensure the transaction is signed, else we just skip the extension.
         let Some(_who) = origin.as_system_origin_signer() else {
@@ -65,36 +70,11 @@ where
         };
 
         // Reject malformed ciphertext regardless of source.
-        let Some(ShieldedTransaction { key_hash, .. }) = ShieldedTransaction::parse(ciphertext)
-        else {
+        let Some(ShieldedTransaction { .. }) = ShieldedTransaction::parse(ciphertext) else {
             return Err(CustomTransactionError::FailedShieldedTxParsing.into());
         };
 
-        // Only enforce the key_hash check during block building/import.
-        // The fork-aware tx pool validates against multiple views (recent block states),
-        // and stale views may not contain the key the tx was encrypted with,
-        // causing spurious rejections. Pool validation only checks structure above.
-        if source == TransactionSource::InBlock {
-            let matches_any = [CurrentKey::<T>::get(), NextKey::<T>::get()]
-                .iter()
-                .any(|k| k.as_ref().is_some_and(|k| twox_128(&k[..]) == key_hash));
-
-            if !matches_any {
-                return Err(CustomTransactionError::InvalidShieldedTxPubKeyHash.into());
-            }
-        }
-
-        // Shielded txs get a short longevity so they are evicted from the pool
-        // if not included within a few blocks. Keys rotate every block, so a tx
-        // encrypted against a key that has rotated out of the 2-key window
-        // (CurrentKey + NextKey) will never be included — without this it would
-        // stay in the pool indefinitely since pool revalidation skips the key check.
-        let validity = ValidTransaction {
-            longevity: 3,
-            ..Default::default()
-        };
-
-        Ok((validity, (), origin))
+        Ok((Default::default(), (), origin))
     }
 }
 
@@ -130,14 +110,6 @@ mod tests {
         })
     }
 
-    fn set_current_key(pk: &[u8]) {
-        CurrentKey::<Test>::put(BoundedVec::<u8, ConstU32<2048>>::truncate_from(pk.to_vec()));
-    }
-
-    fn set_next_key(pk: &[u8]) {
-        NextKey::<Test>::put(BoundedVec::<u8, ConstU32<2048>>::truncate_from(pk.to_vec()));
-    }
-
     fn validate_ext(
         who: Option<u64>,
         call: &RuntimeCall,
@@ -153,15 +125,11 @@ mod tests {
             .map(|(validity, _, _)| validity)
     }
 
-    const PK_A: [u8; 32] = [0x11; 32];
-    const PK_B: [u8; 32] = [0x22; 32];
-
     #[test]
     fn non_shield_call_passes_through() {
         new_test_ext().execute_with(|| {
             let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
             let validity = validate_ext(Some(1), &call, TransactionSource::InBlock).unwrap();
-            // Non-shield calls get default (max) longevity.
             assert_eq!(validity.longevity, u64::MAX);
         });
     }
@@ -202,65 +170,29 @@ mod tests {
     }
 
     #[test]
-    fn inblock_matches_current_key() {
-        new_test_ext().execute_with(|| {
-            set_current_key(&PK_A);
-            let call = make_submit_call(twox_128(&PK_A));
-            let validity = validate_ext(Some(1), &call, TransactionSource::InBlock).unwrap();
-            assert_eq!(validity.longevity, 3);
-        });
-    }
-
-    #[test]
-    fn inblock_matches_next_key() {
-        new_test_ext().execute_with(|| {
-            set_next_key(&PK_B);
-            let call = make_submit_call(twox_128(&PK_B));
-            let validity = validate_ext(Some(1), &call, TransactionSource::InBlock).unwrap();
-            assert_eq!(validity.longevity, 3);
-        });
-    }
-
-    #[test]
-    fn inblock_no_match_rejected() {
-        new_test_ext().execute_with(|| {
-            set_current_key(&PK_A);
-            set_next_key(&PK_B);
-            let call = make_submit_call([0xFF; 16]);
-            assert_eq!(
-                validate_ext(Some(1), &call, TransactionSource::InBlock),
-                Err(CustomTransactionError::InvalidShieldedTxPubKeyHash.into())
-            );
-        });
-    }
-
-    #[test]
-    fn inblock_no_keys_set_rejected() {
-        new_test_ext().execute_with(|| {
-            let call = make_submit_call(twox_128(&PK_A));
-            assert_eq!(
-                validate_ext(Some(1), &call, TransactionSource::InBlock),
-                Err(CustomTransactionError::InvalidShieldedTxPubKeyHash.into())
-            );
-        });
-    }
-
-    #[test]
-    fn pool_local_skips_key_check() {
+    fn wellformed_ciphertext_accepted_inblock() {
         new_test_ext().execute_with(|| {
             let call = make_submit_call([0xFF; 16]);
-            let validity = validate_ext(Some(1), &call, TransactionSource::Local).unwrap();
-            // Pool sources skip key check but still get short longevity.
-            assert_eq!(validity.longevity, 3);
+            let validity = validate_ext(Some(1), &call, TransactionSource::InBlock).unwrap();
+            assert_eq!(validity, ValidTransaction::default());
         });
     }
 
     #[test]
-    fn pool_external_skips_key_check() {
+    fn wellformed_ciphertext_accepted_external() {
         new_test_ext().execute_with(|| {
             let call = make_submit_call([0xFF; 16]);
             let validity = validate_ext(Some(1), &call, TransactionSource::External).unwrap();
-            assert_eq!(validity.longevity, 3);
+            assert_eq!(validity, ValidTransaction::default());
+        });
+    }
+
+    #[test]
+    fn wellformed_ciphertext_accepted_local() {
+        new_test_ext().execute_with(|| {
+            let call = make_submit_call([0xFF; 16]);
+            let validity = validate_ext(Some(1), &call, TransactionSource::Local).unwrap();
+            assert_eq!(validity, ValidTransaction::default());
         });
     }
 }

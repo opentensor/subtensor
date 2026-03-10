@@ -5,7 +5,7 @@
 use crate::client::FullClient;
 
 use node_subtensor_runtime as runtime;
-use node_subtensor_runtime::{check_nonce, transaction_payment_wrapper};
+use node_subtensor_runtime::{check_mortality, check_nonce, transaction_payment_wrapper};
 use node_subtensor_runtime::{pallet_subtensor, sudo_wrapper};
 use runtime::{BalancesCall, SystemCall};
 use sc_cli::Result;
@@ -14,7 +14,7 @@ use sp_core::{Encode, Pair};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
-use subtensor_runtime_common::{AccountId, Balance, Signature};
+use subtensor_runtime_common::{AccountId, Balance, Signature, TaoBalance};
 
 use std::{sync::Arc, time::Duration};
 
@@ -124,21 +124,19 @@ pub fn create_benchmark_extrinsic(
         .checked_next_power_of_two()
         .map(|c| c / 2)
         .unwrap_or(2) as u64;
+    let era = sp_runtime::generic::Era::mortal(period, best_block.saturated_into());
     let extra: runtime::TxExtension = (
         (
             frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
             frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
             frame_system::CheckTxVersion::<runtime::Runtime>::new(),
             frame_system::CheckGenesis::<runtime::Runtime>::new(),
-            frame_system::CheckEra::<runtime::Runtime>::from(sp_runtime::generic::Era::mortal(
-                period,
-                best_block.saturated_into(),
-            )),
+            check_mortality::CheckMortality::<runtime::Runtime>::from(era),
             check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
             frame_system::CheckWeight::<runtime::Runtime>::new(),
         ),
         (
-            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(0),
+            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(TaoBalance::new(0)),
             sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
             pallet_shield::CheckShieldedTxValidity::<runtime::Runtime>::new(),
             pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),

@@ -218,7 +218,7 @@ pub fn run() -> sc_cli::Result<()> {
                             Box::new(TransferKeepAliveBuilder::new(
                                 client.clone(),
                                 Sr25519Keyring::Alice.to_account_id(),
-                                EXISTENTIAL_DEPOSIT,
+                                EXISTENTIAL_DEPOSIT.into(),
                             )),
                         ]);
 

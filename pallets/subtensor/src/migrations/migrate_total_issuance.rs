@@ -45,7 +45,7 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
         // Calculate the sum of all stake values
         let stake_sum = Owner::<T>::iter()
             .map(|(hotkey, _coldkey)| Pallet::<T>::get_total_stake_for_hotkey(&hotkey))
-            .fold(TaoCurrency::ZERO, |acc, stake| acc.saturating_add(stake));
+            .fold(TaoBalance::ZERO, |acc, stake| acc.saturating_add(stake));
         // Add weight for reading all Owner and TotalHotkeyStake entries
         weight = weight.saturating_add(
             T::DbWeight::get().reads((Owner::<T>::iter().count() as u64).saturating_mul(2)),
