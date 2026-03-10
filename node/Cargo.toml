@@ -26,7 +26,7 @@ clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
 serde = { workspace = true, features = ["derive"] }
 hex.workspace = true
-tokio = { workspace = true, features = ["time"] }
+tokio = { workspace = true, features = ["time", "rt", "net"] }
 
 # Storage import
 memmap2.workspace = true
@@ -80,7 +80,7 @@ polkadot-sdk = { workspace = true, features = [
 ] }
 
 # These dependencies are used for the subtensor's RPCs
-jsonrpsee = { workspace = true, features = ["server"] }
+jsonrpsee = { workspace = true, features = ["server", "http-client"] }
 sc-rpc.workspace = true
 sp-api.workspace = true
 sc-rpc-api.workspace = true

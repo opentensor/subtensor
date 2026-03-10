@@ -29,6 +29,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::HeaderBackend;
 use sp_blockchain::HeaderMetadata;
+use sp_consensus::BlockOrigin;
 use sp_consensus::SelectChain;
 use sp_consensus::error::Error as ConsensusError;
 use sp_consensus_aura::AuraApi;
@@ -119,8 +120,14 @@ impl BlockImport<Block> for HybridBlockImport {
 
     async fn import_block(
         &self,
-        block: BlockImportParams<Block>,
+        mut block: BlockImportParams<Block>,
     ) -> Result<ImportResult, Self::Error> {
+        // Clone mode can opt into skipping history-gap creation during catch-up.
+        if crate::sync_options::skip_history_backfill()
+            && matches!(block.origin, BlockOrigin::NetworkInitialSync)
+        {
+            block.create_gap = false;
+        }
         if is_babe_digest(block.header.digest()) {
             self.inner_babe
                 .import_block(block)

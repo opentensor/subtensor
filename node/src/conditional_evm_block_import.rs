@@ -1,5 +1,5 @@
 use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
-use sp_consensus::Error as ConsensusError;
+use sp_consensus::{BlockOrigin, Error as ConsensusError};
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::marker::PhantomData;
 
@@ -56,7 +56,15 @@ where
         self.inner.check_block(block).await.map_err(Into::into)
     }
 
-    async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
+    async fn import_block(
+        &self,
+        mut block: BlockImportParams<B>,
+    ) -> Result<ImportResult, Self::Error> {
+        if crate::sync_options::skip_history_backfill()
+            && matches!(block.origin, BlockOrigin::NetworkInitialSync)
+        {
+            block.create_gap = false;
+        }
         // 4345556 - mainnet runtime upgrade block with Frontier
         if *block.header.number() < 4345557u32.into() {
             self.inner.import_block(block).await.map_err(Into::into)

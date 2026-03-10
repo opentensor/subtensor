@@ -5,7 +5,7 @@ use crate::{
     cli::{Cli, Subcommand, SupportedConsensusMechanism},
     consensus::BabeConsensus,
     ethereum::db_config_dir,
-    service,
+    service, sync_options,
 };
 use fc_db::{DatabaseSource, kv::frontier_database_dir};
 
@@ -62,6 +62,7 @@ pub fn run() -> sc_cli::Result<()> {
     let cmd = Cli::command();
     let arg_matches = cmd.get_matches();
     let cli = Cli::from_arg_matches(&arg_matches)?;
+    sync_options::set_skip_history_backfill(cli.skip_history_backfill);
 
     match &cli.subcommand {
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -232,6 +233,11 @@ pub fn run() -> sc_cli::Result<()> {
         Some(Subcommand::ChainInfo(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run::<Block>(&config))
+        }
+        Some(Subcommand::CloneState(cmd)) => {
+            let runner = cli.create_runner(&cli.run)?;
+            let cmd = cmd.clone();
+            runner.sync_run(move |_| crate::clone_spec::run(&cmd))
         }
         // Start with the initial consensus type asked.
         None => {
