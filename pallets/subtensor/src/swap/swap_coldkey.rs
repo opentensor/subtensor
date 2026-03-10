@@ -1,5 +1,5 @@
 use super::*;
-use share_pool::{SafeFloat, SafeFloatSerializable};
+use share_pool::SafeFloat;
 
 impl<T: Config> Pallet<T> {
     /// Transfer all assets, stakes, subnet ownerships, and hotkey associations from `old_coldkey` to
@@ -108,11 +108,9 @@ impl<T: Config> Pallet<T> {
             let dest_alpha_v1: SafeFloat =
                 SafeFloat::from(Alpha::<T>::get((&hotkey, new_coldkey, netuid)));
             // Get the v2 alpha shares on the old (hot,coldkey) account.
-            let orig_alpha_v2: SafeFloat =
-                SafeFloat::from(&AlphaV2::<T>::get((&hotkey, old_coldkey, netuid)));
+            let orig_alpha_v2: SafeFloat = AlphaV2::<T>::get((&hotkey, old_coldkey, netuid));
             // Get the v2 alpha shares on the new (hot,coldkey) account.
-            let dest_alpha_v2: SafeFloat =
-                SafeFloat::from(&AlphaV2::<T>::get((&hotkey, new_coldkey, netuid)));
+            let dest_alpha_v2: SafeFloat = AlphaV2::<T>::get((&hotkey, new_coldkey, netuid));
 
             // Calculate and save new alpha shares on the destination new_coldkey
             let new_dest_alpha = orig_alpha_v1
@@ -123,10 +121,7 @@ impl<T: Config> Pallet<T> {
                 .add(&dest_alpha_v2)
                 .unwrap_or_default();
             if !new_dest_alpha.is_zero() {
-                AlphaV2::<T>::insert(
-                    (&hotkey, new_coldkey, netuid),
-                    SafeFloatSerializable::from(&new_dest_alpha),
-                );
+                AlphaV2::<T>::insert((&hotkey, new_coldkey, netuid), new_dest_alpha.clone());
             }
 
             // Remove shares on the origin old_coldkey in both Alpha and AlphaV2 maps

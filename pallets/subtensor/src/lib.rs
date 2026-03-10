@@ -92,7 +92,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
-    use share_pool::SafeFloatSerializable;
+    use share_pool::SafeFloat;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
@@ -1434,19 +1434,19 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet, stores bigmath vector.
+    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet, stores SafeFloat.
     #[pallet::storage]
     pub type TotalHotkeySharesV2<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId, // hot
         Identity,
-        NetUid,                // subnet
-        SafeFloatSerializable, // Hotkey shares in unlimited precision
+        NetUid,    // subnet
+        SafeFloat, // Hotkey shares in unlimited precision
         ValueQuery,
     >;
 
-    /// --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet, stores bigmath vector.
+    /// --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet, stores SafeFloat.
     #[pallet::storage]
     pub type AlphaV2<T: Config> = StorageNMap<
         _,
@@ -1455,7 +1455,7 @@ pub mod pallet {
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
             NMapKey<Identity, NetUid>,               // subnet
         ),
-        SafeFloatSerializable, // Shares in unlimited precision
+        SafeFloat, // Shares in unlimited precision
         ValueQuery,
     >;
 

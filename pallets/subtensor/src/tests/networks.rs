@@ -100,7 +100,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // 2. Single α-out staker
         let (s_hot, s_cold) = (U256::from(100), U256::from(200));
-        AlphaV2::<Test>::insert((s_hot, s_cold, net), sfser_from_u64(5_000u64));
+        AlphaV2::<Test>::insert((s_hot, s_cold, net), sf_from_u64(5_000u64));
 
         // Entire TAO pot should be paid to staker's cold-key
         let pot: u64 = 99_999;
@@ -140,8 +140,8 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         let (s1_hot, s1_cold, a1) = (U256::from(201), U256::from(301), 300u64);
         let (s2_hot, s2_cold, a2) = (U256::from(202), U256::from(302), 700u64);
 
-        AlphaV2::<Test>::insert((s1_hot, s1_cold, net), sfser_from_u64(a1));
-        AlphaV2::<Test>::insert((s2_hot, s2_cold, net), sfser_from_u64(a2));
+        AlphaV2::<Test>::insert((s1_hot, s1_cold, net), sf_from_u64(a1));
+        AlphaV2::<Test>::insert((s2_hot, s2_cold, net), sf_from_u64(a2));
 
         TotalHotkeyAlpha::<Test>::insert(s1_hot, net, AlphaBalance::from(a1));
         TotalHotkeyAlpha::<Test>::insert(s2_hot, net, AlphaBalance::from(a2));
@@ -635,7 +635,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
         let sh = U256::from(23);
         let sc = U256::from(24);
 
-        AlphaV2::<Test>::insert((sh, sc, net), sfser_from_u64(1_000u64));
+        AlphaV2::<Test>::insert((sh, sc, net), sf_from_u64(1_000u64));
         SubnetTAO::<Test>::insert(net, TaoBalance::from(0)); // zero TAO
         SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
         Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
@@ -679,8 +679,8 @@ fn dissolve_rounding_remainder_distribution() {
         let (s1h, s1c) = (U256::from(63), U256::from(64));
         let (s2h, s2c) = (U256::from(65), U256::from(66));
 
-        AlphaV2::<Test>::insert((s1h, s1c, net), sfser_from_u64(3u64));
-        AlphaV2::<Test>::insert((s2h, s2c, net), sfser_from_u64(2u64));
+        AlphaV2::<Test>::insert((s1h, s1c, net), sf_from_u64(3u64));
+        AlphaV2::<Test>::insert((s2h, s2c, net), sf_from_u64(2u64));
 
         SubnetTAO::<Test>::insert(net, TaoBalance::from(1)); // TAO pot = 1
         SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
@@ -748,8 +748,8 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         ));
 
         // 4. α-out snapshot
-        let a1: u128 = sfser_to_u128(&AlphaV2::<Test>::get((h1, c1, netuid)));
-        let a2: u128 = sfser_to_u128(&AlphaV2::<Test>::get((h2, c2, netuid)));
+        let a1: u128 = sf_to_u128(&AlphaV2::<Test>::get((h1, c1, netuid)));
+        let a2: u128 = sf_to_u128(&AlphaV2::<Test>::get((h2, c2, netuid)));
         let atotal = a1 + a2;
 
         // 5. TAO pot & lock
@@ -856,7 +856,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         let mut alpha = [0u128; N];
         let mut alpha_sum: u128 = 0;
         for i in 0..N {
-            alpha[i] = sfser_to_u128(&AlphaV2::<Test>::get((hot[i], cold[i], netuid)));
+            alpha[i] = sf_to_u128(&AlphaV2::<Test>::get((hot[i], cold[i], netuid)));
             alpha_sum += alpha[i];
         }
 
@@ -1910,7 +1910,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         for ((hot, cold, net), amt) in AlphaV2::<Test>::iter() {
             if let Some(&ni) = net_index.get(&net)
                 && lp_sets_per_net[ni].contains(&cold) {
-                    let a: u128 = sfser_to_u128(&amt);
+                    let a: u128 = sf_to_u128(&amt);
                     if a > 0 {
                         alpha_pairs_per_net
                             .entry(net)
@@ -2079,7 +2079,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             register_ok_neuron(net_new, hot1, cold, 7777);
 
             let before_tao = SubtensorModule::get_coldkey_balance(&cold);
-            let a_prev: u64 = sfser_to_u128(&AlphaV2::<Test>::get((hot1, cold, net_new))) as u64;
+            let a_prev: u64 = sf_to_u128(&AlphaV2::<Test>::get((hot1, cold, net_new))) as u64;
 
             // Expected α for this exact τ, using the same sim path as the pallet.
 			let order = GetAlphaForTao::<Test>::with_amount(min_amount_required);
@@ -2098,7 +2098,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
             ));
 
             let after_tao = SubtensorModule::get_coldkey_balance(&cold);
-            let a_new: u64 = sfser_to_u128(&AlphaV2::<Test>::get((hot1, cold, net_new))) as u64;
+            let a_new: u64 = sf_to_u128(&AlphaV2::<Test>::get((hot1, cold, net_new))) as u64;
             let a_delta = a_new.saturating_sub(a_prev);
 
             // τ decreased by exactly the amount we sent.

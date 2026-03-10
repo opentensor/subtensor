@@ -3,7 +3,7 @@ use super::mock::*;
 use crate::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
-use share_pool::{SafeFloat, SafeFloatSerializable};
+use share_pool::SafeFloat;
 use sp_core::U256;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, Token};
@@ -573,15 +573,8 @@ fn test_recycle_precision() {
         let denominator = SafeFloat::from(1)
             .div(&SafeFloat::from(1_000_000_000))
             .unwrap_or_default();
-        TotalHotkeySharesV2::<Test>::insert(
-            hotkey,
-            netuid,
-            SafeFloatSerializable::from(&denominator),
-        );
-        AlphaV2::<Test>::insert(
-            (&hotkey, &coldkey, netuid),
-            SafeFloatSerializable::from(&denominator),
-        );
+        TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, denominator.clone());
+        AlphaV2::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
 
         // recycle, expect error due to precision loss
@@ -626,15 +619,8 @@ fn test_burn_precision() {
         let denominator = SafeFloat::from(1)
             .div(&SafeFloat::from(1_000_000_000))
             .unwrap_or_default();
-        TotalHotkeySharesV2::<Test>::insert(
-            hotkey,
-            netuid,
-            SafeFloatSerializable::from(&denominator),
-        );
-        AlphaV2::<Test>::insert(
-            (&hotkey, &coldkey, netuid),
-            SafeFloatSerializable::from(&denominator),
-        );
+        TotalHotkeySharesV2::<Test>::insert(hotkey, netuid, denominator.clone());
+        AlphaV2::<Test>::insert((&hotkey, &coldkey, netuid), denominator);
         TotalHotkeyAlpha::<Test>::insert(hotkey, netuid, AlphaBalance::from(stake));
 
         // burn, expect error due to precision loss

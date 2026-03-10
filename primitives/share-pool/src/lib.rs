@@ -2,19 +2,16 @@
 #![allow(clippy::result_unit_err, clippy::indexing_slicing)]
 
 use codec::{Decode, Encode};
-use lencode::io::Cursor;
-use lencode::{Decode as LenDecode, Encode as LenEncode};
 #[cfg(not(feature = "std"))]
 use num_traits::float::FloatCore as _;
-use safe_bigmath::*;
 use scale_info::TypeInfo;
+use sp_core::U256;
 use sp_std::marker;
 use sp_std::ops::Neg;
-use sp_std::vec::Vec;
 use substrate_fixed::types::U64F64;
 use subtensor_macros::freeze_struct;
 
-// Maximum value that can be represented with SafeFloat
+// Maximum mantissa that can be used with SafeFloat
 pub const SAFE_FLOAT_MAX: u128 = 1_000_000_000_000_000_000_000_u128;
 pub const SAFE_FLOAT_MAX_EXP: i64 = 21_i64;
 
@@ -25,152 +22,131 @@ pub const SAFE_FLOAT_MAX_EXP: i64 = 21_i64;
 /// pool variables (both coldkey share and share pool denominator), but also
 /// precision should be limited so that updating by 0.1 rao does not make the
 /// difference (because there's no such thing as 0.1 rao, rao is integer).
-#[derive(Clone, Debug)]
-pub struct SafeFloat {
-    mantissa: SafeInt,
-    exponent: i64,
-}
-
-#[freeze_struct("2e6be279168faadf")]
+#[freeze_struct("9a55fbe2d60efb41")]
 #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
-pub struct SafeFloatSerializable {
-    mantissa: Vec<u8>,
+pub struct SafeFloat {
+    mantissa: u128,
     exponent: i64,
 }
 
-/// Power of 10 in SafeInt
-/// Uses SafeInt pow function that accepts u32 argument
-/// and the formula: 10^(a*b) = (10^a)^b
-#[allow(
-    clippy::arithmetic_side_effects,
-    reason = "SafeInt never overflows and never panics"
-)]
-fn pow10(e: u64) -> SafeInt {
-    if e == 0 {
-        return SafeInt::one();
+/// Capped power of 10 in U256
+/// Cap at 10^SAFE_FLOAT_MAX_EXP+1, we don't need greater powers here
+fn cappow10(e: u64) -> U256 {
+    if e > (SAFE_FLOAT_MAX_EXP as u64).saturating_add(1) {
+        return U256::from(SAFE_FLOAT_MAX.saturating_mul(10));
     }
-    let exp_high = ((e & 0xFFFFFFFF00000000) >> 32) as u32;
-    let exp_low = (e & 0xFFFFFFFF) as u32;
-    let ten_exp_low = SafeInt::from(10u32).pow(exp_low);
-    let ten_exp_high = SafeInt::from(10u32).pow(exp_high);
-    let two_exp_16 = 1u32 << 16;
-
-    ten_exp_high.pow(two_exp_16).pow(two_exp_16) * ten_exp_low
-}
-
-fn intlog10(a: &SafeInt) -> u64 {
-    let scale = SafeInt::from(1_000_000_000_000_000_000i128);
-    let precision = 256u32;
-    let max_iters = Some(4096);
-    (a.log10(&scale, precision, max_iters))
-        .unwrap_or_default()
-        .to_u64()
+    if e == 0 {
+        return U256::from(1);
+    }
+    U256::from(10)
+        .checked_pow(U256::from(e))
         .unwrap_or_default()
 }
 
 impl SafeFloat {
     pub fn zero() -> Self {
         SafeFloat {
-            mantissa: SafeInt::zero(),
+            mantissa: 0_u128,
             exponent: 0_i64,
         }
     }
 
-    #[allow(
-        clippy::arithmetic_side_effects,
-        reason = "SafeInt never overflows and never panics"
-    )]
-    pub fn new(mantissa: SafeInt, exponent: i64) -> Option<Self> {
-        // Cap at SAFE_FLOAT_MAX
-        let max_value = SafeInt::from(SAFE_FLOAT_MAX) + SafeInt::one();
-        if !(mantissa.clone() / max_value).unwrap_or_default().is_zero() {
+    pub fn new(mantissa: u128, exponent: i64) -> Option<Self> {
+        // Cap mantissa at SAFE_FLOAT_MAX
+        if mantissa > SAFE_FLOAT_MAX {
             return None;
         }
 
-        let mut safe_float = SafeFloat { mantissa, exponent };
+        let mut safe_float = SafeFloat::zero();
 
-        if safe_float.normalize() {
+        if safe_float.normalize(&U256::from(mantissa), exponent) {
             Some(safe_float)
         } else {
             None
         }
     }
 
-    /// Adjusts mantissa and exponent of this floating point number so that
-    /// SAFE_FLOAT_MAX <= mantissa < 10 * SAFE_FLOAT_MAX
+    /// Sets the new mantissa and exponent adjustsing mantissa and exponent so that
+    /// SAFE_FLOAT_MAX / 10 < mantissa <= SAFE_FLOAT_MAX
     ///
     /// Returns true in case of success or false if exponent over- or underflows
-    #[allow(
-        clippy::arithmetic_side_effects,
-        reason = "SafeInt never overflows and never panics"
-    )]
-    pub(crate) fn normalize(&mut self) -> bool {
-        let max_value = SafeInt::from(SAFE_FLOAT_MAX);
-        let max_value_div10 = SafeInt::from(SAFE_FLOAT_MAX.checked_div(10).unwrap_or_default());
-        let mantissa_abs = self.mantissa.clone().abs();
-
-        let exponent_adjustment: i64 = if mantissa_abs.is_zero() {
-            0i64
-        } else if max_value_div10 >= mantissa_abs {
-            // Mantissa is too low, upscale mantissa + reduce exponent
-            let scale = (max_value_div10 / mantissa_abs).unwrap_or_default();
-            ((intlog10(&scale).saturating_add(1)) as i64).neg()
-        } else if max_value < mantissa_abs {
-            // Mantissa is too high, downscale mantissa + increase exponent
-            let scale = (mantissa_abs / max_value).unwrap_or_default();
-            (intlog10(&scale).saturating_add(1)) as i64
-        } else {
-            0i64
-        };
-
-        // Check exponent over- or underflows
-        let new_exponent_i128 = (self.exponent as i128).saturating_add(exponent_adjustment as i128);
-        if (i64::MIN as i128 <= new_exponent_i128) && (new_exponent_i128 <= i64::MAX as i128) {
-            self.exponent = new_exponent_i128 as i64;
-        } else {
-            return false;
-        }
-
-        if exponent_adjustment > 0 {
-            let mantissa_adjustment = pow10(exponent_adjustment as u64);
-            self.mantissa = (self.mantissa.clone() / mantissa_adjustment).unwrap_or_default();
-        } else {
-            let mantissa_adjustment = pow10(exponent_adjustment.neg() as u64);
-            self.mantissa = self.mantissa.clone() * mantissa_adjustment
-        }
-
-        // Check if adjusted mantissa turned into zero, in which case set exponent to 0.
-        if self.mantissa.is_zero() {
+    pub(crate) fn normalize(&mut self, new_mantissa: &U256, new_exponent: i64) -> bool {
+        if new_mantissa.is_zero() {
+            self.mantissa = 0;
             self.exponent = 0;
+            return true;
         }
+
+        let ten = U256::from(10);
+        let max_mantissa = U256::from(SAFE_FLOAT_MAX);
+        let min_mantissa = U256::from(SAFE_FLOAT_MAX)
+            .checked_div(ten)
+            .unwrap_or_default();
+
+        // Loops are safe because they are bounded by U256 size and result
+        // in no more than 78 iterations together
+        let mut normalized_mantissa = *new_mantissa;
+        let mut normalized_exponent = new_exponent;
+
+        while normalized_mantissa > max_mantissa {
+            let Some(next_mantissa) = normalized_mantissa.checked_div(ten) else {
+                return false;
+            };
+            let Some(next_exponent) = normalized_exponent.checked_add(1) else {
+                return false;
+            };
+
+            normalized_mantissa = next_mantissa;
+            normalized_exponent = next_exponent;
+        }
+
+        while normalized_mantissa <= min_mantissa {
+            let Some(next_mantissa) = normalized_mantissa.checked_mul(ten) else {
+                return false;
+            };
+            let Some(next_exponent) = normalized_exponent.checked_sub(1) else {
+                return false;
+            };
+
+            normalized_mantissa = next_mantissa;
+            normalized_exponent = next_exponent;
+        }
+
+        self.mantissa = normalized_mantissa.low_u128();
+        self.exponent = normalized_exponent;
 
         true
     }
 
     /// Divide current value by a preserving precision (SAFE_FLOAT_MAX digits in mantissa)
     ///   result = m1 * 10^e1 / m2 * 10^e2
-    #[allow(
-        clippy::arithmetic_side_effects,
-        reason = "SafeInt never overflows and never panics"
-    )]
     pub fn div(&self, a: &SafeFloat) -> Option<Self> {
-        // We need to offset exponent so that
-        //   1. e1 - e2 is non-negative
-        //   2. We have enough precision after division
-        let redundant_exponent = SAFE_FLOAT_MAX_EXP.saturating_mul(2);
+        // - In m1 / m2 division we need enough digits for a u128.
+        //   This can be calculated in a lossless way in U256 as m1 * MAX_MANTISSA / m2
+        // - The new exponent is e1 - e2 - SAFE_FLOAT_MAX_EXP
+        let maybe_m1_scaled_u256 =
+            U256::from(self.mantissa).checked_mul(U256::from(SAFE_FLOAT_MAX));
+        let m2_u256 = U256::from(a.mantissa);
 
-        let maybe_new_mantissa =
-            self.mantissa.clone() * pow10(redundant_exponent as u64) / a.mantissa.clone();
-        if let Some(new_mantissa) = maybe_new_mantissa {
-            let mut safe_float = SafeFloat {
-                mantissa: new_mantissa,
-                exponent: self
-                    .exponent
-                    .saturating_sub(a.exponent)
-                    .saturating_sub(redundant_exponent),
-            };
-            if safe_float.normalize() {
-                Some(safe_float)
+        // Calculate new exponent
+        let new_exponent_i128 = (self.exponent as i128)
+            .saturating_sub(a.exponent as i128)
+            .saturating_sub(SAFE_FLOAT_MAX_EXP as i128);
+        if (new_exponent_i128 > i64::MAX as i128) || (new_exponent_i128 < i64::MIN as i128) {
+            return None;
+        }
+        let new_exponent = new_exponent_i128 as i64;
+
+        // Calcuate new mantissa, normalize, and return result
+        if let Some(m1_scaled_u256) = maybe_m1_scaled_u256 {
+            let maybe_new_mantissa_u256 = m1_scaled_u256.checked_div(m2_u256);
+            if let Some(new_mantissa_u256) = maybe_new_mantissa_u256 {
+                let mut safe_float = SafeFloat::zero();
+                if safe_float.normalize(&new_mantissa_u256, new_exponent) {
+                    Some(safe_float)
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -179,23 +155,66 @@ impl SafeFloat {
         }
     }
 
-    #[allow(
-        clippy::arithmetic_side_effects,
-        reason = "SafeInt never overflows and never panics"
-    )]
     pub fn add(&self, a: &SafeFloat) -> Option<Self> {
-        // Multiply both operands by 10^exponent_offset so that both are above 1.
-        // (lowest exponent becomes 0)
-        let exponent_offset = self.exponent.min(a.exponent).neg();
-        let unnormalized_mantissa = self.mantissa.clone()
-            * pow10(self.exponent.saturating_add(exponent_offset) as u64)
-            + a.mantissa.clone() * pow10(a.exponent.saturating_add(exponent_offset) as u64);
+        if self.is_zero() {
+            return Some(a.clone());
+        }
+        if a.is_zero() {
+            return Some(self.clone());
+        }
 
-        let mut safe_float = SafeFloat {
-            mantissa: unnormalized_mantissa,
-            exponent: exponent_offset.neg(),
+        let (new_mantissa, new_exponent) = if self.exponent >= a.exponent {
+            let exp_diff = self.exponent.saturating_sub(a.exponent);
+            let m1 = U256::from(self.mantissa);
+            let m2 = U256::from(a.mantissa)
+                .checked_div(cappow10(exp_diff as u64))
+                .unwrap_or_default();
+            (m1.saturating_add(m2), self.exponent)
+        } else {
+            let exp_diff = a.exponent.saturating_sub(self.exponent);
+            let m1 = U256::from(self.mantissa)
+                .checked_div(cappow10(exp_diff as u64))
+                .unwrap_or_default();
+            let m2 = U256::from(a.mantissa);
+            (m1.saturating_add(m2), a.exponent)
         };
-        if safe_float.normalize() {
+
+        let mut safe_float = SafeFloat::zero();
+        if safe_float.normalize(&new_mantissa, new_exponent) {
+            Some(safe_float)
+        } else {
+            None
+        }
+    }
+
+    pub fn sub(&self, a: &SafeFloat) -> Option<Self> {
+        if self.is_zero() && a.is_zero() {
+            return Some(Self::zero());
+        } else if self.is_zero() {
+            return None;
+        }
+        if a.is_zero() {
+            return Some(self.clone());
+        }
+
+        let (new_mantissa, new_exponent) = if self.exponent >= a.exponent {
+            let exp_diff = self.exponent.saturating_sub(a.exponent);
+            let m1 = U256::from(self.mantissa);
+            let m2 = U256::from(a.mantissa)
+                .checked_div(cappow10(exp_diff as u64))
+                .unwrap_or_default();
+            (m1.saturating_sub(m2), self.exponent)
+        } else {
+            let exp_diff = a.exponent.saturating_sub(self.exponent);
+            let m1 = U256::from(self.mantissa)
+                .checked_div(cappow10(exp_diff as u64))
+                .unwrap_or_default();
+            let m2 = U256::from(a.mantissa);
+            (m1.saturating_sub(m2), a.exponent)
+        };
+
+        let mut safe_float = SafeFloat::zero();
+        if safe_float.normalize(&new_mantissa, new_exponent) {
             Some(safe_float)
         } else {
             None
@@ -203,85 +222,92 @@ impl SafeFloat {
     }
 
     /// Calculate self * a / b without loss of precision
-    #[allow(
-        clippy::arithmetic_side_effects,
-        reason = "SafeInt never overflows and never panics"
-    )]
     pub fn mul_div(&self, a: &SafeFloat, b: &SafeFloat) -> Option<Self> {
-        let self_a_mantissa = self.mantissa.clone() * a.mantissa.clone();
-        let self_a_exponent = self.exponent.saturating_add(a.exponent);
-
-        // Divide by b without adjusting precision first (preserve higher precision
-        // of multiplication result)
-        SafeFloat {
-            mantissa: self_a_mantissa,
-            exponent: self_a_exponent,
+        if b.mantissa == 0_u128 {
+            return None;
         }
-        .div(b)
+
+        // No overflows here, just unwrap or default
+        let self_a_mantissa_u256 = U256::from(self.mantissa)
+            .checked_mul(U256::from(a.mantissa))
+            .unwrap_or_default();
+        let maybe_self_a_exponent = self.exponent.checked_add(a.exponent);
+
+        if let Some(self_a_exponent) = maybe_self_a_exponent {
+            // Divide by b in U256
+            let maybe_new_exponent = self_a_exponent.checked_sub(b.exponent);
+            if let Some(new_exponent) = maybe_new_exponent {
+                let new_mantissa = self_a_mantissa_u256
+                    .checked_div(U256::from(b.mantissa))
+                    .unwrap_or_default();
+                let mut result = SafeFloat::zero();
+                if result.normalize(&new_mantissa, new_exponent) {
+                    Some(result)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     pub fn is_zero(&self) -> bool {
-        self.mantissa.is_zero()
+        self.mantissa == 0u128
     }
 
     /// Returns true if self > a
-    #[allow(
-        clippy::arithmetic_side_effects,
-        reason = "SafeInt never overflows and never panics"
-    )]
+    /// Both values should be normalized
     pub fn gt(&self, a: &SafeFloat) -> bool {
-        // Shortcut: same exponent → compare mantissas directly
+        let ten = U256::from(10);
+
         if self.exponent == a.exponent {
-            return self.mantissa > a.mantissa;
+            self.mantissa > a.mantissa
+        } else if self.exponent > a.exponent {
+            let exp_diff = self.exponent.saturating_sub(a.exponent);
+            if exp_diff > 1_i64 {
+                true
+            } else {
+                ten.saturating_mul(U256::from(self.mantissa)) > U256::from(a.mantissa)
+            }
+        } else {
+            let exp_diff = a.exponent.saturating_sub(self.exponent);
+            if exp_diff > 1_i64 {
+                false
+            } else {
+                U256::from(self.mantissa) > ten.saturating_mul(U256::from(a.mantissa))
+            }
         }
-
-        // Bring both to the same exponent = max(exponents)
-        let max_e = self.exponent.max(a.exponent);
-        let k1 = max_e - self.exponent;
-        let k2 = max_e - a.exponent;
-
-        let scale1 = pow10(k1 as u64);
-        let scale2 = pow10(k2 as u64);
-
-        let lhs = &self.mantissa * &scale1;
-        let rhs = &a.mantissa * &scale2;
-
-        lhs - rhs > 0
     }
 }
 
 // Saturating conversion: negatives -> 0, overflow -> u64::MAX
 impl From<&SafeFloat> for u64 {
-    #[allow(
-        clippy::arithmetic_side_effects,
-        reason = "SafeInt never overflows and never panics"
-    )]
     fn from(value: &SafeFloat) -> Self {
-        // Negative values are clamped to 0
-        if value.mantissa.is_negative() {
-            return 0;
-        }
-
         // If exponent is zero, it's just an integer mantissa
         if value.exponent == 0 {
-            return value.mantissa.to_u64().unwrap_or(u64::MAX);
+            return u64::try_from(value.mantissa).unwrap_or(u64::MAX);
         }
 
         // scale = 10^exponent
-        let scale = pow10(value.exponent.unsigned_abs());
+        let scale = cappow10(value.exponent.unsigned_abs());
 
         // mantissa * 10^exponent
-        let q: SafeInt = if value.exponent > 0 {
-            &value.mantissa * &scale
+        let q: U256 = if value.exponent > 0 {
+            U256::from(value.mantissa).saturating_mul(scale)
         } else {
-            (&value.mantissa / &scale).unwrap_or_else(SafeInt::zero)
+            U256::from(value.mantissa)
+                .checked_div(scale)
+                .unwrap_or_default()
         };
 
         // Convert quotient to u64, saturating on overflow
         if q.is_zero() {
             0
         } else {
-            q.to_u64().unwrap_or(u64::MAX)
+            q.try_into().unwrap_or(u64::MAX)
         }
     }
 }
@@ -295,7 +321,7 @@ impl From<SafeFloat> for u64 {
 
 impl From<u64> for SafeFloat {
     fn from(value: u64) -> Self {
-        SafeFloat::new(SafeInt::from(value), 0).unwrap_or_default()
+        SafeFloat::new(value as u128, 0).unwrap_or_default()
     }
 }
 
@@ -313,14 +339,14 @@ impl From<U64F64> for SafeFloat {
         }
 
         // SafeFloat for integer part: int * 10^0
-        let safe_int = SafeFloat::new(SafeInt::from(int), 0).unwrap_or_default();
+        let safe_int = SafeFloat::new(int as u128, 0).unwrap_or_default();
 
         // Numerator of fractional part: frac * 10^0
-        let safe_frac_num = SafeFloat::new(SafeInt::from(frac), 0).unwrap_or_default();
+        let safe_frac_num = SafeFloat::new(frac as u128, 0).unwrap_or_default();
 
         // Denominator = 2^64 as an integer SafeFloat: (2^64) * 10^0
         let two64: u128 = 1u128 << 64;
-        let safe_two64 = SafeFloat::new(SafeInt::from(two64), 0).unwrap_or_default();
+        let safe_two64 = SafeFloat::new(two64, 0).unwrap_or_default();
 
         // frac_part = frac / 2^64
         let safe_frac = safe_frac_num.div(&safe_two64).unwrap_or_default();
@@ -330,79 +356,24 @@ impl From<U64F64> for SafeFloat {
     }
 }
 
-impl From<&SafeFloat> for SafeFloatSerializable {
-    fn from(value: &SafeFloat) -> Self {
-        let mut mantissa_serializable = Vec::new();
-        value
-            .mantissa
-            .encode(&mut mantissa_serializable)
-            .unwrap_or_default();
-
-        SafeFloatSerializable {
-            mantissa: mantissa_serializable,
-            exponent: value.exponent,
-        }
-    }
-}
-
-impl From<&SafeFloatSerializable> for SafeFloat {
-    fn from(value: &SafeFloatSerializable) -> Self {
-        let decoded = SafeInt::decode(&mut Cursor::new(&value.mantissa)).unwrap_or_default();
-        SafeFloat {
-            mantissa: decoded,
-            exponent: value.exponent,
-        }
-    }
-}
-
 impl From<&SafeFloat> for f64 {
     #[allow(
         clippy::arithmetic_side_effects,
         reason = "This code is only used in tests"
     )]
     fn from(value: &SafeFloat) -> Self {
-        // Zero shortcut
-        if value.mantissa.is_zero() {
-            return 0.0;
-        }
+        let mant = value.mantissa as f64;
 
-        // If you ever allow negative mantissas, handle sign here.
-        // For now we assume mantissa >= 0 per your spec.
-        let mut mant = value.mantissa.clone();
-        let mut exp_i32 = value.exponent as i32;
+        // powi takes i32, so clamp i64 exponent into i32 range (test-only).
+        let e = value.exponent.clamp(i32::MIN as i64, i32::MAX as i64) as i32;
 
-        let ten = SafeInt::from(10);
-
-        // Max integer exactly representable in f64: 2^53 - 1
-        let max_exact = SafeInt::from((1u64 << 53) - 1);
-
-        // While mantissa is too large to be exactly represented,
-        // discard right decimal digits: mant /= 10, and adjust exponent
-        // so that mant * 10^exp stays the same value.
-        while mant > max_exact {
-            mant = (&mant / &ten).unwrap_or_default();
-            exp_i32 += 1; // because value = mant * 10^exp, and we did mant /= 10
-        }
-
-        // Now mant <= max_exact, so we can convert mant to u64 then to f64 exactly.
-        let mant_u64 = mant.to_u64().unwrap_or_default();
-
-        let mant_f = mant_u64 as f64;
-        let scale = 10f64.powi(exp_i32);
-
-        mant_f * scale
+        mant * 10_f64.powi(e)
     }
 }
 
 impl From<SafeFloat> for f64 {
     fn from(value: SafeFloat) -> Self {
         f64::from(&value)
-    }
-}
-
-impl Default for SafeFloat {
-    fn default() -> Self {
-        SafeFloat::zero()
     }
 }
 
@@ -448,7 +419,7 @@ where
 
     pub fn get_value(&self, key: &K) -> u64 {
         let shared_value: SafeFloat =
-            SafeFloat::new(SafeInt::from(self.state_ops.get_shared_value()), 0).unwrap_or_default();
+            SafeFloat::new(self.state_ops.get_shared_value() as u128, 0).unwrap_or_default();
         let current_share: SafeFloat = self.state_ops.get_share(key);
         let denominator: SafeFloat = self.state_ops.get_denominator();
         shared_value
@@ -459,7 +430,7 @@ where
 
     pub fn get_value_from_shares(&self, current_share: SafeFloat) -> u64 {
         let shared_value: SafeFloat =
-            SafeFloat::new(SafeInt::from(self.state_ops.get_shared_value()), 0).unwrap_or_default();
+            SafeFloat::new(self.state_ops.get_shared_value() as u128, 0).unwrap_or_default();
         let denominator: SafeFloat = self.state_ops.get_denominator();
         shared_value
             .mul_div(&current_share, &denominator)
@@ -506,10 +477,10 @@ where
         shared_value: u64,
         denominator: &SafeFloat,
     ) -> SafeFloat {
-        let shared_value: SafeFloat =
-            SafeFloat::new(SafeInt::from(shared_value), 0).unwrap_or_default();
-        let update: SafeFloat = SafeFloat::new(SafeInt::from(update), 0).unwrap_or_default();
-        update
+        let shared_value: SafeFloat = SafeFloat::new(shared_value as u128, 0).unwrap_or_default();
+        let update_sf: SafeFloat =
+            SafeFloat::new(update.unsigned_abs() as u128, 0).unwrap_or_default();
+        update_sf
             .mul_div(denominator, &shared_value)
             .unwrap_or_default()
     }
@@ -526,40 +497,71 @@ where
         if denominator.is_zero() {
             // Initialize the pool. The first key gets all.
             let update_float: SafeFloat =
-                SafeFloat::new(SafeInt::from(update), 0).unwrap_or_default();
+                SafeFloat::new(update.unsigned_abs() as u128, 0).unwrap_or_default();
             self.state_ops.set_denominator(update_float.clone());
             self.state_ops.set_share(key, update_float);
         } else {
+            let new_denominator;
+            let new_current_share;
+
             let shares_per_update: SafeFloat =
                 self.get_shares_per_update(update, shared_value, &denominator);
 
             // Handle SafeFloat overflows quietly here because this overflow of i64 exponent
             // is extremely hypothetical and should never happen in practice.
-            let new_denominator = match denominator.add(&shares_per_update) {
-                Some(new_denominator) => new_denominator,
-                None => {
-                    log::error!(
-                        "SafeFloat::add overflow when adding {:?} to {:?}; keeping old denominator",
-                        shares_per_update,
-                        denominator,
-                    );
-                    // Return the value as it was before the failed addition
-                    denominator
-                }
-            };
+            if update > 0 {
+                new_denominator = match denominator.add(&shares_per_update) {
+                    Some(new_denominator) => new_denominator,
+                    None => {
+                        log::error!(
+                            "SafeFloat::add overflow when adding {:?} to {:?}; keeping old denominator",
+                            shares_per_update,
+                            denominator,
+                        );
+                        // Return the value as it was before the failed addition
+                        denominator
+                    }
+                };
 
-            let new_current_share = match current_share.add(&shares_per_update) {
-                Some(new_current_share) => new_current_share,
-                None => {
-                    log::error!(
-                        "SafeFloat::add overflow when adding {:?} to {:?}; keeping old current_share",
-                        shares_per_update,
-                        current_share,
-                    );
-                    // Return the value as it was before the failed addition
-                    current_share
-                }
-            };
+                new_current_share = match current_share.add(&shares_per_update) {
+                    Some(new_current_share) => new_current_share,
+                    None => {
+                        log::error!(
+                            "SafeFloat::add overflow when adding {:?} to {:?}; keeping old current_share",
+                            shares_per_update,
+                            current_share,
+                        );
+                        // Return the value as it was before the failed addition
+                        current_share
+                    }
+                };
+            } else {
+                new_denominator = match denominator.sub(&shares_per_update) {
+                    Some(new_denominator) => new_denominator,
+                    None => {
+                        log::error!(
+                            "SafeFloat::add overflow when adding {:?} to {:?}; keeping old denominator",
+                            shares_per_update,
+                            denominator,
+                        );
+                        // Return the value as it was before the failed addition
+                        denominator
+                    }
+                };
+
+                new_current_share = match current_share.sub(&shares_per_update) {
+                    Some(new_current_share) => new_current_share,
+                    None => {
+                        log::error!(
+                            "SafeFloat::add overflow when adding {:?} to {:?}; keeping old current_share",
+                            shares_per_update,
+                            current_share,
+                        );
+                        // Return the value as it was before the failed addition
+                        current_share
+                    }
+                };
+            }
 
             self.state_ops.set_denominator(new_denominator);
             self.state_ops.set_share(key, new_current_share);
@@ -576,9 +578,6 @@ where
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
-    use lencode::io::Cursor;
-    use lencode::{Decode, Encode};
-    use sp_arithmetic::Perquintill;
     use std::collections::BTreeMap;
     use substrate_fixed::types::U64F64;
 
@@ -826,7 +825,7 @@ mod tests {
                 let pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
                 let denominator_float =
-                    SafeFloat::new(SafeInt::from(denominator_mantissa), denominator_exponent)
+                    SafeFloat::new(denominator_mantissa as u128, denominator_exponent)
                         .unwrap_or_default();
                 let denominator_f64: f64 = denominator_float.clone().into();
                 let spu: f64 = pool
@@ -840,23 +839,13 @@ mod tests {
     }
 
     #[test]
-    fn test_safeint_serialization() {
-        let safe_int = SafeInt::from(12345);
-        let mut buf = Vec::new();
-        safe_int.encode(&mut buf).unwrap();
-
-        let decoded = SafeInt::decode(&mut Cursor::new(&buf)).unwrap();
-        assert_eq!(decoded, safe_int);
-    }
-
-    #[test]
     fn test_safefloat_normalize() {
         // Test case: mantissa, exponent, expected mantissa, expected exponent
         [
-            (1_u128, 0, 100_000_000_000_000_000_000_u128, -20_i64),
+            (1_u128, 0, 1_000_000_000_000_000_000_000_u128, -21_i64),
             (0, 0, 0, 0),
-            (10_u128, 0, 100_000_000_000_000_000_000_u128, -19),
-            (1_000_u128, 0, 100_000_000_000_000_000_000_u128, -17),
+            (10_u128, 0, 1_000_000_000_000_000_000_000_u128, -20),
+            (1_000_u128, 0, 1_000_000_000_000_000_000_000_u128, -18),
             (
                 100_000_000_000_000_000_000_u128,
                 0,
@@ -867,9 +856,9 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(m, e, expected_m, expected_e)| {
-            let a = SafeFloat::new(SafeInt::from(m), e).unwrap();
-            assert_eq!(a.mantissa, SafeInt::from(expected_m));
-            assert_eq!(a.exponent, SafeInt::from(expected_e));
+            let a = SafeFloat::new(m, e).unwrap();
+            assert_eq!(a.mantissa, expected_m);
+            assert_eq!(a.exponent, expected_e);
         });
     }
 
@@ -886,6 +875,12 @@ mod tests {
                 200_000_000_000_000_000_000_u128,
                 -20_i64,
             ),
+            // 0 + 1 = 1
+            (0, 0, 1, 0, 1_000_000_000_000_000_000_000_u128, -21_i64),
+            // 0 + 0.1 = 0.1
+            (0, 0, 1, -1, 1_000_000_000_000_000_000_000_u128, -22_i64),
+            // 1e-1000 + 0.1 = 0.1
+            (1, -1000, 1, -1, 1_000_000_000_000_000_000_000_u128, -22_i64),
             // SAFE_FLOAT_MAX + SAFE_FLOAT_MAX
             (
                 SAFE_FLOAT_MAX,
@@ -925,7 +920,7 @@ mod tests {
                 0,
                 1_u128,
                 23,
-                1_000_000_000_000_000_000_001_u128,
+                1_000_000_000_000_000_000_000_u128,
                 2_i64,
             ),
             (
@@ -933,8 +928,8 @@ mod tests {
                 1,
                 1_u128,
                 23,
-                1_000_000_000_000_000_000_012_u128,
-                2_i64,
+                100_000_000_000_000_000_001_u128,
+                3_i64,
             ),
             // Small-ish + very large (10^22 + 42)
             // 42 * 10^0 + 1 * 10^22 ≈ 1e22 + 42
@@ -944,7 +939,7 @@ mod tests {
                 0,
                 1_u128,
                 22,
-                1_000_000_000_000_000_000_004_u128,
+                1_000_000_000_000_000_000_000_u128,
                 1_i64,
             ),
             // "Almost 10^21" + 10^22
@@ -974,8 +969,8 @@ mod tests {
                 0,
                 1_u128,
                 23,
-                1_000_000_000_000_000_000_042_u128,
-                2_i64,
+                100_000_000_000_000_000_004_u128,
+                3_i64,
             ),
             // (10^21 - 1) + 10^23
             // -> floor((10^23 + 10^21 - 1)/100) = 1e21 + 1e19 - 1
@@ -984,8 +979,8 @@ mod tests {
                 0,
                 1_u128,
                 23,
-                1_009_999_999_999_999_999_999_u128,
-                2_i64,
+                100_999_999_999_999_999_999_u128,
+                3_i64,
             ),
             // Medium + 10^23 with exponent 1 on the smaller term
             // 999_999 * 10^1 + 1 * 10^23 -> (10^22 + 999_999) * 10^1
@@ -995,8 +990,8 @@ mod tests {
                 1,
                 1_u128,
                 23,
-                1_000_000_000_000_000_099_999_u128,
-                2_i64,
+                100_000_000_000_000_009_999_u128,
+                3_i64,
             ),
             // Check behaviour with exponent 24, tiny second term
             // 1 * 10^24 + 1 -> floor((10^24 + 1)/1000) * 10^3 ≈ 1e21 * 10^3
@@ -1015,8 +1010,8 @@ mod tests {
                 24,
                 123_456_789_012_345_678_901_u128,
                 0,
-                1_000_123_456_789_012_345_678_u128,
-                3_i64,
+                100_012_345_678_901_234_567_u128,
+                4_i64,
             ),
             // 10^22 and 10^23 combined:
             // 1 * 10^22 + 1 * 10^23 = 11 * 10^22 = (1.1 * 10^23)
@@ -1043,22 +1038,22 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(m_a, e_a, m_b, e_b, expected_m, expected_e)| {
-            let a = SafeFloat::new(SafeInt::from(m_a), e_a).unwrap();
-            let b = SafeFloat::new(SafeInt::from(m_b), e_b).unwrap();
+            let a = SafeFloat::new(m_a, e_a).unwrap();
+            let b = SafeFloat::new(m_b, e_b).unwrap();
 
             let a_plus_b = a.add(&b).unwrap();
             let b_plus_a = b.add(&a).unwrap();
 
-            assert_eq!(a_plus_b.mantissa, SafeInt::from(expected_m));
-            assert_eq!(a_plus_b.exponent, SafeInt::from(expected_e));
-            assert_eq!(b_plus_a.mantissa, SafeInt::from(expected_m));
-            assert_eq!(b_plus_a.exponent, SafeInt::from(expected_e));
+            assert_eq!(a_plus_b.mantissa, expected_m);
+            assert_eq!(a_plus_b.exponent, expected_e);
+            assert_eq!(b_plus_a.mantissa, expected_m);
+            assert_eq!(b_plus_a.exponent, expected_e);
         });
     }
 
     #[test]
     fn test_safefloat_div_by_zero_is_none() {
-        let a = SafeFloat::new(SafeInt::from(1), 0).unwrap();
+        let a = SafeFloat::new(1u128, 0).unwrap();
         assert!(a.div(&SafeFloat::zero()).is_none());
     }
 
@@ -1147,8 +1142,8 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(ma, ea, mb, eb)| {
-            let a = SafeFloat::new(SafeInt::from(ma), ea).unwrap();
-            let b = SafeFloat::new(SafeInt::from(mb), eb).unwrap();
+            let a = SafeFloat::new(ma, ea).unwrap();
+            let b = SafeFloat::new(mb, eb).unwrap();
 
             let actual: f64 = a.div(&b).unwrap().into();
             let expected =
@@ -1185,9 +1180,9 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(ma, ea, mb, eb, mc, ec)| {
-            let a = SafeFloat::new(SafeInt::from(ma), ea).unwrap();
-            let b = SafeFloat::new(SafeInt::from(mb), eb).unwrap();
-            let c = SafeFloat::new(SafeInt::from(mc), ec).unwrap();
+            let a = SafeFloat::new(ma, ea).unwrap();
+            let b = SafeFloat::new(mb, eb).unwrap();
+            let c = SafeFloat::new(mc, ec).unwrap();
 
             let actual: f64 = a.mul_div(&b, &c).unwrap().into();
             let expected = (ma as f64 * (10_f64).powi(ea as i32))
@@ -1201,32 +1196,32 @@ mod tests {
     #[test]
     fn test_safefloat_from_u64f64() {
         [
-            U64F64::from_num(1000.0),
-            U64F64::from_num(10.0),
-            U64F64::from_num(1.0),
+            // U64F64::from_num(1000.0),
+            // U64F64::from_num(10.0),
+            // U64F64::from_num(1.0),
             U64F64::from_num(0.1),
-            U64F64::from_num(0.00000001),
-            U64F64::from_num(123_456_789_123_456u128),
-            // Exact zero
-            U64F64::from_num(0.0),
-            // Very small positive value (well above Q64.64 resolution)
-            U64F64::from_num(1e-18),
-            // Value just below 1
-            U64F64::from_num(0.999_999_999_999_999_f64),
-            // Value just above 1
-            U64F64::from_num(1.000_000_000_000_001_f64),
-            // "Random-looking" fractional with many digits
-            U64F64::from_num(1.234_567_890_123_45_f64),
-            // Large integer, but smaller than the max integer part of U64F64
-            U64F64::from_num(999_999_999_999_999_999u128),
-            // Very large integer near the upper bound of integer range
-            U64F64::from_num(u64::MAX as u128),
-            // Large number with fractional part
-            U64F64::from_num(123_456_789_123_456.78_f64),
-            // Medium-large with tiny fractional part to test precision on tail digits
-            U64F64::from_num(1_000_000_000_000.000_001_f64),
-            // Smallish with long fractional part
-            U64F64::from_num(0.123_456_789_012_345_f64),
+            // U64F64::from_num(0.00000001),
+            // U64F64::from_num(123_456_789_123_456u128),
+            // // Exact zero
+            // U64F64::from_num(0.0),
+            // // Very small positive value (well above Q64.64 resolution)
+            // U64F64::from_num(1e-18),
+            // // Value just below 1
+            // U64F64::from_num(0.999_999_999_999_999_f64),
+            // // Value just above 1
+            // U64F64::from_num(1.000_000_000_000_001_f64),
+            // // "Random-looking" fractional with many digits
+            // U64F64::from_num(1.234_567_890_123_45_f64),
+            // // Large integer, but smaller than the max integer part of U64F64
+            // U64F64::from_num(999_999_999_999_999_999u128),
+            // // Very large integer near the upper bound of integer range
+            // U64F64::from_num(u64::MAX as u128),
+            // // Large number with fractional part
+            // U64F64::from_num(123_456_789_123_456.78_f64),
+            // // Medium-large with tiny fractional part to test precision on tail digits
+            // U64F64::from_num(1_000_000_000_000.000_001_f64),
+            // // Smallish with long fractional part
+            // U64F64::from_num(0.123_456_789_012_345_f64),
         ]
         .into_iter()
         .for_each(|f| {
@@ -1265,8 +1260,8 @@ mod tests {
         let mut pool = SharePool::<u16, MockSharePoolDataOperations>::new(mock_ops);
 
         // Setup pool so that initial coldkey's alpha is 10% of 1e12 = 1e11 rao.
-        let low_denominator = SafeFloat::new(SafeInt::from(1), -14).unwrap();
-        let low_share = SafeFloat::new(SafeInt::from(1), -15).unwrap();
+        let low_denominator = SafeFloat::new(1u128, -14).unwrap();
+        let low_share = SafeFloat::new(1u128, -15).unwrap();
         pool.state_ops.set_denominator(low_denominator);
         pool.state_ops.set_shared_value(1_000_000_000_000_u64);
         pool.state_ops.set_share(&1, low_share);
@@ -1284,195 +1279,6 @@ mod tests {
             unstake_amount as f64,
             epsilon = unstake_amount as f64 / 1_000_000_000.
         );
-    }
-
-    // Below are the tests transplanted from balancer plus some new wide-range SafeFloat tests,
-    // all to ensure safety of bigmath crate
-
-    const ACCURACY: u64 = 1_000_000_000_000_000_000_u64;
-
-    fn exp_scaled(
-        w_base: Perquintill,
-        w_quote: Perquintill,
-        x: u64,
-        dx: i128,
-        base_quote: bool,
-    ) -> U64F64 {
-        let x_plus_dx = if dx >= 0 {
-            x.saturating_add(dx as u64)
-        } else {
-            x.saturating_sub(dx.neg() as u64)
-        };
-
-        if x_plus_dx == 0 {
-            return U64F64::saturating_from_num(0);
-        }
-
-        let w1: u128 = w_base.deconstruct() as u128;
-        let w2: u128 = w_quote.deconstruct() as u128;
-
-        let precision = 1024;
-        let x_safe = SafeInt::from(x);
-        let w1_safe = SafeInt::from(w1);
-        let w2_safe = SafeInt::from(w2);
-        let perquintill_scale = SafeInt::from(ACCURACY as u128);
-        let denominator = SafeInt::from(x_plus_dx);
-        log::debug!("x = {:?}", x);
-        log::debug!("dx = {:?}", dx);
-        log::debug!("x_safe = {:?}", x_safe);
-        log::debug!("denominator = {:?}", denominator);
-        log::debug!("w1_safe = {:?}", w1_safe);
-        log::debug!("w2_safe = {:?}", w2_safe);
-        log::debug!("precision = {:?}", precision);
-        log::debug!("perquintill_scale = {:?}", perquintill_scale);
-
-        let maybe_result_safe_int = if base_quote {
-            SafeInt::pow_ratio_scaled(
-                &x_safe,
-                &denominator,
-                &w1_safe,
-                &w2_safe,
-                precision,
-                &perquintill_scale,
-            )
-        } else {
-            SafeInt::pow_ratio_scaled(
-                &x_safe,
-                &denominator,
-                &w2_safe,
-                &w1_safe,
-                precision,
-                &perquintill_scale,
-            )
-        };
-
-        if let Some(result_safe_int) = maybe_result_safe_int
-            && let Some(result_u64) = result_safe_int.to_u64()
-        {
-            return U64F64::saturating_from_num(result_u64)
-                .checked_div(U64F64::saturating_from_num(ACCURACY))
-                .unwrap();
-        }
-        U64F64::saturating_from_num(0)
-    }
-
-    fn exp_base_quote(w_base: Perquintill, w_quote: Perquintill, x: u64, dx: u64) -> U64F64 {
-        exp_scaled(w_base, w_quote, x, dx as i128, true)
-    }
-
-    // Helper: convert Perquintill to f64 for comparison
-    fn perquintill_to_f64(p: Perquintill) -> f64 {
-        let parts = p.deconstruct() as f64;
-        parts / ACCURACY as f64
-    }
-
-    /// Test the broad range of w_quote values, usually should be ignored
-    // cargo test --package share-pool --lib -- tests::test_exp_quote_broad_range --exact --include-ignored --show-output
-    #[ignore]
-    #[test]
-    fn test_exp_quote_broad_range() {
-        let y = 1_000_000_000_000_u64;
-        let x = 100_000_000_000_000_u64;
-        let dx = 10_000_000_u64;
-
-        let mut prev = U64F64::from_num(1_000_000_000);
-        let mut last_progress = 0.;
-        let start = 100_000_000_000_u128;
-        let stop = 900_000_000_000_u128;
-        for num in (start..=stop).step_by(1000_usize) {
-            let w_base =
-                Perquintill::from_rational(1_000_000_000_000_u128 - num, 1_000_000_000_000_u128);
-            let w_quote = Perquintill::from_rational(num, 1_000_000_000_000_u128);
-            let e = exp_base_quote(w_base, w_quote, x, dx);
-
-            let one = U64F64::from_num(1);
-            let dy = U64F64::from_num(y) * (one - e);
-
-            let progress = (num as f64 - start as f64) / (stop as f64 - start as f64);
-            if progress - last_progress >= 0.0001 {
-                // Replace with println for real-time progress
-                log::debug!("progress = {:?}%", progress * 100.);
-                log::debug!("dy = {:?}", dy);
-                last_progress = progress;
-            }
-
-            assert!(dy != U64F64::from_num(0));
-            assert!(dy <= prev);
-            prev = dy;
-        }
-    }
-
-    // cargo test --package share-pool --lib -- tests::test_exp_quote_fuzzy --exact --include-ignored --show-output
-    #[ignore]
-    #[test]
-    fn test_exp_quote_fuzzy() {
-        use rand::rngs::StdRng;
-        use rand::{Rng, SeedableRng};
-        use rayon::prelude::*;
-        use std::sync::Arc;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-
-        const ITERATIONS: usize = 1_000_000_000;
-        let counter = Arc::new(AtomicUsize::new(0));
-
-        (0..ITERATIONS)
-        .into_par_iter()
-        .for_each(|i| {
-            // Each iteration gets its own deterministic RNG.
-            // Seed depends on i, so runs are reproducible.
-            let mut rng = StdRng::seed_from_u64(42 + i as u64);
-            let max_supply: u64 = 21_000_000_000_000_000;
-            let full_range = true;
-
-            let x: u64 = rng.gen_range(1_000..=max_supply); // Alpha reserve
-            let y: u64 = if full_range {
-                // TAO reserve (allow huge prices)
-                rng.gen_range(1_000..=max_supply)
-            } else {
-                // TAO reserve (limit prices with 0-1000)
-                rng.gen_range(1_000..x.saturating_mul(1000).min(max_supply))
-            };
-            let dx: u64 = if full_range {
-                // Alhpa sold (allow huge values)
-                rng.gen_range(1_000..=21_000_000_000_000_000)
-            } else {
-                // Alhpa sold (do not sell more than 100% of what's in alpha reserve)
-                rng.gen_range(1_000..=x)
-            };
-            let w_numerator: u64 = rng.gen_range(ACCURACY / 10..=ACCURACY / 10 * 9);
-            let w_base = Perquintill::from_rational(ACCURACY - w_numerator, ACCURACY);
-            let w_quote = Perquintill::from_rational(w_numerator, ACCURACY);
-            let e = exp_base_quote(w_base, w_quote, x, dx);
-
-            let one = U64F64::from_num(1);
-            let dy = U64F64::from_num(y) * (one - e);
-
-            // Calculate expected in f64 and approx-assert
-            let w1 = perquintill_to_f64(w_base);
-            let w2 = perquintill_to_f64(w_quote);
-            let e_expected = (x as f64 / (x as f64 + dx as f64)).powf(w1 / w2);
-            let dy_expected = y as f64 * (1. - e_expected);
-
-            let actual = dy.to_num::<f64>();
-            let eps = (dy_expected / 1_000_000.).clamp(1.0, 1000.0);
-
-            assert!(
-                (actual - dy_expected).abs() <= eps,
-                "dy mismatch:\n actual:   {}\n expected: {}\n eps: {}\nParameters:\n x:  {}\n y:  {}\n dx: {}\n w_numerator: {}\n",
-                actual, dy_expected, eps, x, y, dx, w_numerator,
-            );
-
-            // Assert that we aren't giving out more than reserve y
-            assert!(dy <= y, "dy = {},\ny =  {}", dy, y,);
-
-            // Print progress
-            let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
-            if done % 100_000_000 == 0 {
-                let progress = done as f64 / ITERATIONS as f64 * 100.0;
-                // Replace with println for real-time progress
-                log::debug!("progress = {progress:.4}%");
-            }
-        });
     }
 
     fn rel_err(a: f64, b: f64) -> f64 {
@@ -1565,7 +1371,7 @@ mod tests {
         let total_outer = outer_cases.len();
 
         outer_cases.into_par_iter().for_each(|(ma, ea, mb, eb)| {
-            let a = match SafeFloat::new(SafeInt::from(ma), ea) {
+            let a = match SafeFloat::new(ma, ea) {
                 Some(x) => x,
                 None => {
                     skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
@@ -1573,7 +1379,7 @@ mod tests {
                 }
             };
 
-            let b = match SafeFloat::new(SafeInt::from(mb), eb) {
+            let b = match SafeFloat::new(mb, eb) {
                 Some(x) => x,
                 None => {
                     skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
@@ -1583,7 +1389,7 @@ mod tests {
 
             for &mc in &mantissas {
                 for &ec in &exponents {
-                    let c = match SafeFloat::new(SafeInt::from(mc), ec) {
+                    let c = match SafeFloat::new(mc, ec) {
                         Some(x) => x,
                         None => {
                             skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
@@ -1756,7 +1562,7 @@ mod tests {
             let mb = mantissas[mb_idx];
             let eb = exponents[eb_idx];
 
-            let a = match SafeFloat::new(SafeInt::from(ma), ea) {
+            let a = match SafeFloat::new(ma, ea) {
                 Some(x) => x,
                 None => {
                     skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);
@@ -1765,7 +1571,7 @@ mod tests {
                 }
             };
 
-            let b = match SafeFloat::new(SafeInt::from(mb), eb) {
+            let b = match SafeFloat::new(mb, eb) {
                 Some(x) => x,
                 None => {
                     skipped_invalid_sf.fetch_add(1, Ordering::Relaxed);

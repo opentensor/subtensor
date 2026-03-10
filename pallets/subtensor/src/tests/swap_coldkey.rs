@@ -1356,18 +1356,14 @@ fn test_do_swap_coldkey_effect_on_delegations() {
             approx_total_stake,
             epsilon = approx_total_stake / 100.into()
         );
-        let actual_stake_new: u64 =
-            SafeFloat::from(&AlphaV2::<Test>::get((delegate, new_coldkey, netuid))).into();
+        let actual_stake_new: u64 = AlphaV2::<Test>::get((delegate, new_coldkey, netuid)).into();
         assert_eq!(expected_stake, actual_stake_new.into());
-        let actual_stake_old: u64 =
-            SafeFloat::from(&AlphaV2::<Test>::get((delegate, coldkey, netuid))).into();
+        let actual_stake_old: u64 = AlphaV2::<Test>::get((delegate, coldkey, netuid)).into();
         assert_eq!(actual_stake_old, 0u64);
 
-        let actual_stake_new_2: u64 =
-            SafeFloat::from(&AlphaV2::<Test>::get((delegate, new_coldkey, netuid2))).into();
+        let actual_stake_new_2: u64 = AlphaV2::<Test>::get((delegate, new_coldkey, netuid2)).into();
         assert_eq!(expected_stake, actual_stake_new_2.into());
-        let actual_stake_old_2: u64 =
-            SafeFloat::from(&AlphaV2::<Test>::get((delegate, coldkey, netuid2))).into();
+        let actual_stake_old_2: u64 = AlphaV2::<Test>::get((delegate, coldkey, netuid2)).into();
         assert_eq!(actual_stake_old_2, 0u64);
     });
 }

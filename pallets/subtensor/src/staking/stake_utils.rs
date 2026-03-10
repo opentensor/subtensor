@@ -1,6 +1,6 @@
 use super::*;
 use safe_math::*;
-use share_pool::{SafeFloat, SafeFloatSerializable, SharePool, SharePoolDataOperations};
+use share_pool::{SafeFloat, SharePool, SharePoolDataOperations};
 use sp_std::ops::Neg;
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Token};
@@ -1325,8 +1325,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             return SafeFloat::from(share_v1);
         }
 
-        let share_serializable = AlphaV2::<T>::get((&(self.hotkey), key, self.netuid));
-        SafeFloat::from(&share_serializable)
+        AlphaV2::<T>::get((&(self.hotkey), key, self.netuid))
     }
 
     fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<SafeFloat, ()> {
@@ -1336,9 +1335,9 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             return Ok(SafeFloat::from(share_v1));
         }
 
-        let maybe_share_serializable = AlphaV2::<T>::try_get((&(self.hotkey), key, self.netuid));
-        if let Ok(share_serializable) = maybe_share_serializable {
-            Ok(SafeFloat::from(&share_serializable))
+        let maybe_share = AlphaV2::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if let Ok(share) = maybe_share {
+            Ok(share)
         } else {
             Err(())
         }
@@ -1351,8 +1350,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
             return SafeFloat::from(denomnator_v1);
         }
 
-        let denominator_serializable = TotalHotkeySharesV2::<T>::get(&(self.hotkey), self.netuid);
-        SafeFloat::from(&denominator_serializable)
+        TotalHotkeySharesV2::<T>::get(&(self.hotkey), self.netuid)
     }
 
     fn set_shared_value(&mut self, value: u64) {
@@ -1372,8 +1370,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
         }
 
         if !share.is_zero() {
-            let float_serializable = SafeFloatSerializable::from(&share);
-            AlphaV2::<T>::insert((&self.hotkey, key, self.netuid), float_serializable);
+            AlphaV2::<T>::insert((&self.hotkey, key, self.netuid), share);
         } else {
             AlphaV2::<T>::remove((&self.hotkey, key, self.netuid));
         }
@@ -1388,8 +1385,7 @@ impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
         }
 
         if !update.is_zero() {
-            let float_serializable = SafeFloatSerializable::from(&update);
-            TotalHotkeySharesV2::<T>::insert(&self.hotkey, self.netuid, float_serializable);
+            TotalHotkeySharesV2::<T>::insert(&self.hotkey, self.netuid, update);
         } else {
             TotalHotkeySharesV2::<T>::remove(&self.hotkey, self.netuid);
         }

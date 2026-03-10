@@ -9,7 +9,7 @@ use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance, Tok
 
 use super::mock::*;
 use crate::*;
-use share_pool::{SafeFloat, SafeFloatSerializable};
+use share_pool::SafeFloat;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::U64F64;
@@ -966,11 +966,10 @@ fn test_swap_stake_success() {
             TotalHotkeyShares::<Test>::get(new_hotkey, netuid),
             U64F64::from_num(0)
         );
-        assert_eq!(
-            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
-                new_hotkey, netuid
-            ))),
-            shares.to_num::<f64>()
+        assert_abs_diff_eq!(
+            f64::from(TotalHotkeySharesV2::<Test>::get(new_hotkey, netuid)),
+            shares.to_num::<f64>(),
+            epsilon = 0.0000000001
         );
         assert_eq!(
             Alpha::<Test>::get((old_hotkey, coldkey, netuid)),
@@ -981,9 +980,7 @@ fn test_swap_stake_success() {
             U64F64::from_num(0)
         );
         assert_eq!(
-            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
-                new_hotkey, coldkey, netuid
-            )))),
+            f64::from(AlphaV2::<Test>::get((new_hotkey, coldkey, netuid))),
             amount as f64
         );
         assert_eq!(
@@ -1017,14 +1014,10 @@ fn test_swap_stake_v2_success() {
             netuid,
             AlphaBalance::from(amount * 2),
         );
-        TotalHotkeySharesV2::<Test>::insert(
-            old_hotkey,
-            netuid,
-            SafeFloatSerializable::from(&SafeFloat::from(shares)),
-        );
+        TotalHotkeySharesV2::<Test>::insert(old_hotkey, netuid, SafeFloat::from(shares));
         AlphaV2::<Test>::insert(
             (old_hotkey, coldkey, netuid),
-            SafeFloatSerializable::from(&SafeFloat::from(U64F64::from_num(amount))),
+            SafeFloat::from(U64F64::from_num(amount)),
         );
         AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaBalance::from(amount));
 
@@ -1055,27 +1048,20 @@ fn test_swap_stake_v2_success() {
             AlphaBalance::from(amount * 2)
         );
         assert_eq!(
-            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
-                old_hotkey, netuid
-            ))),
+            f64::from(TotalHotkeySharesV2::<Test>::get(old_hotkey, netuid)),
+            0_f64
+        );
+        assert_abs_diff_eq!(
+            f64::from(TotalHotkeySharesV2::<Test>::get(new_hotkey, netuid)),
+            shares.to_num::<f64>(),
+            epsilon = 0.0000000001
+        );
+        assert_eq!(
+            f64::from(AlphaV2::<Test>::get((old_hotkey, coldkey, netuid))),
             0_f64
         );
         assert_eq!(
-            f64::from(SafeFloat::from(&TotalHotkeySharesV2::<Test>::get(
-                new_hotkey, netuid
-            ))),
-            shares.to_num::<f64>()
-        );
-        assert_eq!(
-            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
-                old_hotkey, coldkey, netuid
-            )))),
-            0_f64
-        );
-        assert_eq!(
-            f64::from(SafeFloat::from(&AlphaV2::<Test>::get((
-                new_hotkey, coldkey, netuid
-            )))),
+            f64::from(AlphaV2::<Test>::get((new_hotkey, coldkey, netuid))),
             amount as f64
         );
         assert_eq!(

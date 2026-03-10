@@ -476,11 +476,8 @@ impl<T: Config> Pallet<T> {
             (key, sf)
         });
 
-        // New Alpha shares format: SafeFloatSerializable -> SafeFloat
-        let v2 = AlphaV2::<T>::iter().map(|(key, val_sf_ser)| {
-            let sf: SafeFloat = SafeFloat::from(&val_sf_ser);
-            (key, sf)
-        });
+        // New Alpha shares format
+        let v2 = AlphaV2::<T>::iter();
 
         // Merge and prefer v2 on duplicates
         let merged: BTreeMap<_, SafeFloat> =
@@ -510,11 +507,8 @@ impl<T: Config> Pallet<T> {
             (netuid, sf)
         });
 
-        // New Alpha shares format: SafeFloatSerializable -> SafeFloat
-        let v2 = AlphaV2::<T>::iter_prefix(prefix).map(|(netuid, val_sf_ser)| {
-            let sf: SafeFloat = SafeFloat::from(&val_sf_ser);
-            (netuid, sf)
-        });
+        // New Alpha shares format
+        let v2 = AlphaV2::<T>::iter_prefix(prefix);
 
         // Merge by netuid and sum SafeFloat values
         let merged: BTreeMap<NetUid, SafeFloat> =
@@ -547,11 +541,8 @@ impl<T: Config> Pallet<T> {
                 ((coldkey, netuid), sf)
             });
 
-        // New Alpha shares format: SafeFloatSerializable -> SafeFloat
-        let v2 = AlphaV2::<T>::iter_prefix((prefix,)).map(|((coldkey, netuid), val_sf_ser)| {
-            let sf: SafeFloat = SafeFloat::from(&val_sf_ser);
-            ((coldkey, netuid), sf)
-        });
+        // New Alpha shares format
+        let v2 = AlphaV2::<T>::iter_prefix((prefix,));
 
         let merged: BTreeMap<(T::AccountId, NetUid), SafeFloat> =
             legacy

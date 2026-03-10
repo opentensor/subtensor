@@ -1,6 +1,6 @@
 use super::*;
 use frame_support::weights::Weight;
-use share_pool::{SafeFloat, SafeFloatSerializable};
+use share_pool::SafeFloat;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{MechId, NetUid, Token};
@@ -340,22 +340,18 @@ impl<T: Config> Pallet<T> {
         // Merge v1 and v2 TotalHotkeyShares because TotalHotkeyShares is deprecated
         weight.saturating_accrue(T::DbWeight::get().reads(4));
         let old_share_v1 = SafeFloat::from(TotalHotkeyShares::<T>::take(old_hotkey, netuid));
-        let old_share_v2 = SafeFloat::from(&TotalHotkeySharesV2::<T>::take(old_hotkey, netuid));
+        let old_share_v2 = TotalHotkeySharesV2::<T>::take(old_hotkey, netuid);
         let total_old_shares = old_share_v1.add(&old_share_v2).unwrap_or_default();
 
         let new_share_v1 = SafeFloat::from(TotalHotkeyShares::<T>::take(new_hotkey, netuid));
-        let new_share_v2 = SafeFloat::from(&TotalHotkeySharesV2::<T>::take(new_hotkey, netuid));
+        let new_share_v2 = TotalHotkeySharesV2::<T>::take(new_hotkey, netuid);
         let total_new_shares = new_share_v1.add(&new_share_v2).unwrap_or_default();
 
         TotalHotkeyShares::<T>::remove(old_hotkey, netuid);
         TotalHotkeyShares::<T>::remove(new_hotkey, netuid);
 
         let total_old_plus_new_shares = total_new_shares.add(&total_old_shares).unwrap_or_default();
-        TotalHotkeySharesV2::<T>::insert(
-            new_hotkey,
-            netuid,
-            SafeFloatSerializable::from(&total_old_plus_new_shares),
-        );
+        TotalHotkeySharesV2::<T>::insert(new_hotkey, netuid, total_old_plus_new_shares);
         weight.saturating_accrue(T::DbWeight::get().writes(3));
 
         // 3. Swap all subnet specific info.
@@ -521,7 +517,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
         weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
 
-        let old_alpha_values_v2: Vec<((T::AccountId, NetUid), SafeFloatSerializable)> =
+        let old_alpha_values_v2: Vec<((T::AccountId, NetUid), SafeFloat)> =
             AlphaV2::<T>::iter_prefix((old_hotkey,)).collect();
         weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values_v2.len() as u64));
         weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values_v2.len() as u64));
@@ -543,7 +539,7 @@ impl<T: Config> Pallet<T> {
                 // Insert into AlphaV2 because Alpha is deprecated
                 AlphaV2::<T>::insert(
                     (new_hotkey, &coldkey, netuid),
-                    SafeFloatSerializable::from(&SafeFloat::from(alpha.saturating_add(new_alpha))),
+                    SafeFloat::from(alpha.saturating_add(new_alpha)),
                 );
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
@@ -565,16 +561,11 @@ impl<T: Config> Pallet<T> {
                     netuid, old_hotkey, new_hotkey, &coldkey, &coldkey,
                 );
 
-                let new_alpha_v2 =
-                    SafeFloat::from(&AlphaV2::<T>::take((new_hotkey, &coldkey, netuid)));
+                let new_alpha_v2 = AlphaV2::<T>::take((new_hotkey, &coldkey, netuid));
                 AlphaV2::<T>::remove((old_hotkey, &coldkey, netuid));
                 AlphaV2::<T>::insert(
                     (new_hotkey, &coldkey, netuid),
-                    SafeFloatSerializable::from(
-                        &SafeFloat::from(&alpha)
-                            .add(&new_alpha_v2)
-                            .unwrap_or_default(),
-                    ),
+                    alpha.add(&new_alpha_v2).unwrap_or_default(),
                 );
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 

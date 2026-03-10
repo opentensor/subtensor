@@ -4,7 +4,6 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod genesis {
-    use share_pool::SafeFloat;
     use sp_core::crypto::Pair;
     use sp_core::sr25519::Pair as Sr25519Pair;
 
@@ -95,7 +94,7 @@ mod genesis {
             AlphaV2::<T>::insert(
                 // Lock the initial funds making this key the owner.
                 (hotkey.clone(), hotkey.clone(), netuid),
-                SafeFloatSerializable::from(&SafeFloat::from(1_000_000_000)),
+                SafeFloat::from(1_000_000_000),
             );
             TotalHotkeyAlpha::<T>::insert(
                 hotkey.clone(),
@@ -105,7 +104,7 @@ mod genesis {
             TotalHotkeySharesV2::<T>::insert(
                 hotkey.clone(),
                 netuid,
-                SafeFloatSerializable::from(&SafeFloat::from(1_000_000_000)),
+                SafeFloat::from(1_000_000_000),
             );
             SubnetAlphaOut::<T>::insert(netuid, AlphaBalance::from(1_000_000_000));
             let mut staking_hotkeys = StakingHotkeys::<T>::get(hotkey.clone());
