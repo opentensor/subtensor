@@ -286,8 +286,10 @@ fn test_burn_increases_next_block_after_registration() {
         add_network(netuid, 13, 0);
         mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
-        // Override to make behavior deterministic:
-        BurnHalfLife::<Test>::insert(netuid, 1_000); // no halving during this test
+        // Make behavior deterministic for this test:
+        // - no interval rollover during the test
+        // - x2 bump on the block after registration
+        BurnHalfLife::<Test>::insert(netuid, 1_000);
         BurnIncreaseMult::<Test>::insert(netuid, 2);
         BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
@@ -297,7 +299,7 @@ fn test_burn_increases_next_block_after_registration() {
         let hotkey = U256::from(200);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000);
 
-        // Register in this block. Burn doesn't change until next block.
+        // Register in this block. Burn itself does not change until next block.
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             netuid,
@@ -305,10 +307,12 @@ fn test_burn_increases_next_block_after_registration() {
         ));
         assert_eq!(SubtensorModule::get_burn(netuid), 1_000u64.into());
 
-        // Next block => bump applies from previous block's registration
+        // Next block:
+        // 1) continuous per-block decay floors 1000 -> 999
+        // 2) then previous-block registration bump applies: 999 * 2 = 1998
         step_block(1);
 
-        assert_eq!(SubtensorModule::get_burn(netuid), 2_000u64.into());
+        assert_eq!(SubtensorModule::get_burn(netuid), 1_998u64.into());
     });
 }
 
@@ -323,13 +327,13 @@ fn test_burn_halves_every_half_life() {
         BurnIncreaseMult::<Test>::insert(netuid, 1);
         BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
-        SubtensorModule::set_burn(netuid, 1024u64.into());
+        SubtensorModule::set_burn(netuid, 1_024u64.into());
 
         step_block(2);
-        assert_eq!(SubtensorModule::get_burn(netuid), 512u64.into());
+        assert_eq!(SubtensorModule::get_burn(netuid), 511u64.into());
 
         step_block(2);
-        assert_eq!(SubtensorModule::get_burn(netuid), 256u64.into());
+        assert_eq!(SubtensorModule::get_burn(netuid), 255u64.into());
     });
 }
 
