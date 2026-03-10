@@ -8,7 +8,7 @@ import { log } from "./logger.js";
 export async function addNewSubnetwork(
   api: TypedApi<typeof subtensor>,
   hotkey: KeyPair,
-  coldkey: KeyPair
+  coldkey: KeyPair,
 ): Promise<number> {
   const alice = getAliceSigner();
   const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue();
@@ -34,7 +34,7 @@ export async function burnedRegister(
   api: TypedApi<typeof subtensor>,
   netuid: number,
   hotkeyAddress: string,
-  coldkey: KeyPair
+  coldkey: KeyPair,
 ): Promise<void> {
   const registered = await api.query.SubtensorModule.Uids.getValue(netuid, hotkeyAddress);
   if (registered !== undefined) {
@@ -51,9 +51,11 @@ export async function burnedRegister(
 export async function startCall(
   api: TypedApi<typeof subtensor>,
   netuid: number,
-  coldkey: KeyPair
+  coldkey: KeyPair,
 ): Promise<void> {
-  const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid));
+  const registerBlock = Number(
+    await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid),
+  );
   let currentBlock = await api.query.System.Number.getValue();
   const duration = Number(await api.constants.SubtensorModule.InitialStartCallDelay);
 
