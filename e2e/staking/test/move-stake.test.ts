@@ -47,7 +47,9 @@ describe("▶ move_stake extrinsic", () => {
     const destStakeBefore = await getStake(api, destinationHotkeyAddress, coldkeyAddress, netuid2);
     expect(originStakeBefore, "Origin hotkey should have stake before move").toBeGreaterThan(0n);
 
-    log.info(`Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`);
+    log.info(
+      `Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`,
+    );
 
     // Move stake to destination hotkey on different subnet
     // Use raw U64F64 value for the extrinsic

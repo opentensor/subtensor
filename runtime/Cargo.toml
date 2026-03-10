@@ -59,7 +59,7 @@ sp-version.workspace = true
 sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
-sp-debug-derive = { workspace = true, features = [] }
+sp-weights.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -279,7 +279,7 @@ std = [
 	"ethereum/std",
 	"pallet-shield/std",
 	"stp-shield/std",
-	"sp-debug-derive/std",
+	"sp-weights/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

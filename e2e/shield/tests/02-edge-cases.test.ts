@@ -4,12 +4,7 @@ import type { PolkadotClient, TypedApi } from "polkadot-api";
 import { hexToU8a } from "@polkadot/util";
 import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 import type { NetworkState } from "../setup.js";
-import {
-  connectClient,
-  createSigner,
-  getAccountNonce,
-  getBalance,
-} from "e2e-shared/client.js";
+import { connectClient, createSigner, getAccountNonce, getBalance } from "e2e-shared/client.js";
 import { getNextKey, submitEncrypted } from "../helpers.js";
 
 let client: PolkadotClient;
@@ -20,7 +15,7 @@ const alice = createSigner("//Alice");
 const bob = createSigner("//Bob");
 
 beforeAll(async () => {
-  const data = await readFile("/tmp/subtensor-e2e/shield/nodes.json", "utf-8");
+  const data = await readFile("/tmp/subtensor-e2e/shield-tests/nodes.json", "utf-8");
   state = JSON.parse(data);
   ({ client, api } = await connectClient(state.nodes[0].rpcPort));
 });

@@ -68,5 +68,8 @@ export const submitEncryptedRaw = async (
   const tx = api.tx.MevShield.submit_encrypted({
     ciphertext: Binary.fromBytes(ciphertext),
   });
-  return tx.signAndSubmit(signer, nonce !== undefined ? { nonce } : {});
+  return tx.signAndSubmit(signer, {
+    ...(nonce !== undefined ? { nonce } : {}),
+    mortality: { mortal: true, period: 8 },
+  });
 };

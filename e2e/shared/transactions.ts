@@ -9,7 +9,7 @@ export async function waitForTransactionWithRetry(
   tx: Transaction<{}, string, string, void>,
   signer: PolkadotSigner,
   label: string,
-  maxRetries = 1
+  maxRetries = 1,
 ): Promise<void> {
   let success = false;
   let retries = 0;
@@ -34,7 +34,7 @@ export async function waitForTransactionWithRetry(
 async function waitForTransactionCompletion(
   tx: Transaction<{}, string, string, void>,
   signer: PolkadotSigner,
-  label: string
+  label: string,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let txHash = "";

@@ -1,6 +1,7 @@
 import { rm, mkdir } from "node:fs/promises";
 import {
   generateChainSpec,
+  insertKeys,
   startNode,
   started,
   peerCount,
@@ -22,12 +23,21 @@ const BINARY_PATH = process.env.BINARY_PATH || "../../target/release/node-subten
 
 const nodes: Node[] = [];
 
-// Use built-in validators "one" and "two" - they have auto-injected keys
-type NodeConfig = Omit<NodeOptions, "binaryPath" | "chainSpec">;
+type NodeConfig = Omit<NodeOptions, "binaryPath" | "chainSpec"> & {
+  keySeed?: string;
+};
 
 const NODE_CONFIGS: NodeConfig[] = [
   { name: "one", port: 30433, rpcPort: 9944, basePath: `${BASE_DIR}/one`, validator: true },
   { name: "two", port: 30434, rpcPort: 9945, basePath: `${BASE_DIR}/two`, validator: true },
+  {
+    name: "three",
+    port: 30435,
+    rpcPort: 9946,
+    basePath: `${BASE_DIR}/three`,
+    validator: true,
+    keySeed: "//Three",
+  },
 ];
 
 async function startNetwork() {
@@ -36,12 +46,19 @@ async function startNetwork() {
 
   await mkdir(BASE_DIR, { recursive: true });
 
-  // Generate local chain spec (built-in has One and Two as authorities)
+  // Generate local chain spec (built-in has One, Two and Three as authorities)
   await generateChainSpec(BINARY_PATH, CHAIN_SPEC_PATH);
 
   // Clean up old base paths
   for (const config of NODE_CONFIGS) {
     await rm(config.basePath, { recursive: true, force: true });
+  }
+
+  // Insert keys for authority nodes that don't have built-in substrate shortcuts.
+  for (const config of NODE_CONFIGS) {
+    if (config.keySeed) {
+      insertKeys(BINARY_PATH, config.basePath, CHAIN_SPEC_PATH, config.keySeed);
+    }
   }
 
   // Start all validator nodes

@@ -10,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use core::num::NonZeroU64;
 
+pub mod check_mortality;
 pub mod check_nonce;
 mod migrations;
 pub mod sudo_wrapper;
@@ -136,12 +137,12 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
         authorities.get(author_index as usize).cloned()
     }
 
-    fn find_next_author() -> Option<AuraId> {
-        let next_slot = Aura::current_slot_from_digests()?.checked_add(1)?;
+    fn find_next_next_author() -> Option<AuraId> {
+        let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
         let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
-        let next_author_index = next_slot % authorities.len() as u64;
+        let author_index = slot % authorities.len() as u64;
 
-        authorities.get(next_author_index as usize).cloned()
+        authorities.get(author_index as usize).cloned()
     }
 }
 
@@ -193,7 +194,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 frame_system::CheckSpecVersion::<Runtime>::new(),
                 frame_system::CheckTxVersion::<Runtime>::new(),
                 frame_system::CheckGenesis::<Runtime>::new(),
-                frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+                check_mortality::CheckMortality::<Runtime>::from(Era::Immortal),
                 check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
                 frame_system::CheckWeight::<Runtime>::new(),
             ),
@@ -1670,7 +1671,7 @@ pub type SystemTxExtension = (
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
-    frame_system::CheckEra<Runtime>,
+    check_mortality::CheckMortality<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
 );
@@ -2649,6 +2650,10 @@ impl_runtime_apis! {
     impl stp_shield::ShieldApi<Block> for Runtime {
         fn try_decode_shielded_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
             MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
+        }
+
+        fn is_shielded_using_current_key(key_hash: &[u8; 16]) -> bool {
+            MevShield::is_shielded_using_current_key(key_hash)
         }
 
         fn try_unshield_tx(dec_key_bytes: Vec<u8>, shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {

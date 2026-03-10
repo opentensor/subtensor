@@ -49,13 +49,23 @@ describe("▶ transfer_stake extrinsic", () => {
     const destStakeBefore = await getStake(api, hotkey1Address, destinationColdkeyAddress, netuid2);
     expect(originStakeBefore, "Origin should have stake before transfer").toBeGreaterThan(0n);
 
-    log.info(`Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`);
+    log.info(
+      `Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`,
+    );
 
     // Transfer stake to destination coldkey on a different subnet
     // Use raw U64F64 value for the extrinsic
     const originStakeRaw = await getStakeRaw(api, hotkey1Address, originColdkeyAddress, netuid1);
     const transferAmount = originStakeRaw / 2n;
-    await transferStake(api, originColdkey, destinationColdkeyAddress, hotkey1Address, netuid1, netuid2, transferAmount);
+    await transferStake(
+      api,
+      originColdkey,
+      destinationColdkeyAddress,
+      hotkey1Address,
+      netuid1,
+      netuid2,
+      transferAmount,
+    );
 
     // Verify stakes changed
     const originStakeAfter = await getStake(api, hotkey1Address, originColdkeyAddress, netuid1);
