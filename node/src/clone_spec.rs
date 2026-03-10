@@ -11,12 +11,14 @@ use jsonrpsee::{
     rpc_params,
 };
 use serde_json::{Value, json};
+use sp_runtime::codec::Encode;
 
 use crate::cli::{CloneHistoryBackfill, CloneStateCmd};
 
 type CloneResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 const RPC_POLL_INTERVAL: Duration = Duration::from_secs(2);
+const GRANDPA_AUTHORITIES_WELL_KNOWN_KEY: &[u8] = b":grandpa_authorities";
 
 #[derive(Clone, Copy)]
 struct Validator {
@@ -358,26 +360,20 @@ fn patch_raw_spec(spec: &mut Value, validators: &[Validator]) -> CloneResult<()>
         .and_then(Value::as_object_mut)
         .ok_or_else(|| "missing or invalid genesis.raw.top".to_string())?;
 
-    let aura_keys: Vec<Vec<u8>> = validators
+    let aura_keys: Vec<[u8; 32]> = validators
         .iter()
-        .map(|v| hex::decode(v.sr25519_hex))
-        .collect::<Result<_, _>>()?;
-    let aura_refs: Vec<&[u8]> = aura_keys.iter().map(Vec::as_slice).collect();
+        .map(|v| decode_hex_32(v.sr25519_hex))
+        .collect::<CloneResult<_>>()?;
     top.insert(
         storage_key("Aura", "Authorities"),
-        Value::String(to_hex(&encode_vec(&aura_refs))),
+        Value::String(to_hex(&aura_keys.encode())),
     );
 
-    let grandpa_entries: Vec<Vec<u8>> = validators
+    let grandpa_entries: Vec<([u8; 32], u64)> = validators
         .iter()
-        .map(|v| {
-            let mut entry = hex::decode(v.ed25519_hex)?;
-            entry.extend_from_slice(&1u64.to_le_bytes());
-            Ok::<_, hex::FromHexError>(entry)
-        })
-        .collect::<Result<_, _>>()?;
-    let grandpa_refs: Vec<&[u8]> = grandpa_entries.iter().map(Vec::as_slice).collect();
-    let grandpa_encoded = encode_vec(&grandpa_refs);
+        .map(|v| Ok((decode_hex_32(v.ed25519_hex)?, 1u64)))
+        .collect::<CloneResult<_>>()?;
+    let grandpa_encoded = grandpa_entries.encode();
 
     top.insert(
         storage_key("Grandpa", "Authorities"),
@@ -387,7 +383,7 @@ fn patch_raw_spec(spec: &mut Value, validators: &[Validator]) -> CloneResult<()>
     let mut well_known = vec![0x01u8];
     well_known.extend_from_slice(&grandpa_encoded);
     top.insert(
-        "0x3a6772616e6470615f617574686f726974696573".into(),
+        to_hex(GRANDPA_AUTHORITIES_WELL_KNOWN_KEY),
         Value::String(to_hex(&well_known)),
     );
 
@@ -435,10 +431,8 @@ fn clear_top_level(spec: &mut Value) {
 }
 
 fn storage_key(pallet: &str, item: &str) -> String {
-    let mut key = Vec::with_capacity(32);
-    key.extend_from_slice(&sp_io::hashing::twox_128(pallet.as_bytes()));
-    key.extend_from_slice(&sp_io::hashing::twox_128(item.as_bytes()));
-    format!("0x{}", hex::encode(key))
+    let key = frame_support::storage::storage_prefix(pallet.as_bytes(), item.as_bytes());
+    to_hex(&key)
 }
 
 fn storage_prefix(pallet: &str) -> String {
@@ -448,26 +442,159 @@ fn storage_prefix(pallet: &str) -> String {
     )
 }
 
-fn compact_encode(n: u32) -> Vec<u8> {
-    if n <= 63 {
-        vec![(n as u8) << 2]
-    } else if n <= 16_383 {
-        let v = (n << 2) | 1;
-        vec![v as u8, (v >> 8) as u8]
-    } else {
-        let v = (n << 2) | 2;
-        vec![v as u8, (v >> 8) as u8, (v >> 16) as u8, (v >> 24) as u8]
-    }
-}
-
-fn encode_vec(items: &[&[u8]]) -> Vec<u8> {
-    let mut out = compact_encode(items.len() as u32);
-    for item in items {
-        out.extend_from_slice(item);
-    }
-    out
-}
-
 fn to_hex(data: &[u8]) -> String {
     format!("0x{}", hex::encode(data))
+}
+
+fn decode_hex_32(value: &str) -> CloneResult<[u8; 32]> {
+    let bytes = hex::decode(value)?;
+    let len = bytes.len();
+    let bytes: [u8; 32] = bytes.try_into().map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("expected 32-byte hex value, got {len} bytes"),
+        )
+    })?;
+    Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::{CloneDatabase, CloneHistoryBackfill, CloneSyncMode};
+
+    fn target_artifact_path(name: &str) -> PathBuf {
+        let target_dir = std::env::var_os("CARGO_TARGET_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("target"));
+        target_dir.join("clone-spec-tests").join(name)
+    }
+
+    fn default_cmd() -> CloneStateCmd {
+        CloneStateCmd {
+            chain: "finney".to_string(),
+            base_path: target_artifact_path("base"),
+            output: target_artifact_path("out.json"),
+            sync: CloneSyncMode::Warp,
+            database: CloneDatabase::ParityDb,
+            history_backfill: CloneHistoryBackfill::Skip,
+            rpc_port: 9966,
+            port: 30466,
+            sync_timeout_sec: 10,
+            sync_lag_blocks: 8,
+            bootnodes: Vec::new(),
+            alice: false,
+            bob: false,
+            charlie: false,
+        }
+    }
+
+    fn make_minimal_spec() -> Value {
+        let mut top = serde_json::Map::new();
+        top.insert(storage_key("Grandpa", "PendingChange"), json!("0x01"));
+        top.insert(storage_key("Grandpa", "NextForced"), json!("0x02"));
+        top.insert(storage_key("Grandpa", "Stalled"), json!("0x03"));
+        top.insert(
+            format!("{}{}", storage_key("Grandpa", "SetIdSession"), "deadbeef"),
+            json!("0x04"),
+        );
+        top.insert(format!("{}abcd", storage_prefix("Session")), json!("0x05"));
+        top.insert(storage_key("Balances", "TotalIssuance"), json!("0x06"));
+
+        json!({
+            "genesis": { "raw": { "top": top } },
+            "bootNodes": ["/dns4/example.com/tcp/30333/p2p/12D3KooW..."],
+            "codeSubstitutes": { "0x01": "0x02" },
+            "chainType": "Live"
+        })
+    }
+
+    #[test]
+    fn selected_validators_defaults_to_alice() {
+        let cmd = default_cmd();
+        let selected = selected_validators(&cmd);
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].name, "alice");
+    }
+
+    #[test]
+    fn selected_validators_respects_explicit_flags() {
+        let mut cmd = default_cmd();
+        cmd.bob = true;
+        cmd.charlie = true;
+
+        let selected = selected_validators(&cmd);
+        let names = selected.into_iter().map(|v| v.name).collect::<Vec<_>>();
+        assert_eq!(names, vec!["bob", "charlie"]);
+    }
+
+    #[test]
+    fn parse_u64_field_supports_u64_decimal_and_hex_string() {
+        let value = json!({
+            "a": 42,
+            "b": "123",
+            "c": "0x2a"
+        });
+
+        assert_eq!(parse_u64_field(&value, "a"), Some(42));
+        assert_eq!(parse_u64_field(&value, "b"), Some(123));
+        assert_eq!(parse_u64_field(&value, "c"), Some(42));
+        assert_eq!(parse_u64_field(&value, "missing"), None);
+    }
+
+    #[test]
+    fn patch_raw_spec_updates_authorities_sudo_and_top_level() {
+        let mut spec = make_minimal_spec();
+        let validators = vec![VALIDATORS[0], VALIDATORS[1]];
+        patch_raw_spec(&mut spec, &validators).expect("patch should succeed");
+
+        let top = spec
+            .pointer("/genesis/raw/top")
+            .and_then(Value::as_object)
+            .expect("top should be object");
+
+        let aura_hex = top
+            .get(&storage_key("Aura", "Authorities"))
+            .and_then(Value::as_str)
+            .expect("aura authorities key should exist");
+        let aura_raw = hex::decode(aura_hex.trim_start_matches("0x")).expect("hex decode aura");
+        let expected_aura = vec![
+            decode_hex_32(VALIDATORS[0].sr25519_hex).expect("decode"),
+            decode_hex_32(VALIDATORS[1].sr25519_hex).expect("decode"),
+        ]
+        .encode();
+        assert_eq!(aura_raw, expected_aura);
+
+        let sudo_hex = top
+            .get(&storage_key("Sudo", "Key"))
+            .and_then(Value::as_str)
+            .expect("sudo key should exist");
+        assert_eq!(
+            sudo_hex,
+            to_hex(&hex::decode(VALIDATORS[0].sr25519_hex).expect("decode")).as_str()
+        );
+
+        assert!(!top.contains_key(&storage_key("Grandpa", "PendingChange")));
+        assert!(!top.contains_key(&storage_key("Grandpa", "NextForced")));
+        assert!(!top.contains_key(&storage_key("Grandpa", "Stalled")));
+        assert!(
+            top.keys()
+                .all(|k| !k.starts_with(&storage_prefix("Session")))
+        );
+
+        assert_eq!(spec.get("chainType"), Some(&json!("Local")));
+        assert_eq!(spec.get("bootNodes"), Some(&json!([])));
+        assert_eq!(spec.get("codeSubstitutes"), Some(&json!({})));
+    }
+
+    #[test]
+    fn patch_raw_spec_fails_when_top_missing() {
+        let mut spec = json!({});
+        let err = patch_raw_spec(&mut spec, &[VALIDATORS[0]]).expect_err("must fail");
+        assert!(
+            err.to_string()
+                .contains("missing or invalid genesis.raw.top"),
+            "unexpected error: {err}"
+        );
+    }
 }
