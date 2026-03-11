@@ -14,10 +14,10 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ swap_stake extrinsic", () => {
   it("should swap stake from one subnet to another", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     const hotkey1 = getRandomSubstrateKeypair();

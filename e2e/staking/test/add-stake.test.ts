@@ -20,7 +20,7 @@ describe("▶ add_stake extrinsic", () => {
   let netuid: number;
 
   beforeAll(async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
     netuid = await addNewSubnetwork(api, hotkey, coldkey);
@@ -28,7 +28,7 @@ describe("▶ add_stake extrinsic", () => {
   });
 
   it("should add stake to a hotkey", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Get initial stake
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);

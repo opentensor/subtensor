@@ -41,9 +41,10 @@ const NODE_CONFIGS: NodeConfig[] = [
   },
 ];
 
+export const DEFAULT_RPC_URL = "ws://localhost:" + (STAKING_START_RPC_PORT + 1);
 async function startNetwork() {
   nodeLog(`Setting up ${NODE_CONFIGS.length}-node network for staking E2E tests`);
-  nodeLog(`Binary path: ${BINARY_PATH}`);
+  nodeLog(`Binary path: ${BINARY_PATH} `);
 
   await mkdir(BASE_DIR, { recursive: true });
 
@@ -91,7 +92,7 @@ async function stopNetwork() {
     try {
       await stop(node);
     } catch (e) {
-      nodeLog(`Warning: failed to stop ${node.name}: ${e}`);
+      nodeLog(`Warning: failed to stop ${node.name}: ${e} `);
     }
   }
 
@@ -102,12 +103,11 @@ async function stopNetwork() {
 }
 
 export async function setup() {
-  console.log("================== NODE_CONFIGS[0].rpcPort", NODE_CONFIGS[0].rpcPort);
   // Start the network
   await startNetwork();
 
   // Connect to the network and configure for tests
-  const api = await getDevnetApi("ws://localhost:" + NODE_CONFIGS[0].rpcPort);
+  const api = await getDevnetApi(DEFAULT_RPC_URL);
   log.info("Setup: set lock reduction interval to 1 for instant lock cost decay");
 
   // Set lock reduction interval to 1 block to make network registration lock cost decay instantly.
