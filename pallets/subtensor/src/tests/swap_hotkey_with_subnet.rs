@@ -1785,8 +1785,8 @@ fn test_hotkey_swap_keep_stake() {
             "old_hotkey should NOT be registered on netuid after swap"
         );
 
-        let root_total_alpha = TotalHotkeyAlpha::<Test>::get(&old_hotkey, netuid);
-        let child_total_alpha = TotalHotkeyAlpha::<Test>::get(&new_hotkey, netuid);
+        let root_total_alpha = TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid);
+        let child_total_alpha = TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid);
         assert!(
             root_total_alpha > 0.into(),
             "old_hotkey should retain TotalHotkeyAlpha"
@@ -1797,8 +1797,8 @@ fn test_hotkey_swap_keep_stake() {
             "new_hotkey should have zero TotalHotkeyAlpha"
         );
 
-        let root_voting_power = VotingPower::<Test>::get(netuid, &old_hotkey);
-        let child_voting_power = VotingPower::<Test>::get(netuid, &new_hotkey);
+        let root_voting_power = VotingPower::<Test>::get(netuid, old_hotkey);
+        let child_voting_power = VotingPower::<Test>::get(netuid, new_hotkey);
         assert!(
             root_voting_power > 0,
             "old_hotkey should retain VotingPower"
