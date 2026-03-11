@@ -997,6 +997,7 @@ fn test_swap_stake_v2_success() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify the swap

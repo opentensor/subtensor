@@ -1055,7 +1055,8 @@ fn test_swap_stake_v2_success() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            Some(netuid)
+            Some(netuid),
+            false,
         ),);
 
         // Verify the swap
@@ -2296,16 +2297,18 @@ fn test_revert_hotkey_swap_dividends() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(hk2, netuid),
-            U64F64::from_num(shares)
+            U64F64::from_num(0)
         );
+        assert_eq!(TotalHotkeySharesV2::<Test>::get(hk2, netuid), shares.into());
         assert_eq!(
             Alpha::<Test>::get((hk1, coldkey, netuid)),
             U64F64::from_num(0)
         );
         assert_eq!(
             Alpha::<Test>::get((hk2, coldkey, netuid)),
-            U64F64::from_num(amount)
+            U64F64::from_num(0)
         );
+        assert_eq!(AlphaV2::<Test>::get((hk2, coldkey, netuid)), amount.into());
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, hk1),
             AlphaBalance::ZERO
@@ -2352,8 +2355,13 @@ fn test_revert_hotkey_swap_dividends() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(hk1, netuid),
-            U64F64::from_num(shares),
-            "hk1 TotalHotkeyShares must be restored after revert"
+            U64F64::from_num(0),
+            "hk1 TotalHotkeyShares must be migrated to v2"
+        );
+        assert_eq!(
+            TotalHotkeySharesV2::<Test>::get(hk1, netuid),
+            shares.into(),
+            "hk1 TotalHotkeyShares must be restored to v2 after revert"
         );
         assert_eq!(
             Alpha::<Test>::get((hk2, coldkey, netuid)),
@@ -2362,8 +2370,13 @@ fn test_revert_hotkey_swap_dividends() {
         );
         assert_eq!(
             Alpha::<Test>::get((hk1, coldkey, netuid)),
-            U64F64::from_num(amount),
-            "hk1 Alpha must be restored after revert"
+            U64F64::from_num(0),
+            "hk1 Alpha must be migrated to v2"
+        );
+        assert_eq!(
+            AlphaV2::<Test>::get((hk1, coldkey, netuid)),
+            amount.into(),
+            "hk1 Alpha must be restored to v2 after revert"
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, hk2),
