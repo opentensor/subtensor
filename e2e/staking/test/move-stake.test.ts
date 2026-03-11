@@ -14,10 +14,10 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ move_stake extrinsic", () => {
   it("should move stake to another hotkey across subnets", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     const originHotkey = getRandomSubstrateKeypair();
@@ -70,7 +70,7 @@ describe("▶ move_stake extrinsic", () => {
   });
 
   it("should move stake to another hotkey on the same subnet", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     const originHotkey = getRandomSubstrateKeypair();

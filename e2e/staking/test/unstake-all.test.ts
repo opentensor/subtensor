@@ -15,10 +15,10 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ unstake_all extrinsic", () => {
   it("should unstake all from a hotkey across all subnets", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     // - owner1Hotkey/coldkey: owns subnet 1

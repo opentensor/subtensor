@@ -14,10 +14,10 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ unstake_all_alpha extrinsic", () => {
   it("should unstake all alpha from multiple subnets and restake to root", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     // - owner1/coldkey: owns subnet 1

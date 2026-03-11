@@ -14,10 +14,10 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ swap_stake_limit extrinsic", () => {
   it("should swap stake with price limit (allow partial)", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     const hotkey1 = getRandomSubstrateKeypair();
@@ -72,7 +72,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
   });
 
   it("should swap stake with price limit (fill or kill)", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     const hotkey1 = getRandomSubstrateKeypair();

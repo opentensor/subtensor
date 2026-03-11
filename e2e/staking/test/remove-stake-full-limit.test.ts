@@ -15,7 +15,7 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ remove_stake_full_limit extrinsic", () => {
   // Separate owner and staker hotkeys to avoid minimum owner stake retention
   const ownerHotkey = getRandomSubstrateKeypair();
@@ -27,7 +27,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
   let netuid: number;
 
   beforeAll(async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
     await forceSetBalance(api, ownerAddress);
     await forceSetBalance(api, stakerAddress);
     await forceSetBalance(api, coldkeyAddress);
@@ -40,7 +40,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
   });
 
   it("should remove all stake with price limit", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Add stake first
     await addStake(api, coldkey, stakerAddress, netuid, tao(100));
@@ -68,7 +68,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
   });
 
   it("should remove all stake without price limit", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Add stake first
     await addStake(api, coldkey, stakerAddress, netuid, tao(100));

@@ -33,10 +33,10 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ set_root_claim_type extrinsic", () => {
   it("should set root claim type to Keep", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     const coldkey = getRandomSubstrateKeypair();
     const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
@@ -60,7 +60,7 @@ describe("▶ set_root_claim_type extrinsic", () => {
   });
 
   it("should set root claim type to Swap", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     const coldkey = getRandomSubstrateKeypair();
     const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
@@ -86,7 +86,7 @@ describe("▶ set_root_claim_type extrinsic", () => {
   });
 
   it("should set root claim type to KeepSubnets", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     const coldkey = getRandomSubstrateKeypair();
     const coldkeyAddress = convertPublicKeyToSs58(coldkey.publicKey);
@@ -115,7 +115,7 @@ describe("▶ set_root_claim_type extrinsic", () => {
 
 describe("▶ sudo_set_num_root_claims extrinsic", () => {
   it("should set num root claims", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Get initial value
     const numClaimsBefore = await getNumRootClaims(api);
@@ -137,7 +137,7 @@ describe("▶ sudo_set_num_root_claims extrinsic", () => {
 
 describe("▶ sudo_set_root_claim_threshold extrinsic", () => {
   it("should set root claim threshold for subnet", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Create a subnet to test with
     const hotkey = getRandomSubstrateKeypair();
@@ -177,7 +177,7 @@ const ROOT_NETUID = 0;
 
 describe("▶ claim_root extrinsic", () => {
   it("should claim root dividends with Keep type (stake to dynamic subnet)", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     // - owner1Hotkey/owner1Coldkey: subnet 1 owner
@@ -335,7 +335,7 @@ describe("▶ claim_root extrinsic", () => {
   });
 
   it("should claim root dividends with Swap type (swap to TAO on ROOT)", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     // - owner1Hotkey/owner1Coldkey: subnet 1 owner
@@ -451,7 +451,7 @@ describe("▶ claim_root extrinsic", () => {
   });
 
   it("should handle claim_root when no dividends are available", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Setup accounts
     const coldkey = getRandomSubstrateKeypair();

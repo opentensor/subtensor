@@ -14,7 +14,7 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ remove_stake extrinsic", () => {
   const hotkey = getRandomSubstrateKeypair();
   const coldkey = getRandomSubstrateKeypair();
@@ -23,7 +23,7 @@ describe("▶ remove_stake extrinsic", () => {
   let netuid: number;
 
   beforeAll(async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
     netuid = await addNewSubnetwork(api, hotkey, coldkey);
@@ -31,7 +31,7 @@ describe("▶ remove_stake extrinsic", () => {
   });
 
   it("should remove stake from a hotkey", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Add stake first
     await addStake(api, coldkey, hotkeyAddress, netuid, tao(200));

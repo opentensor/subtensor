@@ -15,6 +15,7 @@ import {
   type Node,
   type NodeOptions,
 } from "e2e-shared";
+import { STAKING_START_PORT, STAKING_START_RPC_PORT } from "e2e-shared/node.js";
 
 const CHAIN_SPEC_PATH = "/tmp/subtensor-e2e/staking-tests/chain-spec.json";
 const BASE_DIR = "/tmp/subtensor-e2e/staking-tests";
@@ -28,21 +29,22 @@ type NodeConfig = Omit<NodeOptions, "binaryPath" | "chainSpec"> & {
 };
 
 const NODE_CONFIGS: NodeConfig[] = [
-  { name: "one", port: 30433, rpcPort: 9944, basePath: `${BASE_DIR}/one`, validator: true },
-  { name: "two", port: 30434, rpcPort: 9945, basePath: `${BASE_DIR}/two`, validator: true },
+  { name: "one", port: STAKING_START_PORT + 1, rpcPort: STAKING_START_RPC_PORT + 1, basePath: `${BASE_DIR}/one`, validator: true },
+  { name: "two", port: STAKING_START_PORT + 2, rpcPort: STAKING_START_RPC_PORT + 2, basePath: `${BASE_DIR}/two`, validator: true },
   {
     name: "three",
-    port: 30435,
-    rpcPort: 9946,
+    port: STAKING_START_PORT + 3,
+    rpcPort: STAKING_START_RPC_PORT + 3,
     basePath: `${BASE_DIR}/three`,
     validator: true,
     keySeed: "//Three",
   },
 ];
 
+export const DEFAULT_RPC_URL = "ws://localhost:" + (STAKING_START_RPC_PORT + 1);
 async function startNetwork() {
   nodeLog(`Setting up ${NODE_CONFIGS.length}-node network for staking E2E tests`);
-  nodeLog(`Binary path: ${BINARY_PATH}`);
+  nodeLog(`Binary path: ${BINARY_PATH} `);
 
   await mkdir(BASE_DIR, { recursive: true });
 
@@ -90,7 +92,7 @@ async function stopNetwork() {
     try {
       await stop(node);
     } catch (e) {
-      nodeLog(`Warning: failed to stop ${node.name}: ${e}`);
+      nodeLog(`Warning: failed to stop ${node.name}: ${e} `);
     }
   }
 
@@ -105,7 +107,7 @@ export async function setup() {
   await startNetwork();
 
   // Connect to the network and configure for tests
-  const api = await getDevnetApi();
+  const api = await getDevnetApi(DEFAULT_RPC_URL);
   log.info("Setup: set lock reduction interval to 1 for instant lock cost decay");
 
   // Set lock reduction interval to 1 block to make network registration lock cost decay instantly.

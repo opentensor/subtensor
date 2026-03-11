@@ -9,6 +9,8 @@ import {
   log,
   type Node,
   type NodeOptions,
+  SHIELD_START_PORT,
+  SHIELD_START_RPC_PORT,
 } from "e2e-shared/node.js";
 
 const BASE_DIR = "/tmp/subtensor-e2e/shield-tests";
@@ -36,12 +38,12 @@ type NodeConfig = Omit<NodeOptions, "binaryPath" | "chainSpec"> & {
 };
 
 const NODE_CONFIGS: NodeConfig[] = [
-  { name: "one", port: 30333, rpcPort: 9944, basePath: `${BASE_DIR}/one`, validator: true },
-  { name: "two", port: 30334, rpcPort: 9945, basePath: `${BASE_DIR}/two`, validator: true },
+  { name: "one", port: SHIELD_START_PORT + 1, rpcPort: SHIELD_START_RPC_PORT + 1, basePath: `${BASE_DIR}/one`, validator: true },
+  { name: "two", port: SHIELD_START_PORT + 2, rpcPort: SHIELD_START_RPC_PORT + 2, basePath: `${BASE_DIR}/two`, validator: true },
   {
     name: "three",
-    port: 30335,
-    rpcPort: 9946,
+    port: SHIELD_START_PORT + 3,
+    rpcPort: SHIELD_START_RPC_PORT + 3,
     basePath: `${BASE_DIR}/three`,
     validator: true,
     keySeed: "//Three",
@@ -109,7 +111,7 @@ export async function teardown() {
   try {
     const data = await readFile(STATE_FILE, "utf-8");
     state = JSON.parse(data);
-  } catch {}
+  } catch { }
 
   // Stop nodes we have handles to (from globalSetup).
   for (const node of nodes) {

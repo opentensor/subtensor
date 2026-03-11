@@ -11,6 +11,7 @@ import {
   tao,
   log,
 } from "e2e-shared";
+import { DEFAULT_RPC_URL } from "../setup.js";
 
 describe("▶ add_stake_limit extrinsic", () => {
   const hotkey = getRandomSubstrateKeypair();
@@ -20,7 +21,7 @@ describe("▶ add_stake_limit extrinsic", () => {
   let netuid: number;
 
   beforeAll(async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
     netuid = await addNewSubnetwork(api, hotkey, coldkey);
@@ -28,7 +29,7 @@ describe("▶ add_stake_limit extrinsic", () => {
   });
 
   it("should add stake with price limit (allow partial)", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Get initial stake
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
@@ -46,7 +47,7 @@ describe("▶ add_stake_limit extrinsic", () => {
   });
 
   it("should add stake with price limit (fill or kill)", async () => {
-    const api = await getDevnetApi();
+    const api = await getDevnetApi(DEFAULT_RPC_URL);
 
     // Get initial stake
     const stakeBefore = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
