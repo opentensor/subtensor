@@ -461,12 +461,10 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
 
-        if !keep_stake {
-            // 4. Swap ChildKeys.
-            // 5. Swap ParentKeys.
-            // 6. Swap PendingChildKeys.
-            Self::parent_child_swap_hotkey(old_hotkey, new_hotkey, netuid, weight)?;
-        }
+        // 4. Swap ChildKeys.
+        // 5. Swap ParentKeys.
+        // 6. Swap PendingChildKeys.
+        Self::parent_child_swap_hotkey(old_hotkey, new_hotkey, netuid, weight)?;
 
         // Also check for others with our hotkey as a child
         for (hotkey, (children, cool_down_block)) in PendingChildKeys::<T>::iter_prefix(netuid) {

@@ -1810,24 +1810,26 @@ fn test_hotkey_swap_keep_stake() {
 
         let old_hotkey_children = ChildKeys::<Test>::get(old_hotkey, netuid);
         assert!(
-            old_hotkey_children.iter().any(|(_, c)| *c == child_key),
-            "old_hotkey should retain its ChildKeys — stake weight delegation must work"
+            !old_hotkey_children.iter().any(|(_, c)| *c == child_key),
+            "old_hotkey should NOT retain ChildKeys after swap"
+        );
+        let new_hotkey_children = ChildKeys::<Test>::get(new_hotkey, netuid);
+        assert!(
+            new_hotkey_children.iter().any(|(_, c)| *c == child_key),
+            "new_hotkey should inherit ChildKeys from old_hotkey"
         );
 
         let child_key_parents = ParentKeys::<Test>::get(child_key, netuid);
         assert!(
-            child_key_parents.iter().any(|(_, p)| *p == old_hotkey),
-            "child_key should still have old_hotkey as parent"
+            child_key_parents.iter().any(|(_, p)| *p == new_hotkey),
+            "child_key should have new_hotkey as parent after swap"
         );
-
-        let new_hotkey_children = ChildKeys::<Test>::get(new_hotkey, netuid);
         assert!(
-            !new_hotkey_children.iter().any(|(_, c)| *c == child_key),
-            "new_hotkey should NOT have child_key as child"
+            !child_key_parents.iter().any(|(_, p)| *p == old_hotkey),
+            "child_key should NOT have old_hotkey as parent after swap"
         );
     });
 }
-
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap --exact --nocapture
 // This test confirms, that the old hotkey can be reverted after the hotkey swap
 #[test]
