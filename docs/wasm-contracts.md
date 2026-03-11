@@ -43,6 +43,8 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 | 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |
+| 15 | `get_alpha_price` | Get the current alpha price for a subnet | `(NetUid)` | `u64` (price × 10⁹) |
+| 16 | `proxy_call` | Dispatch any RuntimeCall through pallet_proxy | `(AccountId, Option<u8>, BoundedVec<u8, 1024>)` | Error code |
 
 Example usage in your ink! contract:
 ```rust
@@ -85,6 +87,19 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 17 | `ProxyDuplicate` | Proxy already exists |
 | 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
 | 19 | `ProxyNotFound` | Proxy relationship not found |
+| 20 | `NotAuthorizedProxy` | Caller is not an authorized proxy for the account |
+
+#### ProxyCall (ID 16) — Proxy-Aware Generic Dispatcher
+
+Instead of per-function proxy variants, a single `proxy_call` extension dispatches any SCALE-encoded `RuntimeCall` through `pallet_proxy`. Parameters:
+
+- `real_coldkey: AccountId` — the account to act on behalf of
+- `force_proxy_type: Option<u8>` — optional proxy type filter (e.g., `5` for Staking), or `None` to match any
+- `call_data: BoundedVec<u8, 1024>` — SCALE-encoded `RuntimeCall`
+
+Behavior:
+- If `real_coldkey == caller`: dispatches the call directly (no proxy needed)
+- If `real_coldkey != caller`: routes through `pallet_proxy::proxy()`, which checks proxy permissions via `InstanceFilter` — correctly supporting `Any`, `Staking`, `Transfer`, and all other proxy types
 
 ### Call Filter
 

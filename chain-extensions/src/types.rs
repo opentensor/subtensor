@@ -21,6 +21,8 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    // Proxy-aware generic call dispatcher: wraps any RuntimeCall through pallet_proxy
+    ProxyCall = 16,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -66,6 +68,8 @@ pub enum Output {
     ProxyNoSelfProxy = 18,
     /// Proxy relationship not found
     ProxyNotFound = 19,
+    /// Caller is not an authorized proxy for the specified account
+    NotAuthorizedProxy = 20,
 }
 
 impl From<DispatchError> for Output {
@@ -93,6 +97,7 @@ impl From<DispatchError> for Output {
             Some("Duplicate") => Output::ProxyDuplicate,
             Some("NoSelfProxy") => Output::ProxyNoSelfProxy,
             Some("NotFound") => Output::ProxyNotFound,
+            Some("NotProxy") => Output::NotAuthorizedProxy,
             _ => Output::RuntimeError,
         }
     }
