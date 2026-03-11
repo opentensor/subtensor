@@ -106,7 +106,7 @@ export async function setup() {
   await startNetwork();
 
   // Connect to the network and configure for tests
-  const api = await getDevnetApi();
+  const api = await getDevnetApi("ws://localhost:" + NODE_CONFIGS[0].rpcPort);
   log.info("Setup: set lock reduction interval to 1 for instant lock cost decay");
 
   // Set lock reduction interval to 1 block to make network registration lock cost decay instantly.

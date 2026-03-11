@@ -10,9 +10,17 @@ import {
   getStake,
   tao,
   log,
+  connectClient,
 } from "e2e-shared";
+import type { PolkadotClient, TypedApi } from "polkadot-api";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { NetworkState } from "../setup.js";
 
 describe("▶ add_stake_limit extrinsic", () => {
+  let client: PolkadotClient;
+  let api: TypedApi<typeof subtensor>;
+  let state: NetworkState;
+
   const hotkey = getRandomSubstrateKeypair();
   const coldkey = getRandomSubstrateKeypair();
   const hotkeyAddress = convertPublicKeyToSs58(hotkey.publicKey);
@@ -20,7 +28,9 @@ describe("▶ add_stake_limit extrinsic", () => {
   let netuid: number;
 
   beforeAll(async () => {
-    const api = await getDevnetApi();
+    const data = await readFile("/tmp/subtensor-e2e/shield-tests/nodes.json", "utf-8");
+    state = JSON.parse(data);
+    ({ client, api } = await connectClient(state.nodes[0].rpcPort));
     await forceSetBalance(api, hotkeyAddress);
     await forceSetBalance(api, coldkeyAddress);
     netuid = await addNewSubnetwork(api, hotkey, coldkey);
