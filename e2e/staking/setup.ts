@@ -102,6 +102,7 @@ async function stopNetwork() {
 }
 
 export async function setup() {
+  console.log("================== NODE_CONFIGS[0].rpcPort", NODE_CONFIGS[0].rpcPort);
   // Start the network
   await startNetwork();
 
