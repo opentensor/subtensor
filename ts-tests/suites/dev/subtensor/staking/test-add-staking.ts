@@ -13,7 +13,6 @@ describeSuite({
 
         let alice: KeyringPair;
         let bob: KeyringPair;
-        let appAccount: KeyringPair;
         const appFees = new BN(100_000);
 
         beforeAll(() => {
@@ -21,8 +20,6 @@ describeSuite({
 
             alice = context.keyring.alice;
             bob = context.keyring.bob;
-            appAccount = generateKeyringPair("sr25519"); // some random app account
-            console.log("appAccount", appAccount.address);
         });
 
         it({
@@ -49,12 +46,10 @@ describeSuite({
                 await context.createBlock([await polkadotJs.tx.sudo.sudo(tx1).signAsync(alice)]);
 
                 // Adding stake
-                tx = polkadotJs.tx.subtensorModule.addStakePayable(
+                tx = polkadotJs.tx.subtensorModule.addStake(
                     bob.address,
                     netuid1,
                     1000_000_000,
-                    appAccount.address,
-                    appFees
                 );
                 await context.createBlock([await tx.signAsync(alice)]);
 
@@ -63,18 +58,7 @@ describeSuite({
                     return a.event.method === "StakeAdded";
                 });
 
-                const feeTransferredEvent = events.filter((a) => {
-                    return a.event.method === "FeesTransferred";
-                });
-
                 expect(stakeAddedEvent.length).to.be.equal(1);
-                expect(feeTransferredEvent.length).to.be.equal(1);
-
-                const appAccountBalance = (
-                    await polkadotJs.query.system.account(appAccount.address)
-                ).data.free.toString();
-                const appAccountBalanceBN = new BN(appAccountBalance);
-                expect(appAccountBalanceBN.eq(appFees)).to.be.true;
             },
         });
 
@@ -83,12 +67,10 @@ describeSuite({
             title: "Remove stake payable",
             test: async () => {
                 // Removing stake
-                const tx = polkadotJs.tx.subtensorModule.removeStakePayable(
+                const tx = polkadotJs.tx.subtensorModule.removeStake(
                     bob.address,
                     netuid1,
                     500_000_000,
-                    appAccount.address,
-                    appFees
                 );
                 await context.createBlock([await tx.signAsync(alice)]);
 
@@ -97,19 +79,7 @@ describeSuite({
                     return a.event.method === "StakeRemoved";
                 });
 
-                const feeTransferredEvent = events.filter((a) => {
-                    return a.event.method === "FeesTransferred";
-                });
-
                 expect(stakeAddedEvent.length).to.be.equal(1);
-                expect(feeTransferredEvent.length).to.be.equal(1);
-
-                const appAccountBalance = (
-                    await polkadotJs.query.system.account(appAccount.address)
-                ).data.free.toString();
-                const appAccountBalanceBN = new BN(appAccountBalance);
-                console.log(appAccountBalanceBN.toNumber());
-                expect(appAccountBalanceBN.eq(appFees.add(appFees))).to.be.true; // We expect fees has been paid twice
             },
         });
     },
