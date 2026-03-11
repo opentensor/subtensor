@@ -316,5 +316,4 @@ pow-faucet = []
 
 [patch.crates-io]
 w3f-bls = { git = "https://github.com/opentensor/bls", branch = "fix-no-std" }
-zstd-sys = { git = "https://github.com/gztensor/zstd-sys" }
-zstd-safe = { git = "https://github.com/gztensor/zstd-safe" }
+
