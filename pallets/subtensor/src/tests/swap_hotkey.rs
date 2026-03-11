@@ -30,7 +30,8 @@ fn test_swap_owner() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(!Owner::<Test>::contains_key(old_hotkey));
@@ -52,7 +53,8 @@ fn test_swap_owned_hotkeys() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         let hotkeys = OwnedHotkeys::<Test>::get(coldkey);
@@ -106,7 +108,8 @@ fn test_swap_total_hotkey_stake() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         // Verify that total hotkey stake swapped
@@ -136,7 +139,8 @@ fn test_swap_delegates() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(!Delegates::<Test>::contains_key(old_hotkey));
@@ -160,7 +164,8 @@ fn test_swap_subnet_membership() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(!IsNetworkMember::<Test>::contains_key(old_hotkey, netuid));
@@ -188,7 +193,8 @@ fn test_swap_uids_and_keys() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert_eq!(Uids::<Test>::get(netuid, old_hotkey), None);
@@ -216,7 +222,8 @@ fn test_swap_prometheus() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(!Prometheus::<Test>::contains_key(netuid, old_hotkey));
@@ -246,7 +253,8 @@ fn test_swap_axons() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(!Axons::<Test>::contains_key(netuid, old_hotkey));
@@ -273,7 +281,8 @@ fn test_swap_certificates() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(!NeuronCertificates::<Test>::contains_key(
@@ -310,7 +319,8 @@ fn test_swap_weight_commits() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(!WeightCommits::<Test>::contains_key(
@@ -347,7 +357,8 @@ fn test_swap_loaded_emission() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         let new_loaded_emission = LoadedEmission::<Test>::get(netuid);
@@ -380,7 +391,8 @@ fn test_swap_staking_hotkeys() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
@@ -435,7 +447,8 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
             &old_hotkey,
             &new_hotkey,
             &coldkey1,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert_eq!(
@@ -471,7 +484,8 @@ fn test_swap_hotkey_with_multiple_subnets() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid1));
@@ -529,7 +543,8 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
             &old_hotkey,
             &new_hotkey,
             &coldkey1,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         // Check if new_hotkey replaced old_hotkey in StakingHotkeys
@@ -564,7 +579,8 @@ fn test_swap_hotkey_with_no_stake() {
             &old_hotkey,
             &new_hotkey,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         // Check if ownership transferred
@@ -639,7 +655,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             &old_hotkey,
             &new_hotkey,
             &coldkey1,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         // Check ownership transfer
@@ -746,7 +763,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &old_hotkey,
             &new_hotkey_1,
-            None
+            None,
+            false,
         ));
 
         // Attempt to perform another swap immediately, which should fail due to rate limit
@@ -755,7 +773,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 &new_hotkey_1,
                 &new_hotkey_2,
-                None
+                None,
+                false,
             ),
             Error::<Test>::HotKeySetTxRateLimitExceeded
         );
@@ -766,7 +785,8 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             &new_hotkey_1,
             &new_hotkey_2,
-            None
+            None,
+            false,
         ));
     });
 }
@@ -794,7 +814,8 @@ fn test_do_swap_hotkey_err_not_owner() {
                 <<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                None
+                None,
+                false,
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -819,6 +840,7 @@ fn test_swap_owner_old_hotkey_not_exist() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify the swap
@@ -847,6 +869,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify the swap
@@ -886,6 +909,7 @@ fn test_swap_stake_success() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify the swap
@@ -1047,6 +1071,7 @@ fn test_swap_stake_old_hotkey_not_exist() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify that new_hotkey has the stake (in new AlphaV2 map) and old_hotkey does not
@@ -1103,7 +1128,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                None
+                None,
+                false,
             ),
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
@@ -1117,7 +1143,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &old_hotkey,
-                None
+                None,
+                false,
             ),
             Error::<Test>::NewHotKeyIsSameWithOld
         );
@@ -1129,7 +1156,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                None
+                None,
+                false,
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
@@ -1141,7 +1169,8 @@ fn test_swap_hotkey_error_cases() {
                 RuntimeOrigin::signed(wrong_coldkey),
                 &old_hotkey,
                 &new_hotkey,
-                None
+                None,
+                false,
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1151,7 +1180,8 @@ fn test_swap_hotkey_error_cases() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            None
+            None,
+            false,
         ));
 
         // Check balance after swap
@@ -1180,6 +1210,7 @@ fn test_swap_child_keys() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify the swap
@@ -1213,6 +1244,7 @@ fn test_swap_parent_keys() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify ParentKeys swap
@@ -1257,6 +1289,7 @@ fn test_swap_multiple_subnets() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify the swap for both subnets
@@ -1307,6 +1340,7 @@ fn test_swap_complex_parent_child_structure() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify ParentKeys swap
@@ -1367,7 +1401,8 @@ fn test_swap_parent_hotkey_childkey_maps() {
             &parent_old,
             &parent_new,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         // Verify parent and child keys updates
@@ -1422,7 +1457,8 @@ fn test_swap_child_hotkey_childkey_maps() {
             &child_old,
             &child_new,
             &coldkey,
-            &mut weight
+            &mut weight,
+            false
         ));
 
         // Verify parent and child keys updates
@@ -1461,6 +1497,7 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Check for SubnetOwnerHotkey
@@ -1494,7 +1531,8 @@ fn test_swap_hotkey_swap_rate_limits() {
             RuntimeOrigin::signed(coldkey),
             &old_hotkey,
             &new_hotkey,
-            None
+            None,
+            false,
         ));
 
         // Check for new hotkey
@@ -1552,7 +1590,8 @@ fn test_swap_parent_hotkey_self_loops_in_pending() {
                 &parent_old,
                 &parent_new,
                 &coldkey,
-                &mut weight
+                &mut weight,
+                false
             ),
             Error::<Test>::InvalidChild
         );
@@ -1580,6 +1619,7 @@ fn test_swap_auto_stake_destination_coldkeys() {
             &new_hotkey,
             &coldkey,
             &mut weight,
+            false,
         );
 
         // Verify the swap
