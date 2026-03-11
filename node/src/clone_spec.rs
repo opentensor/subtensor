@@ -130,7 +130,7 @@ async fn async_run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> Cl
 
     log::info!("build-test-clone: exporting raw state");
 
-    export_raw_state(&current_exe, cmd, database_arg, history_backfill, &raw_tmp)?;
+    export_raw_state(&current_exe, cmd, database_arg, &raw_tmp)?;
 
     log::info!("build-test-clone: applying clone patch");
 
@@ -238,7 +238,6 @@ fn export_raw_state(
     current_exe: &Path,
     cmd: &CloneStateCmd,
     database_arg: &str,
-    history_backfill: HistoryBackfill,
     raw_tmp: &Path,
 ) -> CloneResult<()> {
     let stdout = File::create(raw_tmp)?;
@@ -251,8 +250,6 @@ fn export_raw_state(
             &cmd.base_path.display().to_string(),
             "--database",
             database_arg,
-            "--history-backfill",
-            history_backfill.as_ref(),
         ])
         .stdin(Stdio::null())
         .stdout(Stdio::from(stdout))
