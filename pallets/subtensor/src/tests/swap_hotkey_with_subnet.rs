@@ -1129,6 +1129,7 @@ fn test_swap_child_keys() {
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_child_keys_self_loop --exact --show-output
 #[test]
+#[allow(deprecated)]
 fn test_swap_child_keys_self_loop() {
     new_test_ext(1).execute_with(|| {
         let old_hotkey = U256::from(1);
