@@ -129,15 +129,15 @@ pub struct CloneStateCmd {
     #[arg(long, value_name = "BOOTNODE")]
     pub bootnodes: Vec<String>,
 
-    /// Include Alice in patched validator authorities (default if no validator flags are passed).
+    /// Include Alice in patched validator authorities (default if no validator flags are passed; Sudo is assigned to the first selected validator in Alice->Bob->Charlie order).
     #[arg(long, default_value_t = false)]
     pub alice: bool,
 
-    /// Include Bob in patched validator authorities (if any validator flag is set, only selected validators are used).
+    /// Include Bob in patched validator authorities (if any validator flag is set, only selected validators are used; Sudo is assigned to the first selected validator in Alice->Bob->Charlie order).
     #[arg(long, default_value_t = false)]
     pub bob: bool,
 
-    /// Include Charlie in patched validator authorities (if any validator flag is set, only selected validators are used).
+    /// Include Charlie in patched validator authorities (if any validator flag is set, only selected validators are used; Sudo is assigned to the first selected validator in Alice->Bob->Charlie order).
     #[arg(long, default_value_t = false)]
     pub charlie: bool,
 }

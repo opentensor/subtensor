@@ -20,31 +20,6 @@ type CloneResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const RPC_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const GRANDPA_AUTHORITIES_WELL_KNOWN_KEY: &[u8] = b":grandpa_authorities";
 
-#[derive(Clone, Copy)]
-struct Validator {
-    name: &'static str,
-    sr25519_hex: &'static str,
-    ed25519_hex: &'static str,
-}
-
-static VALIDATORS: &[Validator] = &[
-    Validator {
-        name: "alice",
-        sr25519_hex: "d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d",
-        ed25519_hex: "88dc3417d5058ec4b4503e0c12ea1a0a89be200fe98922423d4334014fa6b0ee",
-    },
-    Validator {
-        name: "bob",
-        sr25519_hex: "8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48",
-        ed25519_hex: "d17c2d7823ebf260fd138f2d7e27d114c0145d968b5ff5006125f2414fadae69",
-    },
-    Validator {
-        name: "charlie",
-        sr25519_hex: "90b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22",
-        ed25519_hex: "439660b36c6c03afafca027b910b4fecf99801834c62a5e6006f27d978de234f",
-    },
-];
-
 /// Execute `build-test-clone`: sync network state, export raw chainspec, apply clone patch.
 pub fn run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> sc_cli::Result<()> {
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -62,7 +37,7 @@ async fn async_run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> Cl
     let validators = selected_validators(cmd);
     let selected_names = validators
         .iter()
-        .map(|v| v.name)
+        .map(|seed| seed.to_ascii_lowercase())
         .collect::<Vec<_>>()
         .join(",");
 
@@ -338,23 +313,22 @@ fn database_arg(database: sc_cli::Database) -> &'static str {
     }
 }
 
-#[allow(clippy::indexing_slicing)]
-fn selected_validators(cmd: &CloneStateCmd) -> Vec<Validator> {
+fn selected_validators(cmd: &CloneStateCmd) -> Vec<&'static str> {
     let explicit = cmd.alice || cmd.bob || cmd.charlie;
     let mut selected = Vec::new();
 
     if explicit {
         if cmd.alice {
-            selected.push(VALIDATORS[0]);
+            selected.push("Alice");
         }
         if cmd.bob {
-            selected.push(VALIDATORS[1]);
+            selected.push("Bob");
         }
         if cmd.charlie {
-            selected.push(VALIDATORS[2]);
+            selected.push("Charlie");
         }
     } else {
-        selected.push(VALIDATORS[0]); // only alice be default
+        selected.push("Alice"); // only alice by default
     }
 
     selected
@@ -363,7 +337,7 @@ fn selected_validators(cmd: &CloneStateCmd) -> Vec<Validator> {
 fn patch_raw_chainspec_file(
     input: &Path,
     output: &Path,
-    validators: &[Validator],
+    validators: &[&'static str],
 ) -> CloneResult<()> {
     let file = File::open(input)?;
     let reader = BufReader::with_capacity(64 * 1024 * 1024, file);
@@ -376,7 +350,7 @@ fn patch_raw_chainspec_file(
     Ok(())
 }
 
-fn patch_raw_spec(spec: &mut Value, validators: &[Validator]) -> CloneResult<()> {
+fn patch_raw_spec(spec: &mut Value, validators: &[&'static str]) -> CloneResult<()> {
     let sudo = validators
         .first()
         .ok_or_else(|| "at least one validator must be selected".to_string())?;
@@ -386,19 +360,19 @@ fn patch_raw_spec(spec: &mut Value, validators: &[Validator]) -> CloneResult<()>
         .and_then(Value::as_object_mut)
         .ok_or_else(|| "missing or invalid genesis.raw.top".to_string())?;
 
-    let aura_keys: Vec<[u8; 32]> = validators
+    let aura_keys = validators
         .iter()
-        .map(|v| decode_hex_32(v.sr25519_hex))
-        .collect::<CloneResult<_>>()?;
+        .map(|seed| crate::chain_spec::authority_keys_from_seed(seed).0)
+        .collect::<Vec<_>>();
     top.insert(
         storage_key("Aura", "Authorities"),
         Value::String(to_hex(&aura_keys.encode())),
     );
 
-    let grandpa_entries: Vec<([u8; 32], u64)> = validators
+    let grandpa_entries = validators
         .iter()
-        .map(|v| Ok((decode_hex_32(v.ed25519_hex)?, 1u64)))
-        .collect::<CloneResult<_>>()?;
+        .map(|seed| (crate::chain_spec::authority_keys_from_seed(seed).1, 1u64))
+        .collect::<Vec<_>>();
     let grandpa_encoded = grandpa_entries.encode();
 
     top.insert(
@@ -428,7 +402,9 @@ fn patch_raw_spec(spec: &mut Value, validators: &[Validator]) -> CloneResult<()>
 
     top.insert(
         storage_key("Sudo", "Key"),
-        Value::String(to_hex(&hex::decode(sudo.sr25519_hex)?)),
+        Value::String(to_hex(
+            &crate::chain_spec::get_account_id_from_seed::<sp_core::sr25519::Public>(sudo).encode(),
+        )),
     );
 
     remove_by_prefix(top, &storage_prefix("Session"));
@@ -472,20 +448,7 @@ fn to_hex(data: &[u8]) -> String {
     format!("0x{}", hex::encode(data))
 }
 
-fn decode_hex_32(value: &str) -> CloneResult<[u8; 32]> {
-    let bytes = hex::decode(value)?;
-    let len = bytes.len();
-    let bytes: [u8; 32] = bytes.try_into().map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("expected 32-byte hex value, got {len} bytes"),
-        )
-    })?;
-    Ok(bytes)
-}
-
 #[cfg(test)]
-#[allow(clippy::indexing_slicing)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
@@ -540,7 +503,7 @@ mod tests {
         let cmd = default_cmd();
         let selected = selected_validators(&cmd);
         assert_eq!(selected.len(), 1);
-        assert_eq!(selected[0].name, "alice");
+        assert_eq!(selected[0], "Alice");
     }
 
     #[test]
@@ -550,8 +513,7 @@ mod tests {
         cmd.charlie = true;
 
         let selected = selected_validators(&cmd);
-        let names = selected.into_iter().map(|v| v.name).collect::<Vec<_>>();
-        assert_eq!(names, vec!["bob", "charlie"]);
+        assert_eq!(selected, vec!["Bob", "Charlie"]);
     }
 
     #[test]
@@ -571,7 +533,7 @@ mod tests {
     #[test]
     fn patch_raw_spec_updates_authorities_sudo_and_top_level() {
         let mut spec = make_minimal_spec();
-        let validators = vec![VALIDATORS[0], VALIDATORS[1]];
+        let validators = vec!["Alice", "Bob"];
         patch_raw_spec(&mut spec, &validators).expect("patch should succeed");
 
         let top = spec
@@ -585,8 +547,8 @@ mod tests {
             .expect("aura authorities key should exist");
         let aura_raw = hex::decode(aura_hex.trim_start_matches("0x")).expect("hex decode aura");
         let expected_aura = vec![
-            decode_hex_32(VALIDATORS[0].sr25519_hex).expect("decode"),
-            decode_hex_32(VALIDATORS[1].sr25519_hex).expect("decode"),
+            crate::chain_spec::authority_keys_from_seed("Alice").0,
+            crate::chain_spec::authority_keys_from_seed("Bob").0,
         ]
         .encode();
         assert_eq!(aura_raw, expected_aura);
@@ -597,7 +559,11 @@ mod tests {
             .expect("sudo key should exist");
         assert_eq!(
             sudo_hex,
-            to_hex(&hex::decode(VALIDATORS[0].sr25519_hex).expect("decode")).as_str()
+            to_hex(
+                &crate::chain_spec::get_account_id_from_seed::<sp_core::sr25519::Public>("Alice")
+                    .encode()
+            )
+            .as_str()
         );
 
         assert!(!top.contains_key(&storage_key("Grandpa", "PendingChange")));
@@ -616,7 +582,7 @@ mod tests {
     #[test]
     fn patch_raw_spec_fails_when_top_missing() {
         let mut spec = json!({});
-        let err = patch_raw_spec(&mut spec, &[VALIDATORS[0]]).expect_err("must fail");
+        let err = patch_raw_spec(&mut spec, &["Alice"]).expect_err("must fail");
         assert!(
             err.to_string()
                 .contains("missing or invalid genesis.raw.top"),
