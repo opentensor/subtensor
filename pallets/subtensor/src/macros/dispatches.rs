@@ -1072,7 +1072,7 @@ mod dispatches {
             new_hotkey: T::AccountId,
             netuid: Option<NetUid>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, Some(false))
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, false)
         }
 
         /// ---- The extrinsic for user to change its hotkey in subnet or all subnets. This extrinsic is
@@ -1084,7 +1084,7 @@ mod dispatches {
         /// * `hotkey` - The old hotkey to be swapped.
         /// * `new_hotkey` - The new hotkey to replace the old one.
         /// * `netuid` - Optional subnet ID. If `Some`, swap only on that subnet; if `None`, swap on all subnets.
-        /// * `maybe_keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
+        /// * `keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
         ///   is transferred to the new hotkey.
         #[pallet::call_index(72)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
@@ -1095,9 +1095,9 @@ mod dispatches {
             hotkey: T::AccountId,
             new_hotkey: T::AccountId,
             netuid: Option<NetUid>,
-            maybe_keep_stake: Option<bool>,
+            keep_stake: bool,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, maybe_keep_stake)
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, keep_stake)
         }
 
         /// Performs an arbitrary coldkey swap for any coldkey.

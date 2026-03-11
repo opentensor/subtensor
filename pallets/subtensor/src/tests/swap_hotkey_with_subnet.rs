@@ -31,7 +31,7 @@ fn test_swap_owner() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None,
+            false,
         ));
 
         assert_eq!(Owner::<Test>::get(old_hotkey), coldkey);
@@ -57,7 +57,7 @@ fn test_swap_owned_hotkeys() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         let hotkeys = OwnedHotkeys::<Test>::get(coldkey);
@@ -110,7 +110,7 @@ fn test_swap_total_hotkey_stake() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         // Verify that total hotkey stake swapped
@@ -145,7 +145,7 @@ fn test_swap_delegates() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert!(Delegates::<Test>::contains_key(old_hotkey));
@@ -171,7 +171,7 @@ fn test_swap_subnet_membership() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert!(!IsNetworkMember::<Test>::contains_key(old_hotkey, netuid));
@@ -201,7 +201,7 @@ fn test_swap_uids_and_keys() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(Uids::<Test>::get(netuid, old_hotkey), None);
@@ -233,7 +233,7 @@ fn test_swap_prometheus() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert!(!Prometheus::<Test>::contains_key(netuid, old_hotkey));
@@ -267,7 +267,7 @@ fn test_swap_axons() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert!(!Axons::<Test>::contains_key(netuid, old_hotkey));
@@ -298,7 +298,7 @@ fn test_swap_certificates() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert!(!NeuronCertificates::<Test>::contains_key(
@@ -339,7 +339,7 @@ fn test_swap_weight_commits() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert!(!WeightCommits::<Test>::contains_key(
@@ -380,7 +380,7 @@ fn test_swap_loaded_emission() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         let new_loaded_emission = LoadedEmission::<Test>::get(netuid);
@@ -410,7 +410,7 @@ fn test_swap_staking_hotkeys() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         let staking_hotkeys = StakingHotkeys::<Test>::get(coldkey);
@@ -461,7 +461,7 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -510,7 +510,7 @@ fn test_swap_hotkey_with_multiple_subnets() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid1),
-            None
+            false
         ));
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -519,7 +519,7 @@ fn test_swap_hotkey_with_multiple_subnets() {
             &old_hotkey,
             &new_hotkey_2,
             Some(netuid2),
-            None
+            false
         ));
 
         assert!(IsNetworkMember::<Test>::get(new_hotkey, netuid1));
@@ -572,7 +572,7 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         // Check if new_hotkey replaced old_hotkey in StakingHotkeys
@@ -610,7 +610,7 @@ fn test_swap_hotkey_with_no_stake() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         // Check if ownership transferred
@@ -683,7 +683,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid1),
-            None
+            false
         ));
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -692,7 +692,7 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
             &old_hotkey,
             &new_hotkey_2,
             Some(netuid2),
-            None
+            false
         ));
 
         // Check ownership transfer
@@ -807,7 +807,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             &old_hotkey,
             &new_hotkey_1,
             Some(netuid),
-            None
+            false
         ),);
 
         // Attempt to perform another swap immediately, which should fail due to rate limit
@@ -817,7 +817,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
                 &old_hotkey,
                 &new_hotkey_1,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::HotKeySetTxRateLimitExceeded
         );
@@ -830,7 +830,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             &new_hotkey_1,
             &new_hotkey_2,
             None,
-            None
+            false
         ));
     });
 }
@@ -859,7 +859,7 @@ fn test_do_swap_hotkey_err_not_owner() {
                 &old_hotkey,
                 &new_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -887,7 +887,7 @@ fn test_swap_owner_old_hotkey_not_exist() {
                 &old_hotkey,
                 &new_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -922,7 +922,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
                 &old_hotkey,
                 &new_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
@@ -965,7 +965,7 @@ fn test_swap_stake_success() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ),);
 
         // Verify the swap
@@ -1036,7 +1036,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &new_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
@@ -1052,7 +1052,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &old_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::NewHotKeyIsSameWithOld
         );
@@ -1066,7 +1066,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &new_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
@@ -1079,7 +1079,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &new_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1091,7 +1091,7 @@ fn test_swap_hotkey_error_cases() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ),);
     });
 }
@@ -1118,7 +1118,7 @@ fn test_swap_child_keys() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ),);
 
         // Verify the swap
@@ -1195,7 +1195,7 @@ fn test_swap_parent_keys() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ),);
 
         // Verify ParentKeys swap
@@ -1241,7 +1241,7 @@ fn test_swap_multiple_subnets() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid1),
-            None
+            false
         ),);
 
         System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
@@ -1250,7 +1250,7 @@ fn test_swap_multiple_subnets() {
             &old_hotkey,
             &new_hotkey_2,
             Some(netuid2),
-            None
+            false
         ),);
 
         // Verify the swap for both subnets
@@ -1300,7 +1300,7 @@ fn test_swap_complex_parent_child_structure() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ),);
 
         // Verify ParentKeys swap
@@ -1365,7 +1365,7 @@ fn test_swap_parent_hotkey_childkey_maps() {
             &parent_old,
             &parent_new,
             Some(netuid),
-            None
+            false
         ),);
 
         // Verify parent and child keys updates
@@ -1423,7 +1423,7 @@ fn test_swap_child_hotkey_childkey_maps() {
             &child_old,
             &child_new,
             Some(netuid),
-            None
+            false
         ),);
 
         // Verify parent and child keys updates
@@ -1464,7 +1464,7 @@ fn test_swap_hotkey_is_sn_owner_hotkey() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ),);
 
         // Check for SubnetOwnerHotkey
@@ -1501,7 +1501,7 @@ fn test_swap_hotkey_swap_rate_limits() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ),);
 
         // Check for new hotkey
@@ -1536,7 +1536,7 @@ fn test_swap_owner_failed_interval_not_passed() {
                 &old_hotkey,
                 &new_hotkey,
                 Some(netuid),
-                None
+                false
             ),
             Error::<Test>::HotKeySwapOnSubnetIntervalNotPassed,
         );
@@ -1560,7 +1560,7 @@ fn test_swap_owner_check_swap_block_set() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -1586,7 +1586,7 @@ fn test_swap_owner_check_swap_record_clean_up() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -1649,7 +1649,7 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
             &hk1,
             &hk2,
             Some(netuid),
-            None
+            false
         ));
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1674,7 +1674,7 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
             &hk2,
             &hk1,
             Some(netuid),
-            None
+            false
         ));
 
         let hk1_stake_after_revert =
@@ -1751,7 +1751,7 @@ fn test_hotkey_swap_keep_stake() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            Some(true)
+            true
         ));
 
         let old_hotkey_stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1855,7 +1855,7 @@ fn test_revert_hotkey_swap() {
             &old_hotkey,
             &new_hotkey,
             Some(netuid),
-            None
+            false
         ));
 
         assert!(SubtensorModule::is_hotkey_registered_on_any_network(
@@ -1869,7 +1869,7 @@ fn test_revert_hotkey_swap() {
             &new_hotkey,
             &old_hotkey,
             Some(netuid),
-            None
+            false
         ));
     });
 }
@@ -1907,7 +1907,7 @@ fn test_revert_hotkey_swap_parent_hotkey_childkey_maps() {
             &hk1,
             &hk2,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -1929,7 +1929,7 @@ fn test_revert_hotkey_swap_parent_hotkey_childkey_maps() {
             &hk2,
             &hk1,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -1981,7 +1981,7 @@ fn test_revert_hotkey_swap_uids_and_keys() {
             &hk1,
             &hk2,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(Uids::<Test>::get(netuid, hk1), None);
@@ -1995,7 +1995,7 @@ fn test_revert_hotkey_swap_uids_and_keys() {
             &hk2,
             &hk1,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2046,7 +2046,7 @@ fn test_revert_hotkey_swap_auto_stake_destination() {
             &hk1,
             &hk2,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2074,7 +2074,7 @@ fn test_revert_hotkey_swap_auto_stake_destination() {
             &hk2,
             &hk1,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2124,7 +2124,7 @@ fn test_revert_hotkey_swap_subnet_owner() {
             &hk1,
             &hk2,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2140,7 +2140,7 @@ fn test_revert_hotkey_swap_subnet_owner() {
             &hk2,
             &hk1,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2178,7 +2178,7 @@ fn test_revert_hotkey_swap_dividends() {
             &hk1,
             &hk2,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2229,7 +2229,7 @@ fn test_revert_hotkey_swap_dividends() {
             &hk2,
             &hk1,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2391,7 +2391,7 @@ fn test_revert_claim_root_with_swap_hotkey() {
             &hk1,
             &hk2,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(
@@ -2418,7 +2418,7 @@ fn test_revert_claim_root_with_swap_hotkey() {
             &hk2,
             &hk1,
             Some(netuid),
-            None
+            false
         ));
 
         assert_eq!(

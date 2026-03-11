@@ -13,7 +13,7 @@ impl<T: Config> Pallet<T> {
     /// * `old_hotkey` - The old hotkey to be swapped.
     /// * `new_hotkey` - The new hotkey to replace the old one.
     /// * `netuid` - The hotkey swap in a subnet or all subnets.
-    /// * `maybe_keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
+    /// * `keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
     ///
     /// # Returns
     ///
@@ -31,10 +31,8 @@ impl<T: Config> Pallet<T> {
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
         netuid: Option<NetUid>,
-        maybe_keep_stake: Option<bool>,
+        keep_stake: bool,
     ) -> DispatchResultWithPostInfo {
-        let keep_stake = maybe_keep_stake.unwrap_or(false);
-
         // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
 

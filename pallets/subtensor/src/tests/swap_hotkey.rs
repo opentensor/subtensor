@@ -763,7 +763,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             &old_hotkey,
             &new_hotkey_1,
             None,
-            None,
+            false,
         ));
 
         // Attempt to perform another swap immediately, which should fail due to rate limit
@@ -773,7 +773,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
                 &new_hotkey_1,
                 &new_hotkey_2,
                 None,
-                None,
+                false,
             ),
             Error::<Test>::HotKeySetTxRateLimitExceeded
         );
@@ -785,7 +785,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
             &new_hotkey_1,
             &new_hotkey_2,
             None,
-            None,
+            false,
         ));
     });
 }
@@ -814,7 +814,7 @@ fn test_do_swap_hotkey_err_not_owner() {
                 &old_hotkey,
                 &new_hotkey,
                 None,
-                None,
+                false,
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1040,7 +1040,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &new_hotkey,
                 None,
-                None,
+                false,
             ),
             Error::<Test>::NotEnoughBalanceToPaySwapHotKey
         );
@@ -1055,7 +1055,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &old_hotkey,
                 None,
-                None,
+                false,
             ),
             Error::<Test>::NewHotKeyIsSameWithOld
         );
@@ -1068,7 +1068,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &new_hotkey,
                 None,
-                None,
+                false,
             ),
             Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
@@ -1081,7 +1081,7 @@ fn test_swap_hotkey_error_cases() {
                 &old_hotkey,
                 &new_hotkey,
                 None,
-                None,
+                false,
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1092,7 +1092,7 @@ fn test_swap_hotkey_error_cases() {
             &old_hotkey,
             &new_hotkey,
             None,
-            None,
+            false,
         ));
 
         // Check balance after swap
@@ -1443,7 +1443,7 @@ fn test_swap_hotkey_swap_rate_limits() {
             &old_hotkey,
             &new_hotkey,
             None,
-            None,
+            false,
         ));
 
         // Check for new hotkey
