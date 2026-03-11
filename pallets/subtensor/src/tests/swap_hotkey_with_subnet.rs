@@ -1154,7 +1154,6 @@ fn test_swap_child_keys_self_loop() {
                 old_hotkey,
                 new_hotkey,
                 Some(netuid),
-                None
             ),
             Error::<Test>::InvalidChild
         );
