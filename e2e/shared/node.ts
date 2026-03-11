@@ -3,6 +3,11 @@ import { spawn, ChildProcess } from "node:child_process";
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 
+export const SHIELD_START_PORT = 30300;
+export const SHIELD_START_RPC_PORT = 9900;
+export const STAKING_START_PORT = 30310;
+export const STAKING_START_RPC_PORT = 9910;
+
 // Substrate CLI shortcuts that inject keystore keys automatically.
 const SUBSTRATE_SHORTCUTS = new Set([
   "alice",

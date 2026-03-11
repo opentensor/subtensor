@@ -11,7 +11,7 @@ import {
   getBalance,
   waitForFinalizedBlocks,
 } from "e2e-shared/client.js";
-import { startNode, started, log } from "e2e-shared/node.js";
+import { startNode, started, log, SHIELD_START_PORT, SHIELD_START_RPC_PORT } from "e2e-shared/node.js";
 import { getNextKey, submitEncrypted } from "../helpers.js";
 
 let client: PolkadotClient;
@@ -24,9 +24,9 @@ const charlie = createSigner("//Charlie");
 
 // Extra nodes join as non-authority full nodes.
 const EXTRA_NODE_CONFIGS = [
-  { name: "four", port: 30336, rpcPort: 9947, basePath: "/tmp/subtensor-e2e/shield-tests/four" },
-  { name: "five", port: 30337, rpcPort: 9948, basePath: "/tmp/subtensor-e2e/shield-tests/five" },
-  { name: "six", port: 30338, rpcPort: 9949, basePath: "/tmp/subtensor-e2e/shield-tests/six" },
+  { name: "four", port: SHIELD_START_PORT + 4, rpcPort: SHIELD_START_RPC_PORT + 4, basePath: "/tmp/subtensor-e2e/shield-tests/four" },
+  { name: "five", port: SHIELD_START_PORT + 5, rpcPort: SHIELD_START_RPC_PORT + 5, basePath: "/tmp/subtensor-e2e/shield-tests/five" },
+  { name: "six", port: SHIELD_START_PORT + 6, rpcPort: SHIELD_START_RPC_PORT + 6, basePath: "/tmp/subtensor-e2e/shield-tests/six" },
 ];
 
 beforeAll(async () => {
