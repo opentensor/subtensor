@@ -3,11 +3,16 @@
 
 extern crate alloc;
 
+use alloc::vec;
 use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
     aead::{Aead, Payload},
 };
-use frame_support::{pallet_prelude::*, traits::IsSubType};
+use frame_support::{
+    dispatch::{GetDispatchInfo, PostDispatchInfo},
+    pallet_prelude::*,
+    traits::IsSubType,
+};
 use frame_system::{ensure_none, ensure_signed, pallet_prelude::*};
 use ml_kem::{
     Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
@@ -15,12 +20,12 @@ use ml_kem::{
 };
 use sp_io::hashing::twox_128;
 use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
+use sp_runtime::traits::{Dispatchable, Saturating};
 use stp_shield::{
     INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
     ShieldedTransaction,
 };
-
-use alloc::vec;
+use subtensor_macros::freeze_struct;
 
 pub use pallet::*;
 
@@ -45,6 +50,19 @@ type ApplyableCallOf<T> = <T as Applyable>::Call;
 
 const MAX_EXTRINSIC_DEPTH: u32 = 8;
 
+/// Trait for decrypting stored extrinsics before dispatch.
+pub trait ExtrinsicDecryptor<RuntimeCall> {
+    /// Decrypt the stored bytes and return the decoded RuntimeCall.
+    fn decrypt(data: &[u8]) -> Result<RuntimeCall, DispatchError>;
+}
+
+/// Default implementation that always returns an error.
+impl<RuntimeCall> ExtrinsicDecryptor<RuntimeCall> for () {
+    fn decrypt(_data: &[u8]) -> Result<RuntimeCall, DispatchError> {
+        Err(DispatchError::Other("ExtrinsicDecryptor not implemented"))
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -56,6 +74,14 @@ pub mod pallet {
 
         /// A way to find the current and next block author.
         type FindAuthors: FindAuthors<Self>;
+
+        /// The overarching call type for dispatching stored extrinsics.
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+            + GetDispatchInfo;
+
+        /// Decryptor for stored extrinsics.
+        type ExtrinsicDecryptor: ExtrinsicDecryptor<<Self as pallet::Config>::RuntimeCall>;
     }
 
     #[pallet::pallet]
@@ -93,11 +119,63 @@ pub mod pallet {
     pub type HasMigrationRun<T: Config> =
         StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
+    /// Maximum size of a single encoded call.
+    pub type MaxCallSize = ConstU32<8192>;
+
+    /// Maximum number of pending extrinsics.
+    pub type MaxPendingExtrinsics = ConstU32<100>;
+
+    /// Maximum block difference between submission and execution.
+    pub const MAX_EXTRINSIC_LIFETIME: u32 = 10;
+
+    /// Maximum weight allowed for on_initialize processing.
+    /// Processing stops when this limit would be exceeded.
+    pub const MAX_ON_INITIALIZE_WEIGHT: Weight = Weight::from_parts(500_000_000_000, 0);
+
+    /// A pending extrinsic stored for later execution.
+    #[freeze_struct("c5749ec89253be61")]
+    #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Debug)]
+    #[scale_info(skip_type_params(T))]
+    pub struct PendingExtrinsic<T: Config> {
+        /// The account that submitted the extrinsic.
+        pub who: T::AccountId,
+        /// The encoded call data.
+        pub call: BoundedVec<u8, MaxCallSize>,
+        /// The block number when the extrinsic was submitted.
+        pub submitted_at: BlockNumberFor<T>,
+    }
+
+    /// Storage map for encrypted extrinsics to be executed in on_initialize.
+    /// Uses u32 index for O(1) insertion and removal.
+    #[pallet::storage]
+    pub type PendingExtrinsics<T: Config> =
+        StorageMap<_, Identity, u32, PendingExtrinsic<T>, OptionQuery>;
+
+    /// Next index to use when inserting a pending extrinsic (unique auto-increment).
+    #[pallet::storage]
+    pub type NextPendingExtrinsicIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// Number of pending extrinsics currently stored (for limit checking).
+    #[pallet::storage]
+    pub type PendingExtrinsicCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Encrypted wrapper accepted.
         EncryptedSubmitted { id: T::Hash, who: T::AccountId },
+        /// Encrypted extrinsic was stored for later execution.
+        ExtrinsicStored { index: u32, who: T::AccountId },
+        /// Extrinsic decode failed during on_initialize.
+        ExtrinsicDecodeFailed { index: u32 },
+        /// Extrinsic dispatch failed during on_initialize.
+        ExtrinsicDispatchFailed { index: u32, error: DispatchError },
+        /// Extrinsic was successfully dispatched during on_initialize.
+        ExtrinsicDispatched { index: u32 },
+        /// Extrinsic expired (exceeded max block lifetime).
+        ExtrinsicExpired { index: u32 },
+        /// Extrinsic postponed due to weight limit.
+        ExtrinsicPostponed { index: u32 },
     }
 
     #[pallet::error]
@@ -106,10 +184,16 @@ pub mod pallet {
         BadEncKeyLen,
         /// Unreachable.
         Unreachable,
+        /// Too many pending extrinsics in storage.
+        TooManyPendingExtrinsics,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            Self::process_pending_extrinsics()
+        }
+
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
@@ -229,6 +313,39 @@ pub mod pallet {
             Self::deposit_event(Event::EncryptedSubmitted { id, who });
             Ok(())
         }
+
+        /// Store an encrypted extrinsic for later execution in on_initialize.
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::from_parts(10_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2_u64))
+        .saturating_add(T::DbWeight::get().writes(3_u64)))]
+        pub fn store_encrypted(
+            origin: OriginFor<T>,
+            call: BoundedVec<u8, MaxCallSize>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            let count = PendingExtrinsicCount::<T>::get();
+
+            ensure!(
+                count < <MaxPendingExtrinsics as Get<u32>>::get(),
+                Error::<T>::TooManyPendingExtrinsics
+            );
+
+            let index = NextPendingExtrinsicIndex::<T>::get();
+            let pending = PendingExtrinsic {
+                who: who.clone(),
+                call,
+                submitted_at: frame_system::Pallet::<T>::block_number(),
+            };
+            PendingExtrinsics::<T>::insert(index, pending);
+
+            NextPendingExtrinsicIndex::<T>::put(index.saturating_add(1));
+            PendingExtrinsicCount::<T>::put(count.saturating_add(1));
+
+            Self::deposit_event(Event::ExtrinsicStored { index, who });
+            Ok(())
+        }
     }
 
     #[pallet::inherent]
@@ -255,6 +372,99 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Process pending encrypted extrinsics up to the weight limit.
+    /// Returns the total weight consumed.
+    pub fn process_pending_extrinsics() -> Weight {
+        let next_index = NextPendingExtrinsicIndex::<T>::get();
+        let count = PendingExtrinsicCount::<T>::get();
+
+        let mut weight = T::DbWeight::get().reads(2);
+
+        if count == 0 {
+            return weight;
+        }
+
+        let start_index = next_index.saturating_sub(count);
+        let current_block = frame_system::Pallet::<T>::block_number();
+
+        // Process extrinsics
+        for index in start_index..next_index {
+            let Some(pending) = PendingExtrinsics::<T>::get(index) else {
+                weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
+                continue;
+            };
+
+            // Check if the extrinsic has expired
+            let age = current_block.saturating_sub(pending.submitted_at);
+            if age > MAX_EXTRINSIC_LIFETIME.into() {
+                remove_pending_extrinsic::<T>(index, &mut weight);
+
+                Self::deposit_event(Event::ExtrinsicExpired { index });
+
+                continue;
+            }
+
+            let call = match T::ExtrinsicDecryptor::decrypt(&pending.call) {
+                Ok(call) => call,
+                Err(_) => {
+                    remove_pending_extrinsic::<T>(index, &mut weight);
+
+                    Self::deposit_event(Event::ExtrinsicDecodeFailed { index });
+
+                    continue;
+                }
+            };
+
+            // Check if dispatching would exceed weight limit
+            let info = call.get_dispatch_info();
+            let dispatch_weight = T::DbWeight::get()
+                .writes(2)
+                .saturating_add(info.call_weight);
+
+            if weight
+                .saturating_add(dispatch_weight)
+                .any_gt(MAX_ON_INITIALIZE_WEIGHT)
+            {
+                Self::deposit_event(Event::ExtrinsicPostponed { index });
+                break;
+            }
+
+            // We're going to execute it - remove the item from storage
+            remove_pending_extrinsic::<T>(index, &mut weight);
+
+            // Dispatch the extrinsic
+            let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(pending.who).into();
+            let result = call.dispatch(origin);
+
+            match result {
+                Ok(post_info) => {
+                    let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);
+                    weight = weight.saturating_add(actual_weight);
+
+                    Self::deposit_event(Event::ExtrinsicDispatched { index });
+                }
+                Err(e) => {
+                    weight = weight.saturating_add(info.call_weight);
+
+                    Self::deposit_event(Event::ExtrinsicDispatchFailed {
+                        index,
+                        error: e.error,
+                    });
+                }
+            }
+        }
+
+        /// Remove a pending extrinsic from storage and decrement count.
+        fn remove_pending_extrinsic<T: Config>(index: u32, weight: &mut Weight) {
+            PendingExtrinsics::<T>::remove(index);
+            PendingExtrinsicCount::<T>::mutate(|c| *c = c.saturating_sub(1));
+            *weight = weight.saturating_add(T::DbWeight::get().writes(2));
+        }
+
+        weight
+    }
+
     pub fn try_decode_shielded_tx<Block: BlockT, Context: Default>(
         uxt: ExtrinsicOf<Block>,
     ) -> Option<ShieldedTransaction>

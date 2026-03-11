@@ -149,6 +149,8 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
 impl pallet_shield::Config for Runtime {
     type AuthorityId = AuraId;
     type FindAuthors = FindAuraAuthors;
+    type RuntimeCall = RuntimeCall;
+    type ExtrinsicDecryptor = ();
 }
 
 parameter_types! {
