@@ -1696,6 +1696,138 @@ fn test_revert_hotkey_swap_stake_is_not_lost() {
     });
 }
 
+// Check swap hotkey with keep_stake doesn't affect stake and related storage maps
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_hotkey_swap_keep_stake --exact --nocapture
+#[test]
+fn test_hotkey_swap_keep_stake() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 13;
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let child_key = U256::from(4);
+        let coldkey = U256::from(3);
+        let swap_cost = 1_000_000_000u64 * 2;
+        let stake_amount = 1_000_000_000u64;
+        let voting_power_value = 5_000_000_000_000_u64;
+
+        // Setup
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost.into());
+
+        VotingPower::<Test>::insert(netuid, old_hotkey, voting_power_value);
+        assert_eq!(
+            SubtensorModule::get_voting_power(netuid, &old_hotkey),
+            voting_power_value
+        );
+
+        ChildKeys::<Test>::insert(old_hotkey, netuid, vec![(u64::MAX, child_key)]);
+        ParentKeys::<Test>::insert(child_key, netuid, vec![(u64::MAX, old_hotkey)]);
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &coldkey,
+            netuid,
+            stake_amount.into(),
+        );
+
+        assert!(SubtensorModule::is_hotkey_registered_on_network(
+            netuid,
+            &old_hotkey
+        ));
+
+        step_block(20);
+
+        let old_hotkey_stake_before_swap =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &coldkey,
+                netuid,
+            );
+
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid),
+            Some(true)
+        ));
+
+        let old_hotkey_stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &coldkey,
+            netuid,
+        );
+        assert_eq!(
+            old_hotkey_stake_after, old_hotkey_stake_before_swap,
+            "old_hotkey stake must NOT change during keep_stake swap"
+        );
+
+        let new_hotkey_stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &new_hotkey,
+            &coldkey,
+            netuid,
+        );
+        assert_eq!(
+            new_hotkey_stake_after,
+            0.into(),
+            "new_hotkey should have no stake"
+        );
+
+        assert!(
+            SubtensorModule::is_hotkey_registered_on_network(netuid, &new_hotkey),
+            "new_hotkey should be registered on netuid"
+        );
+
+        assert!(
+            !SubtensorModule::is_hotkey_registered_on_network(netuid, &old_hotkey),
+            "old_hotkey should NOT be registered on netuid after swap"
+        );
+
+        let root_total_alpha = TotalHotkeyAlpha::<Test>::get(&old_hotkey, netuid);
+        let child_total_alpha = TotalHotkeyAlpha::<Test>::get(&new_hotkey, netuid);
+        assert!(
+            root_total_alpha > 0.into(),
+            "old_hotkey should retain TotalHotkeyAlpha"
+        );
+        assert_eq!(
+            child_total_alpha,
+            0.into(),
+            "new_hotkey should have zero TotalHotkeyAlpha"
+        );
+
+        let root_voting_power = VotingPower::<Test>::get(netuid, &old_hotkey);
+        let child_voting_power = VotingPower::<Test>::get(netuid, &new_hotkey);
+        assert!(
+            root_voting_power > 0,
+            "old_hotkey should retain VotingPower"
+        );
+        assert_eq!(
+            child_voting_power, 0,
+            "new_hotkey should have zero VotingPower"
+        );
+
+        let old_hotkey_children = ChildKeys::<Test>::get(old_hotkey, netuid);
+        assert!(
+            old_hotkey_children.iter().any(|(_, c)| *c == child_key),
+            "old_hotkey should retain its ChildKeys — stake weight delegation must work"
+        );
+
+        let child_key_parents = ParentKeys::<Test>::get(child_key, netuid);
+        assert!(
+            child_key_parents.iter().any(|(_, p)| *p == old_hotkey),
+            "child_key should still have old_hotkey as parent"
+        );
+
+        let new_hotkey_children = ChildKeys::<Test>::get(new_hotkey, netuid);
+        assert!(
+            !new_hotkey_children.iter().any(|(_, c)| *c == child_key),
+            "new_hotkey should NOT have child_key as child"
+        );
+    });
+}
+
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap --exact --nocapture
 // This test confirms, that the old hotkey can be reverted after the hotkey swap
 #[test]

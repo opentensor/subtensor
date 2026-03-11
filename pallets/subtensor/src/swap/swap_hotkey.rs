@@ -462,10 +462,13 @@ impl<T: Config> Pallet<T> {
             NeuronCertificates::<T>::insert(netuid, new_hotkey, old_neuron_certificates);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
-        // 4. Swap ChildKeys.
-        // 5. Swap ParentKeys.
-        // 6. Swap PendingChildKeys.
-        Self::parent_child_swap_hotkey(old_hotkey, new_hotkey, netuid, weight)?;
+
+        if !keep_stake {
+            // 4. Swap ChildKeys.
+            // 5. Swap ParentKeys.
+            // 6. Swap PendingChildKeys.
+            Self::parent_child_swap_hotkey(old_hotkey, new_hotkey, netuid, weight)?;
+        }
 
         // Also check for others with our hotkey as a child
         for (hotkey, (children, cool_down_block)) in PendingChildKeys::<T>::iter_prefix(netuid) {
@@ -507,7 +510,6 @@ impl<T: Config> Pallet<T> {
         }
 
         // 8. Swap dividend records
-        // 8.1 Swap TotalHotkeyAlphaLastEpoch
         if !keep_stake {
             // 8.1 Swap TotalHotkeyAlphaLastEpoch
             let old_alpha = TotalHotkeyAlphaLastEpoch::<T>::take(old_hotkey, netuid);
