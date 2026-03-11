@@ -14,7 +14,7 @@ import {
   tao,
   log,
 } from "e2e-shared";
-
+import { DEFAULT_RPC_URL } from "../setup.js";
 describe("▶ remove_stake extrinsic", () => {
   const hotkey = getRandomSubstrateKeypair();
   const coldkey = getRandomSubstrateKeypair();
