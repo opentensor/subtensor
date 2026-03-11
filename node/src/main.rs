@@ -13,7 +13,6 @@ mod consensus;
 mod ethereum;
 mod rpc;
 mod service;
-mod sync_options;
 
 fn main() -> sc_cli::Result<()> {
     command::run()

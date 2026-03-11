@@ -139,7 +139,7 @@ impl ConsensusMechanism for AuraConsensus {
         Self {}
     }
 
-    fn build_biq(&mut self) -> Result<BIQ<'_>, sc_service::Error>
+    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ<'_>, sc_service::Error>
     where
         NumberFor<Block>: BlockNumberOps,
     {
@@ -157,6 +157,7 @@ impl ConsensusMechanism for AuraConsensus {
                     client.clone(),
                     grandpa_block_import.clone(),
                     expected_babe_config.clone(),
+                    skip_history_backfill,
                 );
 
                 let slot_duration = sc_consensus_aura::slot_duration(&*client)?;

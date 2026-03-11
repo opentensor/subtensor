@@ -13,7 +13,7 @@ use jsonrpsee::{
 use serde_json::{Value, json};
 use sp_runtime::codec::Encode;
 
-use crate::cli::{CloneStateCmd, HistoryBackfill};
+use crate::cli::CloneStateCmd;
 
 type CloneResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -21,7 +21,7 @@ const RPC_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const GRANDPA_AUTHORITIES_WELL_KNOWN_KEY: &[u8] = b":grandpa_authorities";
 
 /// Execute `build-test-clone`: sync network state, export raw chainspec, apply clone patch.
-pub fn run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> sc_cli::Result<()> {
+pub fn run(cmd: &CloneStateCmd, skip_history_backfill: bool) -> sc_cli::Result<()> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
@@ -29,11 +29,11 @@ pub fn run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> sc_cli::Re
         .map_err(|err| sc_cli::Error::Application(Box::new(err)))?;
 
     runtime
-        .block_on(async_run(cmd, history_backfill))
+        .block_on(async_run(cmd, skip_history_backfill))
         .map_err(sc_cli::Error::Application)
 }
 
-async fn async_run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> CloneResult<()> {
+async fn async_run(cmd: &CloneStateCmd, skip_history_backfill: bool) -> CloneResult<()> {
     let validators = selected_validators(cmd);
     let selected_names = validators
         .iter()
@@ -54,7 +54,11 @@ async fn async_run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> Cl
     log::info!(
         "build-test-clone: validators={} history_backfill={}",
         selected_names,
-        history_backfill
+        if skip_history_backfill {
+            "skip"
+        } else {
+            "keep"
+        }
     );
 
     let mut sync_args = vec![
@@ -78,7 +82,11 @@ async fn async_run(cmd: &CloneStateCmd, history_backfill: HistoryBackfill) -> Cl
         "--name".to_string(),
         "build-test-clone-sync".to_string(),
         "--history-backfill".to_string(),
-        history_backfill.to_string(),
+        if skip_history_backfill {
+            "skip".to_string()
+        } else {
+            "keep".to_string()
+        },
     ];
 
     for bootnode in &cmd.bootnodes {
@@ -503,7 +511,7 @@ mod tests {
         let cmd = default_cmd();
         let selected = selected_validators(&cmd);
         assert_eq!(selected.len(), 1);
-        assert_eq!(selected[0], "Alice");
+        assert_eq!(selected.first(), Some(&"Alice"));
     }
 
     #[test]

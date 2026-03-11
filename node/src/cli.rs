@@ -129,15 +129,20 @@ pub struct CloneStateCmd {
     #[arg(long, value_name = "BOOTNODE")]
     pub bootnodes: Vec<String>,
 
-    /// Include Alice in patched validator authorities (default if no validator flags are passed; Sudo is assigned to the first selected validator in Alice->Bob->Charlie order).
+    /// Include Alice in patched validator authorities (default if no validator flags are passed;
+    /// Sudo is assigned to the first selected validator in Alice->Bob->Charlie order).
     #[arg(long, default_value_t = false)]
     pub alice: bool,
 
-    /// Include Bob in patched validator authorities (if any validator flag is set, only selected validators are used; Sudo is assigned to the first selected validator in Alice->Bob->Charlie order).
+    /// Include Bob in patched validator authorities (if any validator flag is set, only selected
+    /// validators are used; Sudo is assigned to the first selected validator in Alice->Bob->Charlie
+    /// order).
     #[arg(long, default_value_t = false)]
     pub bob: bool,
 
-    /// Include Charlie in patched validator authorities (if any validator flag is set, only selected validators are used; Sudo is assigned to the first selected validator in Alice->Bob->Charlie order).
+    /// Include Charlie in patched validator authorities (if any validator flag is set, only
+    /// selected validators are used; Sudo is assigned to the first selected validator in
+    /// Alice->Bob->Charlie order).
     #[arg(long, default_value_t = false)]
     pub charlie: bool,
 }
@@ -191,6 +196,7 @@ impl SupportedConsensusMechanism {
         &self,
         config: &mut Configuration,
         eth_config: &EthConfiguration,
+        skip_history_backfill: bool,
     ) -> Result<
         (
             Arc<FullClient>,
@@ -202,8 +208,12 @@ impl SupportedConsensusMechanism {
         sc_service::Error,
     > {
         match self {
-            SupportedConsensusMechanism::Aura => new_chain_ops::<AuraConsensus>(config, eth_config),
-            SupportedConsensusMechanism::Babe => new_chain_ops::<BabeConsensus>(config, eth_config),
+            SupportedConsensusMechanism::Aura => {
+                new_chain_ops::<AuraConsensus>(config, eth_config, skip_history_backfill)
+            }
+            SupportedConsensusMechanism::Babe => {
+                new_chain_ops::<BabeConsensus>(config, eth_config, skip_history_backfill)
+            }
         }
     }
 }

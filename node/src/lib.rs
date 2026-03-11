@@ -7,4 +7,3 @@ pub mod consensus;
 pub mod ethereum;
 pub mod rpc;
 pub mod service;
-pub mod sync_options;

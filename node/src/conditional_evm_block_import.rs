@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 pub struct ConditionalEVMBlockImport<B: BlockT, I, F> {
     inner: I,
     frontier_block_import: F,
+    skip_history_backfill: bool,
     _marker: PhantomData<B>,
 }
 
@@ -19,6 +20,7 @@ where
         ConditionalEVMBlockImport {
             inner: self.inner.clone(),
             frontier_block_import: self.frontier_block_import.clone(),
+            skip_history_backfill: self.skip_history_backfill,
             _marker: PhantomData,
         }
     }
@@ -32,10 +34,11 @@ where
     F: BlockImport<B>,
     F::Error: Into<ConsensusError>,
 {
-    pub fn new(inner: I, frontier_block_import: F) -> Self {
+    pub fn new(inner: I, frontier_block_import: F, skip_history_backfill: bool) -> Self {
         Self {
             inner,
             frontier_block_import,
+            skip_history_backfill,
             _marker: PhantomData,
         }
     }
@@ -60,9 +63,7 @@ where
         &self,
         mut block: BlockImportParams<B>,
     ) -> Result<ImportResult, Self::Error> {
-        if crate::sync_options::skip_history_backfill()
-            && matches!(block.origin, BlockOrigin::NetworkInitialSync)
-        {
+        if self.skip_history_backfill && matches!(block.origin, BlockOrigin::NetworkInitialSync) {
             block.create_gap = false;
         }
         // 4345556 - mainnet runtime upgrade block with Frontier
