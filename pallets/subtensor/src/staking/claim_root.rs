@@ -395,16 +395,14 @@ impl<T: Config> Pallet<T> {
     /// keys into memory, preventing unbounded memory usage when the number of
     /// hotkeys is large.
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        RootClaimable::<T>::translate::<BTreeMap<NetUid, I96F32>, _>(
-            |_hotkey, mut claimable| {
-                claimable.remove(&netuid);
-                if claimable.is_empty() {
-                    None
-                } else {
-                    Some(claimable)
-                }
-            },
-        );
+        RootClaimable::<T>::translate::<BTreeMap<NetUid, I96F32>, _>(|_hotkey, mut claimable| {
+            claimable.remove(&netuid);
+            if claimable.is_empty() {
+                None
+            } else {
+                Some(claimable)
+            }
+        });
 
         let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
     }

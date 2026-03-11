@@ -2075,7 +2075,7 @@ fn test_finalize_all_subnet_root_dividends_multiple_hotkeys() {
         // Manually populate RootClaimable for multiple hotkeys across two subnets.
         let rate = I96F32::from(42);
         for hotkey in [hotkey1, hotkey2, hotkey3] {
-            RootClaimable::<Test>::mutate(&hotkey, |claimable| {
+            RootClaimable::<Test>::mutate(hotkey, |claimable| {
                 claimable.insert(netuid_a, rate);
                 claimable.insert(netuid_b, rate);
             });
@@ -2134,12 +2134,12 @@ fn test_finalize_all_subnet_root_dividends_removes_empty_entries() {
         let rate = I96F32::from(10);
 
         // hotkey_single only has the target netuid.
-        RootClaimable::<Test>::mutate(&hotkey_single, |c| {
+        RootClaimable::<Test>::mutate(hotkey_single, |c| {
             c.insert(netuid, rate);
         });
 
         // hotkey_multi has the target netuid plus another.
-        RootClaimable::<Test>::mutate(&hotkey_multi, |c| {
+        RootClaimable::<Test>::mutate(hotkey_multi, |c| {
             c.insert(netuid, rate);
             c.insert(netuid_other, rate);
         });
