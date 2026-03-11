@@ -4,7 +4,7 @@ use frame_benchmarking::v2::*;
 use frame_support::{BoundedVec, pallet_prelude::ConstU32};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 use sp_core::sr25519;
-use sp_runtime::traits::Hash as HashT;
+use sp_runtime::{AccountId32, traits::Hash as HashT};
 use sp_std::vec;
 
 // /// Helper to build bounded bytes (public key) of a given length.
@@ -40,6 +40,8 @@ fn bounded_ct<const N: u32>(len: usize) -> BoundedVec<u8, ConstU32<N>> {
         <T as pallet::Config>::RuntimeCall: From<frame_system::Call<T>>,
         // Needed so we can seed Authorities from a dev sr25519 pubkey.
         <T as pallet_aura::Config>::AuthorityId: From<sr25519::Public>,
+        <T as frame_system::Config>::AccountId: From<AccountId32> + Into<AccountId32>,
+        <T as frame_system::Config>::RuntimeOrigin: From<RawOrigin<AccountId32>>
 )]
 mod benches {
     use super::*;

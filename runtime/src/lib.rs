@@ -71,7 +71,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaCurrency, AuthorshipInfo, TaoCurrency, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
@@ -177,8 +177,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
             ),
             SudoTransactionExtension::<Runtime>::new(),
-            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<Runtime>::new(
-            ),
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
             pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
@@ -241,7 +240,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 377,
+    spec_version: 385,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -354,6 +353,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
+    type DispatchGuard = pallet_subtensor::CheckColdkeySwap<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -489,6 +489,34 @@ impl pallet_balances::Config for Runtime {
     type FreezeIdentifier = RuntimeFreezeReason;
     type MaxFreezes = ConstU32<50>;
     type DoneSlashHandler = ();
+}
+
+// Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction
+// fee OnUnbalanced trait bounds
+pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
+
+impl<F: FindAuthor<u32>> BlockAuthorFromAura<F> {
+    pub fn get_block_author() -> Option<AccountId32> {
+        let binding = frame_system::Pallet::<Runtime>::digest();
+        let digest_logs = binding.logs();
+        let author_index = F::find_author(digest_logs.iter().filter_map(|d| d.as_pre_runtime()))?;
+        let authority_id = pallet_aura::Authorities::<Runtime>::get()
+            .get(author_index as usize)?
+            .clone();
+        Some(AccountId32::new(authority_id.to_raw_vec().try_into().ok()?))
+    }
+}
+
+impl AuthorshipInfo<AccountId32> for Runtime {
+    fn author() -> Option<AccountId32> {
+        BlockAuthorFromAura::<Aura>::get_block_author()
+    }
+}
+
+impl<F: FindAuthor<u32>> AuthorshipInfo<sp_runtime::AccountId32> for BlockAuthorFromAura<F> {
+    fn author() -> Option<sp_runtime::AccountId32> {
+        Self::get_block_author()
+    }
 }
 
 parameter_types! {
@@ -1001,7 +1029,7 @@ parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
     pub const SubtensorInitialAlphaSigmoidSteepness: i16 = 1000;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
-    pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
+    pub const SubtensorInitialMaxAllowedUids: u16 = 256;
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
@@ -1043,7 +1071,6 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    // pub const SubtensorInitialSubnetLimit: u16 = 12; // (DEPRECATED)
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
@@ -1051,9 +1078,8 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    // pub const SubtensorInitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
-    pub const InitialColdkeySwapScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
-    pub const InitialColdkeySwapRescheduleDuration: BlockNumber = 24 * 60 * 60 / 12; // 1 day
+    pub const InitialColdkeySwapAnnouncementDelay: BlockNumber = prod_or_fast!(5 * 24 * 60 * 60 / 12, 50); // 5 days
+    pub const InitialColdkeySwapReannouncementDelay: BlockNumber = prod_or_fast!(24 * 60 * 60 / 12, 10); // 1 day
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -1124,8 +1150,8 @@ impl pallet_subtensor::Config for Runtime {
     type Yuma3On = InitialYuma3On;
     type InitialTaoWeight = SubtensorInitialTaoWeight;
     type Preimages = Preimage;
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
+    type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
+    type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
     type InitialStartCallDelay = InitialStartCallDelay;
@@ -1138,6 +1164,7 @@ impl pallet_subtensor::Config for Runtime {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = BlockAuthorFromAura<Aura>;
 }
 
 parameter_types! {
@@ -1618,7 +1645,7 @@ pub type TransactionExtensions = (
     frame_system::CheckWeight<Runtime>,
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
-    pallet_subtensor::transaction_extension::SubtensorTransactionExtension<Runtime>,
+    pallet_subtensor::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
@@ -1671,6 +1698,7 @@ mod benches {
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
         [pallet_shield, MevShield]
+        [pallet_subtensor_proxy, Proxy]
     );
 }
 
@@ -2509,6 +2537,7 @@ impl_runtime_apis! {
 
         fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,
@@ -2531,6 +2560,7 @@ impl_runtime_apis! {
 
         fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,

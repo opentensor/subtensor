@@ -15,8 +15,10 @@ use sp_runtime::{
 use subtensor_macros::freeze_struct;
 
 pub use currency::*;
+pub use evm_context::*;
 
 mod currency;
+mod evm_context;
 
 /// Balance of an account.
 pub type Balance = u64;
@@ -258,6 +260,12 @@ pub trait BalanceOps<AccountId> {
         netuid: NetUid,
         alpha: AlphaCurrency,
     ) -> Result<AlphaCurrency, DispatchError>;
+}
+
+/// Allows to query the current block author
+pub trait AuthorshipInfo<AccountId> {
+    /// Return the current block author
+    fn author() -> Option<AccountId>;
 }
 
 pub mod time {
