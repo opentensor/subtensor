@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: [self-hosted, "${{ inputs.runner_label }}"]
+    runs-on: [self-hosted, "${{ github.event.inputs.runner_label || 'fa-fastcores' }}"]
 
     steps:
       - name: Determine Docker tag and ref
