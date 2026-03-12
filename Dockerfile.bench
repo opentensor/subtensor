@@ -1,13 +1,13 @@
 # ------------------------------------------------------------------------------
 #  Subtensor benchmark Dockerfile
 #  - Builds the production node image only
-#  - Uses cargo-chef to separate dependency compilation from source compilation
+#  - Uses a direct cargo build to mirror the production build shape
 # ------------------------------------------------------------------------------
 
 ARG BASE_IMAGE=rust:latest
 ARG RUST_TOOLCHAIN=1.89
 
-FROM ${BASE_IMAGE} AS chef
+FROM ${BASE_IMAGE} AS builder
 ARG RUST_TOOLCHAIN
 
 LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
@@ -19,6 +19,7 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
 ENV RUST_BACKTRACE=1
 WORKDIR /build
 
+COPY . /build
 COPY rust-toolchain.toml /build/rust-toolchain.toml
 
 RUN rustup toolchain install ${RUST_TOOLCHAIN} && \
@@ -26,26 +27,7 @@ RUN rustup toolchain install ${RUST_TOOLCHAIN} && \
   apt-get update && \
   apt-get install -y --no-install-recommends \
   curl build-essential protobuf-compiler clang git pkg-config libssl-dev && \
-  cargo +${RUST_TOOLCHAIN} install cargo-chef --locked && \
   rm -rf /var/lib/apt/lists/*
-
-FROM chef AS planner
-ARG RUST_TOOLCHAIN
-
-COPY . /build
-RUN cargo +${RUST_TOOLCHAIN} chef prepare --recipe-path recipe.json
-
-FROM chef AS cacher
-ARG RUST_TOOLCHAIN
-
-COPY --from=planner /build/recipe.json /build/recipe.json
-RUN cargo +${RUST_TOOLCHAIN} chef cook --recipe-path recipe.json --profile production --package node-subtensor --features metadata-hash --locked
-
-FROM chef AS builder
-ARG RUST_TOOLCHAIN
-
-COPY --from=cacher /build /build
-COPY . /build
 RUN cargo +${RUST_TOOLCHAIN} build -p node-subtensor --profile production --features "metadata-hash" --locked && \
   test -e /build/target/production/node-subtensor
 

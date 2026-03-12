@@ -53,8 +53,6 @@ jobs:
           push: false
           platforms: linux/amd64
           tags: subtensor-bench:${{ env.tag }}-amd64
-          cache-from: type=gha,scope=bench-docker-publish-dryrun-amd64
-          cache-to: type=gha,mode=max,scope=bench-docker-publish-dryrun-amd64,ignore-error=true
 
       - name: Build Docker image without push (arm64)
         uses: docker/build-push-action@v6
@@ -64,5 +62,3 @@ jobs:
           push: false
           platforms: linux/arm64
           tags: subtensor-bench:${{ env.tag }}-arm64
-          cache-from: type=gha,scope=bench-docker-publish-dryrun-arm64
-          cache-to: type=gha,mode=max,scope=bench-docker-publish-dryrun-arm64,ignore-error=true
