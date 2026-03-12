@@ -528,5 +528,11 @@ mod events {
             /// Alpha burned
             alpha: AlphaBalance,
         },
+
+        /// Root claimed data for this block.
+        RootClaimedData {
+            /// Root claim data for this block
+            data: BTreeMap<NetUid, PendingRootClaimedData>,
+        },
     }
 }
