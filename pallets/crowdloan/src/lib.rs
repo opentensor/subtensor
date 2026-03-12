@@ -292,7 +292,7 @@ pub mod pallet {
         /// will transfer funds to the target address if provided and dispatch the call
         /// (using creator origin).
         ///
-        /// The initial deposit will be transfered to the crowdloan account and will be refunded
+        /// The initial deposit will be transferred to the crowdloan account and will be refunded
         /// in case the crowdloan fails to raise the cap. Additionally, the creator will pay for
         /// the execution of the call.
         ///
@@ -399,7 +399,7 @@ pub mod pallet {
 
         /// Contribute to an active crowdloan.
         ///
-        /// The contribution will be transfered to the crowdloan account and will be refunded
+        /// The contribution will be transferred to the crowdloan account and will be refunded
         /// if the crowdloan fails to raise the cap. If the contribution would raise the amount above the cap,
         /// the contribution will be set to the amount that is left to be raised.
         ///

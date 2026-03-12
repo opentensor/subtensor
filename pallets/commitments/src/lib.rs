@@ -80,7 +80,7 @@ pub mod pallet {
 
     /// Used to retrieve the given subnet's tempo
     pub trait GetTempoInterface {
-        /// Used to retreive the epoch index for the given subnet.
+        /// Used to retrieve the epoch index for the given subnet.
         fn get_epoch_index(netuid: NetUid, cur_block: u64) -> u64;
     }
 
