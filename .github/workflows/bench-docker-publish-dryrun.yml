@@ -1,6 +1,9 @@
 name: Bench Docker Publish Dry Run
 
 on:
+  push:
+    branches:
+      - fireactions-runners
   workflow_dispatch:
     inputs:
       branch-or-tag:
