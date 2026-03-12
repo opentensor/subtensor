@@ -18,7 +18,7 @@ ENV RUST_BACKTRACE=1
 WORKDIR /build
 
 RUN rustup update stable && \
-  rustup target add wasm32v1-none --toolchain stable && \
+  rustup target add wasm32-unknown-unknown wasm32v1-none --toolchain stable && \
   apt-get update && \
   apt-get install -y --no-install-recommends \
   curl build-essential protobuf-compiler clang git pkg-config libssl-dev && \
