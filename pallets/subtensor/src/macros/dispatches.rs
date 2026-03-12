@@ -1051,7 +1051,17 @@ mod dispatches {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
-        /// The extrinsic for user to change its hotkey in subnet or all subnets.
+        /// ---- The extrinsic for user to change its hotkey in subnet or all subnets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction (must be signed by the coldkey).
+        /// * `hotkey` - The old hotkey to be swapped.
+        /// * `new_hotkey` - The new hotkey to replace the old one.
+        /// * `netuid` - Optional subnet ID. If `Some`, swap only on that subnet; if `None`, swap on all subnets.
+        ///   is transferred to the new hotkey.
+        #[deprecated(
+            note = "Please use swap_hotkey_v2 instead. This extrinsic will be removed some time after June 2026."
+        )]
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
         .saturating_add(T::DbWeight::get().reads(52_u64))
@@ -1062,7 +1072,32 @@ mod dispatches {
             new_hotkey: T::AccountId,
             netuid: Option<NetUid>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid)
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, false)
+        }
+
+        /// ---- The extrinsic for user to change its hotkey in subnet or all subnets. This extrinsic is
+        /// similar to swap_hotkey, but with keep_stake parameter bo be able to keep the stake when swapping
+        /// a root key to a child key
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction (must be signed by the coldkey).
+        /// * `hotkey` - The old hotkey to be swapped.
+        /// * `new_hotkey` - The new hotkey to replace the old one.
+        /// * `netuid` - Optional subnet ID. If `Some`, swap only on that subnet; if `None`, swap on all subnets.
+        /// * `keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
+        ///   is transferred to the new hotkey.
+        #[pallet::call_index(72)]
+        #[pallet::weight((Weight::from_parts(275_300_000, 0)
+        .saturating_add(T::DbWeight::get().reads(52_u64))
+        .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::No))]
+        pub fn swap_hotkey_v2(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            new_hotkey: T::AccountId,
+            netuid: Option<NetUid>,
+            keep_stake: bool,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, keep_stake)
         }
 
         /// Performs an arbitrary coldkey swap for any coldkey.
