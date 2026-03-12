@@ -1,3 +1,19 @@
+//! Build-and-patch workflow for producing a local test chainspec from live network state.
+//!
+//! This module implements the `build-patched-spec` subcommand scenario:
+//!
+//! 1. Start a temporary node and sync it to the requested chain.
+//! 2. Wait until sync is considered stable (RPC-reported near-head status).
+//! 3. Stop the temporary node and run `export-state` from the synced database.
+//! 4. Apply patching to the raw chainspec:
+//!    - replace validator/authority sets with selected dev authorities,
+//!    - set Sudo to the first selected validator,
+//!    - clear session-derived keys and localize top-level chain fields.
+//! 5. Write the final patched chainspec JSON to the requested output path.
+//!
+//! The result is intended for local/mainnet-clone style testing where runtime state is taken from a
+//! live network, but governance/validator control is reassigned to test authorities.
+
 use std::collections::VecDeque;
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter};
