@@ -64,10 +64,10 @@ where
         mut block: BlockImportParams<B>,
     ) -> Result<ImportResult, Self::Error> {
         if self.skip_history_backfill && matches!(block.origin, BlockOrigin::NetworkInitialSync) {
-			// During initial network sync, Substrate can mark missing historical ranges as "gaps"
-			// (`create_gap = true`) and then backfill them later. When history backfill is set to
-			// `skip`, we disable gap creation so no history reconstruction work is scheduled.
-			// `build-test-clone` just defaults this setting to `skip`.
+            // During initial network sync, Substrate can mark missing historical ranges as "gaps"
+            // (`create_gap = true`) and then backfill them later. When history backfill is set to
+            // `skip`, we disable gap creation so no history reconstruction work is scheduled.
+            // `build-patched-spec` just defaults this setting to `skip`.
             block.create_gap = false;
         }
         // 4345556 - mainnet runtime upgrade block with Frontier

@@ -40,7 +40,7 @@ pub struct Cli {
     ///
     /// `keep` preserves complete history (default for normal node runs).
     /// `skip` is faster/lighter but historical block data may be incomplete.
-    /// For `build-test-clone`, the implicit default is `skip` unless this flag is explicitly set.
+    /// For `build-patched-spec`, the implicit default is `skip` unless this flag is explicitly set.
     #[arg(long, value_enum, default_value_t = HistoryBackfill::Keep)]
     pub history_backfill: HistoryBackfill,
 }
@@ -81,8 +81,8 @@ pub enum Subcommand {
     // Db meta columns information.
     ChainInfo(sc_cli::ChainInfoCmd),
 
-    // Build a patched test clone chainspec from synced network state.
-    #[command(name = "build-test-clone")]
+    // Build a patched test chainspec from synced network state.
+    #[command(name = "build-patched-spec")]
     CloneState(CloneStateCmd),
 }
 

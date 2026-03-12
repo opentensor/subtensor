@@ -20,7 +20,7 @@ type CloneResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const RPC_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const GRANDPA_AUTHORITIES_WELL_KNOWN_KEY: &[u8] = b":grandpa_authorities";
 
-/// Execute `build-test-clone`: sync network state, export raw chainspec, apply clone patch.
+/// Execute `build-patched-spec`: sync network state, export raw chainspec, apply clone patch.
 pub fn run(cmd: &CloneStateCmd, skip_history_backfill: bool) -> sc_cli::Result<()> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_io()
@@ -52,7 +52,7 @@ async fn async_run(cmd: &CloneStateCmd, skip_history_backfill: bool) -> CloneRes
     let sync_arg = sync_arg(cmd.sync);
 
     log::info!(
-        "build-test-clone: validators={} history_backfill={}",
+        "build-patched-spec: validators={} history_backfill={}",
         selected_names,
         if skip_history_backfill {
             "skip"
@@ -80,7 +80,7 @@ async fn async_run(cmd: &CloneStateCmd, skip_history_backfill: bool) -> CloneRes
         "--no-prometheus".to_string(),
         "--no-mdns".to_string(),
         "--name".to_string(),
-        "build-test-clone-sync".to_string(),
+        "build-patched-spec-sync".to_string(),
         "--history-backfill".to_string(),
         if skip_history_backfill {
             "skip".to_string()
@@ -94,7 +94,7 @@ async fn async_run(cmd: &CloneStateCmd, skip_history_backfill: bool) -> CloneRes
         sync_args.push(bootnode.clone());
     }
 
-    log::info!("build-test-clone: starting sync node");
+    log::info!("build-patched-spec: starting sync node");
 
     let mut sync_child = Command::new(&current_exe)
         .args(&sync_args)
@@ -111,22 +111,22 @@ async fn async_run(cmd: &CloneStateCmd, skip_history_backfill: bool) -> CloneRes
 
     let raw_tmp = temp_raw_path()?;
 
-    log::info!("build-test-clone: exporting raw state");
+    log::info!("build-patched-spec: exporting raw state");
 
     export_raw_state(&current_exe, cmd, database_arg, &raw_tmp)?;
 
-    log::info!("build-test-clone: applying clone patch");
+    log::info!("build-patched-spec: applying clone patch");
 
     patch_raw_chainspec_file(&raw_tmp, &cmd.output, &validators)?;
 
     if let Err(err) = fs::remove_file(&raw_tmp) {
         log::warn!(
-            "build-test-clone: warning: failed to remove temp file {}: {err}",
+            "build-patched-spec: warning: failed to remove temp file {}: {err}",
             raw_tmp.display()
         );
     }
 
-    log::info!("build-test-clone: wrote {}", cmd.output.display());
+    log::info!("build-patched-spec: wrote {}", cmd.output.display());
 
     Ok(())
 }
@@ -141,7 +141,7 @@ async fn wait_for_sync_completion(sync_child: &mut Child, cmd: &CloneStateCmd) -
         .build(rpc_url)?;
 
     log::info!(
-        "build-test-clone: waiting for sync completion (timeout={}s)",
+        "build-patched-spec: waiting for sync completion (timeout={}s)",
         cmd.sync_timeout_sec
     );
 
@@ -169,7 +169,7 @@ async fn wait_for_sync_completion(sync_child: &mut Child, cmd: &CloneStateCmd) -
                 if is_ready {
                     stable_ready_checks = stable_ready_checks.saturating_add(1);
                     if stable_ready_checks >= 3 {
-                        log::info!("build-test-clone: sync target reached");
+                        log::info!("build-patched-spec: sync target reached");
                         return Ok(());
                     }
                 } else {

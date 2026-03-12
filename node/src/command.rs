@@ -263,7 +263,7 @@ pub fn run() -> sc_cli::Result<()> {
 }
 
 fn resolve_skip_history_backfill(cli: &Cli, arg_matches: &ArgMatches) -> bool {
-    // We keep a single global `--history-backfill` flag, but `build-test-clone` should default to
+    // We keep a single global `--history-backfill` flag, but `build-patched-spec` should default to
     // `skip` when the operator didn't set the flag explicitly. This preserves `keep` as the default
     // for normal node runs.
     if matches!(
