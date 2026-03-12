@@ -1,0 +1,69 @@
+# ------------------------------------------------------------------------------
+#  Subtensor benchmark Dockerfile
+#  - Builds the production node image only
+#  - Uses cargo-chef to separate dependency compilation from source compilation
+# ------------------------------------------------------------------------------
+
+ARG BASE_IMAGE=rust:latest
+
+FROM ${BASE_IMAGE} AS chef
+
+LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
+  ai.opentensor.image.vendor="Opentensor Foundation" \
+  ai.opentensor.image.title="opentensor/subtensor" \
+  ai.opentensor.image.description="Opentensor Subtensor Blockchain" \
+  ai.opentensor.image.documentation="https://docs.bittensor.com"
+
+ENV RUST_BACKTRACE=1
+WORKDIR /build
+
+RUN rustup update stable && \
+  rustup target add wasm32v1-none --toolchain stable && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends \
+  curl build-essential protobuf-compiler clang git pkg-config libssl-dev && \
+  cargo install cargo-chef --locked && \
+  rm -rf /var/lib/apt/lists/*
+
+FROM chef AS planner
+
+COPY . /build
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS cacher
+
+COPY --from=planner /build/recipe.json /build/recipe.json
+RUN cargo chef cook --recipe-path recipe.json --profile production --package node-subtensor --features metadata-hash --locked
+
+FROM chef AS builder
+
+COPY --from=cacher /build /build
+COPY . /build
+RUN cargo build -p node-subtensor --profile production --features "metadata-hash" --locked && \
+  test -e /build/target/production/node-subtensor
+
+FROM ${BASE_IMAGE} AS subtensor
+
+RUN addgroup --system --gid 10001 subtensor && \
+  adduser --system --uid 10001 --gid 10001 --home /home/subtensor --disabled-password subtensor
+
+RUN apt-get update && \
+  apt-get install -y gosu && \
+  rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /data && chown -R subtensor:subtensor /data
+WORKDIR /home/subtensor
+
+COPY --chown=subtensor:subtensor --from=builder /build/*.json ./
+COPY --chown=subtensor:subtensor --from=builder /build/chainspecs/*.json ./chainspecs/
+COPY --from=builder /build/target/production/node-subtensor /usr/local/bin/
+RUN chown subtensor:subtensor /usr/local/bin/node-subtensor
+
+COPY --from=builder /build/scripts/docker_entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 30333 9933 9944
+
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["--base-path", "/data"]

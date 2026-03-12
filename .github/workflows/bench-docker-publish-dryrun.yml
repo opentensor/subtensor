@@ -49,6 +49,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: Dockerfile.bench
           push: false
           platforms: linux/amd64,linux/arm64
           tags: subtensor-bench:${{ env.tag }}
+          cache-from: type=gha,scope=bench-docker-publish-dryrun
+          cache-to: type=gha,mode=max,scope=bench-docker-publish-dryrun,ignore-error=true
