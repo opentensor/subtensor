@@ -6,7 +6,7 @@ use frame_support::{
     weights::Weight,
 };
 use sp_core::U256;
-use subtensor_runtime_common::{AlphaCurrency, Currency, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock;
@@ -18,14 +18,14 @@ use crate::*;
 fn test_stake_base_case() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        let tao_to_swap = TaoCurrency::from(1_000_000_000); // 1 TAO
+        let tao_to_swap = TaoBalance::from(1_000_000_000); // 1 TAO
 
         // Set up the subnet with dynamic mechanism
         SubnetMechanism::<Test>::insert(netuid, 1);
 
         // Initialize subnet with some existing TAO and Alpha
-        let initial_subnet_tao = TaoCurrency::from(10_000_000_000); // 10 TAO
-        let initial_subnet_alpha = AlphaCurrency::from(5_000_000_000); // 5 Alpha
+        let initial_subnet_tao = TaoBalance::from(10_000_000_000_u64); // 10 TAO
+        let initial_subnet_alpha = AlphaBalance::from(5_000_000_000_u64); // 5 Alpha
         mock::setup_reserves(netuid, initial_subnet_tao, initial_subnet_alpha);
         SubnetAlphaOut::<Test>::insert(netuid, initial_subnet_alpha);
 
@@ -34,7 +34,7 @@ fn test_stake_base_case() {
 
         // Perform swap
         let (alpha_expected, fee) = mock::swap_tao_to_alpha(netuid, tao_to_swap);
-        let alpha_received = AlphaCurrency::from(
+        let alpha_received = AlphaBalance::from(
             SubtensorModule::swap_tao_for_alpha(
                 netuid,
                 tao_to_swap,
@@ -89,7 +89,7 @@ fn test_share_based_staking() {
         let netuid = NetUid::from(1);
         let primary_hotkey = U256::from(1);
         let primary_coldkey = U256::from(2);
-        let stake_amount = AlphaCurrency::from(1_000_000_000); // 1 Alpha stake increase
+        let stake_amount = AlphaBalance::from(1_000_000_000); // 1 Alpha stake increase
 
         // Test Case 1: Initial Stake
         // The first stake should create shares 1:1 with the staked amount
@@ -324,7 +324,7 @@ fn test_share_based_staking() {
             &primary_hotkey,
             &primary_coldkey,
             netuid,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
         let zero_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &primary_hotkey,
@@ -407,7 +407,7 @@ fn test_share_based_staking() {
 fn test_share_based_staking_denominator_precision() {
     // Test case amounts: stake, unstake, inject, tolerance
     [
-        (1_000, 990),
+        (1_000_u64, 990_u64),
         (1_000, 999),
         (1_000_000, 990_000),
         (1_000_000, 999_990),
@@ -420,8 +420,8 @@ fn test_share_based_staking_denominator_precision() {
             let netuid = NetUid::from(1);
             let hotkey1 = U256::from(1);
             let coldkey1 = U256::from(2);
-            let stake_amount = AlphaCurrency::from(test_case.0);
-            let unstake_amount = AlphaCurrency::from(test_case.1);
+            let stake_amount = AlphaBalance::from(test_case.0);
+            let unstake_amount = AlphaBalance::from(test_case.1);
 
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1,
@@ -450,7 +450,7 @@ fn test_share_based_staking_denominator_precision() {
                 / (stake_amount.to_u64() as f64)
                 <= 0.00001
             {
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             } else {
                 stake_amount - unstake_amount
             };
@@ -464,7 +464,7 @@ fn test_share_based_staking_denominator_precision() {
 fn test_share_based_staking_stake_unstake_inject() {
     // Test case amounts: stake, unstake, inject, tolerance
     [
-        (1_000, 999, 1_000_000, 0),
+        (1_000_u64, 999_u64, 1_000_000_u64, 0),
         (1_000_000, 999_000, 100_000_000, 0),
         (1_000_000, 900_000, 100_000_000, 0),
         (100_000_000_000, 1_000_000_000, 1_000_000_000_000, 1),
@@ -479,9 +479,9 @@ fn test_share_based_staking_stake_unstake_inject() {
             let hotkey1 = U256::from(1);
             let coldkey1 = U256::from(2);
             let coldkey2 = U256::from(3);
-            let stake_amount = AlphaCurrency::from(test_case.0);
-            let unstake_amount = AlphaCurrency::from(test_case.1);
-            let inject_amount = AlphaCurrency::from(test_case.2);
+            let stake_amount = AlphaBalance::from(test_case.0);
+            let unstake_amount = AlphaBalance::from(test_case.1);
+            let inject_amount = AlphaBalance::from(test_case.2);
             let tolerance = test_case.3;
 
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -540,7 +540,7 @@ fn test_share_based_staking_stake_unstake_inject() {
 fn test_share_based_staking_stake_inject_stake_new() {
     // Test case amounts: stake, inject, stake, tolerance
     [
-        (1, 2_000_000_000, 500_000_000, 1),
+        (1_u64, 2_000_000_000_u64, 500_000_000_u64, 1),
         (1, 5_000_000_000, 50_000_000, 1),
         (500_000_000, 1_000_000_000, 1_000_000_000, 1),
     ]
@@ -551,9 +551,9 @@ fn test_share_based_staking_stake_inject_stake_new() {
             let hotkey1 = U256::from(1);
             let coldkey1 = U256::from(2);
             let coldkey2 = U256::from(3);
-            let stake_amount = AlphaCurrency::from(test_case.0);
-            let inject_amount = AlphaCurrency::from(test_case.1);
-            let stake_amount_2 = AlphaCurrency::from(test_case.2);
+            let stake_amount = AlphaBalance::from(test_case.0);
+            let inject_amount = AlphaBalance::from(test_case.1);
+            let stake_amount_2 = AlphaBalance::from(test_case.2);
             let tolerance = test_case.3;
 
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -661,24 +661,24 @@ fn test_stake_fee_api() {
         let netuid1 = NetUid::from(2);
         let root_netuid = NetUid::ROOT;
 
-        let alpha_divs = AlphaCurrency::from(100_000_000_000);
-        let total_hotkey_alpha = AlphaCurrency::from(100_000_000_000);
-        let tao_in = TaoCurrency::from(100_000_000_000); // 100 TAO
+        let alpha_divs = AlphaBalance::from(100_000_000_000_u64);
+        let total_hotkey_alpha = AlphaBalance::from(100_000_000_000_u64);
+        let tao_in = TaoBalance::from(100_000_000_000_u64); // 100 TAO
         let reciprocal_price = 2; // 1 / price
-        let stake_amount = 100_000_000_000;
+        let stake_amount = 100_000_000_000_u64;
 
         // Setup alpha out
-        SubnetAlphaOut::<Test>::insert(netuid0, AlphaCurrency::from(100_000_000_000));
-        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(100_000_000_000));
+        SubnetAlphaOut::<Test>::insert(netuid0, AlphaBalance::from(100_000_000_000_u64));
+        SubnetAlphaOut::<Test>::insert(netuid1, AlphaBalance::from(100_000_000_000_u64));
         // Set pools using price
         SubnetAlphaIn::<Test>::insert(
             netuid0,
-            AlphaCurrency::from(tao_in.to_u64() * reciprocal_price),
+            AlphaBalance::from(tao_in.to_u64() * reciprocal_price),
         );
         SubnetTAO::<Test>::insert(netuid0, tao_in);
         SubnetAlphaIn::<Test>::insert(
             netuid1,
-            AlphaCurrency::from(tao_in.to_u64() * reciprocal_price),
+            AlphaBalance::from(tao_in.to_u64() * reciprocal_price),
         );
         SubnetTAO::<Test>::insert(netuid1, tao_in);
 
@@ -700,7 +700,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_0 = <Test as Config>::SwapInterface::approx_fee_amount(
             netuid0.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_0, dynamic_fee_0);
@@ -715,7 +715,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_1 = <Test as Config>::SwapInterface::approx_fee_amount(
             root_netuid.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_1, dynamic_fee_1);
@@ -730,7 +730,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_2 = <Test as Config>::SwapInterface::approx_fee_amount(
             netuid0.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_2, dynamic_fee_2);
@@ -745,7 +745,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_3 = <Test as Config>::SwapInterface::approx_fee_amount(
             root_netuid.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_3, dynamic_fee_3);
@@ -760,7 +760,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_4 = <Test as Config>::SwapInterface::approx_fee_amount(
             root_netuid.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_4, dynamic_fee_4);
@@ -775,7 +775,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_5 = <Test as Config>::SwapInterface::approx_fee_amount(
             root_netuid.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_5, dynamic_fee_5);
@@ -790,7 +790,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_6 = <Test as Config>::SwapInterface::approx_fee_amount(
             netuid0.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_6, dynamic_fee_6);
@@ -805,7 +805,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_7 = <Test as Config>::SwapInterface::approx_fee_amount(
             netuid0.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_7, dynamic_fee_7);
@@ -820,7 +820,7 @@ fn test_stake_fee_api() {
         );
         let dynamic_fee_8 = <Test as Config>::SwapInterface::approx_fee_amount(
             netuid1.into(),
-            TaoCurrency::from(stake_amount),
+            TaoBalance::from(stake_amount),
         )
         .to_u64();
         assert_eq!(stake_fee_8, dynamic_fee_8);
@@ -840,27 +840,27 @@ fn test_stake_fee_calculation() {
         SubnetMechanism::<Test>::insert(netuid0, 1);
         SubnetMechanism::<Test>::insert(netuid1, 1);
 
-        let alpha_divs = AlphaCurrency::from(100_000_000_000);
-        let total_hotkey_alpha = AlphaCurrency::from(100_000_000_000);
-        let tao_in = TaoCurrency::from(100_000_000_000); // 100 TAO
+        let alpha_divs = AlphaBalance::from(100_000_000_000_u64);
+        let total_hotkey_alpha = AlphaBalance::from(100_000_000_000_u64);
+        let tao_in = TaoBalance::from(100_000_000_000_u64); // 100 TAO
         let reciprocal_price = 2; // 1 / price
-        let stake_amount = TaoCurrency::from(100_000_000_000);
+        let stake_amount = TaoBalance::from(100_000_000_000_u64);
 
-        let default_fee = TaoCurrency::ZERO; // FIXME: DefaultStakingFee is deprecated
+        let default_fee = TaoBalance::ZERO; // FIXME: DefaultStakingFee is deprecated
 
         // Setup alpha out
-        SubnetAlphaOut::<Test>::insert(netuid0, AlphaCurrency::from(100_000_000_000));
-        SubnetAlphaOut::<Test>::insert(netuid1, AlphaCurrency::from(100_000_000_000));
+        SubnetAlphaOut::<Test>::insert(netuid0, AlphaBalance::from(100_000_000_000_u64));
+        SubnetAlphaOut::<Test>::insert(netuid1, AlphaBalance::from(100_000_000_000_u64));
         // Set pools using price
         mock::setup_reserves(
             netuid0,
             tao_in,
-            AlphaCurrency::from(tao_in.to_u64() * reciprocal_price),
+            AlphaBalance::from(tao_in.to_u64() * reciprocal_price),
         );
         mock::setup_reserves(
             netuid1,
             tao_in,
-            AlphaCurrency::from(tao_in.to_u64() * reciprocal_price),
+            AlphaBalance::from(tao_in.to_u64() * reciprocal_price),
         );
 
         // Setup alpha divs for hotkey1

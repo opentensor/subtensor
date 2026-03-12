@@ -1,145 +1,141 @@
-use crate as pallet_mev_shield;
+use crate as pallet_shield;
+use stp_shield::MLKEM768_ENC_KEY_LEN;
 
-use frame_support::{construct_runtime, derive_impl, parameter_types, traits::Everything};
-use frame_system as system;
-
+use frame_support::traits::{ConstBool, ConstU64};
+use frame_support::{BoundedVec, construct_runtime, derive_impl, parameter_types};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{ConstU32, H256};
-use sp_runtime::traits::BadOrigin;
-use sp_runtime::{
-    AccountId32, BuildStorage,
-    traits::{BlakeTwo256, IdentityLookup},
-};
+use sp_core::sr25519;
+use sp_runtime::{BuildStorage, generic, testing::TestSignature};
+use std::cell::RefCell;
+use stp_shield::ShieldEncKey;
 
-// -----------------------------------------------------------------------------
-// Mock runtime
-// -----------------------------------------------------------------------------
+pub type Block = frame_system::mocking::MockBlock<Test>;
 
-pub type UncheckedExtrinsic = system::mocking::MockUncheckedExtrinsic<Test>;
-pub type Block = system::mocking::MockBlock<Test>;
+pub type DecodableExtrinsic = generic::UncheckedExtrinsic<u64, RuntimeCall, TestSignature, ()>;
+pub type DecodableBlock =
+    generic::Block<generic::Header<u64, sp_runtime::traits::BlakeTwo256>, DecodableExtrinsic>;
 
 construct_runtime!(
     pub enum Test {
         System: frame_system = 0,
         Timestamp: pallet_timestamp = 1,
         Aura: pallet_aura = 2,
-        MevShield: pallet_mev_shield = 3,
+        MevShield: pallet_shield = 3,
+        Utility: pallet_subtensor_utility = 4,
     }
 );
 
-// A concrete nonce type used in tests.
-pub type TestNonce = u64;
-
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-impl system::Config for Test {
-    // Basic system config
-    type BaseCallFilter = Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-
-    type Nonce = TestNonce;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-
-    type AccountId = AccountId32;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-
-    type BlockHashCount = ();
-    type Version = ();
-    type PalletInfo = PalletInfo;
-
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-
-    // Max number of consumer refs per account.
-    type MaxConsumers = ConstU32<16>;
-}
+const SLOT_DURATION: u64 = 6000;
 
 parameter_types! {
-    pub const MinimumPeriod: u64 = 1;
+    pub const SlotDuration: u64 = SLOT_DURATION;
+    pub const MaxAuthorities: u32 = 32;
+}
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl frame_system::Config for Test {
+    type Block = Block;
 }
 
 impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
+    type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
     type WeightInfo = ();
-}
-
-// Aura mock configuration
-parameter_types! {
-    pub const MaxAuthorities: u32 = 32;
-    pub const AllowMultipleBlocksPerSlot: bool = false;
-    pub const SlotDuration: u64 = 6000;
 }
 
 impl pallet_aura::Config for Test {
     type AuthorityId = AuraId;
-    // For tests we don't need dynamic disabling; just use unit type.
     type DisabledValidators = ();
     type MaxAuthorities = MaxAuthorities;
-    type AllowMultipleBlocksPerSlot = AllowMultipleBlocksPerSlot;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
     type SlotDuration = SlotDuration;
 }
 
-// -----------------------------------------------------------------------------
-// Authority origin for tests – root-only
-// -----------------------------------------------------------------------------
+impl pallet_subtensor_utility::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = ();
+}
 
-/// For tests, treat Root as the “validator set” and return a dummy AccountId.
-pub struct TestAuthorityOrigin;
+thread_local! {
+    static MOCK_CURRENT: RefCell<Option<AuraId>> = const { RefCell::new(None) };
+    static MOCK_NEXT_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
+}
 
-impl pallet_mev_shield::AuthorityOriginExt<RuntimeOrigin> for TestAuthorityOrigin {
-    type AccountId = AccountId32;
+pub struct MockFindAuthors;
 
-    fn ensure_validator(origin: RuntimeOrigin) -> Result<Self::AccountId, BadOrigin> {
-        // Must be a signed origin.
-        let who: AccountId32 = frame_system::ensure_signed(origin).map_err(|_| BadOrigin)?;
+impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
+    fn find_current_author() -> Option<AuraId> {
+        // Thread-local override (unit tests) → Aura fallback (benchmarks).
+        MOCK_CURRENT.with(|c| c.borrow().clone()).or_else(|| {
+            let slot = Aura::current_slot_from_digests()?;
+            let auths = pallet_aura::Authorities::<Test>::get().into_inner();
+            auths.get(*slot as usize % auths.len()).cloned()
+        })
+    }
 
-        // Interpret the AccountId bytes as an AuraId, just like the real pallet.
-        let aura_id =
-            <AuraId as sp_core::ByteArray>::from_slice(who.as_ref()).map_err(|_| BadOrigin)?;
-
-        // Check membership in the Aura validator set.
-        let is_validator = pallet_aura::Authorities::<Test>::get()
-            .into_iter()
-            .any(|id| id == aura_id);
-
-        if is_validator {
-            Ok(who)
-        } else {
-            Err(BadOrigin)
+    fn find_next_next_author() -> Option<AuraId> {
+        if let Some(val) = MOCK_NEXT_NEXT.with(|n| n.borrow().clone()) {
+            return val;
         }
+        let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
+        let auths = pallet_aura::Authorities::<Test>::get().into_inner();
+        auths.get(slot as usize % auths.len()).cloned()
     }
 }
 
-// -----------------------------------------------------------------------------
-// MevShield Config
-// -----------------------------------------------------------------------------
-
-impl pallet_mev_shield::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type AuthorityOrigin = TestAuthorityOrigin;
+impl pallet_shield::Config for Test {
+    type AuthorityId = AuraId;
+    type FindAuthors = MockFindAuthors;
 }
 
-// -----------------------------------------------------------------------------
-// new_test_ext
-// -----------------------------------------------------------------------------
-
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    // Use the construct_runtime!-generated genesis config.
-    RuntimeGenesisConfig::default()
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
         .build_storage()
-        .expect("RuntimeGenesisConfig builds valid default genesis storage")
-        .into()
+        .expect("valid genesis")
+        .into();
+    ext.register_extension(sp_keystore::KeystoreExt::new(
+        sp_keystore::testing::MemoryKeystore::new(),
+    ));
+    ext
+}
+
+pub fn valid_pk() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x42; MLKEM768_ENC_KEY_LEN])
+}
+
+pub fn valid_pk_b() -> ShieldEncKey {
+    BoundedVec::truncate_from(vec![0x99; MLKEM768_ENC_KEY_LEN])
+}
+
+/// Create a deterministic `AuraId` from a simple index for tests.
+pub fn author(n: u8) -> AuraId {
+    AuraId::from(sr25519::Public::from_raw([n; 32]))
+}
+
+pub fn set_authors(current: Option<AuraId>, next_next: Option<AuraId>) {
+    MOCK_CURRENT.with(|c| *c.borrow_mut() = current);
+    MOCK_NEXT_NEXT.with(|n| *n.borrow_mut() = Some(next_next));
+}
+
+pub fn nest_call(call: RuntimeCall, depth: usize) -> RuntimeCall {
+    (0..depth).fold(call, |inner, _| {
+        RuntimeCall::Utility(pallet_subtensor_utility::Call::batch { calls: vec![inner] })
+    })
+}
+
+pub fn build_wire_ciphertext(
+    key_hash: &[u8; 16],
+    kem_ct: &[u8],
+    nonce: &[u8; 24],
+    aead_ct: &[u8],
+) -> Vec<u8> {
+    let mut buf = Vec::new();
+    buf.extend_from_slice(key_hash);
+    buf.extend_from_slice(&(kem_ct.len() as u16).to_le_bytes());
+    buf.extend_from_slice(kem_ct);
+    buf.extend_from_slice(nonce);
+    buf.extend_from_slice(aead_ct);
+    buf
 }

@@ -24,7 +24,7 @@ use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 pub type LeaseId = u32;
 
@@ -141,25 +141,26 @@ impl<T: Config> Pallet<T> {
         let mut refunded_cap = 0u64;
         for (contributor, amount) in contributions {
             // Compute the share of the contributor to the lease
-            let share: U64F64 = U64F64::from(amount).saturating_div(U64F64::from(crowdloan.raised));
+            let share: U64F64 = U64F64::from(u64::from(amount))
+                .saturating_div(U64F64::from(u64::from(crowdloan.raised)));
             SubnetLeaseShares::<T>::insert(lease_id, &contributor, share);
 
             // Refund the unused part of the cap to the contributor relative to their share
             let contributor_refund = share
-                .saturating_mul(U64F64::from(leftover_cap))
+                .saturating_mul(U64F64::from(u64::from(leftover_cap)))
                 .floor()
                 .saturating_to_num::<u64>();
             <T as Config>::Currency::transfer(
                 &lease_coldkey,
                 &contributor,
-                contributor_refund,
+                contributor_refund.into(),
                 Preservation::Expendable,
             )?;
             refunded_cap = refunded_cap.saturating_add(contributor_refund);
         }
 
         // Refund what's left after refunding the contributors to the beneficiary
-        let beneficiary_refund = leftover_cap.saturating_sub(refunded_cap);
+        let beneficiary_refund = leftover_cap.saturating_sub(refunded_cap.into());
         <T as Config>::Currency::transfer(
             &lease_coldkey,
             &who,
@@ -253,7 +254,7 @@ impl<T: Config> Pallet<T> {
     /// for the contributors and the beneficiary in shares relative to their initial contributions.
     /// It accumulates dividends to be distributed later when the interval for distribution is reached.
     /// Distribution is made in alpha and stake to the contributor coldkey and lease hotkey.
-    pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: AlphaCurrency) {
+    pub fn distribute_leased_network_dividends(lease_id: LeaseId, owner_cut_alpha: AlphaBalance) {
         // Ensure the lease exists
         let Some(lease) = SubnetLeases::<T>::get(lease_id) else {
             log::debug!("Lease {lease_id} doesn't exists so we can't distribute dividends");
@@ -293,7 +294,7 @@ impl<T: Config> Pallet<T> {
 
         // We use a storage layer to ensure the distribution is atomic.
         if let Err(err) = frame_support::storage::with_storage_layer(|| {
-            let mut alpha_distributed = AlphaCurrency::ZERO;
+            let mut alpha_distributed = AlphaBalance::ZERO;
 
             // Distribute the contributors cut to the contributors and accumulate the alpha
             // distributed so far to obtain how much alpha is left to distribute to the beneficiary
@@ -338,7 +339,7 @@ impl<T: Config> Pallet<T> {
             });
 
             // Reset the accumulated dividends
-            AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaCurrency::ZERO);
+            AccumulatedLeaseDividends::<T>::insert(lease_id, AlphaBalance::ZERO);
 
             Ok::<(), DispatchError>(())
         }) {

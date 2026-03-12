@@ -2,7 +2,7 @@ use alloc::{format, string::String};
 
 use frame_support::IterableStorageMap;
 use frame_support::{traits::Get, weights::Weight};
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 use super::*;
 
@@ -59,13 +59,13 @@ pub fn migrate_rao<T: Config>() -> Weight {
     // Convert subnets and give them lock.
     // Set global weight to 18% from the start
     // Set min lock
-    NetworkMinLockCost::<T>::set(TaoCurrency::from(1_000_000_000));
+    NetworkMinLockCost::<T>::set(TaoBalance::from(1_000_000_000));
     // Set tao weight.
     TaoWeight::<T>::set(3_320_413_933_267_719_290);
     for netuid in netuids.iter() {
         if netuid.is_root() {
             // Give root a single RAO in pool to avoid any catestrophic division by zero.
-            SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(1_000_000_000));
+            SubnetAlphaIn::<T>::insert(netuid, AlphaBalance::from(1_000_000_000));
             SubnetMechanism::<T>::insert(netuid, 0); // Set to zero mechanism.
             TokenSymbol::<T>::insert(netuid, Pallet::<T>::get_symbol_for_subnet(NetUid::ROOT));
             continue;
@@ -92,13 +92,13 @@ pub fn migrate_rao<T: Config>() -> Weight {
         //         .unwrap_or(I96F32::from_num(0.0)),
         // );
         Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock.into());
-        SubnetLocked::<T>::insert(netuid, TaoCurrency::ZERO); // Clear lock amount.
+        SubnetLocked::<T>::insert(netuid, TaoBalance::ZERO); // Clear lock amount.
         SubnetTAO::<T>::insert(netuid, pool_initial_tao);
         TotalStake::<T>::mutate(|total| {
             *total = total.saturating_add(pool_initial_tao);
         }); // Increase total stake.
-        SubnetAlphaIn::<T>::insert(netuid, AlphaCurrency::from(pool_initial_tao.to_u64())); // Set initial alpha to pool initial tao.
-        SubnetAlphaOut::<T>::insert(netuid, AlphaCurrency::ZERO); // Set zero subnet alpha out.
+        SubnetAlphaIn::<T>::insert(netuid, AlphaBalance::from(pool_initial_tao.to_u64())); // Set initial alpha to pool initial tao.
+        SubnetAlphaOut::<T>::insert(netuid, AlphaBalance::ZERO); // Set zero subnet alpha out.
         SubnetMechanism::<T>::insert(netuid, 1); // Convert to dynamic immediately with initialization.
 
         // Set the token symbol for this subnet using Self instead of Pallet::<T>
