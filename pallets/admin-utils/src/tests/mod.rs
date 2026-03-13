@@ -9,21 +9,15 @@ use frame_system::Config;
 use pallet_subtensor::{
     Error as SubtensorError, Event, MaxRegistrationsPerBlock, Rank, SubnetOwner,
     TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit,
-    utils::rate_limiting::TransactionType, *,
-};
-// use pallet_subtensor::{migrations, Event};
-use pallet_subtensor::{
-    Event, subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET,
-    utils::rate_limiting::TransactionType,
+    utils::rate_limiting::TransactionType, *, subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET,
 };
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{MechId, NetUid, TaoBalance, Token};
-mod mock;
+pub mod mock;
 use mock::*;
 
-pub(crate) mod mock;
 
 #[test]
 fn test_sudo_set_default_take() {

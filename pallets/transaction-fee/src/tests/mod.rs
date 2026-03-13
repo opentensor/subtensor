@@ -24,7 +24,7 @@ fn test_remove_stake_fees_tao() {
         type BN = frame_system::pallet_prelude::BlockNumberFor<Test>;
 
         // Advance blocks and run hooks so staking-op rate limit windows reset.
-        let mut jump_blocks = |delta: u64| {
+        let jump_blocks = |delta: u64| {
             let current_bn: BN = frame_system::Pallet::<Test>::block_number();
 
             // Finish current block.
@@ -43,14 +43,14 @@ fn test_remove_stake_fees_tao() {
             <SubtensorModule as Hooks<BN>>::on_initialize(next_bn);
         };
 
-        let stake_amount = TAO;
+        let stake_amount = TaoBalance::from(TAO);
         let unstake_amount = AlphaBalance::from(TAO / 50);
 
         // setup_subnets() -> register_ok_neuron() calls SubtensorModule::register(...)
         // which now requires sufficient balance to stake during registration.
         // setup_subnets() uses coldkey=10000 and first neuron hotkey=20001.
         let register_prefund = stake_amount
-            .saturating_mul(10_000) // generous buffer
+            .saturating_mul(10_000.into()) // generous buffer
             .saturating_add(ExistentialDeposit::get());
         SubtensorModule::add_balance_to_coldkey_account(&U256::from(10000), register_prefund);
         SubtensorModule::add_balance_to_coldkey_account(&U256::from(20001), register_prefund);
@@ -64,7 +64,7 @@ fn test_remove_stake_fees_tao() {
             sn.subnets[0].netuid,
             &sn.coldkey,
             &sn.hotkeys[0],
-            stake_amount,
+            stake_amount.into(),
         );
         SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TaoBalance::from(TAO));
 
@@ -366,13 +366,13 @@ fn test_remove_stake_completely_fees_alpha() {
 #[test]
 fn test_remove_stake_not_enough_balance_for_fees() {
     new_test_ext().execute_with(|| {
-        let stake_amount = TAO;
+        let stake_amount = TaoBalance::from(TAO);
         let sn = setup_subnets(1, 1);
 
         SubtensorModule::add_balance_to_coldkey_account(
             &sn.coldkey,
             stake_amount
-                .saturating_mul(2) // buffer so staking doesn't attempt to drain the account
+                .saturating_mul(2.into()) // buffer so staking doesn't attempt to drain the account
                 .saturating_add(ExistentialDeposit::get()),
         );
         assert_ok!(SubtensorModule::add_stake(
@@ -519,14 +519,14 @@ fn test_remove_stake_edge_alpha() {
 #[test]
 fn test_remove_stake_failing_transaction_tao_fees() {
     new_test_ext().execute_with(|| {
-        let stake_amount = TAO;
+        let stake_amount = TaoBalance::from(TAO);
         let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
 
         SubtensorModule::add_balance_to_coldkey_account(
             &sn.coldkey,
             stake_amount
-                .saturating_mul(2) // buffer so staking doesn't attempt to drain the account
+                .saturating_mul(2.into()) // buffer so staking doesn't attempt to drain the account
                 .saturating_add(ExistentialDeposit::get()),
         );
         assert_ok!(SubtensorModule::add_stake(

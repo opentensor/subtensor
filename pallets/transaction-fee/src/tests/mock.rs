@@ -588,21 +588,20 @@ pub fn register_ok_neuron(
     // Ensure coldkey has enough to pay the current burn AND is not fully drained to zero.
     // This avoids ZeroBalanceAfterWithdrawn in burned_register.
     let top_up_for_burn = |netuid: NetUid, cold: U256| {
-        let burn: TaoCurrency = SubtensorModule::get_burn(netuid);
-        let burn_u64: u64 = burn.to_u64();
+        let burn: TaoBalance = SubtensorModule::get_burn(netuid);
 
         // Make sure something remains after withdrawal even if ED is 0 in tests.
-        let ed: u64 = ExistentialDeposit::get();
-        let min_remaining: u64 = ed.max(1);
+        let ed: TaoBalance = ExistentialDeposit::get();
+        let min_remaining: TaoBalance = ed.max(1.into());
 
         // Small buffer for safety (fees / rounding / future changes).
-        let buffer: u64 = 10;
+        let buffer: TaoBalance = 10.into();
 
-        let min_balance_needed: u64 = burn_u64
+        let min_balance_needed: TaoBalance = burn
             .saturating_add(min_remaining)
             .saturating_add(buffer);
 
-        let bal: u64 = SubtensorModule::get_coldkey_balance(&cold);
+        let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {
             SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
         }
@@ -815,7 +814,7 @@ pub fn setup_stake(
     // Fund enough to stake while keeping the coldkey account alive (KeepAlive / ED).
     SubtensorModule::add_balance_to_coldkey_account(
         coldkey,
-        stake_amount + ExistentialDeposit::get(),
+        TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
     );
 
     assert_ok!(SubtensorModule::add_stake(
