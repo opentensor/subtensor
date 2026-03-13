@@ -2151,7 +2151,7 @@ pub mod pallet {
             Ok(())
         }
         /// Set BurnHalfLife for a subnet.
-        #[pallet::call_index(88)]
+        #[pallet::call_index(89)]
         #[pallet::weight((
             Weight::from_parts(25_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads(3))
@@ -2182,7 +2182,7 @@ pub mod pallet {
         }
 
         /// Set BurnIncreaseMult for a subnet.
-        #[pallet::call_index(89)]
+        #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(25_000_000, 0)
                 .saturating_add(T::DbWeight::get().reads(3))

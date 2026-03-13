@@ -223,7 +223,7 @@ fn test_swap_coldkey_announced_works() {
 
         SubtensorModule::add_balance_to_coldkey_account(&who, stake1 + stake2 + stake3 + ed);
 
-        let expected_remaining: u64 = ed;
+        let expected_remaining: u64 = ed.to_u64();
 
         let (
             netuid1,
@@ -443,7 +443,7 @@ fn test_swap_coldkey_works() {
         let now = System::block_number() - 100;
         ColdkeySwapAnnouncements::<Test>::insert(old_coldkey, (now, new_coldkey_hash));
         ColdkeySwapDisputes::<Test>::insert(old_coldkey, now);
-        let expected_remaining: u64 = swap_cost.to_u64() + ed;
+        let expected_remaining = swap_cost + ed;
 
         let (
             netuid1,
@@ -521,7 +521,7 @@ fn test_swap_coldkey_works_with_zero_cost() {
             &old_coldkey,
             stake1 + stake2 + stake3 + ed,
         );
-        let expected_remaining: u64 = ed;
+        let expected_remaining = ed;
 
         let (
             netuid1,
@@ -1002,17 +1002,17 @@ fn test_coldkey_swap_total() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let netuid3 = NetUid::from(3);
-        let ed: u64 = ExistentialDeposit::get();
+        let ed = ExistentialDeposit::get();
         let stake = DefaultMinStake::<Test>::get() * 10.into();
 
         // Initial funding. Burns will reduce these balances.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake * 6 + ed.into());
-        SubtensorModule::add_balance_to_coldkey_account(&delegate1, stake * 2 + ed.into());
-        SubtensorModule::add_balance_to_coldkey_account(&delegate2, stake * 2 + ed.into());
-        SubtensorModule::add_balance_to_coldkey_account(&delegate3, stake * 2 + ed.into());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator1, stake * 2 + ed.into());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator2, stake * 2 + ed.into());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator3, stake * 2 + ed.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake * 6.into() + ed.into());
+        SubtensorModule::add_balance_to_coldkey_account(&delegate1, stake * 2.into() + ed.into());
+        SubtensorModule::add_balance_to_coldkey_account(&delegate2, stake * 2.into() + ed.into());
+        SubtensorModule::add_balance_to_coldkey_account(&delegate3, stake * 2.into() + ed.into());
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, stake * 2.into() + ed.into());
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, stake * 2.into() + ed.into());
+        SubtensorModule::add_balance_to_coldkey_account(&nominator3, stake * 2.into() + ed.into());
 
         let reserve = u64::from(stake) * 10;
         mock::setup_reserves(netuid1, reserve.into(), reserve.into());
@@ -1039,7 +1039,7 @@ fn test_coldkey_swap_total() {
         // Each of these accounts will stake `stake * N`, and we want them to
         // also retain ED so they don't get reaped mid-test.
         // ------------------------------------------------------------
-        let ensure_min_balance = |account: &U256, required: u64| {
+        let ensure_min_balance = |account: &U256, required: TaoBalance| {
             let bal = SubtensorModule::get_coldkey_balance(account);
             if bal < required {
                 SubtensorModule::add_balance_to_coldkey_account(account, required - bal);
@@ -1047,17 +1047,17 @@ fn test_coldkey_swap_total() {
         };
 
         // coldkey stakes 6 times
-        ensure_min_balance(&coldkey, stake * 6 + ed);
+        ensure_min_balance(&coldkey, stake * 6.into() + ed);
 
         // each delegate stakes 2 times
-        ensure_min_balance(&delegate1, stake * 2 + ed);
-        ensure_min_balance(&delegate2, stake * 2 + ed);
-        ensure_min_balance(&delegate3, stake * 2 + ed);
+        ensure_min_balance(&delegate1, stake * 2.into() + ed);
+        ensure_min_balance(&delegate2, stake * 2.into() + ed);
+        ensure_min_balance(&delegate3, stake * 2.into() + ed);
 
         // each nominator stakes 2 times
-        ensure_min_balance(&nominator1, stake * 2 + ed);
-        ensure_min_balance(&nominator2, stake * 2 + ed);
-        ensure_min_balance(&nominator3, stake * 2 + ed);
+        ensure_min_balance(&nominator1, stake * 2.into() + ed);
+        ensure_min_balance(&nominator2, stake * 2.into() + ed);
+        ensure_min_balance(&nominator3, stake * 2.into() + ed);
 
         Delegates::<Test>::insert(hotkey1, u16::MAX / 10);
         Delegates::<Test>::insert(hotkey2, u16::MAX / 10);
@@ -1592,6 +1592,11 @@ macro_rules! comprehensive_setup {
         $hotkey3:expr,
         $expected_remaining_balance:expr
     ) => {{
+        let stake1: TaoBalance = $stake1.into();
+        let stake2: TaoBalance = $stake2.into();
+        let stake3: TaoBalance = $stake3.into();
+        let expected_remaining: TaoBalance = $expected_remaining_balance.into();
+
         // Setup networks and subnet ownerships
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
@@ -1601,8 +1606,8 @@ macro_rules! comprehensive_setup {
         SubnetOwner::<Test>::insert(netuid2, $who);
 
         // Setup reserves
-        let reserve1 = u64::from($stake1 + $stake3) * 10;
-        let reserve2 = u64::from($stake2) * 10;
+        let reserve1 = u64::from(stake1 + stake3) * 10;
+        let reserve2 = u64::from(stake2) * 10;
         mock::setup_reserves(netuid1, reserve1.into(), reserve1.into());
         mock::setup_reserves(netuid2, reserve2.into(), reserve2.into());
 
@@ -1638,17 +1643,14 @@ macro_rules! comprehensive_setup {
         // so the add_stake calls won't fail AND the remaining free balance
         // after staking is exactly what the tests expect.
         // ------------------------------------------------------------
-        let stake_total: u64 = ($stake1 as u64)
-            .saturating_add($stake2 as u64)
-            .saturating_add($stake3 as u64);
-        let expected_remaining: u64 = $expected_remaining_balance as u64;
-        let required_free: u64 = stake_total.saturating_add(expected_remaining);
+        let stake_total = stake1 + stake2 + stake3;
+        let required_free = stake_total + expected_remaining;
 
-        let current_free: u64 = SubtensorModule::get_coldkey_balance(&$who);
+        let current_free = SubtensorModule::get_coldkey_balance(&$who);
         if current_free < required_free {
             SubtensorModule::add_balance_to_coldkey_account(
                 &$who,
-                required_free.saturating_sub(current_free),
+                required_free - current_free,
             );
         }
 
@@ -1657,19 +1659,19 @@ macro_rules! comprehensive_setup {
             <<Test as Config>::RuntimeOrigin>::signed($who),
             $hotkey1,
             netuid1,
-            $stake1.into()
+            stake1.into()
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed($who),
             $hotkey2,
             netuid2,
-            $stake2.into()
+            stake2.into()
         ));
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed($who),
             $hotkey3,
             netuid1,
-            $stake3.into()
+            stake3.into()
         ));
         let hk1_alpha =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&$hotkey1, &$who, netuid1);

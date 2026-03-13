@@ -560,14 +560,14 @@ fn test_1_graph() {
         let coldkey = U256::from(0);
         let hotkey = U256::from(0);
         let uid: u16 = 0;
-        let stake_amount: u64 = 1_000_000_000;
+        let stake_amount: TaoBalance = 1_000_000_000.into();
         add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
             stake_amount
                 + ExistentialDeposit::get()
-                + SubtensorModule::get_network_min_lock().to_u64(),
+                + SubtensorModule::get_network_min_lock(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -1010,7 +1010,7 @@ fn test_bonds() {
 		let n: u16 = 8;
 		let netuid = NetUid::from(1);
 		let tempo: u16 = 1;
-		let max_stake: u64 = 4;
+		let max_stake: TaoBalance = 4.into();
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
         let block_number = System::block_number();
 		add_network_disable_commit_reveal(netuid, tempo, 0);
@@ -1027,7 +1027,7 @@ fn test_bonds() {
 		for key in 0..n as u64 {
 			SubtensorModule::add_balance_to_coldkey_account(
                 &U256::from(key),
-                max_stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock().to_u64()
+                max_stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock()
             );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as frame_system::Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
@@ -1361,7 +1361,7 @@ fn test_active_stake() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
         let block_number: u64 = System::block_number();
-        let stake: u64 = 1;
+        let stake: TaoBalance = 1.into();
         add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
@@ -1375,7 +1375,7 @@ fn test_active_stake() {
                 &U256::from(key),
                 stake
                     + ExistentialDeposit::get()
-                    + SubtensorModule::get_network_min_lock().to_u64(),
+                    + SubtensorModule::get_network_min_lock(),
             );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
@@ -1396,7 +1396,7 @@ fn test_active_stake() {
                 &U256::from(key),
                 &U256::from(key),
                 netuid,
-                stake.into(),
+                AlphaBalance::from(stake.to_u64()),
             );
         }
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
@@ -1582,7 +1582,7 @@ fn test_outdated_weights() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 0;
         let mut block_number: u64 = System::block_number();
-        let stake: u64 = 1;
+        let stake: TaoBalance = 1.into();
         add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -1598,7 +1598,7 @@ fn test_outdated_weights() {
                 &U256::from(key),
                 stake
                     + ExistentialDeposit::get()
-                    + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+                    + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
@@ -1619,7 +1619,7 @@ fn test_outdated_weights() {
                 &U256::from(key),
                 &U256::from(key),
                 netuid,
-                stake.into(),
+                AlphaBalance::from(stake.to_u64()),
             );
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1691,7 +1691,7 @@ fn test_outdated_weights() {
             &U256::from(new_key),
             stake
                 + ExistentialDeposit::get()
-                + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+                + (SubtensorModule::get_network_min_lock() * 2.into()),
         );
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
@@ -1794,7 +1794,7 @@ fn test_zero_weights() {
         for key in 0..n as u64 {
             SubtensorModule::add_balance_to_coldkey_account(
                 &U256::from(key),
-                ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+                ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
@@ -1907,7 +1907,7 @@ fn test_zero_weights() {
             // register a new key while at max capacity, which means the least emission uid will be deregistered
             SubtensorModule::add_balance_to_coldkey_account(
                 &U256::from(new_key),
-                ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+                ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
@@ -1992,7 +1992,7 @@ fn test_deregistered_miner_bonds() {
         let netuid = NetUid::from(1);
         let high_tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
 
-        let stake: u64 = 1;
+        let stake: TaoBalance = 1.into();
         add_network_disable_commit_reveal(netuid, high_tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -2009,7 +2009,7 @@ fn test_deregistered_miner_bonds() {
                 &U256::from(key),
                 stake
                     + ExistentialDeposit::get()
-                    + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+                    + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
@@ -2030,7 +2030,7 @@ fn test_deregistered_miner_bonds() {
                 &U256::from(key),
                 &U256::from(key),
                 netuid,
-                stake.into(),
+                AlphaBalance::from(stake.to_u64()),
             );
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -2093,7 +2093,7 @@ fn test_deregistered_miner_bonds() {
             &U256::from(new_key),
             stake
                 + ExistentialDeposit::get()
-                + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+                + (SubtensorModule::get_network_min_lock() * 2.into()),
         );
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
@@ -2179,17 +2179,17 @@ fn test_validator_permits() {
                 let (validators, servers) =
                     distribute_nodes(validators_n as usize, network_n, interleave as usize);
                 let correct: bool = true;
-                let mut stake: Vec<u64> = vec![0; network_n];
+                let mut stake: Vec<TaoBalance> = vec![0.into(); network_n];
                 for validator in &validators {
                     stake[*validator as usize] = match assignment {
-                        1 => *validator as u64 + network_n as u64,
-                        _ => 1,
+                        1 => TaoBalance::from(*validator) + network_n.into(),
+                        _ => 1.into(),
                     };
                 }
                 for server in &servers {
                     stake[*server as usize] = match assignment {
-                        1 => *server as u64,
-                        _ => 0,
+                        1 => TaoBalance::from(*server),
+                        _ => 0.into(),
                     };
                 }
                 new_test_ext(1).execute_with(|| {
@@ -2213,7 +2213,7 @@ fn test_validator_permits() {
                             &U256::from(key),
                             stake[key as usize]
                                 + ExistentialDeposit::get()
-                                + SubtensorModule::get_network_min_lock().to_u64(),
+                                + SubtensorModule::get_network_min_lock(),
                         );
                         let (nonce, work): (u64, Vec<u8>) =
                             SubtensorModule::create_work_for_block_number(
@@ -2235,7 +2235,7 @@ fn test_validator_permits() {
                             &U256::from(key),
                             &U256::from(key),
                             netuid,
-                            stake[key as usize].into(),
+                            stake[key as usize].to_u64().into(),
                         );
                     }
                     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), network_n as u16);
@@ -2249,7 +2249,7 @@ fn test_validator_permits() {
                     SubtensorModule::epoch(netuid, 1_000_000_000.into()); // run first epoch to set allowed validators
                     for validator in &validators {
                         assert_eq!(
-                            stake[*validator as usize] >= min_stake,
+                            stake[*validator as usize] >= TaoBalance::from(min_stake),
                             SubtensorModule::get_validator_permit_for_uid(netuid, *validator)
                         );
                     }
@@ -2287,7 +2287,8 @@ fn test_validator_permits() {
                     }
                     for server in &servers {
                         assert_eq!(
-                            (stake[*server as usize] + (2 * network_n as u64)) >= min_stake,
+                            (stake[*server as usize] + (TaoBalance::from(2) * TaoBalance::from(network_n)))
+                                >= TaoBalance::from(min_stake),
                             SubtensorModule::get_validator_permit_for_uid(netuid, *server)
                         );
                     }
@@ -2739,9 +2740,9 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
     for key in 0..n as u64 {
         SubtensorModule::add_balance_to_coldkey_account(
             &U256::from(key),
-            max_stake
+            TaoBalance::from(max_stake)
                 + ExistentialDeposit::get()
-                + SubtensorModule::get_network_min_lock().to_u64(),
+                + SubtensorModule::get_network_min_lock(),
         );
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
@@ -3879,9 +3880,9 @@ fn test_last_update_size_mismatch() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount
+            TaoBalance::from(stake_amount)
                 + ExistentialDeposit::get()
-                + (SubtensorModule::get_network_min_lock().to_u64() * 2),
+                + (SubtensorModule::get_network_min_lock() * 2.into()),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);

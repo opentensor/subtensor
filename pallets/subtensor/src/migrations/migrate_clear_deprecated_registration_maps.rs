@@ -85,7 +85,7 @@ pub fn migrate_clear_deprecated_registration_maps<T: Config>() -> Weight {
             weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
             if burn_u64 == 0 {
-                Pallet::<T>::set_burn(netuid, TaoCurrency::from(ONE_TAO_RAO));
+                Pallet::<T>::set_burn(netuid, TaoBalance::from(ONE_TAO_RAO));
                 weight = weight.saturating_add(T::DbWeight::get().writes(1));
             }
         }

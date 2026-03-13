@@ -518,12 +518,12 @@ pub fn register_ok_neuron(
     setup_reserves(netuid, reserve.into(), reserve.into());
 
     // Ensure coldkey has enough to pay the current burn.
-    let burn: TaoCurrency = SubtensorModule::get_burn(netuid);
-    let burn_u64: u64 = burn.into();
+    let burn: TaoBalance = SubtensorModule::get_burn(netuid);
+    let burn_u64: TaoBalance = burn;
     let bal = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
 
     if bal < burn_u64 {
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_u64 - bal + 10);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_u64 - bal + 10.into());
     }
 
     let result = SubtensorModule::burned_register(
@@ -554,8 +554,8 @@ pub fn add_network(netuid: NetUid, tempo: u16) {
     );
 }
 
-use subtensor_runtime_common::AlphaCurrency;
-pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
+use subtensor_runtime_common::AlphaBalance;
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
     pallet_subtensor::SubnetTAO::<Test>::set(netuid, tao);
     pallet_subtensor::SubnetAlphaIn::<Test>::set(netuid, alpha);
 }

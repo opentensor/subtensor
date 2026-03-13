@@ -2414,10 +2414,10 @@ fn test_distribute_emission_no_miners_all_drained() {
         // Drain any pre-existing pending emissions so the test is deterministic.
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
         );
 
         let alpha_baseline =
@@ -2499,10 +2499,10 @@ fn test_distribute_emission_zero_emission() {
         // This makes the *second* call a true "zero emission + zero pending" check.
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Clear incentive and dividends AFTER draining so we can verify they get rebuilt.

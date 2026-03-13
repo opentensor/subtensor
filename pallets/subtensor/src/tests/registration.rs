@@ -35,7 +35,7 @@ fn test_init_new_network_registration_defaults() {
 
         assert_eq!(
             SubtensorModule::get_burn(netuid),
-            TaoCurrency::from(RAO_PER_TAO)
+            TaoBalance::from(RAO_PER_TAO)
         );
 
         assert_eq!(
@@ -60,7 +60,7 @@ fn test_registration_ok() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(667);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 50_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 50_000.into());
 
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -168,7 +168,7 @@ fn test_registration_not_enough_balance() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(667);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 9_999);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 9_999.into());
 
         let result = SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -198,7 +198,7 @@ fn test_registration_non_associated_coldkey() {
         Owner::<Test>::insert(hotkey, true_owner);
 
         // Attacker has enough funds, but doesn't own the hotkey.
-        SubtensorModule::add_balance_to_coldkey_account(&attacker, 50_000);
+        SubtensorModule::add_balance_to_coldkey_account(&attacker, 50_000.into());
 
         let result = SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(attacker),
@@ -223,7 +223,7 @@ fn test_registration_without_neuron_slot_doesnt_burn() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(667);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000.into());
         let before = SubtensorModule::get_coldkey_balance(&coldkey);
 
         // No slots => should fail before burning.
@@ -254,7 +254,7 @@ fn test_registration_already_active_hotkey_error() {
 
         let coldkey = U256::from(667);
         let hotkey = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000.into());
 
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -297,10 +297,9 @@ fn test_burn_increases_next_block_after_registration() {
 
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
-        add_network(netuid, tempo, 0);
-
-        let mint_balance = burn_cost * max_allowed_uids as u64 + 1_000_000_000;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, mint_balance);
+        let coldkey = U256::from(100);
+        let hotkey = U256::from(200);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000.into());
 
         // Register in this block. Burn itself does not change until next block.
         assert_ok!(SubtensorModule::burned_register(
@@ -362,7 +361,7 @@ fn test_burn_floor_prevents_zero_stuck_and_allows_bump() {
         // Register now; bump should apply next block and not be stuck at 0.
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000.into());
 
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -390,7 +389,7 @@ fn test_registration_increases_recycled_rao_per_subnet() {
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
         let coldkey = U256::from(667);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000.into());
 
         // First registration
         let burn1 = SubtensorModule::get_burn(netuid);
@@ -590,7 +589,7 @@ fn test_registration_get_neuron_metadata() {
 
         let hotkey = U256::from(1);
         let coldkey = U256::from(667);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000.into());
 
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -609,44 +608,34 @@ fn test_registration_get_neuron_metadata() {
 fn test_last_update_correctness() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
-        add_network(netuid, 13, 0);
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+        //add network
+        SubtensorModule::set_burn(netuid, burn_cost.into());
+        add_network(netuid, tempo, 0);
 
-        mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
-        SubtensorModule::set_burn(netuid, 1_000u64.into());
+        let reserve: u64 = 1_000_000_000_000;
+        mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Simulate existing neurons
-        let existing_neurons: u16 = 3;
+        let existing_neurons = 3;
         SubnetworkN::<Test>::insert(netuid, existing_neurons);
 
         // Simulate no LastUpdate so far (can happen on mechanisms)
         LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
 
-        let hotkey_account_id = U256::from(1);
-        let coldkey_account_id = U256::from(667);
-
-        // Give funds for burn. 1000 TAO
-        let _ =
-            Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
-
-        let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve.into(), reserve.into());
-        mock::setup_reserves(netuid2, reserve.into(), reserve.into());
-
-        add_network(netuid, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
-
-        add_network(netuid2, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
-
-        run_to_block(1);
-
-        let burn_amount = SubtensorModule::get_burn(netuid);
+        // Give some $$$ to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
+        // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
-            hotkey
+            hotkey_account_id
         ));
 
+        // Check that LastUpdate has existing_neurons + 1 elements now
         assert_eq!(
             LastUpdate::<Test>::get(NetUidStorageIndex::from(netuid)).len(),
             (existing_neurons + 1) as usize
@@ -656,7 +645,7 @@ fn test_last_update_correctness() {
 
 #[allow(clippy::indexing_slicing)]
 #[test]
-fn test_registration_pruning() {
+fn test_registration_pruning_1() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(5);
         add_network(netuid, 10_000, 0);
@@ -956,7 +945,7 @@ fn test_registration_origin_hotkey_mismatch() {
 }
 
 #[test]
-fn test_registration_disabled() {
+fn test_neuron_registration_disabled() {
     new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid = NetUid::from(1);
@@ -991,44 +980,6 @@ fn test_registration_disabled() {
     });
 }
 
-#[test]
-fn test_last_update_correctness() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
-        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
-        add_network(netuid, tempo, 0);
-
-        let reserve = 1_000_000_000_000;
-        mock::setup_reserves(netuid, reserve.into(), reserve.into());
-
-        // Simulate existing neurons
-        let existing_neurons = 3;
-        SubnetworkN::<Test>::insert(netuid, existing_neurons);
-
-        // Simulate no LastUpdate so far (can happen on mechanisms)
-        LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
-
-        // Give some $$$ to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
-
-        // Check that LastUpdate has existing_neurons + 1 elements now
-        assert_eq!(
-            LastUpdate::<Test>::get(NetUidStorageIndex::from(netuid)).len(),
-            (existing_neurons + 1) as usize
-        );
-    });
-}
 
 #[allow(clippy::indexing_slicing)]
 #[test]

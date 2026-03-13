@@ -131,7 +131,7 @@ fn test_do_start_call_fail_for_set_again() {
         SubtensorModule::set_burn(netuid, burn_cost);
 
         // Fund coldkey based on the actual burn.
-        let burn_u64: u64 = SubtensorModule::get_burn(netuid).to_u64();
+        let burn_u64 = SubtensorModule::get_burn(netuid);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
             burn_u64
@@ -710,14 +710,14 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
         SubtensorModule::set_burn(netuid2, burn_cost);
 
         // Fund enough to burned-register twice + keep-alive buffer.
-        let burn_1: u64 = SubtensorModule::get_burn(netuid).to_u64();
-        let burn_2: u64 = SubtensorModule::get_burn(netuid2).to_u64();
+        let burn_1 = SubtensorModule::get_burn(netuid);
+        let burn_2= SubtensorModule::get_burn(netuid2);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
             burn_1
                 .saturating_add(burn_2)
                 .saturating_add(ExistentialDeposit::get())
-                .saturating_add(5_000),
+                .saturating_add(5_000.into()),
         );
 
         // Should be possible to burned register before enable is activated

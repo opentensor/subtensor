@@ -2700,8 +2700,8 @@ fn test_migrate_reset_unactive_sn() {
         let initial_tao = Pallet::<Test>::get_network_min_lock();
         let initial_alpha: AlphaBalance = initial_tao.to_u64().into();
 
-        let mut locked_before: BTreeMap<NetUid, TaoCurrency> = BTreeMap::new();
-        let mut rao_recycled_before: BTreeMap<NetUid, TaoCurrency> = BTreeMap::new();
+        let mut locked_before: BTreeMap<NetUid, TaoBalance> = BTreeMap::new();
+        let mut rao_recycled_before: BTreeMap<NetUid, TaoBalance> = BTreeMap::new();
 
         for netuid in active_netuids.iter().chain(inactive_netuids.iter()) {
             locked_before.insert(*netuid, SubnetLocked::<Test>::get(*netuid));
@@ -2737,7 +2737,7 @@ fn test_migrate_reset_unactive_sn() {
             );
             assert_eq!(
                 PendingRootAlphaDivs::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
                 netuid

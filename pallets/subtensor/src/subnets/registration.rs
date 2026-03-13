@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 5) compute current burn price (already updated in on_initialize for this block)
-        let registration_cost: TaoCurrency = Self::get_burn(netuid);
+        let registration_cost: TaoBalance = Self::get_burn(netuid);
 
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost.into()),
@@ -141,8 +141,8 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Enforce caller limit before entering the shared registration path.
-        let registration_cost: TaoCurrency = Self::get_burn(netuid);
-        let limit_price_tao: TaoCurrency = TaoCurrency::from(limit_price);
+        let registration_cost: TaoBalance = Self::get_burn(netuid);
+        let limit_price_tao: TaoBalance = TaoBalance::from(limit_price);
 
         ensure!(
             registration_cost <= limit_price_tao,
@@ -499,7 +499,7 @@ impl<T: Config> Pallet<T> {
                         new_burn_u64 = 1;
                     }
 
-                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
+                    Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
                 }
 
                 // 1b) Keep the existing half-life interval anchor behavior for resetting
@@ -539,7 +539,7 @@ impl<T: Config> Pallet<T> {
                         new_burn_u64 = 1;
                     }
 
-                    Self::set_burn(netuid, TaoCurrency::from(new_burn_u64));
+                    Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
                 }
             }
 
