@@ -363,12 +363,17 @@ impl<T: Config> Pallet<T> {
         StakeWeight::<T>::remove(netuid);
         LoadedEmission::<T>::remove(netuid);
 
+        // --- 18b. Root prop.
+        RootProp::<T>::remove(netuid);
+        RootClaimableThreshold::<T>::remove(netuid);
+
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
         let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 

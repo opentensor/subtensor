@@ -1011,6 +1011,8 @@ impl<T: Config> Pallet<T> {
         let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
         FeeRate::<T>::remove(netuid);
         EnabledUserLiquidity::<T>::remove(netuid);
+        ScrapReservoirTao::<T>::remove(netuid);
+        ScrapReservoirAlpha::<T>::remove(netuid);
 
         log::debug!(
             "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
