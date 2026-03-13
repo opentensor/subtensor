@@ -90,7 +90,6 @@ mod genesis {
             NetworkRegistrationAllowed::<T>::insert(netuid, true);
             SubnetOwner::<T>::insert(netuid, hotkey.clone());
             SubnetLocked::<T>::insert(netuid, TaoCurrency::from(1));
-            LargestLocked::<T>::insert(netuid, 1);
             Alpha::<T>::insert(
                 // Lock the initial funds making this key the owner.
                 (hotkey.clone(), hotkey.clone(), netuid),

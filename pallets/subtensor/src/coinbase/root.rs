@@ -312,7 +312,6 @@ impl<T: Config> Pallet<T> {
         // --- 14. Locks & toggles.
         TransferToggle::<T>::remove(netuid);
         SubnetLocked::<T>::remove(netuid);
-        LargestLocked::<T>::remove(netuid);
 
         // --- 15. Mechanism step / emissions bookkeeping.
         FirstEmissionBlockNumber::<T>::remove(netuid);
