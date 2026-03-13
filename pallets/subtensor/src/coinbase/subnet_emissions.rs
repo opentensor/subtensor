@@ -212,10 +212,56 @@ impl<T: Config> Pallet<T> {
         offset_flows
     }
 
-    // Combines ema price method and tao flow method linearly over FlowHalfLife blocks
+    // Return emission shares
     pub(crate) fn get_shares(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
-        Self::get_shares_flow(subnets_to_emit_to)
-        // Self::get_shares_price_ema(subnets_to_emit_to)
+        let topk = SubnetEmissionCap::<T>::get() as usize;
+        let shares = Self::get_shares_flow(subnets_to_emit_to);
+
+        // Start with all requested subnets present in the output and assigned
+        // a zero share.
+        //
+        // This guarantees that:
+        // 1. every input NetUid is present in the returned map
+        // 2. non-selected subnets remain at zero
+        // 3. if normalization is impossible, all shares stay at zero
+        let mut normalized: BTreeMap<NetUid, U64F64> = subnets_to_emit_to
+            .iter()
+            .map(|netuid| (*netuid, U64F64::from_num(0)))
+            .collect();
+
+        // If there is no capacity or no computed shares, return the all-zero map.
+        if topk == 0 || shares.is_empty() {
+            return normalized;
+        }
+
+        // Collect into a vector so we can sort by share descending.
+        let mut top_shares: Vec<(NetUid, U64F64)> = shares.into_iter().collect();
+
+        // Sort by:
+        //   1. larger share first
+        //   2. smaller NetUid first as a deterministic tie-breaker
+        top_shares.sort_unstable_by(|(netuid_a, share_a), (netuid_b, share_b)| {
+            share_b.cmp(share_a).then_with(|| netuid_a.cmp(netuid_b))
+        });
+
+        // Keep only the top-k shares. If topk is larger than the number of shares,
+        // all shares are kept.
+        top_shares.truncate(topk);
+
+        // Sum the selected shares so we can re-normalize them to add up to 1.0.
+        let total_selected_share: U64F64 = top_shares.iter().map(|(_, share)| *share).sum();
+
+        // If normalization is possible, write normalized values for the selected
+        // top-k subnets. All other subnets remain at zero.
+        //
+        // If normalization is not possible (sum == 0), return the all-zero map.
+        if total_selected_share != U64F64::from_num(0) {
+            for (netuid, share) in top_shares {
+                normalized.insert(netuid, share.safe_div(total_selected_share));
+            }
+        }
+
+        normalized
     }
 
     // DEPRECATED: Implementation of shares that uses EMA prices will be gradually deprecated
@@ -245,5 +291,9 @@ impl<T: Config> Pallet<T> {
                 (*netuid, share)
             })
             .collect::<BTreeMap<NetUid, U64F64>>()
+    }
+
+    pub fn set_subnet_emission_cap(cap: u16) {
+        SubnetEmissionCap::<T>::set(cap);
     }
 }
