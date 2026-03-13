@@ -1936,7 +1936,7 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
+            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(7_u64, 4)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1961,7 +1961,7 @@ mod dispatches {
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
-            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
+            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(7_u64, 3)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -2461,7 +2461,7 @@ mod dispatches {
         ///
         #[pallet::call_index(127)]
         #[pallet::weight(
-            Weight::from_parts(20_750_000, 0)
+            Weight::from_parts(30_810_000, 0)
             .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
         )]
