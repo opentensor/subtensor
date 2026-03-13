@@ -48,9 +48,6 @@ importers:
       '@biomejs/biome':
         specifier: 1.9.4
         version: 1.9.4
-      '@moonbeam-network/api-augment':
-        specifier: 0.3401.2
-        version: 0.3401.2(postcss@8.5.8)(yaml@2.8.2)
       '@moonwall/cli':
         specifier: 5.18.3
         version: 5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api-derive@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/rpc-provider@16.5.4)(@polkadot/types-codec@16.5.4)(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@types/node@25.3.5)(chokidar@3.6.0)(debug@4.3.7)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(ts-node@10.9.2(@types/node@25.3.5)(typescript@5.8.3))(tsx@4.21.0)(typescript@5.8.3)(zod@3.25.76)
@@ -894,13 +891,6 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
-  '@moonbeam-network/api-augment@0.3401.2':
-    resolution: {integrity: sha512-PGCtqfm4uAeEwPmtffTi6hbXVvqYMa3xKQuLWv+1MfQlWDD1QhKuYmmkWhVWdN2dCWe1Kt7BM5moFLRnez0bGw==}
-    engines: {node: '>=20.0.0'}
-
-  '@moonbeam-network/types-bundle@1.0.2':
-    resolution: {integrity: sha512-qVyy8x2tEZQoUqqU0ILZhp4vLazl10kQwTk8mdUYkQ8Nd/6RncSe/xzfWkl6pUHmPfK5RZlNDDI8Jao3+2xsiw==}
-
   '@moonwall/cli@5.18.3':
     resolution: {integrity: sha512-bAVmZA3J7i6tp5AQfeStO8K0gh9fOhr3pQIxx95P8LW2g2pr2WNwKGfwa7oV3UZvhSnqX+dLiuzqj8uAslrTIw==}
     engines: {node: '>=20', pnpm: '>=7'}
@@ -1377,11 +1367,6 @@ packages:
   '@polkadot/rpc-provider@16.5.4':
     resolution: {integrity: sha512-mNAIBRA3jMvpnHsuqAX4InHSIqBdgxFD6ayVUFFAzOX8Fh6Xpd4RdI1dqr6a1pCzjnPSby4nbg+VuadWwauVtg==}
     engines: {node: '>=18'}
-
-  '@polkadot/typegen@16.5.4':
-    resolution: {integrity: sha512-YOj0mNbPX9vKVhf8YfPZ6ExPi6fGJDgRTe9Ht3afu4igYRVxGS4eeGN5w7dCmJszGQs/cBdGNtQ06zjOHS5tcg==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   '@polkadot/types-augment@14.3.1':
     resolution: {integrity: sha512-SC4M6TBlgCglNz+gRbvfoVRDz0Vyeev6v0HeAdw0H6ayEW4BXUdo5bFr0092bdS5uTrEPgiSyUry5TJs2KoXig==}
@@ -2294,10 +2279,6 @@ packages:
     resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
     engines: {node: '>= 12'}
 
-  comment-parser@1.4.5:
-    resolution: {integrity: sha512-aRDkn3uyIlCFfk5NUA+VdwMmMsh8JGhc4hapfV4yxymHGQ3BVskMQfoXGpCo5IoBuQ9tS5iiVKhCpTcB4pW4qw==}
-    engines: {node: '>= 12.0.0'}
-
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
@@ -2793,11 +2774,6 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
-
-  handlebars@4.7.8:
-    resolution: {integrity: sha512-vafaFqs8MZkRrSX7sFVUdo3ap/eNiLnb4IakshzvP56X5Nr1iGKAIqdX6tMlm6HcNRIkr6AxO5jFEoJzzpT8aQ==}
-    engines: {node: '>=0.4.7'}
-    hasBin: true
 
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
@@ -3371,9 +3347,6 @@ packages:
     resolution: {integrity: sha512-myRT3DiWPHqho5PrJaIRyaMv2kgYf0mUVgBNOYMuCH5Ki1yEiQaf/ZJuQ62nvpc44wL5WDbTX7yGJi1Neevw8w==}
     engines: {node: '>= 0.6'}
 
-  neo-async@2.6.2:
-    resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
-
   nock@13.5.6:
     resolution: {integrity: sha512-o2zOYiCpzRqSzPj0Zt/dQ/DqZeYoaQ7TUonc/xUPjCGl9WeHpNbxgVvOquXYAaJzI0M9BXV3HTzG0p8IUAbBTQ==}
     engines: {node: '>= 10.13'}
@@ -3920,10 +3893,6 @@ packages:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
-  source-map@0.6.1:
-    resolution: {integrity: sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==}
-    engines: {node: '>=0.10.0'}
-
   source-map@0.7.6:
     resolution: {integrity: sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ==}
     engines: {node: '>= 12'}
@@ -4302,11 +4271,6 @@ packages:
   ufo@1.6.3:
     resolution: {integrity: sha512-yDJTmhydvl5lJzBmy/hyOAA0d+aqCBuwl818haVdYCRrWV84o7YyeVm4QlVHStqNrrJSTb6jKuFAVqAFsr+K3Q==}
 
-  uglify-js@3.19.3:
-    resolution: {integrity: sha512-v3Xu+yuwBXisp6QYTcH4UbH+xYJXqnq2m/LtQVWKWzYc1iehYnLixoQDN9FH6/j9/oybfd6W9Ghwkl8+UMKTKQ==}
-    engines: {node: '>=0.8.0'}
-    hasBin: true
-
   uint8arrays@3.1.1:
     resolution: {integrity: sha512-+QJa8QRnbdXVpHYjLoTpJIdCTiw9Ir62nocClWuXIq2JIh4Uta0cQsTSpFL678p2CN8B+XSApwcU+pQEqVpKWg==}
 
@@ -4596,9 +4560,6 @@ packages:
     resolution: {integrity: sha512-5D/9vujkmVQ7pSmc0SCBmHXbkv6eaHwXEx65MywhmUMsI8sGqJ972APq1lotfcwMKPFLuCFfL8xGHLIp7jaBmA==}
     engines: {node: '>= 0.10.0'}
     hasBin: true
-
-  wordwrap@1.0.0:
-    resolution: {integrity: sha512-gvVzJFlPycKc5dZN4yPkP8w7Dc37BtP1yczEneOb4uq34pXZcvrtRTmWV8W+Ume+XCxKgbjM+nevkyFPMybd4Q==}
 
   workerpool@6.5.1:
     resolution: {integrity: sha512-Fs4dNYcsdpYSAfVxhnl1L5zTksjvOJxtC5hzMNl+1t9B8hTJTdKDyZ5ju7ztgPy+ft9tBFXoOlDNiOT9WUXZlA==}
@@ -5541,52 +5502,6 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@moonbeam-network/api-augment@0.3401.2(postcss@8.5.8)(yaml@2.8.2)':
-    dependencies:
-      '@biomejs/biome': 1.9.4
-      '@moonbeam-network/types-bundle': 1.0.2(postcss@8.5.8)(tsx@4.21.0)(yaml@2.8.2)
-      '@polkadot/api': 16.5.4
-      '@polkadot/api-base': 16.5.4
-      '@polkadot/rpc-core': 16.5.4
-      '@polkadot/typegen': 16.5.4
-      '@polkadot/types': 16.5.4
-      '@polkadot/types-codec': 16.5.4
-      '@types/node': 25.3.5
-      tsup: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)
-      tsx: 4.21.0
-      typescript: 5.8.3
-    transitivePeerDependencies:
-      - '@microsoft/api-extractor'
-      - '@swc/core'
-      - bufferutil
-      - jiti
-      - postcss
-      - supports-color
-      - utf-8-validate
-      - yaml
-
-  '@moonbeam-network/types-bundle@1.0.2(postcss@8.5.8)(tsx@4.21.0)(yaml@2.8.2)':
-    dependencies:
-      '@biomejs/biome': 1.9.4
-      '@polkadot/api': 16.5.4
-      '@polkadot/api-base': 16.5.4
-      '@polkadot/rpc-core': 16.5.4
-      '@polkadot/typegen': 16.5.4
-      '@polkadot/types': 16.5.4
-      '@polkadot/types-codec': 16.5.4
-      tsup: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2)
-      typescript: 5.8.3
-    transitivePeerDependencies:
-      - '@microsoft/api-extractor'
-      - '@swc/core'
-      - bufferutil
-      - jiti
-      - postcss
-      - supports-color
-      - tsx
-      - utf-8-validate
-      - yaml
-
   '@moonwall/cli@5.18.3(@polkadot/api-base@16.5.4)(@polkadot/api-derive@16.5.4)(@polkadot/api@16.5.4)(@polkadot/keyring@14.0.1(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1))(@polkadot/rpc-provider@16.5.4)(@polkadot/types-codec@16.5.4)(@polkadot/types@16.5.4)(@polkadot/util-crypto@14.0.1(@polkadot/util@14.0.1))(@polkadot/util@14.0.1)(@types/debug@4.1.12)(@types/node@25.3.5)(chokidar@3.6.0)(debug@4.3.7)(encoding@0.1.13)(jsdom@23.2.0)(postcss@8.5.8)(rxjs@7.8.2)(ts-node@10.9.2(@types/node@25.3.5)(typescript@5.8.3))(tsx@4.21.0)(typescript@5.8.3)(zod@3.25.76)':
     dependencies:
       '@acala-network/chopsticks': 1.2.7(debug@4.3.7)(ts-node@10.9.2(@types/node@25.3.5)(typescript@5.8.3))
@@ -6492,30 +6407,6 @@ snapshots:
       tslib: 2.8.1
     optionalDependencies:
       '@substrate/connect': 0.8.11
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
-  '@polkadot/typegen@16.5.4':
-    dependencies:
-      '@polkadot/api': 16.5.4
-      '@polkadot/api-augment': 16.5.4
-      '@polkadot/api-derive': 16.5.4
-      '@polkadot/rpc-augment': 16.5.4
-      '@polkadot/rpc-provider': 16.5.4
-      '@polkadot/types': 16.5.4
-      '@polkadot/types-augment': 16.5.4
-      '@polkadot/types-codec': 16.5.4
-      '@polkadot/types-create': 16.5.4
-      '@polkadot/types-support': 16.5.4
-      '@polkadot/util': 14.0.1
-      '@polkadot/util-crypto': 14.0.1(@polkadot/util@14.0.1)
-      '@polkadot/x-ws': 14.0.1
-      comment-parser: 1.4.5
-      handlebars: 4.7.8
-      tslib: 2.8.1
-      yargs: 17.7.2
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -7699,8 +7590,6 @@ snapshots:
 
   commander@8.3.0: {}
 
-  comment-parser@1.4.5: {}
-
   concat-map@0.0.1:
     optional: true
 
@@ -8223,15 +8112,6 @@ snapshots:
   graceful-fs@4.2.10: {}
 
   graceful-fs@4.2.11: {}
-
-  handlebars@4.7.8:
-    dependencies:
-      minimist: 1.2.8
-      neo-async: 2.6.2
-      source-map: 0.6.1
-      wordwrap: 1.0.0
-    optionalDependencies:
-      uglify-js: 3.19.3
 
   has-flag@4.0.0: {}
 
@@ -8825,8 +8705,6 @@ snapshots:
 
   negotiator@0.6.4:
     optional: true
-
-  neo-async@2.6.2: {}
 
   nock@13.5.6:
     dependencies:
@@ -9490,8 +9368,6 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
-  source-map@0.6.1: {}
-
   source-map@0.7.6: {}
 
   spdx-correct@3.2.0:
@@ -9774,34 +9650,6 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  tsup@8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.8.3)(yaml@2.8.2):
-    dependencies:
-      bundle-require: 5.1.0(esbuild@0.27.3)
-      cac: 6.7.14
-      chokidar: 4.0.3
-      consola: 3.4.2
-      debug: 4.4.3
-      esbuild: 0.27.3
-      fix-dts-default-cjs-exports: 1.0.1
-      joycon: 3.1.1
-      picocolors: 1.1.1
-      postcss-load-config: 6.0.1(postcss@8.5.8)(tsx@4.21.0)(yaml@2.8.2)
-      resolve-from: 5.0.0
-      rollup: 4.59.0
-      source-map: 0.7.6
-      sucrase: 3.35.1
-      tinyexec: 0.3.2
-      tinyglobby: 0.2.15
-      tree-kill: 1.2.2
-    optionalDependencies:
-      postcss: 8.5.8
-      typescript: 5.8.3
-    transitivePeerDependencies:
-      - jiti
-      - supports-color
-      - tsx
-      - yaml
-
   tsup@8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.27.3)
@@ -9888,9 +9736,6 @@ snapshots:
   typescript@5.9.3: {}
 
   ufo@1.6.3: {}
-
-  uglify-js@3.19.3:
-    optional: true
 
   uint8arrays@3.1.1:
     dependencies:
@@ -10495,8 +10340,6 @@ snapshots:
     dependencies:
       define-property: 1.0.0
       is-number: 3.0.0
-
-  wordwrap@1.0.0: {}
 
   workerpool@6.5.1: {}
 

@@ -32,7 +32,6 @@
     "devDependencies": {
         "@biomejs/biome": "1.9.4",
         "@acala-network/chopsticks": "1.2.3",
-        "@moonbeam-network/api-augment": "0.3401.2",
         "@moonwall/cli": "5.18.3",
         "@moonwall/util": "5.18.3",
         "@polkadot/wasm-crypto": "^7.4.1",
