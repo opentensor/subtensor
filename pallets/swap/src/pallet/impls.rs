@@ -1157,4 +1157,49 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
         Self::do_clear_protocol_liquidity(netuid)
     }
+
+    /// Get the amount of Alpha that needs to be sold to get a given amount of Tao
+    fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoCurrency) -> AlphaCurrency {
+        match T::SubnetInfo::mechanism(netuid.into()) {
+            1 => {
+                // For uniswap v3: Estimate the alpha amount using the v2 contant product
+                // because we don't use user liquidity and this is accurate.
+                let tao_reserve = u64::from(T::TaoReserve::reserve(netuid.into())) as u128;
+                let alpha_reserve = u64::from(T::AlphaReserve::reserve(netuid.into())) as u128;
+                let alpha_dt = alpha_reserve.saturating_mul(u64::from(tao_amount) as u128);
+                let new_tao_reserve = tao_reserve.saturating_add(u64::from(tao_amount) as u128);
+                let mut alpha_amount_u128 = alpha_dt.safe_div(new_tao_reserve);
+                if alpha_amount_u128 > u64::MAX as u128 {
+                    alpha_amount_u128 = u64::MAX as u128;
+                }
+                AlphaCurrency::from(alpha_amount_u128 as u64)
+            }
+
+            // Static subnet, alpha == tao
+            _ => u64::from(tao_amount).into(),
+        }
+    }
+
+    /// Get the amount of Tao that needs to be sold to get a given amount of Alpha
+    fn get_tao_amount_for_alpha(netuid: NetUid, alpha_amount: AlphaCurrency) -> TaoCurrency {
+        match T::SubnetInfo::mechanism(netuid.into()) {
+            1 => {
+                // For uniswap v3: Estimate the alpha amount using the v2 contant product
+                // because we don't use user liquidity and this is accurate.
+                let tao_reserve = u64::from(T::TaoReserve::reserve(netuid.into())) as u128;
+                let alpha_reserve = u64::from(T::AlphaReserve::reserve(netuid.into())) as u128;
+                let tao_da = tao_reserve.saturating_mul(u64::from(alpha_amount) as u128);
+                let new_alpha_reserve =
+                    alpha_reserve.saturating_sub(u64::from(alpha_amount) as u128);
+                let mut tao_amount_u128 = tao_da.safe_div(new_alpha_reserve);
+                if tao_amount_u128 > u64::MAX as u128 {
+                    tao_amount_u128 = u64::MAX as u128;
+                }
+                TaoCurrency::from(tao_amount_u128 as u64)
+            }
+
+            // Static subnet, alpha == tao
+            _ => u64::from(alpha_amount).into(),
+        }
+    }
 }
