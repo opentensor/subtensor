@@ -11,6 +11,9 @@ importers:
       '@inquirer/prompts':
         specifier: 7.3.1
         version: 7.3.1(@types/node@25.3.5)
+      '@polkadot-api/descriptors':
+        specifier: '*'
+        version: 0.0.1
       '@polkadot-api/merkleize-metadata':
         specifier: ^1.1.15
         version: 1.1.29
@@ -1181,6 +1184,9 @@ packages:
 
   '@polkadot-api/codegen@0.19.1':
     resolution: {integrity: sha512-129a0vHChzKuvQDELMYPpmqZtA5VFlJ7vo5HZh47bo67qYi1veRgDrNQVGM8yaHzi7Coo481b/SDruZbbbgd3Q==}
+
+  '@polkadot-api/descriptors@0.0.1':
+    resolution: {integrity: sha512-p9esC+idLWlaeLy2V0z3x45xwRdAcNdiUSEeJaDDw6LJxj/WiyIOuhm3ki6gzl4oOZ0wAMuay3zhpVBDFgSEeQ==}
 
   '@polkadot-api/ink-contracts@0.4.0':
     resolution: {integrity: sha512-e2u5KhuYoiM+PyHsvjkI0O1nmFuC0rLH64uBerMqwK7hWENdM/ej9OqKawIzp6NQuYSHF5P4U8NBT0mjP9Y1yQ==}
@@ -5976,6 +5982,8 @@ snapshots:
       '@polkadot-api/metadata-compatibility': 0.3.6
       '@polkadot-api/substrate-bindings': 0.16.3
       '@polkadot-api/utils': 0.2.0
+
+  '@polkadot-api/descriptors@0.0.1': {}
 
   '@polkadot-api/ink-contracts@0.4.0':
     dependencies:

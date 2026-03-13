@@ -29,6 +29,11 @@
                 "name": "two",
                 "rpc_port": "9948",
                 "validator": true
+            },
+            {
+                "name": "three",
+                "rpc_port": "9949",
+                "validator": true
             }
         ]
     },

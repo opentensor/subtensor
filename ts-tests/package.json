@@ -21,6 +21,7 @@
         "@polkadot-api/merkleize-metadata": "^1.1.15",
         "@polkadot/api": "*",
         "@polkadot/keyring": "*",
+        "@polkadot-api/descriptors": "*",
         "@polkadot/types": "*",
         "@polkadot/types-codec": "*",
         "@polkadot/util": "*",
