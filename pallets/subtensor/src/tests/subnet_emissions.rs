@@ -488,3 +488,55 @@ fn seed_price_and_flow(n1: NetUid, n2: NetUid, price1: f64, price2: f64, flow1: 
 //         assert_abs_diff_eq!(s1 + s2 + s3, 1.0, epsilon = 1e-9);
 //     });
 // }
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet_emissions::get_shares_respects_subnet_emission_cap_and_keeps_zero_entries --exact --nocapture
+#[test]
+fn get_shares_respects_subnet_emission_cap_and_keeps_zero_entries() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(60);
+        let owner_coldkey = U256::from(61);
+
+        let n1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n2 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let n3 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Keep the math simple and deterministic.
+        FlowNormExponent::<Test>::set(u64f64(1.0));
+        let block_num = FlowHalfLife::<Test>::get();
+        System::set_block_number(block_num);
+
+        // Only the top 2 subnets should receive non-zero emission.
+        SubnetEmissionCap::<Test>::set(2);
+
+        // Neutral prices so ordering comes from flows.
+        SubnetMovingPrice::<Test>::insert(n1, i96f32(1.0));
+        SubnetMovingPrice::<Test>::insert(n2, i96f32(1.0));
+        SubnetMovingPrice::<Test>::insert(n3, i96f32(1.0));
+
+        // Positive, strictly ordered flows.
+        SubnetEmaTaoFlow::<Test>::insert(n1, (block_num, i64f64(1_000.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n2, (block_num, i64f64(3_000.0)));
+        SubnetEmaTaoFlow::<Test>::insert(n3, (block_num, i64f64(6_000.0)));
+
+        let shares = SubtensorModule::get_shares(&[n1, n2, n3]);
+
+        // All requested subnets must be present in the returned map.
+        assert_eq!(shares.len(), 3);
+        assert!(shares.contains_key(&n1));
+        assert!(shares.contains_key(&n2));
+        assert!(shares.contains_key(&n3));
+
+        let s1 = shares.get(&n1).unwrap().to_num::<f64>();
+        let s2 = shares.get(&n2).unwrap().to_num::<f64>();
+        let s3 = shares.get(&n3).unwrap().to_num::<f64>();
+
+        // The lowest-share subnet should be kept in the map but receive zero.
+        assert_abs_diff_eq!(s1, 0.0, epsilon = 1e-18);
+
+        // The top-2 subnets should be re-normalized to sum to 1.
+        assert!(s2 > 0.0, "expected n2 to receive non-zero share, got {s2}");
+        assert!(s3 > 0.0, "expected n3 to receive non-zero share, got {s3}");
+        assert!(s3 > s2, "expected n3 > n2; got s2={s2}, s3={s3}");
+        assert_abs_diff_eq!(s1 + s2 + s3, 1.0_f64, epsilon = 1e-9);
+    });
+}

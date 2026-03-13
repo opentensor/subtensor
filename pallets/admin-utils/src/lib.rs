@@ -2134,6 +2134,20 @@ pub mod pallet {
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
             Ok(())
         }
+
+        /// Set the number of top subnets that will receive emission
+        /// If the subnet is not within this number in the list of subnets sorted by emission, 
+        /// it will receive no emission
+        #[pallet::call_index(89)]
+        #[pallet::weight(Weight::from_parts(5_420_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0_u64))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1_u64)))]
+        pub fn sudo_set_subnet_emission_cap(origin: OriginFor<T>, cap: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_subnet_emission_cap(cap);
+            log::debug!("SubnetEmissionCap set to {}", cap);
+            Ok(())
+        }
     }
 }
 
