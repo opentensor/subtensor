@@ -1,6 +1,6 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
-import { generateKeyringPair, type KeyringPair } from "@moonwall/util";
+import type { KeyringPair } from "@moonwall/util";
 import { BN } from "@polkadot/util";
 
 describeSuite({
@@ -13,7 +13,6 @@ describeSuite({
 
         let alice: KeyringPair;
         let bob: KeyringPair;
-        const appFees = new BN(100_000);
 
         beforeAll(() => {
             polkadotJs = context.polkadotJs();
@@ -46,11 +45,7 @@ describeSuite({
                 await context.createBlock([await polkadotJs.tx.sudo.sudo(tx1).signAsync(alice)]);
 
                 // Adding stake
-                tx = polkadotJs.tx.subtensorModule.addStake(
-                    bob.address,
-                    netuid1,
-                    1000_000_000,
-                );
+                tx = polkadotJs.tx.subtensorModule.addStake(bob.address, netuid1, 1000_000_000);
                 await context.createBlock([await tx.signAsync(alice)]);
 
                 events = await polkadotJs.query.system.events();
@@ -67,19 +62,15 @@ describeSuite({
             title: "Remove stake payable",
             test: async () => {
                 // Removing stake
-                const tx = polkadotJs.tx.subtensorModule.removeStake(
-                    bob.address,
-                    netuid1,
-                    500_000_000,
-                );
+                const tx = polkadotJs.tx.subtensorModule.removeStake(bob.address, netuid1, 500_000_000);
                 await context.createBlock([await tx.signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
-                const stakeAddedEvent = events.filter((a) => {
+                const removeAddedEvent = events.filter((a) => {
                     return a.event.method === "StakeRemoved";
                 });
 
-                expect(stakeAddedEvent.length).to.be.equal(1);
+                expect(removeAddedEvent.length).to.be.equal(1);
             },
         });
     },

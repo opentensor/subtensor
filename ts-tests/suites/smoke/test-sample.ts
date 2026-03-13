@@ -1,4 +1,4 @@
-import { beforeAll, describeSuite } from "@moonwall/cli";
+import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 
 describeSuite({
@@ -17,7 +17,7 @@ describeSuite({
             title: "Test runtime",
             test: async () => {
                 const runtimeName = api.runtimeVersion.specName.toString();
-                console.log("runtimeName", runtimeName);
+                expect(runtimeName).toEqual("node-subtensor");
             },
         });
     },
