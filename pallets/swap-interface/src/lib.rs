@@ -39,6 +39,7 @@ pub trait SwapHandler {
 
     fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
+    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight;
     fn get_protocol_tao(netuid: NetUid) -> TaoBalance;
     fn max_price<C: Token>() -> C;
     fn min_price<C: Token>() -> C;
@@ -46,7 +47,6 @@ pub trait SwapHandler {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
-    fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

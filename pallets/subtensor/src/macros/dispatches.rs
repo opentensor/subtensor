@@ -1247,7 +1247,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(36_u64))
+		.saturating_add(T::DbWeight::get().reads(37_u64))
 		.saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
@@ -1277,9 +1277,9 @@ mod dispatches {
         /// Remove a user's subnetwork
         /// The caller must be the owner of the network
         #[pallet::call_index(61)]
-        #[pallet::weight(Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)))]
+        #[pallet::weight(Weight::from_parts(28_560_000, 0)
+		.saturating_add(T::DbWeight::get().reads(3))
+		.saturating_add(T::DbWeight::get().writes(3)))]
         pub fn dissolve_network(
             origin: OriginFor<T>,
             _coldkey: T::AccountId,
@@ -1456,7 +1456,7 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(396_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(35_u64))
+            .saturating_add(T::DbWeight::get().reads(36_u64))
             .saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
@@ -2268,7 +2268,7 @@ mod dispatches {
         #[pallet::call_index(121)]
         #[pallet::weight((
             Weight::from_parts(117_000_000, 7767)
-                .saturating_add(T::DbWeight::get().reads(12_u64))
+                .saturating_add(T::DbWeight::get().reads(13_u64))
                 .saturating_add(T::DbWeight::get().writes(4_u64)),
             DispatchClass::Normal,
             Pays::Yes

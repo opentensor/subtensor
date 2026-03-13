@@ -13,6 +13,7 @@ pub mod weights;
 use ark_serialize::CanonicalDeserialize;
 use codec::Encode;
 use frame_support::IterableStorageDoubleMap;
+use frame_support::weights::WeightMeter;
 use frame_support::{
     BoundedVec,
     traits::{Currency, Get},
@@ -23,7 +24,9 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
-use subtensor_runtime_common::NetUid;
+use subtensor_runtime_common::{
+    BATCH_SIZE, LoopRemovePrefixWithWeightMeter, NetUid, WeightMeterWrapper,
+};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
@@ -563,16 +566,49 @@ impl<T: Config> Pallet<T> {
         commitments
     }
 
-    pub fn purge_netuid(netuid: NetUid) {
-        let _ = CommitmentOf::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = LastCommitment::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = LastBondsReset::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = RevealedCommitments::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = UsedSpaceOf::<T>::clear_prefix(netuid, u32::MAX, None);
+    pub fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            BATCH_SIZE,
+            CommitmentOf::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+        );
+
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            BATCH_SIZE,
+            LastCommitment::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+        );
+
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            BATCH_SIZE,
+            LastBondsReset::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+        );
+
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            BATCH_SIZE,
+            RevealedCommitments::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+        );
+
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            BATCH_SIZE,
+            UsedSpaceOf::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+        );
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
 
         TimelockedIndex::<T>::mutate(|index| {
             index.retain(|(n, _)| *n != netuid);
         });
+        weight_meter.consumed()
     }
 }
 

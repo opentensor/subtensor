@@ -445,12 +445,171 @@ impl TypeInfo for NetUidStorageIndex {
     }
 }
 
+#[macro_export]
+macro_rules! WeightMeterWrapper {
+    ( $meter:expr, $weight:expr ) => {{
+        if !$meter.can_consume($weight) {
+            return $meter.consumed();
+        }
+        $meter.consume($weight);
+    }};
+}
+
+pub const BATCH_SIZE: u32 = 1024;
+
+#[macro_export]
+macro_rules! LoopRemovePrefixWithWeightMeter {
+    ( $meter:expr, $weight:expr, $batch_size:expr, $body:expr ) => {{
+        loop {
+            if !$meter.can_consume($weight.saturating_mul($batch_size as u64)) {
+                return $meter.consumed();
+            }
+            let result = $body;
+
+            $meter.consume($weight.saturating_mul(result.backend as u64));
+            if result.maybe_cursor.is_none() {
+                break;
+            }
+        }
+        $meter.consumed()
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame_support::weights::WeightMeter;
+    const REF_TIME_WEIGHT: u64 = 100;
+    const PROOF_SIZE_WEIGHT: u64 = 100;
+    const BATCH_SIZE_U64: u64 = BATCH_SIZE as u64;
+
+    struct TestBody {
+        count: u64,
+    }
+
+    struct TestResult {
+        backend: u64,
+        maybe_cursor: Option<()>,
+    }
+
+    impl TestBody {
+        fn new(count: u64) -> Self {
+            Self { count }
+        }
+
+        fn execute(&mut self, number: u64) -> TestResult {
+            if self.count >= number {
+                self.count = self.count.saturating_sub(number);
+                TestResult {
+                    backend: number,
+                    maybe_cursor: Some(()),
+                }
+            } else {
+                let tmp = self.count;
+                self.count = 0;
+                TestResult {
+                    backend: tmp,
+                    maybe_cursor: None,
+                }
+            }
+        }
+    }
 
     #[test]
     fn netuid_has_u16_bin_repr() {
         assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
+
+    fn test_weight(remaining_weight: Weight, weight: Weight) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        WeightMeterWrapper!(weight_meter, weight);
+        weight_meter.consumed()
+    }
+
+    fn test_loop(
+        remaining_weight: Weight,
+        weight: Weight,
+        body: &mut TestBody,
+        number: u64,
+    ) -> Weight {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        LoopRemovePrefixWithWeightMeter!(weight_meter, weight, BATCH_SIZE, body.execute(number));
+        weight_meter.consumed()
+    }
+
+    #[test]
+    fn test_weight_meter_wrapper() {
+        // enough to consume one ref and one proof
+        let remaining_weight = Weight::from_parts(REF_TIME_WEIGHT * 2, PROOF_SIZE_WEIGHT * 2);
+        let used_weight = test_weight(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+        );
+        assert_eq!(used_weight, Weight::from_parts(100, 100));
+
+        // not enough to consume three ref and three proof
+        let used_weight = test_weight(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT * 3, PROOF_SIZE_WEIGHT * 3),
+        );
+        assert_eq!(used_weight, Weight::from_parts(0, 0));
+    }
+
+    #[test]
+    fn test_loop_remove_prefix_with_weight_meter() {
+        // remaining weight matches the body count
+        let mut body = TestBody::new(BATCH_SIZE as u64);
+        let remaining_weight = Weight::from_parts(
+            REF_TIME_WEIGHT * BATCH_SIZE as u64,
+            PROOF_SIZE_WEIGHT * BATCH_SIZE as u64,
+        );
+        let used_weight = test_loop(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+            &mut body,
+            BATCH_SIZE as u64,
+        );
+        assert_eq!(
+            used_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * BATCH_SIZE as u64
+        );
+        assert_eq!(body.count, 0);
+
+        // remaining weight is less than the body count
+        let count = BATCH_SIZE_U64 + 1;
+        let mut body = TestBody::new(count);
+        let remaining_weight = Weight::from_parts(
+            REF_TIME_WEIGHT * BATCH_SIZE_U64,
+            PROOF_SIZE_WEIGHT * BATCH_SIZE_U64,
+        );
+        let used_weight = test_loop(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+            &mut body,
+            BATCH_SIZE_U64,
+        );
+        assert_eq!(
+            used_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * BATCH_SIZE_U64
+        );
+        assert_eq!(body.count, 1);
+
+        // remaining weight is more than the body count
+        let mut body = TestBody::new(count);
+        let remaining_weight = Weight::from_parts(
+            REF_TIME_WEIGHT * BATCH_SIZE_U64 * 2,
+            PROOF_SIZE_WEIGHT * BATCH_SIZE_U64 * 2,
+        );
+        let used_weight = test_loop(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
+            &mut body,
+            BATCH_SIZE_U64,
+        );
+        assert_eq!(
+            used_weight,
+            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * count
+        );
+        assert_eq!(body.count, 0);
     }
 }
