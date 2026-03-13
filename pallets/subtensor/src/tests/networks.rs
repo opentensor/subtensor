@@ -24,11 +24,21 @@ fn test_registration_ok() {
 
         // Ensure reserves exist for any registration path that might touch swap/burn logic.
         let reserve: u64 = 1_000_000_000_000;
-        setup_reserves(netuid, TaoBalance::from(reserve), AlphaBalance::from(reserve));
+        setup_reserves(
+            netuid,
+            TaoBalance::from(reserve),
+            AlphaBalance::from(reserve),
+        );
 
         // registration economics changed. Ensure the coldkey has enough spendable balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, TaoBalance::from(reserve));
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey_account_id, TaoBalance::from(reserve));
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            TaoBalance::from(reserve),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &hotkey_account_id,
+            TaoBalance::from(reserve),
+        );
 
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,

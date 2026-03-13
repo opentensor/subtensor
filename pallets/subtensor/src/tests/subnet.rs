@@ -711,7 +711,7 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
 
         // Fund enough to burned-register twice + keep-alive buffer.
         let burn_1 = SubtensorModule::get_burn(netuid);
-        let burn_2= SubtensorModule::get_burn(netuid2);
+        let burn_2 = SubtensorModule::get_burn(netuid2);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
             burn_1

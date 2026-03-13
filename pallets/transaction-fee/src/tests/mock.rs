@@ -597,9 +597,8 @@ pub fn register_ok_neuron(
         // Small buffer for safety (fees / rounding / future changes).
         let buffer: TaoBalance = 10.into();
 
-        let min_balance_needed: TaoBalance = burn
-            .saturating_add(min_remaining)
-            .saturating_add(buffer);
+        let min_balance_needed: TaoBalance =
+            burn.saturating_add(min_remaining).saturating_add(buffer);
 
         let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {

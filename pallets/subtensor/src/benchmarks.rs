@@ -1808,7 +1808,7 @@ mod pallet_benchmarks {
         _(RawOrigin::Root, netuid, 100);
     }
 
-   #[benchmark]
+    #[benchmark]
     fn add_stake_burn() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;

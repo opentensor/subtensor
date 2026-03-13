@@ -1648,10 +1648,7 @@ macro_rules! comprehensive_setup {
 
         let current_free = SubtensorModule::get_coldkey_balance(&$who);
         if current_free < required_free {
-            SubtensorModule::add_balance_to_coldkey_account(
-                &$who,
-                required_free - current_free,
-            );
+            SubtensorModule::add_balance_to_coldkey_account(&$who, required_free - current_free);
         }
 
         // Now staking will succeed and leave exactly expected_remaining behind.

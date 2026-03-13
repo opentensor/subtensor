@@ -819,7 +819,11 @@ fn test_remove_stake_total_balance_no_change() {
 
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
-        assert_abs_diff_eq!(total_balance, TaoBalance::from(amount) - TaoBalance::from(fee), epsilon = TaoBalance::from(amount) / 1000.into());
+        assert_abs_diff_eq!(
+            total_balance,
+            TaoBalance::from(amount) - TaoBalance::from(fee),
+            epsilon = TaoBalance::from(amount) / 1000.into()
+        );
     });
 }
 
@@ -1000,7 +1004,11 @@ fn test_remove_stake_total_issuance_no_change() {
         let issuance_after_stake = Balances::total_issuance();
 
         // Staking burns `amount` from balances issuance in this system design.
-        assert_abs_diff_eq!(issuance_before, issuance_after_stake + TaoBalance::from(amount), epsilon = 1.into());
+        assert_abs_diff_eq!(
+            issuance_before,
+            issuance_after_stake + TaoBalance::from(amount),
+            epsilon = 1.into()
+        );
 
         // Remove all stake
         let stake_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(

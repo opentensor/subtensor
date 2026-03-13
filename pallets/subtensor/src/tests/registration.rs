@@ -980,7 +980,6 @@ fn test_neuron_registration_disabled() {
     });
 }
 
-
 #[allow(clippy::indexing_slicing)]
 #[test]
 fn test_registration_pruning() {

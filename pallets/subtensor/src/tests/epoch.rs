@@ -565,9 +565,7 @@ fn test_1_graph() {
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
-            stake_amount
-                + ExistentialDeposit::get()
-                + SubtensorModule::get_network_min_lock(),
+            stake_amount + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -1373,9 +1371,7 @@ fn test_active_stake() {
         for key in 0..n as u64 {
             SubtensorModule::add_balance_to_coldkey_account(
                 &U256::from(key),
-                stake
-                    + ExistentialDeposit::get()
-                    + SubtensorModule::get_network_min_lock(),
+                stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock(),
             );
             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
                 netuid,
@@ -2287,7 +2283,8 @@ fn test_validator_permits() {
                     }
                     for server in &servers {
                         assert_eq!(
-                            (stake[*server as usize] + (TaoBalance::from(2) * TaoBalance::from(network_n)))
+                            (stake[*server as usize]
+                                + (TaoBalance::from(2) * TaoBalance::from(network_n)))
                                 >= TaoBalance::from(min_stake),
                             SubtensorModule::get_validator_permit_for_uid(netuid, *server)
                         );

@@ -7,12 +7,12 @@
 use core::num::NonZeroU64;
 
 use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::Zero;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
 use frame_support::{assert_ok, parameter_types, traits::PrivilegeCmp};
-use frame_support::pallet_prelude::Zero;
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_contracts::HoldReason as ContractsHoldReason;
@@ -26,7 +26,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Saturating, Token};
+use subtensor_runtime_common::{
+    AlphaBalance, AuthorshipInfo, NetUid, Saturating, TaoBalance, Token,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -679,9 +681,8 @@ pub fn register_ok_neuron(
         // Small buffer for safety (fees / rounding / future changes).
         let buffer: TaoBalance = 10.into();
 
-        let min_balance_needed: TaoBalance = burn
-            .saturating_add(min_remaining)
-            .saturating_add(buffer);
+        let min_balance_needed: TaoBalance =
+            burn.saturating_add(min_remaining).saturating_add(buffer);
 
         let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {
