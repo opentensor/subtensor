@@ -1260,7 +1260,7 @@ mod pallet_benchmarks {
         );
     }
 
-   #[benchmark]
+    #[benchmark]
     fn serve_axon_tls() {
         let caller: T::AccountId = whitelisted_caller();
         let netuid = NetUid::from(1);
@@ -1662,7 +1662,7 @@ mod pallet_benchmarks {
         assert_eq!(TokenSymbol::<T>::get(netuid), new_symbol);
     }
 
-   #[benchmark]
+    #[benchmark]
     fn commit_timelocked_weights() {
         let hotkey: T::AccountId = whitelisted_caller();
         let netuid = NetUid::from(1);
