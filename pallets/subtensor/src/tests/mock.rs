@@ -733,7 +733,6 @@ pub fn register_ok_neuron(
     coldkey_account_id: U256,
     _start_nonce: u64,
 ) {
-    // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
     let reserve: u64 = 1_000_000_000_000;
     let tao_reserve = SubnetTAO::<Test>::get(netuid);
     let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)

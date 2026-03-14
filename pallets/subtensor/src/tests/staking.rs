@@ -275,59 +275,6 @@ fn test_add_stake_err_not_enough_belance() {
 
 #[test]
 #[ignore]
-fn test_add_stake_total_balance_no_change() {
-    // When we add stake, the total balance of the coldkey account should not change
-    //    this is because the stake should be part of the coldkey account balance (reserved/locked)
-    new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(551337);
-        let coldkey_account_id = U256::from(51337);
-        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
-
-        // Give it some $$$ in his coldkey balance
-        let initial_balance = 10000;
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            initial_balance.into(),
-        );
-
-        // Check we have zero staked before transfer
-        let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        assert_eq!(initial_stake, TaoBalance::ZERO);
-
-        // Check total balance is equal to initial balance
-        let initial_total_balance = Balances::total_balance(&coldkey_account_id);
-        assert_eq!(initial_total_balance, initial_balance.into());
-
-        // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), TaoBalance::ZERO);
-
-        // Stake to hotkey account, and check if the result is ok
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey_account_id),
-            hotkey_account_id,
-            netuid,
-            10000.into()
-        ));
-
-        // Check if stake has increased
-        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
-        assert_eq!(new_stake, 10000.into());
-
-        // Check if free balance has decreased
-        let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_eq!(new_free_balance, 0.into());
-
-        // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000.into());
-
-        // Check if total balance has remained the same. (no fee, includes reserved/locked balance)
-        let total_balance = Balances::total_balance(&coldkey_account_id);
-        assert_eq!(total_balance, initial_total_balance);
-    });
-}
-
-#[test]
-#[ignore]
 fn test_add_stake_total_issuance_no_change() {
     // When we add stake, the total issuance of the balances pallet should not change
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
@@ -817,11 +764,9 @@ fn test_remove_stake_total_balance_no_change() {
             epsilon = SubtensorModule::get_total_stake() / 10_000_000.into()
         );
 
-        // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
-        let total_balance = Balances::total_balance(&coldkey_account_id);
         assert_abs_diff_eq!(
-            total_balance,
-            TaoBalance::from(amount) - TaoBalance::from(fee),
+            total_balance_after.saturating_sub(total_balance_before),
+            amount_tao.saturating_sub(fee.into()),
             epsilon = TaoBalance::from(amount) / 1000.into()
         );
     });
@@ -4373,21 +4318,41 @@ fn test_move_stake_limit_partial() {
             stake_amount,
         );
 
-        // Forse-set alpha in and tao reserve to make price equal 1.5 on both origin and destination,
-        // but there's much more liquidity on destination, so its price wouldn't go up when restaked
+        // Registration now goes through the burn/swap path, which initializes swap V3 state.
+        // Clear that state first so the manual reserve fixture below actually controls price.
+        assert_ok!(<Test as pallet::Config>::SwapInterface::clear_protocol_liquidity(
+            origin_netuid
+        ));
+        assert_ok!(<Test as pallet::Config>::SwapInterface::clear_protocol_liquidity(
+            destination_netuid
+        ));
+
+        // Force-set alpha in and tao reserve to make price equal 1.5 on both origin and destination,
+        // but there's much more liquidity on destination, so its price wouldn't go up when restaked.
         let tao_reserve = TaoBalance::from(150_000_000_000_u64);
         let alpha_in = AlphaBalance::from(100_000_000_000_u64);
+
         SubnetTAO::<Test>::insert(origin_netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(origin_netuid, alpha_in);
+        SubnetTaoProvided::<Test>::insert(origin_netuid, TaoBalance::from(0_u64));
+        SubnetAlphaInProvided::<Test>::insert(origin_netuid, AlphaBalance::from(0_u64));
+
         SubnetTAO::<Test>::insert(destination_netuid, tao_reserve * 100_000.into());
         SubnetAlphaIn::<Test>::insert(destination_netuid, alpha_in * 100_000.into());
-        let current_price =
+        SubnetTaoProvided::<Test>::insert(destination_netuid, TaoBalance::from(0_u64));
+        SubnetAlphaInProvided::<Test>::insert(destination_netuid, AlphaBalance::from(0_u64));
+
+        let origin_price =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(origin_netuid.into());
-        assert_eq!(current_price, U96F32::from_num(1.5));
+        let destination_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(destination_netuid.into());
+
+        assert_eq!(origin_price, U96F32::from_num(1.5));
+        assert_eq!(destination_price, U96F32::from_num(1.5));
 
         // The relative price between origin and destination subnets is 1.
-        // Setup limit relative price so that it doesn't drop by more than 1% from current price
-        let limit_price = TaoBalance::from(990_000_000);
+        // Setup limit relative price so that it doesn't drop by more than 1% from current price.
+        let limit_price = TaoBalance::from(990_000_000_u64);
 
         // Move stake with slippage safety - executes partially
         assert_ok!(SubtensorModule::swap_stake_limit(

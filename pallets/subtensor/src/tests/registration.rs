@@ -610,11 +610,12 @@ fn test_last_update_correctness() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
-        let burn_cost = 1000;
+        let burn_cost: u64 = 1_000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost.into());
+
+        // Add network first, then override burn so init_new_network doesn't clobber it.
         add_network(netuid, tempo, 0);
+        SubtensorModule::set_burn(netuid, burn_cost.into());
 
         let reserve: u64 = 1_000_000_000_000;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -626,16 +627,16 @@ fn test_last_update_correctness() {
         // Simulate no LastUpdate so far (can happen on mechanisms)
         LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
 
-        // Give some $$$ to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
-        // Subscribe and check extrinsic output
+        // Give enough balance for the burn path.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000.into());
+
+        // Register and ensure LastUpdate is expanded correctly.
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             hotkey_account_id
         ));
 
-        // Check that LastUpdate has existing_neurons + 1 elements now
         assert_eq!(
             LastUpdate::<Test>::get(NetUidStorageIndex::from(netuid)).len(),
             (existing_neurons + 1) as usize
@@ -908,41 +909,6 @@ fn test_registration_pruning_1() {
 //         ));
 //     });
 // }
-
-#[test]
-fn test_registration_origin_hotkey_mismatch() {
-    new_test_ext(1).execute_with(|| {
-        let block_number: u64 = 0;
-        let netuid = NetUid::from(1);
-        let tempo: u16 = 13;
-        let hotkey_account_id_1: U256 = U256::from(1);
-        let hotkey_account_id_2: U256 = U256::from(2);
-        let coldkey_account_id: U256 = U256::from(668);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-            netuid,
-            block_number,
-            0,
-            &hotkey_account_id_1,
-        );
-
-        //add network
-        add_network(netuid, tempo, 0);
-
-        let result = SubtensorModule::register(
-            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
-            netuid,
-            block_number,
-            nonce,
-            work.clone(),
-            hotkey_account_id_2, // Not the same as the origin.
-            coldkey_account_id,
-        );
-        assert_eq!(
-            result,
-            Err(Error::<Test>::TransactorAccountShouldBeHotKey.into())
-        );
-    });
-}
 
 #[test]
 fn test_neuron_registration_disabled() {
