@@ -974,18 +974,7 @@ impl<T: Config> Pallet<T> {
         result
     }
 
-    /// Returns the per-block decay factor `f` in Q32 such that:
-    ///
-    ///     f ^ half_life ~= 1/2
-    ///
-    /// More precisely, this returns the largest Q32 value `f` in [0, 1]
-    /// satisfying:
-    ///
-    ///     f ^ half_life <= 0.5
-    ///
-    /// Safe / non-panicking:
-    /// - handles `half_life == 0`
-    /// - uses saturating bounds arithmetic in the binary search
+    /// Returns the per-block decay factor `f` in Q32
     pub fn decay_factor_q32(half_life: u16) -> u64 {
         if half_life == 0 {
             return 1u64 << 32; // 1.0
