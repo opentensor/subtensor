@@ -71,10 +71,9 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
 
-        // Ensure burn fee is non-zero for realistic funding.
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
 
-        // Fund BOTH to be robust regardless of which account is charged internally.
         fund_for_registration::<T>(netuid, &coldkey);
         fund_for_registration::<T>(netuid, &hotkey);
         Subtensor::<T>::set_difficulty(netuid, 1);
@@ -204,7 +203,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &caller);
 
@@ -244,7 +243,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &caller);
 
@@ -356,7 +355,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_difficulty(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &coldkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -389,7 +389,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
         Subtensor::<T>::set_difficulty(netuid, 1);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &coldkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -453,7 +454,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &coldkey);
 
@@ -502,12 +503,17 @@ mod pallet_benchmarks {
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
+        fund_for_registration::<T>(netuid, &old_coldkey);
         Subtensor::<T>::set_difficulty(netuid, 1);
 
         let block_number = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work) =
             Subtensor::<T>::create_work_for_block_number(netuid, block_number, 3, &hotkey1);
-        let _ = Subtensor::<T>::register(
+
+        assert_ok!(Subtensor::<T>::register(
             RawOrigin::Signed(old_coldkey.clone()).into(),
             netuid,
             block_number,
@@ -515,7 +521,7 @@ mod pallet_benchmarks {
             work.clone(),
             hotkey1.clone(),
             old_coldkey.clone(),
-        );
+        ));
 
         #[extrinsic_call]
         _(RawOrigin::Signed(old_coldkey), new_coldkey);
@@ -535,9 +541,10 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         Subtensor::<T>::set_difficulty(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
 
-        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, free_balance_old);
+        fund_for_registration::<T>(netuid, &old_coldkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(old_coldkey.clone()).into(),
@@ -608,7 +615,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_difficulty(netuid, 1);
         SubtokenEnabled::<T>::insert(netuid, true);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &coldkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -766,7 +774,8 @@ mod pallet_benchmarks {
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &coldkey);
         SubnetOwner::<T>::set(netuid, coldkey.clone());
 
@@ -1138,7 +1147,8 @@ mod pallet_benchmarks {
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &hotkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -1181,7 +1191,8 @@ mod pallet_benchmarks {
         // Avoid any weights set rate-limit edge cases during benchmark setup.
         Subtensor::<T>::set_weights_set_rate_limit(netuid, 0);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &hotkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -1249,7 +1260,7 @@ mod pallet_benchmarks {
         );
     }
 
-    #[benchmark]
+   #[benchmark]
     fn serve_axon_tls() {
         let caller: T::AccountId = whitelisted_caller();
         let netuid = NetUid::from(1);
@@ -1266,7 +1277,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &caller);
 
         assert_ok!(Subtensor::<T>::burned_register(
@@ -1292,6 +1304,7 @@ mod pallet_benchmarks {
 
     #[benchmark]
     fn set_identity() {
+        let netuid = NetUid::from(1);
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 5);
         let name = b"n".to_vec();
@@ -1303,17 +1316,18 @@ mod pallet_benchmarks {
         let add = vec![];
 
         Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
-        Subtensor::<T>::init_new_network(1.into(), 1);
-        Subtensor::<T>::set_network_registration_allowed(1.into(), true);
-        SubtokenEnabled::<T>::insert(NetUid::from(1), true);
-        Subtensor::<T>::set_burn(1.into(), 1.into());
+        Subtensor::<T>::init_new_network(netuid, 1);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
 
         let deposit: u64 = 1_000_000_000u64.saturating_mul(2);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit.into());
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(coldkey.clone()).into(),
-            1.into(),
+            netuid,
             hotkey.clone()
         ));
 
@@ -1648,7 +1662,7 @@ mod pallet_benchmarks {
         assert_eq!(TokenSymbol::<T>::get(netuid), new_symbol);
     }
 
-    #[benchmark]
+   #[benchmark]
     fn commit_timelocked_weights() {
         let hotkey: T::AccountId = whitelisted_caller();
         let netuid = NetUid::from(1);
@@ -1660,7 +1674,8 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
 
-        Subtensor::<T>::set_burn(netuid, 1.into());
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        seed_swap_reserves::<T>(netuid);
         fund_for_registration::<T>(netuid, &hotkey);
 
         assert_ok!(Subtensor::<T>::burned_register(
