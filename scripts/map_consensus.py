@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 
 
-def extract_data(filepath):
+def extract_data(filepath) -> None:
     """
     Extracts the emission data from a text file.
 
@@ -58,7 +58,7 @@ def extract_data(filepath):
     return data
 
 
-def visualize_data(emission_data, output_filename="consensus_plot.svg"):
+def visualize_data(emission_data, output_filename="consensus_plot.svg") -> None:
     """
     Generates and saves a contour plot of the retention map.
 
