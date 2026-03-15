@@ -528,5 +528,10 @@ mod events {
             /// Alpha burned
             alpha: AlphaBalance,
         },
+        /// Burn Half Life Set for Neuron Registration.
+        BurnHalfLifeSet(NetUid, u16),
+
+        /// Burn Increase Multiplier Set for Neuron Registration.
+        BurnIncreaseMultSet(NetUid, u64),
     }
 }

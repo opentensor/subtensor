@@ -286,5 +286,7 @@ mod errors {
         ColdkeySwapAnnounced,
         /// A coldkey swap for this account is under dispute.
         ColdkeySwapDisputed,
+        /// Registration Price Limit Exceeded
+        RegistrationPriceLimitExceeded,
     }
 }
