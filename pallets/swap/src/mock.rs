@@ -289,9 +289,9 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         _coldkey: &AccountId,
         _hotkey: &AccountId,
         _netuid: NetUid,
-        alpha: AlphaBalance,
-    ) -> Result<AlphaBalance, DispatchError> {
-        Ok(alpha)
+        _alpha: AlphaBalance,
+    ) -> Result<(), DispatchError> {
+        Ok(())
     }
 }
 

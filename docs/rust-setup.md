@@ -67,7 +67,21 @@ Open the Terminal application and execute the following commands:
 
 # Make sure Homebrew is up-to-date, install protobuf and openssl
 brew update
-brew install protobuf openssl
+brew install protobuf openssl llvm@16
+```
+
+Also, add the following lines at the end of your ~/.zshrc:
+
+```
+# LLVM 16 from Homebrew
+export PATH="/opt/homebrew/opt/llvm@16/bin:$PATH"
+
+export CC="/opt/homebrew/opt/llvm@16/bin/clang"
+export CXX="/opt/homebrew/opt/llvm@16/bin/clang++"
+export LIBCLANG_PATH="/opt/homebrew/opt/llvm@16/lib/libclang.dylib"
+
+export LDFLAGS="-L/opt/homebrew/opt/llvm@16/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/llvm@16/include"
 ```
 
 ### Windows
