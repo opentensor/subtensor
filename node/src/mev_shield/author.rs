@@ -375,28 +375,24 @@ where
     let current_block: u64 = info.best_number.saturated_into();
     let era = Era::mortal(ERA_PERIOD, current_block);
 
-    let extra: Extra =
-        (
-            frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
-            frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
-            frame_system::CheckTxVersion::<runtime::Runtime>::new(),
-            frame_system::CheckGenesis::<runtime::Runtime>::new(),
-            frame_system::CheckEra::<runtime::Runtime>::from(era),
-            node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
-            frame_system::CheckWeight::<runtime::Runtime>::new(),
-            node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<
-                runtime::Runtime,
-            >::new(pallet_transaction_payment::ChargeTransactionPayment::<
-                runtime::Runtime,
-            >::from(0u64)),
-            node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(
-            ),
-            pallet_subtensor::transaction_extension::SubtensorTransactionExtension::<
-                runtime::Runtime,
-            >::new(),
-            pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
-            frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
-        );
+    let extra: Extra = (
+        frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
+        frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
+        frame_system::CheckTxVersion::<runtime::Runtime>::new(),
+        frame_system::CheckGenesis::<runtime::Runtime>::new(),
+        frame_system::CheckEra::<runtime::Runtime>::from(era),
+        node_subtensor_runtime::check_nonce::CheckNonce::<runtime::Runtime>::from(nonce).into(),
+        frame_system::CheckWeight::<runtime::Runtime>::new(),
+        node_subtensor_runtime::transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<
+            runtime::Runtime,
+        >::new(pallet_transaction_payment::ChargeTransactionPayment::<
+            runtime::Runtime,
+        >::from(0u64)),
+        node_subtensor_runtime::sudo_wrapper::SudoTransactionExtension::<runtime::Runtime>::new(),
+        pallet_subtensor::SubtensorTransactionExtension::<runtime::Runtime>::new(),
+        pallet_drand::drand_priority::DrandPriority::<runtime::Runtime>::new(),
+        frame_metadata_hash_extension::CheckMetadataHash::<runtime::Runtime>::new(false),
+    );
 
     // 3) Manually construct the `Implicit` tuple that the runtime will also derive.
     type Implicit = <Extra as TransactionExtension<RuntimeCall>>::Implicit;

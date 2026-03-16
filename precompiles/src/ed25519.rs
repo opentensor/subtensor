@@ -8,7 +8,7 @@ use fp_evm::{ExitError, ExitSucceed, LinearCostPrecompile, PrecompileFailure};
 
 use crate::{PrecompileExt, parse_slice};
 
-pub(crate) struct Ed25519Verify<A>(PhantomData<A>);
+pub struct Ed25519Verify<A>(PhantomData<A>);
 
 impl<A> PrecompileExt<A> for Ed25519Verify<A>
 where

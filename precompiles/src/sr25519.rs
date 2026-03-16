@@ -9,7 +9,7 @@ use fp_evm::{ExitError, ExitSucceed, LinearCostPrecompile, PrecompileFailure};
 
 use crate::{PrecompileExt, parse_slice};
 
-pub(crate) struct Sr25519Verify<A>(PhantomData<A>);
+pub struct Sr25519Verify<A>(PhantomData<A>);
 
 impl<A> PrecompileExt<A> for Sr25519Verify<A>
 where

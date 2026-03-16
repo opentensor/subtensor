@@ -1,5 +1,6 @@
 use core::marker::PhantomData;
 
+use frame_support::{ensure, traits::Get};
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
@@ -186,14 +187,33 @@ where
 
     /// Process a single step of a swap
     fn process_swap(&self) -> Result<SwapStepResult<PaidIn, PaidOut>, Error<T>> {
-        // Hold the fees
-        Self::add_fees(
-            self.netuid,
-            Pallet::<T>::current_liquidity_safe(self.netuid),
-            self.fee,
-        );
         let delta_out = Self::convert_deltas(self.netuid, self.delta_in);
-        // log::trace!("\tDelta Out        : {delta_out:?}");
+        log::trace!("\tDelta Out        : {delta_out}");
+
+        let mut fee_to_block_author = 0.into();
+        if self.delta_in > 0.into() {
+            ensure!(delta_out > 0.into(), Error::<T>::ReservesTooLow);
+
+            // Split fees according to DefaultFeeSplit between liquidity pool and
+            // validators. In case we want just to forward 100% of fees to the block
+            // author, it can be done this way:
+            // ```
+            //     fee_to_block_author = self.fee;
+            // ```
+            let fee_split = DefaultFeeSplit::get();
+            let lp_fee: PaidIn = fee_split.mul_floor(self.fee.to_u64()).into();
+
+            // Hold the reserve portion of fees
+            if !lp_fee.is_zero() {
+                Self::add_fees(
+                    self.netuid,
+                    Pallet::<T>::current_liquidity_safe(self.netuid),
+                    lp_fee,
+                );
+            }
+
+            fee_to_block_author = self.fee.saturating_sub(lp_fee);
+        }
 
         if self.action == SwapStepAction::Crossing {
             let mut tick = Ticks::<T>::get(self.netuid, self.edge_tick).unwrap_or_default();
@@ -218,6 +238,7 @@ where
             fee_paid: self.fee,
             delta_in: self.delta_in,
             delta_out,
+            fee_to_block_author,
         })
     }
 
@@ -553,6 +574,7 @@ where
     pub(crate) fee_paid: PaidIn,
     pub(crate) delta_in: PaidIn,
     pub(crate) delta_out: PaidOut,
+    pub(crate) fee_to_block_author: PaidIn,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
