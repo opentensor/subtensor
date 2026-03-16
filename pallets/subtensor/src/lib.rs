@@ -2625,14 +2625,16 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
             Error::<T>::HotKeyAccountNotExists
         );
 
+        let actual_alpha = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey, coldkey, netuid, alpha,
+        );
+
         // Decrese alpha out counter
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(alpha);
+            *total = total.saturating_sub(actual_alpha);
         });
 
-        Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey, coldkey, netuid, alpha,
-        ))
+        Ok(actual_alpha)
     }
 }
 
