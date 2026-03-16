@@ -29,7 +29,7 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     owner: AccountId,
 }
 
-#[freeze_struct("e8e028bf4fbc6741")]
+#[freeze_struct("ab2a1adcd6970bc9")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -50,7 +50,7 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     emission_value: Compact<u64>,
     burn: Compact<TaoBalance>,
     owner: AccountId,
-    identity: Option<SubnetIdentityV3>,
+    identity: Option<SubnetIdentityV4>,
 }
 
 #[freeze_struct("fd2db338b156d251")]
@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let burn = Compact::from(Self::get_burn(netuid));
-        let identity: Option<SubnetIdentityV3> = SubnetIdentitiesV3::<T>::get(netuid);
+        let identity: Option<SubnetIdentityV4> = SubnetIdentitiesV4::<T>::get(netuid);
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();

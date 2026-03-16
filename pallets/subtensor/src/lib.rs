@@ -289,9 +289,9 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentitiesV3.
+    ///  Struct for SubnetIdentitiesV3. (DEPRECATED for V4)
     pub type SubnetIdentityOfV3 = SubnetIdentityV3;
-    /// Data structure for Subnet Identities
+    /// Data structure for Subnet Identities (DEPRECATED for V4)
     #[crate::freeze_struct("6a441335f985a0b")]
     #[derive(
         Encode, Decode, DecodeWithMemTracking, Default, TypeInfo, Clone, PartialEq, Eq, Debug,
@@ -313,6 +313,34 @@ pub mod pallet {
         pub logo_url: Vec<u8>,
         /// Additional information about the subnet
         pub additional: Vec<u8>,
+    }
+
+    ///  Struct for SubnetIdentitiesV4.
+    pub type SubnetIdentityOfV4 = SubnetIdentityV4;
+    /// Data structure for Subnet Identities
+    #[crate::freeze_struct("4b9718ba1a9cb75f")]
+    #[derive(
+        Encode, Decode, DecodeWithMemTracking, Default, TypeInfo, Clone, PartialEq, Eq, Debug,
+    )]
+    pub struct SubnetIdentityV4 {
+        /// The name of the subnet
+        pub subnet_name: Vec<u8>,
+        /// The github repository associated with the subnet
+        pub github_repo: Vec<u8>,
+        /// The subnet's contact
+        pub subnet_contact: Vec<u8>,
+        /// The subnet's website
+        pub subnet_url: Vec<u8>,
+        /// The subnet's discord
+        pub discord: Vec<u8>,
+        /// The subnet's description
+        pub description: Vec<u8>,
+        /// The subnet's logo
+        pub logo_url: Vec<u8>,
+        /// Additional information about the subnet
+        pub additional: Vec<u8>,
+        /// The subnet's agent documentation URL
+        pub agent_docs_url: Vec<u8>,
     }
 
     /// Enum for recycle or burn for the owner_uid(s)
@@ -2122,10 +2150,15 @@ pub mod pallet {
     pub type IdentitiesV2<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
 
-    /// --- MAP ( netuid ) --> SubnetIdentityOfV3
+    /// --- MAP ( netuid ) --> SubnetIdentityOfV3 (DEPRECATED for V4)
     #[pallet::storage]
     pub type SubnetIdentitiesV3<T: Config> =
         StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV3, OptionQuery>;
+
+    /// --- MAP ( netuid ) --> SubnetIdentityOfV4
+    #[pallet::storage]
+    pub type SubnetIdentitiesV4<T: Config> =
+        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV4, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
