@@ -140,7 +140,7 @@ mod benchmarks {
         let id = PositionId::from(1u128);
 
         for netuid in 1..=128 {
-            let netuid = NetUid::from(netuid as u16);
+            let netuid = NetUid::from(netuid);
 
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
