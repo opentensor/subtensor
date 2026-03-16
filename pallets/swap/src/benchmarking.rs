@@ -139,8 +139,8 @@ mod benchmarks {
         let caller: T::AccountId = whitelisted_caller();
         let id = PositionId::from(1u128);
 
-        for netuid in 1..=128 {
-            let netuid = NetUid::from(netuid);
+        for index in 1..=128 {
+            let netuid = NetUid::from(index);
 
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
