@@ -4,7 +4,7 @@ import { addNewSubnetwork, addStake, forceSetBalance, getStake, startCall, tao }
 import { generateKeyringPair } from "@moonwall/util";
 
 describeSuite({
-    id: "ZOMBIE_ADD_STAKE",
+    id: "00_add_stake",
     title: "▶ add_stake extrinsic",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {

@@ -103,8 +103,9 @@ export async function unstakeAllAlpha(api: ApiPromise, coldkey: KeyringPair, hot
  * Returns the integer part of the U64F64 value.
  */
 export async function getStake(api: ApiPromise, hotkey: string, coldkey: string, netuid: number): Promise<bigint> {
-    const obj = (await api.query.subtensorModule.alpha(hotkey, coldkey, netuid)).toJSON() as { bits: number };
-    return BigInt(obj.bits);
+    const obj = (await api.query.subtensorModule.alpha(hotkey, coldkey, netuid)) as any;
+    const raw = BigInt(obj.bits.toString());
+    return u64f64ToInt(raw);
 }
 
 /**
@@ -112,8 +113,8 @@ export async function getStake(api: ApiPromise, hotkey: string, coldkey: string,
  * Use this when you need the raw value for extrinsics like transfer_stake.
  */
 export async function getStakeRaw(api: ApiPromise, hotkey: string, coldkey: string, netuid: number): Promise<bigint> {
-    const obj = (await api.query.subtensorModule.alpha(hotkey, coldkey, netuid)).toJSON() as { bits: number };
-    return BigInt(obj.bits);
+    const obj = (await api.query.subtensorModule.alpha(hotkey, coldkey, netuid)) as any;
+    return BigInt(obj.bits.toString());
 }
 
 export async function transferStake(
@@ -187,24 +188,24 @@ export async function swapStakeLimit(
     await waitForTransactionWithRetry(tx, coldkey, "swap_stake_limit");
 }
 
-export type RootClaimType = "Swap" | "Keep" | { type: "KeepSubnets"; subnets: number[] };
-
+export type RootClaimType = "Swap" | "Keep" | KeepSubnetType;
+export type KeepSubnetType = { KeepSubnets: { subnets: number[] } };
 export async function getRootClaimType(api: ApiPromise, coldkey: string): Promise<RootClaimType> {
-    const result = (await api.query.subtensorModule.tootClaimType(coldkey)).toJSON() as any; // TODO: Fix any
-    if (result.type === "KeepSubnets") {
-        return { type: "KeepSubnets", subnets: result.value.subnets as number[] };
+    const result = (await api.query.subtensorModule.rootClaimType(coldkey)).toJSON() as any; // TODO: Fix any
+    if (result.keep === null) {
+        return "Keep";
     }
-    return result.type as "Swap" | "Keep";
+    if (result.swap === null) {
+        return "Swap";
+    }
+    if (result.keepSubnets) {
+        return { KeepSubnets: { subnets: result.keepSubnets.subnets } };
+    }
+    throw new Error("Unknown root claim type");
 }
 
 export async function setRootClaimType(api: ApiPromise, coldkey: KeyringPair, claimType: RootClaimType): Promise<void> {
-    let newRootClaimType: any;
-    if (typeof claimType === "string") {
-        newRootClaimType = { type: claimType, value: undefined };
-    } else {
-        newRootClaimType = { type: "KeepSubnets", value: { subnets: claimType.subnets } };
-    }
-    const tx = api.tx.subtensorModule.setRootClaimType(newRootClaimType);
+    const tx = api.tx.subtensorModule.setRootClaimType(claimType);
     await waitForTransactionWithRetry(tx, coldkey, "set_root_claim_type");
 }
 
@@ -214,7 +215,7 @@ export async function claimRoot(api: ApiPromise, coldkey: KeyringPair, subnets: 
 }
 
 export async function getNumRootClaims(api: ApiPromise): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.NumRootClaim()).toString());
+    return (await api.query.subtensorModule.numRootClaim()).toBigInt();
 }
 
 export async function sudoSetNumRootClaims(api: ApiPromise, newValue: bigint): Promise<void> {
@@ -226,7 +227,7 @@ export async function sudoSetNumRootClaims(api: ApiPromise, newValue: bigint): P
 }
 
 export async function getRootClaimThreshold(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.RootClaimableThreshold(netuid)).toString());
+    return (await api.query.subtensorModule.rootClaimableThreshold(netuid)).bits.toBigInt();
 }
 
 export async function sudoSetRootClaimThreshold(api: ApiPromise, netuid: number, newValue: bigint): Promise<void> {
@@ -250,11 +251,11 @@ export async function sudoSetTempo(api: ApiPromise, netuid: number, tempo: numbe
 }
 
 export async function waitForBlocks(api: ApiPromise, numBlocks: number): Promise<void> {
-    const startBlock = await api.query.system.number();
+    const startBlock = Number((await api.query.system.number()).toString());
     const targetBlock = startBlock + numBlocks;
 
     while (true) {
-        const currentBlock = await api.query.system.number();
+        const currentBlock = Number((await api.query.system.number()).toString());
         if (currentBlock >= targetBlock) {
             break;
         }
@@ -262,11 +263,12 @@ export async function waitForBlocks(api: ApiPromise, numBlocks: number): Promise
     }
 }
 
-export async function getRootClaimable(api: ApiPromise, hotkey: string): Promise<Map<number, bigint>> {
-    const result = (await api.query.subtensorModule.rootClaimable(hotkey)).toJSON() as any; // TODO: Fix any
-    const claimableMap = new Map<number, bigint>();
-    for (const [netuid, amount] of result) {
-        claimableMap.set(netuid, amount);
+export async function getRootClaimable(api: ApiPromise, hotkey: string): Promise<Map<string, bigint>> {
+    const result = await api.query.subtensorModule.rootClaimable(hotkey);
+    const jsonResult = result.toJSON() as Record<string, { bits: number | string }>;
+    const claimableMap = new Map<string, bigint>();
+    for (const [netuid, value] of Object.entries(jsonResult)) {
+        claimableMap.set(netuid, BigInt(value.bits || 0));
     }
     return claimableMap;
 }
@@ -281,10 +283,10 @@ export async function getRootClaimed(
 }
 
 export async function isSubtokenEnabled(api: ApiPromise, netuid: number): Promise<boolean> {
-    return await api.query.SubtensorModule.SubtokenEnabled(netuid);
+    return (await api.query.subtensorModule.subtokenEnabled(netuid)).toString() === "true";
 }
 
-export async function sudoSetSubtokenEnabled(api: ApiPromise, netuid: number, enabled: boolean): Promise<void> {
+export async function sudoSetSubtokenEnabled(api: ApiPromise, netuid: number, enabled: "Yes" | "No"): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.adminUtils.sudoSetSubtokenEnabled(netuid, enabled);
@@ -293,7 +295,7 @@ export async function sudoSetSubtokenEnabled(api: ApiPromise, netuid: number, en
 }
 
 export async function isNetworkAdded(api: ApiPromise, netuid: number): Promise<boolean> {
-    return await api.query.subtensorModule.networksAdded(netuid);
+    return (await api.query.subtensorModule.networksAdded(netuid)).toString() === "true";
 }
 
 export async function getAdminFreezeWindow(api: ApiPromise): Promise<number> {
@@ -331,32 +333,32 @@ export async function sudoSetLockReductionInterval(api: ApiPromise, interval: nu
 export async function sudoSetSubnetMovingAlpha(api: ApiPromise, alpha: bigint): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.adminUtils.sudoSetSubnetMovingAlpha(alpha);
+    const internalCall = api.tx.adminUtils.sudoSetSubnetMovingAlpha({ bits: alpha });
     const tx = api.tx.sudo.sudo(internalCall);
     await waitForTransactionWithRetry(tx, alice, "sudo_set_subnet_moving_alpha");
 }
 
 // Debug helpers for claim_root investigation
 export async function getSubnetTAO(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.SubnetTAO(netuid)).toString());
+    return BigInt((await api.query.subtensorModule.subnetTAO(netuid)).toString());
 }
 
 export async function getSubnetMovingPrice(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.SubnetMovingPrice(netuid)).toString());
+    return (await api.query.subtensorModule.subnetMovingPrice(netuid)).bits.toBigInt();
 }
 
 export async function getPendingRootAlphaDivs(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.PendingRootAlphaDivs(netuid)).toString());
+    return BigInt((await api.query.subtensorModule.pendingRootAlphaDivs(netuid)).toString());
 }
 
 export async function getTaoWeight(api: ApiPromise): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.TaoWeight()).toString());
+    return BigInt((await api.query.subtensorModule.taoWeight()).toString());
 }
 
 export async function getSubnetAlphaIn(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.SubnetAlphaIn(netuid)).toString());
+    return BigInt((await api.query.subtensorModule.subnetAlphaIn(netuid)).toString());
 }
 
 export async function getTotalHotkeyAlpha(api: ApiPromise, hotkey: string, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.SubtensorModule.TotalHotkeyAlpha(hotkey, netuid)).toString());
+    return BigInt((await api.query.subtensorModule.totalHotkeyAlpha(hotkey, netuid)).toString());
 }

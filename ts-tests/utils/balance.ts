@@ -1,4 +1,4 @@
-import { waitForTransactionCompletion } from "./transactions.js";
+import { waitForTransactionWithRetry } from "./transactions.js";
 import { Keyring } from "@polkadot/keyring";
 import type { ApiPromise } from "@polkadot/api";
 
@@ -19,5 +19,5 @@ export async function forceSetBalance(api: ApiPromise, address: string, amount: 
     const alice = keyring.addFromUri("//Alice");
     const internalTx = api.tx.balances.forceSetBalance(address, amount);
     const tx = api.tx.sudo.sudo(internalTx);
-    await waitForTransactionCompletion(tx, alice);
+    await waitForTransactionWithRetry(tx, alice, "force_set_balance");
 }

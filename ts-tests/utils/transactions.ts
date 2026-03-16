@@ -46,6 +46,10 @@ export async function waitForTransactionCompletion(
 
                 // Resolve once the transaction is finalized
                 if (status.isFinalized) {
+                    // console.debug(
+                    //     "tx events:",
+                    //     result.events.map((event) => JSON.stringify(event.toHuman()))
+                    // );
                     resolve({
                         txHash,
                         blockHash: status.asFinalized,

@@ -30,25 +30,25 @@ export async function burnedRegister(
     hotkeyAddress: string,
     coldkey: KeyringPair
 ): Promise<void> {
-    const registered = await api.query.subtensorModule.uids(netuid, hotkeyAddress);
-    if (registered !== undefined) {
+    const registered = (await api.query.subtensorModule.uids(netuid, hotkeyAddress)).toJSON();
+    if (registered !== null) {
         log.tx("burned_register", `skipped: hotkey already registered on netuid ${netuid}`);
         return;
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const tx = api.tx.subtensorModule.burnedRegister(hotkeyAddress, netuid);
+    const tx = api.tx.subtensorModule.burnedRegister(netuid, hotkeyAddress);
     await waitForTransactionWithRetry(tx, coldkey, "burned_register");
 }
 
 export async function startCall(api: ApiPromise, netuid: number, coldkey: KeyringPair): Promise<void> {
     const registerBlock = Number(await api.query.subtensorModule.networkRegisteredAt(netuid).toString());
-    let currentBlock = await api.query.system.number();
+    let currentBlock = Number(await api.query.system.number().toString());
     const duration = Number(api.consts.subtensorModule.initialStartCallDelay.toString());
 
     while (currentBlock - registerBlock <= duration) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        currentBlock = await api.query.system.number();
+        currentBlock = Number((await api.query.system.number()).toString());
     }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
