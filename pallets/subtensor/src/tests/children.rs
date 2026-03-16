@@ -4220,3 +4220,139 @@ fn test_set_child_keys_empty_vector_clears_storage() {
         assert!(ParentKeys::<Test>::get(child, netuid).is_empty());
     });
 }
+
+// Test that do_set_root_children_for_subnet enables a subnet owner to set weights
+// by inheriting stake from root validators.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_root_children_enable_subnet_owner_set_weights --exact --show-output --nocapture
+#[test]
+fn test_root_children_enable_subnet_owner_set_weights() {
+    new_test_ext(1).execute_with(|| {
+        // --- Setup accounts ---
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+
+        let root_val_coldkey_1 = U256::from(100);
+        let root_val_hotkey_1 = U256::from(101);
+        let root_val_coldkey_2 = U256::from(200);
+        let root_val_hotkey_2 = U256::from(201);
+
+        // --- Create root network and subnet ---
+        add_network(NetUid::ROOT, 1, 0);
+        let netuid =
+            add_dynamic_network_disable_commit_reveal(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // --- Register root validators on a subnet first (required before root_register) ---
+        register_ok_neuron(netuid, root_val_hotkey_1, root_val_coldkey_1, 0);
+        register_ok_neuron(netuid, root_val_hotkey_2, root_val_coldkey_2, 0);
+
+        // --- Register root validators on root network ---
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(root_val_coldkey_1),
+            root_val_hotkey_1,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(root_val_coldkey_2),
+            root_val_hotkey_2,
+        ));
+
+        // Subnet owner hotkey is auto-registered on the subnet via add_dynamic_network.
+
+        // --- Add significant stake for root validators on root and the subnet ---
+        let root_stake = AlphaBalance::from(1_000_000_000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_1,
+            &root_val_coldkey_1,
+            NetUid::ROOT,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_1,
+            &root_val_coldkey_1,
+            netuid,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_2,
+            &root_val_coldkey_2,
+            NetUid::ROOT,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_2,
+            &root_val_coldkey_2,
+            netuid,
+            root_stake,
+        );
+
+        // --- Set a high stake threshold so the subnet owner alone cannot set weights ---
+        let high_threshold = 500_000_000u64;
+        SubtensorModule::set_stake_threshold(high_threshold);
+
+        // Disable rate limits for clean testing
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let uids: Vec<u16> = vec![0];
+        let values: Vec<u16> = vec![u16::MAX];
+
+        // Show that subnet owner CANNOT set weights (insufficient stake) ---
+        assert!(
+            !SubtensorModule::check_weights_min_stake(&subnet_owner_hotkey, netuid),
+            "Subnet owner should NOT have enough stake to set weights initially"
+        );
+        assert_noop!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(subnet_owner_hotkey),
+                netuid,
+                uids.clone(),
+                values.clone(),
+                version_key
+            ),
+            Error::<Test>::NotEnoughStakeToSetWeights
+        );
+
+        // Minimize the pending children cooldown via root extrinsic ---
+        assert_ok!(SubtensorModule::set_pending_childkey_cooldown(
+            RuntimeOrigin::root(),
+            0, // zero block cooldown
+        ));
+
+        assert_ok!(SubtensorModule::do_set_root_validators_for_subnet(netuid));
+
+        // Activate pending children (cooldown is 0, advance 1 block) ---
+        step_block(1);
+        SubtensorModule::do_set_pending_children(netuid);
+
+        // Verify that child-parent relationships were created:
+        // Each root validator should have the subnet owner hotkey as a child on netuid
+        let children_1 = SubtensorModule::get_children(&root_val_hotkey_1, netuid);
+        assert_eq!(
+            children_1,
+            vec![(u64::MAX, subnet_owner_hotkey)],
+            "Root validator 1 should have subnet owner as child"
+        );
+        let children_2 = SubtensorModule::get_children(&root_val_hotkey_2, netuid);
+        assert_eq!(
+            children_2,
+            vec![(u64::MAX, subnet_owner_hotkey)],
+            "Root validator 2 should have subnet owner as child"
+        );
+
+        // Verify that the subnet owner has both root validators as parents
+        let parents = SubtensorModule::get_parents(&subnet_owner_hotkey, netuid);
+        assert_eq!(parents.len(), 2, "Subnet owner should have 2 parents");
+
+        // Show that subnet owner CAN now set weights ---
+        assert!(
+            SubtensorModule::check_weights_min_stake(&subnet_owner_hotkey, netuid),
+            "Subnet owner should now have enough inherited stake to set weights"
+        );
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(subnet_owner_hotkey),
+            netuid,
+            uids,
+            values,
+            version_key
+        ));
+    });
+}
