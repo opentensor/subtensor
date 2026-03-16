@@ -793,8 +793,8 @@ impl<T: Config> Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
         // Get the subnet owner hotkey.
-        let subnet_owner_hotkey = SubnetOwnerHotkey::<T>::try_get(netuid)
-            .map_err(|_| Error::<T>::SubnetNotExists)?;
+        let subnet_owner_hotkey =
+            SubnetOwnerHotkey::<T>::try_get(netuid).map_err(|_| Error::<T>::SubnetNotExists)?;
 
         // Iterate over all root validators and schedule each one as a parent
         // of the subnet owner hotkey.
@@ -809,18 +809,14 @@ impl<T: Config> Pallet<T> {
             let coldkey = Self::get_owning_coldkey_for_hotkey(&root_validator_hotkey);
 
             // Build a signed origin from the coldkey.
-            let origin: T::RuntimeOrigin =
-                frame_system::RawOrigin::Signed(coldkey).into();
+            let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(coldkey).into();
 
             // Schedule the subnet owner hotkey as a child with full proportion.
             let children = vec![(u64::MAX, subnet_owner_hotkey.clone())];
 
-            if let Err(e) = Self::do_schedule_children(
-                origin,
-                root_validator_hotkey.clone(),
-                netuid,
-                children,
-            ) {
+            if let Err(e) =
+                Self::do_schedule_children(origin, root_validator_hotkey.clone(), netuid, children)
+            {
                 log::warn!(
                     "Failed to schedule children for root validator {:?} on netuid {:?}: {:?}",
                     root_validator_hotkey,
