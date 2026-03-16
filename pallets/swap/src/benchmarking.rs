@@ -134,38 +134,36 @@ mod benchmarks {
 
     #[benchmark]
     fn disable_lp() {
-        let netuid = NetUid::from(1);
+        // Create a single user LP position so that do_dissolve_all_liquidity_providers
+        // executes its main path at least once.
+        let caller: T::AccountId = whitelisted_caller();
+        let id = PositionId::from(1u128);
 
-        // Initialize V3 state for this subnet if needed
-        if !SwapV3Initialized::<T>::get(netuid) {
+        for netuid in 1..=128 {
+            let netuid = NetUid::from(1);
+
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
             CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
             CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
+
+            Positions::<T>::insert(
+                (netuid, caller.clone(), id),
+                Position {
+                    id,
+                    netuid,
+                    tick_low: TickIndex::new(-10000).unwrap(),
+                    tick_high: TickIndex::new(10000).unwrap(),
+                    liquidity: 1_000,
+                    fees_tao: I64F64::from_num(0),
+                    fees_alpha: I64F64::from_num(0),
+                    _phantom: PhantomData,
+                },
+            );
+
+            // Enable user liquidity on this subnet so the toggle path is exercised.
+            EnabledUserLiquidity::<T>::insert(netuid, true);
         }
-
-        // Create a single user LP position so that do_dissolve_all_liquidity_providers
-        // executes its main path at least once.
-        let caller: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("hotkey", 0, 0);
-        let id = PositionId::from(1u128);
-
-        Positions::<T>::insert(
-            (netuid, caller.clone(), id),
-            Position {
-                id,
-                netuid,
-                tick_low: TickIndex::new(-10000).unwrap(),
-                tick_high: TickIndex::new(10000).unwrap(),
-                liquidity: 1_000,
-                fees_tao: I64F64::from_num(0),
-                fees_alpha: I64F64::from_num(0),
-                _phantom: PhantomData,
-            },
-        );
-
-        // Enable user liquidity on this subnet so the toggle path is exercised.
-        EnabledUserLiquidity::<T>::insert(netuid, true);
 
         #[extrinsic_call]
         disable_lp(RawOrigin::Root);

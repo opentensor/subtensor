@@ -611,7 +611,7 @@ mod pallet {
         ///
         /// Emits `Event::UserLiquidityToggled` on success
         #[pallet::call_index(5)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::modify_position())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::disable_lp())]
         pub fn disable_lp(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let mut weight = Weight::default();
