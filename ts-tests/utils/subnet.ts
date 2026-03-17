@@ -14,12 +14,11 @@ export async function addNewSubnetwork(api: ApiPromise, hotkey: KeyringPair, col
     if (rateLimit !== BigInt(0)) {
         const internalTx = api.tx.adminUtils.sudoSetNetworkRateLimit(BigInt(0));
         const tx = api.tx.sudo.sudo(internalTx);
-        await waitForTransactionWithRetry(tx, alice, "set_network_rate_limit");
+        await waitForTransactionWithRetry(api, tx, alice, "set_network_rate_limit");
     }
 
-    // const signer = getSignerFromKeypair(coldkey);
     const registerNetworkTx = api.tx.subtensorModule.registerNetwork(hotkey.address);
-    await waitForTransactionWithRetry(registerNetworkTx, coldkey, "register_network");
+    await waitForTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network");
 
     return Number(totalNetworks);
 }
@@ -38,7 +37,7 @@ export async function burnedRegister(
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const tx = api.tx.subtensorModule.burnedRegister(netuid, hotkeyAddress);
-    await waitForTransactionWithRetry(tx, coldkey, "burned_register");
+    await waitForTransactionWithRetry(api, tx, coldkey, "burned_register");
 }
 
 export async function startCall(api: ApiPromise, netuid: number, coldkey: KeyringPair): Promise<void> {
@@ -54,7 +53,7 @@ export async function startCall(api: ApiPromise, netuid: number, coldkey: Keyrin
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     const tx = api.tx.subtensorModule.startCall(netuid);
-    await waitForTransactionWithRetry(tx, coldkey, "start_call");
+    await waitForTransactionWithRetry(api, tx, coldkey, "start_call");
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 }

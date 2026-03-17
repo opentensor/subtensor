@@ -1,8 +1,16 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
-import { generateKeyringPair } from "@moonwall/util";
-import { addNewSubnetwork, addStake, forceSetBalance, getStake, startCall, tao, transferStake } from "../../utils";
+import {
+    addNewSubnetwork,
+    addStake,
+    forceSetBalance,
+    generateKeyringPair,
+    getStake,
+    startCall,
+    tao,
+    transferStake,
+} from "../../utils";
 
 describeSuite({
     id: "09_transfer_stake",

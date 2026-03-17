@@ -1,8 +1,13 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
-import { generateKeyringPair } from "@moonwall/util";
-import { forceSetBalance, getRootClaimType, type KeepSubnetType, setRootClaimType } from "../../utils";
+import {
+    forceSetBalance,
+    generateKeyringPair,
+    getRootClaimType,
+    type KeepSubnetType,
+    setRootClaimType,
+} from "../../utils";
 
 describeSuite({
     id: "02_set_root_claim_type",

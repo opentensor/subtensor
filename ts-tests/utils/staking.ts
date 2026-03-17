@@ -37,7 +37,7 @@ export async function addStake(
     amount: bigint
 ): Promise<void> {
     const tx = api.tx.subtensorModule.addStake(hotkey, netuid, amount);
-    await waitForTransactionWithRetry(tx, coldkey, "add_stake");
+    await waitForTransactionWithRetry(api, tx, coldkey, "add_stake");
 }
 
 export async function addStakeLimit(
@@ -50,7 +50,7 @@ export async function addStakeLimit(
     allowPartial: boolean
 ): Promise<void> {
     const tx = api.tx.subtensorModule.addStakeLimit(hotkey, netuid, amount, limitPrice, allowPartial);
-    await waitForTransactionWithRetry(tx, coldkey, "add_stake_limit");
+    await waitForTransactionWithRetry(api, tx, coldkey, "add_stake_limit");
 }
 
 export async function removeStake(
@@ -61,7 +61,7 @@ export async function removeStake(
     amount: bigint
 ): Promise<void> {
     const tx = api.tx.subtensorModule.removeStake(hotkey, netuid, amount);
-    await waitForTransactionWithRetry(tx, coldkey, "remove_stake");
+    await waitForTransactionWithRetry(api, tx, coldkey, "remove_stake");
 }
 
 export async function removeStakeLimit(
@@ -74,7 +74,7 @@ export async function removeStakeLimit(
     allowPartial: boolean
 ): Promise<void> {
     const tx = api.tx.subtensorModule.removeStakeLimit(hotkey, netuid, amount, limitPrice, allowPartial);
-    await waitForTransactionWithRetry(tx, coldkey, "remove_stake_limit");
+    await waitForTransactionWithRetry(api, tx, coldkey, "remove_stake_limit");
 }
 
 export async function removeStakeFullLimit(
@@ -85,17 +85,17 @@ export async function removeStakeFullLimit(
     limitPrice: bigint | undefined
 ): Promise<void> {
     const tx = api.tx.subtensorModule.removeStakeFullLimit(hotkey, netuid, limitPrice);
-    await waitForTransactionWithRetry(tx, coldkey, "remove_stake_full_limit");
+    await waitForTransactionWithRetry(api, tx, coldkey, "remove_stake_full_limit");
 }
 
 export async function unstakeAll(api: ApiPromise, coldkey: KeyringPair, hotkey: string): Promise<void> {
     const tx = api.tx.subtensorModule.unstakeAll(hotkey);
-    await waitForTransactionWithRetry(tx, coldkey, "unstake_all");
+    await waitForTransactionWithRetry(api, tx, coldkey, "unstake_all");
 }
 
 export async function unstakeAllAlpha(api: ApiPromise, coldkey: KeyringPair, hotkey: string): Promise<void> {
     const tx = api.tx.subtensorModule.unstakeAllAlpha(hotkey);
-    await waitForTransactionWithRetry(tx, coldkey, "unstake_all_alpha");
+    await waitForTransactionWithRetry(api, tx, coldkey, "unstake_all_alpha");
 }
 
 /**
@@ -135,7 +135,7 @@ export async function transferStake(
         destinationNetuid,
         amount
     );
-    await waitForTransactionWithRetry(tx, originColdkey, "transfer_stake");
+    await waitForTransactionWithRetry(api, tx, originColdkey, "transfer_stake");
 }
 
 export async function moveStake(
@@ -154,7 +154,7 @@ export async function moveStake(
         destinationNetuid,
         amount
     );
-    await waitForTransactionWithRetry(tx, coldkey, "move_stake");
+    await waitForTransactionWithRetry(api, tx, coldkey, "move_stake");
 }
 
 export async function swapStake(
@@ -166,7 +166,7 @@ export async function swapStake(
     amount: bigint
 ): Promise<void> {
     const tx = api.tx.subtensorModule.swapStake(hotkey, originNetuid, destinationNetuid, amount);
-    await waitForTransactionWithRetry(tx, coldkey, "swap_stake");
+    await waitForTransactionWithRetry(api, tx, coldkey, "swap_stake");
 }
 
 export async function swapStakeLimit(
@@ -187,7 +187,7 @@ export async function swapStakeLimit(
         limitPrice,
         allowPartial
     );
-    await waitForTransactionWithRetry(tx, coldkey, "swap_stake_limit");
+    await waitForTransactionWithRetry(api, tx, coldkey, "swap_stake_limit");
 }
 
 export type RootClaimType = "Swap" | "Keep" | KeepSubnetType;
@@ -208,12 +208,12 @@ export async function getRootClaimType(api: ApiPromise, coldkey: string): Promis
 
 export async function setRootClaimType(api: ApiPromise, coldkey: KeyringPair, claimType: RootClaimType): Promise<void> {
     const tx = api.tx.subtensorModule.setRootClaimType(claimType);
-    await waitForTransactionWithRetry(tx, coldkey, "set_root_claim_type");
+    await waitForTransactionWithRetry(api, tx, coldkey, "set_root_claim_type");
 }
 
 export async function claimRoot(api: ApiPromise, coldkey: KeyringPair, subnets: number[]): Promise<void> {
     const tx = api.tx.subtensorModule.claimRoot(subnets);
-    await waitForTransactionWithRetry(tx, coldkey, "claim_root");
+    await waitForTransactionWithRetry(api, tx, coldkey, "claim_root");
 }
 
 export async function getNumRootClaims(api: ApiPromise): Promise<bigint> {
@@ -225,7 +225,7 @@ export async function sudoSetNumRootClaims(api: ApiPromise, newValue: bigint): P
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.subtensorModule.sudoSetNumRootClaims(newValue);
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_num_root_claims");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_num_root_claims");
 }
 
 export async function getRootClaimThreshold(api: ApiPromise, netuid: number): Promise<bigint> {
@@ -237,7 +237,7 @@ export async function sudoSetRootClaimThreshold(api: ApiPromise, netuid: number,
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.subtensorModule.sudoSetRootClaimThreshold(netuid, newValue);
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_root_claim_threshold");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_root_claim_threshold");
 }
 
 export async function getTempo(api: ApiPromise, netuid: number): Promise<number> {
@@ -249,7 +249,7 @@ export async function sudoSetTempo(api: ApiPromise, netuid: number, tempo: numbe
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.adminUtils.sudoSetTempo(netuid, tempo);
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_tempo");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_tempo");
 }
 
 export async function waitForBlocks(api: ApiPromise, numBlocks: number): Promise<void> {
@@ -293,7 +293,7 @@ export async function sudoSetSubtokenEnabled(api: ApiPromise, netuid: number, en
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.adminUtils.sudoSetSubtokenEnabled(netuid, enabled);
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_subtoken_enabled");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subtoken_enabled");
 }
 
 export async function isNetworkAdded(api: ApiPromise, netuid: number): Promise<boolean> {
@@ -309,7 +309,7 @@ export async function sudoSetAdminFreezeWindow(api: ApiPromise, window: number):
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.adminUtils.sudoSetAdminFreezeWindow(window);
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_admin_freeze_window");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_admin_freeze_window");
 }
 
 export async function sudoSetEmaPriceHalvingPeriod(
@@ -321,7 +321,7 @@ export async function sudoSetEmaPriceHalvingPeriod(
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.adminUtils.sudoSetEmaPriceHalvingPeriod(netuid, BigInt(emaPriceHalvingPeriod));
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_ema_price_halving_period");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_ema_price_halving_period");
 }
 
 export async function sudoSetLockReductionInterval(api: ApiPromise, interval: number): Promise<void> {
@@ -329,7 +329,7 @@ export async function sudoSetLockReductionInterval(api: ApiPromise, interval: nu
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.adminUtils.sudoSetLockReductionInterval(BigInt(interval));
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_lock_reduction_interval");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_lock_reduction_interval");
 }
 
 export async function sudoSetSubnetMovingAlpha(api: ApiPromise, alpha: bigint): Promise<void> {
@@ -337,7 +337,7 @@ export async function sudoSetSubnetMovingAlpha(api: ApiPromise, alpha: bigint): 
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.adminUtils.sudoSetSubnetMovingAlpha({ bits: alpha });
     const tx = api.tx.sudo.sudo(internalCall);
-    await waitForTransactionWithRetry(tx, alice, "sudo_set_subnet_moving_alpha");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subnet_moving_alpha");
 }
 
 // Debug helpers for claim_root investigation

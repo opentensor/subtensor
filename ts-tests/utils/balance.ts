@@ -19,5 +19,5 @@ export async function forceSetBalance(api: ApiPromise, address: string, amount: 
     const alice = keyring.addFromUri("//Alice");
     const internalTx = api.tx.balances.forceSetBalance(address, amount);
     const tx = api.tx.sudo.sudo(internalTx);
-    await waitForTransactionWithRetry(tx, alice, "force_set_balance");
+    await waitForTransactionWithRetry(api, tx, alice, "force_set_balance");
 }

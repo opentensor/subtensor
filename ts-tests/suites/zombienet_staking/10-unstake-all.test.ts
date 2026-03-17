@@ -6,6 +6,7 @@ import {
     addStake,
     burnedRegister,
     forceSetBalance,
+    generateKeyringPair,
     getBalance,
     getStake,
     startCall,
@@ -13,7 +14,6 @@ import {
     tao,
     unstakeAll,
 } from "../../utils";
-import { generateKeyringPair } from "@moonwall/util";
 
 describeSuite({
     id: "10_unstake_all",

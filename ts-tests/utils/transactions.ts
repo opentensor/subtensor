@@ -4,34 +4,34 @@ import type { SubmittableExtrinsic } from "@polkadot/api/promise/types";
 import type { AddressOrPair } from "@polkadot/api-base/types/submittable";
 import type { ApiPromise } from "@polkadot/api";
 import { sleep } from "@zombienet/utils";
+import { waitForBlocks } from "./staking.ts";
 
 export async function waitForTransactionWithRetry(
+    api: ApiPromise,
     tx: SubmittableExtrinsic,
     signer: KeyringPair,
     label: string,
     maxRetries = 1
 ): Promise<void> {
-    let success = false;
     let retries = 0;
 
-    while (!success && retries < maxRetries) {
-        await waitForTransactionCompletion(tx, signer)
-            .then(() => {
-                success = true;
-            })
-            .catch((error) => {
-                log.tx(label, `error: ${error}`);
-            });
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        retries += 1;
-    }
-
-    if (!success) {
-        throw new Error(`[${label}] failed after ${maxRetries} retries`);
+    while (retries < maxRetries) {
+        try {
+            await waitForTransactionCompletion(api, tx, signer);
+            return;
+        } catch (error) {
+            log.tx(label, `attempt ${retries + 1} failed: ${error}`);
+            retries += 1;
+            if (retries >= maxRetries) {
+                throw new Error(`[${label}] failed after ${maxRetries} retries`);
+            }
+            await waitForBlocks(api, 1);
+        }
     }
 }
 
 export async function waitForTransactionCompletion(
+    api: ApiPromise,
     tx: SubmittableExtrinsic,
     account: AddressOrPair,
     timeout: number | null = 3 * 60 * 1000
@@ -41,25 +41,42 @@ export async function waitForTransactionCompletion(
     // Inner function that doesn't handle timeout
     const signAndSendAndIncludeInner = (tx: SubmittableExtrinsic, account: AddressOrPair) => {
         return new Promise((resolve, reject) => {
+            let unsub: () => void;
+
             tx.signAndSend(account, (result) => {
                 const { status, txHash } = result;
-
                 // Resolve once the transaction is finalized
                 if (status.isFinalized) {
+                    // Uncomment if you need to debug transaction events
                     // console.debug(
                     //     "tx events:",
                     //     result.events.map((event) => JSON.stringify(event.toHuman()))
                     // );
-                    resolve({
-                        txHash,
-                        blockHash: status.asFinalized,
-                        status: result,
-                    });
+
+                    const failed = result.events.find(({ event }) => api.events.system.ExtrinsicFailed.is(event));
+
+                    unsub?.();
+                    if (failed) {
+                        const { dispatchError } = failed.event.data as any;
+                        let errorMessage = dispatchError.toString();
+
+                        if (dispatchError.isModule) {
+                            const decoded = api.registry.findMetaError(dispatchError.asModule);
+                            errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                        }
+                        reject(new Error(`ExtrinsicFailed: ${errorMessage}`));
+                    } else {
+                        resolve({ txHash, blockHash: status.asFinalized, status: result });
+                    }
                 }
-            }).catch((error) => {
-                console.error("callerStack", callerStack);
-                reject(error.toHuman());
-            });
+            })
+                .then((u) => {
+                    unsub = u;
+                })
+                .catch((error) => {
+                    console.error("callerStack", callerStack);
+                    reject(error.toHuman());
+                });
         });
     };
 
@@ -84,7 +101,14 @@ export async function waitForTransactionCompletion(
             })
             .catch((error) => {
                 clearTimeout(timer);
-                reject(error.toHuman());
+                // error может быть Error, string, или polkadot-объектом с .toHuman()
+                if (error instanceof Error) {
+                    reject(error);
+                } else if (typeof error?.toHuman === "function") {
+                    reject(new Error(JSON.stringify(error.toHuman())));
+                } else {
+                    reject(new Error(String(error)));
+                }
             });
     });
 }

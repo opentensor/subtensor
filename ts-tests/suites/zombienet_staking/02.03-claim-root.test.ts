@@ -1,12 +1,12 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
-import { generateKeyringPair } from "@moonwall/util";
 import {
     addNewSubnetwork,
     addStake,
     claimRoot,
     forceSetBalance,
+    generateKeyringPair,
     getPendingRootAlphaDivs,
     getRootClaimable,
     getRootClaimed,
