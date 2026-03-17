@@ -57,6 +57,8 @@ pub(crate) mod tests;
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 
+pub type OriginFor<T> = <T as frame_system::Config>::RuntimeOrigin;
+
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
 pub const ALPHA_MAP_BATCH_SIZE: usize = 30;

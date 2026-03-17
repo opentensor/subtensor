@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
     pub fn do_swap_hotkey(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
         netuid: Option<NetUid>,
