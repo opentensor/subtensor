@@ -8,7 +8,6 @@ import {
     burnedRegister,
     forceSetBalance,
     getStake,
-    getStakeRaw,
     moveStake,
     startCall,
     tao,
@@ -117,8 +116,8 @@ describeSuite({
                 await addStake(api, coldkey, originHotkeyAddress, netuid, tao(200));
 
                 // Get initial stakes (converted from U64F64 for display)
-                const originStakeBefore = await getStakeRaw(api, originHotkeyAddress, coldkeyAddress, netuid);
-                const destStakeBefore = await getStakeRaw(api, destinationHotkeyAddress, coldkeyAddress, netuid);
+                const originStakeBefore = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid);
+                const destStakeBefore = await getStake(api, destinationHotkeyAddress, coldkeyAddress, netuid);
                 expect(originStakeBefore, "Origin hotkey should have stake before move").toBeGreaterThan(0n);
 
                 log(`Origin stake before: ${originStakeBefore}, Destination stake before: ${destStakeBefore}`);
@@ -138,8 +137,8 @@ describeSuite({
                 );
 
                 // Verify stakes changed
-                const originStakeAfter = await getStakeRaw(api, originHotkeyAddress, coldkeyAddress, netuid);
-                const destStakeAfter = await getStakeRaw(api, destinationHotkeyAddress, coldkeyAddress, netuid);
+                const originStakeAfter = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid);
+                const destStakeAfter = await getStake(api, destinationHotkeyAddress, coldkeyAddress, netuid);
 
                 log(`Origin stake after: ${originStakeAfter}, Destination stake after: ${destStakeAfter}`);
 
