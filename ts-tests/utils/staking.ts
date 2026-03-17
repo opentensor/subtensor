@@ -124,7 +124,7 @@ export async function getStake(api: ApiPromise, hotkey: string, coldkey: string,
  * Use this when you need the raw value for extrinsics like transfer_stake.
  */
 export async function getStakeRaw(api: ApiPromise, hotkey: string, coldkey: string, netuid: number): Promise<bigint> {
-    return this.getStake(api, hotkey, netuid, coldkey, netuid);
+    return getStake(api, hotkey, coldkey, netuid);
 }
 
 export async function transferStake(
