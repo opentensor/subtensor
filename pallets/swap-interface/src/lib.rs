@@ -41,7 +41,11 @@ pub trait SwapHandler {
     fn current_alpha_price(netuid: NetUid) -> U64F64;
     fn max_price<C: Token>() -> C;
     fn min_price<C: Token>() -> C;
-    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance) -> (TaoBalance, AlphaBalance);
+    fn adjust_protocol_liquidity(
+        netuid: NetUid,
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
+    ) -> (TaoBalance, AlphaBalance);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
     fn init_swap(netuid: NetUid, maybe_price: Option<U64F64>);
     fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoBalance) -> AlphaBalance;

@@ -1,17 +1,14 @@
 use frame_support::storage::{TransactionOutcome, transactional};
-use frame_support::{ensure, pallet_prelude::{DispatchError, Zero}, traits::Get};
+use frame_support::{
+    ensure,
+    pallet_prelude::{DispatchError, Zero},
+    traits::Get,
+};
 use safe_math::*;
 use sp_arithmetic::Perquintill;
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{
-    AlphaBalance,
-    NetUid,
-    SubnetInfo,
-    TaoBalance,
-    Token,
-    TokenReserve,
-};
+use subtensor_runtime_common::{AlphaBalance, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve};
 
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
@@ -76,7 +73,7 @@ impl<T: Config> Pallet<T> {
         .map_err(|err| match err {
             BalancerError::InvalidValue => Error::<T>::ReservesOutOfBalance,
         })?;
-        SwapBalancer::<T>::insert(netuid, balancer.clone());            
+        SwapBalancer::<T>::insert(netuid, balancer.clone());
 
         PalSwapInitialized::<T>::insert(netuid, true);
 
@@ -402,7 +399,11 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::max_price_inner()
     }
 
-    fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance) -> (TaoBalance, AlphaBalance) {
+    fn adjust_protocol_liquidity(
+        netuid: NetUid,
+        tao_delta: TaoBalance,
+        alpha_delta: AlphaBalance,
+    ) -> (TaoBalance, AlphaBalance) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta)
     }
 
@@ -422,7 +423,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
                 // hence we can neglect slippage and return slightly lower amount.
                 let alpha_price = Self::current_price(netuid.into());
                 AlphaBalance::from(
-                    U96F32::from(u64::from(tao_amount))
+                    U64F64::from(u64::from(tao_amount))
                         .safe_div(alpha_price)
                         .saturating_to_num::<u64>(),
                 )

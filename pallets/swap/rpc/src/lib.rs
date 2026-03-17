@@ -20,7 +20,7 @@ pub trait SwapRpcApi<BlockHash> {
     #[method(name = "swap_currentAlphaPrice")]
     fn current_alpha_price(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<u64>;
     #[method(name = "swap_currentAlphaPriceAll")]
-    fn current_alpha_price_all(&self, at: Option<BlockHash>) -> RpcResult<Vec<SubnetPrice>>;    
+    fn current_alpha_price_all(&self, at: Option<BlockHash>) -> RpcResult<Vec<SubnetPrice>>;
     #[method(name = "swap_simSwapTaoForAlpha")]
     fn sim_swap_tao_for_alpha(
         &self,

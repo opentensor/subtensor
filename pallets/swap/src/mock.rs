@@ -15,7 +15,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 use std::{cell::RefCell, collections::HashMap};
-use subtensor_runtime_common::{AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve };
+use subtensor_runtime_common::{
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve,
+};
 use subtensor_swap_interface::Order;
 
 construct_runtime!(

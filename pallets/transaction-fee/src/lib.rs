@@ -31,8 +31,7 @@ use core::marker::PhantomData;
 use smallvec::smallvec;
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::vec::Vec;
-use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Token};
+use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance};
 
 // Tests
 #[cfg(test)]

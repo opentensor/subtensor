@@ -34,7 +34,7 @@ fn get_max_price() -> U64F64 {
 
 mod dispatchables {
     use super::*;
-    
+
     #[test]
     fn test_set_fee_rate() {
         new_test_ext().execute_with(|| {
@@ -134,7 +134,7 @@ mod dispatchables {
                     price_before.to_num::<f64>(),
                     price_after.to_num::<f64>(),
                     epsilon = price_before.to_num::<f64>() / 1_000_000_000_000.
-                );                                
+                );
 
                 // Check that reserve weight was properly updated
                 let new_tao = u64::from(tao + tao_delta) as f64;
@@ -179,7 +179,6 @@ mod dispatchables {
 
         // test case: tao_delta, alpha_delta, price_precision
         [
-
             (0_u64, 0_u64, PRICE_PRECISION),
             (0_u64, 1_u64, PRICE_PRECISION),
             (1_u64, 0_u64, PRICE_PRECISION),
@@ -224,7 +223,7 @@ mod dispatchables {
                     alpha += alpha_delta;
                     TaoReserve::set_mock_reserve(netuid1, tao);
                     AlphaReserve::set_mock_reserve(netuid1, alpha);
-                }        
+                }
                 // Check that price didn't change
                 let price_after = Swap::current_price(netuid1);
                 assert_abs_diff_eq!(
@@ -267,7 +266,7 @@ mod dispatchables {
     #[test]
     fn test_adjust_protocol_liquidity_zero_alpha() {
         // test case: tao_delta, alpha_delta
-        [    
+        [
             (0_u64, 0_u64),
             (0_u64, 1_u64),
             (1_u64, 0_u64),
@@ -856,10 +855,7 @@ fn test_migrate_swapv3_to_balancer() {
         // Insert deprecated maps values
         deprecated_swap_maps::AlphaSqrtPrice::<Test>::insert(netuid, U64F64::from_num(1.23));
         deprecated_swap_maps::ScrapReservoirTao::<Test>::insert(netuid, TaoBalance::from(9876));
-        deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(
-            netuid,
-            AlphaBalance::from(9876),
-        );
+        deprecated_swap_maps::ScrapReservoirAlpha::<Test>::insert(netuid, AlphaBalance::from(9876));
 
         // Insert reserves that do not match the 1.23 price
         TaoReserve::set_mock_reserve(netuid, TaoBalance::from(1_000_000_000));

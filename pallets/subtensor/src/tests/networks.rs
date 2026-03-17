@@ -7,12 +7,9 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
+use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoBalance};
-use subtensor_swap_interface::{
-    //Order,
-    SwapHandler,
-};
+use subtensor_swap_interface::{Order, SwapHandler};
 
 #[test]
 fn test_registration_ok() {
@@ -2045,8 +2042,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
                 "subnet {net:?} still exists"
             );
             assert!(
-                !pallet_subtensor_swap::SwapV3Initialized::<Test>::get(net),
-                "SwapV3Initialized still set"
+                !pallet_subtensor_swap::PalSwapInitialized::<Test>::get(net),
+                "PalSwapInitialized still set"
             );
         }
 

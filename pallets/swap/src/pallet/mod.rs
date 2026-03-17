@@ -94,7 +94,7 @@ mod pallet {
     pub fn DefaultBalancer() -> Balancer {
         Balancer::default()
     }
-    
+
     /// u64-normalized reserve weight
     #[pallet::storage]
     pub type SwapBalancer<T> =
@@ -165,7 +165,7 @@ mod pallet {
         ReservesOutOfBalance,
 
         /// The extrinsic is deprecated
-        Deprecated,        
+        Deprecated,
     }
 
     #[pallet::call]
