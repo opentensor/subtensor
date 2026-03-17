@@ -17,10 +17,12 @@
     "keywords": [],
     "author": "",
     "license": "ISC",
+    "optionalDependencies": {
+        "@polkadot-api/descriptors": "file:.papi/descriptors"
+    },
     "dependencies": {
         "@inquirer/prompts": "7.3.1",
         "@noble/ciphers": "^2.1.1",
-        "@polkadot-api/descriptors": "file:.papi/descriptors",
         "polkadot-api": "1.19.2",
         "@polkadot-api/merkleize-metadata": "^1.1.15",
         "@polkadot-api/substrate-bindings": "^0.17.0",

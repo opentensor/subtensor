@@ -14,9 +14,6 @@ importers:
       '@noble/ciphers':
         specifier: ^2.1.1
         version: 2.1.1
-      '@polkadot-api/descriptors':
-        specifier: file:.papi/descriptors
-        version: file:.papi/descriptors(polkadot-api@1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2))
       '@polkadot-api/merkleize-metadata':
         specifier: ^1.1.15
         version: 1.1.29
@@ -138,6 +135,10 @@ importers:
       yargs:
         specifier: 18.0.0
         version: 18.0.0
+    optionalDependencies:
+      '@polkadot-api/descriptors':
+        specifier: file:.papi/descriptors
+        version: file:.papi/descriptors(polkadot-api@1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2))
 
 packages:
 
@@ -6010,6 +6011,7 @@ snapshots:
   '@polkadot-api/descriptors@file:.papi/descriptors(polkadot-api@1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       polkadot-api: 1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2)
+    optional: true
 
   '@polkadot-api/ink-contracts@0.4.0':
     dependencies:
