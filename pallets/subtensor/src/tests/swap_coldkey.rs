@@ -1514,6 +1514,78 @@ fn test_schedule_swap_coldkey_deprecated() {
     });
 }
 
+#[test]
+fn test_clear_coldkey_swap_announcement_works() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        let when = System::block_number();
+
+        ColdkeySwapAnnouncements::<Test>::insert(who, (when, new_coldkey_hash));
+
+        run_to_block(when + delay);
+
+        assert_ok!(SubtensorModule::clear_coldkey_swap_announcement(
+            RuntimeOrigin::signed(who)
+        ));
+
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(who));
+        System::assert_last_event(Event::ColdkeySwapCleared { who }.into());
+    });
+}
+
+#[test]
+fn test_clear_coldkey_swap_announcement_not_found() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+
+        assert_noop!(
+            SubtensorModule::clear_coldkey_swap_announcement(RuntimeOrigin::signed(who)),
+            Error::<Test>::ColdkeySwapAnnouncementNotFound
+        );
+    });
+}
+
+#[test]
+fn test_clear_coldkey_swap_announcement_too_early() {
+    new_test_ext(1).execute_with(|| {
+        let who = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let when = System::block_number();
+
+        ColdkeySwapAnnouncements::<Test>::insert(who, (when, new_coldkey_hash));
+
+        // Advance by less than the full delay — one block short
+        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        run_to_block(when + delay - 1);
+
+        assert_noop!(
+            SubtensorModule::clear_coldkey_swap_announcement(RuntimeOrigin::signed(who)),
+            Error::<Test>::ColdkeySwapClearTooEarly
+        );
+
+        // Announcement is still present
+        assert!(ColdkeySwapAnnouncements::<Test>::contains_key(who));
+    });
+}
+
+#[test]
+fn test_clear_coldkey_swap_announcement_bad_origin() {
+    new_test_ext(1).execute_with(|| {
+        assert_noop!(
+            SubtensorModule::clear_coldkey_swap_announcement(RuntimeOrigin::root()),
+            BadOrigin
+        );
+        assert_noop!(
+            SubtensorModule::clear_coldkey_swap_announcement(RuntimeOrigin::none()),
+            BadOrigin
+        );
+    });
+}
+
 #[macro_export]
 macro_rules! comprehensive_setup {
     (

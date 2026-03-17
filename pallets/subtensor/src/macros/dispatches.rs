@@ -2566,5 +2566,28 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
+
+        /// Clears a coldkey swap announcement if it has been announced and not disputed.
+        ///
+        /// The `ColdkeySwapCleared` event is emitted on successful clear.
+        #[pallet::call_index(133)]
+        #[pallet::weight(Weight::from_parts(10_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2))
+        .saturating_add(T::DbWeight::get().writes(1)))]
+        pub fn clear_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+
+            let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) else {
+                return Err(Error::<T>::ColdkeySwapAnnouncementNotFound.into());
+            };
+            let min_when = when.saturating_add(ColdkeySwapAnnouncementDelay::<T>::get());
+            ensure!(now >= min_when, Error::<T>::ColdkeySwapClearTooEarly);
+
+            ColdkeySwapAnnouncements::<T>::remove(&who);
+
+            Self::deposit_event(Event::ColdkeySwapCleared { who });
+            Ok(())
+        }
     }
 }
