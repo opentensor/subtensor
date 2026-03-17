@@ -47,7 +47,7 @@ impl WeightToFeePolynomial for LinearWeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient: WeightToFeeCoefficient<Self::Balance> = WeightToFeeCoefficient {
             coeff_integer: TaoBalance::new(0),
-            coeff_frac: Perbill::from_parts(50_000),
+            coeff_frac: Perbill::from_parts(500_000),
             negative: false,
             degree: 1,
         };
