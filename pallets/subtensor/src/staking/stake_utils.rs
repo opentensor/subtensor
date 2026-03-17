@@ -769,7 +769,6 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         tao: TaoBalance,
         price_limit: TaoBalance,
-        set_limit: bool,
         drop_fees: bool,
     ) -> Result<AlphaBalance, DispatchError> {
         // Swap the tao to alpha.
@@ -823,10 +822,6 @@ impl<T: Config> Pallet<T> {
         Self::record_tao_inflow(netuid, swap_result.amount_paid_in.into());
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
-
-        if set_limit {
-            Self::set_stake_operation_limit(hotkey, coldkey, netuid.into());
-        }
 
         // If this is a root-stake
         if netuid == NetUid::ROOT {
@@ -1049,8 +1044,6 @@ impl<T: Config> Pallet<T> {
         // Ensure that the subnet exists.
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
-        Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid.into())?;
-
         // Ensure that the subnet is enabled.
         // Self::ensure_subtoken_enabled(netuid)?;
 
@@ -1144,12 +1137,6 @@ impl<T: Config> Pallet<T> {
         if origin_coldkey == destination_coldkey && origin_hotkey == destination_hotkey {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
-
-        Self::ensure_stake_operation_limit_not_exceeded(
-            origin_hotkey,
-            origin_coldkey,
-            origin_netuid.into(),
-        )?;
 
         // Ensure that both subnets exist.
         ensure!(
@@ -1264,27 +1251,6 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_sub(alpha);
             });
         }
-    }
-
-    pub fn set_stake_operation_limit(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) {
-        StakingOperationRateLimiter::<T>::insert((hotkey, coldkey, netuid), true);
-    }
-
-    pub fn ensure_stake_operation_limit_not_exceeded(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-        netuid: NetUid,
-    ) -> Result<(), Error<T>> {
-        ensure!(
-            !StakingOperationRateLimiter::<T>::contains_key((hotkey, coldkey, netuid)),
-            Error::<T>::StakingOperationRateLimitExceeded
-        );
-
-        Ok(())
     }
 }
 

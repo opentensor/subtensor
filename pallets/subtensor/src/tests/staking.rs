@@ -897,7 +897,6 @@ fn test_remove_stake_insufficient_liquidity() {
             amount_staked.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -981,8 +980,6 @@ fn test_remove_stake_total_issuance_no_change() {
         );
 
         let total_fee = mock::swap_alpha_to_tao(netuid, stake).1 + fee;
-
-        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
 
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
@@ -1088,7 +1085,6 @@ fn test_remove_prev_epoch_stake() {
                 netuid,
             );
 
-            remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
             let fee = mock::swap_alpha_to_tao(netuid, stake).1 + fee;
             assert_ok!(SubtensorModule::remove_stake(
                 RuntimeOrigin::signed(coldkey_account_id),
@@ -1699,7 +1695,7 @@ fn test_clear_small_nominations() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold1, netuid);
         let unstake_amount1 = AlphaBalance::from(alpha_stake1.to_u64() * 997 / 1000);
         let small1 = alpha_stake1 - unstake_amount1;
-        remove_stake_rate_limit_for_tests(&hot1, &cold1, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold1),
             hot1,
@@ -1723,7 +1719,7 @@ fn test_clear_small_nominations() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hot1, &cold2, netuid);
         let unstake_amount2 = AlphaBalance::from(alpha_stake2.to_u64() * 997 / 1000);
         let small2 = alpha_stake2 - unstake_amount2;
-        remove_stake_rate_limit_for_tests(&hot1, &cold2, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(cold2),
             hot1,
@@ -1909,7 +1905,7 @@ fn test_delegate_take_can_be_increased() {
             SubtensorModule::get_min_delegate_take()
         );
 
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+        step_block(1);
 
         // Coldkey / hotkey 0 decreases take to 12.5%
         assert_ok!(SubtensorModule::do_increase_take(
@@ -1983,7 +1979,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
             SubtensorModule::get_min_delegate_take()
         );
 
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+        step_block(1);
 
         // Coldkey / hotkey 0 tries to increase take to InitialDefaultDelegateTake+1
         assert_ok!(SubtensorModule::do_increase_take(
@@ -2040,129 +2036,6 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
     });
 }
 
-// Test rate-limiting on increase_take
-#[test]
-fn test_rate_limits_enforced_on_increase_take() {
-    new_test_ext(1).execute_with(|| {
-        // Make account
-        let hotkey0 = U256::from(1);
-        let coldkey0 = U256::from(3);
-
-        // Add balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000.into());
-
-        // Register the neuron to a new network
-        let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
-        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegates with 9% take
-        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take());
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
-        );
-
-        // Increase take first time
-        assert_ok!(SubtensorModule::do_increase_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take() + 1
-        ));
-
-        // Increase again
-        assert_eq!(
-            SubtensorModule::do_increase_take(
-                RuntimeOrigin::signed(coldkey0),
-                hotkey0,
-                SubtensorModule::get_min_delegate_take() + 2
-            ),
-            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 1
-        );
-
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
-
-        // Can increase after waiting
-        assert_ok!(SubtensorModule::do_increase_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take() + 2
-        ));
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 2
-        );
-    });
-}
-
-// Test rate-limiting on an increase take just after a decrease take
-// Prevents a Validator from decreasing take and then increasing it immediately after.
-#[test]
-fn test_rate_limits_enforced_on_decrease_before_increase_take() {
-    new_test_ext(1).execute_with(|| {
-        // Make account
-        let hotkey0 = U256::from(1);
-        let coldkey0 = U256::from(3);
-
-        // Add balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000.into());
-
-        // Register the neuron to a new network
-        let netuid = NetUid::from(1);
-        add_network(netuid, 1, 0);
-        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegates with 9% take
-        Delegates::<Test>::insert(hotkey0, SubtensorModule::get_min_delegate_take() + 1);
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 1
-        );
-
-        // Decrease take
-        assert_ok!(SubtensorModule::do_decrease_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take()
-        )); // Verify decrease
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
-        );
-
-        // Increase take immediately after
-        assert_eq!(
-            SubtensorModule::do_increase_take(
-                RuntimeOrigin::signed(coldkey0),
-                hotkey0,
-                SubtensorModule::get_min_delegate_take() + 1
-            ),
-            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
-        ); // Verify no change
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take()
-        );
-
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
-
-        // Can increase after waiting
-        assert_ok!(SubtensorModule::do_increase_take(
-            RuntimeOrigin::signed(coldkey0),
-            hotkey0,
-            SubtensorModule::get_min_delegate_take() + 1
-        )); // Verify increase
-        assert_eq!(
-            SubtensorModule::get_hotkey_take(&hotkey0),
-            SubtensorModule::get_min_delegate_take() + 1
-        );
-    });
-}
-
 // cargo test --package pallet-subtensor --lib -- tests::staking::test_get_total_delegated_stake_after_unstaking --exact --show-output
 #[test]
 fn test_get_total_delegated_stake_after_unstaking() {
@@ -2206,10 +2079,10 @@ fn test_get_total_delegated_stake_after_unstaking() {
             &delegator,
             netuid,
         );
-        remove_stake_rate_limit_for_tests(&delegator, &delegate_hotkey, netuid);
+
         // Unstake part of the delegation
         let unstake_amount_alpha = delegated_alpha / 2.into();
-        remove_stake_rate_limit_for_tests(&delegate_hotkey, &delegator, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(delegator),
             delegate_hotkey,
@@ -2457,7 +2330,6 @@ fn test_mining_emission_distribution_validator_valiminer_miner() {
             &miner_coldkey,
             stake + ExistentialDeposit::get(),
         );
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         step_block(subnet_tempo);
         SubnetOwnerCut::<Test>::set(0);
         // There are two validators and three neurons
@@ -3961,7 +3833,7 @@ fn test_remove_stake_limit_ok() {
         let fee: u64 = (expected_alpha_reduction as f64 * 0.003) as u64;
 
         // Remove stake with slippage safety
-        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         assert_ok!(SubtensorModule::remove_stake_limit(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -4157,7 +4029,7 @@ fn test_remove_99_9991_per_cent_stake_works_precisely() {
             &coldkey_account_id,
             netuid,
         );
-        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         let remove_amount = AlphaBalance::from(
             (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>(),
         );
@@ -4215,7 +4087,7 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
         ));
 
         // Remove 99.9989% stake
-        remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &coldkey_account_id,
@@ -4442,8 +4314,6 @@ fn test_unstake_all_alpha_works() {
             stake_amount
         ));
 
-        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
         // Setup the pool so that removing all the TAO will keep liq above min
         mock::setup_reserves(
             netuid,
@@ -4500,7 +4370,6 @@ fn test_unstake_all_works() {
             stake_amount * 10.into(),
             u64::from(stake_amount * 100.into()).into(),
         );
-        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
         // Unstake all alpha to free balance
         assert_ok!(SubtensorModule::unstake_all(
@@ -4553,7 +4422,6 @@ fn test_stake_into_subnet_ok() {
             netuid,
             amount.into(),
             TaoBalance::MAX,
-            false,
             false,
         ));
         let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64
@@ -4608,7 +4476,6 @@ fn test_stake_into_subnet_low_amount() {
             amount.into(),
             TaoBalance::MAX,
             false,
-            false,
         ));
         let expected_stake = AlphaBalance::from(((amount as f64) * 0.997 / current_price) as u64);
 
@@ -4655,7 +4522,6 @@ fn test_unstake_from_subnet_low_amount() {
             netuid,
             amount.into(),
             TaoBalance::MAX,
-            false,
             false,
         ));
 
@@ -4773,7 +4639,6 @@ fn test_unstake_from_subnet_prohibitive_limit() {
             amount.into(),
             TaoBalance::MAX,
             false,
-            false,
         ));
 
         // Remove stake
@@ -4848,7 +4713,6 @@ fn test_unstake_full_amount() {
             netuid,
             amount.into(),
             TaoBalance::MAX,
-            false,
             false,
         ));
 
@@ -4991,7 +4855,7 @@ fn test_swap_fees_tao_correctness() {
             &coldkey,
             netuid,
         );
-        remove_stake_rate_limit_for_tests(&owner_hotkey, &coldkey, netuid);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey),
             owner_hotkey,
@@ -5250,7 +5114,7 @@ fn test_default_min_stake_sufficiency() {
         let fee_stake = (fee_rate * u64::from(amount) as f64) as u64;
         let current_price_after_stake =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
-        remove_stake_rate_limit_for_tests(&owner_hotkey, &coldkey, netuid);
+
         let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &owner_hotkey,
             &coldkey,
@@ -5338,8 +5202,6 @@ fn test_update_position_fees() {
                 amount.into(),
             ));
 
-            remove_stake_rate_limit_for_tests(&owner_hotkey, &coldkey, netuid);
-
             let user_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &owner_hotkey,
                 &coldkey,
@@ -5410,51 +5272,77 @@ fn test_update_position_fees() {
     });
 }
 
+// TODO: Revise when user liquidity is available
+// fn setup_positions(netuid: NetUid) {
+//     for (coldkey, hotkey, low_price, high_price, liquidity) in [
+//         (2, 12, 0.1, 0.20, 1_000_000_000_000_u64),
+//         (3, 13, 0.15, 0.25, 200_000_000_000_u64),
+//         (4, 14, 0.25, 0.5, 3_000_000_000_000_u64),
+//         (5, 15, 0.3, 0.6, 300_000_000_000_u64),
+//         (6, 16, 0.4, 0.7, 8_000_000_000_000_u64),
+//         (7, 17, 0.5, 0.8, 600_000_000_000_u64),
+//         (8, 18, 0.6, 0.9, 700_000_000_000_u64),
+//         (9, 19, 0.7, 1.0, 100_000_000_000_u64),
+//         (10, 20, 0.8, 1.1, 300_000_000_000_u64),
+//     ] {
+//         SubtensorModule::create_account_if_non_existent(&U256::from(coldkey), &U256::from(hotkey));
+//         SubtensorModule::add_balance_to_coldkey_account(
+//             &U256::from(coldkey),
+//             1_000_000_000_000_000,
+//         );
+//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//             &U256::from(hotkey),
+//             &U256::from(coldkey),
+//             netuid.into(),
+//             1_000_000_000_000_000.into(),
+//         );
+
+//         let tick_low = price_to_tick(low_price);
+//         let tick_high = price_to_tick(high_price);
+//         let add_lq_call = SwapCall::<Test>::add_liquidity {
+//             hotkey: U256::from(hotkey),
+//             netuid: netuid.into(),
+//             tick_low,
+//             tick_high,
+//             liquidity,
+//         };
+//         assert_ok!(
+//             RuntimeCall::Swap(add_lq_call).dispatch(RuntimeOrigin::signed(U256::from(coldkey)))
+//         );
+//     }
+// }
+
 #[test]
-fn test_stake_rate_limits() {
-    new_test_ext(0).execute_with(|| {
-        // Create subnet and accounts.
-        let subnet_owner_coldkey = U256::from(10);
-        let subnet_owner_hotkey = U256::from(20);
-        let hot1 = U256::from(1);
-        let cold1 = U256::from(3);
-        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        let amount = DefaultMinStake::<Test>::get() * 10.into();
-        let fee = DefaultMinStake::<Test>::get();
-        let init_balance = amount + fee + ExistentialDeposit::get();
+fn test_large_swap() {
+    new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let coldkey = U256::from(100);
 
-        register_ok_neuron(netuid, hot1, cold1, 0);
-        Delegates::<Test>::insert(hot1, SubtensorModule::get_min_delegate_take());
-        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+        // add network
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
+        pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
-        SubtensorModule::add_balance_to_coldkey_account(&cold1, init_balance);
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(cold1),
-            hot1,
+        // Force the swap to initialize
+        SubtensorModule::swap_tao_for_alpha(
             netuid,
-            (amount + fee).into()
+            TaoBalance::ZERO,
+            1_000_000_000_000_u64.into(),
+            false,
+        )
+        .unwrap();
+
+        // TODO: Revise when user liquidity is available
+        // setup_positions(netuid.into());
+
+        let swap_amount = TaoBalance::from(100_000_000_000_000_u64);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            owner_hotkey,
+            netuid,
+            swap_amount,
         ));
-
-        assert_err!(
-            SubtensorModule::remove_stake(
-                RuntimeOrigin::signed(cold1),
-                hot1,
-                netuid,
-                AlphaBalance::from(amount.to_u64())
-            ),
-            Error::<Test>::StakingOperationRateLimitExceeded
-        );
-
-        // Test limit clear each block
-        assert!(StakingOperationRateLimiter::<Test>::contains_key((
-            hot1, cold1, netuid
-        )));
-
-        next_block();
-
-        assert!(!StakingOperationRateLimiter::<Test>::contains_key((
-            hot1, cold1, netuid
-        )));
     });
 }
 
@@ -5612,7 +5500,6 @@ fn test_staking_records_flow() {
             netuid,
             amount.into(),
             TaoBalance::MAX,
-            false,
             false,
         ));
         let fee_rate = pallet_subtensor_swap::FeeRate::<Test>::get(NetUid::from(netuid)) as f64

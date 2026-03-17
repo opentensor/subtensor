@@ -653,15 +653,6 @@ pub mod pallet {
 
     /// Default value for network rate limit.
     #[pallet::type_value]
-    pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
-        if cfg!(feature = "pow-faucet") {
-            return 0;
-        }
-        T::InitialNetworkRateLimit::get()
-    }
-
-    /// Default value for network rate limit.
-    #[pallet::type_value]
     pub fn DefaultNetworkRegistrationStartBlock<T: Config>() -> u64 {
         0
     }
@@ -709,12 +700,6 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
-    }
-
-    /// Default value for weights set rate limit.
-    #[pallet::type_value]
-    pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 {
-        100
     }
 
     /// Default block number at registration.
@@ -885,21 +870,6 @@ pub mod pallet {
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
-    // pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
-    //     T::InitialHotkeyEmissionTempo::get()
-    // } (DEPRECATED)
-
-    /// Default value for rate limiting
-    #[pallet::type_value]
-    pub fn DefaultTxRateLimit<T: Config>() -> u64 {
-        T::InitialTxRateLimit::get()
-    }
-
-    /// Default value for delegate take rate limiting
-    #[pallet::type_value]
-    pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
-        T::InitialTxDelegateTakeRateLimit::get()
-    }
 
     /// Default value for chidlkey take rate limiting
     #[pallet::type_value]
@@ -911,12 +881,6 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
         0
-    }
-
-    /// Default value for serving rate limit.
-    #[pallet::type_value]
-    pub fn DefaultServingRateLimit<T: Config>() -> u64 {
-        T::InitialServingRateLimit::get()
     }
 
     /// Default value for weight commit/reveal enabled.
@@ -1041,12 +1005,6 @@ pub mod pallet {
         10
     }
 
-    /// Default number of tempos for owner hyperparameter update rate limit
-    #[pallet::type_value]
-    pub fn DefaultOwnerHyperparamRateLimit<T: Config>() -> u16 {
-        2
-    }
-
     /// Default value for ck burn, 18%.
     #[pallet::type_value]
     pub fn DefaultCKBurn<T: Config>() -> u64 {
@@ -1073,11 +1031,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type AdminFreezeWindow<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultAdminFreezeWindow<T>>;
-
-    /// Global number of epochs used to rate limit subnet owner hyperparameter updates
-    #[pallet::storage]
-    pub type OwnerHyperparamRateLimit<T: Config> =
-        StorageValue<_, u16, ValueQuery, DefaultOwnerHyperparamRateLimit<T>>;
 
     /// Duration of dissolve network schedule before execution
     #[pallet::storage]
@@ -1564,10 +1517,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
 
-    /// ITEM( network_rate_limit )
-    #[pallet::storage]
-    pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
-
     /// --- ITEM( nominator_min_required_stake ) --- Factor of DefaultMinStake in per-mill format.
     #[pallet::storage]
     pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultZeroU64<T>>;
@@ -1705,11 +1654,6 @@ pub mod pallet {
     pub type RecycleOrBurn<T: Config> =
         StorageMap<_, Identity, NetUid, RecycleOrBurnEnum, ValueQuery, DefaultRecycleOrBurn<T>>;
 
-    /// --- MAP ( netuid ) --> serving_rate_limit
-    #[pallet::storage]
-    pub type ServingRateLimit<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultServingRateLimit<T>>;
-
     /// --- MAP ( netuid ) --> Rho
     #[pallet::storage]
     pub type Rho<T> = StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultRho<T>>;
@@ -1803,11 +1747,6 @@ pub mod pallet {
     pub type BondsResetOn<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultBondsResetOn<T>>;
 
-    /// --- MAP ( netuid ) --> weights_set_rate_limit
-    #[pallet::storage]
-    pub type WeightsSetRateLimit<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
-
     /// --- MAP ( netuid ) --> validator_prune_len
     #[pallet::storage]
     pub type ValidatorPruneLen<T> =
@@ -1886,15 +1825,6 @@ pub mod pallet {
         ValueQuery,
         DefaultRAORecycledForRegistration<T>,
     >;
-
-    /// --- ITEM ( tx_rate_limit )
-    #[pallet::storage]
-    pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
-
-    /// --- ITEM ( tx_delegate_take_rate_limit )
-    #[pallet::storage]
-    pub type TxDelegateTakeRateLimit<T> =
-        StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
 
     /// --- ITEM ( tx_childkey_take_rate_limit )
     #[pallet::storage]
@@ -2053,7 +1983,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type Emission<T: Config> = StorageMap<_, Identity, NetUid, Vec<AlphaBalance>, ValueQuery>;
 
-    /// --- MAP ( netuid ) --> last_update
+    /// Last updated weights per neuron (used for activity/outdated masking in epochs).
+    /// This is not rate-limiting state; rate-limiting uses `pallet-rate-limiting` last-seen.
     #[pallet::storage]
     pub type LastUpdate<T: Config> =
         StorageMap<_, Identity, NetUidStorageIndex, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
@@ -2277,20 +2208,6 @@ pub mod pallet {
         T::AccountId,
         u64,
         OptionQuery,
-    >;
-
-    /// DMAP ( hot, cold, netuid ) --> rate limits for staking operations
-    /// Value contains just a marker: we use this map as a set.
-    #[pallet::storage]
-    pub type StakingOperationRateLimiter<T: Config> = StorageNMap<
-        _,
-        (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, NetUid>,               // subnet
-        ),
-        bool,
-        ValueQuery,
     >;
 
     #[pallet::storage] // --- MAP(netuid ) --> Root claim threshold
