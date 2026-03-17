@@ -15,28 +15,25 @@ cd ts-tests
 # Install dependencies
 pnpm i
 
-# Install types:
-pnpm run generate-types
-
 # Run manual seal dev tests
 pnpm moonwall test dev
 
 # Run zombienet tests
-sudo pnpm moonwall test zombienet
+pnpm moonwall test zombienet
 
 # If you have MacOS, you might need to run zombinet test with sudo, because tmp folder
-sudo sudo pnpm moonwall test zombienet
+sudo pnpm moonwall test zombienet
 
 # Run smoke tests
-sudo pnpm moonwall test smoke_mainnet
+pnpm moonwall test smoke_mainnet
 ```
 
 Moonwall lets you also run the testing environment without performing any tests on it, as a method for you to manually test certain things:
 
 ```
 # Dev tests in run mode
-sudo pnpm moonwall run dev
+pnpm moonwall run dev
 
 # Zombinet test with run mode
-sudo pnpm moonwall run zombienet
+pnpm moonwall run zombienet
 ```

@@ -66,6 +66,7 @@
             "timeout": 600000,
             "testFileDir": ["suites/zombienet_shield"],
             "runScripts": [
+                "generate-types.sh",
                 "build-spec.sh"
             ],
             "foundation": {
