@@ -1,0 +1,222 @@
+import { expect, beforeAll, describeSuite } from "@moonwall/cli";
+import type { ApiPromise } from "@polkadot/api";
+import {
+    encryptTransaction,
+    getAccountNonce,
+    getBalance,
+    getNextKey,
+    getSignerFromKeypair,
+    submitEncrypted,
+    waitForFinalizedBlocks,
+} from "../../utils";
+import { Binary } from "@polkadot-api/substrate-bindings";
+import { Keyring } from "@polkadot/keyring";
+import type { KeyringPair } from "@moonwall/util";
+import { hexToU8a } from "@polkadot/util";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
+
+describeSuite({
+    id: "00.01_basic",
+    title: "MEV Shield — encrypted transactions",
+    foundationMethods: "zombie",
+    testCases: ({ it, context }) => {
+        let api: ApiPromise;
+        let papi: TypedApi<typeof subtensor>;
+        let alice: KeyringPair;
+        let bob: KeyringPair;
+        let charlie: KeyringPair;
+
+        beforeAll(async () => {
+            api = context.polkadotJs("Node");
+            papi = context.papi("NodePapi").getTypedApi(subtensor);
+
+            const keyring = new Keyring({ type: "sr25519" });
+            alice = keyring.addFromUri("//Alice");
+            bob = keyring.addFromUri("//Bob");
+            charlie = keyring.addFromUri("//Charlie");
+
+            await waitForFinalizedBlocks(api, 3);
+        }, 120000);
+
+        it({
+            id: "T01",
+            title: "Happy path: wrapper and inner tx are included in the same block",
+            test: async () => {
+                const nextKey = await getNextKey(api);
+                expect(nextKey, "NextKey should be defined").toBeDefined();
+
+                const balanceBefore = await getBalance(api, bob.address);
+
+                const nonce = await getAccountNonce(api, alice.address);
+
+                const innerTxHex = await api.tx.balances
+                    .transferKeepAlive(bob.address, 10_000_000_000n)
+                    .signAsync(alice, { nonce: nonce + 1 });
+
+                await submitEncrypted(papi, alice, hexToU8a(innerTxHex.toHex()), nextKey, nonce);
+                const balanceAfter = await getBalance(api, bob.address);
+                expect(balanceAfter, "Bob's balance should increase").toBeGreaterThan(balanceBefore);
+            },
+        });
+
+        it({
+            id: "T02",
+            title: "Failed inner tx: wrapper succeeds but inner transfer has no effect",
+            test: async () => {
+                const nextKey = await getNextKey(api);
+                expect(nextKey, "NextKey should be defined").toBeDefined();
+
+                const balanceBefore = await getBalance(api, bob.address);
+
+                // Encrypt a transfer of more than Alice has.
+                // The wrapper is valid (correct key_hash, valid encryption), but the
+                // inner transfer should fail at dispatch with InsufficientBalance.
+                const nonce = await getAccountNonce(api, alice.address);
+                const innerTx = await api.tx.balances
+                    .transferKeepAlive(bob.address, 9_000_000_000_000_000_000n)
+                    .signAsync(alice, { nonce: nonce + 1 });
+
+                await submitEncrypted(papi, alice, hexToU8a(innerTx.toHex()), nextKey, nonce);
+
+                // The inner transfer failed, so bob's balance should not increase.
+                const balanceAfter = await getBalance(api, bob.address);
+                expect(balanceAfter).toBe(balanceBefore);
+            },
+        });
+
+        it({
+            id: "T03",
+            title: "Malformed ciphertext is rejected at pool level",
+            test: async () => {
+                const nonce = await getAccountNonce(api, alice.address);
+
+                // 5 bytes of garbage — not valid ciphertext at all.
+                const garbage = new Uint8Array([0x01, 0x02, 0x03, 0x04, 0x05]);
+
+                const tx = papi.tx.MevShield.submit_encrypted({
+                    ciphertext: Binary.fromBytes(garbage),
+                });
+
+                // Pool validation rejects with FailedShieldedTxParsing (Custom code 23).
+                await expect(
+                    tx.signAndSubmit(getSignerFromKeypair(alice), { nonce, mortality: { mortal: true, period: 8 } })
+                ).rejects.toThrow();
+            },
+        });
+
+        it({
+            id: "T04",
+            title: "Multiple encrypted txs in same block",
+            test: async () => {
+                // Use different signers to avoid nonce ordering issues between
+                // the outer wrappers and decrypted inner transactions.
+                const nextKey = await getNextKey(api);
+                expect(nextKey).toBeDefined();
+
+                const balanceBefore = await getBalance(api, charlie.address);
+
+                const senders = [alice, bob];
+                const amount = 1_000_000_000n;
+                const txPromises = [];
+
+                for (const sender of senders) {
+                    const nonce = await getAccountNonce(api, sender.address);
+
+                    const innerTx = await api.tx.balances.transferKeepAlive(charlie.address, amount).signAsync(sender, {
+                        nonce: nonce + 1,
+                    });
+
+                    txPromises.push(submitEncrypted(papi, sender, hexToU8a(innerTx.toHex()), nextKey, nonce));
+                }
+
+                await Promise.all(txPromises);
+
+                const balanceAfter = await getBalance(api, charlie.address);
+                expect(balanceAfter).toBeGreaterThan(balanceBefore);
+            },
+        });
+
+        it({
+            id: "T05",
+            title: "Wrong key hash is not included by the block proposer",
+            test: async () => {
+                const nextKey = await getNextKey(api);
+                expect(nextKey).toBeDefined();
+
+                const balanceBefore = await getBalance(api, bob.address);
+
+                const nonce = await getAccountNonce(api, alice.address);
+                const innerTx = await api.tx.balances.transferKeepAlive(bob.address, 1_000_000_000n).signAsync(alice, {
+                    nonce: nonce + 1,
+                });
+
+                const ciphertext = await encryptTransaction(hexToU8a(innerTx.toHex()), nextKey);
+
+                // Tamper the first 16 bytes (key_hash).
+                const tampered = new Uint8Array(ciphertext);
+                for (let i = 0; i < 16; i++) tampered[i] = 0xff;
+
+                const tx = papi.tx.MevShield.submit_encrypted({
+                    ciphertext: Binary.fromBytes(tampered),
+                });
+
+                // Send without waiting — the tx enters the pool but the block
+                // proposer will skip it because the key_hash doesn't match.
+                await expect(
+                    tx.signAndSubmit(getSignerFromKeypair(alice), {
+                        nonce,
+                        mortality: { mortal: true, period: 8 },
+                    })
+                ).rejects.toThrow();
+
+                await waitForFinalizedBlocks(api, 3);
+
+                // The inner transfer should NOT have executed.
+                const balanceAfter = await getBalance(api, bob.address);
+                expect(balanceAfter).toBe(balanceBefore);
+            },
+        });
+
+        it({
+            id: "T06",
+            title: "Stale key is not included after rotation",
+            test: async () => {
+                const staleKey = await getNextKey(api);
+                expect(staleKey).toBeDefined();
+
+                // Wait for enough blocks that the key has rotated past both
+                // currentKey and nextKey positions.
+                await waitForFinalizedBlocks(api, 3);
+
+                const balanceBefore = await getBalance(api, bob.address);
+
+                const nonce = await getAccountNonce(api, alice.address);
+                const innerTx = await api.tx.balances.transferKeepAlive(bob.address, 1_000_000_000n).signAsync(alice, {
+                    nonce: nonce + 1,
+                });
+
+                const ciphertext = await encryptTransaction(hexToU8a(innerTx.toHex()), staleKey);
+
+                const tx = papi.tx.MevShield.submit_encrypted({
+                    ciphertext: Binary.fromBytes(ciphertext),
+                });
+
+                // Send without waiting — the block proposer will reject because
+                // key_hash no longer matches currentKey or nextKey.
+                await expect(
+                    tx.signAndSubmit(getSignerFromKeypair(alice), {
+                        nonce,
+                        mortality: { mortal: true, period: 8 },
+                    })
+                ).rejects.toThrow();
+
+                await waitForFinalizedBlocks(api, 3);
+
+                // The inner transfer should NOT have executed.
+                const balanceAfter = await getBalance(api, bob.address);
+                expect(balanceAfter).toBe(balanceBefore);
+            },
+        });
+    },
+});

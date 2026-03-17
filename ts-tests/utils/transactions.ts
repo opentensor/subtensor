@@ -2,8 +2,8 @@ import { log } from "./logger.js";
 import type { KeyringPair } from "@moonwall/util";
 import type { SubmittableExtrinsic } from "@polkadot/api/promise/types";
 import type { AddressOrPair } from "@polkadot/api-base/types/submittable";
-
-export const TX_TIMEOUT = 5000;
+import type { ApiPromise } from "@polkadot/api";
+import { sleep } from "@zombienet/utils";
 
 export async function waitForTransactionWithRetry(
     tx: SubmittableExtrinsic<"promise">,
@@ -87,4 +87,31 @@ export async function waitForTransactionCompletion(
                 reject(error.toHuman());
             });
     });
+}
+
+const SECOND = 1000;
+
+/** Polls the chain until `count` new finalized blocks have been produced. */
+export async function waitForFinalizedBlocks(
+    api: ApiPromise,
+    count: number,
+    pollInterval = 1 * SECOND,
+    timeout = 120 * SECOND
+): Promise<void> {
+    const block = await api.rpc.chain.getBlock(await api.rpc.chain.getFinalizedHead());
+    const start = block.block.header.number.toNumber();
+
+    const target = start + count;
+    const deadline = Date.now() + timeout;
+
+    while (Date.now() < deadline) {
+        await sleep(pollInterval);
+
+        const currentBlock = await api.rpc.chain.getBlock(await api.rpc.chain.getFinalizedHead());
+        const currentBlockNumber = currentBlock.block.header.number.toNumber();
+
+        if (currentBlockNumber >= target) return;
+    }
+
+    throw new Error(`Timed out waiting for ${count} finalized blocks (from #${start}, target #${target})`);
 }

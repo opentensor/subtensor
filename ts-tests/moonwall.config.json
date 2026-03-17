@@ -83,6 +83,21 @@
                     "name": "Node",
                     "type": "polkadotJs",
                     "endpoints": ["ws://127.0.0.1:9947"]
+                }, {
+                    "name": "NodePapi",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9947"],
+                    "descriptor": "subtensor"
+                },
+                {
+                    "name": "NodeFull",
+                    "type": "polkadotJs",
+                    "endpoints": ["ws://127.0.0.1:9950"]
+                }, {
+                    "name": "NodeFullPapi",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9950"],
+                    "descriptor": "subtensor"
                 }
             ]
         }, {
@@ -97,6 +112,20 @@
                     "name": "node",
                     "type": "polkadotJs",
                     "endpoints": ["wss://openrpc.taostats.io"]
+                }
+            ]
+        }, {
+            "name": "smoke_testnet",
+            "testFileDir": ["suites/smoke"],
+            "foundation": {
+                "type": "read_only"
+            },
+            "reporters": ["basic","html"],
+            "connections": [
+                {
+                    "name": "node",
+                    "type": "polkadotJs",
+                    "endpoints": ["wss://test.finney.opentensor.ai:443"]
                 }
             ]
         }

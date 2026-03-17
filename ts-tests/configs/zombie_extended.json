@@ -6,8 +6,7 @@
     "relaychain": {
         "chain_spec_path": "specs/chain-spec.json",
         "default_command": "../target/release/node-subtensor",
-        "default_args": [
-        ],
+        "default_args": ["-lmev-shield=debug"],
         "genesis": {
             "runtimeGenesis": {
                 "patch": {
@@ -32,10 +31,12 @@
             },
             {
                 "name": "three",
+                "rpc_port": "9949",
                 "validator": true
             },
             {
-                "name": "four"
+                "name": "four",
+                "rpc_port": "9950"
             },
             {
                 "name": "five"

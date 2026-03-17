@@ -149,6 +149,10 @@ jobs:
         working-directory: ts-tests
         run: pnpm install --frozen-lockfile
 
+      - name: Generate types
+        working-directory: ts-tests
+        run: pnpm run generate-types
+
       - name: Run tests
         working-directory: ts-tests
         run: pnpm moonwall test ${{ matrix.test }}

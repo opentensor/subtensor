@@ -15,6 +15,9 @@ cd ts-tests
 # Install dependencies
 pnpm i
 
+# Install types:
+pnpm run generate-types
+
 # Run manual seal dev tests
 pnpm moonwall test dev
 

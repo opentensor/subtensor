@@ -11,12 +11,18 @@ importers:
       '@inquirer/prompts':
         specifier: 7.3.1
         version: 7.3.1(@types/node@25.3.5)
+      '@noble/ciphers':
+        specifier: ^2.1.1
+        version: 2.1.1
       '@polkadot-api/descriptors':
-        specifier: '*'
-        version: 0.0.1
+        specifier: file:.papi/descriptors
+        version: file:.papi/descriptors(polkadot-api@1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2))
       '@polkadot-api/merkleize-metadata':
         specifier: ^1.1.15
         version: 1.1.29
+      '@polkadot-api/substrate-bindings':
+        specifier: ^0.17.0
+        version: 0.17.0
       '@polkadot/api':
         specifier: '*'
         version: 16.5.4
@@ -41,6 +47,12 @@ importers:
       ethereum-cryptography:
         specifier: 3.1.0
         version: 3.1.0
+      mlkem:
+        specifier: ^2.7.0
+        version: 2.7.0
+      polkadot-api:
+        specifier: 1.19.2
+        version: 1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2)
       ps-node:
         specifier: 0.1.6
         version: 0.1.6
@@ -970,6 +982,10 @@ packages:
     resolution: {integrity: sha512-2I0gnIVPtfnMw9ee9h1dJG7tp81+8Ob3OJb3Mv37rx5L40/b0i7djjCVvGOVqc9AEIQyvyu1i6ypKdFw8R8gQw==}
     engines: {node: ^14.21.3 || >=16}
 
+  '@noble/ciphers@2.1.1':
+    resolution: {integrity: sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw==}
+    engines: {node: '>= 20.19.0'}
+
   '@noble/curves@1.2.0':
     resolution: {integrity: sha512-oYclrNgRaM9SsBUBVbb8M6DTV7ZHRTKugureoYEncY5c65HOmRzvSiTE3y5CYaPYJA/GVkrhXEoF0M3Ya9PMnw==}
 
@@ -1185,8 +1201,10 @@ packages:
   '@polkadot-api/codegen@0.19.1':
     resolution: {integrity: sha512-129a0vHChzKuvQDELMYPpmqZtA5VFlJ7vo5HZh47bo67qYi1veRgDrNQVGM8yaHzi7Coo481b/SDruZbbbgd3Q==}
 
-  '@polkadot-api/descriptors@0.0.1':
-    resolution: {integrity: sha512-p9esC+idLWlaeLy2V0z3x45xwRdAcNdiUSEeJaDDw6LJxj/WiyIOuhm3ki6gzl4oOZ0wAMuay3zhpVBDFgSEeQ==}
+  '@polkadot-api/descriptors@file:.papi/descriptors':
+    resolution: {directory: .papi/descriptors, type: directory}
+    peerDependencies:
+      polkadot-api: '>=1.21.0'
 
   '@polkadot-api/ink-contracts@0.4.0':
     resolution: {integrity: sha512-e2u5KhuYoiM+PyHsvjkI0O1nmFuC0rLH64uBerMqwK7hWENdM/ej9OqKawIzp6NQuYSHF5P4U8NBT0mjP9Y1yQ==}
@@ -3266,6 +3284,10 @@ packages:
     resolution: {integrity: sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==}
     engines: {node: '>=10'}
     hasBin: true
+
+  mlkem@2.7.0:
+    resolution: {integrity: sha512-I2bcB5d6jtkdan6MLGOxObpUbidqv0ej+PhbCGnXUqmcGYZ6X8F0qBpU6HE4mvYc81NSznBrVDp+Uc808Ba2RA==}
+    engines: {node: '>=16.0.0'}
 
   mlly@1.8.1:
     resolution: {integrity: sha512-SnL6sNutTwRWWR/vcmCYHSADjiEesp5TGQQ0pXyLhW5IoeibRlF/CbSLailbB3CNqJUk9cVJ9dUDnbD7GrcHBQ==}
@@ -5747,6 +5769,8 @@ snapshots:
 
   '@noble/ciphers@1.3.0': {}
 
+  '@noble/ciphers@2.1.1': {}
+
   '@noble/curves@1.2.0':
     dependencies:
       '@noble/hashes': 1.3.2
@@ -5983,7 +6007,9 @@ snapshots:
       '@polkadot-api/substrate-bindings': 0.16.3
       '@polkadot-api/utils': 0.2.0
 
-  '@polkadot-api/descriptors@0.0.1': {}
+  '@polkadot-api/descriptors@file:.papi/descriptors(polkadot-api@1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2))':
+    dependencies:
+      polkadot-api: 1.19.2(postcss@8.5.8)(rxjs@7.8.2)(tsx@4.21.0)(yaml@2.8.2)
 
   '@polkadot-api/ink-contracts@0.4.0':
     dependencies:
@@ -8618,6 +8644,8 @@ snapshots:
   mkdirp-classic@0.5.3: {}
 
   mkdirp@1.0.4: {}
+
+  mlkem@2.7.0: {}
 
   mlly@1.8.1:
     dependencies:
