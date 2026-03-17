@@ -3,12 +3,10 @@ use crate::TransactionSource;
 use frame_support::assert_ok;
 use frame_support::dispatch::GetDispatchInfo;
 use frame_support::pallet_prelude::Zero;
-use pallet_subtensor_swap::AlphaSqrtPrice;
 use sp_runtime::{
     traits::{DispatchTransaction, TransactionExtension, TxBaseImplication},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
-use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::AlphaBalance;
 
 use mock::*;
@@ -447,7 +445,9 @@ fn test_remove_stake_edge_alpha() {
         assert_ok!(result);
 
         // Lower Alpha price to 0.0001 so that there is not enough alpha to cover tx fees
-        AlphaSqrtPrice::<Test>::insert(sn.subnets[0].netuid, U64F64::from_num(0.01));
+        SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoBalance::from(1_000_000));
+        SubnetAlphaIn::<Test>::insert(sn.subnets[0].netuid, AlphaBalance::from(10_000_000_000_u64));
+
         let result_low_alpha_price = ext.validate(
             RuntimeOrigin::signed(sn.coldkey).into(),
             &call.clone(),
