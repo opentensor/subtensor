@@ -528,5 +528,18 @@ mod events {
             /// Alpha burned
             alpha: AlphaBalance,
         },
+
+        /// Transaction fee was paid in Alpha.
+        ///
+        /// Emitted in addition to `TransactionFeePaid` when the fee payment path is Alpha.
+        /// `alpha_fee` is the exact Alpha amount deducted.
+        TransactionFeePaidWithAlpha {
+            /// Account that paid the transaction fee.
+            who: T::AccountId,
+            /// Exact fee deducted in Alpha units.
+            alpha_fee: AlphaBalance,
+            /// Resulting swapped TAO amount
+            tao_amount: TaoBalance,
+        },
     }
 }
