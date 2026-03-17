@@ -103,18 +103,28 @@ export async function unstakeAllAlpha(api: ApiPromise, coldkey: KeyringPair, hot
  * Returns the integer part of the U64F64 value.
  */
 export async function getStake(api: ApiPromise, hotkey: string, coldkey: string, netuid: number): Promise<bigint> {
-    const obj = (await api.query.subtensorModule.alpha(hotkey, coldkey, netuid)) as any;
-    const raw = BigInt(obj.bits.toString());
-    return u64f64ToInt(raw);
+    const obj = (await api.query.subtensorModule.alphaV2(hotkey, coldkey, netuid)) as any;
+
+    const mantissa = BigInt(obj.mantissa.toString());
+    const exponent = Number(obj.exponent.toString());
+
+    let value: bigint;
+
+    if (exponent >= 0) {
+        value = mantissa * 10n ** BigInt(exponent);
+    } else {
+        value = mantissa / 10n ** BigInt(-exponent);
+    }
+
+    return value;
 }
 
 /**
- * Get raw stake shares (Alpha) in U64F64 format.
+ * Get stake shares (Alpha) for a hotkey/coldkey/netuid triplet.
  * Use this when you need the raw value for extrinsics like transfer_stake.
  */
 export async function getStakeRaw(api: ApiPromise, hotkey: string, coldkey: string, netuid: number): Promise<bigint> {
-    const obj = (await api.query.subtensorModule.alpha(hotkey, coldkey, netuid)) as any;
-    return BigInt(obj.bits.toString());
+    return this.getStake(api, hotkey, netuid, coldkey, netuid);
 }
 
 export async function transferStake(
