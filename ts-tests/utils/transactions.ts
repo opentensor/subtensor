@@ -6,7 +6,7 @@ import type { ApiPromise } from "@polkadot/api";
 import { sleep } from "@zombienet/utils";
 
 export async function waitForTransactionWithRetry(
-    tx: SubmittableExtrinsic<"promise">,
+    tx: SubmittableExtrinsic,
     signer: KeyringPair,
     label: string,
     maxRetries = 1
@@ -32,14 +32,14 @@ export async function waitForTransactionWithRetry(
 }
 
 export async function waitForTransactionCompletion(
-    tx: SubmittableExtrinsic<"promise">,
+    tx: SubmittableExtrinsic,
     account: AddressOrPair,
     timeout: number | null = 3 * 60 * 1000
 ) {
     const callerStack = new Error().stack;
 
     // Inner function that doesn't handle timeout
-    const signAndSendAndIncludeInner = (tx: SubmittableExtrinsic<"promise">, account: AddressOrPair) => {
+    const signAndSendAndIncludeInner = (tx: SubmittableExtrinsic, account: AddressOrPair) => {
         return new Promise((resolve, reject) => {
             tx.signAndSend(account, (result) => {
                 const { status, txHash } = result;
