@@ -2142,7 +2142,7 @@ fn test_finalize_all_subnet_root_dividends_removes_empty_entries() {
 
         // hotkey_single's entry should be entirely gone (empty map removed).
         assert!(
-            RootClaimable::<Test>::get(hotkey_single).is_empty(),
+            !RootClaimable::<Test>::contains_key(hotkey_single),
             "empty map should be cleaned up"
         );
 

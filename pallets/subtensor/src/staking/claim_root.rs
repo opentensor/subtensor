@@ -391,17 +391,13 @@ impl<T: Config> Pallet<T> {
 
     /// Claim all root dividends for subnet and remove all associated data.
     ///
-    /// Uses `translate` to iterate entries one at a time without collecting all
-    /// keys into memory, preventing unbounded memory usage when the number of
-    /// hotkeys is large.
+    /// Uses `translate_values` to iterate entries one at a time without
+    /// collecting all keys into memory, preventing unbounded memory usage when
+    /// the number of hotkeys is large. Skips key decoding for better efficiency.
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        RootClaimable::<T>::translate::<BTreeMap<NetUid, I96F32>, _>(|_hotkey, mut claimable| {
+        RootClaimable::<T>::translate_values::<BTreeMap<NetUid, I96F32>, _>(|mut claimable| {
             claimable.remove(&netuid);
-            if claimable.is_empty() {
-                None
-            } else {
-                Some(claimable)
-            }
+            (!claimable.is_empty()).then_some(claimable)
         });
 
         let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
