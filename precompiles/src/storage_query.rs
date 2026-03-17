@@ -103,12 +103,11 @@ where
 
         match sp_io::storage::get(input) {
             Some(value) => {
-                let result = value.to_vec();
-                handle.record_db_read::<R>(result.len())?;
+                handle.record_db_read::<R>(value.len())?;
 
                 Ok(PrecompileOutput {
                     exit_status: ExitSucceed::Returned,
-                    output: result,
+                    output: value.to_vec(),
                 })
             }
             None => {

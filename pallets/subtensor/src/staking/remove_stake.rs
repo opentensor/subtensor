@@ -2,7 +2,7 @@ use rate_limiting_interface::RateLimitingInterface;
 use sp_runtime::Saturating;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{
-    AlphaCurrency, Currency, NetUid, TaoCurrency,
+    AlphaBalance, NetUid, TaoBalance, Token,
     rate_limiting::{self, RateLimitUsageKey},
 };
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: AlphaCurrency,
+        alpha_unstaked: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
         let staking_ops_span = T::RateLimiting::rate_limit(rate_limiting::GROUP_STAKING_OPS, None);
 
         // 4. Iterate through all subnets and remove stake.
-        let mut total_tao_unstaked = TaoCurrency::ZERO;
+        let mut total_tao_unstaked = TaoBalance::ZERO;
         for netuid in netuids.into_iter() {
             if !SubtokenEnabled::<T>::get(netuid) {
                 continue;
@@ -358,8 +358,8 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        alpha_unstaked: AlphaCurrency,
-        limit_price: TaoCurrency,
+        alpha_unstaked: AlphaBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -415,14 +415,14 @@ impl<T: Config> Pallet<T> {
     // Returns the maximum amount of RAO that can be executed with price limit
     pub fn get_max_amount_remove(
         netuid: NetUid,
-        limit_price: TaoCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+        limit_price: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
         // Corner case: root and stao
         // There's no slippage for root or stable subnets, so if limit price is 1e9 rao or
         // lower, then max_amount equals u64::MAX, otherwise it is 0.
         if netuid.is_root() || SubnetMechanism::<T>::get(netuid) == 0 {
             if limit_price <= 1_000_000_000.into() {
-                return Ok(AlphaCurrency::MAX);
+                return Ok(AlphaBalance::MAX);
             } else {
                 return Err(Error::<T>::ZeroMaxStakeAmount.into());
             }
@@ -444,7 +444,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: NetUid,
-        limit_price: Option<TaoCurrency>,
+        limit_price: Option<TaoBalance>,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin.clone())?;
 
@@ -464,7 +464,7 @@ impl<T: Config> Pallet<T> {
 
         // 2) Owner / lock cost.
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        let lock_cost: TaoCurrency = Self::get_subnet_locked_balance(netuid);
+        let lock_cost: TaoBalance = Self::get_subnet_locked_balance(netuid);
 
         // Determine if this subnet is eligible for a lock refund (legacy).
         let reg_at: u64 = NetworkRegisteredAt::<T>::get(netuid);
@@ -476,7 +476,7 @@ impl<T: Config> Pallet<T> {
         //      - get the current alpha issuance,
         //      - apply owner fraction to get owner α,
         //      - price that α using a *simulated* AMM swap.
-        let mut owner_emission_tao = TaoCurrency::ZERO;
+        let mut owner_emission_tao = TaoBalance::ZERO;
         if should_refund_owner && !lock_cost.is_zero() {
             let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
 
@@ -493,9 +493,9 @@ impl<T: Config> Pallet<T> {
                         .saturating_mul(cur_price)
                         .floor()
                         .saturating_to_num::<u64>();
-                    TaoCurrency::from(val_u64)
+                    val_u64.into()
                 } else {
-                    TaoCurrency::ZERO
+                    TaoBalance::ZERO
                 };
             }
         }
@@ -508,13 +508,13 @@ impl<T: Config> Pallet<T> {
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
         let mut total_alpha_value_u128: u128 = 0;
 
-        let hotkeys_in_subnet: Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter()
-            .filter(|(_, this_netuid, _)| *this_netuid == netuid)
-            .map(|(hot, _, _)| hot.clone())
+        let hotkeys_in_subnet: Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter_keys()
+            .filter(|(_, this_netuid)| *this_netuid == netuid)
+            .map(|(hot, _)| hot.clone())
             .collect::<Vec<_>>();
 
         for hot in hotkeys_in_subnet.iter() {
-            for ((cold, this_netuid), share_u64f64) in Alpha::<T>::iter_prefix((hot,)) {
+            for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(hot) {
                 if this_netuid != netuid {
                     continue;
                 }
@@ -526,7 +526,7 @@ impl<T: Config> Pallet<T> {
 
                 // Fallback: if pool uninitialized, treat raw Alpha share as value.
                 let val_u64 = if actual_val_u64 == 0 {
-                    share_u64f64.saturating_to_num::<u64>()
+                    u64::from(share_u64f64)
                 } else {
                     actual_val_u64
                 };
@@ -540,7 +540,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 5) Determine the TAO pot and pre-adjust accounting to avoid double counting.
-        let pot_tao: TaoCurrency = SubnetTAO::<T>::get(netuid);
+        let pot_tao: TaoBalance = SubnetTAO::<T>::get(netuid);
         let pot_u64: u64 = pot_tao.into();
 
         if pot_u64 > 0 {
@@ -589,7 +589,7 @@ impl<T: Config> Pallet<T> {
             // Credit each share directly to coldkey free balance.
             for p in portions {
                 if p.share > 0 {
-                    Self::add_balance_to_coldkey_account(&p.cold, p.share);
+                    Self::add_balance_to_coldkey_account(&p.cold, p.share.into());
                 }
             }
         }
@@ -597,12 +597,14 @@ impl<T: Config> Pallet<T> {
         // 7) Destroy all α-in/α-out state for this subnet.
         // 7.a) Remove every (hot, cold, netuid) α entry.
         for (hot, cold) in keys_to_remove {
-            Alpha::<T>::remove((hot, cold, netuid));
+            Alpha::<T>::remove((hot.clone(), cold.clone(), netuid));
+            AlphaV2::<T>::remove((hot, cold, netuid));
         }
         // 7.b) Clear share‑pool totals for each hotkey on this subnet.
         for hot in hotkeys_in_subnet {
             TotalHotkeyAlpha::<T>::remove(&hot, netuid);
             TotalHotkeyShares::<T>::remove(&hot, netuid);
+            TotalHotkeySharesV2::<T>::remove(&hot, netuid);
         }
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
         SubnetAlphaIn::<T>::remove(netuid);
@@ -610,20 +612,20 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaOut::<T>::remove(netuid);
 
         // Clear the locked balance on the subnet.
-        Self::set_subnet_locked_balance(netuid, TaoCurrency::ZERO);
+        Self::set_subnet_locked_balance(netuid, TaoBalance::ZERO);
 
         // 8) Finalize lock handling:
         //    - Legacy subnets (registered before NetworkRegistrationStartBlock) receive:
         //        refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
         //    - New subnets: no refund.
-        let refund: TaoCurrency = if should_refund_owner {
+        let refund: TaoBalance = if should_refund_owner {
             lock_cost.saturating_sub(owner_emission_tao)
         } else {
-            TaoCurrency::ZERO
+            TaoBalance::ZERO
         };
 
         if !refund.is_zero() {
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund.to_u64());
+            Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
         }
 
         Ok(())

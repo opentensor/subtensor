@@ -21,8 +21,11 @@ impl Default for ExtBuilder {
 }
 
 impl ExtBuilder {
-    pub fn with_balances(mut self, balances: Vec<(AccountId, Balance)>) -> Self {
-        self.balances = balances;
+    pub fn with_balances(mut self, balances: Vec<(AccountId, impl Into<Balance>)>) -> Self {
+        self.balances = balances
+            .into_iter()
+            .map(|(acc, balance)| (acc, Into::into(balance)))
+            .collect();
         self
     }
 

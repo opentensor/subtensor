@@ -717,7 +717,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: TaoCurrency,
+            amount_staked: TaoBalance,
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked).map(|_| ())
         }
@@ -761,7 +761,7 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: AlphaCurrency,
+            amount_unstaked: AlphaBalance,
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
@@ -1043,7 +1043,17 @@ mod dispatches {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
-        /// The extrinsic for user to change its hotkey in subnet or all subnets.
+        /// ---- The extrinsic for user to change its hotkey in subnet or all subnets.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction (must be signed by the coldkey).
+        /// * `hotkey` - The old hotkey to be swapped.
+        /// * `new_hotkey` - The new hotkey to replace the old one.
+        /// * `netuid` - Optional subnet ID. If `Some`, swap only on that subnet; if `None`, swap on all subnets.
+        ///   is transferred to the new hotkey.
+        #[deprecated(
+            note = "Please use swap_hotkey_v2 instead. This extrinsic will be removed some time after June 2026."
+        )]
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
         .saturating_add(T::DbWeight::get().reads(49_u64))
@@ -1054,7 +1064,32 @@ mod dispatches {
             new_hotkey: T::AccountId,
             netuid: Option<NetUid>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid)
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, false)
+        }
+
+        /// ---- The extrinsic for user to change its hotkey in subnet or all subnets. This extrinsic is
+        /// similar to swap_hotkey, but with keep_stake parameter bo be able to keep the stake when swapping
+        /// a root key to a child key
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction (must be signed by the coldkey).
+        /// * `hotkey` - The old hotkey to be swapped.
+        /// * `new_hotkey` - The new hotkey to replace the old one.
+        /// * `netuid` - Optional subnet ID. If `Some`, swap only on that subnet; if `None`, swap on all subnets.
+        /// * `keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
+        ///   is transferred to the new hotkey.
+        #[pallet::call_index(72)]
+        #[pallet::weight((Weight::from_parts(275_300_000, 0)
+        .saturating_add(T::DbWeight::get().reads(52_u64))
+        .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::No))]
+        pub fn swap_hotkey_v2(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            new_hotkey: T::AccountId,
+            netuid: Option<NetUid>,
+            keep_stake: bool,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, keep_stake)
         }
 
         /// Performs an arbitrary coldkey swap for any coldkey.
@@ -1070,7 +1105,7 @@ mod dispatches {
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
-            swap_cost: TaoCurrency,
+            swap_cost: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1522,7 +1557,7 @@ mod dispatches {
             destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_move_stake(
                 origin,
@@ -1565,7 +1600,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_transfer_stake(
                 origin,
@@ -1609,7 +1644,7 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
+            alpha_amount: AlphaBalance,
         ) -> DispatchResult {
             Self::do_swap_stake(
                 origin,
@@ -1670,8 +1705,8 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: TaoCurrency,
-            limit_price: TaoCurrency,
+            amount_staked: TaoBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_add_stake_limit(
@@ -1735,8 +1770,8 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_unstaked: AlphaCurrency,
-            limit_price: TaoCurrency,
+            amount_unstaked: AlphaBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_remove_stake_limit(
@@ -1783,8 +1818,8 @@ mod dispatches {
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
-            alpha_amount: AlphaCurrency,
-            limit_price: TaoCurrency,
+            alpha_amount: AlphaBalance,
+            limit_price: TaoBalance,
             allow_partial: bool,
         ) -> DispatchResult {
             Self::do_swap_stake_limit(
@@ -1895,14 +1930,14 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
+            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(9, 4)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn recycle_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: AlphaCurrency,
+            amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_recycle_alpha(origin, hotkey, amount, netuid)
@@ -1920,14 +1955,14 @@ mod dispatches {
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
-            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
+            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(9, 3)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn burn_alpha(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
-            amount: AlphaCurrency,
+            amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
             Self::do_burn_alpha(origin, hotkey, amount, netuid)
@@ -1957,7 +1992,7 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: NetUid,
-            limit_price: Option<TaoCurrency>,
+            limit_price: Option<TaoBalance>,
         ) -> DispatchResult {
             Self::do_remove_stake_full_limit(origin, hotkey, netuid, limit_price)
         }
@@ -2227,7 +2262,7 @@ mod dispatches {
         #[pallet::call_index(121)]
         #[pallet::weight((
             Weight::from_parts(117_000_000, 7767)
-                .saturating_add(T::DbWeight::get().reads(12_u64))
+                .saturating_add(T::DbWeight::get().reads(16_u64))
                 .saturating_add(T::DbWeight::get().writes(4_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -2420,7 +2455,7 @@ mod dispatches {
         ///
         #[pallet::call_index(127)]
         #[pallet::weight(
-            Weight::from_parts(20_750_000, 0)
+            Weight::from_parts(30_810_000, 0)
             .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
         )]
@@ -2558,8 +2593,8 @@ mod dispatches {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount: TaoCurrency,
-            limit: Option<TaoCurrency>,
+            amount: TaoBalance,
+            limit: Option<TaoBalance>,
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }

@@ -17,7 +17,7 @@ use pallet_subtensor::{
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency};
+use subtensor_runtime_common::{MechId, NetUid, TaoBalance, Token};
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
@@ -334,7 +334,7 @@ fn test_sudo_subnet_owner_cut() {
 #[test]
 fn test_sudo_set_issuance() {
     new_test_ext().execute_with(|| {
-        let to_be_set = TaoCurrency::from(10);
+        let to_be_set = TaoBalance::from(10);
         assert_eq!(
             AdminUtils::sudo_set_total_issuance(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -857,7 +857,7 @@ fn test_sudo_set_bonds_penalty() {
 fn test_sudo_set_rao_recycled() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(10);
+        let to_be_set = TaoBalance::from(10);
         add_network(netuid, 10);
         let init_value = SubtensorModule::get_rao_recycled(netuid);
 
@@ -1184,7 +1184,7 @@ fn test_sudo_get_set_alpha() {
         pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<
             Test,
         >();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
 
         // Should fail as signer does not own the subnet
@@ -1987,7 +1987,7 @@ fn test_freeze_window_blocks_root_and_owner() {
 fn test_sudo_set_min_burn() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(1_000_000);
+        let to_be_set = TaoBalance::from(1_000_000);
         add_network(netuid, 10);
         let init_value = SubtensorModule::get_min_burn(netuid);
 
@@ -1995,7 +1995,7 @@ fn test_sudo_set_min_burn() {
         assert_ok!(AdminUtils::sudo_set_min_burn(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            TaoCurrency::from(to_be_set)
+            TaoBalance::from(to_be_set)
         ));
         assert_ne!(SubtensorModule::get_min_burn(netuid), init_value);
         assert_eq!(SubtensorModule::get_min_burn(netuid), to_be_set);
@@ -2005,7 +2005,7 @@ fn test_sudo_set_min_burn() {
             AdminUtils::sudo_set_min_burn(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 NetUid::from(42),
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             Error::<Test>::SubnetDoesNotExist
         );
@@ -2015,7 +2015,7 @@ fn test_sudo_set_min_burn() {
             AdminUtils::sudo_set_min_burn(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             DispatchError::BadOrigin
         );
@@ -2046,7 +2046,7 @@ fn test_sudo_set_min_burn() {
 fn test_sudo_set_max_burn() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(100_000_001);
+        let to_be_set = TaoBalance::from(100_000_001);
         add_network(netuid, 10);
         let init_value = SubtensorModule::get_max_burn(netuid);
 
@@ -2054,7 +2054,7 @@ fn test_sudo_set_max_burn() {
         assert_ok!(AdminUtils::sudo_set_max_burn(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            TaoCurrency::from(to_be_set)
+            TaoBalance::from(to_be_set)
         ));
         assert_ne!(SubtensorModule::get_max_burn(netuid), init_value);
         assert_eq!(SubtensorModule::get_max_burn(netuid), to_be_set);
@@ -2064,7 +2064,7 @@ fn test_sudo_set_max_burn() {
             AdminUtils::sudo_set_max_burn(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 NetUid::from(42),
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             Error::<Test>::SubnetDoesNotExist
         );
@@ -2074,7 +2074,7 @@ fn test_sudo_set_max_burn() {
             AdminUtils::sudo_set_max_burn(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             DispatchError::BadOrigin
         );

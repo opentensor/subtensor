@@ -22,7 +22,7 @@ use safe_math::*;
 use sp_runtime::SaturatedConversion;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{
-    AlphaCurrency, Currency, NetUid, NetUidStorageIndex, TaoCurrency, rate_limiting,
+    AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token, rate_limiting,
 };
 use subtensor_swap_interface::SwapHandler;
 
@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
-            let mut lowest_stake = AlphaCurrency::MAX;
+            let mut lowest_stake = AlphaBalance::MAX;
             let mut lowest_uid: u16 = 0;
 
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
@@ -493,7 +493,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'u64':
     ///     - The lock cost for the network.
     ///
-    pub fn get_network_lock_cost() -> TaoCurrency {
+    pub fn get_network_lock_cost() -> TaoBalance {
         let last_lock = Self::get_network_last_lock();
         let min_lock = Self::get_network_min_lock();
         let last_lock_block: u64 =
@@ -502,7 +502,7 @@ impl<T: Config> Pallet<T> {
                 .saturated_into();
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
-        let mult: TaoCurrency = if last_lock_block == 0 { 1 } else { 2 }.into();
+        let mult: TaoBalance = if last_lock_block == 0 { 1 } else { 2 }.into();
 
         let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
@@ -537,17 +537,17 @@ impl<T: Config> Pallet<T> {
         StartCallDelay::<T>::set(delay);
         Self::deposit_event(Event::StartCallDelaySet(delay));
     }
-    pub fn set_network_min_lock(net_min_lock: TaoCurrency) {
+    pub fn set_network_min_lock(net_min_lock: TaoBalance) {
         NetworkMinLockCost::<T>::set(net_min_lock);
         Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
     }
-    pub fn get_network_min_lock() -> TaoCurrency {
+    pub fn get_network_min_lock() -> TaoBalance {
         NetworkMinLockCost::<T>::get()
     }
-    pub fn set_network_last_lock(net_last_lock: TaoCurrency) {
+    pub fn set_network_last_lock(net_last_lock: TaoBalance) {
         NetworkLastLockCost::<T>::set(net_last_lock);
     }
-    pub fn get_network_last_lock() -> TaoCurrency {
+    pub fn get_network_last_lock() -> TaoBalance {
         NetworkLastLockCost::<T>::get()
     }
     pub fn set_lock_reduction_interval(interval: u64) {

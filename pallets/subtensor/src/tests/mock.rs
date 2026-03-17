@@ -22,6 +22,7 @@ use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBas
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
 use rate_limiting_interface::{RateLimitTarget, RateLimitingInterface, TryIntoRateLimitTarget};
+use share_pool::SafeFloat;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_io::hashing::twox_128;
 use sp_io::storage;
@@ -33,7 +34,7 @@ use sp_runtime::{
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{
-    AuthorshipInfo, NetUid, TaoCurrency,
+    AuthorshipInfo, NetUid, TaoBalance,
     rate_limiting::{GROUP_REGISTER_NETWORK, RateLimitUsageKey},
 };
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -81,7 +82,7 @@ pub type Address = AccountId;
 
 // Balance of an account.
 #[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = TaoBalance;
 
 // An index to a block.
 #[allow(dead_code)]
@@ -146,7 +147,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<TaoBalance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -180,8 +181,8 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = 1;
-    pub const TransactionByteFee: Balance = 100;
+    pub const ExistentialDeposit: Balance = TaoBalance::new(1);
+    pub const TransactionByteFee: Balance = TaoBalance::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialAlphaSigmoidSteepness: i16 = 1000;
@@ -206,8 +207,8 @@ parameter_types! {
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
-    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
-    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
+    pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -331,8 +332,8 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = TaoCurrencyReserve<Self>;
-    type AlphaReserve = AlphaCurrencyReserve<Self>;
+    type TaoReserve = TaoBalanceReserve<Self>;
+    type AlphaReserve = AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -453,8 +454,8 @@ impl pallet_utility::Config for Test {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = 1;
-    pub const PreimageByteDeposit: Balance = 1;
+    pub const PreimageBaseDeposit: Balance = TaoBalance::new(1);
+    pub const PreimageByteDeposit: Balance = TaoBalance::new(1);
 }
 
 impl pallet_preimage::Config for Test {
@@ -517,17 +518,17 @@ impl pallet_crowdloan::Config for Test {
 // Proxy Pallet config
 parameter_types! {
     // Set as 1 for testing purposes
-    pub const ProxyDepositBase: Balance = 1;
+    pub const ProxyDepositBase: Balance = TaoBalance::new(1);
     // Set as 1 for testing purposes
-    pub const ProxyDepositFactor: Balance = 1;
+    pub const ProxyDepositFactor: Balance = TaoBalance::new(1);
     // Set as 20 for testing purposes
     pub const MaxProxies: u32 = 20; // max num proxies per acct
     // Set as 15 for testing purposes
     pub const MaxPending: u32 = 15; // max blocks pending ~15min
     // Set as 1 for testing purposes
-    pub const AnnouncementDepositBase: Balance =  1;
+    pub const AnnouncementDepositBase: Balance =  TaoBalance::new(1);
     // Set as 1 for testing purposes
-    pub const AnnouncementDepositFactor: Balance = 1;
+    pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
 }
 
 impl pallet_proxy::Config for Test {
@@ -690,8 +691,8 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
     pallet_balances::GenesisConfig::<Test> {
         balances: balances
             .iter()
-            .map(|(a, b)| (*a, *b as u64))
-            .collect::<Vec<(U256, u64)>>(),
+            .map(|(a, b)| (*a, TaoBalance::from(*b as u64)))
+            .collect::<Vec<(U256, TaoBalance)>>(),
         dev_accounts: None,
     }
     .assimilate_storage(&mut t)
@@ -901,7 +902,7 @@ pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: 
 
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
-pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoCurrency) {
+pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoBalance) {
     register_ok_neuron(netuid, hotkey, coldkey, stake.into());
     increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
@@ -971,7 +972,7 @@ pub fn step_rate_limit(transaction_type: &TransactionType, netuid: NetUid) {
 pub fn increase_stake_on_coldkey_hotkey_account(
     coldkey: &U256,
     hotkey: &U256,
-    tao_staked: TaoCurrency,
+    tao_staked: TaoBalance,
     netuid: NetUid,
 ) {
     SubtensorModule::stake_into_subnet(
@@ -991,7 +992,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
 /// * `hotkey` - The hotkey account ID.
 /// * `increment` - The amount to be incremented.
 #[allow(dead_code)]
-pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoCurrency, netuid: NetUid) {
+pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoBalance, netuid: NetUid) {
     increase_stake_on_coldkey_hotkey_account(
         &SubtensorModule::get_owning_coldkey_for_hotkey(hotkey),
         hotkey,
@@ -1000,12 +1001,12 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoCurrency, n
     );
 }
 
-pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }
 
-pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurrency, u64) {
+pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoBalance) -> (AlphaBalance, u64) {
     if netuid.is_root() {
         return (tao.to_u64().into(), 0);
     }
@@ -1024,23 +1025,23 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
     let result = result.unwrap();
 
     // we don't want to have silent 0 comparisons in tests
-    assert!(result.amount_paid_out > AlphaCurrency::ZERO);
+    assert!(result.amount_paid_out > AlphaBalance::ZERO);
 
     (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao_ext(
     netuid: NetUid,
-    alpha: AlphaCurrency,
+    alpha: AlphaBalance,
     drop_fees: bool,
-) -> (TaoCurrency, u64) {
+) -> (TaoBalance, u64) {
     if netuid.is_root() {
         return (alpha.to_u64().into(), 0);
     }
 
     println!(
         "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
-        <Test as pallet::Config>::SwapInterface::min_price::<TaoCurrency>()
+        <Test as pallet::Config>::SwapInterface::min_price::<TaoBalance>()
     );
 
     let order = GetTaoForAlpha::<Test>::with_amount(alpha);
@@ -1062,7 +1063,7 @@ pub(crate) fn swap_alpha_to_tao_ext(
     (result.amount_paid_out, result.fee_paid.into())
 }
 
-pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (TaoCurrency, u64) {
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaBalance) -> (TaoBalance, u64) {
     swap_alpha_to_tao_ext(netuid, alpha, false)
 }
 
@@ -1086,4 +1087,15 @@ pub fn commit_dummy(who: U256, netuid: NetUid) {
         netuid,
         hash
     ));
+}
+
+#[allow(dead_code)]
+pub fn sf_to_u128(sf: &SafeFloat) -> u128 {
+    let alpha_f64: f64 = sf.into();
+    alpha_f64 as u128
+}
+
+#[allow(dead_code)]
+pub fn sf_from_u64(val: u64) -> SafeFloat {
+    SafeFloat::from(val)
 }

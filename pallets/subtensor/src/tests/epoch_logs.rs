@@ -13,7 +13,7 @@ use frame_support::assert_ok;
 use sp_core::U256;
 use std::io::{Result as IoResult, Write};
 use std::sync::{Arc, Mutex};
-use subtensor_runtime_common::{AlphaCurrency, MechId};
+use subtensor_runtime_common::{AlphaBalance, MechId};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt};
 
 const NETUID: u16 = 1;
@@ -81,7 +81,7 @@ fn setup_epoch(neurons: Vec<Neuron>, mechanism_count: u8) {
             &hotkey,
             &U256::from(COLDKEY),
             netuid,
-            AlphaCurrency::from(neuron.alpha_stake),
+            AlphaBalance::from(neuron.alpha_stake),
         );
     });
 
@@ -175,7 +175,7 @@ fn test_simple() {
             setup_epoch(neurons.to_vec(), 1);
 
             // Run epoch, watch logs
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
         });
 
@@ -194,7 +194,7 @@ fn test_simple() {
         assert!(has("Normalized Validator Emission: [0.5, 0.5]"));
         assert!(has("Normalized Combined Emission: [0.5, 0.5]"));
         assert!(has(
-            "Combined Emission: [AlphaCurrency(500000000), AlphaCurrency(500000000)]"
+            "Combined Emission: [AlphaBalance(500000000), AlphaBalance(500000000)]"
         ));
         assert!(!has("math error:"));
     });
@@ -214,7 +214,7 @@ fn test_bad_permit_vector() {
             ValidatorPermit::<Test>::insert(NetUid::from(NETUID), vec![true]);
 
             // Run epoch, watch logs
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
         });
 
@@ -224,7 +224,7 @@ fn test_bad_permit_vector() {
             "math error: inplace_mask_vector input lengths are not equal"
         ));
         assert!(has(
-            "Validator Emission: [AlphaCurrency(1000000000), AlphaCurrency(0)]"
+            "Validator Emission: [AlphaBalance(1000000000), AlphaBalance(0)]"
         ));
     });
 }
@@ -242,7 +242,7 @@ fn test_inactive_mask_zeroes_active_stake() {
             ];
             setup_epoch(neurons.to_vec(), 1);
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
         });
 
@@ -270,7 +270,7 @@ fn test_validator_permit_masks_active_stake() {
             let netuid = NetUid::from(NETUID);
             ValidatorPermit::<Test>::insert(netuid, vec![true, false]);
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
         });
 
@@ -295,7 +295,7 @@ fn yuma_emergency_mode() {
             setup_epoch(neurons.to_vec(), 1);
 
             // No weights needed; keep defaults empty to make ranks/dividends zero.
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
         });
 
@@ -318,7 +318,7 @@ fn epoch_uses_active_stake_when_nonzero_active() {
             ];
             setup_epoch(neurons.to_vec(), 1);
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(NetUid::from(NETUID), MechId::from(0), emission);
         });
 
@@ -346,7 +346,7 @@ fn epoch_topk_validator_permits() {
             let netuid = NetUid::from(NETUID);
             MaxAllowedValidators::<Test>::insert(netuid, 1u16);
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
         });
 
@@ -374,7 +374,7 @@ fn epoch_yuma3_bonds_pipeline() {
             let netuid = NetUid::from(NETUID);
             Yuma3On::<Test>::insert(netuid, true);
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
         });
 
@@ -401,7 +401,7 @@ fn epoch_original_yuma_bonds_pipeline() {
             let netuid = NetUid::from(NETUID);
             Yuma3On::<Test>::insert(netuid, false);
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
         });
 
@@ -441,7 +441,7 @@ fn test_validators_weight_two_distinct_servers() {
                 vec![3, 4],
             );
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
         });
 
@@ -490,7 +490,7 @@ fn test_validator_splits_weight_across_two_servers() {
                 vec![3, 4],
             );
 
-            let emission = AlphaCurrency::from(1_000_000_000);
+            let emission = AlphaBalance::from(1_000_000_000);
             SubtensorModule::epoch_mechanism(netuid, MechId::from(0), emission);
         });
 
@@ -532,7 +532,7 @@ fn epoch_mechanism_reads_weights_per_mechanism() {
             ],
         );
         let logs_m0 = with_log_capture("trace", || {
-            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), AlphaCurrency::from(1_000));
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), AlphaBalance::from(1_000));
         });
 
         // Mech 1: flipped routing: V0,V2 -> server 4 ; V1 -> server 3
@@ -546,7 +546,7 @@ fn epoch_mechanism_reads_weights_per_mechanism() {
             ],
         );
         let logs_m1 = with_log_capture("trace", || {
-            SubtensorModule::epoch_mechanism(netuid, MechId::from(1), AlphaCurrency::from(1_000));
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(1), AlphaBalance::from(1_000));
         });
 
         // Both should run the full pipeline…
@@ -608,13 +608,13 @@ fn epoch_mechanism_three_mechanisms_separate_state() {
         );
 
         let l0 = with_log_capture("trace", || {
-            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), AlphaCurrency::from(1_000));
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(0), AlphaBalance::from(1_000));
         });
         let l1 = with_log_capture("trace", || {
-            SubtensorModule::epoch_mechanism(netuid, MechId::from(1), AlphaCurrency::from(1_000));
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(1), AlphaBalance::from(1_000));
         });
         let l2 = with_log_capture("trace", || {
-            SubtensorModule::epoch_mechanism(netuid, MechId::from(2), AlphaCurrency::from(1_000));
+            SubtensorModule::epoch_mechanism(netuid, MechId::from(2), AlphaBalance::from(1_000));
         });
 
         // Check major epoch indicators

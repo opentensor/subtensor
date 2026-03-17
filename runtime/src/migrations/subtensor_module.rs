@@ -6,7 +6,7 @@ use log;
 use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget};
 use scale_info::prelude::string::String;
 use sp_runtime::traits::SaturatedConversion;
-use subtensor_runtime_common::TaoCurrency;
+use subtensor_runtime_common::TaoBalance;
 use subtensor_runtime_common::rate_limiting::{GROUP_REGISTER_NETWORK, GroupId};
 
 use pallet_subtensor::{
@@ -67,7 +67,7 @@ where
     );
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
-    SubtensorPallet::<T>::set_network_last_lock(TaoCurrency::from(1_000_000_000_000));
+    SubtensorPallet::<T>::set_network_last_lock(TaoBalance::from(1_000_000_000_000_u64));
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Hold price at 2000 TAO until day 7, then begin linear decay
@@ -129,7 +129,7 @@ where
     let block_to_set = if current_block == 0 { 1 } else { current_block };
 
     // Set last_lock so that price = 2 * last_lock = 2,500 TAO at this block
-    SubtensorPallet::<T>::set_network_last_lock(TaoCurrency::from(NEW_LAST_LOCK_RAO));
+    SubtensorPallet::<T>::set_network_last_lock(TaoBalance::from(NEW_LAST_LOCK_RAO));
     weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     // Mirror the register-network last seen in pallet-rate-limiting.
@@ -163,7 +163,7 @@ mod tests {
     use pallet_rate_limiting::{RateLimit, RateLimitKind, RateLimitTarget};
     use sp_io::TestExternalities;
     use sp_runtime::traits::SaturatedConversion;
-    use subtensor_runtime_common::Currency;
+    use subtensor_runtime_common::Token;
     use subtensor_runtime_common::rate_limiting::GROUP_REGISTER_NETWORK;
 
     use super::*;

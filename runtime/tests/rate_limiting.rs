@@ -5,7 +5,9 @@ use codec::{Compact, Encode};
 use frame_support::{assert_ok, traits::Get};
 use node_subtensor_runtime::{
     Executive, HotkeySwapOnSubnetInterval, Runtime, RuntimeCall, SignedPayload,
-    SubtensorInitialTxDelegateTakeRateLimit, System, TxExtension, UncheckedExtrinsic, check_nonce,
+    SubtensorInitialTxDelegateTakeRateLimit, System, TxExtension, UncheckedExtrinsic,
+    check_mortality::CheckMortality,
+    check_nonce,
     rate_limiting::legacy::{Hyperparameter, RateLimitKey, storage as legacy_storage},
     sudo_wrapper, transaction_payment_wrapper,
 };
@@ -19,7 +21,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use subtensor_runtime_common::{
-    AccountId, AlphaCurrency, Currency, MechId, NetUid, TaoCurrency,
+    AccountId, AlphaBalance, MechId, NetUid, TaoBalance, Token,
     rate_limiting::{GROUP_REGISTER_NETWORK, GROUP_SWAP_KEYS, RateLimitUsageKey},
 };
 
@@ -60,12 +62,12 @@ fn signed_extrinsic(call: RuntimeCall, pair: &sr25519::Pair, nonce: u32) -> Unch
             frame_system::CheckSpecVersion::<Runtime>::new(),
             frame_system::CheckTxVersion::<Runtime>::new(),
             frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+            CheckMortality::<Runtime>::from(Era::Immortal),
             check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
             frame_system::CheckWeight::<Runtime>::new(),
         ),
         (
-            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(0),
+            transaction_payment_wrapper::ChargeTransactionPaymentWrapper::new(TaoBalance::ZERO),
             sudo_wrapper::SudoTransactionExtension::<Runtime>::new(),
             pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
             pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
@@ -152,14 +154,14 @@ mod register_network {
             let last_lock = pallet_subtensor::Pallet::<Runtime>::get_network_last_lock();
             let min_lock = pallet_subtensor::Pallet::<Runtime>::get_network_min_lock();
             let interval = pallet_subtensor::Pallet::<Runtime>::get_lock_reduction_interval();
-            let expected_at_last_seen: TaoCurrency = {
-                let mut cost: TaoCurrency = (u64::from(last_lock) * 2).into();
+            let expected_at_last_seen: TaoBalance = {
+                let mut cost: TaoBalance = (u64::from(last_lock) * 2).into();
                 if cost < min_lock {
                     cost = min_lock;
                 }
                 cost
             };
-            let per_block_decay: TaoCurrency = (u64::from(last_lock) / interval).into();
+            let per_block_decay: TaoBalance = (u64::from(last_lock) / interval).into();
 
             System::set_block_number(last_seen.saturated_into());
             let actual_at_last_seen = pallet_subtensor::Pallet::<Runtime>::get_network_lock_cost();
@@ -733,7 +735,7 @@ mod staking_ops {
             hotkey,
             coldkey,
             netuid,
-            AlphaCurrency::from(alpha),
+            AlphaBalance::from(alpha),
         );
     }
 
@@ -910,7 +912,7 @@ mod staking_ops {
                         &coldkey,
                         origin_netuid,
                     );
-                let swap_alpha = AlphaCurrency::from(alpha.to_u64() / 2);
+                let swap_alpha = AlphaBalance::from(alpha.to_u64() / 2);
                 let swap_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake {
                     hotkey: hotkey.clone(),
                     origin_netuid,

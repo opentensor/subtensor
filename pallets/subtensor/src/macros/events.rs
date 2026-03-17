@@ -17,8 +17,8 @@ mod events {
         StakeAdded(
             T::AccountId,
             T::AccountId,
-            TaoCurrency,
-            AlphaCurrency,
+            TaoBalance,
+            AlphaBalance,
             NetUid,
             u64,
         ),
@@ -26,8 +26,8 @@ mod events {
         StakeRemoved(
             T::AccountId,
             T::AccountId,
-            TaoCurrency,
-            AlphaCurrency,
+            TaoBalance,
+            AlphaBalance,
             NetUid,
             u64,
         ),
@@ -38,7 +38,7 @@ mod events {
             NetUid,
             T::AccountId,
             NetUid,
-            TaoCurrency,
+            TaoBalance,
         ),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(NetUidStorageIndex, u16),
@@ -100,11 +100,11 @@ mod events {
         /// setting max difficulty on a network.
         MaxDifficultySet(NetUid, u64),
         /// setting burn on a network.
-        BurnSet(NetUid, TaoCurrency),
+        BurnSet(NetUid, TaoBalance),
         /// setting max burn on a network.
-        MaxBurnSet(NetUid, TaoCurrency),
+        MaxBurnSet(NetUid, TaoBalance),
         /// setting min burn on a network.
-        MinBurnSet(NetUid, TaoCurrency),
+        MinBurnSet(NetUid, TaoBalance),
         /// setting the childkey take transaction rate limit.
         TxChildKeyTakeRateLimitSet(u64),
         /// setting the admin freeze window length (last N blocks of tempo)
@@ -124,7 +124,7 @@ mod events {
         /// setting tempo on a network
         TempoSet(NetUid, u16),
         /// setting the RAO recycled for registration.
-        RAORecycledForRegistrationSet(NetUid, TaoCurrency),
+        RAORecycledForRegistrationSet(NetUid, TaoBalance),
         /// min stake is set for validators to set weights.
         StakeThresholdSet(u64),
         /// setting the adjustment alpha on a subnet.
@@ -138,7 +138,7 @@ mod events {
         /// the start call delay is set.
         StartCallDelaySet(u64),
         /// the network minimum locking cost is set.
-        NetworkMinLockCostSet(TaoCurrency),
+        NetworkMinLockCostSet(TaoBalance),
         /// the maximum number of subnets is set
         SubnetLimitSet(u16),
         /// the lock cost reduction is set
@@ -279,14 +279,14 @@ mod events {
             T::AccountId,
             NetUid,
             NetUid,
-            TaoCurrency,
+            TaoBalance,
         ),
 
         /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
         ///
         /// Parameters:
         /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
-        StakeSwapped(T::AccountId, T::AccountId, NetUid, NetUid, TaoCurrency),
+        StakeSwapped(T::AccountId, T::AccountId, NetUid, NetUid, TaoBalance),
 
         /// Event called when transfer is toggled on a subnet.
         ///
@@ -310,13 +310,13 @@ mod events {
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaRecycled(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
+        AlphaRecycled(T::AccountId, T::AccountId, AlphaBalance, NetUid),
 
         /// Alpha have been burned without reducing AlphaOut.
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaBurned(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
+        AlphaBurned(T::AccountId, T::AccountId, AlphaBalance, NetUid),
 
         /// An EVM key has been associated with a hotkey.
         EvmKeyAssociated {
@@ -417,7 +417,7 @@ mod events {
             /// Owner (coldkey) account associated with the hotkey.
             owner: T::AccountId,
             /// Amount of alpha auto-staked.
-            incentive: AlphaCurrency,
+            incentive: AlphaBalance,
         },
 
         /// End-of-epoch miner incentive alpha by UID
@@ -425,7 +425,7 @@ mod events {
             /// Subnet identifier.
             netuid: NetUidStorageIndex,
             /// UID-indexed array of miner incentive alpha; index equals UID.
-            emissions: Vec<AlphaCurrency>,
+            emissions: Vec<AlphaBalance>,
         },
 
         /// The minimum allowed UIDs for a subnet have been set.
@@ -502,7 +502,7 @@ mod events {
             /// The contributor
             contributor: T::AccountId,
             /// The amount of alpha distributed
-            alpha: AlphaCurrency,
+            alpha: AlphaBalance,
         },
 
         /// "Add stake and burn" event: alpha token was purchased and burned.
@@ -512,9 +512,22 @@ mod events {
             /// hotky account ID
             hotkey: T::AccountId,
             /// Tao provided
-            amount: TaoCurrency,
+            amount: TaoBalance,
             /// Alpha burned
-            alpha: AlphaCurrency,
+            alpha: AlphaBalance,
+        },
+
+        /// Transaction fee was paid in Alpha.
+        ///
+        /// Emitted in addition to `TransactionFeePaid` when the fee payment path is Alpha.
+        /// `alpha_fee` is the exact Alpha amount deducted.
+        TransactionFeePaidWithAlpha {
+            /// Account that paid the transaction fee.
+            who: T::AccountId,
+            /// Exact fee deducted in Alpha units.
+            alpha_fee: AlphaBalance,
+            /// Resulting swapped TAO amount
+            tao_amount: TaoBalance,
         },
     }
 }

@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{AlphaCurrency, Currency, CurrencyReserve, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token, TokenReserve};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -92,6 +92,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
+    use share_pool::SafeFloat;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
@@ -102,7 +103,7 @@ pub mod pallet {
     use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
     use subtensor_macros::freeze_struct;
     use subtensor_runtime_common::{
-        AlphaCurrency, Currency, MechId, NetUid, NetUidStorageIndex, TaoCurrency,
+        AlphaBalance, MechId, NetUid, NetUidStorageIndex, TaoBalance, Token,
     };
 
     /// Origin for the pallet
@@ -117,7 +118,7 @@ pub mod pallet {
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
     /// Minimum balance required to perform a coldkey swap
-    pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO in RAO
+    pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO in RAO
 
     /// Minimum commit reveal periods
     pub const MIN_COMMIT_REVEAL_PEROIDS: u64 = 1;
@@ -383,14 +384,14 @@ pub mod pallet {
     }
     /// Default value for Alpha currency.
     #[pallet::type_value]
-    pub fn DefaultZeroAlpha<T: Config>() -> AlphaCurrency {
-        AlphaCurrency::ZERO
+    pub fn DefaultZeroAlpha<T: Config>() -> AlphaBalance {
+        AlphaBalance::ZERO
     }
 
     /// Default value for Tao currency.
     #[pallet::type_value]
-    pub fn DefaultZeroTao<T: Config>() -> TaoCurrency {
-        TaoCurrency::ZERO
+    pub fn DefaultZeroTao<T: Config>() -> TaoBalance {
+        TaoBalance::ZERO
     }
 
     /// Default value for zero.
@@ -479,7 +480,7 @@ pub mod pallet {
 
     /// Default total issuance.
     #[pallet::type_value]
-    pub fn DefaultTotalIssuance<T: Config>() -> TaoCurrency {
+    pub fn DefaultTotalIssuance<T: Config>() -> TaoBalance {
         T::InitialIssuance::get().into()
     }
 
@@ -538,19 +539,19 @@ pub mod pallet {
 
     /// Default registrations this block.
     #[pallet::type_value]
-    pub fn DefaultBurn<T: Config>() -> TaoCurrency {
+    pub fn DefaultBurn<T: Config>() -> TaoBalance {
         T::InitialBurn::get().into()
     }
 
     /// Default burn token.
     #[pallet::type_value]
-    pub fn DefaultMinBurn<T: Config>() -> TaoCurrency {
+    pub fn DefaultMinBurn<T: Config>() -> TaoBalance {
         T::InitialMinBurn::get().into()
     }
 
     /// Default min burn token.
     #[pallet::type_value]
-    pub fn DefaultMaxBurn<T: Config>() -> TaoCurrency {
+    pub fn DefaultMaxBurn<T: Config>() -> TaoBalance {
         T::InitialMaxBurn::get().into()
     }
 
@@ -580,7 +581,7 @@ pub mod pallet {
 
     /// Default max registrations per block.
     #[pallet::type_value]
-    pub fn DefaultRAORecycledForRegistration<T: Config>() -> TaoCurrency {
+    pub fn DefaultRAORecycledForRegistration<T: Config>() -> TaoBalance {
         T::InitialRAORecycledForRegistration::get().into()
     }
 
@@ -628,7 +629,7 @@ pub mod pallet {
 
     /// Default value for network min lock cost.
     #[pallet::type_value]
-    pub fn DefaultNetworkMinLockCost<T: Config>() -> TaoCurrency {
+    pub fn DefaultNetworkMinLockCost<T: Config>() -> TaoBalance {
         T::InitialNetworkMinLockCost::get().into()
     }
 
@@ -665,7 +666,7 @@ pub mod pallet {
 
     /// Default value for pending emission.
     #[pallet::type_value]
-    pub fn DefaultPendingEmission<T: Config>() -> AlphaCurrency {
+    pub fn DefaultPendingEmission<T: Config>() -> AlphaBalance {
         0.into()
     }
 
@@ -932,7 +933,7 @@ pub mod pallet {
 
     /// Default minimum stake.
     #[pallet::type_value]
-    pub fn DefaultMinStake<T: Config>() -> TaoCurrency {
+    pub fn DefaultMinStake<T: Config>() -> TaoBalance {
         2_000_000.into()
     }
 
@@ -1158,7 +1159,7 @@ pub mod pallet {
         NetUid,
         Blake2_128Concat,
         T::AccountId,
-        AlphaCurrency,
+        AlphaBalance,
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
@@ -1171,7 +1172,7 @@ pub mod pallet {
         NetUid,
         Blake2_128Concat,
         T::AccountId,
-        AlphaCurrency,
+        AlphaBalance,
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
@@ -1191,7 +1192,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        AlphaCurrency,
+        AlphaBalance,
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
@@ -1213,11 +1214,11 @@ pub mod pallet {
 
     /// --- ITEM ( total_issuance )
     #[pallet::storage]
-    pub type TotalIssuance<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultTotalIssuance<T>>;
+    pub type TotalIssuance<T> = StorageValue<_, TaoBalance, ValueQuery, DefaultTotalIssuance<T>>;
 
     /// --- ITEM ( total_stake )
     #[pallet::storage]
-    pub type TotalStake<T> = StorageValue<_, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+    pub type TotalStake<T> = StorageValue<_, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
     /// --- ITEM ( moving_alpha ) -- subnet moving alpha.
     #[pallet::storage]
@@ -1241,42 +1242,42 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> tao_in_subnet | Returns the amount of TAO in the subnet.
     #[pallet::storage]
     pub type SubnetTAO<T: Config> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
     /// --- MAP ( netuid ) --> tao_in_user_subnet | Returns the amount of TAO in the subnet reserve provided by users as liquidity.
     #[pallet::storage]
     pub type SubnetTaoProvided<T: Config> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
     /// --- MAP ( netuid ) --> alpha_in_emission | Returns the amount of alph in  emission into the pool per block.
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     #[pallet::storage]
     pub type SubnetAlphaOutEmission<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     #[pallet::storage]
     pub type SubnetTaoInEmission<T: Config> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     #[pallet::storage]
     pub type SubnetAlphaIn<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_user_in_pool | Returns the amount of alpha in the pool provided by users as liquidity.
     #[pallet::storage]
     pub type SubnetAlphaInProvided<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     #[pallet::storage]
     pub type SubnetAlphaOut<T: Config> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     #[pallet::storage]
@@ -1342,7 +1343,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        AlphaCurrency,
+        AlphaBalance,
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
@@ -1355,7 +1356,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         NetUid,
-        AlphaCurrency,
+        AlphaBalance,
         ValueQuery,
         DefaultZeroAlpha<T>,
     >;
@@ -1386,9 +1387,39 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet, stores SafeFloat.
+    #[pallet::storage]
+    pub type TotalHotkeySharesV2<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // hot
+        Identity,
+        NetUid,    // subnet
+        SafeFloat, // Hotkey shares in unlimited precision
+        ValueQuery,
+    >;
+
+    /// --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet, stores SafeFloat.
+    #[pallet::storage]
+    pub type AlphaV2<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        SafeFloat, // Shares in unlimited precision
+        ValueQuery,
+    >;
+
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
     pub type AlphaMapLastKey<T: Config> =
+        StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
+
+    /// Contains last AlphaV2 storage map key to iterate (check first)
+    #[pallet::storage]
+    pub type AlphaV2MapLastKey<T: Config> =
         StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
 
     /// --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
@@ -1470,12 +1501,12 @@ pub mod pallet {
     /// ITEM( min_network_lock_cost )
     #[pallet::storage]
     pub type NetworkMinLockCost<T> =
-        StorageValue<_, TaoCurrency, ValueQuery, DefaultNetworkMinLockCost<T>>;
+        StorageValue<_, TaoBalance, ValueQuery, DefaultNetworkMinLockCost<T>>;
 
     /// ITEM( last_network_lock_cost )
     #[pallet::storage]
     pub type NetworkLastLockCost<T> =
-        StorageValue<_, TaoCurrency, ValueQuery, DefaultNetworkMinLockCost<T>>;
+        StorageValue<_, TaoBalance, ValueQuery, DefaultNetworkMinLockCost<T>>;
 
     /// ITEM( network_lock_reduction_interval )
     #[pallet::storage]
@@ -1514,7 +1545,7 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> total_subnet_locked
     #[pallet::storage]
     pub type SubnetLocked<T: Config> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultZeroTao<T>>;
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
     /// --- MAP ( netuid ) --> largest_locked
     #[pallet::storage]
@@ -1581,22 +1612,22 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> pending_server_emission
     #[pallet::storage]
     pub type PendingServerEmission<T> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> pending_validator_emission
     #[pallet::storage]
     pub type PendingValidatorEmission<T> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> pending_root_alpha_emission
     #[pallet::storage]
     pub type PendingRootAlphaDivs<T> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> pending_owner_cut
     #[pallet::storage]
     pub type PendingOwnerCut<T> =
-        StorageMap<_, Identity, NetUid, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( netuid ) --> blocks_since_last_step
     #[pallet::storage]
@@ -1743,7 +1774,7 @@ pub mod pallet {
 
     /// --- MAP ( netuid ) --> Burn
     #[pallet::storage]
-    pub type Burn<T> = StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultBurn<T>>;
+    pub type Burn<T> = StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultBurn<T>>;
 
     /// --- MAP ( netuid ) --> Difficulty
     #[pallet::storage]
@@ -1752,12 +1783,12 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> MinBurn
     #[pallet::storage]
     pub type MinBurn<T> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultMinBurn<T>>;
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultMinBurn<T>>;
 
     /// --- MAP ( netuid ) --> MaxBurn
     #[pallet::storage]
     pub type MaxBurn<T> =
-        StorageMap<_, Identity, NetUid, TaoCurrency, ValueQuery, DefaultMaxBurn<T>>;
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultMaxBurn<T>>;
 
     /// --- MAP ( netuid ) --> MinDifficulty
     #[pallet::storage]
@@ -1790,7 +1821,7 @@ pub mod pallet {
         _,
         Identity,
         NetUid,
-        TaoCurrency,
+        TaoBalance,
         ValueQuery,
         DefaultRAORecycledForRegistration<T>,
     >;
@@ -1950,7 +1981,7 @@ pub mod pallet {
 
     /// --- MAP ( netuid ) --> emission
     #[pallet::storage]
-    pub type Emission<T: Config> = StorageMap<_, Identity, NetUid, Vec<AlphaCurrency>, ValueQuery>;
+    pub type Emission<T: Config> = StorageMap<_, Identity, NetUid, Vec<AlphaBalance>, ValueQuery>;
 
     /// Last updated weights per neuron (used for activity/outdated masking in epochs).
     /// This is not rate-limiting state; rate-limiting uses `pallet-rate-limiting` last-seen.
@@ -2259,7 +2290,7 @@ pub mod pallet {
     /// --- MAP ( lease_id ) --> accumulated_dividends | The accumulated dividends for a given lease that needs to be distributed.
     #[pallet::storage]
     pub type AccumulatedLeaseDividends<T: Config> =
-        StorageMap<_, Twox64Concat, LeaseId, AlphaCurrency, ValueQuery, DefaultZeroAlpha<T>>;
+        StorageMap<_, Twox64Concat, LeaseId, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- ITEM ( CommitRevealWeightsVersion )
     #[pallet::storage]
@@ -2342,7 +2373,7 @@ pub mod pallet {
         /// Stakes record in genesis.
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         /// The total issued balance in genesis
-        pub balances_issuance: TaoCurrency,
+        pub balances_issuance: TaoBalance,
         /// The delay before a subnet can call start
         pub start_call_delay: Option<u64>,
     }
@@ -2351,7 +2382,7 @@ pub mod pallet {
         fn default() -> Self {
             Self {
                 stakes: Default::default(),
-                balances_issuance: TaoCurrency::ZERO,
+                balances_issuance: TaoBalance::ZERO,
                 start_call_delay: None,
             }
         }
@@ -2410,47 +2441,47 @@ use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
 #[derive(Clone)]
-pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
+pub struct TaoBalanceReserve<T: Config>(PhantomData<T>);
 
-impl<T: Config> CurrencyReserve<TaoCurrency> for TaoCurrencyReserve<T> {
+impl<T: Config> TokenReserve<TaoBalance> for TaoBalanceReserve<T> {
     #![deny(clippy::expect_used)]
-    fn reserve(netuid: NetUid) -> TaoCurrency {
+    fn reserve(netuid: NetUid) -> TaoBalance {
         SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
     }
 
-    fn increase_provided(netuid: NetUid, tao: TaoCurrency) {
+    fn increase_provided(netuid: NetUid, tao: TaoBalance) {
         Pallet::<T>::increase_provided_tao_reserve(netuid, tao);
     }
 
-    fn decrease_provided(netuid: NetUid, tao: TaoCurrency) {
+    fn decrease_provided(netuid: NetUid, tao: TaoBalance) {
         Pallet::<T>::decrease_provided_tao_reserve(netuid, tao);
     }
 }
 
 #[derive(Clone)]
-pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
+pub struct AlphaBalanceReserve<T: Config>(PhantomData<T>);
 
-impl<T: Config> CurrencyReserve<AlphaCurrency> for AlphaCurrencyReserve<T> {
+impl<T: Config> TokenReserve<AlphaBalance> for AlphaBalanceReserve<T> {
     #![deny(clippy::expect_used)]
-    fn reserve(netuid: NetUid) -> AlphaCurrency {
+    fn reserve(netuid: NetUid) -> AlphaBalance {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
     }
 
-    fn increase_provided(netuid: NetUid, alpha: AlphaCurrency) {
+    fn increase_provided(netuid: NetUid, alpha: AlphaBalance) {
         Pallet::<T>::increase_provided_alpha_reserve(netuid, alpha);
     }
 
-    fn decrease_provided(netuid: NetUid, alpha: AlphaCurrency) {
+    fn decrease_provided(netuid: NetUid, alpha: AlphaBalance) {
         Pallet::<T>::decrease_provided_alpha_reserve(netuid, alpha);
     }
 }
 
 pub type GetAlphaForTao<T> =
-    subtensor_swap_interface::GetAlphaForTao<TaoCurrencyReserve<T>, AlphaCurrencyReserve<T>>;
+    subtensor_swap_interface::GetAlphaForTao<TaoBalanceReserve<T>, AlphaBalanceReserve<T>>;
 pub type GetTaoForAlpha<T> =
-    subtensor_swap_interface::GetTaoForAlpha<AlphaCurrencyReserve<T>, TaoCurrencyReserve<T>>;
+    subtensor_swap_interface::GetTaoForAlpha<AlphaBalanceReserve<T>, TaoBalanceReserve<T>>;
 
-impl<T: Config + pallet_balances::Config<Balance = u64>>
+impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
     subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
 {
     #![deny(clippy::expect_used)]
@@ -2483,11 +2514,11 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
     }
 }
 
-impl<T: Config + pallet_balances::Config<Balance = u64>>
+impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
     subtensor_runtime_common::BalanceOps<T::AccountId> for Pallet<T>
 {
     #![deny(clippy::expect_used)]
-    fn tao_balance(account_id: &T::AccountId) -> TaoCurrency {
+    fn tao_balance(account_id: &T::AccountId) -> TaoBalance {
         pallet_balances::Pallet::<T>::free_balance(account_id).into()
     }
 
@@ -2495,18 +2526,18 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         netuid: NetUid,
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-    ) -> AlphaCurrency {
+    ) -> AlphaBalance {
         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
     }
 
-    fn increase_balance(coldkey: &T::AccountId, tao: TaoCurrency) {
+    fn increase_balance(coldkey: &T::AccountId, tao: TaoBalance) {
         Self::add_balance_to_coldkey_account(coldkey, tao.into())
     }
 
     fn decrease_balance(
         coldkey: &T::AccountId,
-        tao: TaoCurrency,
-    ) -> Result<TaoCurrency, DispatchError> {
+        tao: TaoBalance,
+    ) -> Result<TaoBalance, DispatchError> {
         Self::remove_balance_from_coldkey_account(coldkey, tao.into())
     }
 
@@ -2514,7 +2545,7 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        alpha: AlphaCurrency,
+        alpha: AlphaBalance,
     ) -> Result<(), DispatchError> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
@@ -2535,11 +2566,16 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
-        alpha: AlphaCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+        alpha: AlphaBalance,
+    ) -> Result<(), DispatchError> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
+        );
+
+        ensure!(
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) >= alpha,
+            Error::<T>::InsufficientBalance
         );
 
         // Decrese alpha out counter
@@ -2547,9 +2583,9 @@ impl<T: Config + pallet_balances::Config<Balance = u64>>
             *total = total.saturating_sub(alpha);
         });
 
-        Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey, coldkey, netuid, alpha,
-        ))
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+
+        Ok(())
     }
 }
 
