@@ -241,6 +241,7 @@ pub fn build_manual_seal_import_queue(
         crate::conditional_evm_block_import::ConditionalEVMBlockImport::new(
             grandpa_block_import.clone(),
             fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+            false,
         );
     Ok((
         sc_consensus_manual_seal::import_queue(
@@ -259,6 +260,7 @@ pub async fn new_full<NB, CM>(
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
     custom_service_signal: Option<Arc<AtomicBool>>,
+    skip_history_backfill: bool,
 ) -> Result<TaskManager, ServiceError>
 where
     NumberFor<Block>: BlockNumberOps,
@@ -275,7 +277,7 @@ where
     }
 
     let mut consensus_mechanism = CM::new();
-    let build_import_queue = consensus_mechanism.build_biq()?;
+    let build_import_queue = consensus_mechanism.build_biq(skip_history_backfill)?;
 
     let PartialComponents {
         client,
@@ -660,6 +662,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
     custom_service_signal: Option<Arc<AtomicBool>>,
+    skip_history_backfill: bool,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         sc_network::config::NetworkBackendType::Libp2p => {
@@ -668,6 +671,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
                 eth_config,
                 sealing,
                 custom_service_signal,
+                skip_history_backfill,
             )
             .await
         }
@@ -677,6 +681,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
                 eth_config,
                 sealing,
                 custom_service_signal,
+                skip_history_backfill,
             )
             .await
         }
@@ -686,6 +691,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
 pub fn new_chain_ops<CM: ConsensusMechanism>(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
+    skip_history_backfill: bool,
 ) -> Result<
     (
         Arc<FullClient>,
@@ -705,7 +711,11 @@ pub fn new_chain_ops<CM: ConsensusMechanism>(
         task_manager,
         other,
         ..
-    } = new_partial(config, eth_config, consensus_mechanism.build_biq()?)?;
+    } = new_partial(
+        config,
+        eth_config,
+        consensus_mechanism.build_biq(skip_history_backfill)?,
+    )?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
