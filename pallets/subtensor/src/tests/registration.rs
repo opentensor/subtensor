@@ -37,11 +37,6 @@ fn test_init_new_network_registration_defaults() {
             SubtensorModule::get_burn(netuid),
             TaoBalance::from(RAO_PER_TAO)
         );
-
-        assert_eq!(
-            BurnLastHalvingBlock::<Test>::get(netuid),
-            SubtensorModule::get_current_block_as_u64()
-        );
     });
 }
 
@@ -293,7 +288,6 @@ fn test_burn_increases_next_block_after_registration() {
         // - x2 bump on the block after registration
         BurnHalfLife::<Test>::insert(netuid, 1_000);
         BurnIncreaseMult::<Test>::insert(netuid, 2);
-        BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
@@ -327,7 +321,6 @@ fn test_burn_halves_every_half_life() {
 
         BurnHalfLife::<Test>::insert(netuid, 2);
         BurnIncreaseMult::<Test>::insert(netuid, 1);
-        BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
         SubtensorModule::set_burn(netuid, 1_024u64.into());
 
@@ -349,7 +342,6 @@ fn test_burn_floor_prevents_zero_stuck_and_allows_bump() {
         // Half-life every block; multiplier 2.
         BurnHalfLife::<Test>::insert(netuid, 1);
         BurnIncreaseMult::<Test>::insert(netuid, 2);
-        BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
         // Start at 1 => halving would go to 0, but floor keeps it at 1.
         SubtensorModule::set_burn(netuid, 1u64.into());
@@ -385,7 +377,6 @@ fn test_registration_increases_recycled_rao_per_subnet() {
 
         BurnHalfLife::<Test>::insert(netuid, 1); // allow 1 reg / block
         BurnIncreaseMult::<Test>::insert(netuid, 1); // keep burn stable aside from halving
-        BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
         let coldkey = U256::from(667);

@@ -808,7 +808,6 @@ pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
     // make interval 1 block so tests can register by stepping 1 block.
     BurnHalfLife::<Test>::insert(netuid, 1);
     BurnIncreaseMult::<Test>::insert(netuid, 1);
-    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 }
 
 #[allow(dead_code)]
@@ -818,7 +817,6 @@ pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality:
 
     BurnHalfLife::<Test>::insert(netuid, 1);
     BurnIncreaseMult::<Test>::insert(netuid, 1);
-    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 }
 
 #[allow(dead_code)]
@@ -830,7 +828,6 @@ pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) 
 
     BurnHalfLife::<Test>::insert(netuid, 1);
     BurnIncreaseMult::<Test>::insert(netuid, 1);
-    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 }
 
 #[allow(dead_code)]
@@ -853,7 +850,6 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     // make interval 1 block so tests can register by stepping 1 block.
     BurnHalfLife::<Test>::insert(netuid, 1);
     BurnIncreaseMult::<Test>::insert(netuid, 1);
-    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
     netuid
 }
@@ -875,7 +871,6 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     BurnHalfLife::<Test>::insert(netuid, 1);
     BurnIncreaseMult::<Test>::insert(netuid, 1);
-    BurnLastHalvingBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
 
     netuid
 }

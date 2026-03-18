@@ -357,12 +357,6 @@ pub mod pallet {
         2
     }
 
-    /// Default block number used as the initial burn halving anchor.
-    #[pallet::type_value]
-    pub fn DefaultBurnLastHalvingBlock<T: Config>() -> u64 {
-        0
-    }
-
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
@@ -2428,11 +2422,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type BurnIncreaseMult<T> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBurnIncreaseMult<T>>;
-
-    /// --- MAP ( netuid ) --> last block at which we applied halving + interval reset
-    #[pallet::storage]
-    pub type BurnLastHalvingBlock<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBurnLastHalvingBlock<T>>;
 
     /// ==================
     /// ==== Genesis =====

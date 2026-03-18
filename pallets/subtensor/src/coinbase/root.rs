@@ -341,7 +341,6 @@ impl<T: Config> Pallet<T> {
 
         BurnHalfLife::<T>::remove(netuid);
         BurnIncreaseMult::<T>::remove(netuid);
-        BurnLastHalvingBlock::<T>::remove(netuid);
 
         Burn::<T>::remove(netuid);
         MinBurn::<T>::remove(netuid);
