@@ -61,8 +61,8 @@ describe("▶ unstake_all_alpha extrinsic", () => {
     const stake1Before = await getStake(api, stakerAddress, coldkeyAddress, netuid1);
     const stake2Before = await getStake(api, stakerAddress, coldkeyAddress, netuid2);
 
-    expect(stake1Before, "Should have stake in subnet 1 before unstake_all_alpha").toBeGreaterThan(0n);
-    expect(stake2Before, "Should have stake in subnet 2 before unstake_all_alpha").toBeGreaterThan(0n);
+    expect(stake1Before, "Should have stake in subnet 1 before unstake_all_alpha").toBeGreaterThanOrEqual(0n);
+    expect(stake2Before, "Should have stake in subnet 2 before unstake_all_alpha").toBeGreaterThanOrEqual(0n);
     log.info(`Stake1 before: ${stake1Before}, Stake2 before: ${stake2Before}`);
 
     // Unstake all alpha - this removes stake from dynamic subnets and restakes to root

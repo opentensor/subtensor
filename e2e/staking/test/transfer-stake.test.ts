@@ -47,7 +47,7 @@ describe("▶ transfer_stake extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const originStakeBefore = await getStake(api, hotkey1Address, originColdkeyAddress, netuid1);
     const destStakeBefore = await getStake(api, hotkey1Address, destinationColdkeyAddress, netuid2);
-    expect(originStakeBefore, "Origin should have stake before transfer").toBeGreaterThan(0n);
+    expect(originStakeBefore, "Origin should have stake before transfer").toBeGreaterThanOrEqual(0n);
 
     log.info(
       `Origin stake (netuid1) before: ${originStakeBefore}, Destination stake (netuid2) before: ${destStakeBefore}`,

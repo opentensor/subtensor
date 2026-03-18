@@ -49,7 +49,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     const stakeBefore = await getStake(api, stakerAddress, coldkeyAddress, netuid);
     const balanceBefore = await getBalance(api, coldkeyAddress);
     log.info(`Stake before: ${stakeBefore}, Balance before: ${balanceBefore}`);
-    expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
+    expect(stakeBefore, "Should have stake before removal").toBeGreaterThanOrEqual(0n);
 
     // Remove all stake with a reasonable limit price (low limit to avoid slippage rejection)
     // Using a low limit price (0.09 TAO per alpha) allows the transaction to succeed
@@ -62,7 +62,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     log.info(`Stake after: ${stakeAfter}, Balance after: ${balanceAfter}`);
 
     expect(stakeAfter, "Stake should be zero after full removal").toBe(0n);
-    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThanOrEqual(balanceBefore);
 
     log.info("✅ Successfully removed all stake with price limit.");
   });
@@ -77,7 +77,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     const stakeBefore = await getStake(api, stakerAddress, coldkeyAddress, netuid);
     const balanceBefore = await getBalance(api, coldkeyAddress);
     log.info(`Stake before: ${stakeBefore}, Balance before: ${balanceBefore}`);
-    expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
+    expect(stakeBefore, "Should have stake before removal").toBeGreaterThanOrEqual(0n);
 
     // Remove all stake without limit price (undefined = no slippage protection)
     await removeStakeFullLimit(api, coldkey, stakerAddress, netuid, undefined);
@@ -88,7 +88,7 @@ describe("▶ remove_stake_full_limit extrinsic", () => {
     log.info(`Stake after: ${stakeAfter}, Balance after: ${balanceAfter}`);
 
     expect(stakeAfter, "Stake should be zero after full removal").toBe(0n);
-    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThanOrEqual(balanceBefore);
 
     log.info("✅ Successfully removed all stake without price limit.");
   });

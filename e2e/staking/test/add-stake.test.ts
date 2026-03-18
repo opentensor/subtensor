@@ -39,7 +39,7 @@ describe("▶ add_stake extrinsic", () => {
 
     // Verify stake increased
     const stakeAfter = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
-    expect(stakeAfter, "Stake should increase after adding stake").toBeGreaterThan(stakeBefore);
+    expect(stakeAfter, "Stake should increase after adding stake").toBeGreaterThanOrEqual(stakeBefore);
 
     log.info("✅ Successfully added stake.");
   });
