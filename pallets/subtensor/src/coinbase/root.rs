@@ -588,9 +588,10 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>, block: u64) {
         if block == DefaultZeroU64::<T>::get() {
-            return;
+            LastRateLimitedBlock::<T>::remove(rate_limit_key);
+        } else {
+            LastRateLimitedBlock::<T>::insert(rate_limit_key, block);
         }
-        LastRateLimitedBlock::<T>::insert(rate_limit_key, block);
     }
     pub fn remove_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>) {
         LastRateLimitedBlock::<T>::remove(rate_limit_key);
