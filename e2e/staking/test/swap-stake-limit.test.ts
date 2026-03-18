@@ -48,7 +48,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const stake1Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid1);
     const stake2Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid2);
-    expect(stake1Before, "Should have stake on subnet1 before swap").toBeGreaterThanOrEqual(0n);
+    expect(stake1Before, "Should have stake on subnet1 before swap").toBeGreaterThan(0n);
 
     log.info(`Stake on netuid1 before: ${stake1Before}, Stake on netuid2 before: ${stake2Before}`);
 
@@ -65,8 +65,8 @@ describe("▶ swap_stake_limit extrinsic", () => {
 
     log.info(`Stake on netuid1 after: ${stake1After}, Stake on netuid2 after: ${stake2After}`);
 
-    expect(stake1After, "Stake on subnet1 should decrease").toBeLessThanOrEqual(stake1Before);
-    expect(stake2After, "Stake on subnet2 should increase").toBeGreaterThanOrEqual(stake2Before);
+    expect(stake1After, "Stake on subnet1 should decrease").toBeLessThan(stake1Before);
+    expect(stake2After, "Stake on subnet2 should increase").toBeGreaterThan(stake2Before);
 
     log.info("✅ Successfully swapped stake with price limit (allow partial).");
   });
@@ -103,7 +103,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
     // Get initial stakes (converted from U64F64 for display)
     const stake1Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid1);
     const stake2Before = await getStake(api, hotkey1Address, coldkeyAddress, netuid2);
-    expect(stake1Before, "Should have stake on subnet1 before swap").toBeGreaterThanOrEqual(0n);
+    expect(stake1Before, "Should have stake on subnet1 before swap").toBeGreaterThan(0n);
 
     log.info(`Stake on netuid1 before: ${stake1Before}, Stake on netuid2 before: ${stake2Before}`);
 

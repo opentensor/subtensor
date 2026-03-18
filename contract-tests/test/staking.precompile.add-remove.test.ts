@@ -65,7 +65,7 @@ describe("Test neuron precompile add remove stake", () => {
 
         assert.ok(stakeFromContract > stakeBefore)
         const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
-        assert.ok(stakeAfter >= stakeBefore)
+        assert.ok(stakeAfter > stakeBefore)
     })
 
     it("Can add stake V2", async () => {
@@ -83,7 +83,7 @@ describe("Test neuron precompile add remove stake", () => {
 
         assert.ok(stakeFromContract > stakeBefore)
         const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
-        assert.ok(stakeAfter >= stakeBefore)
+        assert.ok(stakeAfter > stakeBefore)
     })
 
     it("Can not add stake if subnet doesn't exist", async () => {
@@ -267,7 +267,7 @@ describe("Test neuron precompile add remove stake", () => {
             netuid
         )
 
-        assert.ok(stakeAfter >= stakeBefore)
+        assert.ok(stakeAfter > stakeBefore)
         // test "remove"
         tx = await contract.removeProxy(proxy.publicKey);
         await tx.wait();
@@ -326,7 +326,7 @@ describe("Test neuron precompile add remove stake", () => {
             netuid
         )
 
-        assert.ok(stakeAfter >= stakeBefore)
+        assert.ok(stakeAfter > stakeBefore)
         // test "remove"
         tx = await contract.removeProxy(proxy.publicKey);
         await tx.wait();

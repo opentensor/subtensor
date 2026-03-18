@@ -74,7 +74,7 @@ describe("Test staking precompile add remove limit methods", () => {
       netuid,
     );
 
-    assert.ok(alphaAfterAddStake >= alpha);
+    assert.ok(alphaAfterAddStake > alpha);
   });
 
   it("Staker remove limit", async () => {
@@ -108,6 +108,6 @@ describe("Test staking precompile add remove limit methods", () => {
       netuid,
     );
 
-    assert.ok(alphaAfterRemoveStake <= alpha);
+    assert.ok(alphaAfterRemoveStake < alpha);
   });
 });

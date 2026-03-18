@@ -63,8 +63,8 @@ describe("▶ unstake_all extrinsic", () => {
     const stake2Before = await getStake(api, stakerAddress, coldkeyAddress, netuid2);
     const balanceBefore = await getBalance(api, coldkeyAddress);
 
-    expect(stake1Before, "Should have stake in subnet 1 before unstake_all").toBeGreaterThanOrEqual(0n);
-    expect(stake2Before, "Should have stake in subnet 2 before unstake_all").toBeGreaterThanOrEqual(0n);
+    expect(stake1Before, "Should have stake in subnet 1 before unstake_all").toBeGreaterThan(0n);
+    expect(stake2Before, "Should have stake in subnet 2 before unstake_all").toBeGreaterThan(0n);
     log.info(`Stake1 before: ${stake1Before}, Stake2 before: ${stake2Before}, Balance before: ${balanceBefore}`);
 
     // Unstake all
@@ -80,7 +80,7 @@ describe("▶ unstake_all extrinsic", () => {
     // Since stakerHotkey is not the owner of either subnet, all stake should be removed
     expect(stake1After, "Stake1 should be zero after unstake_all").toBe(0n);
     expect(stake2After, "Stake2 should be zero after unstake_all").toBe(0n);
-    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThanOrEqual(balanceBefore);
+    expect(balanceAfter, "Balance should increase after unstaking").toBeGreaterThan(balanceBefore);
 
     log.info("✅ Successfully unstaked all from multiple subnets.");
   });

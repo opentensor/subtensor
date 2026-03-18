@@ -40,7 +40,7 @@ describe("▶ add_stake_limit extrinsic", () => {
 
     // Verify stake increased
     const stakeAfter = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
-    expect(stakeAfter, "Stake should increase").toBeGreaterThanOrEqual(stakeBefore);
+    expect(stakeAfter, "Stake should increase").toBeGreaterThan(stakeBefore);
 
     log.info("✅ Successfully added stake with limit (allow partial).");
   });
@@ -58,7 +58,7 @@ describe("▶ add_stake_limit extrinsic", () => {
 
     // Verify stake increased
     const stakeAfter = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
-    expect(stakeAfter, "Stake should increase").toBeGreaterThanOrEqual(stakeBefore);
+    expect(stakeAfter, "Stake should increase").toBeGreaterThan(stakeBefore);
 
     log.info("✅ Successfully added stake with limit (fill or kill).");
   });
