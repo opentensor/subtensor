@@ -551,10 +551,6 @@ pub fn add_network(netuid: NetUid, tempo: u16) {
     // make interval 1 block so tests can register by stepping 1 block.
     pallet_subtensor::BurnHalfLife::<Test>::insert(netuid, 1);
     pallet_subtensor::BurnIncreaseMult::<Test>::insert(netuid, 1);
-    pallet_subtensor::BurnLastHalvingBlock::<Test>::insert(
-        netuid,
-        SubtensorModule::get_current_block_as_u64(),
-    );
 }
 
 use subtensor_runtime_common::AlphaBalance;
