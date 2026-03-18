@@ -69,7 +69,6 @@ mod pallet_benchmarks {
         SubtokenEnabled::<T>::insert(netuid, true);
 
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
-        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
 
         Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         seed_swap_reserves::<T>(netuid);
@@ -299,7 +298,6 @@ mod pallet_benchmarks {
         assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
         Subtensor::<T>::init_new_network(NetUid::ROOT, 1);
         Subtensor::<T>::set_network_registration_allowed(NetUid::ROOT, true);
-        Subtensor::<T>::set_network_pow_registration_allowed(NetUid::ROOT, true);
         FirstEmissionBlockNumber::<T>::insert(NetUid::ROOT, 1);
         SubtokenEnabled::<T>::insert(NetUid::ROOT, true);
 
@@ -502,7 +500,6 @@ mod pallet_benchmarks {
         let netuid = NetUid::from(1);
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
-        Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
         Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
         seed_swap_reserves::<T>(netuid);

@@ -1317,15 +1317,11 @@ fn test_migrate_set_registration_enable() {
             add_network(*netuid, 1, 0);
             // Set registration to false to simulate the need for migration
             SubtensorModule::set_network_registration_allowed(*netuid, false);
-            SubtensorModule::set_network_pow_registration_allowed(*netuid, false);
         }
 
         // Sanity check: registration is disabled before migration
         for netuid in netuids.iter() {
             assert!(!SubtensorModule::get_network_registration_allowed(*netuid));
-            assert!(!SubtensorModule::get_network_pow_registration_allowed(
-                *netuid
-            ));
         }
 
         // Run the migration
@@ -1337,9 +1333,6 @@ fn test_migrate_set_registration_enable() {
         // After migration, regular registration should be enabled for all subnets except root
         for netuid in netuids.iter() {
             assert!(SubtensorModule::get_network_registration_allowed(*netuid));
-            assert!(!SubtensorModule::get_network_pow_registration_allowed(
-                *netuid
-            ));
         }
 
         // Migration should be marked as run

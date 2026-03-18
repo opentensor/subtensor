@@ -133,6 +133,8 @@ pub mod pallet {
         InvalidValue,
         /// Operation is not permitted on the root network.
         NotPermittedOnRootSubnet,
+        /// POW Registration has been deprecated
+        POWRegistrationDisabled,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -690,30 +692,11 @@ pub mod pallet {
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
 		)]
         pub fn sudo_set_network_pow_registration_allowed(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            registration_allowed: bool,
+            _origin: OriginFor<T>,
+            _netuid: NetUid,
+            _registration_allowed: bool,
         ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::PowRegistrationAllowed.into()],
-            )?;
-            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
-
-            pallet_subtensor::Pallet::<T>::set_network_pow_registration_allowed(
-                netuid,
-                registration_allowed,
-            );
-            log::debug!(
-                "NetworkPowRegistrationAllowed( registration_allowed: {registration_allowed:?} ) "
-            );
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::PowRegistrationAllowed.into()],
-            );
-            Ok(())
+            Err(Error::<T>::POWRegistrationDisabled.into())
         }
 
         /// The extrinsic sets the target registrations per interval for a subnet.
