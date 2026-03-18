@@ -205,6 +205,7 @@ impl<T: Config> Pallet<T> {
 
         // 4. Remove the old key.
         hotkeys.retain(|hk| *hk != *old_hotkey);
+        // the new hotkey should be different from the old one. so we can skip the empty list check here.
         OwnedHotkeys::<T>::insert(coldkey, hotkeys);
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
@@ -397,8 +398,11 @@ impl<T: Config> Pallet<T> {
         // IsNetworkMember( hotkey, netuid ) -> bool -- is the hotkey a subnet member.
         let is_network_member: bool = IsNetworkMember::<T>::get(old_hotkey, netuid);
         IsNetworkMember::<T>::remove(old_hotkey, netuid);
-        IsNetworkMember::<T>::insert(new_hotkey, netuid, is_network_member);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        if is_network_member != DefaultIsNetworkMember::<T>::get() {
+            IsNetworkMember::<T>::insert(new_hotkey, netuid, is_network_member);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        }
 
         // 3.2 Swap Uids + Keys.
         // Keys( netuid, hotkey ) -> uid -- the uid the hotkey has in the network if it is a member.

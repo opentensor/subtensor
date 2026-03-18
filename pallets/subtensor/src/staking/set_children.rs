@@ -404,6 +404,7 @@ impl<T: Config> Pallet<T> {
         //    2a) For each child of old_hotkey: remove old_hotkey from ParentKeys(child, netuid)
         for (child, _) in relations.children().iter() {
             let mut pk = ParentKeys::<T>::get(child.clone(), netuid);
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
             PCRelations::<T>::remove_edge(&mut pk, old_hotkey);
             Self::set_parentkeys(child.clone(), netuid, pk.clone());
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
@@ -411,16 +412,15 @@ impl<T: Config> Pallet<T> {
         //    2b) For each parent of old_hotkey: remove old_hotkey from ChildKeys(parent, netuid)
         for (parent, _) in relations.parents().iter() {
             let mut ck = ChildKeys::<T>::get(parent.clone(), netuid);
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
             PCRelations::<T>::remove_edge(&mut ck, old_hotkey);
-            ChildKeys::<T>::insert(parent.clone(), netuid, ck);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            if ck == DefaultAccountLinkage::<T>::get() {
+                ChildKeys::<T>::insert(parent.clone(), netuid, ck);
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
         }
         //    2c) Clear direct maps of old_hotkey
-        ChildKeys::<T>::insert(
-            old_hotkey.clone(),
-            netuid,
-            Vec::<(u64, T::AccountId)>::new(),
-        );
+        ChildKeys::<T>::remove(old_hotkey.clone(), netuid);
         Self::set_parentkeys(
             old_hotkey.clone(),
             netuid,
@@ -438,8 +438,11 @@ impl<T: Config> Pallet<T> {
             relations.ensure_pending_consistency(&children)?;
 
             PendingChildKeys::<T>::remove(netuid, old_hotkey);
-            PendingChildKeys::<T>::insert(netuid, new_hotkey, (children, cool_down_block));
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            if (children.clone(), cool_down_block) != DefaultPendingChildkeys::<T>::get() {
+                PendingChildKeys::<T>::insert(netuid, new_hotkey, (children, cool_down_block));
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
         }
 
         // 5) Persist relations under the new pivot (diffs vs existing state at new_hotkey)

@@ -160,7 +160,9 @@ impl<T: Config> Pallet<T> {
         }
 
         StakingHotkeys::<T>::remove(old_coldkey);
-        StakingHotkeys::<T>::insert(new_coldkey, new_staking_hotkeys);
+        if new_staking_hotkeys.len() != 0 {
+            StakingHotkeys::<T>::insert(new_coldkey, new_staking_hotkeys);
+        }
     }
 
     /// Transfer the ownership of the hotkeys owned by the old coldkey to the new coldkey.
@@ -178,6 +180,8 @@ impl<T: Config> Pallet<T> {
             }
         }
         OwnedHotkeys::<T>::remove(old_coldkey);
-        OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
+        if new_owned_hotkeys.len() != 0 {
+            OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
+        }
     }
 }
