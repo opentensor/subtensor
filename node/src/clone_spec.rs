@@ -432,8 +432,51 @@ fn patch_raw_spec(spec: &mut Value, validators: &[&'static str]) -> CloneResult<
     );
 
     remove_by_prefix(top, &storage_prefix("Session"));
+
+    set_validator_balances(top, validators);
+
     clear_top_level(spec);
     Ok(())
+}
+
+/// Insert a `System::Account` entry for each validator seed so that dev authorities
+/// have enough free balance to produce transactions on the cloned chain.
+///
+/// Storage layout (SCALE, little-endian):
+///   Key:   Twox128("System") ++ Twox128("Account") ++ Blake2_128Concat(AccountId)
+///   Value: AccountInfo { nonce: u32, consumers: u32, providers: u32, sufficients: u32,
+///            data: AccountData { free: u64, reserved: u64, frozen: u64, flags: u128 } }
+fn set_validator_balances(top: &mut serde_json::Map<String, Value>, validators: &[&'static str]) {
+    const FREE_BALANCE: u64 = 1_000_000_000_000_000; // 1M TAO (9 decimals)
+    // ExtraFlags default: new-logic bit set
+    const FLAGS_NEW_LOGIC: u128 = 0x80000000_00000000_00000000_00000000u128;
+
+    let prefix = frame_support::storage::storage_prefix(b"System", b"Account");
+
+    for seed in validators {
+        let account_id =
+            crate::chain_spec::get_account_id_from_seed::<sp_core::sr25519::Public>(seed);
+        let encoded_id = account_id.encode();
+
+        // Blake2_128Concat = blake2_128(encoded) ++ encoded
+        let hash = sp_io::hashing::blake2_128(&encoded_id);
+        let mut full_key = prefix.to_vec();
+        full_key.extend_from_slice(&hash);
+        full_key.extend_from_slice(&encoded_id);
+
+        // AccountInfo<u32, AccountData<u64>> — all fixed-size, encode sequentially
+        let mut value = Vec::with_capacity(64);
+        value.extend_from_slice(&0u32.to_le_bytes()); // nonce
+        value.extend_from_slice(&0u32.to_le_bytes()); // consumers
+        value.extend_from_slice(&1u32.to_le_bytes()); // providers (>=1 to keep account alive)
+        value.extend_from_slice(&0u32.to_le_bytes()); // sufficients
+        value.extend_from_slice(&FREE_BALANCE.to_le_bytes()); // data.free
+        value.extend_from_slice(&0u64.to_le_bytes()); // data.reserved
+        value.extend_from_slice(&0u64.to_le_bytes()); // data.frozen
+        value.extend_from_slice(&FLAGS_NEW_LOGIC.to_le_bytes()); // data.flags
+
+        top.insert(to_hex(&full_key), Value::String(to_hex(&value)));
+    }
 }
 
 fn remove_by_prefix(map: &mut serde_json::Map<String, Value>, prefix: &str) {
