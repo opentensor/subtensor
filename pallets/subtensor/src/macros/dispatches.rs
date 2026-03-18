@@ -2359,8 +2359,8 @@ mod dispatches {
 
             if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
                 let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
-                let new_when = when.saturating_add(reannouncement_delay);
-                ensure!(now >= new_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
+                let min_when = when.saturating_add(reannouncement_delay);
+                ensure!(now >= min_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
             } else {
                 // Only charge the swap cost on the first announcement
                 let swap_cost = Self::get_key_swap_cost();
@@ -2567,7 +2567,8 @@ mod dispatches {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
 
-        /// Clears a coldkey swap announcement if it has been announced and not disputed.
+        /// Clears a coldkey swap announcement after the reannouncement delay if
+        /// it has not been disputed.
         ///
         /// The `ColdkeySwapCleared` event is emitted on successful clear.
         #[pallet::call_index(133)]
@@ -2581,7 +2582,8 @@ mod dispatches {
             let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) else {
                 return Err(Error::<T>::ColdkeySwapAnnouncementNotFound.into());
             };
-            let min_when = when.saturating_add(ColdkeySwapAnnouncementDelay::<T>::get());
+            let delay = ColdkeySwapReannouncementDelay::<T>::get();
+            let min_when = when.saturating_add(delay);
             ensure!(now >= min_when, Error::<T>::ColdkeySwapClearTooEarly);
 
             ColdkeySwapAnnouncements::<T>::remove(&who);
