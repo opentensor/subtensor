@@ -1810,7 +1810,7 @@ fn coldkey_hash_of(coldkey: U256) -> H256 {
 
 fn announce_coldkey_swap(who: U256, new_coldkey: U256) {
     let ed = ExistentialDeposit::get();
-    let swap_cost = SubtensorModule::get_key_swap_cost().to_u64();
+    let swap_cost = SubtensorModule::get_key_swap_cost();
     SubtensorModule::add_balance_to_coldkey_account(&who, ed + swap_cost);
 
     assert_ok!(SubtensorModule::announce_coldkey_swap(

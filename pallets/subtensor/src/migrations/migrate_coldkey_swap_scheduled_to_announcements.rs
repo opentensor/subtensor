@@ -45,7 +45,7 @@ pub mod deprecated {
         SwapColdkey {
             old_coldkey: AccountIdOf<T>,
             new_coldkey: AccountIdOf<T>,
-            swap_cost: TaoCurrency,
+            swap_cost: TaoBalance,
         },
     }
 }
