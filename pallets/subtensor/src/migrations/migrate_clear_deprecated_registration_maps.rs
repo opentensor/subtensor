@@ -1,8 +1,5 @@
 use super::*;
-use frame_support::{
-    traits::Get,
-    weights::Weight,
-};
+use frame_support::{traits::Get, weights::Weight};
 use scale_info::prelude::string::String;
 
 pub fn migrate_clear_deprecated_registration_maps<T: Config>() -> Weight {

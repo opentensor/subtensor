@@ -479,8 +479,6 @@ impl<T: Config> Pallet<T> {
                 // applying the per-block factor once here gives continuous
                 // exponential decay.
                 //
-                // We intentionally do NOT decay in block 1, because there is
-                // no completed prior block yet.
                 if current_block > 1 {
                     let burn_u64: u64 = Self::get_burn(netuid).into();
                     let factor_q32: u64 = Self::decay_factor_q32(half_life);
@@ -499,7 +497,6 @@ impl<T: Config> Pallet<T> {
             // --- 2) Apply post-registration bump.
             //
             // At the start of block N, RegistrationsThisBlock contains the count from block N-1.
-            // We skip bumping on root because root_register does not use burn-based pricing.
             if !netuid.is_root() {
                 let regs_prev_block: u16 = RegistrationsThisBlock::<T>::get(netuid);
                 if regs_prev_block > 0 {
