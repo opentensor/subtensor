@@ -2288,7 +2288,7 @@ mod dispatches {
 
         /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
-        #[pallet::weight(Weight::from_parts(4_000_000, 0)
+        #[pallet::weight(Weight::from_parts(2_283_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
@@ -2572,7 +2572,7 @@ mod dispatches {
         ///
         /// The `ColdkeySwapCleared` event is emitted on successful clear.
         #[pallet::call_index(133)]
-        #[pallet::weight(Weight::from_parts(10_000, 0)
+        #[pallet::weight(Weight::from_parts(17_890_000, 0)
         .saturating_add(T::DbWeight::get().reads(2))
         .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn clear_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
