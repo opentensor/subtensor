@@ -556,7 +556,7 @@ mod pallet_benchmarks {
         let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
         let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
         let now = frame_system::Pallet::<T>::block_number();
-        let delay = ColdkeySwapAnnouncementDelay::<T>::get();
+        let delay = ColdkeySwapReannouncementDelay::<T>::get();
 
         ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, new_coldkey_hash));
         frame_system::Pallet::<T>::set_block_number(now + delay);
