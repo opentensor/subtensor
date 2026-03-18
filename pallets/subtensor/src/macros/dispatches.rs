@@ -241,7 +241,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             commit_hash: H256,
         ) -> DispatchResult {
@@ -275,7 +275,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(7))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_mechanism_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             mecid: MechId,
             commit_hash: H256,
@@ -359,7 +359,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(17_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             uids: Vec<u16>,
             values: Vec<u16>,
@@ -414,7 +414,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_mechanism_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             mecid: MechId,
             uids: Vec<u16>,
@@ -512,7 +512,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(7_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_crv3_mechanism_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
@@ -572,7 +572,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(17_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             uids_list: Vec<Vec<u16>>,
             values_list: Vec<Vec<u16>>,
@@ -1304,7 +1304,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_children(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
             children: Vec<(u64, T::AccountId)>,
@@ -1523,7 +1523,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().reads(15_u64))
         .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn move_stake(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             origin_hotkey: T::AccountId,
             destination_hotkey: T::AccountId,
             origin_netuid: NetUid,
@@ -1566,7 +1566,7 @@ mod dispatches {
         .saturating_add(T::DbWeight::get().reads(13_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn transfer_stake(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             destination_coldkey: T::AccountId,
             hotkey: T::AccountId,
             origin_netuid: NetUid,
@@ -1611,7 +1611,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn swap_stake(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
@@ -1785,7 +1785,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn swap_stake_limit(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             origin_netuid: NetUid,
             destination_netuid: NetUid,
@@ -1818,10 +1818,7 @@ mod dispatches {
             DispatchClass::Normal,
             Pays::Yes
         ))]
-        pub fn try_associate_hotkey(
-            origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
+        pub fn try_associate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
             let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
@@ -1843,7 +1840,7 @@ mod dispatches {
             DispatchClass::Normal,
             Pays::Yes
         ))]
-        pub fn start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
+        pub fn start_call(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             Self::do_start_call(origin, netuid)?;
             Ok(())
         }
@@ -1880,7 +1877,7 @@ mod dispatches {
             Pays::No
         ))]
         pub fn associate_evm_key(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             evm_key: H160,
             block_number: u64,
@@ -1906,7 +1903,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn recycle_alpha(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             amount: AlphaCurrency,
             netuid: NetUid,
@@ -1931,7 +1928,7 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn burn_alpha(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             amount: AlphaCurrency,
             netuid: NetUid,
@@ -1960,7 +1957,7 @@ mod dispatches {
 			.saturating_add(T::DbWeight::get().reads(28_u64))
 			.saturating_add(T::DbWeight::get().writes(14_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
             limit_price: Option<TaoCurrency>,
@@ -1987,7 +1984,7 @@ mod dispatches {
         #[pallet::call_index(110)]
         #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_register_leased_network(T::MaxContributors::get()))]
         pub fn register_leased_network(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             emissions_share: Percent,
             end_block: Option<BlockNumberFor<T>>,
         ) -> DispatchResultWithPostInfo {
@@ -2013,7 +2010,7 @@ mod dispatches {
         #[pallet::call_index(111)]
         #[pallet::weight(SubnetLeasingWeightInfo::<T>::do_terminate_lease(T::MaxContributors::get()))]
         pub fn terminate_lease(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             lease_id: LeaseId,
             hotkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
@@ -2086,7 +2083,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(10_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
             reveal_round: u64,
@@ -2117,7 +2114,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(4_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_coldkey_auto_stake_hotkey(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
@@ -2191,7 +2188,7 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(9_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_timelocked_mechanism_weights(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             netuid: NetUid,
             mecid: MechId,
             commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
@@ -2291,7 +2288,7 @@ mod dispatches {
 
         /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
-        #[pallet::weight(Weight::from_parts(4_000_000, 0)
+        #[pallet::weight(Weight::from_parts(2_283_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
@@ -2362,8 +2359,8 @@ mod dispatches {
 
             if let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) {
                 let reannouncement_delay = ColdkeySwapReannouncementDelay::<T>::get();
-                let new_when = when.saturating_add(reannouncement_delay);
-                ensure!(now >= new_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
+                let min_when = when.saturating_add(reannouncement_delay);
+                ensure!(now >= min_when, Error::<T>::ColdkeySwapReannouncedTooEarly);
             } else {
                 // Only charge the swap cost on the first announcement
                 let swap_cost = Self::get_key_swap_cost();
@@ -2561,13 +2558,38 @@ mod dispatches {
             Pays::Yes
         ))]
         pub fn add_stake_burn(
-            origin: T::RuntimeOrigin,
+            origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
             amount: TaoCurrency,
             limit: Option<TaoCurrency>,
         ) -> DispatchResult {
             Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
+        }
+
+        /// Clears a coldkey swap announcement after the reannouncement delay if
+        /// it has not been disputed.
+        ///
+        /// The `ColdkeySwapCleared` event is emitted on successful clear.
+        #[pallet::call_index(133)]
+        #[pallet::weight(Weight::from_parts(17_890_000, 0)
+        .saturating_add(T::DbWeight::get().reads(2))
+        .saturating_add(T::DbWeight::get().writes(1)))]
+        pub fn clear_coldkey_swap_announcement(origin: OriginFor<T>) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            let now = <frame_system::Pallet<T>>::block_number();
+
+            let Some((when, _)) = ColdkeySwapAnnouncements::<T>::get(who.clone()) else {
+                return Err(Error::<T>::ColdkeySwapAnnouncementNotFound.into());
+            };
+            let delay = ColdkeySwapReannouncementDelay::<T>::get();
+            let min_when = when.saturating_add(delay);
+            ensure!(now >= min_when, Error::<T>::ColdkeySwapClearTooEarly);
+
+            ColdkeySwapAnnouncements::<T>::remove(&who);
+
+            Self::deposit_event(Event::ColdkeySwapCleared { who });
+            Ok(())
         }
     }
 }

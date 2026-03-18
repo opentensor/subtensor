@@ -551,6 +551,21 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn clear_coldkey_swap_announcement() {
+        let coldkey: T::AccountId = account("coldkey", 0, 0);
+        let new_coldkey: T::AccountId = account("new_coldkey", 0, 0);
+        let new_coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
+        let now = frame_system::Pallet::<T>::block_number();
+        let delay = ColdkeySwapReannouncementDelay::<T>::get();
+
+        ColdkeySwapAnnouncements::<T>::insert(&coldkey, (now, new_coldkey_hash));
+        frame_system::Pallet::<T>::set_block_number(now + delay);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey));
+    }
+
+    #[benchmark]
     fn reset_coldkey_swap() {
         let coldkey: T::AccountId = account("old_coldkey", 0, 0);
         let coldkey_hash: T::Hash = <T as frame_system::Config>::Hashing::hash_of(&coldkey);
@@ -582,7 +597,8 @@ mod pallet_benchmarks {
         let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
         let (nonce, work) =
             Subtensor::<T>::create_work_for_block_number(netuid, block_number, 3, &hotkey);
-        let origin = T::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone()));
+        let origin =
+            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone()));
         assert_ok!(Subtensor::<T>::register(
             origin.clone(),
             netuid,

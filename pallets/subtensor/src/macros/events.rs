@@ -528,5 +528,10 @@ mod events {
             /// Alpha burned
             alpha: AlphaCurrency,
         },
+        /// A coldkey swap announcement has been cleared.
+        ColdkeySwapCleared {
+            /// The account ID of the coldkey that cleared the announcement.
+            who: T::AccountId,
+        },
     }
 }

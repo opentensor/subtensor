@@ -286,5 +286,7 @@ mod errors {
         ColdkeySwapAnnounced,
         /// A coldkey swap for this account is under dispute.
         ColdkeySwapDisputed,
+        /// Coldkey swap clear too early.
+        ColdkeySwapClearTooEarly,
     }
 }

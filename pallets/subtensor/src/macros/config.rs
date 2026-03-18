@@ -14,18 +14,21 @@ mod config {
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + pallet_drand::Config + pallet_crowdloan::Config
+        frame_system::Config
+        + pallet_drand::Config
+        + pallet_crowdloan::Config
+        + pallet_scheduler::Config
     {
         /// call type
         type RuntimeCall: Parameter
-            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + Dispatchable<RuntimeOrigin = OriginFor<Self>>
             + From<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
 
         /// A sudo-able call.
         type SudoRuntimeCall: Parameter
-            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + UnfilteredDispatchable<RuntimeOrigin = OriginFor<Self>>
             + GetDispatchInfo;
 
         ///  Currency type that will be used to place deposits on neurons
