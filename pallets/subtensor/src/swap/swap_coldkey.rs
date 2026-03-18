@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
         }
 
         StakingHotkeys::<T>::remove(old_coldkey);
-        if new_staking_hotkeys.len() != 0 {
+        if !new_staking_hotkeys.is_empty() {
             StakingHotkeys::<T>::insert(new_coldkey, new_staking_hotkeys);
         }
     }
@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
             }
         }
         OwnedHotkeys::<T>::remove(old_coldkey);
-        if new_owned_hotkeys.len() != 0 {
+        if !new_owned_hotkeys.is_empty() {
             OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
         }
     }
