@@ -150,5 +150,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        working-directory: ts-tests
-        run: pnpm moonwall test ${{ matrix.test }}
+        run: | 
+          cd ts-tests
+          pnpm moonwall test ${{ matrix.test }}
