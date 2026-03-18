@@ -113,6 +113,74 @@ export async function waitForTransactionCompletion(
     });
 }
 
+export type TransactionResult = {
+    success: boolean;
+    events: any[];
+    txHash?: string;
+    blockHash?: string;
+    errorMessage?: string;
+};
+
+/**
+ * Send a transaction and return a result object instead of throwing on ExtrinsicFailed.
+ * Use this for tests that expect failure.
+ */
+export async function sendTransaction(
+    api: ApiPromise,
+    tx: SubmittableExtrinsic,
+    signer: KeyringPair,
+    timeout: number = 3 * 60 * 1000,
+): Promise<TransactionResult> {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error("Transaction timed out"));
+        }, timeout);
+
+        let unsub: () => void;
+
+        tx.signAndSend(signer, (result) => {
+            const { status, txHash } = result;
+            if (status.isFinalized) {
+                clearTimeout(timer);
+                unsub?.();
+
+                const failed = result.events.find(({ event }) => api.events.system.ExtrinsicFailed.is(event));
+
+                if (failed) {
+                    const { dispatchError } = failed.event.data as any;
+                    let errorMessage = dispatchError.toString();
+                    if (dispatchError.isModule) {
+                        const decoded = api.registry.findMetaError(dispatchError.asModule);
+                        errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                    }
+                    resolve({
+                        success: false,
+                        events: result.events.map((e) => e.event),
+                        txHash: txHash.toHex(),
+                        blockHash: status.asFinalized.toHex(),
+                        errorMessage,
+                    });
+                } else {
+                    resolve({
+                        success: true,
+                        events: result.events.map((e) => e.event),
+                        txHash: txHash.toHex(),
+                        blockHash: status.asFinalized.toHex(),
+                    });
+                }
+            }
+        })
+            .then((u) => {
+                unsub = u;
+            })
+            .catch((error) => {
+                clearTimeout(timer);
+                const message = error instanceof Error ? error.message : String(error?.toHuman?.() ?? error);
+                resolve({ success: false, events: [], errorMessage: message });
+            });
+    });
+}
+
 const SECOND = 1000;
 
 /** Polls the chain until `count` new finalized blocks have been produced. */
