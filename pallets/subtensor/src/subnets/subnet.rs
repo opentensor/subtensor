@@ -109,7 +109,7 @@ impl<T: Config> Pallet<T> {
     /// * `InvalidIdentity`                 – supplied `identity` failed validation.
     ///
     pub fn do_register_network(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: &T::AccountId,
         mechid: u16,
         identity: Option<SubnetIdentityOfV3>,
@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `DispatchResult`: A result indicating the success or failure of the operation.
-    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
+    pub fn do_start_call(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subnet_owner(origin, netuid)?;
         ensure!(
@@ -401,7 +401,7 @@ impl<T: Config> Pallet<T> {
     /// # Rate Limiting
     /// This function is rate-limited to one call per subnet per interval (e.g., one week).
     pub fn do_set_sn_owner_hotkey(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         hotkey: &T::AccountId,
     ) -> DispatchResult {
