@@ -1,6 +1,6 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
-import { getCurrentKey, getNextKey, waitForFinalizedBlocks } from "../../utils";
+import { checkRuntime, getCurrentKey, getNextKey, waitForFinalizedBlocks } from "../../utils";
 
 describeSuite({
     id: "00.00_basic",
@@ -11,6 +11,8 @@ describeSuite({
 
         beforeAll(async () => {
             api = context.polkadotJs("Node");
+
+            await checkRuntime(api);
 
             await waitForFinalizedBlocks(api, 3);
         }, 120000);

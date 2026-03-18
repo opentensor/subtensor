@@ -7,6 +7,7 @@ import { MlKem768 } from "mlkem";
 import { type TypedApi, Binary } from "polkadot-api";
 import type { subtensor } from "@polkadot-api/descriptors";
 import { getSignerFromKeypair } from "./account.ts";
+import { waitForFinalizedBlocks } from "./transactions.ts";
 
 export const getNextKey = async (api: ApiPromise): Promise<Uint8Array | undefined> => {
     const bestHeader = await api.rpc.chain.getHeader();
@@ -19,6 +20,24 @@ export const getNextKey = async (api: ApiPromise): Promise<Uint8Array | undefine
     // BoundedVec<u8> decodes as Bytes/Vec<u8>
     const bytes = key.toU8a(true);
     return bytes.length > 0 ? bytes : undefined;
+};
+
+export const checkRuntime = async (api: ApiPromise) => {
+    const ts1 = (await api.query.timestamp.now()).toNumber();
+
+    await waitForFinalizedBlocks(api, 1);
+
+    const ts2 = (await api.query.timestamp.now()).toNumber();
+
+    const blockTimeMs = ts2 - ts1;
+
+    const MIN_BLOCK_TIME_MS = 6000;
+    // We check at least half of the block time length
+    if (blockTimeMs < MIN_BLOCK_TIME_MS) {
+        throw new Error(
+            `Fast runtime detected (block time ~${blockTimeMs}ms < ${MIN_BLOCK_TIME_MS}ms). Rebuild with normal runtime before running MEV Shield tests.`
+        );
+    }
 };
 
 export const getCurrentKey = async (api: ApiPromise): Promise<Uint8Array | undefined> => {

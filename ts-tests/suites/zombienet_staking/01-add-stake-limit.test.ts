@@ -8,6 +8,7 @@ import {
     generateKeyringPair,
     getStake,
     startCall,
+    sudoSetLockReductionInterval,
     tao,
 } from "../../utils";
 
@@ -28,6 +29,7 @@ describeSuite({
             api = context.polkadotJs("Node");
             await forceSetBalance(api, hotkeyAddress);
             await forceSetBalance(api, coldkeyAddress);
+            await sudoSetLockReductionInterval(api, 1);
             netuid = await addNewSubnetwork(api, hotkey, coldkey);
             await startCall(api, netuid, coldkey);
         });

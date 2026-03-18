@@ -9,6 +9,7 @@ import {
     generateKeyringPair,
     getStake,
     startCall,
+    sudoSetLockReductionInterval,
     sudoSetTempo,
     tao,
     unstakeAllAlpha,
@@ -47,6 +48,7 @@ describeSuite({
                 await forceSetBalance(api, stakerAddress);
                 await forceSetBalance(api, coldkeyAddress);
 
+                await sudoSetLockReductionInterval(api, 1);
                 // Create first subnet with owner1
                 const netuid1 = await addNewSubnetwork(api, owner1Hotkey, coldkey);
                 await startCall(api, netuid1, coldkey);

@@ -3,7 +3,14 @@ import type { TypedApi } from "polkadot-api";
 import { hexToU8a } from "@polkadot/util";
 import { describeSuite } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
-import { getAccountNonce, getBalance, getNextKey, submitEncrypted, waitForFinalizedBlocks } from "../../utils";
+import {
+    checkRuntime,
+    getAccountNonce,
+    getBalance,
+    getNextKey,
+    submitEncrypted,
+    waitForFinalizedBlocks,
+} from "../../utils";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
 import { subtensor } from "@polkadot-api/descriptors";
@@ -28,6 +35,8 @@ describeSuite({
 
             papi = context.papi("NodePapi").getTypedApi(subtensor);
             api = context.polkadotJs("Node");
+
+            await checkRuntime(api);
         }, 120000);
 
         it({

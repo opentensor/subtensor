@@ -7,6 +7,7 @@ import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
 import {
+    checkRuntime,
     encryptTransaction,
     getAccountNonce,
     getBalance,
@@ -45,6 +46,8 @@ describeSuite({
 
                 papiFull = context.papi("NodeFullPapi").getTypedApi(subtensor);
                 apiFull = context.polkadotJs("NodeFull");
+
+                await checkRuntime(apiAuthority);
 
                 // Wait for a fresh finalized block, then immediately read NextKey and submit.
                 // This tests the "just after block" boundary where keys just rotated.

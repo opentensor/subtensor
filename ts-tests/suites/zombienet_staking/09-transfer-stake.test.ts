@@ -8,6 +8,7 @@ import {
     generateKeyringPair,
     getStake,
     startCall,
+    sudoSetLockReductionInterval,
     tao,
     transferStake,
 } from "../../utils";
@@ -42,6 +43,7 @@ describeSuite({
                 await forceSetBalance(api, originColdkeyAddress);
                 await forceSetBalance(api, destinationColdkeyAddress);
 
+                await sudoSetLockReductionInterval(api, 1);
                 // Create first subnet
                 const netuid1 = await addNewSubnetwork(api, hotkey1, originColdkey);
                 await startCall(api, netuid1, originColdkey);

@@ -10,6 +10,7 @@ import {
     getStake,
     moveStake,
     startCall,
+    sudoSetLockReductionInterval,
     tao,
 } from "../../utils";
 
@@ -22,6 +23,7 @@ describeSuite({
 
         beforeAll(async () => {
             api = context.polkadotJs("Node");
+            await sudoSetLockReductionInterval(api, 1);
         });
 
         it({

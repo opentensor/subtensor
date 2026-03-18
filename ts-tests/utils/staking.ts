@@ -296,14 +296,6 @@ export async function sudoSetSubtokenEnabled(api: ApiPromise, netuid: number, en
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subtoken_enabled");
 }
 
-export async function isNetworkAdded(api: ApiPromise, netuid: number): Promise<boolean> {
-    return (await api.query.subtensorModule.networksAdded(netuid)).toString() === "true";
-}
-
-export async function getAdminFreezeWindow(api: ApiPromise): Promise<number> {
-    return Number((await api.query.subtensorModule.adminFreezeWindow()).toString());
-}
-
 export async function sudoSetAdminFreezeWindow(api: ApiPromise, window: number): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");

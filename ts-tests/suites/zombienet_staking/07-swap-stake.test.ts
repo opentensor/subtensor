@@ -9,6 +9,7 @@ import {
     generateKeyringPair,
     getStake,
     startCall,
+    sudoSetLockReductionInterval,
     swapStake,
     tao,
 } from "../../utils";
@@ -36,6 +37,7 @@ describeSuite({
                 const hotkey2Address = hotkey2.address;
                 const coldkeyAddress = coldkey.address;
 
+                await sudoSetLockReductionInterval(api, 1);
                 await forceSetBalance(api, hotkey1Address);
                 await forceSetBalance(api, hotkey2Address);
                 await forceSetBalance(api, coldkeyAddress);

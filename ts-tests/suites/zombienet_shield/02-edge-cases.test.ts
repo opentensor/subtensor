@@ -6,7 +6,14 @@ import { describeSuite } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
-import { getAccountNonce, getBalance, getNextKey, submitEncrypted, waitForFinalizedBlocks } from "../../utils";
+import {
+    checkRuntime,
+    getAccountNonce,
+    getBalance,
+    getNextKey,
+    submitEncrypted,
+    waitForFinalizedBlocks,
+} from "../../utils";
 
 describeSuite({
     id: "02_edge_cases",
@@ -26,6 +33,8 @@ describeSuite({
 
             papi = context.papi("NodePapi").getTypedApi(subtensor);
             api = context.polkadotJs("Node");
+
+            await checkRuntime(api);
 
             await waitForFinalizedBlocks(api, 2);
         }, 120000);

@@ -10,6 +10,7 @@ import {
     getStake,
     removeStake,
     startCall,
+    sudoSetLockReductionInterval,
     tao,
 } from "../../utils";
 
@@ -30,6 +31,7 @@ describeSuite({
 
             await forceSetBalance(api, hotkeyAddress);
             await forceSetBalance(api, coldkeyAddress);
+            await sudoSetLockReductionInterval(api, 1);
             netuid = await addNewSubnetwork(api, hotkey, coldkey);
             await startCall(api, netuid, coldkey);
         });

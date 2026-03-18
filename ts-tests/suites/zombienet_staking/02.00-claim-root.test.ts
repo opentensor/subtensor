@@ -7,6 +7,7 @@ import {
     getRootClaimType,
     type KeepSubnetType,
     setRootClaimType,
+    sudoSetLockReductionInterval,
 } from "../../utils";
 
 describeSuite({
@@ -18,6 +19,7 @@ describeSuite({
 
         beforeAll(async () => {
             api = context.polkadotJs("Node");
+            await sudoSetLockReductionInterval(api, 1);
         });
 
         it({

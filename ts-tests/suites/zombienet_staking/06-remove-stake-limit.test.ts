@@ -10,6 +10,7 @@ import {
     getStake,
     removeStakeLimit,
     startCall,
+    sudoSetLockReductionInterval,
     tao,
 } from "../../utils";
 
@@ -27,6 +28,7 @@ describeSuite({
 
         beforeAll(async () => {
             api = context.polkadotJs("Node");
+            await sudoSetLockReductionInterval(api, 1);
             await forceSetBalance(api, hotkeyAddress);
             await forceSetBalance(api, coldkeyAddress);
             netuid = await addNewSubnetwork(api, hotkey, coldkey);

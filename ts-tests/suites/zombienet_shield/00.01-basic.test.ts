@@ -1,6 +1,7 @@
 import { expect, beforeAll, describeSuite } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import {
+    checkRuntime,
     encryptTransaction,
     getAccountNonce,
     getBalance,
@@ -35,6 +36,8 @@ describeSuite({
             alice = keyring.addFromUri("//Alice");
             bob = keyring.addFromUri("//Bob");
             charlie = keyring.addFromUri("//Charlie");
+
+            await checkRuntime(api);
 
             await waitForFinalizedBlocks(api, 3);
         }, 120000);

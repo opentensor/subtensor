@@ -1,7 +1,7 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
-import { getNumRootClaims, sudoSetNumRootClaims } from "../../utils";
+import { getNumRootClaims, sudoSetLockReductionInterval, sudoSetNumRootClaims } from "../../utils";
 
 describeSuite({
     id: "0201_sudo_set_num_root_claims",
@@ -12,6 +12,7 @@ describeSuite({
 
         beforeAll(async () => {
             api = context.polkadotJs("Node");
+            await sudoSetLockReductionInterval(api, 1);
         });
 
         it({

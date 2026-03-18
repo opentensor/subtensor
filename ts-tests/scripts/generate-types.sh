@@ -51,12 +51,6 @@ if [ "$GENERATE_TYPES" = true ]; then
     fi
   done
 
-  echo "==> Installing polkadot-api globally..."
-  npm install -g polkadot-api
-
-  rm -rf node_modules
-  rm -rf .papi
-
   echo "==> Generating papi types..."
   pnpm generate-types
 

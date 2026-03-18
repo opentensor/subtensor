@@ -12,6 +12,7 @@ import {
     removeStakeFullLimit,
     startCall,
     sudoSetAdminFreezeWindow,
+    sudoSetLockReductionInterval,
     sudoSetTempo,
     tao,
 } from "../../utils";
@@ -34,6 +35,7 @@ describeSuite({
         beforeAll(async () => {
             api = context.polkadotJs("Node");
 
+            await sudoSetLockReductionInterval(api, 1);
             await forceSetBalance(api, ownerAddress);
             await forceSetBalance(api, stakerAddress);
             await forceSetBalance(api, coldkeyAddress);
