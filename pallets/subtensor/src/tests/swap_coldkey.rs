@@ -1381,11 +1381,9 @@ fn test_do_swap_coldkey_effect_on_delegations() {
 fn test_dispute_coldkey_swap_works() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
         let now = System::block_number();
-
-        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
+        let new_coldkey = U256::from(2);
+        announce_coldkey_swap(who, new_coldkey);
 
         assert_ok!(SubtensorModule::dispute_coldkey_swap(
             RuntimeOrigin::signed(who)
@@ -1404,10 +1402,7 @@ fn test_dispute_coldkey_swap_with_bad_origin_fails() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let now = System::block_number();
-
-        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
+        announce_coldkey_swap(who, new_coldkey);
 
         assert_noop!(
             SubtensorModule::dispute_coldkey_swap(RuntimeOrigin::root()),
@@ -1425,9 +1420,6 @@ fn test_dispute_coldkey_swap_with_bad_origin_fails() {
 fn test_dispute_coldkey_swap_without_announcement_fails() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let now = System::block_number();
 
         assert_noop!(
             SubtensorModule::dispute_coldkey_swap(RuntimeOrigin::signed(who)),
@@ -1441,11 +1433,8 @@ fn test_dispute_coldkey_swap_already_disputed_fails() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let now = System::block_number();
-
-        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
-        ColdkeySwapDisputes::<Test>::insert(who, now);
+        announce_coldkey_swap(who, new_coldkey);
+        dispute_coldkey_swap(who);
 
         assert_noop!(
             SubtensorModule::dispute_coldkey_swap(RuntimeOrigin::signed(who)),
@@ -1459,11 +1448,7 @@ fn test_reset_coldkey_swap_works() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let now = System::block_number();
-
-        ColdkeySwapAnnouncements::<Test>::insert(who, (now, new_coldkey_hash));
-        ColdkeySwapDisputes::<Test>::insert(who, now);
+        announce_coldkey_swap(who, new_coldkey);
 
         assert_ok!(SubtensorModule::reset_coldkey_swap(
             RuntimeOrigin::root(),
@@ -1498,33 +1483,14 @@ fn test_reset_coldkey_swap_with_bad_origin_fails() {
 }
 
 #[test]
-#[allow(deprecated)]
-fn test_schedule_swap_coldkey_deprecated() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-
-        assert_noop!(
-            SubtensorModule::schedule_swap_coldkey(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                new_coldkey,
-            ),
-            Error::<Test>::Deprecated
-        );
-    });
-}
-
-#[test]
 fn test_clear_coldkey_swap_announcement_works() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
-        let when = System::block_number();
+        announce_coldkey_swap(who, new_coldkey);
 
-        ColdkeySwapAnnouncements::<Test>::insert(who, (when, new_coldkey_hash));
-
+        let (when, _) = ColdkeySwapAnnouncements::<Test>::get(who).unwrap();
+        let delay = ColdkeySwapReannouncementDelay::<Test>::get();
         run_to_block(when + delay);
 
         assert_ok!(SubtensorModule::clear_coldkey_swap_announcement(
@@ -1553,13 +1519,11 @@ fn test_clear_coldkey_swap_announcement_too_early() {
     new_test_ext(1).execute_with(|| {
         let who = U256::from(1);
         let new_coldkey = U256::from(2);
-        let new_coldkey_hash = <Test as frame_system::Config>::Hashing::hash_of(&new_coldkey);
-        let when = System::block_number();
-
-        ColdkeySwapAnnouncements::<Test>::insert(who, (when, new_coldkey_hash));
+        announce_coldkey_swap(who, new_coldkey);
 
         // Advance by less than the full delay — one block short
-        let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
+        let (when, _) = ColdkeySwapAnnouncements::<Test>::get(who).unwrap();
+        let delay = ColdkeySwapReannouncementDelay::<Test>::get();
         run_to_block(when + delay - 1);
 
         assert_noop!(
@@ -1582,6 +1546,23 @@ fn test_clear_coldkey_swap_announcement_bad_origin() {
         assert_noop!(
             SubtensorModule::clear_coldkey_swap_announcement(RuntimeOrigin::none()),
             BadOrigin
+        );
+    });
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_schedule_swap_coldkey_deprecated() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+
+        assert_noop!(
+            SubtensorModule::schedule_swap_coldkey(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                new_coldkey,
+            ),
+            Error::<Test>::Deprecated
         );
     });
 }
@@ -1825,4 +1806,25 @@ macro_rules! comprehensive_checks {
             .into(),
         );
     };
+}
+
+fn coldkey_hash_of(coldkey: U256) -> H256 {
+    <Test as frame_system::Config>::Hashing::hash_of(&coldkey)
+}
+
+fn announce_coldkey_swap(who: U256, new_coldkey: U256) {
+    let ed = ExistentialDeposit::get();
+    let swap_cost = SubtensorModule::get_key_swap_cost().to_u64();
+    SubtensorModule::add_balance_to_coldkey_account(&who, ed + swap_cost);
+
+    assert_ok!(SubtensorModule::announce_coldkey_swap(
+        RuntimeOrigin::signed(who),
+        coldkey_hash_of(new_coldkey),
+    ));
+}
+
+fn dispute_coldkey_swap(who: U256) {
+    assert_ok!(SubtensorModule::dispute_coldkey_swap(
+        RuntimeOrigin::signed(who),
+    ));
 }
