@@ -63,7 +63,7 @@ describe("Test neuron precompile reward", () => {
 
         await addStake(api, netuid, convertPublicKeyToSs58(validator.publicKey), tao(100), coldkey)
 
-        const miner_alpha_before_emission = await api.query.SubtensorModule.Alpha.getValue(
+        const miner_alpha_before_emission = await api.query.SubtensorModule.AlphaV2.getValue(
             convertPublicKeyToSs58(miner.publicKey),
             convertPublicKeyToSs58(coldkey.publicKey),
             netuid
@@ -87,7 +87,7 @@ describe("Test neuron precompile reward", () => {
 
         index = 0;
         while (index < 60) {
-            let miner_current_alpha = await api.query.SubtensorModule.Alpha.getValue(
+            let miner_current_alpha = await api.query.SubtensorModule.AlphaV2.getValue(
                 convertPublicKeyToSs58(miner.publicKey),
                 convertPublicKeyToSs58(coldkey.publicKey),
                 netuid

@@ -54,7 +54,7 @@ describe("Test neuron precompile add remove stake", () => {
         let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
         // ETH unit
         let stakeBalance = raoToEth(tao(20))
-        const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
+        const stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
         const contract = new ethers.Contract(ISTAKING_ADDRESS, IStakingABI, wallet1);
         const tx = await contract.addStake(hotkey.publicKey, netuid, { value: stakeBalance.toString() })
         await tx.wait()
@@ -64,7 +64,7 @@ describe("Test neuron precompile add remove stake", () => {
         );
 
         assert.ok(stakeFromContract > stakeBefore)
-        const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
+        const stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
         assert.ok(stakeAfter > stakeBefore)
     })
 
@@ -72,7 +72,7 @@ describe("Test neuron precompile add remove stake", () => {
         let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
         // the unit in V2 is RAO, not ETH
         let stakeBalance = tao(20)
-        const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
+        const stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
         const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
         const tx = await contract.addStake(hotkey.publicKey, stakeBalance.toString(), netuid)
         await tx.wait()
@@ -82,7 +82,7 @@ describe("Test neuron precompile add remove stake", () => {
         );
 
         assert.ok(stakeFromContract > stakeBefore)
-        const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
+        const stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
         assert.ok(stakeAfter > stakeBefore)
     })
 
@@ -90,7 +90,7 @@ describe("Test neuron precompile add remove stake", () => {
         // wrong netuid
         let netuid = 12345;
         let stakeBalance = raoToEth(tao(20))
-        const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
+        const stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
         const contract = new ethers.Contract(ISTAKING_ADDRESS, IStakingABI, wallet1);
         try {
             const tx = await contract.addStake(hotkey.publicKey, netuid, { value: stakeBalance.toString() })
@@ -104,7 +104,7 @@ describe("Test neuron precompile add remove stake", () => {
             await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet1.address), netuid)
         );
         assert.equal(stakeFromContract, stakeBefore)
-        const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
+        const stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), netuid)
         assert.equal(stakeAfter, stakeBefore)
     });
 
@@ -113,7 +113,7 @@ describe("Test neuron precompile add remove stake", () => {
         let netuid = 12345;
         // the unit in V2 is RAO, not ETH
         let stakeBalance = tao(20)
-        const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
+        const stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
         const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
 
         try {
@@ -128,7 +128,7 @@ describe("Test neuron precompile add remove stake", () => {
             await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet2.address), netuid)
         );
         assert.equal(stakeFromContract, stakeBefore)
-        const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
+        const stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet2.address), netuid)
         assert.equal(stakeAfter, stakeBefore)
     })
 
@@ -248,7 +248,7 @@ describe("Test neuron precompile add remove stake", () => {
 
         assert.equal(proxiesAfterAdd[0][0].delegate, convertPublicKeyToSs58(proxy.publicKey))
 
-        let stakeBefore = await api.query.SubtensorModule.Alpha.getValue(
+        let stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(
             convertPublicKeyToSs58(hotkey.publicKey),
             ss58Address,
             netuid
@@ -261,7 +261,7 @@ describe("Test neuron precompile add remove stake", () => {
         })
         await sendProxyCall(api, call.decodedCall, ss58Address, proxy)
 
-        let stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
+        let stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(
             convertPublicKeyToSs58(hotkey.publicKey),
             ss58Address,
             netuid
@@ -306,7 +306,7 @@ describe("Test neuron precompile add remove stake", () => {
 
         assert.equal(proxiesAfterAdd[0][0].delegate, convertPublicKeyToSs58(proxy.publicKey))
 
-        let stakeBefore = await api.query.SubtensorModule.Alpha.getValue(
+        let stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(
             convertPublicKeyToSs58(hotkey.publicKey),
             ss58Address,
             netuid
@@ -320,7 +320,7 @@ describe("Test neuron precompile add remove stake", () => {
 
         await sendProxyCall(api, call.decodedCall, ss58Address, proxy)
 
-        let stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
+        let stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(
             convertPublicKeyToSs58(hotkey.publicKey),
             ss58Address,
             netuid

@@ -72,7 +72,7 @@ describe("Test staking precompile burn alpha", () => {
         let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
 
         // Get current stake
-        const currentStake = await api.query.SubtensorModule.Alpha.getValue(
+        const currentStake = await api.query.SubtensorModule.AlphaV2.getValue(
             convertPublicKeyToSs58(hotkey.publicKey),
             convertH160ToSS58(wallet1.address),
             netuid

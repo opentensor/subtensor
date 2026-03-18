@@ -147,7 +147,7 @@ describe("PrecompileWrapper - Direct Call Tests", () => {
 
         it("Should add stake via wrapper", async () => {
             const stakeAmount = tao(2);
-            const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(
+            const stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(
                 convertPublicKeyToSs58(hotkey.publicKey),
                 convertH160ToSS58(wrapperAddress),
                 netuid
@@ -161,7 +161,7 @@ describe("PrecompileWrapper - Direct Call Tests", () => {
             );
             await addStakeTx.wait();
 
-            const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
+            const stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(
                 convertPublicKeyToSs58(hotkey.publicKey),
                 convertH160ToSS58(wrapperAddress),
                 netuid
@@ -171,7 +171,7 @@ describe("PrecompileWrapper - Direct Call Tests", () => {
 
         it("Should remove stake via wrapper", async () => {
             const removeAmount = tao(1);
-            const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(
+            const stakeBefore = await api.query.SubtensorModule.AlphaV2.getValue(
                 convertPublicKeyToSs58(hotkey.publicKey),
                 convertH160ToSS58(wrapperAddress),
                 netuid
@@ -184,7 +184,7 @@ describe("PrecompileWrapper - Direct Call Tests", () => {
             );
             await removeStakeTx.wait();
 
-            const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(
+            const stakeAfter = await api.query.SubtensorModule.AlphaV2.getValue(
                 convertPublicKeyToSs58(hotkey.publicKey),
                 convertH160ToSS58(wrapperAddress),
                 netuid
