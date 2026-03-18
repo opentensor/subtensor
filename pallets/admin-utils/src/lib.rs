@@ -1148,7 +1148,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the minimum stake required for nominators.
         #[pallet::call_index(43)]
         #[pallet::weight(Weight::from_parts(28_050_000, 6792)
-        .saturating_add(T::DbWeight::get().reads(4_u64))
+        .saturating_add(T::DbWeight::get().reads(5_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_nominator_min_required_stake(
             origin: OriginFor<T>,
@@ -1594,7 +1594,7 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(65)]
-        #[pallet::weight(Weight::from_parts(6_201_000, 0)
+        #[pallet::weight(Weight::from_parts(3_415_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_ema_price_halving_period(
