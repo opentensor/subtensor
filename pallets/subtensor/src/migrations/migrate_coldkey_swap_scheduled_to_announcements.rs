@@ -103,6 +103,7 @@ pub fn migrate_coldkey_swap_scheduled_to_announcements<T: Config + pallet_schedu
 
     pallet_scheduler::Agenda::<T>::translate_values::<Vec<Option<ScheduledOf<T>>>, _>(
         |mut agenda| {
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
             for schedule in agenda.iter_mut() {
                 // SwapColdkey call is guaranteed to be inlined and below 128 bytes.
                 if let Some(Bounded::Inline(data)) = schedule.as_ref().map(|s| s.call.clone()) {
@@ -112,8 +113,6 @@ pub fn migrate_coldkey_swap_scheduled_to_announcements<T: Config + pallet_schedu
                     }
                 }
             }
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-
             Some(BoundedVec::truncate_from(agenda))
         },
     );
