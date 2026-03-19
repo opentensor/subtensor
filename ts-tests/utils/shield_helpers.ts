@@ -1,4 +1,3 @@
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { xxhashAsU8a } from "@polkadot/util-crypto";
 import { randomBytes } from "ethers";
@@ -8,26 +7,25 @@ import { type TypedApi, Binary } from "polkadot-api";
 import type { subtensor } from "@polkadot-api/descriptors";
 import { getSignerFromKeypair } from "./account.ts";
 import { waitForFinalizedBlocks } from "./transactions.ts";
+import { hexToU8a } from "@polkadot/util";
 
-export const getNextKey = async (api: ApiPromise): Promise<Uint8Array | undefined> => {
-    const bestHeader = await api.rpc.chain.getHeader();
-    const bestHash = bestHeader.hash;
-
-    // Query at best block hash directly
-    const key = await api.query.mevShield.nextKey.at(bestHash);
-    if (key.isEmpty) return undefined;
-
-    // BoundedVec<u8> decodes as Bytes/Vec<u8>
-    const bytes = key.toU8a(true);
-    return bytes.length > 0 ? bytes : undefined;
+export const getNextKey = async (api: TypedApi<typeof subtensor>): Promise<Uint8Array | undefined> => {
+    // Query at "best" (not default "finalized") because keys rotate every block
+    // and finalized lags ~2 blocks behind best with GRANDPA. Using finalized
+    // would return a stale key whose hash won't match CurrentKey/NextKey at
+    // block-building time, causing InvalidShieldedTxPubKeyHash rejection.
+    const key = await api.query.MevShield.NextKey.getValue({ at: "best" });
+    if (!key) return undefined;
+    if (key instanceof Binary) return key.asBytes();
+    return hexToU8a(key as string);
 };
 
-export const checkRuntime = async (api: ApiPromise) => {
-    const ts1 = (await api.query.timestamp.now()).toNumber();
+export const checkRuntime = async (api: TypedApi<typeof subtensor>) => {
+    const ts1 = await api.query.Timestamp.Now.getValue();
 
     await waitForFinalizedBlocks(api, 1);
 
-    const ts2 = (await api.query.timestamp.now()).toNumber();
+    const ts2 = await api.query.Timestamp.Now.getValue();
 
     const blockTimeMs = ts2 - ts1;
 
@@ -40,11 +38,11 @@ export const checkRuntime = async (api: ApiPromise) => {
     }
 };
 
-export const getCurrentKey = async (api: ApiPromise): Promise<Uint8Array | undefined> => {
-    const bestHash = await api.rpc.chain.getBlockHash((await api.rpc.chain.getHeader()).number.toNumber());
-    const key = await api.query.mevShield.currentKey.at(bestHash);
-    if (key.isNone) return undefined;
-    return key.unwrap().toU8a(true);
+export const getCurrentKey = async (api: TypedApi<typeof subtensor>): Promise<Uint8Array | undefined> => {
+    const key = await api.query.MevShield.CurrentKey.getValue({ at: "best" });
+    if (!key) return undefined;
+    if (key instanceof Binary) return key.asBytes();
+    return hexToU8a(key as string);
 };
 
 export const encryptTransaction = async (plaintext: Uint8Array, publicKey: Uint8Array): Promise<Uint8Array> => {

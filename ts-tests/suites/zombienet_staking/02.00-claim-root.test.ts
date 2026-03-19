@@ -1,24 +1,24 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import {
     forceSetBalance,
     generateKeyringPair,
     getRootClaimType,
-    type KeepSubnetType,
     setRootClaimType,
     sudoSetLockReductionInterval,
 } from "../../utils";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "02_set_root_claim_type",
     title: "▶ set_root_claim_type extrinsic",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
             await sudoSetLockReductionInterval(api, 1);
         });
 
@@ -91,15 +91,15 @@ describeSuite({
 
                 // Set root claim type to KeepSubnets with specific subnets
                 const subnetsToKeep = [1, 2];
-                await setRootClaimType(api, coldkey, { KeepSubnets: { subnets: subnetsToKeep } });
+                await setRootClaimType(api, coldkey, { type: "KeepSubnets", subnets: subnetsToKeep });
 
                 // Verify claim type changed
                 const claimTypeAfter = await getRootClaimType(api, coldkeyAddress);
                 log(`Root claim type after: ${JSON.stringify(claimTypeAfter)}`);
 
                 expect(typeof claimTypeAfter).toBe("object");
-                expect(!!(claimTypeAfter as KeepSubnetType).KeepSubnets).toBe(true);
-                expect((claimTypeAfter as KeepSubnetType).KeepSubnets.subnets).toEqual(subnetsToKeep);
+                expect((claimTypeAfter as { type: string }).type).toBe("KeepSubnets");
+                expect((claimTypeAfter as { subnets: number[] }).subnets).toEqual(subnetsToKeep);
 
                 log("✅ Successfully set root claim type to KeepSubnets.");
             },

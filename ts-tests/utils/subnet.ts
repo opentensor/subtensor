@@ -2,57 +2,64 @@ import { waitForTransactionWithRetry } from "./transactions.js";
 import { log } from "./logger.js";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
-import type { ApiPromise } from "@polkadot/api";
+import type { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
-export async function addNewSubnetwork(api: ApiPromise, hotkey: KeyringPair, coldkey: KeyringPair): Promise<number> {
+export async function addNewSubnetwork(
+    api: TypedApi<typeof subtensor>,
+    hotkey: KeyringPair,
+    coldkey: KeyringPair
+): Promise<number> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const totalNetworks = (await api.query.subtensorModule.totalNetworks()).toString();
+    const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue();
 
     // Disable network rate limit for testing
-    const rateLimit = BigInt((await api.query.subtensorModule.networkRateLimit()).toString());
+    const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue();
     if (rateLimit !== BigInt(0)) {
-        const internalTx = api.tx.adminUtils.sudoSetNetworkRateLimit(BigInt(0));
-        const tx = api.tx.sudo.sudo(internalTx);
+        const internalCall = api.tx.AdminUtils.sudo_set_network_rate_limit({ rate_limit: BigInt(0) });
+        const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
         await waitForTransactionWithRetry(api, tx, alice, "set_network_rate_limit");
     }
 
-    const registerNetworkTx = api.tx.subtensorModule.registerNetwork(hotkey.address);
+    const registerNetworkTx = api.tx.SubtensorModule.register_network({
+        hotkey: hotkey.address,
+    });
     await waitForTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network");
 
-    return Number(totalNetworks);
+    return totalNetworks;
 }
 
 export async function burnedRegister(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     netuid: number,
     hotkeyAddress: string,
     coldkey: KeyringPair
 ): Promise<void> {
-    const registered = (await api.query.subtensorModule.uids(netuid, hotkeyAddress)).toJSON();
-    if (registered !== null) {
+    const registered = await api.query.SubtensorModule.Uids.getValue(netuid, hotkeyAddress);
+    if (registered !== undefined) {
         log.tx("burned_register", `skipped: hotkey already registered on netuid ${netuid}`);
         return;
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const tx = api.tx.subtensorModule.burnedRegister(netuid, hotkeyAddress);
+    const tx = api.tx.SubtensorModule.burned_register({ hotkey: hotkeyAddress, netuid: netuid });
     await waitForTransactionWithRetry(api, tx, coldkey, "burned_register");
 }
 
-export async function startCall(api: ApiPromise, netuid: number, coldkey: KeyringPair): Promise<void> {
-    const registerBlock = Number(await api.query.subtensorModule.networkRegisteredAt(netuid).toString());
-    let currentBlock = Number(await api.query.system.number().toString());
-    const duration = Number(api.consts.subtensorModule.initialStartCallDelay.toString());
+export async function startCall(api: TypedApi<typeof subtensor>, netuid: number, coldkey: KeyringPair): Promise<void> {
+    const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid));
+    let currentBlock = await api.query.System.Number.getValue();
+    const duration = Number(await api.constants.SubtensorModule.InitialStartCallDelay);
 
     while (currentBlock - registerBlock <= duration) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        currentBlock = Number((await api.query.system.number()).toString());
+        currentBlock = await api.query.System.Number.getValue();
     }
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    const tx = api.tx.subtensorModule.startCall(netuid);
+    const tx = api.tx.SubtensorModule.start_call({ netuid: netuid });
     await waitForTransactionWithRetry(api, tx, coldkey, "start_call");
 
     await new Promise((resolve) => setTimeout(resolve, 1000));

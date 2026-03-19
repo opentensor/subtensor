@@ -1,27 +1,27 @@
 import { expect, beforeAll } from "vitest";
-import type { TypedApi } from "polkadot-api";
+import type { PolkadotClient, TypedApi } from "polkadot-api";
 import { hexToU8a } from "@polkadot/util";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import {
     checkRuntime,
     getAccountNonce,
     getBalance,
     getNextKey,
+    getSignerFromKeypair,
     submitEncrypted,
     waitForFinalizedBlocks,
 } from "../../utils";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
-import { subtensor } from "@polkadot-api/descriptors";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 
 describeSuite({
     id: "01_scaling",
     title: "MEV Shield — 6 node scaling",
     foundationMethods: "zombie",
     testCases: ({ it, context }) => {
-        let api: ApiPromise;
-        let papi: TypedApi<typeof subtensor>;
+        let api: TypedApi<typeof subtensor>;
+        let client: PolkadotClient;
 
         let alice: KeyringPair;
         let bob: KeyringPair;
@@ -33,8 +33,8 @@ describeSuite({
             bob = keyring.addFromUri("//Bob");
             charlie = keyring.addFromUri("//Charlie");
 
-            papi = context.papi("NodePapi").getTypedApi(subtensor);
-            api = context.polkadotJs("Node");
+            client = context.papi("Node");
+            api = client.getTypedApi(subtensor);
 
             await checkRuntime(api);
         }, 120000);
@@ -44,7 +44,7 @@ describeSuite({
             title: "Network scales to 6 nodes with full peering",
             test: async () => {
                 // We run 6 nodes: 3 validators and 3 full nodes (5 peers + self)
-                expect(((await api.rpc.system.peers()).toJSON() as any[]).length + 1).toBe(6);
+                expect((await client._request("system_peers", [])).length + 1).toBe(6);
 
                 // Verify the network is healthy by checking finalization continues.
                 await waitForFinalizedBlocks(api, 2);
@@ -76,11 +76,12 @@ describeSuite({
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances
-                    .transferKeepAlive(bob.address, 5_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 5_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                await submitEncrypted(papi, alice, hexToU8a(innerTx.toHex()), nextKey, nonce);
+                await submitEncrypted(api, alice, hexToU8a(innerTxHex), nextKey, nonce);
 
                 const balanceAfter = await getBalance(api, bob.address);
                 expect(balanceAfter).toBeGreaterThan(balanceBefore);
@@ -103,11 +104,12 @@ describeSuite({
                 for (const sender of senders) {
                     const nonce = await getAccountNonce(api, sender.address);
 
-                    const innerTxHex = await api.tx.balances
-                        .transferKeepAlive(charlie.address, amount)
-                        .signAsync(alice, { nonce: nonce + 1 });
+                    const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                        dest: MultiAddress.Id(charlie.address),
+                        value: amount,
+                    }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                    txPromises.push(submitEncrypted(papi, sender, hexToU8a(innerTxHex.toHex()), nextKey, nonce));
+                    txPromises.push(submitEncrypted(api, sender, hexToU8a(innerTxHex), nextKey, nonce));
                 }
 
                 await Promise.all(txPromises);

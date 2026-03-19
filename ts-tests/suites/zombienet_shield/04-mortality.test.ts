@@ -1,9 +1,8 @@
 import { expect, beforeAll } from "vitest";
-import type { TypedApi } from "polkadot-api";
+import type { PolkadotClient, TypedApi } from "polkadot-api";
 import { Binary } from "polkadot-api";
 import { hexToU8a } from "@polkadot/util";
-import { subtensor } from "@polkadot-api/descriptors";
-import type { ApiPromise } from "@polkadot/api";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
 import {
@@ -28,10 +27,10 @@ describeSuite({
     title: "MEV Shield — mortality eviction",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let apiAuthority: ApiPromise;
+        let apiAuthority: TypedApi<typeof subtensor>;
 
-        let apiFull: ApiPromise;
-        let papiFull: TypedApi<typeof subtensor>;
+        let apiFull: TypedApi<typeof subtensor>;
+        let clientFull: PolkadotClient;
 
         let alice: KeyringPair;
         let bob: KeyringPair;
@@ -42,10 +41,10 @@ describeSuite({
                 alice = keyring.addFromUri("//Alice");
                 bob = keyring.addFromUri("//Bob");
 
-                apiAuthority = context.polkadotJs("Node");
+                apiAuthority = context.papi("Node").getTypedApi(subtensor);
 
-                papiFull = context.papi("NodeFullPapi").getTypedApi(subtensor);
-                apiFull = context.polkadotJs("NodeFull");
+                clientFull = context.papi("NodeFull");
+                apiFull = clientFull.getTypedApi(subtensor);
 
                 await checkRuntime(apiAuthority);
 
@@ -67,16 +66,17 @@ describeSuite({
                 const balanceBefore = await getBalance(apiFull, bob.address);
 
                 const nonce = await getAccountNonce(apiFull, alice.address);
-                const innerTx = await apiAuthority.tx.balances
-                    .transferKeepAlive(bob.address, 1_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                const innerTxHex = await apiFull.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 1_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
                 // Encrypt with valid key, then tamper the key_hash so no proposer will include it.
-                const ciphertext = await encryptTransaction(hexToU8a(innerTx.toHex()), nextKey);
+                const ciphertext = await encryptTransaction(hexToU8a(innerTxHex), nextKey);
                 const tampered = new Uint8Array(ciphertext);
                 for (let i = 0; i < 16; i++) tampered[i] = 0xff;
 
-                const tx = papiFull.tx.MevShield.submit_encrypted({
+                const tx = apiFull.tx.MevShield.submit_encrypted({
                     ciphertext: Binary.fromBytes(tampered),
                 });
 
@@ -91,7 +91,7 @@ describeSuite({
                 // Submit via raw RPC to get immediate feedback on pool acceptance.
                 let txHash: string;
                 try {
-                    txHash = (await apiFull.rpc.author.submitExtrinsic(signedHex)).toString();
+                    txHash = await clientFull._request("author_submitExtrinsic", [signedHex]);
                     log(`Tx submitted successfully, hash: ${txHash}`);
                 } catch (err: unknown) {
                     throw new Error(`Tx rejected at pool entry: ${err}`);
@@ -99,7 +99,7 @@ describeSuite({
 
                 // Verify it's in the pool.
                 await sleep(1_000);
-                const pending = (await apiFull.rpc.author.pendingExtrinsics()).toJSON() as string[];
+                const pending: string[] = await clientFull._request("author_pendingExtrinsics", []);
                 log(`Pool has ${pending.length} pending tx(s)`);
 
                 // Now poll until the tx disappears (mortality eviction).
@@ -112,7 +112,7 @@ describeSuite({
                 while (Date.now() - start < maxPollMs) {
                     await sleep(POLL_INTERVAL_MS);
 
-                    const pending = (await apiFull.rpc.author.pendingExtrinsics()).toJSON() as string[];
+                    const pending: string[] = await clientFull._request("author_pendingExtrinsics", []);
 
                     if (pending.length === 0) {
                         evicted = true;

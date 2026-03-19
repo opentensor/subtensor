@@ -1,47 +1,26 @@
 import { waitForTransactionWithRetry } from "./transactions.js";
-import { Keyring } from "@polkadot/keyring";
 import type { KeyringPair } from "@moonwall/util";
-import type { ApiPromise } from "@polkadot/api";
-
-// U64F64 is a 128-bit fixed-point type with 64 fractional bits.
-// Raw storage values must be divided by 2^64 to get the actual value.
-const U64F64_FRACTIONAL_BITS = 64n;
-const U64F64_MULTIPLIER = 1n << U64F64_FRACTIONAL_BITS; // 2^64
-
-/**
- * Convert a raw U64F64 storage value to its integer part (truncated).
- */
-export function u64f64ToInt(raw: bigint): bigint {
-    return raw >> U64F64_FRACTIONAL_BITS;
-}
-
-/**
- * Convert an integer to U64F64 raw format for use in extrinsics.
- */
-export function intToU64f64(value: bigint): bigint {
-    return value << U64F64_FRACTIONAL_BITS;
-}
-
-/**
- * Convert a raw U64F64 storage value to a decimal number for display.
- */
-export function u64f64ToNumber(raw: bigint): number {
-    return Number(raw) / Number(U64F64_MULTIPLIER);
-}
+import type { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
+import { Keyring } from "@polkadot/keyring";
 
 export async function addStake(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     hotkey: string,
     netuid: number,
     amount: bigint
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.addStake(hotkey, netuid, amount);
+    const tx = api.tx.SubtensorModule.add_stake({
+        hotkey: hotkey,
+        netuid: netuid,
+        amount_staked: amount,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "add_stake");
 }
 
 export async function addStakeLimit(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     hotkey: string,
     netuid: number,
@@ -49,23 +28,33 @@ export async function addStakeLimit(
     limitPrice: bigint,
     allowPartial: boolean
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.addStakeLimit(hotkey, netuid, amount, limitPrice, allowPartial);
+    const tx = api.tx.SubtensorModule.add_stake_limit({
+        hotkey: hotkey,
+        netuid: netuid,
+        amount_staked: amount,
+        limit_price: limitPrice,
+        allow_partial: allowPartial,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "add_stake_limit");
 }
 
 export async function removeStake(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     hotkey: string,
     netuid: number,
     amount: bigint
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.removeStake(hotkey, netuid, amount);
+    const tx = api.tx.SubtensorModule.remove_stake({
+        hotkey: hotkey,
+        netuid: netuid,
+        amount_unstaked: amount,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "remove_stake");
 }
 
 export async function removeStakeLimit(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     hotkey: string,
     netuid: number,
@@ -73,28 +62,46 @@ export async function removeStakeLimit(
     limitPrice: bigint,
     allowPartial: boolean
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.removeStakeLimit(hotkey, netuid, amount, limitPrice, allowPartial);
+    const tx = api.tx.SubtensorModule.remove_stake_limit({
+        hotkey: hotkey,
+        netuid: netuid,
+        amount_unstaked: amount,
+        limit_price: limitPrice,
+        allow_partial: allowPartial,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "remove_stake_limit");
 }
 
 export async function removeStakeFullLimit(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     hotkey: string,
     netuid: number,
     limitPrice: bigint | undefined
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.removeStakeFullLimit(hotkey, netuid, limitPrice);
+    const tx = api.tx.SubtensorModule.remove_stake_full_limit({
+        hotkey: hotkey,
+        netuid: netuid,
+        limit_price: limitPrice,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "remove_stake_full_limit");
 }
 
-export async function unstakeAll(api: ApiPromise, coldkey: KeyringPair, hotkey: string): Promise<void> {
-    const tx = api.tx.subtensorModule.unstakeAll(hotkey);
+export async function unstakeAll(api: TypedApi<typeof subtensor>, coldkey: KeyringPair, hotkey: string): Promise<void> {
+    const tx = api.tx.SubtensorModule.unstake_all({
+        hotkey: hotkey,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "unstake_all");
 }
 
-export async function unstakeAllAlpha(api: ApiPromise, coldkey: KeyringPair, hotkey: string): Promise<void> {
-    const tx = api.tx.subtensorModule.unstakeAllAlpha(hotkey);
+export async function unstakeAllAlpha(
+    api: TypedApi<typeof subtensor>,
+    coldkey: KeyringPair,
+    hotkey: string
+): Promise<void> {
+    const tx = api.tx.SubtensorModule.unstake_all_alpha({
+        hotkey: hotkey,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "unstake_all_alpha");
 }
 
@@ -102,25 +109,43 @@ export async function unstakeAllAlpha(api: ApiPromise, coldkey: KeyringPair, hot
  * Get stake shares (Alpha) for a hotkey/coldkey/netuid triplet.
  * Returns the integer part of the U64F64 value.
  */
-export async function getStake(api: ApiPromise, hotkey: string, coldkey: string, netuid: number): Promise<bigint> {
-    const obj = (await api.query.subtensorModule.alphaV2(hotkey, coldkey, netuid)) as any;
+export async function getStake(
+    api: TypedApi<typeof subtensor>,
+    hotkey: string,
+    coldkey: string,
+    netuid: number
+): Promise<bigint> {
+    const value = await api.query.SubtensorModule.AlphaV2.getValue(hotkey, coldkey, netuid);
 
-    const mantissa = BigInt(obj.mantissa.toString());
-    const exponent = Number(obj.exponent.toString());
+    const mantissa = value.mantissa;
+    const exponent = value.exponent;
 
-    let value: bigint;
+    let result: bigint;
 
     if (exponent >= 0) {
-        value = mantissa * 10n ** BigInt(exponent);
+        result = mantissa * BigInt(10) ** exponent;
     } else {
-        value = mantissa / 10n ** BigInt(-exponent);
+        result = mantissa / BigInt(10) ** -exponent;
     }
 
-    return value;
+    return result;
+}
+
+/**
+ * Get raw stake shares (Alpha) in U64F64 format.
+ * Use this when you need the raw value for extrinsics like transfer_stake.
+ */
+export async function getStakeRaw(
+    api: TypedApi<typeof subtensor>,
+    hotkey: string,
+    coldkey: string,
+    netuid: number
+): Promise<bigint> {
+    return await api.query.SubtensorModule.Alpha.getValue(hotkey, coldkey, netuid);
 }
 
 export async function transferStake(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     originColdkey: KeyringPair,
     destinationColdkey: string,
     hotkey: string,
@@ -128,18 +153,18 @@ export async function transferStake(
     destinationNetuid: number,
     amount: bigint
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.transferStake(
-        destinationColdkey,
-        hotkey,
-        originNetuid,
-        destinationNetuid,
-        amount
-    );
+    const tx = api.tx.SubtensorModule.transfer_stake({
+        destination_coldkey: destinationColdkey,
+        hotkey: hotkey,
+        origin_netuid: originNetuid,
+        destination_netuid: destinationNetuid,
+        alpha_amount: amount,
+    });
     await waitForTransactionWithRetry(api, tx, originColdkey, "transfer_stake");
 }
 
 export async function moveStake(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     originHotkey: string,
     destinationHotkey: string,
@@ -147,30 +172,35 @@ export async function moveStake(
     destinationNetuid: number,
     amount: bigint
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.moveStake(
-        originHotkey,
-        destinationHotkey,
-        originNetuid,
-        destinationNetuid,
-        amount
-    );
+    const tx = api.tx.SubtensorModule.move_stake({
+        origin_hotkey: originHotkey,
+        destination_hotkey: destinationHotkey,
+        origin_netuid: originNetuid,
+        destination_netuid: destinationNetuid,
+        alpha_amount: amount,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "move_stake");
 }
 
 export async function swapStake(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     hotkey: string,
     originNetuid: number,
     destinationNetuid: number,
     amount: bigint
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.swapStake(hotkey, originNetuid, destinationNetuid, amount);
+    const tx = api.tx.SubtensorModule.swap_stake({
+        hotkey: hotkey,
+        origin_netuid: originNetuid,
+        destination_netuid: destinationNetuid,
+        alpha_amount: amount,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "swap_stake");
 }
 
 export async function swapStakeLimit(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     coldkey: KeyringPair,
     hotkey: string,
     originNetuid: number,
@@ -179,85 +209,109 @@ export async function swapStakeLimit(
     limitPrice: bigint,
     allowPartial: boolean
 ): Promise<void> {
-    const tx = api.tx.subtensorModule.swapStakeLimit(
-        hotkey,
-        originNetuid,
-        destinationNetuid,
-        amount,
-        limitPrice,
-        allowPartial
-    );
+    const tx = api.tx.SubtensorModule.swap_stake_limit({
+        hotkey: hotkey,
+        origin_netuid: originNetuid,
+        destination_netuid: destinationNetuid,
+        alpha_amount: amount,
+        limit_price: limitPrice,
+        allow_partial: allowPartial,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "swap_stake_limit");
 }
 
-export type RootClaimType = "Swap" | "Keep" | KeepSubnetType;
-export type KeepSubnetType = { KeepSubnets: { subnets: number[] } };
-export async function getRootClaimType(api: ApiPromise, coldkey: string): Promise<RootClaimType> {
-    const result = (await api.query.subtensorModule.rootClaimType(coldkey)).toJSON() as any; // TODO: Fix any
-    if (result.keep === null) {
-        return "Keep";
+export type RootClaimType = "Swap" | "Keep" | { type: "KeepSubnets"; subnets: number[] };
+
+export async function getRootClaimType(api: TypedApi<typeof subtensor>, coldkey: string): Promise<RootClaimType> {
+    const result = await api.query.SubtensorModule.RootClaimType.getValue(coldkey);
+    if (result.type === "KeepSubnets") {
+        return { type: "KeepSubnets", subnets: result.value.subnets as number[] };
     }
-    if (result.swap === null) {
-        return "Swap";
-    }
-    if (result.keepSubnets) {
-        return { KeepSubnets: { subnets: result.keepSubnets.subnets } };
-    }
-    throw new Error("Unknown root claim type");
+    return result.type as "Swap" | "Keep";
 }
 
-export async function setRootClaimType(api: ApiPromise, coldkey: KeyringPair, claimType: RootClaimType): Promise<void> {
-    const tx = api.tx.subtensorModule.setRootClaimType(claimType);
+export async function setRootClaimType(
+    api: TypedApi<typeof subtensor>,
+    coldkey: KeyringPair,
+    claimType: RootClaimType
+): Promise<void> {
+    let newRootClaimType;
+    if (typeof claimType === "string") {
+        newRootClaimType = { type: claimType, value: undefined };
+    } else {
+        newRootClaimType = { type: "KeepSubnets", value: { subnets: claimType.subnets } };
+    }
+    const tx = api.tx.SubtensorModule.set_root_claim_type({
+        new_root_claim_type: newRootClaimType,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "set_root_claim_type");
 }
 
-export async function claimRoot(api: ApiPromise, coldkey: KeyringPair, subnets: number[]): Promise<void> {
-    const tx = api.tx.subtensorModule.claimRoot(subnets);
+export async function claimRoot(
+    api: TypedApi<typeof subtensor>,
+    coldkey: KeyringPair,
+    subnets: number[]
+): Promise<void> {
+    const tx = api.tx.SubtensorModule.claim_root({
+        subnets: subnets,
+    });
     await waitForTransactionWithRetry(api, tx, coldkey, "claim_root");
 }
 
-export async function getNumRootClaims(api: ApiPromise): Promise<bigint> {
-    return (await api.query.subtensorModule.numRootClaim()).toBigInt();
+export async function getNumRootClaims(api: TypedApi<typeof subtensor>): Promise<bigint> {
+    return await api.query.SubtensorModule.NumRootClaim.getValue();
 }
 
-export async function sudoSetNumRootClaims(api: ApiPromise, newValue: bigint): Promise<void> {
+export async function sudoSetNumRootClaims(api: TypedApi<typeof subtensor>, newValue: bigint): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.subtensorModule.sudoSetNumRootClaims(newValue);
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.SubtensorModule.sudo_set_num_root_claims({
+        new_value: newValue,
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_num_root_claims");
 }
 
-export async function getRootClaimThreshold(api: ApiPromise, netuid: number): Promise<bigint> {
-    return (await api.query.subtensorModule.rootClaimableThreshold(netuid)).bits.toBigInt();
+export async function getRootClaimThreshold(api: TypedApi<typeof subtensor>, netuid: number): Promise<bigint> {
+    return await api.query.SubtensorModule.RootClaimableThreshold.getValue(netuid);
 }
 
-export async function sudoSetRootClaimThreshold(api: ApiPromise, netuid: number, newValue: bigint): Promise<void> {
+export async function sudoSetRootClaimThreshold(
+    api: TypedApi<typeof subtensor>,
+    netuid: number,
+    newValue: bigint
+): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.subtensorModule.sudoSetRootClaimThreshold(netuid, newValue);
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.SubtensorModule.sudo_set_root_claim_threshold({
+        netuid: netuid,
+        new_value: newValue,
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_root_claim_threshold");
 }
 
-export async function getTempo(api: ApiPromise, netuid: number): Promise<number> {
-    return Number((await api.query.subtensorModule.tempo(netuid)).toString());
+export async function getTempo(api: TypedApi<typeof subtensor>, netuid: number): Promise<number> {
+    return await api.query.SubtensorModule.Tempo.getValue(netuid);
 }
 
-export async function sudoSetTempo(api: ApiPromise, netuid: number, tempo: number): Promise<void> {
+export async function sudoSetTempo(api: TypedApi<typeof subtensor>, netuid: number, tempo: number): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.adminUtils.sudoSetTempo(netuid, tempo);
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.AdminUtils.sudo_set_tempo({
+        netuid: netuid,
+        tempo: tempo,
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_tempo");
 }
 
-export async function waitForBlocks(api: ApiPromise, numBlocks: number): Promise<void> {
-    const startBlock = Number((await api.query.system.number()).toString());
+export async function waitForBlocks(api: TypedApi<typeof subtensor>, numBlocks: number): Promise<void> {
+    const startBlock = await api.query.System.Number.getValue();
     const targetBlock = startBlock + numBlocks;
 
     while (true) {
-        const currentBlock = Number((await api.query.system.number()).toString());
+        const currentBlock = await api.query.System.Number.getValue();
         if (currentBlock >= targetBlock) {
             break;
         }
@@ -265,94 +319,121 @@ export async function waitForBlocks(api: ApiPromise, numBlocks: number): Promise
     }
 }
 
-export async function getRootClaimable(api: ApiPromise, hotkey: string): Promise<Map<string, bigint>> {
-    const result = await api.query.subtensorModule.rootClaimable(hotkey);
-    const jsonResult = result.toJSON() as Record<string, { bits: number | string }>;
-    const claimableMap = new Map<string, bigint>();
-    for (const [netuid, value] of Object.entries(jsonResult)) {
-        claimableMap.set(netuid, BigInt(value.bits || 0));
+export async function getRootClaimable(api: TypedApi<typeof subtensor>, hotkey: string): Promise<Map<number, bigint>> {
+    const result = await api.query.SubtensorModule.RootClaimable.getValue(hotkey);
+    const claimableMap = new Map<number, bigint>();
+    for (const [netuid, amount] of result) {
+        claimableMap.set(netuid, amount);
     }
     return claimableMap;
 }
 
 export async function getRootClaimed(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     netuid: number,
     hotkey: string,
     coldkey: string
 ): Promise<bigint> {
-    return BigInt((await api.query.subtensorModule.rootClaimed(netuid, hotkey, coldkey)).toString());
+    return await api.query.SubtensorModule.RootClaimed.getValue(netuid, hotkey, coldkey);
 }
 
-export async function isSubtokenEnabled(api: ApiPromise, netuid: number): Promise<boolean> {
-    return (await api.query.subtensorModule.subtokenEnabled(netuid)).toString() === "true";
+export async function isSubtokenEnabled(api: TypedApi<typeof subtensor>, netuid: number): Promise<boolean> {
+    return await api.query.SubtensorModule.SubtokenEnabled.getValue(netuid);
 }
 
-export async function sudoSetSubtokenEnabled(api: ApiPromise, netuid: number, enabled: "Yes" | "No"): Promise<void> {
+export async function sudoSetSubtokenEnabled(
+    api: TypedApi<typeof subtensor>,
+    netuid: number,
+    enabled: boolean
+): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.adminUtils.sudoSetSubtokenEnabled(netuid, enabled);
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.AdminUtils.sudo_set_subtoken_enabled({
+        netuid: netuid,
+        subtoken_enabled: enabled,
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subtoken_enabled");
 }
 
-export async function sudoSetAdminFreezeWindow(api: ApiPromise, window: number): Promise<void> {
+export async function isNetworkAdded(api: TypedApi<typeof subtensor>, netuid: number): Promise<boolean> {
+    return await api.query.SubtensorModule.NetworksAdded.getValue(netuid);
+}
+
+export async function getAdminFreezeWindow(api: TypedApi<typeof subtensor>): Promise<number> {
+    return await api.query.SubtensorModule.AdminFreezeWindow.getValue();
+}
+
+export async function sudoSetAdminFreezeWindow(api: TypedApi<typeof subtensor>, window: number): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.adminUtils.sudoSetAdminFreezeWindow(window);
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.AdminUtils.sudo_set_admin_freeze_window({
+        window: window,
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_admin_freeze_window");
 }
 
 export async function sudoSetEmaPriceHalvingPeriod(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     netuid: number,
     emaPriceHalvingPeriod: number
 ): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.adminUtils.sudoSetEmaPriceHalvingPeriod(netuid, BigInt(emaPriceHalvingPeriod));
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.AdminUtils.sudo_set_ema_price_halving_period({
+        netuid: netuid,
+        ema_halving: BigInt(emaPriceHalvingPeriod),
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_ema_price_halving_period");
 }
 
-export async function sudoSetLockReductionInterval(api: ApiPromise, interval: number): Promise<void> {
+export async function sudoSetLockReductionInterval(api: TypedApi<typeof subtensor>, interval: number): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.adminUtils.sudoSetLockReductionInterval(BigInt(interval));
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.AdminUtils.sudo_set_lock_reduction_interval({
+        interval: BigInt(interval),
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_lock_reduction_interval");
 }
 
-export async function sudoSetSubnetMovingAlpha(api: ApiPromise, alpha: bigint): Promise<void> {
+export async function sudoSetSubnetMovingAlpha(api: TypedApi<typeof subtensor>, alpha: bigint): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCall = api.tx.adminUtils.sudoSetSubnetMovingAlpha({ bits: alpha });
-    const tx = api.tx.sudo.sudo(internalCall);
+    const internalCall = api.tx.AdminUtils.sudo_set_subnet_moving_alpha({
+        alpha: alpha,
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subnet_moving_alpha");
 }
 
 // Debug helpers for claim_root investigation
-export async function getSubnetTAO(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.subtensorModule.subnetTAO(netuid)).toString());
+export async function getSubnetTAO(api: TypedApi<typeof subtensor>, netuid: number): Promise<bigint> {
+    return await api.query.SubtensorModule.SubnetTAO.getValue(netuid);
 }
 
-export async function getSubnetMovingPrice(api: ApiPromise, netuid: number): Promise<bigint> {
-    return (await api.query.subtensorModule.subnetMovingPrice(netuid)).bits.toBigInt();
+export async function getSubnetMovingPrice(api: TypedApi<typeof subtensor>, netuid: number): Promise<bigint> {
+    return await api.query.SubtensorModule.SubnetMovingPrice.getValue(netuid);
 }
 
-export async function getPendingRootAlphaDivs(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.subtensorModule.pendingRootAlphaDivs(netuid)).toString());
+export async function getPendingRootAlphaDivs(api: TypedApi<typeof subtensor>, netuid: number): Promise<bigint> {
+    return await api.query.SubtensorModule.PendingRootAlphaDivs.getValue(netuid);
 }
 
-export async function getTaoWeight(api: ApiPromise): Promise<bigint> {
-    return BigInt((await api.query.subtensorModule.taoWeight()).toString());
+export async function getTaoWeight(api: TypedApi<typeof subtensor>): Promise<bigint> {
+    return await api.query.SubtensorModule.TaoWeight.getValue();
 }
 
-export async function getSubnetAlphaIn(api: ApiPromise, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.subtensorModule.subnetAlphaIn(netuid)).toString());
+export async function getSubnetAlphaIn(api: TypedApi<typeof subtensor>, netuid: number): Promise<bigint> {
+    return await api.query.SubtensorModule.SubnetAlphaIn.getValue(netuid);
 }
 
-export async function getTotalHotkeyAlpha(api: ApiPromise, hotkey: string, netuid: number): Promise<bigint> {
-    return BigInt((await api.query.subtensorModule.totalHotkeyAlpha(hotkey, netuid)).toString());
+export async function getTotalHotkeyAlpha(
+    api: TypedApi<typeof subtensor>,
+    hotkey: string,
+    netuid: number
+): Promise<bigint> {
+    return await api.query.SubtensorModule.TotalHotkeyAlpha.getValue(hotkey, netuid);
 }

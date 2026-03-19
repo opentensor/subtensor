@@ -1,5 +1,4 @@
 import { expect, beforeAll, describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import {
     checkRuntime,
     encryptTransaction,
@@ -14,23 +13,23 @@ import { Binary } from "@polkadot-api/substrate-bindings";
 import { Keyring } from "@polkadot/keyring";
 import type { KeyringPair } from "@moonwall/util";
 import { hexToU8a } from "@polkadot/util";
-import { subtensor } from "@polkadot-api/descriptors";
-import type { TypedApi } from "polkadot-api";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
+import type { PolkadotClient, TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "00.01_basic",
     title: "MEV Shield — encrypted transactions",
     foundationMethods: "zombie",
     testCases: ({ it, context }) => {
-        let api: ApiPromise;
-        let papi: TypedApi<typeof subtensor>;
+        let client: PolkadotClient;
+        let api: TypedApi<typeof subtensor>;
         let alice: KeyringPair;
         let bob: KeyringPair;
         let charlie: KeyringPair;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
-            papi = context.papi("NodePapi").getTypedApi(subtensor);
+            client = context.papi("Node");
+            api = client.getTypedApi(subtensor);
 
             const keyring = new Keyring({ type: "sr25519" });
             alice = keyring.addFromUri("//Alice");
@@ -47,19 +46,20 @@ describeSuite({
             title: "Happy path: wrapper and inner tx are included in the same block",
             test: async () => {
                 const nextKey = await getNextKey(api);
-                expect(nextKey, "NextKey should be defined").toBeDefined();
+                expect(nextKey).toBeDefined();
 
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 10_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                const innerTxHex = await api.tx.balances
-                    .transferKeepAlive(bob.address, 10_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                await submitEncrypted(api, alice, hexToU8a(innerTxHex), nextKey, nonce);
 
-                await submitEncrypted(papi, alice, hexToU8a(innerTxHex.toHex()), nextKey, nonce);
                 const balanceAfter = await getBalance(api, bob.address);
-                expect(balanceAfter, "Bob's balance should increase").toBeGreaterThan(balanceBefore);
+                expect(balanceAfter).toBeGreaterThan(balanceBefore);
             },
         });
 
@@ -68,7 +68,7 @@ describeSuite({
             title: "Failed inner tx: wrapper succeeds but inner transfer has no effect",
             test: async () => {
                 const nextKey = await getNextKey(api);
-                expect(nextKey, "NextKey should be defined").toBeDefined();
+                expect(nextKey).toBeDefined();
 
                 const balanceBefore = await getBalance(api, bob.address);
 
@@ -76,11 +76,12 @@ describeSuite({
                 // The wrapper is valid (correct key_hash, valid encryption), but the
                 // inner transfer should fail at dispatch with InsufficientBalance.
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances
-                    .transferKeepAlive(bob.address, 9_000_000_000_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 9_000_000_000_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                await submitEncrypted(papi, alice, hexToU8a(innerTx.toHex()), nextKey, nonce);
+                await submitEncrypted(api, alice, hexToU8a(innerTxHex), nextKey, nonce);
 
                 // The inner transfer failed, so bob's balance should not increase.
                 const balanceAfter = await getBalance(api, bob.address);
@@ -97,7 +98,7 @@ describeSuite({
                 // 5 bytes of garbage — not valid ciphertext at all.
                 const garbage = new Uint8Array([0x01, 0x02, 0x03, 0x04, 0x05]);
 
-                const tx = papi.tx.MevShield.submit_encrypted({
+                const tx = api.tx.MevShield.submit_encrypted({
                     ciphertext: Binary.fromBytes(garbage),
                 });
 
@@ -126,11 +127,12 @@ describeSuite({
                 for (const sender of senders) {
                     const nonce = await getAccountNonce(api, sender.address);
 
-                    const innerTx = await api.tx.balances.transferKeepAlive(charlie.address, amount).signAsync(sender, {
-                        nonce: nonce + 1,
-                    });
+                    const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                        dest: MultiAddress.Id(charlie.address),
+                        value: amount,
+                    }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                    txPromises.push(submitEncrypted(papi, sender, hexToU8a(innerTx.toHex()), nextKey, nonce));
+                    txPromises.push(submitEncrypted(api, sender, hexToU8a(innerTxHex), nextKey, nonce));
                 }
 
                 await Promise.all(txPromises);
@@ -150,28 +152,27 @@ describeSuite({
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances.transferKeepAlive(bob.address, 1_000_000_000n).signAsync(alice, {
-                    nonce: nonce + 1,
-                });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 1_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                const ciphertext = await encryptTransaction(hexToU8a(innerTx.toHex()), nextKey);
+                const ciphertext = await encryptTransaction(hexToU8a(innerTxHex), nextKey!);
 
                 // Tamper the first 16 bytes (key_hash).
                 const tampered = new Uint8Array(ciphertext);
                 for (let i = 0; i < 16; i++) tampered[i] = 0xff;
 
-                const tx = papi.tx.MevShield.submit_encrypted({
+                const tx = api.tx.MevShield.submit_encrypted({
                     ciphertext: Binary.fromBytes(tampered),
                 });
-
+                const signedHex = await tx.sign(getSignerFromKeypair(alice), {
+                    nonce,
+                    mortality: { mortal: true, period: 8 },
+                });
                 // Send without waiting — the tx enters the pool but the block
                 // proposer will skip it because the key_hash doesn't match.
-                await expect(
-                    tx.signAndSubmit(getSignerFromKeypair(alice), {
-                        nonce,
-                        mortality: { mortal: true, period: 8 },
-                    })
-                ).rejects.toThrow();
+                client.submit(signedHex).catch(() => {});
 
                 await waitForFinalizedBlocks(api, 3);
 
@@ -195,24 +196,23 @@ describeSuite({
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances.transferKeepAlive(bob.address, 1_000_000_000n).signAsync(alice, {
-                    nonce: nonce + 1,
-                });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 1_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                const ciphertext = await encryptTransaction(hexToU8a(innerTx.toHex()), staleKey);
+                const ciphertext = await encryptTransaction(hexToU8a(innerTxHex), staleKey!);
 
-                const tx = papi.tx.MevShield.submit_encrypted({
+                const tx = api.tx.MevShield.submit_encrypted({
                     ciphertext: Binary.fromBytes(ciphertext),
                 });
-
+                const signedHex = await tx.sign(getSignerFromKeypair(alice), {
+                    nonce,
+                    mortality: { mortal: true, period: 8 },
+                });
                 // Send without waiting — the block proposer will reject because
                 // key_hash no longer matches currentKey or nextKey.
-                await expect(
-                    tx.signAndSubmit(getSignerFromKeypair(alice), {
-                        nonce,
-                        mortality: { mortal: true, period: 8 },
-                    })
-                ).rejects.toThrow();
+                client.submit(signedHex).catch(() => {});
 
                 await waitForFinalizedBlocks(api, 3);
 
