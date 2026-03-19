@@ -1775,10 +1775,7 @@ mod dispatches {
         /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
         #[pallet::call_index(91)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::try_associate_hotkey(), DispatchClass::Normal, Pays::Yes))]
-        pub fn try_associate_hotkey(
-            origin: T::RuntimeOrigin,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
+        pub fn try_associate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
             let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
@@ -1796,7 +1793,7 @@ mod dispatches {
         /// Emits a `FirstEmissionBlockNumberSet` event on success.
         #[pallet::call_index(92)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::start_call(), DispatchClass::Normal, Pays::Yes))]
-        pub fn start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
+        pub fn start_call(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             Self::do_start_call(origin, netuid)?;
             Ok(())
         }
