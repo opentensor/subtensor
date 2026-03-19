@@ -1508,7 +1508,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_set_alpha_values(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         alpha_low: u16,
         alpha_high: u16,
