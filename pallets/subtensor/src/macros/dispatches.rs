@@ -1105,8 +1105,8 @@ mod dispatches {
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
         #[pallet::weight(Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(21_u64))
-        .saturating_add(T::DbWeight::get().writes(17_u64)))]
+        .saturating_add(T::DbWeight::get().reads(25_u64))
+        .saturating_add(T::DbWeight::get().writes(19_u64)))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -1248,7 +1248,7 @@ mod dispatches {
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
 		.saturating_add(T::DbWeight::get().reads(36_u64))
-		.saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1455,9 +1455,9 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(79)]
-        #[pallet::weight((Weight::from_parts(396_000_000, 0)
+        #[pallet::weight((Weight::from_parts(231_500_000, 0)
             .saturating_add(T::DbWeight::get().reads(35_u64))
-            .saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().writes(50_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2427,8 +2427,8 @@ mod dispatches {
         #[pallet::call_index(126)]
         #[pallet::weight(
             Weight::from_parts(185_600_000, 0)
-            .saturating_add(T::DbWeight::get().reads(21_u64))
-            .saturating_add(T::DbWeight::get().writes(13_u64))
+            .saturating_add(T::DbWeight::get().reads(25_u64))
+            .saturating_add(T::DbWeight::get().writes(15_u64))
         )]
         pub fn swap_coldkey_announced(
             origin: OriginFor<T>,
