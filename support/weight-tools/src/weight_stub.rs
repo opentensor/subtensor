@@ -50,11 +50,10 @@ fn extract_benchmarks(src: &str) -> Result<Vec<BenchmarkFn>> {
     for item in &file.items {
         match item {
             Item::Fn(f) => {
-                if has_benchmark_attr(&f.attrs) {
-                    if let Some(b) = extract_benchmark_fn_info(&f.sig) {
+                if has_benchmark_attr(&f.attrs)
+                    && let Some(b) = extract_benchmark_fn_info(&f.sig) {
                         results.push(b);
                     }
-                }
             }
             Item::Mod(m) => collect_benchmarks_from_mod(m, &mut results),
             _ => {}
@@ -71,11 +70,10 @@ fn collect_benchmarks_from_mod(m: &ItemMod, results: &mut Vec<BenchmarkFn>) {
     for item in items {
         match item {
             Item::Fn(f) => {
-                if has_benchmark_attr(&f.attrs) {
-                    if let Some(b) = extract_benchmark_fn_info(&f.sig) {
+                if has_benchmark_attr(&f.attrs)
+                    && let Some(b) = extract_benchmark_fn_info(&f.sig) {
                         results.push(b);
                     }
-                }
             }
             Item::Mod(inner) => collect_benchmarks_from_mod(inner, results),
             _ => {}
@@ -98,15 +96,14 @@ fn extract_benchmark_fn_info(sig: &syn::Signature) -> Option<BenchmarkFn> {
 
     let mut params = Vec::new();
     for input in &sig.inputs {
-        if let syn::FnArg::Typed(pat_type) = input {
-            if let syn::Pat::Ident(pat_ident) = pat_type.pat.as_ref() {
+        if let syn::FnArg::Typed(pat_type) = input
+            && let syn::Pat::Ident(pat_ident) = pat_type.pat.as_ref() {
                 let param_name = pat_ident.ident.to_string();
                 let ty_str = type_to_string(&pat_type.ty);
                 if ty_str.contains("Linear") || ty_str.contains("ParamRange") {
                     params.push(param_name);
                 }
             }
-        }
     }
 
     Some(BenchmarkFn { name, params })
