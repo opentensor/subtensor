@@ -29,8 +29,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	fn submit_encrypted() -> Weight {
 		Weight::from_parts(207_500_000, 0)
-			.saturating_add(T::DbWeight::get().reads(0_u64))
-			.saturating_add(T::DbWeight::get().writes(0_u64))
 	}
 }
 
@@ -43,7 +41,5 @@ impl WeightInfo for () {
 	}
 	fn submit_encrypted() -> Weight {
 		Weight::from_parts(207_500_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(0_u64))
-			.saturating_add(RocksDbWeight::get().writes(0_u64))
 	}
 }

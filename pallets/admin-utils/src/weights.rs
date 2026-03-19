@@ -77,261 +77,261 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `a` is `[0, 32]`.
 	fn swap_authorities(_a: u32) -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(4_629_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// The range of component `a` is `[0, 32]`.
 	fn schedule_grandpa_change(_a: u32) -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_779_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_default_take() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_420_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_serving_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(22_980_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_difficulty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_990_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_difficulty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_390_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_weights_set_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(15_060_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_weights_version_key() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_220_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_bonds_moving_average() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_270_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_bonds_penalty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_890_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_allowed_validators() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(30_930_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_difficulty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(38_500_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_adjustment_interval() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(21_320_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_target_registrations_per_interval() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(25_980_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_activity_cutoff() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(28_720_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_rho() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(23_360_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_kappa() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(15_390_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_allowed_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(31_550_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_allowed_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(32_140_000, 0)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_allowed_weights() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_630_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_immunity_period() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_620_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_registrations_per_block() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_970_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_burn() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(30_510_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_burn() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(29_970_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_network_registration_allowed() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_343_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_tempo() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(25_790_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_weights_interval() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_950_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_730_000, 0)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_version() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_114_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_tx_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_400_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_total_issuance() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(2_875_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_rao_recycled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(15_060_000, 4045)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_stake_threshold() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_nominator_min_required_stake() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(28_050_000, 6792)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_tx_delegate_take_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_019_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_delegate_take() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_214_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_liquid_alpha_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(18_300_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_alpha_values() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(25_280_000, 4089)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_coldkey_swap_reannouncement_delay() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_dissolve_network_schedule_duration() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_toggle_transfer() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(20_460_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_toggle_evm_precompile() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_744_000, 3507)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 	fn sudo_set_subnet_moving_alpha() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(3_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_ema_price_halving_period() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(3_415_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_alpha_sigmoid_steepness() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(23_140_000, 4045)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_yuma3_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(20_460_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_bonds_reset_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(32_930_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_sn_owner_hotkey() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(20_570_000, 4204)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	fn sudo_set_subtoken_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(17_980_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_admin_freeze_window() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_510_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_owner_hparam_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_701_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_owner_immune_neuron_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(18_020_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_trim_to_max_allowed_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(32_880_000, 0)
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_non_immune_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_114_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
@@ -340,261 +340,261 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// The range of component `a` is `[0, 32]`.
 	fn swap_authorities(_a: u32) -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(4_629_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// The range of component `a` is `[0, 32]`.
 	fn schedule_grandpa_change(_a: u32) -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_779_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_default_take() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_420_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_serving_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(22_980_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_difficulty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_990_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_difficulty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_390_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_weights_set_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(15_060_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_weights_version_key() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_220_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_bonds_moving_average() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_270_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_bonds_penalty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_890_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_allowed_validators() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(30_930_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_difficulty() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(38_500_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_adjustment_interval() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(21_320_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_target_registrations_per_interval() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(25_980_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_activity_cutoff() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(28_720_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_rho() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(23_360_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_kappa() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(15_390_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_allowed_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(31_550_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_allowed_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(32_140_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_allowed_weights() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_630_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_immunity_period() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_620_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_registrations_per_block() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_970_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_max_burn() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(30_510_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_burn() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(29_970_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_network_registration_allowed() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_343_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_tempo() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(25_790_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_weights_interval() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_950_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(26_730_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_commit_reveal_version() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_114_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_tx_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_400_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_total_issuance() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(2_875_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_rao_recycled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(15_060_000, 4045)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_stake_threshold() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_nominator_min_required_stake() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(28_050_000, 6792)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_tx_delegate_take_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_019_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_delegate_take() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_214_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_liquid_alpha_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(18_300_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_alpha_values() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(25_280_000, 4089)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_coldkey_swap_reannouncement_delay() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_dissolve_network_schedule_duration() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_toggle_transfer() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(20_460_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_toggle_evm_precompile() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_744_000, 3507)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 	fn sudo_set_subnet_moving_alpha() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(3_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_ema_price_halving_period() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(3_415_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_alpha_sigmoid_steepness() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(23_140_000, 4045)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_yuma3_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(20_460_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_bonds_reset_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(32_930_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_sn_owner_hotkey() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(20_570_000, 4204)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	fn sudo_set_subtoken_enabled() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(17_980_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_admin_freeze_window() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_510_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_owner_hparam_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(5_701_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_owner_immune_neuron_limit() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(18_020_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_trim_to_max_allowed_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(32_880_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn sudo_set_min_non_immune_uids() -> Weight {
-		Weight::from_parts(10_000_000, 0)
+		Weight::from_parts(7_114_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
