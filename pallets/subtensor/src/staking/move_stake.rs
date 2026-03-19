@@ -28,7 +28,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
     pub fn do_move_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         origin_hotkey: T::AccountId,
         destination_hotkey: T::AccountId,
         origin_netuid: NetUid,
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
     pub fn do_transfer_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         destination_coldkey: T::AccountId,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
