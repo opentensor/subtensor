@@ -288,10 +288,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidDifficulty
         ); // Check that the work meets difficulty.
 
-        // --- 9. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
+        // --- 9. Check Work is the product of the nonce, the block number, and hotkey.
         let seal: H256 = Self::create_seal_hash(block_number, nonce, &hotkey);
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
-        UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 10. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
@@ -367,10 +366,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidDifficulty
         ); // Check that the work meets difficulty.
 
-        // --- 4. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
+        // --- 4. Check Work is the product of the nonce, the block number, and hotkey.
         let seal: H256 = Self::create_seal_hash(block_number, nonce, &coldkey);
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
-        UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 1_000_000_000_000;

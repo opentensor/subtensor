@@ -375,7 +375,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Subnet locks
         TransferToggle::<Test>::insert(net, true);
         SubnetLocked::<Test>::insert(net, TaoCurrency::from(1));
-        LargestLocked::<Test>::insert(net, 1u64);
 
         // Subnet parameters & pending counters
         FirstEmissionBlockNumber::<Test>::insert(net, 1u64);
@@ -535,7 +534,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Subnet locks
         assert!(!TransferToggle::<Test>::contains_key(net));
         assert!(!SubnetLocked::<Test>::contains_key(net));
-        assert!(!LargestLocked::<Test>::contains_key(net));
 
         // Subnet parameters & pending counters
         assert!(!FirstEmissionBlockNumber::<Test>::contains_key(net));
