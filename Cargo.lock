@@ -18327,6 +18327,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "subtensor-weight-tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "subtle"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
