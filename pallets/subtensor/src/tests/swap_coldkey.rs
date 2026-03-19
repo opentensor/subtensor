@@ -1505,6 +1505,41 @@ fn test_schedule_swap_coldkey_deprecated() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_coldkey -- test_coldkey_swap_does_not_insert_zero_alpha --exact --nocapture
+#[test]
+fn test_coldkey_swap_does_not_insert_zero_alpha() {
+    new_test_ext(1).execute_with(|| {
+        use substrate_fixed::types::U64F64;
+
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let netuid = NetUid::from(1);
+
+        // Add network and register hotkey
+        add_network(netuid, 1, 0);
+        register_ok_neuron(netuid, hotkey, old_coldkey, 1001000);
+
+        // Insert zero Alpha entry for the old coldkey
+        Alpha::<Test>::insert((&hotkey, &old_coldkey, netuid), U64F64::from_num(0));
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
+
+        // Perform the swap
+        assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
+
+        // Verify no zero entry was inserted for the new coldkey
+        assert!(
+            !Alpha::<Test>::contains_key((&hotkey, &new_coldkey, netuid)),
+            "Alpha should not contain a zero entry for new_coldkey"
+        );
+        // Verify old entry was removed
+        assert!(
+            !Alpha::<Test>::contains_key((&hotkey, &old_coldkey, netuid)),
+            "Alpha should not contain entry for old_coldkey"
+        );
+    });
+}
+
 #[macro_export]
 macro_rules! comprehensive_setup {
     (

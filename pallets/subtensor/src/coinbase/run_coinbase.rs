@@ -598,13 +598,18 @@ impl<T: Config> Pallet<T> {
             log::debug!("hotkey: {hotkey:?} alpha_divs: {alpha_divs:?}");
             Self::increase_stake_for_hotkey_on_subnet(&hotkey, netuid, tou64!(alpha_divs).into());
             // Record dividends for this hotkey.
-            AlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
-                *divs = divs.saturating_add(tou64!(alpha_divs).into());
-            });
+            let alpha_divs_u64: u64 = tou64!(alpha_divs);
+            if alpha_divs_u64 != 0 {
+                AlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
+                    *divs = divs.saturating_add(alpha_divs_u64.into());
+                });
+            }
             // Record total hotkey alpha based on which this value of AlphaDividendsPerSubnet
             // was calculated
             let total_hotkey_alpha = TotalHotkeyAlpha::<T>::get(&hotkey, netuid);
-            TotalHotkeyAlphaLastEpoch::<T>::insert(hotkey, netuid, total_hotkey_alpha);
+            if !total_hotkey_alpha.is_zero() {
+                TotalHotkeyAlphaLastEpoch::<T>::insert(hotkey, netuid, total_hotkey_alpha);
+            }
         }
 
         // Distribute root alpha divs.
