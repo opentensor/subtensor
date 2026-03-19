@@ -1,0 +1,19 @@
+{
+  "name": "e2e",
+  "private": true,
+  "scripts": {
+    "build-node:debug": "cargo build --manifest-path ../Cargo.toml -p node-subtensor",
+    "build-node:release": "cargo build --manifest-path ../Cargo.toml --profile release -p node-subtensor",
+    "build-node:fast": "pnpm build-node:release --features fast-runtime",
+    "generate-types": "polkadot-api add subtensor --wsUrl ws://localhost:9944 --skip-codegen && polkadot-api",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@polkadot-api/descriptors": "file:.papi/descriptors",
+    "polkadot-api": "catalog:"
+  },
+  "devDependencies": {
+    "prettier": "catalog:"
+  }
+}

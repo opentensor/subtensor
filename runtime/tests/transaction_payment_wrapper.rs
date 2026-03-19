@@ -7,22 +7,22 @@ use frame_support::{
 use node_subtensor_runtime::{
     BuildStorage, NORMAL_DISPATCH_BASE_PRIORITY, OPERATIONAL_DISPATCH_PRIORITY, Proxy, Runtime,
     RuntimeCall, RuntimeGenesisConfig, RuntimeOrigin, System, SystemCall,
-    transaction_payment_wrapper,
+    transaction_payment_wrapper::ChargeTransactionPaymentWrapper,
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
-use pallet_transaction_payment::{ChargeTransactionPayment, Val};
+use pallet_transaction_payment::Val;
 use sp_runtime::traits::{TransactionExtension, TxBaseImplication};
 use sp_runtime::transaction_validity::{
     TransactionSource, TransactionValidityError, ValidTransaction,
 };
-use subtensor_runtime_common::{AccountId, ProxyType};
+use subtensor_runtime_common::{AccountId, ProxyType, TaoBalance};
 
 const SIGNER: [u8; 32] = [1_u8; 32];
 const REAL_A: [u8; 32] = [2_u8; 32];
 const REAL_B: [u8; 32] = [3_u8; 32];
 const OTHER: [u8; 32] = [4_u8; 32];
-const BALANCE: u64 = 1_000_000_000_000;
+const BALANCE: TaoBalance = TaoBalance::new(1_000_000_000_000_u64);
 
 fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -128,9 +128,7 @@ fn validate_call_with_info(
     call: &RuntimeCall,
     info: &DispatchInfo,
 ) -> Result<(ValidTransaction, Val<Runtime>), TransactionValidityError> {
-    let ext = transaction_payment_wrapper::ChargeTransactionPaymentWrapper::<Runtime>::new(
-        ChargeTransactionPayment::from(0u64),
-    );
+    let ext = ChargeTransactionPaymentWrapper::<Runtime>::new(TaoBalance::new(0));
     let (valid_tx, val, _origin) = ext.validate(
         origin,
         call,

@@ -9,14 +9,16 @@ use frame_support::{
 };
 use frame_support::{construct_runtime, derive_impl};
 use frame_system::{self as system};
+use scale_info::prelude::collections::HashMap;
 use sp_core::H256;
 use sp_runtime::{
     BuildStorage, Vec,
     traits::{BlakeTwo256, IdentityLookup},
 };
+use sp_std::cell::RefCell;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
 };
 use subtensor_swap_interface::Order;
 
@@ -72,54 +74,91 @@ parameter_types! {
     pub const MinimumReserves: NonZeroU64 = NonZeroU64::new(1).unwrap();
 }
 
+thread_local! {
+    // maps netuid -> mocked tao reserve
+    static MOCK_TAO_RESERVES: RefCell<HashMap<NetUid, TaoBalance>> =
+        RefCell::new(HashMap::new());
+    // maps netuid -> mocked alpha reserve
+    static MOCK_ALPHA_RESERVES: RefCell<HashMap<NetUid, AlphaBalance>> =
+        RefCell::new(HashMap::new());
+}
+
 #[derive(Clone)]
 pub struct TaoReserve;
 
-impl CurrencyReserve<TaoCurrency> for TaoReserve {
-    fn reserve(netuid: NetUid) -> TaoCurrency {
+impl TaoReserve {
+    pub fn set_mock_reserve(netuid: NetUid, value: TaoBalance) {
+        MOCK_TAO_RESERVES.with(|m| {
+            m.borrow_mut().insert(netuid, value);
+        });
+    }
+}
+
+impl TokenReserve<TaoBalance> for TaoReserve {
+    fn reserve(netuid: NetUid) -> TaoBalance {
+        // If test has set an override, use it
+        if let Some(val) = MOCK_TAO_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
+            return val;
+        }
+
+        // Otherwise, fall back to our defaults
         match netuid.into() {
             123u16 => 10_000,
-            WRAPPING_FEES_NETUID => 100_000_000_000,
-            _ => 1_000_000_000_000,
+            WRAPPING_FEES_NETUID => 100_000_000_000_u64,
+            _ => 1_000_000_000_000_u64,
         }
         .into()
     }
 
-    fn increase_provided(_: NetUid, _: TaoCurrency) {}
-    fn decrease_provided(_: NetUid, _: TaoCurrency) {}
+    fn increase_provided(_: NetUid, _: TaoBalance) {}
+    fn decrease_provided(_: NetUid, _: TaoBalance) {}
 }
 
 #[derive(Clone)]
 pub struct AlphaReserve;
 
-impl CurrencyReserve<AlphaCurrency> for AlphaReserve {
-    fn reserve(netuid: NetUid) -> AlphaCurrency {
+impl AlphaReserve {
+    pub fn set_mock_reserve(netuid: NetUid, value: AlphaBalance) {
+        MOCK_ALPHA_RESERVES.with(|m| {
+            m.borrow_mut().insert(netuid, value);
+        });
+    }
+}
+
+impl TokenReserve<AlphaBalance> for AlphaReserve {
+    fn reserve(netuid: NetUid) -> AlphaBalance {
+        // If test has set an override, use it
+        if let Some(val) = MOCK_ALPHA_RESERVES.with(|m| m.borrow().get(&netuid).cloned()) {
+            return val;
+        }
+
+        // Otherwise, fall back to our defaults
         match netuid.into() {
             123u16 => 10_000.into(),
-            WRAPPING_FEES_NETUID => 400_000_000_000.into(),
-            _ => 4_000_000_000_000.into(),
+            WRAPPING_FEES_NETUID => 400_000_000_000_u64.into(),
+            _ => 4_000_000_000_000_u64.into(),
         }
     }
 
-    fn increase_provided(_: NetUid, _: AlphaCurrency) {}
-    fn decrease_provided(_: NetUid, _: AlphaCurrency) {}
+    fn increase_provided(_: NetUid, _: AlphaBalance) {}
+    fn decrease_provided(_: NetUid, _: AlphaBalance) {}
 }
 
 pub type GetAlphaForTao = subtensor_swap_interface::GetAlphaForTao<TaoReserve, AlphaReserve>;
 pub type GetTaoForAlpha = subtensor_swap_interface::GetTaoForAlpha<AlphaReserve, TaoReserve>;
 
-pub(crate) trait GlobalFeeInfo: Currency {
+pub(crate) trait GlobalFeeInfo: Token {
     #[allow(dead_code)]
     fn global_fee(&self, netuid: NetUid) -> U64F64;
 }
 
-impl GlobalFeeInfo for TaoCurrency {
+impl GlobalFeeInfo for TaoBalance {
     fn global_fee(&self, netuid: NetUid) -> U64F64 {
         FeeGlobalTao::<Test>::get(netuid)
     }
 }
 
-impl GlobalFeeInfo for AlphaCurrency {
+impl GlobalFeeInfo for AlphaBalance {
     fn global_fee(&self, netuid: NetUid) -> U64F64 {
         FeeGlobalAlpha::<Test>::get(netuid)
     }
@@ -202,7 +241,7 @@ impl SubnetInfo<AccountId> for MockLiquidityProvider {
 pub struct MockBalanceOps;
 
 impl BalanceOps<AccountId> for MockBalanceOps {
-    fn tao_balance(account_id: &AccountId) -> TaoCurrency {
+    fn tao_balance(account_id: &AccountId) -> TaoBalance {
         match *account_id {
             OK_COLDKEY_ACCOUNT_ID => 100_000_000_000_000,
             OK_COLDKEY_ACCOUNT_ID_2 => 100_000_000_000_000,
@@ -216,7 +255,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         _: NetUid,
         coldkey_account_id: &AccountId,
         hotkey_account_id: &AccountId,
-    ) -> AlphaCurrency {
+    ) -> AlphaBalance {
         match (coldkey_account_id, hotkey_account_id) {
             (&OK_COLDKEY_ACCOUNT_ID, &OK_HOTKEY_ACCOUNT_ID) => 100_000_000_000_000,
             (&OK_COLDKEY_ACCOUNT_ID_2, &OK_HOTKEY_ACCOUNT_ID_2) => 100_000_000_000_000,
@@ -228,12 +267,12 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         .into()
     }
 
-    fn increase_balance(_coldkey: &AccountId, _tao: TaoCurrency) {}
+    fn increase_balance(_coldkey: &AccountId, _tao: TaoBalance) {}
 
     fn decrease_balance(
         _coldkey: &AccountId,
-        tao: TaoCurrency,
-    ) -> Result<TaoCurrency, DispatchError> {
+        tao: TaoBalance,
+    ) -> Result<TaoBalance, DispatchError> {
         Ok(tao)
     }
 
@@ -241,7 +280,7 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         _coldkey: &AccountId,
         _hotkey: &AccountId,
         _netuid: NetUid,
-        _alpha: AlphaCurrency,
+        _alpha: AlphaBalance,
     ) -> Result<(), DispatchError> {
         Ok(())
     }
@@ -250,8 +289,8 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         _coldkey: &AccountId,
         _hotkey: &AccountId,
         _netuid: NetUid,
-        alpha: AlphaCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+        alpha: AlphaBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
         Ok(alpha)
     }
 }

@@ -21,6 +21,7 @@ subtensor-custom-rpc-runtime-api.workspace = true
 smallvec.workspace = true
 log.workspace = true
 codec = { workspace = true, features = ["derive"] }
+safe-math.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
@@ -58,6 +59,7 @@ sp-version.workspace = true
 sp-authority-discovery.workspace = true
 subtensor-runtime-common.workspace = true
 subtensor-precompiles.workspace = true
+sp-weights.workspace = true
 
 # Temporary sudo
 pallet-sudo.workspace = true
@@ -138,7 +140,6 @@ fp-account.workspace = true
 
 #drand
 pallet-drand.workspace = true
-getrandom.workspace = true
 tle.workspace = true
 hex.workspace = true
 rand_chacha.workspace = true
@@ -151,6 +152,7 @@ pallet-crowdloan.workspace = true
 
 # Mev Shield
 pallet-shield.workspace = true
+stp-shield.workspace = true
 
 ethereum.workspace = true
 
@@ -218,6 +220,7 @@ std = [
 	"sp-io/std",
 	"sp-tracing/std",
 	"log/std",
+	"safe-math/std",
 	"sp-storage/std",
 	"sp-genesis-builder/std",
 	"subtensor-precompiles/std",
@@ -256,7 +259,6 @@ std = [
 	"pallet-hotfix-sufficients/std",
 	"fp-account/std",
 	"pallet-drand/std",
-	"getrandom/std",
 	"tle/std",
 	"ark-serialize/std",
 	"hex/std",
@@ -276,6 +278,8 @@ std = [
 	"subtensor-chain-extensions/std",
 	"ethereum/std",
 	"pallet-shield/std",
+	"stp-shield/std",
+	"sp-weights/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -321,6 +325,8 @@ runtime-benchmarks = [
 	# Smart Tx fees pallet
 	"subtensor-transaction-fee/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
+	
+	"subtensor-runtime-common/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

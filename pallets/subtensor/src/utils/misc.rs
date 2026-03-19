@@ -6,7 +6,7 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -137,7 +137,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Getters ====
     // ========================
-    pub fn get_total_issuance() -> TaoCurrency {
+    pub fn get_total_issuance() -> TaoBalance {
         TotalIssuance::<T>::get()
     }
     pub fn get_current_block_as_u64() -> u64 {
@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_active(netuid: NetUid) -> Vec<bool> {
         Active::<T>::get(netuid)
     }
-    pub fn get_emission(netuid: NetUid) -> Vec<AlphaCurrency> {
+    pub fn get_emission(netuid: NetUid) -> Vec<AlphaBalance> {
         Emission::<T>::get(netuid)
     }
     pub fn get_consensus(netuid: NetUid) -> Vec<u16> {
@@ -231,7 +231,7 @@ impl<T: Config> Pallet<T> {
         let vec = Trust::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaCurrency {
+    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaBalance {
         let vec = Emission::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or_default()
     }
@@ -337,20 +337,20 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn recycle_tao(amount: TaoCurrency) {
+    pub fn recycle_tao(amount: TaoBalance) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn increase_issuance(amount: TaoCurrency) {
+    pub fn increase_issuance(amount: TaoBalance) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
 
-    pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoCurrency) {
+    pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoBalance) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-    pub fn get_subnet_locked_balance(netuid: NetUid) -> TaoCurrency {
+    pub fn get_subnet_locked_balance(netuid: NetUid) -> TaoBalance {
         SubnetLocked::<T>::get(netuid)
     }
-    pub fn get_total_subnet_locked() -> TaoCurrency {
+    pub fn get_total_subnet_locked() -> TaoBalance {
         let mut total_subnet_locked: u64 = 0;
         for (_, locked) in SubnetLocked::<T>::iter() {
             total_subnet_locked.saturating_accrue(locked.into());
@@ -610,25 +610,25 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_burn(netuid: NetUid) -> TaoCurrency {
+    pub fn get_burn(netuid: NetUid) -> TaoBalance {
         Burn::<T>::get(netuid)
     }
-    pub fn set_burn(netuid: NetUid, burn: TaoCurrency) {
+    pub fn set_burn(netuid: NetUid, burn: TaoBalance) {
         Burn::<T>::insert(netuid, burn);
     }
 
-    pub fn get_min_burn(netuid: NetUid) -> TaoCurrency {
+    pub fn get_min_burn(netuid: NetUid) -> TaoBalance {
         MinBurn::<T>::get(netuid)
     }
-    pub fn set_min_burn(netuid: NetUid, min_burn: TaoCurrency) {
+    pub fn set_min_burn(netuid: NetUid, min_burn: TaoBalance) {
         MinBurn::<T>::insert(netuid, min_burn);
         Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
     }
 
-    pub fn get_max_burn(netuid: NetUid) -> TaoCurrency {
+    pub fn get_max_burn(netuid: NetUid) -> TaoBalance {
         MaxBurn::<T>::get(netuid)
     }
-    pub fn set_max_burn(netuid: NetUid, max_burn: TaoCurrency) {
+    pub fn set_max_burn(netuid: NetUid, max_burn: TaoBalance) {
         MaxBurn::<T>::insert(netuid, max_burn);
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
     }
@@ -709,18 +709,18 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::get(coldkey)
     }
 
-    pub fn set_total_issuance(total_issuance: TaoCurrency) {
+    pub fn set_total_issuance(total_issuance: TaoBalance) {
         TotalIssuance::<T>::put(total_issuance);
     }
 
-    pub fn get_rao_recycled(netuid: NetUid) -> TaoCurrency {
+    pub fn get_rao_recycled(netuid: NetUid) -> TaoBalance {
         RAORecycledForRegistration::<T>::get(netuid)
     }
-    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: TaoCurrency) {
+    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: TaoBalance) {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
         Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
-    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: TaoCurrency) {
+    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: TaoBalance) {
         let curr_rao_recycled = Self::get_rao_recycled(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
@@ -750,7 +750,7 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_key_swap_cost() -> TaoCurrency {
+    pub fn get_key_swap_cost() -> TaoBalance {
         T::KeySwapCost::get().into()
     }
 
