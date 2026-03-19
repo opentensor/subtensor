@@ -2533,5 +2533,25 @@ mod dispatches {
             Self::deposit_event(Event::AutoParentDelegationEnabledSet { hotkey, enabled });
             Ok(())
         }
+
+        /// Disassociates a hotkey from the calling coldkey.
+        ///
+        /// The reverse of `try_associate_hotkey`. Removes the ownership link between
+        /// the coldkey and hotkey. The hotkey must not be registered on any subnet
+        /// and must have no outstanding stake.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `hotkey` - The hotkey to disassociate from the coldkey.
+        #[pallet::call_index(136)]
+        #[pallet::weight((
+            Weight::from_parts(27_150_000, 0).saturating_add(T::DbWeight::get().reads_writes(5, 4)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn disassociate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_disassociate_hotkey(&coldkey, &hotkey)
+        }
     }
 }
