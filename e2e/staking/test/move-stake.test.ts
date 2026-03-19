@@ -10,7 +10,6 @@ import {
   addStake,
   moveStake,
   getStake,
-  getStakeRaw,
   tao,
   log,
 } from "e2e-shared";
@@ -53,7 +52,7 @@ describe("▶ move_stake extrinsic", () => {
 
     // Move stake to destination hotkey on different subnet
     // Use raw U64F64 value for the extrinsic
-    const originStakeRaw = await getStakeRaw(api, originHotkeyAddress, coldkeyAddress, netuid1);
+    const originStakeRaw = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid1);
     const moveAmount = originStakeRaw / 2n;
     await moveStake(api, coldkey, originHotkeyAddress, destinationHotkeyAddress, netuid1, netuid2, moveAmount);
 
@@ -103,7 +102,7 @@ describe("▶ move_stake extrinsic", () => {
 
     // Move stake to destination hotkey on the same subnet
     // Use raw U64F64 value for the extrinsic
-    const originStakeRaw = await getStakeRaw(api, originHotkeyAddress, coldkeyAddress, netuid);
+    const originStakeRaw = await getStake(api, originHotkeyAddress, coldkeyAddress, netuid);
     const moveAmount = originStakeRaw / 2n;
     await moveStake(api, coldkey, originHotkeyAddress, destinationHotkeyAddress, netuid, netuid, moveAmount);
 

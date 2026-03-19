@@ -10,7 +10,7 @@ import {
   addStake,
   swapStake,
   getStake,
-  getStakeRaw,
+  getStake,
   tao,
   log,
 } from "e2e-shared";
@@ -54,7 +54,7 @@ describe("▶ swap_stake extrinsic", () => {
 
     // Swap half the stake from subnet1 to subnet2
     // Use raw U64F64 value for the extrinsic
-    const stake1Raw = await getStakeRaw(api, hotkey1Address, coldkeyAddress, netuid1);
+    const stake1Raw = await getStake(api, hotkey1Address, coldkeyAddress, netuid1);
     const swapAmount = stake1Raw / 2n;
     await swapStake(api, coldkey, hotkey1Address, netuid1, netuid2, swapAmount);
 
