@@ -98,17 +98,17 @@ fn main() -> Result<()> {
 
         let pct = if ow.base_weight > 0 {
             (nw.base_weight as f64 - ow.base_weight as f64) / ow.base_weight as f64 * 100.0
+        } else if nw.base_weight > 0 {
+            100.0
         } else {
             0.0
         };
-        let flag = if drifted {
-            format!(" ** DRIFT ({})", reasons.join(", "))
-        } else {
-            String::new()
-        };
+
+        let icon = if drifted { "\u{274c}" } else { "\u{2705}" };
 
         println!(
-            "  {:<40} weight {:>12} -> {:>12} ({:>+.1}%)  reads {:>3} -> {:>3}  writes {:>3} -> {:>3}{}",
+            "  {} {:<40} {:>12} -> {:<12} ({:>+.1}%)  reads {:>4} -> {:<4}  writes {:>4} -> {:<4}",
+            icon,
             name,
             ow.base_weight,
             nw.base_weight,
@@ -117,13 +117,12 @@ fn main() -> Result<()> {
             nw.base_reads,
             ow.base_writes,
             nw.base_writes,
-            flag,
         );
     }
 
     for name in old_weights.keys() {
         if !new_weights.contains_key(name) {
-            println!("  {:<40} REMOVED", name);
+            println!("  \u{274c} {:<40} REMOVED", name);
             any_drift = true;
         }
     }
