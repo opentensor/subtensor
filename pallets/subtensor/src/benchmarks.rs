@@ -1439,6 +1439,18 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn disassociate_hotkey() {
+        let coldkey: T::AccountId = whitelisted_caller();
+        let hot: T::AccountId = account("A", 0, 1);
+
+        // First associate, then disassociate
+        Pallet::<T>::do_try_associate_hotkey(&coldkey, &hot).expect("associate should work");
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hot.clone());
+    }
+
+    #[benchmark]
     fn unstake_all() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("A", 0, 14);

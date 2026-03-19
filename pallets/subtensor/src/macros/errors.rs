@@ -293,5 +293,9 @@ mod errors {
         DisabledTemporarily,
         /// Registration Price Limit Exceeded
         RegistrationPriceLimitExceeded,
+        /// Cannot disassociate a hotkey that is still registered on a subnet.
+        HotkeyIsStillRegistered,
+        /// Cannot disassociate a hotkey that still has outstanding stake.
+        HotkeyHasOutstandingStake,
     }
 }

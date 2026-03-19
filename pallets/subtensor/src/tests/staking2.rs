@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use frame_support::{
-    assert_ok,
+    assert_noop, assert_ok,
     dispatch::{GetDispatchInfo, Pays},
     weights::Weight,
 };
@@ -634,6 +634,179 @@ fn test_try_associate_hotkey() {
         // Check that coldkey2 is still not associated with any hotkey
         assert!(!SubtensorModule::get_owned_hotkeys(&coldkey2).contains(&hotkey1));
         assert_eq!(SubtensorModule::get_owned_hotkeys(&coldkey2).len(), 0);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+        assert!(SubtensorModule::hotkey_account_exists(&hotkey1));
+        assert!(SubtensorModule::get_owned_hotkeys(&coldkey1).contains(&hotkey1));
+
+        // Disassociate hotkey1 from coldkey1
+        assert_ok!(SubtensorModule::disassociate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Verify hotkey is fully removed
+        assert!(!SubtensorModule::hotkey_account_exists(&hotkey1));
+        assert!(!SubtensorModule::get_owned_hotkeys(&coldkey1).contains(&hotkey1));
+        assert!(!SubtensorModule::get_all_staked_hotkeys(&coldkey1).contains(&hotkey1));
+
+        // Verify the extrinsic charges a fee
+        let call =
+            RuntimeCall::SubtensorModule(crate::Call::disassociate_hotkey { hotkey: hotkey1 });
+        let dispatch_info = call.get_dispatch_info();
+        assert!(dispatch_info.call_weight.all_gte(Weight::from_all(0)));
+        assert_eq!(dispatch_info.pays_fee, Pays::Yes);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_not_exists --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_not_exists() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+
+        // Try to disassociate a hotkey that doesn't exist
+        assert_noop!(
+            SubtensorModule::disassociate_hotkey(RuntimeOrigin::signed(coldkey1), hotkey1),
+            Error::<Test>::HotKeyAccountNotExists
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_non_owner --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_non_owner() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Try to disassociate from a different coldkey
+        assert_noop!(
+            SubtensorModule::disassociate_hotkey(RuntimeOrigin::signed(coldkey2), hotkey1),
+            Error::<Test>::NonAssociatedColdKey
+        );
+
+        // Verify hotkey is still associated
+        assert!(SubtensorModule::hotkey_account_exists(&hotkey1));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_still_registered --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_still_registered() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let netuid = NetUid::from(1);
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Register hotkey on a subnet
+        IsNetworkMember::<Test>::insert(hotkey1, netuid, true);
+
+        // Try to disassociate - should fail because still registered
+        assert_noop!(
+            SubtensorModule::disassociate_hotkey(RuntimeOrigin::signed(coldkey1), hotkey1),
+            Error::<Test>::HotkeyIsStillRegistered
+        );
+
+        // Verify hotkey is still associated
+        assert!(SubtensorModule::hotkey_account_exists(&hotkey1));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_has_stake --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_has_stake() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let netuid = NetUid::from(1);
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Add some alpha (stake) for this hotkey
+        Alpha::<Test>::insert(
+            (hotkey1, coldkey1, netuid),
+            substrate_fixed::types::U64F64::from_num(1000u64),
+        );
+
+        // Try to disassociate - should fail because has outstanding stake
+        assert_noop!(
+            SubtensorModule::disassociate_hotkey(RuntimeOrigin::signed(coldkey1), hotkey1),
+            Error::<Test>::HotkeyHasOutstandingStake
+        );
+
+        // Verify hotkey is still associated
+        assert!(SubtensorModule::hotkey_account_exists(&hotkey1));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_reassociate --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_reassociate() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+        assert_eq!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey1),
+            coldkey1
+        );
+
+        // Disassociate hotkey1 from coldkey1
+        assert_ok!(SubtensorModule::disassociate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+        assert!(!SubtensorModule::hotkey_account_exists(&hotkey1));
+
+        // Now coldkey2 can associate the same hotkey
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey2),
+            hotkey1
+        ));
+        assert_eq!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey1),
+            coldkey2
+        );
+        assert!(SubtensorModule::get_owned_hotkeys(&coldkey2).contains(&hotkey1));
+        assert!(!SubtensorModule::get_owned_hotkeys(&coldkey1).contains(&hotkey1));
     });
 }
 
