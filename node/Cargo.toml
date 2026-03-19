@@ -69,6 +69,7 @@ sp-session.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-system.workspace = true
 frame-support.workspace = true
+pallet-balances.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-commitments.workspace = true
 pallet-drand.workspace = true

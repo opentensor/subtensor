@@ -441,15 +441,8 @@ fn patch_raw_spec(spec: &mut Value, validators: &[&'static str]) -> CloneResult<
 
 /// Insert a `System::Account` entry for each validator seed so that dev authorities
 /// have enough free balance to produce transactions on the cloned chain.
-///
-/// Storage layout (SCALE, little-endian):
-///   Key:   Twox128("System") ++ Twox128("Account") ++ Blake2_128Concat(AccountId)
-///   Value: AccountInfo { nonce: u32, consumers: u32, providers: u32, sufficients: u32,
-///            data: AccountData { free: u64, reserved: u64, frozen: u64, flags: u128 } }
 fn set_validator_balances(top: &mut serde_json::Map<String, Value>, validators: &[&'static str]) {
     const FREE_BALANCE: u64 = 1_000_000_000_000_000; // 1M TAO (9 decimals)
-    // ExtraFlags default: new-logic bit set
-    const FLAGS_NEW_LOGIC: u128 = 0x80000000_00000000_00000000_00000000u128;
 
     let prefix = frame_support::storage::storage_prefix(b"System", b"Account");
 
@@ -464,18 +457,21 @@ fn set_validator_balances(top: &mut serde_json::Map<String, Value>, validators: 
         full_key.extend_from_slice(&hash);
         full_key.extend_from_slice(&encoded_id);
 
-        // AccountInfo<u32, AccountData<u64>> — all fixed-size, encode sequentially
-        let mut value = Vec::with_capacity(64);
-        value.extend_from_slice(&0u32.to_le_bytes()); // nonce
-        value.extend_from_slice(&0u32.to_le_bytes()); // consumers
-        value.extend_from_slice(&1u32.to_le_bytes()); // providers (>=1 to keep account alive)
-        value.extend_from_slice(&0u32.to_le_bytes()); // sufficients
-        value.extend_from_slice(&FREE_BALANCE.to_le_bytes()); // data.free
-        value.extend_from_slice(&0u64.to_le_bytes()); // data.reserved
-        value.extend_from_slice(&0u64.to_le_bytes()); // data.frozen
-        value.extend_from_slice(&FLAGS_NEW_LOGIC.to_le_bytes()); // data.flags
+        let account_info = frame_system::AccountInfo {
+            nonce: 0u32,
+            consumers: 0u32,
+            providers: 1u32, // >=1 to keep account alive
+            sufficients: 0u32,
+            data: pallet_balances::AccountData {
+                free: FREE_BALANCE,
+                ..Default::default()
+            },
+        };
 
-        top.insert(to_hex(&full_key), Value::String(to_hex(&value)));
+        top.insert(
+            to_hex(&full_key),
+            Value::String(to_hex(&account_info.encode())),
+        );
     }
 }
 

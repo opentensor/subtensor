@@ -8301,6 +8301,7 @@ dependencies = [
  "memmap2 0.9.8",
  "node-subtensor-runtime",
  "num-traits",
+ "pallet-balances",
  "pallet-commitments",
  "pallet-drand",
  "pallet-shield",
