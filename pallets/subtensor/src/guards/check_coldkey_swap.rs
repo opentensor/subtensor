@@ -51,6 +51,7 @@ where
                     Call::announce_coldkey_swap { .. }
                         | Call::swap_coldkey_announced { .. }
                         | Call::dispute_coldkey_swap { .. }
+                        | Call::clear_coldkey_swap_announcement { .. }
                 )
             );
 
