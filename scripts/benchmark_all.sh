@@ -73,6 +73,9 @@ for pallet in "${PALLETS[@]}"; do
     --extrinsic "*" \
     --steps "$STEPS" \
     --repeat "$REPEAT" \
+    --no-storage-info \
+    --no-min-squares \
+    --no-median-slopes \
     --output="$ROOT_DIR/$output" \
     --template="$TEMPLATE"
 

@@ -59,6 +59,7 @@ for pallet in "${!OUTPUTS[@]}"; do
     --genesis-builder-preset=benchmark --wasm-execution=compiled \
     --pallet "$pallet" --extrinsic "*" \
     --steps "$STEPS" --repeat "$REPEAT" \
+    --no-storage-info --no-min-squares --no-median-slopes \
     --output="$tmp" --template="$TEMPLATE" 2>&1; then
     SUMMARY+=("$pallet: FAILED"); FAILED=1; rm -f "$tmp"; continue
   fi
