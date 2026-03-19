@@ -346,6 +346,18 @@ pub mod pallet {
         },
     }
 
+    /// Default burn half-life (in blocks) for subnet registration price decay.
+    #[pallet::type_value]
+    pub fn DefaultBurnHalfLife<T: Config>() -> u16 {
+        360
+    }
+
+    /// Default multiplier applied to the burn price after a successful registration.
+    #[pallet::type_value]
+    pub fn DefaultBurnIncreaseMult<T: Config>() -> u64 {
+        2
+    }
+
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
@@ -2431,6 +2443,16 @@ pub mod pallet {
     #[pallet::storage]
     pub type MechanismEmissionSplit<T: Config> =
         StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
+
+    /// --- MAP ( netuid ) --> BurnHalfLife (blocks)
+    #[pallet::storage]
+    pub type BurnHalfLife<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultBurnHalfLife<T>>;
+
+    /// --- MAP ( netuid ) --> BurnIncreaseMult
+    #[pallet::storage]
+    pub type BurnIncreaseMult<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBurnIncreaseMult<T>>;
 
     /// ==================
     /// ==== Genesis =====

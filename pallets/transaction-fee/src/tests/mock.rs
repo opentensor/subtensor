@@ -573,25 +573,70 @@ pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
-    start_nonce: u64,
+    _start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
+    // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
+    let reserve: u64 = 1_000_000_000_000;
+    let tao_reserve = SubnetTAO::<Test>::get(netuid);
+    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)
+        .saturating_add(SubnetAlphaInProvided::<Test>::get(netuid));
+
+    if tao_reserve.is_zero() && alpha_reserve.is_zero() {
+        setup_reserves(netuid, reserve.into(), reserve.into());
+    }
+
+    // Ensure coldkey has enough to pay the current burn AND is not fully drained to zero.
+    // This avoids ZeroBalanceAfterWithdrawn in burned_register.
+    let top_up_for_burn = |netuid: NetUid, cold: U256| {
+        let burn: TaoBalance = SubtensorModule::get_burn(netuid);
+
+        // Make sure something remains after withdrawal even if ED is 0 in tests.
+        let ed: TaoBalance = ExistentialDeposit::get();
+        let min_remaining: TaoBalance = ed.max(1.into());
+
+        // Small buffer for safety (fees / rounding / future changes).
+        let buffer: TaoBalance = 10.into();
+
+        let min_balance_needed: TaoBalance =
+            burn.saturating_add(min_remaining).saturating_add(buffer);
+
+        let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
+        if bal < min_balance_needed {
+            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+        }
+    };
+
+    top_up_for_burn(netuid, coldkey_account_id);
+
+    let origin = <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id);
+    let result = SubtensorModule::burned_register(origin.clone(), netuid, hotkey_account_id);
+
+    match result {
+        Ok(()) => {
+            // success
+        }
+        Err(e)
+            if e == Error::<Test>::TooManyRegistrationsThisInterval.into()
+                || e == Error::<Test>::NotEnoughBalanceToStake.into()
+                || e == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
+        {
+            // Re-top-up and retry once (burn can be state-dependent).
+            top_up_for_burn(netuid, coldkey_account_id);
+
+            assert_ok!(SubtensorModule::burned_register(
+                origin,
+                netuid,
+                hotkey_account_id
+            ));
+        }
+        Err(e) => {
+            panic!("Expected Ok(_). Got Err({e:?})");
+        }
+    }
+
+    log::info!(
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
-        hotkey_account_id,
-        coldkey_account_id,
-    );
-    assert_ok!(result);
 }
 
 #[allow(dead_code)]
@@ -684,7 +729,6 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoBalance) -> (u64, u64) {
 pub fn add_network(netuid: NetUid, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
 #[allow(dead_code)]
@@ -759,18 +803,22 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 }
 
 #[allow(dead_code)]
-pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
-    // Stake to hotkey account, and check if the result is ok
+pub fn setup_stake(
+    netuid: subtensor_runtime_common::NetUid,
+    coldkey: &U256,
+    hotkey: &U256,
+    stake_amount: u64,
+) {
+    // Fund enough to stake while keeping the coldkey account alive (KeepAlive / ED).
     SubtensorModule::add_balance_to_coldkey_account(
         coldkey,
-        ExistentialDeposit::get() + amount.into(),
+        TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
     );
-    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
+
     assert_ok!(SubtensorModule::add_stake(
         RuntimeOrigin::signed(*coldkey),
         *hotkey,
         netuid,
-        amount.into()
+        stake_amount.into(),
     ));
-    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
 }
