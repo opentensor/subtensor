@@ -2545,7 +2545,7 @@ mod dispatches {
         /// * `hotkey` - The hotkey to disassociate from the coldkey.
         #[pallet::call_index(136)]
         #[pallet::weight((
-            Weight::from_parts(27_150_000, 0).saturating_add(T::DbWeight::get().reads_writes(5, 4)),
+            Weight::from_parts(54_300_000, 0).saturating_add(T::DbWeight::get().reads_writes(10, 8)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
