@@ -52,6 +52,16 @@ impl<T: Config> Pallet<T> {
         // Remove Delegates entry if present.
         Delegates::<T>::remove(hotkey);
 
+        // Clean up AutoStakeDestination references.
+        // Other coldkeys may have set this hotkey as their auto-stake destination.
+        for netuid in Self::get_all_subnet_netuids() {
+            let coldkeys = AutoStakeDestinationColdkeys::<T>::get(hotkey, netuid);
+            for ck in &coldkeys {
+                AutoStakeDestination::<T>::remove(ck, netuid);
+            }
+            AutoStakeDestinationColdkeys::<T>::remove(hotkey, netuid);
+        }
+
         Self::deposit_event(Event::HotkeyDisassociated {
             coldkey: coldkey.clone(),
             hotkey: hotkey.clone(),

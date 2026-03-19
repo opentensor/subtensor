@@ -810,6 +810,40 @@ fn test_disassociate_hotkey_reassociate() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_cleans_auto_stake --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_cleans_auto_stake() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+        let netuid = NetUid::from(1);
+
+        // Setup: add network so get_all_subnet_netuids returns it
+        add_network(netuid, 10, 0);
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // coldkey2 sets auto-stake destination to hotkey1 on netuid
+        AutoStakeDestination::<Test>::insert(coldkey2, netuid, hotkey1);
+        AutoStakeDestinationColdkeys::<Test>::insert(hotkey1, netuid, vec![coldkey2]);
+
+        // Disassociate hotkey1 from coldkey1
+        assert_ok!(SubtensorModule::disassociate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Verify auto-stake entries are cleaned up
+        assert!(AutoStakeDestination::<Test>::get(coldkey2, netuid).is_none());
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(hotkey1, netuid).is_empty());
+    });
+}
+
 #[test]
 fn test_stake_fee_api() {
     // The API should match the calculation
