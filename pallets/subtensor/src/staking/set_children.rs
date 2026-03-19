@@ -412,15 +412,11 @@ impl<T: Config> Pallet<T> {
         for (parent, _) in relations.parents().iter() {
             let mut ck = ChildKeys::<T>::get(parent.clone(), netuid);
             PCRelations::<T>::remove_edge(&mut ck, old_hotkey);
-            ChildKeys::<T>::insert(parent.clone(), netuid, ck);
+            Self::set_childkeys(parent.clone(), netuid, ck);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
         //    2c) Clear direct maps of old_hotkey
-        ChildKeys::<T>::insert(
-            old_hotkey.clone(),
-            netuid,
-            Vec::<(u64, T::AccountId)>::new(),
-        );
+        ChildKeys::<T>::remove(old_hotkey.clone(), netuid);
         Self::set_parentkeys(
             old_hotkey.clone(),
             netuid,
