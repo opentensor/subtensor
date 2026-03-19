@@ -888,3 +888,27 @@ fn test_update_symbol_fails_if_symbol_already_in_use() {
         );
     });
 }
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_get_subnet_account_id_exists_and_is_distinct_for_257_consecutive_subnets --exact --nocapture
+#[test]
+fn test_get_subnet_account_id_exists_and_is_distinct_for_257_consecutive_subnets() {
+    new_test_ext(1).execute_with(|| {
+        use std::collections::BTreeSet;
+
+        let mut account_ids = BTreeSet::new();
+
+        for raw_netuid in 0u16..=256u16 {
+            let netuid = NetUid::from(raw_netuid);
+            add_network(netuid, 10, 0);
+
+            let account_id = SubtensorModule::get_subnet_account_id(netuid);
+            assert!(
+                account_ids.insert(account_id),
+                "duplicate subnet account id for netuid {:?}",
+                netuid
+            );
+        }
+
+        assert_eq!(account_ids.len(), 257);
+    });
+}

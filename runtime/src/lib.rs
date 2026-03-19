@@ -1121,6 +1121,7 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1196,6 +1197,7 @@ impl pallet_subtensor::Config for Runtime {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
+    type SubtensorPalletId = SubtensorPalletId;
 }
 
 parameter_types! {
@@ -2485,6 +2487,10 @@ impl_runtime_apis! {
 
         fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
+        }
+
+        fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::get_subnet_account_id(netuid)
         }
     }
 

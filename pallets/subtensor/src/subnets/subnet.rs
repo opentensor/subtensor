@@ -1,5 +1,6 @@
 use super::*;
 use sp_core::Get;
+use sp_runtime::traits::AccountIdConversion;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
@@ -437,5 +438,13 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_valid_subnet_for_emission(netuid: NetUid) -> bool {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
+    }
+
+    pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
+        if NetworksAdded::<T>::contains_key(netuid) {
+            Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
+        } else {
+            None
+        }
     }
 }
