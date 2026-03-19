@@ -296,9 +296,10 @@ fn extract_rw(arg: Option<&Expr>, in_mul: bool, base: &mut u64, components: &mut
     // Component pattern: .reads((2_u64).saturating_mul(k.into()))
     if let Expr::MethodCall(inner_mc) = arg
         && inner_mc.method == "saturating_mul"
-            && let Some(n) = expr_to_u64(&inner_mc.receiver) {
-                components.push(n);
-            }
+        && let Some(n) = expr_to_u64(&inner_mc.receiver)
+    {
+        components.push(n);
+    }
 }
 
 fn is_from_parts(func: &Expr) -> bool {
