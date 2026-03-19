@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_commitments`.
 pub trait WeightInfo {
 	fn set_commitment() -> Weight;
-	fn set_rate_limit() -> Weight;
+	fn set_max_space() -> Weight;
 }
 
 /// Weights for `pallet_commitments` using the Substrate node and recommended hardware.
@@ -49,8 +49,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	/// Sudo setting rate limit for commitments
-	fn set_rate_limit() -> Weight {
+	/// Sudo setting max space for commitments
+	fn set_max_space() -> Weight {
 		Weight::from_parts(10_000_000, 2000)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
@@ -72,8 +72,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 
-	/// Sudo setting rate limit for commitments
-	fn set_rate_limit() -> Weight {
+	/// Sudo setting max space for commitments
+	fn set_max_space() -> Weight {
 		Weight::from_parts(10_000_000, 2000)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}

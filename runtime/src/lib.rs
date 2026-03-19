@@ -120,6 +120,7 @@ impl pallet_drand::Config for Runtime {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -149,6 +150,7 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
 impl pallet_shield::Config for Runtime {
     type AuthorityId = AuraId;
     type FindAuthors = FindAuraAuthors;
+    type WeightInfo = pallet_shield::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1196,6 +1198,7 @@ impl pallet_subtensor::Config for Runtime {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
+    type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1248,6 +1251,7 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
+    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 /// Define the ChainId
