@@ -775,7 +775,8 @@ fn run_manual_seal_authorship(
     let create_inherent_data_providers =
         move |_, ()| async move { Ok(MockTimestampInherentDataProvider) };
 
-    let aura_data_provider = sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider::new(client.clone());
+    let aura_data_provider =
+        sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider::new(client.clone());
 
     let manual_seal = match sealing {
         Sealing::Manual => future::Either::Left(sc_consensus_manual_seal::run_manual_seal(
