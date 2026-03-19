@@ -215,6 +215,11 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
+        // 5.1. Transfer root claimable rates (all subnets at once).
+        // This must only happen for full swaps — single-subnet swaps leave root
+        // stake on the old hotkey, so the old hotkey must keep its RootClaimable.
+        Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
+
         // 6. Swap LastTxBlock
         // LastTxBlock( hotkey ) --> u64 -- the last transaction block for the hotkey.
         Self::remove_last_tx_block(old_hotkey);
@@ -543,10 +548,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
             weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
 
-            // 9.1. Transfer root claimable
-            Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
-
-            // 9.2. Insert the new alpha values.
+            // 9.1. Insert the new alpha values.
             for ((coldkey, netuid_alpha), alpha) in old_alpha_values {
                 if netuid == netuid_alpha {
                     Self::transfer_root_claimed_for_new_keys(

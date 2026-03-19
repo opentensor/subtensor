@@ -1295,11 +1295,93 @@ fn test_claim_root_with_swap_hotkey() {
             RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey,))
         );
 
-        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+        // After a single-subnet swap, RootClaimable stays on the old hotkey
+        // because the old hotkey still holds root stake on other subnets.
+        // Only perform_hotkey_swap_on_all_subnets transfers RootClaimable.
+        let old_claimable_after = RootClaimable::<Test>::get(hotkey);
+        assert!(
+            old_claimable_after.contains_key(&netuid),
+            "single-subnet swap must not wipe RootClaimable from the old hotkey"
+        );
+        assert!(
+            !RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid),
+            "single-subnet swap must not move RootClaimable to the new hotkey"
+        );
+    });
+}
 
-        let _new_claimable = *RootClaimable::<Test>::get(new_hotkey)
-            .get(&netuid)
-            .expect("claimable must exist at this point");
+#[test]
+fn test_claim_root_with_swap_hotkey_all_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        let tao_reserve = TaoCurrency::from(50_000_000_000);
+        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+
+        let root_stake = 2_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let pending_root_alpha = 1_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaCurrency::ZERO,
+            AlphaCurrency::ZERO,
+            pending_root_alpha.into(),
+            AlphaCurrency::ZERO,
+        );
+
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            RootClaimTypeEnum::Keep
+        ));
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        let new_hotkey = U256::from(10030);
+        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+        assert!(!RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid));
+
+        // Swap on ALL subnets — RootClaimable should transfer
+        let mut weight = Weight::zero();
+        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+            false,
+        ));
+
+        assert!(
+            !RootClaimable::<Test>::get(hotkey).contains_key(&netuid),
+            "all-subnet swap must clear RootClaimable from the old hotkey"
+        );
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid),
+            "all-subnet swap must move RootClaimable to the new hotkey"
+        );
     });
 }
 
