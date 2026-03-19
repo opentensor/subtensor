@@ -10,7 +10,6 @@ import {
   addStake,
   removeStake,
   getStake,
-  getStakeRaw,
   tao,
   log,
 } from "e2e-shared";
@@ -42,7 +41,7 @@ describe("▶ remove_stake extrinsic", () => {
     expect(stakeBefore, "Should have stake before removal").toBeGreaterThan(0n);
 
     // Remove stake (amount is in alpha units - use raw U64F64 value)
-    const stakeRaw = await getStakeRaw(api, hotkeyAddress, coldkeyAddress, netuid);
+    const stakeRaw = await getStake(api, hotkeyAddress, coldkeyAddress, netuid);
     const unstakeAmount = stakeRaw / 2n;
     await removeStake(api, coldkey, hotkeyAddress, netuid, unstakeAmount);
 

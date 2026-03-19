@@ -9,7 +9,6 @@ import {
   addStake,
   transferStake,
   getStake,
-  getStakeRaw,
   tao,
   log,
 } from "e2e-shared";
@@ -55,7 +54,7 @@ describe("▶ transfer_stake extrinsic", () => {
 
     // Transfer stake to destination coldkey on a different subnet
     // Use raw U64F64 value for the extrinsic
-    const originStakeRaw = await getStakeRaw(api, hotkey1Address, originColdkeyAddress, netuid1);
+    const originStakeRaw = await getStake(api, hotkey1Address, originColdkeyAddress, netuid1);
     const transferAmount = originStakeRaw / 2n;
     await transferStake(
       api,
@@ -110,7 +109,7 @@ describe("▶ transfer_stake extrinsic", () => {
 
     // Transfer stake to destination coldkey
     // Use raw U64F64 value for the extrinsic, transfer half to avoid AmountTooLow error
-    const originStakeRaw = await getStakeRaw(api, hotkeyAddress, originColdkeyAddress, netuid);
+    const originStakeRaw = await getStake(api, hotkeyAddress, originColdkeyAddress, netuid);
     const transferAmount = originStakeRaw / 2n;
     await transferStake(api, originColdkey, destinationColdkeyAddress, hotkeyAddress, netuid, netuid, transferAmount);
 
