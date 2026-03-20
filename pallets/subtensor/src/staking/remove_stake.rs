@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_remove_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         alpha_unstaked: AlphaBalance,
@@ -119,10 +119,7 @@ impl<T: Config> Pallet<T> {
     /// * 'TxRateLimitExceeded':
     ///     -  Thrown if key has hit transaction rate limit
     ///
-    pub fn do_unstake_all(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-    ) -> dispatch::DispatchResult {
+    pub fn do_unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::debug!("do_unstake_all( origin:{coldkey:?} hotkey:{hotkey:?} )");
@@ -210,7 +207,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_unstake_all_alpha(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
         // 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -330,7 +327,7 @@ impl<T: Config> Pallet<T> {
     ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
     ///
     pub fn do_remove_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         alpha_unstaked: AlphaBalance,
@@ -416,7 +413,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_remove_stake_full_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         limit_price: Option<TaoBalance>,
@@ -483,13 +480,13 @@ impl<T: Config> Pallet<T> {
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
         let mut total_alpha_value_u128: u128 = 0;
 
-        let hotkeys_in_subnet: Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter()
-            .filter(|(_, this_netuid, _)| *this_netuid == netuid)
-            .map(|(hot, _, _)| hot.clone())
+        let hotkeys_in_subnet: Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter_keys()
+            .filter(|(_, this_netuid)| *this_netuid == netuid)
+            .map(|(hot, _)| hot.clone())
             .collect::<Vec<_>>();
 
         for hot in hotkeys_in_subnet.iter() {
-            for ((cold, this_netuid), share_u64f64) in Alpha::<T>::iter_prefix((hot,)) {
+            for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(hot) {
                 if this_netuid != netuid {
                     continue;
                 }
@@ -501,7 +498,7 @@ impl<T: Config> Pallet<T> {
 
                 // Fallback: if pool uninitialized, treat raw Alpha share as value.
                 let val_u64 = if actual_val_u64 == 0 {
-                    share_u64f64.saturating_to_num::<u64>()
+                    u64::from(share_u64f64)
                 } else {
                     actual_val_u64
                 };
@@ -572,12 +569,14 @@ impl<T: Config> Pallet<T> {
         // 7) Destroy all α-in/α-out state for this subnet.
         // 7.a) Remove every (hot, cold, netuid) α entry.
         for (hot, cold) in keys_to_remove {
-            Alpha::<T>::remove((hot, cold, netuid));
+            Alpha::<T>::remove((hot.clone(), cold.clone(), netuid));
+            AlphaV2::<T>::remove((hot, cold, netuid));
         }
         // 7.b) Clear share‑pool totals for each hotkey on this subnet.
         for hot in hotkeys_in_subnet {
             TotalHotkeyAlpha::<T>::remove(&hot, netuid);
             TotalHotkeyShares::<T>::remove(&hot, netuid);
+            TotalHotkeySharesV2::<T>::remove(&hot, netuid);
         }
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
         SubnetAlphaIn::<T>::remove(netuid);

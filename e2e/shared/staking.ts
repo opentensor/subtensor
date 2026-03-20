@@ -152,8 +152,20 @@ export async function getStake(
   coldkey: string,
   netuid: number,
 ): Promise<bigint> {
-  const raw = await api.query.SubtensorModule.Alpha.getValue(hotkey, coldkey, netuid);
-  return u64f64ToInt(raw);
+  const value = (await api.query.SubtensorModule.AlphaV2.getValue(hotkey, coldkey, netuid));
+
+  const mantissa = value.mantissa;
+  const exponent = value.exponent;
+
+  let result: bigint;
+
+  if (exponent >= 0) {
+    result = mantissa * BigInt(10) ** exponent;
+  } else {
+    result = mantissa / BigInt(10) ** -exponent;
+  }
+
+  return result;
 }
 
 /**

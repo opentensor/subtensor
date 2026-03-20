@@ -276,8 +276,6 @@ mod errors {
         VotingPowerTrackingNotEnabled,
         /// Invalid voting power EMA alpha value (must be <= 10^18).
         InvalidVotingPowerEmaAlpha,
-        /// Unintended precision loss when unstaking alpha
-        PrecisionLoss,
         /// Deprecated call.
         Deprecated,
         /// "Add stake and burn" exceeded the operation rate limit
@@ -286,5 +284,7 @@ mod errors {
         ColdkeySwapAnnounced,
         /// A coldkey swap for this account is under dispute.
         ColdkeySwapDisputed,
+        /// Coldkey swap clear too early.
+        ColdkeySwapClearTooEarly,
     }
 }
