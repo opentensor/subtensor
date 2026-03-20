@@ -1321,8 +1321,8 @@ fn test_claim_root_with_swap_hotkey_all_subnets() {
         SubtensorModule::set_tao_weight(u64::MAX);
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoBalance::from(50_000_000_000u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
@@ -1345,10 +1345,10 @@ fn test_claim_root_with_swap_hotkey_all_subnets() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::set_root_claim_type(
