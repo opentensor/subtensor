@@ -1856,7 +1856,7 @@ mod dispatches {
         pub fn try_associate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
-            let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
+            Self::do_try_associate_hotkey(&coldkey, &hotkey)?;
 
             Ok(())
         }

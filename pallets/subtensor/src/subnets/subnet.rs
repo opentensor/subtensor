@@ -1,5 +1,7 @@
 use super::*;
+use frame_support::PalletId;
 use sp_core::Get;
+use sp_runtime::traits::AccountIdConversion;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
@@ -123,6 +125,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
+        // Ensure that hotkey is not a special account
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::NonAssociatedColdKey
+        );
+
         // --- 3. Ensure the mechanism is Dynamic.
         ensure!(mechid == 1, Error::<T>::MechanismDoesNotExist);
 
@@ -189,7 +197,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("init_new_network: {netuid_to_register:?}");
 
         // --- 12. Add the caller to the neuron set.
-        Self::create_account_if_non_existent(&coldkey, hotkey);
+        Self::create_account_if_non_existent(&coldkey, hotkey)?;
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
@@ -215,7 +223,7 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
         SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_alpha);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
-        SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
+        Self::set_subnet_owner_hotkey(netuid_to_register, hotkey)?;
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
         SubnetTaoProvided::<T>::insert(netuid_to_register, TaoBalance::ZERO);
         SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
@@ -429,7 +437,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Insert/update the hotkey
-        SubnetOwnerHotkey::<T>::insert(netuid, hotkey);
+        Self::set_subnet_owner_hotkey(netuid, hotkey)?;
 
         // Return success.
         Ok(())
@@ -437,5 +445,22 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_valid_subnet_for_emission(netuid: NetUid) -> bool {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
+    }
+
+    pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
+        if NetworksAdded::<T>::contains_key(netuid) {
+            Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
+        } else {
+            None
+        }
+    }
+
+    pub fn is_subnet_account_id(account: &T::AccountId) -> Option<NetUid> {
+        let pallet_id = T::SubtensorPalletId::get();
+
+        match PalletId::try_from_sub_account::<NetUid>(account) {
+            Some((decoded_pallet_id, netuid)) if decoded_pallet_id == pallet_id => Some(netuid),
+            _ => None,
+        }
     }
 }

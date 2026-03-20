@@ -345,6 +345,7 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 10;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -420,6 +421,7 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
 }
 
 // Swap-related parameter types

@@ -111,7 +111,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey)?;
 
         // --- 8. Ensure that the pairing is correct.
         ensure!(
@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 10. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey)?;
 
         // --- 11. Ensure that the pairing is correct.
         ensure!(

@@ -792,7 +792,7 @@ fn test_add_stake_insufficient_liquidity() {
         let amount_staked = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked.into());
 
         // Set the liquidity at lowest possible value so that all staking requests fail
@@ -823,7 +823,7 @@ fn test_add_stake_insufficient_liquidity_one_side_ok() {
         let amount_staked = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked.into());
 
         // Set the liquidity at lowest possible value so that all staking requests fail
@@ -852,7 +852,7 @@ fn test_add_stake_insufficient_liquidity_one_side_fail() {
         let amount_staked = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked.into());
 
         // Set the liquidity at lowest possible value so that all staking requests fail
@@ -883,7 +883,7 @@ fn test_remove_stake_insufficient_liquidity() {
         let amount_staked = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount_staked.into());
 
         // Simulate stake for hotkey
@@ -2572,7 +2572,7 @@ fn test_add_stake_fee_goes_to_subnet_tao() {
         let tao_to_stake = DefaultMinStake::<Test>::get() * 10.into();
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
 
         // Add stake
@@ -2618,7 +2618,7 @@ fn test_remove_stake_fee_goes_to_subnet_tao() {
         let tao_to_stake = DefaultMinStake::<Test>::get() * 10.into();
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
 
         // Add stake
@@ -2671,7 +2671,7 @@ fn test_remove_stake_fee_realistic_values() {
         let alpha_divs = AlphaBalance::from(2_816_190);
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
 
         // Mock a realistic scenario:
         //   Subnet 1 has 3896 TAO and 128_011 Alpha in reserves, which

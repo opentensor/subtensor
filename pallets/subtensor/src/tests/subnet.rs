@@ -5,6 +5,7 @@ use crate::*;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+use std::collections::BTreeSet;
 use subtensor_runtime_common::{AlphaBalance, TaoBalance};
 
 use super::mock;
@@ -886,5 +887,65 @@ fn test_update_symbol_fails_if_symbol_already_in_use() {
             ),
             Error::<Test>::SymbolAlreadyInUse
         );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_get_subnet_account_id_exists_and_is_distinct_for_257_consecutive_subnets --exact --nocapture
+#[test]
+fn test_get_subnet_account_id_exists_and_is_distinct_for_257_consecutive_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let mut account_ids = BTreeSet::new();
+
+        for raw_netuid in 0u16..=256u16 {
+            let netuid = NetUid::from(raw_netuid);
+            add_network(netuid, 10, 0);
+
+            let account_id = SubtensorModule::get_subnet_account_id(netuid);
+            assert!(
+                account_ids.insert(account_id),
+                "duplicate subnet account id for netuid {:?}",
+                netuid
+            );
+        }
+
+        assert_eq!(account_ids.len(), 257);
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_is_subnet_account_id --exact --nocapture
+#[test]
+fn test_is_subnet_account_id() {
+    new_test_ext(1).execute_with(|| {
+        for raw_netuid in 0u16..=2048u16 {
+            let netuid = NetUid::from(raw_netuid);
+            add_network(netuid, 10, 0);
+
+            let account_id = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+            let roudtrip_netuid = SubtensorModule::is_subnet_account_id(&account_id);
+            assert_eq!(netuid, roudtrip_netuid.unwrap());
+        }
+
+        // Not a subnet account
+        let not_subnet_account_id = U256::from(1);
+        assert!(SubtensorModule::is_subnet_account_id(&not_subnet_account_id).is_none());
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::subnet::test_cannot_register_system_hotkey --exact --nocapture
+#[test]
+fn test_cannot_register_system_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        for raw_netuid in 0u16..=2048u16 {
+            let coldkey = U256::from(1);
+            let netuid = NetUid::from(raw_netuid);
+            add_network(netuid, 10, 0);
+
+            let account_id = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+            assert_err!(
+                SubtensorModule::create_account_if_non_existent(&coldkey, &account_id),
+                Error::<Test>::NonAssociatedColdKey
+            );
+            assert!(!SubtensorModule::coldkey_owns_hotkey(&coldkey, &account_id),);
+        }
     });
 }

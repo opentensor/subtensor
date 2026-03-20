@@ -844,9 +844,16 @@ impl<T: Config> Pallet<T> {
     ///
     /// * Update the SubnetOwnerHotkey storage.
     /// * Emits a SubnetOwnerHotkeySet event.
-    pub fn set_subnet_owner_hotkey(netuid: NetUid, hotkey: &T::AccountId) {
+    pub fn set_subnet_owner_hotkey(netuid: NetUid, hotkey: &T::AccountId) -> DispatchResult {
+        // Ensure that hotkey is not a special account
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::NonAssociatedColdKey
+        );
+
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
         Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
+        Ok(())
     }
 
     // Get the uid of the Owner Hotkey for a subnet.

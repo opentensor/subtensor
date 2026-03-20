@@ -873,7 +873,7 @@ mod pallet_benchmarks {
         let alpha_to_move =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&origin, &coldkey, netuid);
 
-        Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
 
         // Remove stake limit for benchmark
         StakingOperationRateLimiter::<T>::remove((origin.clone(), coldkey.clone(), netuid));
@@ -1054,7 +1054,7 @@ mod pallet_benchmarks {
         let alpha_to_transfer =
             Subtensor::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&hot, &coldkey, netuid);
 
-        Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
 
         // Remove stake limit for benchmark
         StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid));
@@ -1294,7 +1294,7 @@ mod pallet_benchmarks {
         let descr = vec![];
         let add = vec![];
 
-        Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
         Subtensor::<T>::init_new_network(1.into(), 1);
         let deposit: u64 = 1_000_000_000u64.saturating_mul(2);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, deposit.into());
@@ -1381,7 +1381,7 @@ mod pallet_benchmarks {
     fn unstake_all() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("A", 0, 14);
-        Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
@@ -1624,7 +1624,7 @@ mod pallet_benchmarks {
         let lease_id = 0;
         let lease = SubnetLeases::<T>::get(0).unwrap();
         let hotkey = account::<T::AccountId>("beneficiary_hotkey", 0, 0);
-        Subtensor::<T>::create_account_if_non_existent(&beneficiary, &hotkey);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&beneficiary, &hotkey);
         #[extrinsic_call]
         _(
             RawOrigin::Signed(beneficiary.clone()),

@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
         // 2. Swap owner.
         // Owner( hotkey ) -> coldkey -- the coldkey that owns the hotkey.
         Owner::<T>::remove(old_hotkey);
-        Owner::<T>::insert(new_hotkey, coldkey.clone());
+        Self::set_hotkey_owner(coldkey, new_hotkey)?;
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 3. Swap OwnedHotkeys.
@@ -314,7 +314,7 @@ impl<T: Config> Pallet<T> {
         // 7. Swap owner.
         // Owner( hotkey ) -> coldkey -- the coldkey that owns the hotkey.
         // Owner::<T>::remove(old_hotkey);
-        Owner::<T>::insert(new_hotkey, coldkey.clone());
+        Self::create_account_if_non_existent(coldkey, new_hotkey)?;
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 8. Swap OwnedHotkeys.
@@ -513,7 +513,7 @@ impl<T: Config> Pallet<T> {
         if let Ok(old_subnet_owner_hotkey) = SubnetOwnerHotkey::<T>::try_get(netuid) {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
             if old_subnet_owner_hotkey == *old_hotkey {
-                SubnetOwnerHotkey::<T>::insert(netuid, new_hotkey);
+                Self::set_subnet_owner_hotkey(netuid, new_hotkey)?;
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
             }
         }
