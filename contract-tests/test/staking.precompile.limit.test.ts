@@ -12,6 +12,7 @@ import {
   addStake,
   forceSetBalanceToEthAddress,
   forceSetBalanceToSs58Address,
+  getStake,
   startCall,
 } from "../src/subtensor";
 import { ethers } from "ethers";
@@ -47,7 +48,8 @@ describe("Test staking precompile add remove limit methods", () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
     let ss58Address = convertH160ToSS58(wallet1.address);
 
-    const alpha = await api.query.SubtensorModule.Alpha.getValue(
+    const alpha = await getStake(
+      api,
       convertPublicKeyToSs58(hotkey.publicKey),
       ss58Address,
       netuid,
@@ -68,7 +70,8 @@ describe("Test staking precompile add remove limit methods", () => {
     );
     await tx.wait();
 
-    const alphaAfterAddStake = await api.query.SubtensorModule.Alpha.getValue(
+    const alphaAfterAddStake = await getStake(
+      api,
       convertPublicKeyToSs58(hotkey.publicKey),
       ss58Address,
       netuid,
@@ -81,7 +84,8 @@ describe("Test staking precompile add remove limit methods", () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1;
     let ss58Address = convertH160ToSS58(wallet1.address);
 
-    const alpha = await api.query.SubtensorModule.Alpha.getValue(
+    const alpha = await getStake(
+      api,
       convertPublicKeyToSs58(hotkey.publicKey),
       ss58Address,
       netuid,
@@ -102,7 +106,8 @@ describe("Test staking precompile add remove limit methods", () => {
     );
     await tx.wait();
 
-    const alphaAfterRemoveStake = await api.query.SubtensorModule.Alpha.getValue(
+    const alphaAfterRemoveStake = await getStake(
+      api,
       convertPublicKeyToSs58(hotkey.publicKey),
       ss58Address,
       netuid,

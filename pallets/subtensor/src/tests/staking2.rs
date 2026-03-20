@@ -429,12 +429,9 @@ fn test_share_based_staking_denominator_precision() {
                 netuid,
                 stake_amount,
             );
-            assert_eq!(
-                stake_amount,
-                Alpha::<Test>::get((hotkey1, coldkey1, netuid))
-                    .to_num::<u64>()
-                    .into(),
-            );
+
+            let actual_stake: f64 = AlphaV2::<Test>::get((hotkey1, coldkey1, netuid)).into();
+            assert_eq!(stake_amount, (actual_stake as u64).into(),);
             SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1,
                 &coldkey1,
@@ -445,15 +442,7 @@ fn test_share_based_staking_denominator_precision() {
             let stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey1, &coldkey1, netuid,
             );
-            let expected_remaining_stake = if (stake_amount.to_u64() as f64
-                - unstake_amount.to_u64() as f64)
-                / (stake_amount.to_u64() as f64)
-                <= 0.00001
-            {
-                AlphaBalance::ZERO
-            } else {
-                stake_amount - unstake_amount
-            };
+            let expected_remaining_stake = stake_amount - unstake_amount;
             assert_eq!(stake1, expected_remaining_stake);
         });
     });
