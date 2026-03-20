@@ -13,7 +13,7 @@ use share_pool::SafeFloat;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use std::collections::BTreeSet;
-use substrate_fixed::types::{U64F64, I96F32};
+use substrate_fixed::types::{I96F32, U64F64};
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner --exact --nocapture
 #[test]
