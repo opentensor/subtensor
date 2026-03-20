@@ -10,7 +10,7 @@ use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex, TaoBalance};
 
-#[freeze_struct("fbab6d1e7f3c69ae")]
+#[freeze_struct("ef0a499c338d0215")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
@@ -19,7 +19,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Name and symbol
     name: Vec<Compact<u8>>,              // name
     symbol: Vec<Compact<u8>>,            // token symbol
-    identity: Option<SubnetIdentityV3>,  // identity information.
+    identity: Option<SubnetIdentityV4>,  // identity information.
     network_registered_at: Compact<u64>, // block at registration
 
     // Keys for owner.
@@ -110,7 +110,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Vec<(AccountId, Compact<AlphaBalance>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("3ff2befdb7b393ea")]
+#[freeze_struct("25b9044298e38eeb")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
@@ -119,7 +119,7 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Name and symbol
     name: Option<Vec<Compact<u8>>>,              // name
     symbol: Option<Vec<Compact<u8>>>,            // token symbol
-    identity: Option<Option<SubnetIdentityV3>>,  // identity information
+    identity: Option<Option<SubnetIdentityV4>>,  // identity information
     network_registered_at: Option<Compact<u64>>, // block at registration
 
     // Keys for owner.
@@ -673,7 +673,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(), // Symbol.
-            identity: SubnetIdentitiesV3::<T>::get(netuid), // identity information.
+            identity: SubnetIdentitiesV4::<T>::get(netuid), // identity information.
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(), // block at registration
 
             // Keys for owner.
@@ -916,7 +916,7 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::Identity) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                identity: Some(SubnetIdentitiesV3::<T>::get(netuid)),
+                identity: Some(SubnetIdentitiesV4::<T>::get(netuid)),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::NetworkRegisteredAt) => SelectiveMetagraph {

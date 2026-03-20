@@ -393,8 +393,8 @@ impl<T: Config> Pallet<T> {
         let _ = LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // --- 20. Identity maps across versions (netuid-scoped).
-        if SubnetIdentitiesV3::<T>::contains_key(netuid) {
-            SubnetIdentitiesV3::<T>::remove(netuid);
+        if SubnetIdentitiesV4::<T>::contains_key(netuid) {
+            SubnetIdentitiesV4::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
 

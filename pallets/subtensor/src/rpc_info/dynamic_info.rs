@@ -6,7 +6,7 @@ use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
-#[freeze_struct("cf677afa654c96a6")]
+#[freeze_struct("1caba5f448641f8a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -28,7 +28,7 @@ pub struct DynamicInfo<AccountId: TypeInfo + Encode + Decode> {
     pending_root_emission: Compact<TaoBalance>,
     subnet_volume: Compact<u128>,
     network_registered_at: Compact<u64>,
-    subnet_identity: Option<SubnetIdentityV3>,
+    subnet_identity: Option<SubnetIdentityV4>,
     moving_price: I96F32,
 }
 
@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
             pending_root_emission: TaoBalance::ZERO.into(),
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
-            subnet_identity: SubnetIdentitiesV3::<T>::get(netuid),
+            subnet_identity: SubnetIdentitiesV4::<T>::get(netuid),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
         })
     }
