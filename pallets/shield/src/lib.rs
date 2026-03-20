@@ -13,7 +13,7 @@ use frame_support::{
     pallet_prelude::*,
     traits::IsSubType,
 };
-use frame_system::{ensure_none, ensure_signed, pallet_prelude::*};
+use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 use ml_kem::{
     Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
     kem::{Decapsulate, DecapsulationKey},
@@ -122,8 +122,14 @@ pub mod pallet {
     /// Maximum size of a single encoded call.
     pub type MaxCallSize = ConstU32<8192>;
 
-    /// Maximum number of pending extrinsics.
-    pub type MaxPendingExtrinsics = ConstU32<100>;
+    /// Default maximum number of pending extrinsics.
+    pub type DefaultMaxPendingExtrinsics = ConstU32<100>;
+
+    /// Configurable maximum number of pending extrinsics.
+    /// Defaults to 100 if not explicitly set via `set_max_pending_extrinsics`.
+    #[pallet::storage]
+    pub type MaxPendingExtrinsicsLimit<T: Config> =
+        StorageValue<_, u32, ValueQuery, DefaultMaxPendingExtrinsics>;
 
     /// Maximum block difference between submission and execution.
     pub const MAX_EXTRINSIC_LIFETIME: u32 = 10;
@@ -176,6 +182,8 @@ pub mod pallet {
         ExtrinsicExpired { index: u32 },
         /// Extrinsic postponed due to weight limit.
         ExtrinsicPostponed { index: u32 },
+        /// Maximum pending extrinsics limit was updated.
+        MaxPendingExtrinsicsNumberSet { value: u32 },
     }
 
     #[pallet::error]
@@ -328,7 +336,7 @@ pub mod pallet {
             let count = PendingExtrinsicCount::<T>::get();
 
             ensure!(
-                count < <MaxPendingExtrinsics as Get<u32>>::get(),
+                count < MaxPendingExtrinsicsLimit::<T>::get(),
                 Error::<T>::TooManyPendingExtrinsics
             );
 
@@ -344,6 +352,21 @@ pub mod pallet {
             PendingExtrinsicCount::<T>::put(count.saturating_add(1));
 
             Self::deposit_event(Event::ExtrinsicStored { index, who });
+            Ok(())
+        }
+
+        /// Set the maximum number of pending extrinsics allowed in the queue.
+        #[pallet::call_index(3)]
+        #[pallet::weight(T::DbWeight::get().writes(1_u64))]
+        pub fn set_max_pending_extrinsics_number(
+            origin: OriginFor<T>,
+            value: u32,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            MaxPendingExtrinsicsLimit::<T>::put(value);
+
+            Self::deposit_event(Event::MaxPendingExtrinsicsNumberSet { value });
             Ok(())
         }
     }

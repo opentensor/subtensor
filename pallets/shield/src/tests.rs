@@ -1,11 +1,9 @@
 use crate::mock::*;
 use crate::{
-    AuthorKeys, CurrentKey, Error, HasMigrationRun, MaxPendingExtrinsics, NextKey,
+    AuthorKeys, CurrentKey, Error, HasMigrationRun, MaxPendingExtrinsicsLimit, NextKey,
     NextKeyExpiresAt, NextPendingExtrinsicIndex, PendingExtrinsic, PendingExtrinsicCount,
     PendingExtrinsics, PendingKey, PendingKeyExpiresAt,
 };
-use frame_support::traits::Get;
-
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
 use sp_runtime::testing::TestSignature;
@@ -609,7 +607,7 @@ mod encrypted_extrinsics_tests {
     #[test]
     fn store_encrypted_rejects_when_full() {
         new_test_ext().execute_with(|| {
-            let max = <MaxPendingExtrinsics as Get<u32>>::get();
+            let max = MaxPendingExtrinsicsLimit::<Test>::get();
 
             let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
             let encoded_call = BoundedVec::truncate_from(call.encode());
@@ -879,6 +877,67 @@ mod encrypted_extrinsics_tests {
             // Verify first expired, second dispatched
             System::assert_has_event(crate::Event::<Test>::ExtrinsicExpired { index: 0 }.into());
             System::assert_has_event(crate::Event::<Test>::ExtrinsicDispatched { index: 1 }.into());
+        });
+    }
+
+    #[test]
+    fn set_max_pending_extrinsics_number_works() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
+            // Default is 100
+            assert_eq!(MaxPendingExtrinsicsLimit::<Test>::get(), 100);
+
+            assert_ok!(MevShield::set_max_pending_extrinsics_number(
+                RuntimeOrigin::root(),
+                50,
+            ));
+
+            assert_eq!(MaxPendingExtrinsicsLimit::<Test>::get(), 50);
+
+            System::assert_last_event(
+                crate::Event::<Test>::MaxPendingExtrinsicsNumberSet { value: 50 }.into(),
+            );
+        });
+    }
+
+    #[test]
+    fn set_max_pending_extrinsics_number_rejects_signed_origin() {
+        new_test_ext().execute_with(|| {
+            assert_noop!(
+                MevShield::set_max_pending_extrinsics_number(RuntimeOrigin::signed(1), 50),
+                sp_runtime::DispatchError::BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn set_max_pending_extrinsics_number_enforced_on_store() {
+        new_test_ext().execute_with(|| {
+            // Set limit to 2
+            assert_ok!(MevShield::set_max_pending_extrinsics_number(
+                RuntimeOrigin::root(),
+                2,
+            ));
+
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            let encoded_call = BoundedVec::truncate_from(call.encode());
+
+            // First two should succeed
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                encoded_call.clone(),
+            ));
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                encoded_call.clone(),
+            ));
+
+            // Third should fail
+            assert_noop!(
+                MevShield::store_encrypted(RuntimeOrigin::signed(1), encoded_call),
+                Error::<Test>::TooManyPendingExtrinsics
+            );
         });
     }
 }
