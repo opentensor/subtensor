@@ -1691,7 +1691,7 @@ fn test_outdated_weights() {
             U256::from(new_key),
             U256::from(new_key)
         ));
-        let deregistered_uid: u16 = n - 1; // since uid=n-1 only recieved 1/3 of weight, it will get pruned first
+        let deregistered_uid: u16 = n - 1; // since uid=n-1 only received 1/3 of weight, it will get pruned first
         assert_eq!(
             U256::from(new_key),
             SubtensorModule::get_hotkey_for_net_and_uid(netuid, deregistered_uid)
@@ -2073,7 +2073,7 @@ fn test_deregistered_miner_bonds() {
             U256::from(new_key),
             U256::from(new_key)
         ));
-        let deregistered_uid: u16 = n - 1; // since uid=n-1 only recieved 1/3 of weight, it will get pruned first
+        let deregistered_uid: u16 = n - 1; // since uid=n-1 only received 1/3 of weight, it will get pruned first
         assert_eq!(
             U256::from(new_key),
             SubtensorModule::get_hotkey_for_net_and_uid(netuid, deregistered_uid)
