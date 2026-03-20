@@ -12,10 +12,6 @@ homepage = "https://bittensor.com"
 name = "weight-compare"
 path = "src/weight_compare.rs"
 
-[[bin]]
-name = "weight-stub"
-path = "src/weight_stub.rs"
-
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive"] }

@@ -14,10 +14,9 @@ by running benchmarks on reference hardware.
 | Tool | Purpose |
 |------|---------|
 | `scripts/benchmark_all.sh` | Generate `weights.rs` for one or all pallets (runs real benchmarks) |
-| `scripts/benchmark_stub.sh` | Create/update placeholder `weights.rs` from a benchmarking file (no benchmarks needed) |
 | `weight-compare` | Compare two `weights.rs` files and report drift (used by CI) |
 
-All weight tools live in `support/weight-tools/` and have no heavy dependencies
+`weight-compare` lives in `support/weight-tools/` and has no heavy dependencies
 (no runtime build required).
 
 ## Adding a new pallet
@@ -25,10 +24,28 @@ All weight tools live in `support/weight-tools/` and have no heavy dependencies
 1. Write your benchmarks in `pallets/<name>/src/benchmarking.rs` using
    `#[benchmarks]` and `#[benchmark]` macros.
 
-2. Generate the placeholder `weights.rs`:
+2. Create `pallets/<name>/src/weights.rs` manually. Copy the structure from
+   any existing pallet (e.g. `pallets/drand/src/weights.rs`) and replace the
+   function signatures with yours, using `Weight::from_parts(0, 0)` as the
+   body so the pallet compiles immediately:
 
-   ```sh
-   ./scripts/benchmark_stub.sh pallet_<name>
+   ```rust
+   pub trait WeightInfo {
+       fn my_extrinsic() -> Weight;
+   }
+
+   pub struct SubstrateWeight<T>(PhantomData<T>);
+   impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+       fn my_extrinsic() -> Weight {
+           Weight::from_parts(0, 0)
+       }
+   }
+
+   impl WeightInfo for () {
+       fn my_extrinsic() -> Weight {
+           Weight::from_parts(0, 0)
+       }
+   }
    ```
 
 3. Add `pub mod weights;` to your pallet's `lib.rs`.
@@ -65,17 +82,21 @@ CI will generate real weights automatically when the PR is opened.
 
 1. Write the benchmark in `benchmarking.rs`.
 
-2. Update `weights.rs` with placeholder values:
+2. Add the function signature to the `WeightInfo` trait in `weights.rs`, and
+   a `Weight::from_parts(0, 0)` body to both the `SubstrateWeight<T>` and
+   `()` impls so the pallet continues to compile:
 
-   ```sh
-   ./scripts/benchmark_stub.sh pallet_<name>
+   ```rust
+   // in trait WeightInfo:
+   fn new_extrinsic() -> Weight;
+
+   // in both impls:
+   fn new_extrinsic() -> Weight {
+       Weight::from_parts(0, 0)
+   }
    ```
 
-   This merges with the existing file: new benchmarks get placeholder values,
-   existing ones keep their real values, removed benchmarks are cleaned up.
-
-3. Add `#[pallet::weight(T::WeightInfo::new_extrinsic())]` to your new
-   extrinsic.
+3. Add `#[pallet::weight(T::WeightInfo::new_extrinsic())]` to the extrinsic.
 
 CI will generate real weights automatically when the PR is opened.
 
