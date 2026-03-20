@@ -42,12 +42,20 @@ impl<T: Config> Pallet<T> {
         // Remove hotkey from OwnedHotkeys.
         let mut owned = OwnedHotkeys::<T>::get(coldkey);
         owned.retain(|h| h != hotkey);
-        OwnedHotkeys::<T>::insert(coldkey, owned);
+        if owned.is_empty() {
+            OwnedHotkeys::<T>::remove(coldkey);
+        } else {
+            OwnedHotkeys::<T>::insert(coldkey, owned);
+        }
 
         // Remove hotkey from StakingHotkeys.
         let mut staking = StakingHotkeys::<T>::get(coldkey);
         staking.retain(|h| h != hotkey);
-        StakingHotkeys::<T>::insert(coldkey, staking);
+        if staking.is_empty() {
+            StakingHotkeys::<T>::remove(coldkey);
+        } else {
+            StakingHotkeys::<T>::insert(coldkey, staking);
+        }
 
         // Remove Delegates entry if present.
         Delegates::<T>::remove(hotkey);
