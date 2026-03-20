@@ -1,16 +1,17 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import { checkRuntime, getCurrentKey, getNextKey, waitForFinalizedBlocks } from "../../utils";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "00.00_basic",
     title: "MEV Shield — key rotation",
     foundationMethods: "zombie",
     testCases: ({ it, context }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
 
             await checkRuntime(api);
 
@@ -46,12 +47,12 @@ describeSuite({
             id: "T02",
             title: "AuthorKeys stores per-author keys",
             test: async () => {
-                const authorities = (await api.query.aura.authorities()).toJSON() as string[];
+                const authorities = await api.query.Aura.Authorities.getValue();
                 expect(authorities.length).toBeGreaterThan(0);
 
                 let foundKeys = 0;
                 for (const authority of authorities) {
-                    const key = (await api.query.mevShield.authorKeys(authority)).toJSON();
+                    const key = await api.query.MevShield.AuthorKeys.getValue(authority);
                     if (key) foundKeys++;
                 }
 

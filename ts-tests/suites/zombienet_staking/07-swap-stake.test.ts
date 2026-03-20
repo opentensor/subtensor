@@ -1,6 +1,5 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import {
     addNewSubnetwork,
     addStake,
@@ -13,16 +12,18 @@ import {
     swapStake,
     tao,
 } from "../../utils";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "07_swap_stake",
     title: "▶ swap_stake extrinsic",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
         });
 
         it({

@@ -1,6 +1,5 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import {
     addNewSubnetwork,
     addStake,
@@ -13,13 +12,15 @@ import {
     sudoSetLockReductionInterval,
     tao,
 } from "../../utils";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "04_remove_stake",
     title: "▶ remove_stake extrinsic",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
         let netuid: number;
         const hotkey = generateKeyringPair("sr25519");
         const coldkey = generateKeyringPair("sr25519");
@@ -27,7 +28,7 @@ describeSuite({
         const coldkeyAddress = coldkey.address;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
 
             await forceSetBalance(api, hotkeyAddress);
             await forceSetBalance(api, coldkeyAddress);

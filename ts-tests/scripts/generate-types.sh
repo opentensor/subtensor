@@ -34,7 +34,7 @@ if [ "$GENERATE_TYPES" = true ]; then
   echo "==> Starting dev node (logs at $NODE_LOG)..."
   "$BINARY" --one --dev &>"$NODE_LOG" &
   NODE_PID=$!
-  trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null" EXIT
+  trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null; true" EXIT
 
   TIMEOUT=60
   ELAPSED=0
@@ -55,6 +55,7 @@ if [ "$GENERATE_TYPES" = true ]; then
   pnpm generate-types
 
   echo "==> Done generating types."
+  exit 0
 else
   echo "==> Types are up-to-date, nothing to do."
 fi

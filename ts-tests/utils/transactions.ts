@@ -1,14 +1,14 @@
 import { log } from "./logger.js";
 import type { KeyringPair } from "@moonwall/util";
-import type { SubmittableExtrinsic } from "@polkadot/api/promise/types";
-import type { AddressOrPair } from "@polkadot/api-base/types/submittable";
-import type { ApiPromise } from "@polkadot/api";
 import { sleep } from "@zombienet/utils";
 import { waitForBlocks } from "./staking.ts";
+import type { Transaction, TypedApi } from "polkadot-api";
+import type { subtensor } from "@polkadot-api/descriptors";
+import { getPolkadotSigner } from "polkadot-api/signer";
 
 export async function waitForTransactionWithRetry(
-    api: ApiPromise,
-    tx: SubmittableExtrinsic,
+    api: TypedApi<typeof subtensor>,
+    tx: Transaction<Record<string, unknown>, string, string, void>,
     signer: KeyringPair,
     label: string,
     maxRetries = 1
@@ -17,7 +17,7 @@ export async function waitForTransactionWithRetry(
 
     while (retries < maxRetries) {
         try {
-            await waitForTransactionCompletion(api, tx, signer);
+            await waitForTransactionCompletion(tx, signer);
             return;
         } catch (error) {
             log.tx(label, `attempt ${retries + 1} failed: ${error}`);
@@ -31,84 +31,59 @@ export async function waitForTransactionWithRetry(
 }
 
 export async function waitForTransactionCompletion(
-    api: ApiPromise,
-    tx: SubmittableExtrinsic,
-    account: AddressOrPair,
+    tx: Transaction<Record<string, unknown>, string, string, void>,
+    keypair: KeyringPair,
     timeout: number | null = 3 * 60 * 1000
-) {
+): Promise<{ txHash: string; blockHash: string }> {
     const callerStack = new Error().stack;
 
-    // Inner function that doesn't handle timeout
-    const signAndSendAndIncludeInner = (tx: SubmittableExtrinsic, account: AddressOrPair) => {
+    const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
+
+    const signSubmitAndWatchInner = (): Promise<{ txHash: string; blockHash: string }> => {
         return new Promise((resolve, reject) => {
-            let unsub: () => void;
+            const subscription = tx.signSubmitAndWatch(signer).subscribe({
+                next(event) {
+                    if (event.type === "finalized") {
+                        subscription.unsubscribe();
 
-            tx.signAndSend(account, (result) => {
-                const { status, txHash } = result;
-                // Resolve once the transaction is finalized
-                if (status.isFinalized) {
-                    // Uncomment if you need to debug transaction events
-                    // console.debug(
-                    //     "tx events:",
-                    //     result.events.map((event) => JSON.stringify(event.toHuman()))
-                    // );
-
-                    const failed = result.events.find(({ event }) => api.events.system.ExtrinsicFailed.is(event));
-
-                    unsub?.();
-                    if (failed) {
-                        const { dispatchError } = failed.event.data as any;
-                        let errorMessage = dispatchError.toString();
-
-                        if (dispatchError.isModule) {
-                            const decoded = api.registry.findMetaError(dispatchError.asModule);
-                            errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                        const failed = event.dispatchError;
+                        if (failed) {
+                            reject(new Error(`ExtrinsicFailed: ${JSON.stringify(failed)}`));
+                        } else {
+                            resolve({
+                                txHash: event.txHash,
+                                blockHash: event.block.hash,
+                            });
                         }
-                        reject(new Error(`ExtrinsicFailed: ${errorMessage}`));
-                    } else {
-                        resolve({ txHash, blockHash: status.asFinalized, status: result });
                     }
-                }
-            })
-                .then((u) => {
-                    unsub = u;
-                })
-                .catch((error) => {
+                },
+                error(err) {
                     console.error("callerStack", callerStack);
-                    reject(error.toHuman());
-                });
+                    reject(err instanceof Error ? err : new Error(String(err)));
+                },
+            });
         });
     };
 
-    // If no timeout is specified, directly call the no-timeout version
     if (timeout === null) {
-        return signAndSendAndIncludeInner(tx, account);
+        return signSubmitAndWatchInner();
     }
 
-    // Otherwise, create our own promise that sets/rejects on timeout
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
             console.log("Transaction timed out");
-            console.log(tx.toJSON());
             console.error("callerStack", callerStack);
             reject(new Error("Transaction timed out"));
         }, timeout);
 
-        signAndSendAndIncludeInner(tx, account)
+        signSubmitAndWatchInner()
             .then((result) => {
                 clearTimeout(timer);
                 resolve(result);
             })
             .catch((error) => {
                 clearTimeout(timer);
-                // error может быть Error, string, или polkadot-объектом с .toHuman()
-                if (error instanceof Error) {
-                    reject(error);
-                } else if (typeof error?.toHuman === "function") {
-                    reject(new Error(JSON.stringify(error.toHuman())));
-                } else {
-                    reject(new Error(String(error)));
-                }
+                reject(error instanceof Error ? error : new Error(String(error)));
             });
     });
 }
@@ -185,25 +160,22 @@ const SECOND = 1000;
 
 /** Polls the chain until `count` new finalized blocks have been produced. */
 export async function waitForFinalizedBlocks(
-    api: ApiPromise,
+    api: TypedApi<typeof subtensor>,
     count: number,
     pollInterval = 1 * SECOND,
     timeout = 120 * SECOND
 ): Promise<void> {
-    const block = await api.rpc.chain.getBlock(await api.rpc.chain.getFinalizedHead());
-    const start = block.block.header.number.toNumber();
-
-    const target = start + count;
+    const startBlock = await api.query.System.Number.getValue({ at: "finalized" });
+    const target = startBlock + count;
     const deadline = Date.now() + timeout;
 
     while (Date.now() < deadline) {
         await sleep(pollInterval);
 
-        const currentBlock = await api.rpc.chain.getBlock(await api.rpc.chain.getFinalizedHead());
-        const currentBlockNumber = currentBlock.block.header.number.toNumber();
+        const currentBlock = await api.query.System.Number.getValue({ at: "finalized" });
 
-        if (currentBlockNumber >= target) return;
+        if (currentBlock >= target) return;
     }
 
-    throw new Error(`Timed out waiting for ${count} finalized blocks (from #${start}, target #${target})`);
+    throw new Error(`Timed out waiting for ${count} finalized blocks (from #${startBlock}, target #${target})`);
 }

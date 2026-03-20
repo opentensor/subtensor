@@ -1,5 +1,4 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import {
     addNewSubnetwork,
     addStake,
@@ -10,13 +9,15 @@ import {
     sudoSetLockReductionInterval,
     tao,
 } from "../../utils";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "00_add_stake",
     title: "▶ add_stake extrinsic",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
 
         const hotkey = generateKeyringPair("sr25519");
         const coldkey = generateKeyringPair("sr25519");
@@ -25,7 +26,7 @@ describeSuite({
         let netuid: number;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
 
             // Set lock reduction interval to 1 block to make network registration lock cost decay instantly.
             // By default, the lock cost doubles with each subnet registration and decays over 14 days (100,800 blocks).

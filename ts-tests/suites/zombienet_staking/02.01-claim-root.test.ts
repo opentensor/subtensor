@@ -1,17 +1,18 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import { getNumRootClaims, sudoSetLockReductionInterval, sudoSetNumRootClaims } from "../../utils";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "0201_sudo_set_num_root_claims",
     title: "▶ sudo_set_num_root_claims extrinsic",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
             await sudoSetLockReductionInterval(api, 1);
         });
 

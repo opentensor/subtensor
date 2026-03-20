@@ -1,6 +1,5 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import {
     addNewSubnetwork,
     addStake,
@@ -30,17 +29,19 @@ import {
     tao,
     waitForBlocks,
 } from "../../utils";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 
 describeSuite({
     id: "0203_claim_root",
     title: "▶ claim_root extrinsic",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
         const ROOT_NETUID = 0;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
             await sudoSetLockReductionInterval(api, 1);
         });
 
@@ -77,7 +78,7 @@ describeSuite({
                 // Enable subtoken for ROOT subnet (required for staking on root)
                 const subtokenEnabledBefore = await isSubtokenEnabled(api, ROOT_NETUID);
                 if (!subtokenEnabledBefore) {
-                    await sudoSetSubtokenEnabled(api, ROOT_NETUID, "Yes");
+                    await sudoSetSubtokenEnabled(api, ROOT_NETUID, true);
                     const subtokenEnabledAfter = await isSubtokenEnabled(api, ROOT_NETUID);
                     log(`ROOT subtoken enabled: ${subtokenEnabledAfter}`);
                     expect(subtokenEnabledAfter).toBe(true);

@@ -16,7 +16,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `DispatchResult` - Success or error
     pub(crate) fn do_recycle_alpha(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `DispatchResult` - Success or error
     pub(crate) fn do_burn_alpha(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
     pub(crate) fn do_add_stake_burn(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         amount: TaoBalance,

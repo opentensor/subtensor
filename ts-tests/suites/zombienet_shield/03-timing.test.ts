@@ -1,9 +1,8 @@
 import { expect, beforeAll } from "vitest";
 import type { TypedApi } from "polkadot-api";
 import { hexToU8a } from "@polkadot/util";
-import { subtensor } from "@polkadot-api/descriptors";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
 import {
@@ -11,6 +10,7 @@ import {
     getAccountNonce,
     getBalance,
     getNextKey,
+    getSignerFromKeypair,
     submitEncrypted,
     waitForFinalizedBlocks,
 } from "../../utils";
@@ -21,8 +21,7 @@ describeSuite({
     title: "MEV Shield — timing boundaries",
     foundationMethods: "zombie",
     testCases: ({ it, context }) => {
-        let api: ApiPromise;
-        let papi: TypedApi<typeof subtensor>;
+        let api: TypedApi<typeof subtensor>;
 
         let alice: KeyringPair;
         let bob: KeyringPair;
@@ -32,8 +31,7 @@ describeSuite({
             alice = keyring.addFromUri("//Alice");
             bob = keyring.addFromUri("//Bob");
 
-            papi = context.papi("NodePapi").getTypedApi(subtensor);
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
 
             await checkRuntime(api);
         }, 120000);
@@ -52,11 +50,12 @@ describeSuite({
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances
-                    .transferKeepAlive(bob.address, 1_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 1_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                await submitEncrypted(papi, alice, hexToU8a(innerTx.toHex()), nextKey, nonce);
+                await submitEncrypted(api, alice, hexToU8a(innerTxHex), nextKey, nonce);
 
                 const balanceAfter = await getBalance(api, bob.address);
                 expect(balanceAfter).toBeGreaterThan(balanceBefore);
@@ -78,11 +77,12 @@ describeSuite({
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances
-                    .transferKeepAlive(bob.address, 1_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 1_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                await submitEncrypted(papi, alice, hexToU8a(innerTx.toHex()), nextKey, nonce);
+                await submitEncrypted(api, alice, hexToU8a(innerTxHex), nextKey, nonce);
 
                 const balanceAfter = await getBalance(api, bob.address);
                 expect(balanceAfter).toBeGreaterThan(balanceBefore);
@@ -106,11 +106,12 @@ describeSuite({
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances
-                    .transferKeepAlive(bob.address, 1_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 1_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                await submitEncrypted(papi, alice, hexToU8a(innerTx.toHex()), nextKey, nonce);
+                await submitEncrypted(api, alice, hexToU8a(innerTxHex), nextKey, nonce);
 
                 const balanceAfter = await getBalance(api, bob.address);
                 expect(balanceAfter).toBeGreaterThan(balanceBefore);
@@ -132,11 +133,12 @@ describeSuite({
                 const balanceBefore = await getBalance(api, bob.address);
 
                 const nonce = await getAccountNonce(api, alice.address);
-                const innerTx = await api.tx.balances
-                    .transferKeepAlive(bob.address, 1_000_000_000n)
-                    .signAsync(alice, { nonce: nonce + 1 });
+                const innerTxHex = await api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(bob.address),
+                    value: 1_000_000_000n,
+                }).sign(getSignerFromKeypair(alice), { nonce: nonce + 1 });
 
-                await submitEncrypted(papi, alice, hexToU8a(innerTx.toHex()), nextKey, nonce);
+                await submitEncrypted(api, alice, hexToU8a(innerTxHex), nextKey, nonce);
 
                 const balanceAfter = await getBalance(api, bob.address);
                 expect(balanceAfter).toBeGreaterThan(balanceBefore);

@@ -42,6 +42,7 @@
             "timeout": 600000,
             "testFileDir": ["suites/zombienet_staking"],
             "runScripts": [
+                "generate-types.sh",
                 "build-spec.sh"
             ],
             "foundation": {
@@ -57,7 +58,7 @@
             "connections": [
                 {
                     "name": "Node",
-                    "type": "polkadotJs",
+                    "type": "papi",
                     "endpoints": ["ws://127.0.0.1:9947"]
                 }
             ]
@@ -82,20 +83,12 @@
             "connections": [
                 {
                     "name": "Node",
-                    "type": "polkadotJs",
-                    "endpoints": ["ws://127.0.0.1:9947"]
-                }, {
-                    "name": "NodePapi",
                     "type": "papi",
                     "endpoints": ["ws://127.0.0.1:9947"],
                     "descriptor": "subtensor"
                 },
                 {
                     "name": "NodeFull",
-                    "type": "polkadotJs",
-                    "endpoints": ["ws://127.0.0.1:9950"]
-                }, {
-                    "name": "NodeFullPapi",
                     "type": "papi",
                     "endpoints": ["ws://127.0.0.1:9950"],
                     "descriptor": "subtensor"

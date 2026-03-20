@@ -1,12 +1,13 @@
-import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
-import type { PolkadotSigner } from "polkadot-api";
+import type { PolkadotSigner, TypedApi } from "polkadot-api";
+import type { subtensor } from "@polkadot-api/descriptors";
 import { getPolkadotSigner } from "polkadot-api/signer";
 import { mnemonicGenerate } from "@polkadot/util-crypto";
 import { Keyring } from "@polkadot/keyring";
 
-export const getAccountNonce = async (api: ApiPromise, address: string): Promise<number> => {
-    return (await api.query.system.account(address)).nonce.toNumber();
+export const getAccountNonce = async (api: TypedApi<typeof subtensor>, address: string): Promise<number> => {
+    const account = await api.query.System.Account.getValue(address, { at: "best" });
+    return account.nonce;
 };
 
 export function getSignerFromKeypair(keypair: KeyringPair): PolkadotSigner {
