@@ -1,0 +1,58 @@
+# ------------------------------------------------------------------------------
+#  Subtensor benchmark Dockerfile
+#  - Builds the production node image only
+#  - Uses a direct cargo build to mirror the production build shape
+# ------------------------------------------------------------------------------
+
+ARG BASE_IMAGE=rust:latest
+ARG RUST_TOOLCHAIN=1.89
+
+FROM ${BASE_IMAGE} AS builder
+ARG RUST_TOOLCHAIN
+
+LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
+  ai.opentensor.image.vendor="Opentensor Foundation" \
+  ai.opentensor.image.title="opentensor/subtensor" \
+  ai.opentensor.image.description="Opentensor Subtensor Blockchain" \
+  ai.opentensor.image.documentation="https://docs.bittensor.com"
+
+ENV RUST_BACKTRACE=1
+WORKDIR /build
+
+COPY . /build
+COPY rust-toolchain.toml /build/rust-toolchain.toml
+
+RUN rustup toolchain install ${RUST_TOOLCHAIN} && \
+  rustup target add wasm32-unknown-unknown wasm32v1-none --toolchain ${RUST_TOOLCHAIN} && \
+  apt-get update && \
+  apt-get install -y --no-install-recommends \
+  curl build-essential protobuf-compiler clang git pkg-config libssl-dev && \
+  rm -rf /var/lib/apt/lists/*
+RUN cargo +${RUST_TOOLCHAIN} build -p node-subtensor --profile production --features "metadata-hash" --locked && \
+  test -e /build/target/production/node-subtensor
+
+FROM ${BASE_IMAGE} AS subtensor
+
+RUN addgroup --system --gid 10001 subtensor && \
+  adduser --system --uid 10001 --gid 10001 --home /home/subtensor --disabled-password subtensor
+
+RUN apt-get update && \
+  apt-get install -y gosu && \
+  rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /data && chown -R subtensor:subtensor /data
+WORKDIR /home/subtensor
+
+COPY --chown=subtensor:subtensor --from=builder /build/*.json ./
+COPY --chown=subtensor:subtensor --from=builder /build/chainspecs/*.json ./chainspecs/
+COPY --from=builder /build/target/production/node-subtensor /usr/local/bin/
+RUN chown subtensor:subtensor /usr/local/bin/node-subtensor
+
+COPY --from=builder /build/scripts/docker_entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 30333 9933 9944
+
+USER root
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["--base-path", "/data"]

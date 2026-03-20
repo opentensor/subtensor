@@ -2,6 +2,7 @@
 name: Validate-Benchmarks
 
 on:
+  push:
   pull_request:
     types: [opened, synchronize]
   workflow_dispatch:
@@ -16,30 +17,38 @@ concurrency:
 
 jobs:
   validate-benchmarks:
-    runs-on: Benchmarking
+    runs-on:
+      - self-hosted
+      - fireactions-benchmarking
 
     env:
       SKIP_BENCHMARKS: "0"
 
     steps:
       - name: Check out PR branch
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
+      - name: Check out branch
+        if: ${{ github.event_name != 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Install GitHub CLI
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
-      # (1) — first skip‑label check
+      # (1) — first skip-label check
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} \
                          --repo "${{ github.repository }}" \
@@ -57,7 +66,7 @@ jobs:
 
       # (2)
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} \
                          --repo "${{ github.repository }}" \
@@ -76,7 +85,7 @@ jobs:
 
       # (3)
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} \
                          --repo "${{ github.repository }}" \
@@ -95,7 +104,7 @@ jobs:
 
       # (4)
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} \
                          --repo "${{ github.repository }}" \
@@ -112,7 +121,7 @@ jobs:
 
       # (5)
       - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} \
                          --repo "${{ github.repository }}" \
@@ -164,7 +173,7 @@ jobs:
 
       # (6) — final check after run
       - name: Check skip label after run
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+        if: ${{ github.event_name == 'pull_request' && env.SKIP_BENCHMARKS != '1' }}
         run: |
           labels=$(gh pr view ${{ github.event.pull_request.number }} \
                          --repo "${{ github.repository }}" \

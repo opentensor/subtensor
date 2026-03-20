@@ -19,7 +19,7 @@ permissions:
 jobs:
   # Build the node binary in both variants and share as artifacts.
   build:
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: [self-hosted, fireactions-heavy]
     timeout-minutes: 60
     strategy:
       matrix:
@@ -95,7 +95,7 @@ jobs:
   test:
     needs: [build, discover]
     if: ${{ needs.discover.outputs.packages != '[]' }}
-    runs-on: [self-hosted, type-ccx33]
+    runs-on: [self-hosted, fireactions-heavy]
     timeout-minutes: 30
     strategy:
       fail-fast: false
