@@ -132,7 +132,16 @@ impl<T: Config> Pallet<T> {
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
-    pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
+    pub fn create_account_if_non_existent(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        // Only allow to register non-system hotkeys
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::NonAssociatedColdKey
+        );
+
         if !Self::hotkey_account_exists(hotkey) {
             Owner::<T>::insert(hotkey, coldkey);
 
@@ -150,6 +159,17 @@ impl<T: Config> Pallet<T> {
                 StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
             }
         }
+        Ok(())
+    }
+
+    pub fn set_hotkey_owner(coldkey: &T::AccountId, hotkey: &T::AccountId) -> DispatchResult {
+        // Only allow to register non-system hotkeys
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::NonAssociatedColdKey
+        );
+        Owner::<T>::insert(hotkey, coldkey);
+        Ok(())
     }
 
     //// If the hotkey is not a delegate, make it a delegate.

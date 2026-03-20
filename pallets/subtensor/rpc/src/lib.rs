@@ -544,9 +544,7 @@ where
 
         match api.get_subnet_account_id(at, netuid) {
             Ok(result) => Ok(result.encode()),
-            Err(_) => {
-                Err(Error::RuntimeError(format!("Subnet does not exist")).into())
-            }
+            Err(_) => Err(Error::RuntimeError("Subnet does not exist".to_string()).into()),
         }
     }
 }

@@ -30,7 +30,7 @@ impl<T: Config> Pallet<T> {
             Self::transfer_coldkey_stake(netuid, old_coldkey, new_coldkey);
         }
         Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
-        Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey);
+        Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey)?;
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
@@ -164,14 +164,17 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Transfer the ownership of the hotkeys owned by the old coldkey to the new coldkey.
-    fn transfer_hotkeys_ownership(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+    fn transfer_hotkeys_ownership(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) -> DispatchResult {
         let old_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
         let mut new_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(new_coldkey);
         for owned_hotkey in old_owned_hotkeys.iter() {
             // Remove the hotkey from the old coldkey.
             Owner::<T>::remove(owned_hotkey);
             // Add the hotkey to the new coldkey.
-            Owner::<T>::insert(owned_hotkey, new_coldkey.clone());
+            Self::set_hotkey_owner(new_coldkey, owned_hotkey)?;
             // Addd the owned hotkey to the new set of owned hotkeys.
             if !new_owned_hotkeys.contains(owned_hotkey) {
                 new_owned_hotkeys.push(owned_hotkey.clone());
@@ -179,5 +182,6 @@ impl<T: Config> Pallet<T> {
         }
         OwnedHotkeys::<T>::remove(old_coldkey);
         OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
+        Ok(())
     }
 }

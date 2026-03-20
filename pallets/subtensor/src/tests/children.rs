@@ -341,7 +341,7 @@ fn test_add_singular_child() {
             ),
             Err(Error::<Test>::NonAssociatedColdKey.into())
         );
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         step_rate_limit(&TransactionType::SetChildren, netuid);
         assert_eq!(
             SubtensorModule::do_schedule_children(

@@ -264,7 +264,7 @@ fn test_terminate_lease_works() {
 
         // Create a hotkey for the beneficiary
         let hotkey = U256::from(3);
-        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
 
         // Terminate the lease
         assert_ok!(SubtensorModule::terminate_lease(
@@ -356,7 +356,7 @@ fn test_terminate_lease_fails_if_origin_is_not_beneficiary() {
 
         // Create a hotkey for the beneficiary
         let hotkey = U256::from(3);
-        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
 
         // Terminate the lease
         assert_err!(
@@ -389,7 +389,7 @@ fn test_terminate_lease_fails_if_lease_has_no_end_block() {
 
         // Create a hotkey for the beneficiary
         let hotkey = U256::from(3);
-        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
 
         // Terminate the lease
         assert_err!(
@@ -427,7 +427,7 @@ fn test_terminate_lease_fails_if_lease_has_not_ended() {
 
         // Create a hotkey for the beneficiary
         let hotkey = U256::from(3);
-        SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&beneficiary, &hotkey);
 
         // Terminate the lease
         assert_err!(
