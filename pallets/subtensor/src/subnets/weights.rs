@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
     /// * `WeightsCommitted`:
     ///   - Emitted upon successfully storing the weight hash.
     pub fn do_commit_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         commit_hash: H256,
     ) -> DispatchResult {
@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_commit_mechanism_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         commit_hash: H256,
@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn internal_commit_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         commit_hash: H256,
@@ -169,7 +169,7 @@ impl<T: Config> Pallet<T> {
     ///    - Emitted when the lengths of the input vectors are not equal.
     ///
     pub fn do_batch_commit_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuids: Vec<Compact<NetUid>>,
         commit_hashes: Vec<H256>,
     ) -> dispatch::DispatchResult {
@@ -258,7 +258,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// * `TimelockedWeightsCommitted(hotkey, netuid, commit_hash, reveal_round)` – Fired after the commit is successfully stored.
     pub fn do_commit_timelocked_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
         reveal_round: u64,
@@ -275,7 +275,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_commit_timelocked_mechanism_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
@@ -293,7 +293,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn internal_commit_timelocked_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         commit: BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>,
@@ -418,7 +418,7 @@ impl<T: Config> Pallet<T> {
     /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match any committed hash.
     pub fn do_reveal_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         uids: Vec<u16>,
         values: Vec<u16>,
@@ -437,7 +437,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_reveal_mechanism_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         uids: Vec<u16>,
@@ -449,7 +449,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn internal_reveal_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         uids: Vec<u16>,
@@ -603,7 +603,7 @@ impl<T: Config> Pallet<T> {
     /// * `InputLengthsUnequal`:
     ///   - The input vectors are of mismatched lengths.
     pub fn do_batch_reveal_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         uids_list: Vec<Vec<u16>>,
         values_list: Vec<Vec<u16>>,
@@ -746,7 +746,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn internal_set_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         uids: Vec<u16>,
@@ -917,7 +917,7 @@ impl<T: Config> Pallet<T> {
     ///    - Attempting to set weights with max value exceeding limit.
     ///
     pub fn do_set_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         uids: Vec<u16>,
         values: Vec<u16>,
@@ -986,7 +986,7 @@ impl<T: Config> Pallet<T> {
     ///    - Attempting to set weights with max value exceeding limit.
     ///
     pub fn do_set_mechanism_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mecid: MechId,
         uids: Vec<u16>,
@@ -1027,7 +1027,7 @@ impl<T: Config> Pallet<T> {
     ///    - Emitted when the lengths of the input vectors are not equal.
     ///
     pub fn do_batch_set_weights(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuids: Vec<Compact<NetUid>>,
         weights: Vec<Vec<(Compact<u16>, Compact<u16>)>>,
         version_keys: Vec<Compact<u64>>,
