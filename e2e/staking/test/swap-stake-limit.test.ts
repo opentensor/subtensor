@@ -10,7 +10,6 @@ import {
   addStake,
   swapStakeLimit,
   getStake,
-  getStakeRaw,
   tao,
   log,
 } from "e2e-shared";
@@ -54,7 +53,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
 
     // Swap stake with limit price (0.99 TAO relative price limit, allow partial fills)
     // Use raw U64F64 value for the extrinsic
-    const stake1Raw = await getStakeRaw(api, hotkey1Address, coldkeyAddress, netuid1);
+    const stake1Raw = await getStake(api, hotkey1Address, coldkeyAddress, netuid1);
     const swapAmount = stake1Raw / 2n;
     const limitPrice = (tao(1) * 99n) / 100n; // 0.99 TAO
     await swapStakeLimit(api, coldkey, hotkey1Address, netuid1, netuid2, swapAmount, limitPrice, true);
@@ -109,7 +108,7 @@ describe("▶ swap_stake_limit extrinsic", () => {
 
     // Swap stake with limit price (fill or kill mode - allow_partial = false)
     // Use raw U64F64 value for the extrinsic
-    const stake1Raw = await getStakeRaw(api, hotkey1Address, coldkeyAddress, netuid1);
+    const stake1Raw = await getStake(api, hotkey1Address, coldkeyAddress, netuid1);
     const swapAmount = stake1Raw / 2n;
     const limitPrice = tao(1) / 10n; // 0.1 TAO - permissive limit to allow slippage
     await swapStakeLimit(api, coldkey, hotkey1Address, netuid1, netuid2, swapAmount, limitPrice, false);
