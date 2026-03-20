@@ -168,6 +168,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
 ]
 
