@@ -88,6 +88,63 @@ export async function waitForTransactionCompletion(
     });
 }
 
+export type TransactionResult = {
+    success: boolean;
+    events: any[];
+    txHash?: string;
+    blockHash?: string;
+    errorMessage?: string;
+};
+
+/**
+ * Send a transaction and return a result object instead of throwing on ExtrinsicFailed.
+ * Use this for tests that expect failure.
+ */
+export async function sendTransaction(
+    tx: Transaction<Record<string, unknown>, string, string, void>,
+    signer: KeyringPair,
+    timeout: number = 3 * 60 * 1000
+): Promise<TransactionResult> {
+    const polkadotSigner = getPolkadotSigner(signer.publicKey, "Sr25519", signer.sign);
+
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error("Transaction timed out"));
+        }, timeout);
+
+        const subscription = tx.signSubmitAndWatch(polkadotSigner).subscribe({
+            next(event) {
+                if (event.type === "finalized") {
+                    clearTimeout(timer);
+                    subscription.unsubscribe();
+
+                    if (event.dispatchError) {
+                        resolve({
+                            success: false,
+                            events: event.events,
+                            txHash: event.txHash,
+                            blockHash: event.block.hash,
+                            errorMessage: JSON.stringify(event.dispatchError),
+                        });
+                    } else {
+                        resolve({
+                            success: true,
+                            events: event.events,
+                            txHash: event.txHash,
+                            blockHash: event.block.hash,
+                        });
+                    }
+                }
+            },
+            error(err) {
+                clearTimeout(timer);
+                const message = err instanceof Error ? err.message : String(err);
+                resolve({ success: false, events: [], errorMessage: message });
+            },
+        });
+    });
+}
+
 const SECOND = 1000;
 
 /** Polls the chain until `count` new finalized blocks have been produced. */
