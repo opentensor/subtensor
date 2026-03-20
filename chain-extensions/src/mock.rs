@@ -420,6 +420,7 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type WeightInfo = ();
 }
 
 // Swap-related parameter types
@@ -586,6 +587,7 @@ impl pallet_drand::Config for Test {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = ();
 }
 
 impl frame_system::offchain::SigningTypes for Test {

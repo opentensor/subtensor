@@ -1496,7 +1496,7 @@ mod pallet_benchmarks {
         );
     }
 
-    #[benchmark(extra)]
+    #[benchmark]
     fn register_leased_network(k: Linear<2, { T::MaxContributors::get() }>) {
         // Setup a crowdloan
         let crowdloan_id = 0;
@@ -1562,7 +1562,7 @@ mod pallet_benchmarks {
         assert!(SubnetMechanism::<T>::contains_key(lease.netuid));
     }
 
-    #[benchmark(extra)]
+    #[benchmark]
     fn terminate_lease(k: Linear<2, { T::MaxContributors::get() }>) {
         // Setup a crowdloan
         let crowdloan_id = 0;

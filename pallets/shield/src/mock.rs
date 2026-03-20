@@ -88,6 +88,7 @@ impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
 impl pallet_shield::Config for Test {
     type AuthorityId = AuraId;
     type FindAuthors = MockFindAuthors;
+    type WeightInfo = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
