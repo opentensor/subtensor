@@ -2406,11 +2406,16 @@ fn test_revert_claim_root_with_swap_hotkey() {
             hk1_root_claimed,
             "hk2 must have hk1's RootClaimed after swap"
         );
-        assert!(!RootClaimable::<Test>::get(hk1).contains_key(&netuid));
+        // Single-subnet swap must NOT transfer RootClaimable because the old
+        // hotkey still holds root stake on other subnets.
         assert_eq!(
-            *RootClaimable::<Test>::get(hk2).get(&netuid).unwrap(),
+            *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap(),
             hk1_claimable,
-            "hk2 must have hk1's RootClaimable after swap"
+            "hk1 must keep RootClaimable after single-subnet swap"
+        );
+        assert!(
+            !RootClaimable::<Test>::get(hk2).contains_key(&netuid),
+            "hk2 must not receive RootClaimable from single-subnet swap"
         );
 
         // Revert: hk2 -> hk1
@@ -2434,11 +2439,15 @@ fn test_revert_claim_root_with_swap_hotkey() {
             "hk1 RootClaimed must be restored after revert"
         );
 
-        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
+        // RootClaimable stays on hk1 throughout — single-subnet swaps don't move it.
         assert_eq!(
             *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap(),
             hk1_claimable,
-            "hk1 RootClaimable must be restored after revert"
+            "hk1 RootClaimable must remain after revert"
+        );
+        assert!(
+            !RootClaimable::<Test>::get(hk2).contains_key(&netuid),
+            "hk2 must not have RootClaimable after revert"
         );
     });
 }
