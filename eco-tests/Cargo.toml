@@ -1,0 +1,40 @@
+[package]
+name = "eco-tests"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+pallet-subtensor = { workspace = true, features = ["std"] }
+frame-support = { workspace = true, features = ["std"] }
+frame-system = { workspace = true, features = ["std"] }
+sp-core = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, features = ["std"] }
+sp-runtime = { workspace = true, features = ["std"] }
+sp-std = { workspace = true, features = ["std"] }
+codec = { workspace = true, features = ["derive", "std"] }
+scale-info = { workspace = true, features = ["derive", "std"] }
+pallet-balances = { workspace = true, features = ["std"] }
+pallet-scheduler = { workspace = true, features = ["std"] }
+pallet-preimage = { workspace = true, features = ["std"] }
+pallet-drand = { workspace = true, features = ["std"] }
+pallet-subtensor-swap = { workspace = true, features = ["std"] }
+pallet-crowdloan = { workspace = true, features = ["std"] }
+pallet-subtensor-proxy = { workspace = true, features = ["std"] }
+pallet-subtensor-utility = { workspace = true, features = ["std"] }
+pallet-shield = { workspace = true, features = ["std"] }
+subtensor-runtime-common = { workspace = true, features = ["std"] }
+subtensor-swap-interface = { workspace = true, features = ["std"] }
+share-pool = { workspace = true, features = ["std"] }
+safe-math = { workspace = true, features = ["std"] }
+log = { workspace = true, features = ["std"] }
+approx.workspace = true
+sp-tracing = { workspace = true, features = ["std"] }
+tracing.workspace = true
+tracing-log.workspace = true
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
+rand = { workspace = true, features = ["std", "thread_rng"] }
+hex-literal.workspace = true
