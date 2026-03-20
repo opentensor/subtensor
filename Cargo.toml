@@ -26,6 +26,7 @@ rayon = "1.10"
 [workspace]
 members = [
 	"common",
+	"eco-tests",
 	"node",
 	"pallets/*",
 	"precompiles",
