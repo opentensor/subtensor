@@ -55,6 +55,7 @@ if [ "$GENERATE_TYPES" = true ]; then
   pnpm generate-types
 
   echo "==> Done generating types."
+  exit 0
 else
   echo "==> Types are up-to-date, nothing to do."
 fi
