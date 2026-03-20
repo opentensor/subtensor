@@ -1,12 +1,13 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
-import type { ApiPromise } from "@polkadot/api";
+import { subtensor } from "@polkadot-api/descriptors";
+import type { TypedApi } from "polkadot-api";
 import {
     addNewSubnetwork,
     addStake,
     announceColdkeySwap,
     burnedRegister,
-    coldkeyHash,
+    coldkeyHashBinary,
     disputeColdkeySwap,
     forceSetBalance,
     generateKeyringPair,
@@ -29,10 +30,10 @@ describeSuite({
     title: "▶ coldkey swap sudo operations",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
-        let api: ApiPromise;
+        let api: TypedApi<typeof subtensor>;
 
         beforeAll(async () => {
-            api = context.polkadotJs("Node");
+            api = context.papi("Node").getTypedApi(subtensor);
         });
 
         it({
@@ -44,7 +45,7 @@ describeSuite({
                 await forceSetBalance(api, oldColdkey.address);
 
                 // Announce and dispute
-                await announceColdkeySwap(api, oldColdkey, coldkeyHash(newColdkey));
+                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey));
                 await disputeColdkeySwap(api, oldColdkey);
                 log("Announced + disputed");
 
@@ -64,7 +65,7 @@ describeSuite({
                 log("Storage cleared");
 
                 // Re-announce should succeed
-                await announceColdkeySwap(api, oldColdkey, coldkeyHash(newColdkey));
+                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey));
                 log("Re-announce after reset succeeded");
             },
         });
@@ -105,10 +106,22 @@ describeSuite({
                 log("Sudo swap executed");
 
                 // Verify both subnets' stake migrated
-                expect(await getStake(api, hotkey1.address, oldColdkey.address, netuid1), "old coldkey stake on subnet1 should be 0").toBe(0n);
-                expect(await getStake(api, hotkey1.address, newColdkey.address, netuid1), "new coldkey should have stake on subnet1").toBeGreaterThan(0n);
-                expect(await getStake(api, hotkey1.address, oldColdkey.address, netuid2), "old coldkey stake on subnet2 should be 0").toBe(0n);
-                expect(await getStake(api, hotkey1.address, newColdkey.address, netuid2), "new coldkey should have stake on subnet2").toBeGreaterThan(0n);
+                expect(
+                    await getStake(api, hotkey1.address, oldColdkey.address, netuid1),
+                    "old coldkey stake on subnet1 should be 0"
+                ).toBe(0n);
+                expect(
+                    await getStake(api, hotkey1.address, newColdkey.address, netuid1),
+                    "new coldkey should have stake on subnet1"
+                ).toBeGreaterThan(0n);
+                expect(
+                    await getStake(api, hotkey1.address, oldColdkey.address, netuid2),
+                    "old coldkey stake on subnet2 should be 0"
+                ).toBe(0n);
+                expect(
+                    await getStake(api, hotkey1.address, newColdkey.address, netuid2),
+                    "new coldkey should have stake on subnet2"
+                ).toBeGreaterThan(0n);
                 log("Stake migrated on both subnets");
 
                 // Verify subnet ownership transferred
@@ -120,8 +133,14 @@ describeSuite({
                 expect(await getHotkeyOwner(api, hotkey2.address), "hotkey2 owner").toBe(newColdkey.address);
 
                 // Verify old coldkey is fully empty
-                expect((await getOwnedHotkeys(api, oldColdkey.address)).length, "old coldkey should own no hotkeys").toBe(0);
-                expect((await getStakingHotkeys(api, oldColdkey.address)).length, "old coldkey should have no staking hotkeys").toBe(0);
+                expect(
+                    (await getOwnedHotkeys(api, oldColdkey.address)).length,
+                    "old coldkey should own no hotkeys"
+                ).toBe(0);
+                expect(
+                    (await getStakingHotkeys(api, oldColdkey.address)).length,
+                    "old coldkey should have no staking hotkeys"
+                ).toBe(0);
                 expect(await getBalance(api, oldColdkey.address), "old coldkey balance should be 0").toBe(0n);
 
                 log("All state migrated across both subnets");
@@ -138,7 +157,7 @@ describeSuite({
                 await forceSetBalance(api, oldColdkey.address);
 
                 // Announce for decoy
-                await announceColdkeySwap(api, oldColdkey, coldkeyHash(decoy));
+                await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(decoy));
                 const annBefore = await getColdkeySwapAnnouncement(api, oldColdkey.address);
                 expect(annBefore, "announcement should exist").not.toBeNull();
                 log("Pending announcement exists");

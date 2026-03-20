@@ -100,6 +100,7 @@
             "timeout": 600000,
             "testFileDir": ["suites/zombienet_coldkey_swap"],
             "runScripts": [
+                "generate-types.sh",
                 "build-spec.sh"
             ],
             "foundation": {
@@ -115,7 +116,7 @@
             "connections": [
                 {
                     "name": "Node",
-                    "type": "polkadotJs",
+                    "type": "papi",
                     "endpoints": ["ws://127.0.0.1:9947"]
                 }
             ]

@@ -101,58 +101,47 @@ export type TransactionResult = {
  * Use this for tests that expect failure.
  */
 export async function sendTransaction(
-    api: ApiPromise,
-    tx: SubmittableExtrinsic,
+    tx: Transaction<Record<string, unknown>, string, string, void>,
     signer: KeyringPair,
-    timeout: number = 3 * 60 * 1000,
+    timeout: number = 3 * 60 * 1000
 ): Promise<TransactionResult> {
+    const polkadotSigner = getPolkadotSigner(signer.publicKey, "Sr25519", signer.sign);
+
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
             reject(new Error("Transaction timed out"));
         }, timeout);
 
-        let unsub: () => void;
+        const subscription = tx.signSubmitAndWatch(polkadotSigner).subscribe({
+            next(event) {
+                if (event.type === "finalized") {
+                    clearTimeout(timer);
+                    subscription.unsubscribe();
 
-        tx.signAndSend(signer, (result) => {
-            const { status, txHash } = result;
-            if (status.isFinalized) {
-                clearTimeout(timer);
-                unsub?.();
-
-                const failed = result.events.find(({ event }) => api.events.system.ExtrinsicFailed.is(event));
-
-                if (failed) {
-                    const { dispatchError } = failed.event.data as any;
-                    let errorMessage = dispatchError.toString();
-                    if (dispatchError.isModule) {
-                        const decoded = api.registry.findMetaError(dispatchError.asModule);
-                        errorMessage = `${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`;
+                    if (event.dispatchError) {
+                        resolve({
+                            success: false,
+                            events: event.events,
+                            txHash: event.txHash,
+                            blockHash: event.block.hash,
+                            errorMessage: JSON.stringify(event.dispatchError),
+                        });
+                    } else {
+                        resolve({
+                            success: true,
+                            events: event.events,
+                            txHash: event.txHash,
+                            blockHash: event.block.hash,
+                        });
                     }
-                    resolve({
-                        success: false,
-                        events: result.events.map((e) => e.event),
-                        txHash: txHash.toHex(),
-                        blockHash: status.asFinalized.toHex(),
-                        errorMessage,
-                    });
-                } else {
-                    resolve({
-                        success: true,
-                        events: result.events.map((e) => e.event),
-                        txHash: txHash.toHex(),
-                        blockHash: status.asFinalized.toHex(),
-                    });
                 }
-            }
-        })
-            .then((u) => {
-                unsub = u;
-            })
-            .catch((error) => {
+            },
+            error(err) {
                 clearTimeout(timer);
-                const message = error instanceof Error ? error.message : String(error?.toHuman?.() ?? error);
+                const message = err instanceof Error ? err.message : String(err);
                 resolve({ success: false, events: [], errorMessage: message });
-            });
+            },
+        });
     });
 }
 
