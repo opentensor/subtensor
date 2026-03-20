@@ -809,7 +809,8 @@ impl<T: Config> Pallet<T> {
             let coldkey = Self::get_owning_coldkey_for_hotkey(&root_validator_hotkey);
 
             // Build a signed origin from the coldkey.
-            let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(coldkey).into();
+            let origin: <T as frame_system::Config>::RuntimeOrigin =
+                frame_system::RawOrigin::Signed(coldkey).into();
 
             // Schedule the subnet owner hotkey as a child with full proportion.
             let children = vec![(u64::MAX, subnet_owner_hotkey.clone())];
