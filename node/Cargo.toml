@@ -187,6 +187,7 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"pallet-subtensor/try-runtime",
 	"pallet-shield/try-runtime",
+	"pallet-balances/try-runtime",
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]
