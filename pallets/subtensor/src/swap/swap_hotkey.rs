@@ -562,7 +562,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values_v2.len() as u64));
 
             // 9.1. Transfer root claimable
-            Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
+            Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey, netuid);
 
             // 9.2. Insert the new alpha values.
             for ((coldkey, netuid_alpha), alpha) in old_alpha_values {

@@ -373,19 +373,19 @@ impl<T: Config> Pallet<T> {
     pub fn transfer_root_claimable_for_new_hotkey(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
+        netuid: NetUid,
     ) {
-        let src_root_claimable = RootClaimable::<T>::get(old_hotkey);
-        let mut dst_root_claimable = RootClaimable::<T>::get(new_hotkey);
-        RootClaimable::<T>::remove(old_hotkey);
+        let mut src = RootClaimable::<T>::get(old_hotkey);
+        let mut dst = RootClaimable::<T>::get(new_hotkey);
 
-        for (netuid, claimable_rate) in src_root_claimable.into_iter() {
-            dst_root_claimable
-                .entry(netuid)
+        if let Some(claimable_rate) = src.remove(&netuid) {
+            dst.entry(netuid)
                 .and_modify(|total| *total = total.saturating_add(claimable_rate))
                 .or_insert(claimable_rate);
-        }
 
-        RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
+            RootClaimable::<T>::insert(old_hotkey, src);
+            RootClaimable::<T>::insert(new_hotkey, dst);
+        }
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
