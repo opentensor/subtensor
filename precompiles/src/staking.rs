@@ -39,7 +39,7 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
-use subtensor_runtime_common::{Currency, NetUid, ProxyType};
+use subtensor_runtime_common::{NetUid, ProxyType, Token};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -315,7 +315,8 @@ where
         let hotkey = R::AccountId::from(hotkey.0);
         let mut coldkeys: Vec<H256> = vec![];
         let netuid = NetUid::from(try_u16_from_u256(netuid)?);
-        for ((coldkey, netuid_in_alpha), _) in pallet_subtensor::Alpha::<R>::iter_prefix((hotkey,))
+        for (coldkey, netuid_in_alpha, _) in
+            pallet_subtensor::Pallet::<R>::alpha_iter_single_prefix(&hotkey)
         {
             if netuid == netuid_in_alpha {
                 let key: [u8; 32] = coldkey.into();

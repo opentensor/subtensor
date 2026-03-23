@@ -6,6 +6,7 @@ use frame_support::pallet_prelude::TypeInfo;
 use frame_support::traits::{Get, IsSubType, IsType};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use pallet_transaction_payment::OnChargeTransaction;
 use pallet_transaction_payment::{ChargeTransactionPayment, Config, Pre, Val};
 use sp_runtime::DispatchResult;
 use sp_runtime::traits::{
@@ -20,16 +21,18 @@ use sp_std::boxed::Box;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
+type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+
 type RuntimeCallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type RuntimeOriginOf<T> = <T as frame_system::Config>::RuntimeOrigin;
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type LookupOf<T> = <T as frame_system::Config>::Lookup;
 
-#[freeze_struct("5f10cb9db06873c0")]
+#[freeze_struct("f003cde1f9da4a90")]
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct ChargeTransactionPaymentWrapper<T: Config> {
-    charge_transaction_payment: ChargeTransactionPayment<T>,
+    inner: ChargeTransactionPayment<T>,
 }
 
 impl<T: Config> core::fmt::Debug for ChargeTransactionPaymentWrapper<T> {
@@ -43,11 +46,14 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPaymentWrapper<T> {
     }
 }
 
-impl<T: Config> ChargeTransactionPaymentWrapper<T> {
-    pub fn new(charge_transaction_payment: ChargeTransactionPayment<T>) -> Self {
-        Self {
-            charge_transaction_payment,
-        }
+impl<T: Config> ChargeTransactionPaymentWrapper<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    BalanceOf<T>: Send + Sync,
+{
+    pub fn new(fee: BalanceOf<T>) -> Self {
+        let inner = ChargeTransactionPayment::<T>::from(fee);
+        Self { inner }
     }
 }
 
@@ -196,7 +202,7 @@ where
     fn weight(&self, call: &RuntimeCallOf<T>) -> Weight {
         // Account for up to 3 storage reads in the worst-case fee payer resolution
         // (outer is_real_pays_fee + inner/batch is_real_pays_fee + margin).
-        self.charge_transaction_payment
+        self.inner
             .weight(call)
             .saturating_add(T::DbWeight::get().reads(3))
     }
@@ -228,7 +234,7 @@ where
             origin.clone()
         };
 
-        let (mut valid_transaction, val, _fee_origin) = self.charge_transaction_payment.validate(
+        let (mut valid_transaction, val, _fee_origin) = self.inner.validate(
             fee_origin,
             call,
             info,
@@ -253,12 +259,13 @@ where
         info: &DispatchInfoOf<RuntimeCallOf<T>>,
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        self.charge_transaction_payment
-            .prepare(val, origin, call, info, len)
+        self.inner.prepare(val, origin, call, info, len)
     }
+
     fn metadata() -> Vec<TransactionExtensionMetadata> {
         ChargeTransactionPayment::<T>::metadata()
     }
+
     fn post_dispatch_details(
         pre: Self::Pre,
         info: &DispatchInfoOf<RuntimeCallOf<T>>,

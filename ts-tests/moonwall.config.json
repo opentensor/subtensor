@@ -1,0 +1,127 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Moonsong-Labs/moonwall/main/packages/types/config_schema.json",
+    "label": "💃 MasterConfig",
+    "defaultTestTimeout": 120000,
+    "scriptsDir": "scripts/",
+    "environments": [
+        {
+            "name": "dev",
+            "timeout": 120000,
+            "envVars": ["DEBUG_COLORS=1"],
+            "testFileDir": [
+                "suites/dev"
+            ],
+            "runScripts": [],
+            "multiThreads": true,
+            "reporters": ["basic"],
+            "foundation": {
+                "type": "dev",
+                "launchSpec": [
+                    {
+                        "name": "subtensor",
+                        "binPath": "../target/release/node-subtensor",
+                        "options": [
+                            "--one",
+                            "--dev",
+                            "--force-authoring",
+                            "--rpc-cors=all",
+                            "--no-prometheus",
+                            "--no-telemetry",
+                            "--reserved-only",
+                            "--tmp",
+                            "--sealing=manual"
+                        ],
+                        "disableDefaultEthProviders": true,
+                        "newRpcBehaviour": true
+                    }
+                ]
+            }
+        },
+        {
+            "name": "zombienet_staking",
+            "timeout": 600000,
+            "testFileDir": ["suites/zombienet_staking"],
+            "runScripts": [
+                "generate-types.sh",
+                "build-spec.sh"
+            ],
+            "foundation": {
+                "type": "zombie",
+                "zombieSpec": {
+                    "configPath": "./configs/zombie_node.json",
+                    "skipBlockCheck": []
+                }
+            },
+            "vitestArgs": {
+                "bail": 1
+            },
+            "connections": [
+                {
+                    "name": "Node",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9947"]
+                }
+            ]
+        }, {
+            "name": "zombienet_shield",
+            "timeout": 600000,
+            "testFileDir": ["suites/zombienet_shield"],
+            "runScripts": [
+                "generate-types.sh",
+                "build-spec.sh"
+            ],
+            "foundation": {
+                "type": "zombie",
+                "zombieSpec": {
+                    "configPath": "./configs/zombie_extended.json",
+                    "skipBlockCheck": []
+                }
+            },
+            "vitestArgs": {
+                "bail": 1
+            },
+            "connections": [
+                {
+                    "name": "Node",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9947"],
+                    "descriptor": "subtensor"
+                },
+                {
+                    "name": "NodeFull",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9950"],
+                    "descriptor": "subtensor"
+                }
+            ]
+        }, {
+            "name": "smoke_mainnet",
+            "testFileDir": ["suites/smoke"],
+            "foundation": {
+                "type": "read_only"
+            },
+            "reporters": ["basic","html"],
+            "connections": [
+                {
+                    "name": "node",
+                    "type": "polkadotJs",
+                    "endpoints": ["wss://openrpc.taostats.io"]
+                }
+            ]
+        }, {
+            "name": "smoke_testnet",
+            "testFileDir": ["suites/smoke"],
+            "foundation": {
+                "type": "read_only"
+            },
+            "reporters": ["basic","html"],
+            "connections": [
+                {
+                    "name": "node",
+                    "type": "polkadotJs",
+                    "endpoints": ["wss://test.finney.opentensor.ai:443"]
+                }
+            ]
+        }
+    ]
+}

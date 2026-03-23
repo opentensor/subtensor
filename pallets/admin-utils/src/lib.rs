@@ -32,7 +32,7 @@ pub mod pallet {
     };
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::{I64F64, I96F32, U64F64};
-    use subtensor_runtime_common::{MechId, NetUid, TaoCurrency};
+    use subtensor_runtime_common::{MechId, NetUid, TaoBalance};
 
     /// The main data structure of the module.
     #[pallet::pallet]
@@ -147,6 +147,8 @@ pub mod pallet {
         AddressMapping,
         /// Voting power precompile
         VotingPower,
+        /// Drand randomness precompile
+        Drand,
     }
 
     #[pallet::type_value]
@@ -739,7 +741,7 @@ pub mod pallet {
         pub fn sudo_set_min_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
-            min_burn: TaoCurrency,
+            min_burn: TaoBalance,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
@@ -780,7 +782,7 @@ pub mod pallet {
         pub fn sudo_set_max_burn(
             origin: OriginFor<T>,
             netuid: NetUid,
-            max_burn: TaoCurrency,
+            max_burn: TaoBalance,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
@@ -1031,7 +1033,7 @@ pub mod pallet {
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_total_issuance(
             origin: OriginFor<T>,
-            total_issuance: TaoCurrency,
+            total_issuance: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1067,7 +1069,7 @@ pub mod pallet {
         .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)))]
         pub fn sudo_set_network_min_lock_cost(
             origin: OriginFor<T>,
-            lock_cost: TaoCurrency,
+            lock_cost: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -1120,7 +1122,7 @@ pub mod pallet {
         pub fn sudo_set_rao_recycled(
             origin: OriginFor<T>,
             netuid: NetUid,
-            rao_recycled: TaoCurrency,
+            rao_recycled: TaoBalance,
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -1149,7 +1151,7 @@ pub mod pallet {
         /// The extrinsic will call the Subtensor pallet to set the minimum stake required for nominators.
         #[pallet::call_index(43)]
         #[pallet::weight(Weight::from_parts(28_050_000, 6792)
-        .saturating_add(T::DbWeight::get().reads(4_u64))
+        .saturating_add(T::DbWeight::get().reads(5_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_nominator_min_required_stake(
             origin: OriginFor<T>,
@@ -1595,7 +1597,7 @@ pub mod pallet {
         /// # Weight
         /// Weight is handled by the `#[pallet::weight]` attribute.
         #[pallet::call_index(65)]
-        #[pallet::weight(Weight::from_parts(6_201_000, 0)
+        #[pallet::weight(Weight::from_parts(3_415_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_ema_price_halving_period(
