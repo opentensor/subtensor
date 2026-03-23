@@ -1,3 +1,5 @@
+#![cfg(test)]
+#![allow(clippy::expect_used)]
 use crate as pallet_registry;
 use frame_support::{derive_impl, parameter_types};
 use sp_core::U256;
