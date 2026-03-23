@@ -4,6 +4,7 @@
 mod tests;
 
 mod benchmarking;
+pub mod mock;
 pub mod types;
 pub mod weights;
 
@@ -20,6 +21,7 @@ use sp_std::boxed::Box;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[deny(missing_docs)]
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
