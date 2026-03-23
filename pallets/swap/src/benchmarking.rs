@@ -6,14 +6,16 @@ use core::marker::PhantomData;
 
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
+use frame_support::assert_err;
 use frame_system::RawOrigin;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
 
 use crate::{
+    Error,
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, Pallet, Positions,
-        SwapV3Initialized,
+        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
+        Positions, SwapV3Initialized,
     },
     position::{Position, PositionId},
     tick::TickIndex,
@@ -29,36 +31,41 @@ mod benchmarks {
         let rate: u16 = 100; // Some arbitrary fee rate value
 
         #[extrinsic_call]
-        set_fee_rate(RawOrigin::Root, netuid, rate);
+        _(RawOrigin::Root, netuid, rate);
     }
 
     // TODO: Revise when user liquidity is available
-    // #[benchmark]
-    // fn add_liquidity() {
-    //     let netuid = NetUid::from(1);
+    #[benchmark]
+    fn add_liquidity() {
+        let netuid = NetUid::from(1);
 
-    //     if !SwapV3Initialized::<T>::get(netuid) {
-    //         SwapV3Initialized::<T>::insert(netuid, true);
-    //         AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
-    //         CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-    //         CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
-    //     }
+        if !SwapV3Initialized::<T>::get(netuid) {
+            SwapV3Initialized::<T>::insert(netuid, true);
+            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
+            CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
+            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
+        }
 
-    //     let caller: T::AccountId = whitelisted_caller();
-    //     let hotkey: T::AccountId = account("hotkey", 0, 0);
-    //     let tick_low = TickIndex::new_unchecked(-1000);
-    //     let tick_high = TickIndex::new_unchecked(1000);
+        let caller: T::AccountId = whitelisted_caller();
+        let hotkey: T::AccountId = account("hotkey", 0, 0);
+        let tick_low = TickIndex::new_unchecked(-1000);
+        let tick_high = TickIndex::new_unchecked(1000);
 
-    //     #[extrinsic_call]
-    //     add_liquidity(
-    //         RawOrigin::Signed(caller),
-    //         hotkey,
-    //         netuid,
-    //         tick_low,
-    //         tick_high,
-    //         1000,
-    //     );
-    // }
+        #[block]
+        {
+            assert_err!(
+                Pallet::<T>::add_liquidity(
+                    RawOrigin::Signed(caller).into(),
+                    hotkey,
+                    netuid,
+                    tick_low,
+                    tick_high,
+                    1000,
+                ),
+                Error::<T>::UserLiquidityDisabled
+            );
+        }
+    }
 
     #[benchmark]
     fn remove_liquidity() {
@@ -90,7 +97,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-        remove_liquidity(RawOrigin::Signed(caller), hotkey, netuid.into(), id.into());
+        _(RawOrigin::Signed(caller), hotkey, netuid.into(), id.into());
     }
 
     #[benchmark]
@@ -123,7 +130,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-        modify_position(
+        _(
             RawOrigin::Signed(caller),
             hotkey,
             netuid.into(),
@@ -132,17 +139,28 @@ mod benchmarks {
         );
     }
 
-    // #[benchmark]
-    // fn toggle_user_liquidity() {
-    //     let netuid = NetUid::from(101);
+    #[benchmark]
+    fn toggle_user_liquidity() {
+        let netuid = NetUid::from(101);
 
-    //     assert!(!EnabledUserLiquidity::<T>::get(netuid));
+        assert!(!EnabledUserLiquidity::<T>::get(netuid));
 
-    //     #[extrinsic_call]
-    //     toggle_user_liquidity(RawOrigin::Root, netuid.into(), true);
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid.into(), true);
+    }
 
-    //     assert!(EnabledUserLiquidity::<T>::get(netuid));
-    // }
+    #[benchmark]
+    fn disable_lp() {
+        // Worst case
+        // TODO: add dissolvable state per subnet
+        for netuid in 1..=128 {
+            let netuid = NetUid::from(netuid as u16);
+            EnabledUserLiquidity::<T>::insert(netuid, true);
+        }
+
+        #[extrinsic_call]
+        _(RawOrigin::Root);
+    }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
