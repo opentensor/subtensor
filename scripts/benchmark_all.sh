@@ -49,10 +49,10 @@ fi
 if [[ $# -gt 0 ]]; then
   PALLETS=("$@")
   for p in "${PALLETS[@]}"; do
-    [[ -n "${PALLET_OUTPUTS[$p]:-}" ]] || die "unknown pallet: $p (available: ${!PALLET_OUTPUTS[*]})"
+    [[ -n "${PALLET_OUTPUTS[$p]:-}" ]] || die "unknown pallet: $p (available: ${(k)PALLET_OUTPUTS})"
   done
 else
-  PALLETS=("${!PALLET_OUTPUTS[@]}")
+  PALLETS=("${(k)PALLET_OUTPUTS[@]}")
 fi
 
 # ── Benchmark loop ───────────────────────────────────────────────────────────
