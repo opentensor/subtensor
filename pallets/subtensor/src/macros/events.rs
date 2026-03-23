@@ -547,5 +547,12 @@ mod events {
             /// Resulting swapped TAO amount
             tao_amount: TaoBalance,
         },
+        /// A hotkey has been disassociated from its coldkey.
+        HotkeyDisassociated {
+            /// The account ID of the coldkey.
+            coldkey: T::AccountId,
+            /// The account ID of the hotkey.
+            hotkey: T::AccountId,
+        },
     }
 }

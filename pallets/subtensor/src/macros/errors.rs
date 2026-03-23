@@ -286,5 +286,9 @@ mod errors {
         ColdkeySwapDisputed,
         /// Coldkey swap clear too early.
         ColdkeySwapClearTooEarly,
+        /// Cannot disassociate a hotkey that is still registered on a subnet.
+        HotkeyIsStillRegistered,
+        /// Cannot disassociate a hotkey that still has outstanding stake.
+        HotkeyHasOutstandingStake,
     }
 }
