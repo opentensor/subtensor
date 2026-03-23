@@ -13,7 +13,7 @@ use share_pool::SafeFloat;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use std::collections::BTreeSet;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I96F32, U64F64};
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner --exact --nocapture
 #[test]
@@ -2543,6 +2543,133 @@ fn test_revert_claim_root_with_swap_hotkey() {
             *RootClaimable::<Test>::get(hk1).get(&netuid).unwrap(),
             hk1_claimable,
             "hk1 RootClaimable must be restored after revert"
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_root_claimable_per_subnet --exact --nocapture
+#[test]
+fn test_swap_hotkey_root_claimable_per_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Scenario:
+        // - oldHotkey is registered on netuid1 AND netuid2
+        // - oldHotkey accumulates RootClaimable on both subnets
+        // - swap_hotkey called for netuid1 ONLY
+        // - RootClaimable[netuid1] moves to newHotkey
+        //   RootClaimable[netuid2] stays on oldHotkey
+
+        let owner_coldkey = U256::from(1001);
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+
+        let netuid1 = add_dynamic_network(&old_hotkey, &owner_coldkey);
+        let netuid2 = add_dynamic_network(&old_hotkey, &owner_coldkey);
+
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
+        SubtensorModule::set_tao_weight(u64::MAX);
+
+        let root_stake = 2_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &owner_coldkey,
+            netuid1,
+            10_000_000u64.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &owner_coldkey,
+            netuid2,
+            10_000_000u64.into(),
+        );
+
+        let pending_root_alpha = 1_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid1,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            pending_root_alpha.into(),
+            AlphaBalance::ZERO,
+        );
+        SubtensorModule::distribute_emission(
+            netuid2,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            pending_root_alpha.into(),
+            AlphaBalance::ZERO,
+        );
+
+        let zero = I96F32::from_num(0);
+        let claimable_before = RootClaimable::<Test>::get(old_hotkey);
+        let claimable_netuid1_before = RootClaimable::<Test>::get(old_hotkey)
+            .get(&netuid1)
+            .copied()
+            .unwrap_or(zero);
+        let claimable_netuid2_before = RootClaimable::<Test>::get(old_hotkey)
+            .get(&netuid2)
+            .copied()
+            .unwrap_or(zero);
+
+        let claimable_netuid1_before = RootClaimable::<Test>::get(old_hotkey)
+            .get(&netuid1)
+            .copied()
+            .unwrap_or(zero);
+        let claimable_netuid2_before = RootClaimable::<Test>::get(old_hotkey)
+            .get(&netuid2)
+            .copied()
+            .unwrap_or(zero);
+
+        assert!(
+            claimable_netuid1_before > zero,
+            "oldHotkey should have RootClaimable on netuid1 before swap"
+        );
+        assert!(
+            claimable_netuid2_before > zero,
+            "oldHotkey should have RootClaimable on netuid2 before swap"
+        );
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).is_empty(),
+            "newHotkey should have no RootClaimable before swap"
+        );
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner_coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid1),
+            false
+        ));
+
+        let old_claimable_after = RootClaimable::<Test>::get(old_hotkey);
+        let new_claimable_after = RootClaimable::<Test>::get(new_hotkey);
+
+        assert_eq!(
+            old_claimable_after.get(&netuid1).copied().unwrap_or(zero),
+            zero,
+            "oldHotkey should have no RootClaimable for netuid1 after swap"
+        );
+        assert!(
+            new_claimable_after.get(&netuid1).copied().unwrap_or(zero) > zero,
+            "newHotkey should have received RootClaimable for netuid1"
+        );
+        assert_eq!(
+            old_claimable_after.get(&netuid2).copied().unwrap_or(zero),
+            claimable_netuid2_before,
+            "oldHotkey should retain RootClaimable for netuid2 (not swapped)"
+        );
+        assert_eq!(
+            new_claimable_after.get(&netuid2).copied().unwrap_or(zero),
+            zero,
+            "newHotkey should have no RootClaimable for netuid2 (was not swapped)"
         );
     });
 }
