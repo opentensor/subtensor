@@ -1,10 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
+pub mod mock;
+#[cfg(test)]
 mod tests;
 
 mod benchmarking;
-pub mod mock;
 pub mod types;
 pub mod weights;
 

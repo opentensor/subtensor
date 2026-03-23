@@ -5,8 +5,8 @@
 use core::marker::PhantomData;
 
 use frame_benchmarking::v2::*;
-use frame_support::traits::Get;
 use frame_support::assert_err;
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
