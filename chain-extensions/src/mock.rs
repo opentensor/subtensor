@@ -443,6 +443,8 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 pub struct OriginPrivilegeCmp;
