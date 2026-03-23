@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 set -euo pipefail
 
 # Generate weights.rs files for all (or a single) pallet using the standard
@@ -9,7 +9,7 @@ set -euo pipefail
 #   ./scripts/benchmark_all.sh pallet_subtensor   # build + generate one pallet
 #   SKIP_BUILD=1 ./scripts/benchmark_all.sh       # skip cargo build
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${0}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 RUNTIME_WASM="$ROOT_DIR/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"

@@ -6,19 +6,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 NODE_BIN="$ROOT_DIR/target/production/node-subtensor"
 RUNTIME_WASM="$ROOT_DIR/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 TEMPLATE="$ROOT_DIR/.maintain/frame-weight-template.hbs"
 WEIGHT_CMP="$ROOT_DIR/target/production/weight-compare"
+
 PATCH_DIR="$ROOT_DIR/.bench_patch"
 THRESHOLD="${THRESHOLD:-40}"
 STEPS="${STEPS:-50}"
 REPEAT="${REPEAT:-20}"
 
-# Source the pallet map from benchmark_all.sh
-source <(grep -A1 '^\[' "$SCRIPT_DIR/benchmark_all.sh" | head -0) 2>/dev/null || true
-
-# Pallet -> output path (single source of truth shared with benchmark_all.sh)
+# Pallet -> output path (keep in sync with benchmark_all.sh)
 declare -A OUTPUTS=(
   [pallet_subtensor]=pallets/subtensor/src/weights.rs
   [pallet_admin_utils]=pallets/admin-utils/src/weights.rs
