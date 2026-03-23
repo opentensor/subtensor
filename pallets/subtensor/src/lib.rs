@@ -2477,6 +2477,13 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: NetUid) -> bool {
+            // Allow the subnet owner hotkey to set weights regardless of stake.
+            if let Some(owner_uid) = Self::get_owner_uid(netuid) {
+                if Uids::<T>::get(netuid, hotkey) == Some(owner_uid) {
+                    return true;
+                }
+            }
+
             // Blacklist weights transactions for low stake peers.
             let (total_stake, _, _) = Self::get_stake_weights_for_hotkey_on_subnet(hotkey, netuid);
             total_stake >= Self::get_stake_threshold()
