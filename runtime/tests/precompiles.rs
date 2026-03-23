@@ -5,15 +5,13 @@ use core::iter::IntoIterator;
 use std::collections::BTreeSet;
 
 use fp_evm::{Context, ExitError, PrecompileFailure, PrecompileResult};
-use frame_support::BoundedVec;
 use node_subtensor_runtime::{BuildStorage, Runtime, RuntimeGenesisConfig, System};
 use pallet_evm::{AddressMapping, BalanceConverter, PrecompileSet};
 use precompile_utils::testing::{MockHandle, PrecompileTesterExt};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::Hash;
 use subtensor_precompiles::{
-    AddressMappingPrecompile, BalanceTransferPrecompile, DrandPrecompile, PrecompileExt,
-    Precompiles,
+    AddressMappingPrecompile, BalanceTransferPrecompile, PrecompileExt, Precompiles,
 };
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
