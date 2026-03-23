@@ -131,8 +131,14 @@ pub mod pallet {
     pub type MaxPendingExtrinsicsLimit<T: Config> =
         StorageValue<_, u32, ValueQuery, DefaultMaxPendingExtrinsics>;
 
-    /// Maximum block difference between submission and execution.
-    pub const MAX_EXTRINSIC_LIFETIME: u32 = 10;
+    /// Default extrinsic lifetime in blocks.
+    pub const DEFAULT_EXTRINSIC_LIFETIME: u32 = 10;
+
+    /// Configurable extrinsic lifetime (max block difference between submission and execution).
+    /// Defaults to 10 blocks if not explicitly set.
+    #[pallet::storage]
+    pub type ExtrinsicLifetime<T: Config> =
+        StorageValue<_, u32, ValueQuery, ConstU32<DEFAULT_EXTRINSIC_LIFETIME>>;
 
     /// Default maximum weight allowed for on_initialize processing.
     pub const DEFAULT_ON_INITIALIZE_WEIGHT: u64 = 500_000_000_000;
@@ -194,6 +200,8 @@ pub mod pallet {
         MaxPendingExtrinsicsNumberSet { value: u32 },
         /// Maximum on_initialize weight was updated.
         OnInitializeWeightSet { value: u64 },
+        /// Extrinsic lifetime was updated.
+        ExtrinsicLifetimeSet { value: u32 },
     }
 
     #[pallet::error]
@@ -399,6 +407,18 @@ pub mod pallet {
             Self::deposit_event(Event::OnInitializeWeightSet { value });
             Ok(())
         }
+
+        /// Set the extrinsic lifetime (max blocks between submission and execution).
+        #[pallet::call_index(5)]
+        #[pallet::weight(T::DbWeight::get().writes(1_u64))]
+        pub fn set_stored_extrinsic_lifetime(origin: OriginFor<T>, value: u32) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ExtrinsicLifetime::<T>::put(value);
+
+            Self::deposit_event(Event::ExtrinsicLifetimeSet { value });
+            Ok(())
+        }
     }
 
     #[pallet::inherent]
@@ -450,7 +470,7 @@ impl<T: Config> Pallet<T> {
 
             // Check if the extrinsic has expired
             let age = current_block.saturating_sub(pending.submitted_at);
-            if age > MAX_EXTRINSIC_LIFETIME.into() {
+            if age > ExtrinsicLifetime::<T>::get().into() {
                 remove_pending_extrinsic::<T>(index, &mut weight);
 
                 Self::deposit_event(Event::ExtrinsicExpired { index });

@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::{
-    AuthorKeys, CurrentKey, Error, HasMigrationRun, MaxPendingExtrinsicsLimit, NextKey,
-    NextKeyExpiresAt, NextPendingExtrinsicIndex, OnInitializeWeight, PendingExtrinsic,
+    AuthorKeys, CurrentKey, Error, ExtrinsicLifetime, HasMigrationRun, MaxPendingExtrinsicsLimit,
+    NextKey, NextKeyExpiresAt, NextPendingExtrinsicIndex, OnInitializeWeight, PendingExtrinsic,
     PendingExtrinsicCount, PendingExtrinsics, PendingKey, PendingKeyExpiresAt,
 };
 use codec::Encode;
@@ -1020,6 +1020,67 @@ mod encrypted_extrinsics_tests {
             // Extrinsic should still be pending (postponed)
             assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
             System::assert_has_event(crate::Event::<Test>::ExtrinsicPostponed { index: 0 }.into());
+        });
+    }
+
+    #[test]
+    fn set_stored_extrinsic_lifetime_works() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
+            assert_eq!(
+                ExtrinsicLifetime::<Test>::get(),
+                crate::DEFAULT_EXTRINSIC_LIFETIME
+            );
+
+            assert_ok!(MevShield::set_stored_extrinsic_lifetime(
+                RuntimeOrigin::root(),
+                20
+            ));
+
+            assert_eq!(ExtrinsicLifetime::<Test>::get(), 20);
+
+            System::assert_last_event(
+                crate::Event::<Test>::ExtrinsicLifetimeSet { value: 20 }.into(),
+            );
+        });
+    }
+
+    #[test]
+    fn set_stored_extrinsic_lifetime_rejects_signed_origin() {
+        new_test_ext().execute_with(|| {
+            assert_noop!(
+                MevShield::set_stored_extrinsic_lifetime(RuntimeOrigin::signed(1), 20),
+                sp_runtime::DispatchError::BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn set_stored_extrinsic_lifetime_enforced_on_expiration() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
+            // Set lifetime to 2 blocks
+            assert_ok!(MevShield::set_stored_extrinsic_lifetime(
+                RuntimeOrigin::root(),
+                2
+            ));
+
+            // Store an extrinsic at block 1
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            // At block 4: age = 4 - 1 = 3 > 2, should expire
+            System::set_block_number(4);
+            MevShield::on_initialize(4);
+
+            assert!(PendingExtrinsics::<Test>::get(0).is_none());
+            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            System::assert_has_event(crate::Event::<Test>::ExtrinsicExpired { index: 0 }.into());
         });
     }
 }
