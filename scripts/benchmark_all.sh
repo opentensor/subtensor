@@ -30,7 +30,7 @@ declare -A PALLET_OUTPUTS=(
   [pallet_registry]="pallets/registry/src/weights.rs"
   [pallet_subtensor_swap]="pallets/swap/src/weights.rs"
   [pallet_subtensor_proxy]="pallets/proxy/src/weights.rs"
-  [pallet_utility]="pallets/utility/src/weights.rs"
+  [pallet_subtensor_utility]="pallets/utility/src/weights.rs"
 )
 
 die() { echo "ERROR: $1" >&2; exit 1; }
