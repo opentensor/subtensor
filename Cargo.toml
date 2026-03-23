@@ -70,7 +70,7 @@ subtensor-custom-rpc = { default-features = false, path = "pallets/subtensor/rpc
 subtensor-custom-rpc-runtime-api = { default-features = false, path = "pallets/subtensor/runtime-api" }
 subtensor-precompiles = { default-features = false, path = "precompiles" }
 subtensor-runtime-common = { default-features = false, path = "common" }
-subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
+subtensor-swap-interface = { default-features = false, path = "primitives/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
 stp-shield = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "fb1dd20df37710800aa284ac49bb26193d5539ee", default-features = false }
