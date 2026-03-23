@@ -11,7 +11,7 @@ use chacha20poly1305::{
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::*,
-    traits::IsSubType,
+    traits::{ConstU64, IsSubType},
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 use ml_kem::{
@@ -134,9 +134,17 @@ pub mod pallet {
     /// Maximum block difference between submission and execution.
     pub const MAX_EXTRINSIC_LIFETIME: u32 = 10;
 
-    /// Maximum weight allowed for on_initialize processing.
-    /// Processing stops when this limit would be exceeded.
-    pub const MAX_ON_INITIALIZE_WEIGHT: Weight = Weight::from_parts(500_000_000_000, 0);
+    /// Default maximum weight allowed for on_initialize processing.
+    pub const DEFAULT_ON_INITIALIZE_WEIGHT: u64 = 500_000_000_000;
+
+    /// Absolute maximum weight for on_initialize: half the total block weight (2s of 4s).
+    pub const MAX_ON_INITIALIZE_WEIGHT: u64 = 2_000_000_000_000;
+
+    /// Configurable maximum weight for on_initialize processing.
+    /// Defaults to 500_000_000_000 ref_time if not explicitly set.
+    #[pallet::storage]
+    pub type OnInitializeWeight<T: Config> =
+        StorageValue<_, u64, ValueQuery, ConstU64<DEFAULT_ON_INITIALIZE_WEIGHT>>;
 
     /// A pending extrinsic stored for later execution.
     #[freeze_struct("c5749ec89253be61")]
@@ -184,6 +192,8 @@ pub mod pallet {
         ExtrinsicPostponed { index: u32 },
         /// Maximum pending extrinsics limit was updated.
         MaxPendingExtrinsicsNumberSet { value: u32 },
+        /// Maximum on_initialize weight was updated.
+        OnInitializeWeightSet { value: u64 },
     }
 
     #[pallet::error]
@@ -194,6 +204,8 @@ pub mod pallet {
         Unreachable,
         /// Too many pending extrinsics in storage.
         TooManyPendingExtrinsics,
+        /// Weight exceeds the absolute maximum (half of total block weight).
+        WeightExceedsAbsoluteMax,
     }
 
     #[pallet::hooks]
@@ -369,6 +381,24 @@ pub mod pallet {
             Self::deposit_event(Event::MaxPendingExtrinsicsNumberSet { value });
             Ok(())
         }
+
+        /// Set the maximum weight allowed for on_initialize processing.
+        /// Rejects values exceeding the absolute limit (half of total block weight).
+        #[pallet::call_index(4)]
+        #[pallet::weight(T::DbWeight::get().writes(1_u64))]
+        pub fn set_on_initialize_weight(origin: OriginFor<T>, value: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                value <= MAX_ON_INITIALIZE_WEIGHT,
+                Error::<T>::WeightExceedsAbsoluteMax
+            );
+
+            OnInitializeWeight::<T>::put(value);
+
+            Self::deposit_event(Event::OnInitializeWeightSet { value });
+            Ok(())
+        }
     }
 
     #[pallet::inherent]
@@ -445,10 +475,9 @@ impl<T: Config> Pallet<T> {
                 .writes(2)
                 .saturating_add(info.call_weight);
 
-            if weight
-                .saturating_add(dispatch_weight)
-                .any_gt(MAX_ON_INITIALIZE_WEIGHT)
-            {
+            let max_weight = Weight::from_parts(OnInitializeWeight::<T>::get(), 0);
+
+            if weight.saturating_add(dispatch_weight).any_gt(max_weight) {
                 Self::deposit_event(Event::ExtrinsicPostponed { index });
                 break;
             }

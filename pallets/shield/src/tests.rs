@@ -1,8 +1,8 @@
 use crate::mock::*;
 use crate::{
     AuthorKeys, CurrentKey, Error, HasMigrationRun, MaxPendingExtrinsicsLimit, NextKey,
-    NextKeyExpiresAt, NextPendingExtrinsicIndex, PendingExtrinsic, PendingExtrinsicCount,
-    PendingExtrinsics, PendingKey, PendingKeyExpiresAt,
+    NextKeyExpiresAt, NextPendingExtrinsicIndex, OnInitializeWeight, PendingExtrinsic,
+    PendingExtrinsicCount, PendingExtrinsics, PendingKey, PendingKeyExpiresAt,
 };
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
@@ -938,6 +938,88 @@ mod encrypted_extrinsics_tests {
                 MevShield::store_encrypted(RuntimeOrigin::signed(1), encoded_call),
                 Error::<Test>::TooManyPendingExtrinsics
             );
+        });
+    }
+
+    #[test]
+    fn set_on_initialize_weight_works() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
+            assert_eq!(
+                OnInitializeWeight::<Test>::get(),
+                crate::DEFAULT_ON_INITIALIZE_WEIGHT
+            );
+
+            assert_ok!(MevShield::set_on_initialize_weight(
+                RuntimeOrigin::root(),
+                1_000_000,
+            ));
+
+            assert_eq!(OnInitializeWeight::<Test>::get(), 1_000_000);
+
+            System::assert_last_event(
+                crate::Event::<Test>::OnInitializeWeightSet { value: 1_000_000 }.into(),
+            );
+        });
+    }
+
+    #[test]
+    fn set_on_initialize_weight_rejects_signed_origin() {
+        new_test_ext().execute_with(|| {
+            assert_noop!(
+                MevShield::set_on_initialize_weight(RuntimeOrigin::signed(1), 1_000_000),
+                sp_runtime::DispatchError::BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn set_on_initialize_weight_rejects_above_absolute_max() {
+        new_test_ext().execute_with(|| {
+            // Exactly at absolute max should succeed
+            assert_ok!(MevShield::set_on_initialize_weight(
+                RuntimeOrigin::root(),
+                crate::MAX_ON_INITIALIZE_WEIGHT,
+            ));
+
+            // Above absolute max should fail
+            assert_noop!(
+                MevShield::set_on_initialize_weight(
+                    RuntimeOrigin::root(),
+                    crate::MAX_ON_INITIALIZE_WEIGHT + 1,
+                ),
+                Error::<Test>::WeightExceedsAbsoluteMax
+            );
+        });
+    }
+
+    #[test]
+    fn set_on_initialize_weight_enforced_on_processing() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
+            // Set weight to 0 so nothing can be processed
+            assert_ok!(MevShield::set_on_initialize_weight(
+                RuntimeOrigin::root(),
+                0,
+            ));
+
+            // Store an extrinsic
+            let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![1] });
+            assert_ok!(MevShield::store_encrypted(
+                RuntimeOrigin::signed(1),
+                BoundedVec::truncate_from(call.encode()),
+            ));
+
+            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+
+            // Run on_initialize — should postpone due to weight limit
+            MevShield::on_initialize(2);
+
+            // Extrinsic should still be pending (postponed)
+            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+            System::assert_has_event(crate::Event::<Test>::ExtrinsicPostponed { index: 0 }.into());
         });
     }
 }
