@@ -1163,10 +1163,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Allow the subnet owner hotkey to act as a validator regardless of permit state.
-        if let Some(owner_uid) = Self::get_owner_uid(netuid) {
-            if owner_uid == uid {
-                return true;
-            }
+        if let Some(owner_uid) = Self::get_owner_uid(netuid)
+            && owner_uid == uid
+        {
+            return true;
         }
 
         // Check if uid has validator permit.

@@ -653,10 +653,10 @@ impl<T: Config> Pallet<T> {
 
         // Get current validator permits.
         let mut validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
-        if let Some(owner_uid) = owner_uid {
-            if let Some(owner_permit) = validator_permits.get_mut(owner_uid as usize) {
-                *owner_permit = true;
-            }
+        if let Some(owner_uid) = owner_uid
+            && let Some(owner_permit) = validator_permits.get_mut(owner_uid as usize)
+        {
+            *owner_permit = true;
         }
         log::trace!("validator_permits: {validator_permits:?}");
 
@@ -670,10 +670,10 @@ impl<T: Config> Pallet<T> {
         // Get new validator permits.
         let mut new_validator_permits: Vec<bool> =
             is_topk_nonzero(&stake, max_allowed_validators as usize);
-        if let Some(owner_uid) = owner_uid {
-            if let Some(owner_permit) = new_validator_permits.get_mut(owner_uid as usize) {
-                *owner_permit = true;
-            }
+        if let Some(owner_uid) = owner_uid
+            && let Some(owner_permit) = new_validator_permits.get_mut(owner_uid as usize)
+        {
+            *owner_permit = true;
         }
         log::trace!("new_validator_permits: {new_validator_permits:?}");
 
