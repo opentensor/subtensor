@@ -1,6 +1,6 @@
 import { expect, beforeAll } from "vitest";
 import { describeSuite } from "@moonwall/cli";
-import { subtensor } from "@polkadot-api/descriptors";
+import { subtensor, MultiAddress } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
 import {
     ANNOUNCEMENT_DELAY,
@@ -388,6 +388,121 @@ describeSuite({
                 const result = await sendTransaction(clearTx, coldkey);
                 expect(result.success, "clear should fail (disputed)").toBe(false);
                 log("Clear blocked after dispute");
+            },
+        });
+
+        it({
+            id: "T13",
+            title: "dispatch guard: active announcement blocks staking and transfer but allows swap calls",
+            test: async () => {
+                const coldkey = generateKeyringPair("sr25519");
+                const newColdkey = generateKeyringPair("sr25519");
+                const hotkey = generateKeyringPair("sr25519");
+                const recipient = generateKeyringPair("sr25519");
+
+                await forceSetBalance(api, coldkey.address);
+                await forceSetBalance(api, hotkey.address);
+
+                const netuid = await addNewSubnetwork(api, hotkey, coldkey);
+                await startCall(api, netuid, coldkey);
+
+                // Announce swap
+                await announceColdkeySwap(api, coldkey, coldkeyHashBinary(newColdkey));
+                log("Announced coldkey swap");
+
+                // add_stake should be blocked
+                const stakeTx = api.tx.SubtensorModule.add_stake({
+                    hotkey: hotkey.address,
+                    netuid: netuid,
+                    amount_staked: tao(10),
+                });
+                const stakeResult = await sendTransaction(stakeTx, coldkey);
+                expect(stakeResult.success, "add_stake should be blocked by guard").toBe(false);
+                log("add_stake blocked");
+
+                // transfer_keep_alive should be blocked
+                const transferTx = api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(recipient.address),
+                    value: tao(1),
+                });
+                const transferResult = await sendTransaction(transferTx, coldkey);
+                expect(transferResult.success, "transfer should be blocked by guard").toBe(false);
+                log("transfer_keep_alive blocked");
+
+                // swap-related calls should still go through the guard
+                // (reannounce will fail because of reannouncement delay, but NOT because of the guard)
+                const reannounceTx = api.tx.SubtensorModule.announce_coldkey_swap({
+                    new_coldkey_hash: coldkeyHashBinary(newColdkey),
+                });
+                const reannounceResult = await sendTransaction(reannounceTx, coldkey);
+                // Fails with ReannounceBeforeDelay, not ColdkeySwapAnnounced — meaning the guard allowed it through
+                expect(reannounceResult.success, "reannounce fails but not from the guard").toBe(false);
+                expect(
+                    reannounceResult.errorMessage,
+                    "error should be reannouncement delay, not guard block"
+                ).not.toContain("ColdkeySwapAnnounced");
+                log("announce_coldkey_swap passed through guard (failed at pallet level as expected)");
+
+                // dispute should succeed (allowed through the guard)
+                await disputeColdkeySwap(api, coldkey);
+                log("dispute_coldkey_swap allowed through guard");
+            },
+        });
+
+        it({
+            id: "T14",
+            title: "dispatch guard: disputed swap blocks ALL calls including swap-related",
+            test: async () => {
+                const coldkey = generateKeyringPair("sr25519");
+                const newColdkey = generateKeyringPair("sr25519");
+                const hotkey = generateKeyringPair("sr25519");
+                const recipient = generateKeyringPair("sr25519");
+
+                await forceSetBalance(api, coldkey.address);
+                await forceSetBalance(api, hotkey.address);
+
+                const netuid = await addNewSubnetwork(api, hotkey, coldkey);
+                await startCall(api, netuid, coldkey);
+
+                // Announce + dispute
+                await announceColdkeySwap(api, coldkey, coldkeyHashBinary(newColdkey));
+                await disputeColdkeySwap(api, coldkey);
+                log("Announced + disputed");
+
+                // add_stake should be blocked
+                const stakeTx = api.tx.SubtensorModule.add_stake({
+                    hotkey: hotkey.address,
+                    netuid: netuid,
+                    amount_staked: tao(10),
+                });
+                const stakeResult = await sendTransaction(stakeTx, coldkey);
+                expect(stakeResult.success, "add_stake should be blocked (disputed)").toBe(false);
+                log("add_stake blocked");
+
+                // transfer should be blocked
+                const transferTx = api.tx.Balances.transfer_keep_alive({
+                    dest: MultiAddress.Id(recipient.address),
+                    value: tao(1),
+                });
+                const transferResult = await sendTransaction(transferTx, coldkey);
+                expect(transferResult.success, "transfer should be blocked (disputed)").toBe(false);
+                log("transfer_keep_alive blocked");
+
+                // swap_coldkey_announced should also be blocked (unlike T13 where swap calls pass)
+                const swapTx = api.tx.SubtensorModule.swap_coldkey_announced({
+                    new_coldkey: newColdkey.address,
+                });
+                const swapResult = await sendTransaction(swapTx, coldkey);
+                expect(swapResult.success, "swap should be blocked (disputed)").toBe(false);
+                log("swap_coldkey_announced blocked");
+
+                // announce should also be blocked
+                const announceTx = api.tx.SubtensorModule.announce_coldkey_swap({
+                    new_coldkey_hash: coldkeyHashBinary(newColdkey),
+                });
+                const announceResult = await sendTransaction(announceTx, coldkey);
+                expect(announceResult.success, "announce should be blocked (disputed)").toBe(false);
+                log("announce_coldkey_swap blocked — all calls rejected under dispute");
             },
         });
     },
