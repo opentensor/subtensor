@@ -1221,6 +1221,22 @@ impl pallet_subtensor_swap::Config for Runtime {
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
     type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = SwapBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct SwapBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_subtensor_swap::BenchmarkHelper<AccountId> for SwapBenchmarkHelper {
+    fn setup_subnet(netuid: subtensor_runtime_common::NetUid) {
+        pallet_subtensor::NetworksAdded::<Runtime>::insert(netuid, true);
+        pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+    }
+    fn register_hotkey(hotkey: &AccountId, coldkey: &AccountId) {
+        pallet_subtensor::Owner::<Runtime>::insert(hotkey, coldkey);
+    }
 }
 
 use crate::sudo_wrapper::SudoTransactionExtension;

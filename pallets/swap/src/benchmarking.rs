@@ -14,8 +14,8 @@ use subtensor_runtime_common::NetUid;
 use crate::{
     Error,
     pallet::{
-        AlphaSqrtPrice, Call, Config, CurrentLiquidity, CurrentTick, EnabledUserLiquidity, Pallet,
-        Positions, SwapV3Initialized,
+        AlphaSqrtPrice, BenchmarkHelper, Call, Config, CurrentLiquidity, CurrentTick,
+        EnabledUserLiquidity, Pallet, Positions, SwapV3Initialized,
     },
     position::{Position, PositionId},
     tick::TickIndex,
@@ -28,13 +28,12 @@ mod benchmarks {
     #[benchmark]
     fn set_fee_rate() {
         let netuid = NetUid::from(1);
-        let rate: u16 = 100; // Some arbitrary fee rate value
+        let rate: u16 = 100;
 
         #[extrinsic_call]
         _(RawOrigin::Root, netuid, rate);
     }
 
-    // TODO: Revise when user liquidity is available
     #[benchmark]
     fn add_liquidity() {
         let netuid = NetUid::from(1);
@@ -71,6 +70,8 @@ mod benchmarks {
     fn remove_liquidity() {
         let netuid = NetUid::from(1);
 
+        T::BenchmarkHelper::setup_subnet(netuid);
+
         if !SwapV3Initialized::<T>::get(netuid) {
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
@@ -80,6 +81,7 @@ mod benchmarks {
 
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hotkey", 0, 0);
+        T::BenchmarkHelper::register_hotkey(&hotkey, &caller);
         let id = PositionId::from(1u128);
 
         Positions::<T>::insert(
@@ -104,6 +106,9 @@ mod benchmarks {
     fn modify_position() {
         let netuid = NetUid::from(1);
 
+        T::BenchmarkHelper::setup_subnet(netuid);
+        EnabledUserLiquidity::<T>::insert(netuid, true);
+
         if !SwapV3Initialized::<T>::get(netuid) {
             SwapV3Initialized::<T>::insert(netuid, true);
             AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
@@ -113,6 +118,7 @@ mod benchmarks {
 
         let caller: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("hotkey", 0, 0);
+        T::BenchmarkHelper::register_hotkey(&hotkey, &caller);
         let id = PositionId::from(1u128);
 
         Positions::<T>::insert(
@@ -142,6 +148,7 @@ mod benchmarks {
     #[benchmark]
     fn toggle_user_liquidity() {
         let netuid = NetUid::from(101);
+        T::BenchmarkHelper::setup_subnet(netuid);
 
         assert!(!EnabledUserLiquidity::<T>::get(netuid));
 
@@ -151,8 +158,6 @@ mod benchmarks {
 
     #[benchmark]
     fn disable_lp() {
-        // Worst case
-        // TODO: add dissolvable state per subnet
         for netuid in 1..=128 {
             let netuid = NetUid::from(netuid as u16);
             EnabledUserLiquidity::<T>::insert(netuid, true);
