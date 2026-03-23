@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
@@ -389,14 +390,15 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
+    ///
+    /// Uses `translate_values` to iterate entries one at a time without
+    /// collecting all keys into memory, preventing unbounded memory usage when
+    /// the number of hotkeys is large. Skips key decoding for better efficiency.
     pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
-
-        for hotkey in hotkeys.iter() {
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
-                claimable.remove(&netuid);
-            });
-        }
+        RootClaimable::<T>::translate_values::<BTreeMap<NetUid, I96F32>, _>(|mut claimable| {
+            claimable.remove(&netuid);
+            (!claimable.is_empty()).then_some(claimable)
+        });
 
         let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
     }
