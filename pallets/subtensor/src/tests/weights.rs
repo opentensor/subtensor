@@ -6899,13 +6899,20 @@ fn test_subnet_owner_can_validate_without_stake_or_manual_permit() {
 
         // Make the non-owner stake-qualified while the owner remains below threshold.
         SubtensorModule::set_stake_threshold(1_u64);
-        assert!(SubtensorModule::check_weights_min_stake(&other_hotkey, netuid));
+        assert!(SubtensorModule::check_weights_min_stake(
+            &other_hotkey,
+            netuid
+        ));
 
         // Clear all explicit permits. The owner should not rely on manual permit state.
         SubtensorModule::set_validator_permit_for_uid(netuid, owner_uid, false);
         SubtensorModule::set_validator_permit_for_uid(netuid, other_uid, false);
-        assert!(!SubtensorModule::get_validator_permit_for_uid(netuid, owner_uid));
-        assert!(!SubtensorModule::get_validator_permit_for_uid(netuid, other_uid));
+        assert!(!SubtensorModule::get_validator_permit_for_uid(
+            netuid, owner_uid
+        ));
+        assert!(!SubtensorModule::get_validator_permit_for_uid(
+            netuid, other_uid
+        ));
 
         // Sanity check: a non-owner without a permit still cannot set non-self weights.
         assert!(!SubtensorModule::check_validator_permit(
@@ -6926,7 +6933,10 @@ fn test_subnet_owner_can_validate_without_stake_or_manual_permit() {
         );
 
         // The subnet owner bypasses both the stake gate and the validator-permit gate.
-        assert!(SubtensorModule::check_weights_min_stake(&owner_hotkey, netuid));
+        assert!(SubtensorModule::check_weights_min_stake(
+            &owner_hotkey,
+            netuid
+        ));
         assert!(SubtensorModule::check_validator_permit(
             netuid,
             owner_uid,
@@ -6944,9 +6954,13 @@ fn test_subnet_owner_can_validate_without_stake_or_manual_permit() {
 
         // After an epoch, the owner is still validator-eligible even though only the
         step_epochs(1, netuid);
-        assert!(SubtensorModule::get_validator_permit_for_uid(netuid, owner_uid));
+        assert!(SubtensorModule::get_validator_permit_for_uid(
+            netuid, owner_uid
+        ));
 
         // The original top-k result is preserved; the owner is added on top.
-        assert!(SubtensorModule::get_validator_permit_for_uid(netuid, other_uid));
+        assert!(SubtensorModule::get_validator_permit_for_uid(
+            netuid, other_uid
+        ));
     });
 }
