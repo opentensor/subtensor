@@ -67,5 +67,5 @@ mod benchmarks {
         assert_eq!(MaxSpace::<T>::get(), new_space);
     }
 
-    //impl_benchmark_test_suite!(Commitments, crate::tests::new_test_ext(), crate::tests::Test);
+    impl_benchmark_test_suite!(Commitments, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -10368,6 +10368,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -10375,6 +10376,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "subtensor-macros",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
