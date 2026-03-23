@@ -35,14 +35,14 @@ if [ "$fast_runtime" == "False" ]; then
   echo "fast_runtime is Off"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet"}"
+  : "${FEATURES:="pow-faucet metadata-hash"}"
   BUILD_DIR="$BASE_DIR/target/non-fast-runtime"
 else
   # Block of code to execute if fast_runtime is not False
   echo "fast_runtime is On"
   : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet fast-runtime"}"
+  : "${FEATURES:="pow-faucet metadata-hash fast-runtime"}"
   BUILD_DIR="$BASE_DIR/target/fast-runtime"
 fi
 
