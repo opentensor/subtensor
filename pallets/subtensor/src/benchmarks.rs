@@ -1444,7 +1444,7 @@ mod pallet_benchmarks {
         let hot: T::AccountId = account("A", 0, 1);
 
         // First associate, then disassociate
-        Pallet::<T>::do_try_associate_hotkey(&coldkey, &hot).expect("associate should work");
+        assert_ok!(Pallet::<T>::do_try_associate_hotkey(&coldkey, &hot));
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hot.clone());
