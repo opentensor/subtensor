@@ -3122,3 +3122,100 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
         );
     });
 }
+
+#[test]
+fn test_migrate_remove_zero_alpha() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &str = "migrate_remove_zero_alpha";
+        let netuid = NetUid::from(1u16);
+
+        let hotkey_zero = U256::from(100u64);
+        let hotkey_nonzero = U256::from(101u64);
+        let coldkey_zero = U256::from(200u64);
+        let coldkey_nonzero = U256::from(201u64);
+
+        let zero = U64F64::from_num(0);
+        let nonzero = U64F64::from_num(5000);
+
+        // --- Setup: insert zero and non-zero entries across all four maps ---
+
+        // Alpha (StorageNMap)
+        Alpha::<Test>::insert((&hotkey_zero, &coldkey_zero, netuid), zero);
+        Alpha::<Test>::insert((&hotkey_nonzero, &coldkey_nonzero, netuid), nonzero);
+
+        // TotalHotkeyShares
+        TotalHotkeyShares::<Test>::insert(hotkey_zero, netuid, zero);
+        TotalHotkeyShares::<Test>::insert(hotkey_nonzero, netuid, nonzero);
+
+        // TotalHotkeyAlphaLastEpoch
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(hotkey_zero, netuid, AlphaBalance::ZERO);
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(hotkey_nonzero, netuid, AlphaBalance::from(5000));
+
+        // AlphaDividendsPerSubnet
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey_zero, AlphaBalance::ZERO);
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey_nonzero, AlphaBalance::from(5000));
+
+        // Verify migration has not run yet
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should not have run yet."
+        );
+
+        // Run migration
+        let weight =
+            crate::migrations::migrate_remove_zero_alpha::migrate_remove_zero_alpha::<Test>();
+
+        // Verify migration is marked as completed
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
+            "Migration should be marked as run."
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero.");
+
+        // Verify zero entries were removed
+        assert!(
+            !Alpha::<Test>::contains_key((&hotkey_zero, &coldkey_zero, netuid)),
+            "Zero Alpha entry should have been removed."
+        );
+        assert!(
+            !TotalHotkeyShares::<Test>::contains_key(hotkey_zero, netuid),
+            "Zero TotalHotkeyShares entry should have been removed."
+        );
+        assert!(
+            !TotalHotkeyAlphaLastEpoch::<Test>::contains_key(hotkey_zero, netuid),
+            "Zero TotalHotkeyAlphaLastEpoch entry should have been removed."
+        );
+        assert!(
+            !AlphaDividendsPerSubnet::<Test>::contains_key(netuid, hotkey_zero),
+            "Zero AlphaDividendsPerSubnet entry should have been removed."
+        );
+
+        // Verify non-zero entries were preserved
+        assert_eq!(
+            Alpha::<Test>::get((&hotkey_nonzero, &coldkey_nonzero, netuid)),
+            nonzero
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(hotkey_nonzero, netuid),
+            nonzero
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hotkey_nonzero, netuid),
+            AlphaBalance::from(5000)
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hotkey_nonzero),
+            AlphaBalance::from(5000)
+        );
+
+        // Verify idempotency: running again should be a no-op
+        let weight2 =
+            crate::migrations::migrate_remove_zero_alpha::migrate_remove_zero_alpha::<Test>();
+        assert_eq!(
+            weight2,
+            Weight::from_parts(0, 0)
+                .saturating_add(<Test as frame_system::Config>::DbWeight::get().reads(1)),
+            "Second run should only cost a single read (HasMigrationRun check)."
+        );
+    });
+}

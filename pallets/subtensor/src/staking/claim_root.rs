@@ -263,8 +263,10 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num(),
             );
 
-            // Set the new root claimed value.
-            RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            // Set the new root claimed value, removing if zero to avoid storage bloat.
+            if new_root_claimed != 0 {
+                RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            }
         }
     }
 
@@ -290,8 +292,12 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num(),
             );
 
-            // Set the new root_claimed value.
-            RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            // Set the new root_claimed value, removing if zero to avoid storage bloat.
+            if new_root_claimed != 0 {
+                RootClaimed::<T>::insert((netuid, hotkey, coldkey), new_root_claimed);
+            } else {
+                RootClaimed::<T>::remove((netuid, hotkey, coldkey));
+            }
         }
     }
 
