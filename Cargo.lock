@@ -9966,6 +9966,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-limit-orders"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "substrate-fixed",
+ "subtensor-runtime-common",
+ "subtensor-swap-interface",
+]
+
+[[package]]
 name = "pallet-lottery"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=fb1dd20df37710800aa284ac49bb26193d5539ee#fb1dd20df37710800aa284ac49bb26193d5539ee"

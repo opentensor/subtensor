@@ -55,6 +55,7 @@ useless_conversion = "allow"     # until polkadot is patched
 [workspace.dependencies]
 node-subtensor-runtime = { path = "runtime", default-features = false }
 pallet-admin-utils = { path = "pallets/admin-utils", default-features = false }
+pallet-limit-orders = { path = "pallets/limit-orders", default-features = false }
 pallet-commitments = { path = "pallets/commitments", default-features = false }
 pallet-registry = { path = "pallets/registry", default-features = false }
 pallet-crowdloan = { path = "pallets/crowdloan", default-features = false }

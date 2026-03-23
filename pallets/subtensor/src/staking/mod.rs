@@ -9,4 +9,5 @@ pub mod move_stake;
 pub mod recycle_alpha;
 pub mod remove_stake;
 pub mod set_children;
+pub mod order_swap;
 pub mod stake_utils;

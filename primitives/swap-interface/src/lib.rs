@@ -50,6 +50,38 @@ pub trait SwapHandler {
     fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoBalance) -> AlphaBalance;
 }
 
+/// Combined swap + balance execution interface for limit orders.
+///
+/// Wraps the complete buy/sell operation: AMM state update (via `SwapHandler`),
+/// pool reserve accounting, and user balance changes (TAO free balance /
+/// alpha staking). Implemented by `pallet_subtensor::Pallet<T>` using
+/// `stake_into_subnet` / `unstake_from_subnet`.
+pub trait OrderSwapInterface<AccountId> {
+    /// Buy alpha with TAO: debit `tao_amount` from `coldkey`'s free balance,
+    /// credit resulting alpha as stake at `hotkey` on `netuid`.
+    fn buy_alpha(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        tao_amount: TaoBalance,
+        limit_price: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError>;
+
+    /// Sell alpha for TAO: remove `alpha_amount` from `coldkey`'s stake at
+    /// `hotkey` on `netuid`, credit resulting TAO to `coldkey`'s free balance.
+    fn sell_alpha(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha_amount: AlphaBalance,
+        limit_price: TaoBalance,
+    ) -> Result<TaoBalance, DispatchError>;
+
+    /// Current spot price: TAO per alpha, same scale as
+    /// `SwapHandler::current_alpha_price`.
+    fn current_alpha_price(netuid: NetUid) -> U96F32;
+}
+
 pub trait DefaultPriceLimit<PaidIn, PaidOut>
 where
     PaidIn: Token,
