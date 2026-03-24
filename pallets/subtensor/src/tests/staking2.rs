@@ -5,6 +5,7 @@ use frame_support::{
     dispatch::{GetDispatchInfo, Pays},
     weights::Weight,
 };
+use share_pool::SafeFloat;
 use sp_core::U256;
 use subtensor_runtime_common::{AlphaBalance, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
@@ -761,6 +762,34 @@ fn test_disassociate_hotkey_has_stake() {
         );
 
         // Try to disassociate - should fail because has outstanding stake
+        assert_noop!(
+            SubtensorModule::disassociate_hotkey(RuntimeOrigin::signed(coldkey1), hotkey1),
+            Error::<Test>::HotkeyHasOutstandingStake
+        );
+
+        // Verify hotkey is still associated
+        assert!(SubtensorModule::hotkey_account_exists(&hotkey1));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_has_stake_alpha_v2 --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_has_stake_alpha_v2() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let netuid = NetUid::from(1);
+
+        // Associate hotkey1 with coldkey1
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Add some AlphaV2 (new format) stake for this hotkey
+        AlphaV2::<Test>::insert((&hotkey1, &coldkey1, netuid), SafeFloat::from(1000_u64));
+
+        // Try to disassociate - should fail because has outstanding stake in AlphaV2
         assert_noop!(
             SubtensorModule::disassociate_hotkey(RuntimeOrigin::signed(coldkey1), hotkey1),
             Error::<Test>::HotkeyHasOutstandingStake
