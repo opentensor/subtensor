@@ -432,8 +432,47 @@ fn patch_raw_spec(spec: &mut Value, validators: &[&'static str]) -> CloneResult<
     );
 
     remove_by_prefix(top, &storage_prefix("Session"));
+
+    set_validator_balances(top, validators);
+
     clear_top_level(spec);
     Ok(())
+}
+
+/// Insert a `System::Account` entry for each validator seed so that dev authorities
+/// have enough free balance to produce transactions on the cloned chain.
+fn set_validator_balances(top: &mut serde_json::Map<String, Value>, validators: &[&'static str]) {
+    const FREE_BALANCE: u64 = 1_000_000_000_000_000; // 1M TAO (9 decimals)
+
+    let prefix = frame_support::storage::storage_prefix(b"System", b"Account");
+
+    for seed in validators {
+        let account_id =
+            crate::chain_spec::get_account_id_from_seed::<sp_core::sr25519::Public>(seed);
+        let encoded_id = account_id.encode();
+
+        // Blake2_128Concat = blake2_128(encoded) ++ encoded
+        let hash = sp_io::hashing::blake2_128(&encoded_id);
+        let mut full_key = prefix.to_vec();
+        full_key.extend_from_slice(&hash);
+        full_key.extend_from_slice(&encoded_id);
+
+        let account_info = frame_system::AccountInfo {
+            nonce: 0u32,
+            consumers: 0u32,
+            providers: 1u32, // >=1 to keep account alive
+            sufficients: 0u32,
+            data: pallet_balances::AccountData {
+                free: FREE_BALANCE,
+                ..Default::default()
+            },
+        };
+
+        top.insert(
+            to_hex(&full_key),
+            Value::String(to_hex(&account_info.encode())),
+        );
+    }
 }
 
 fn remove_by_prefix(map: &mut serde_json::Map<String, Value>, prefix: &str) {
