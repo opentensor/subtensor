@@ -80,6 +80,33 @@ pub trait OrderSwapInterface<AccountId> {
     /// Current spot price: TAO per alpha, same scale as
     /// `SwapHandler::current_alpha_price`.
     fn current_alpha_price(netuid: NetUid) -> U96F32;
+
+    /// Transfer `amount` TAO from `from`'s free balance to `to`'s free balance.
+    ///
+    /// Used by the batch executor to collect TAO from buy-order signers into
+    /// the pallet intermediary account and to distribute TAO to sell-order
+    /// signers after internal matching.
+    fn transfer_tao(
+        from: &AccountId,
+        to: &AccountId,
+        amount: TaoBalance,
+    ) -> DispatchResult;
+
+    /// Move `amount` staked alpha directly between two (coldkey, hotkey) pairs
+    /// on `netuid` **without going through the AMM pool**.
+    ///
+    /// This is a pure stake-accounting transfer used for internal order
+    /// matching in `execute_batched_orders`: it lets the pallet collect alpha
+    /// from sell-order signers into its intermediary account, and later
+    /// distribute alpha to buy-order signers, all without touching the pool.
+    fn transfer_staked_alpha(
+        from_coldkey: &AccountId,
+        from_hotkey: &AccountId,
+        to_coldkey: &AccountId,
+        to_hotkey: &AccountId,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) -> DispatchResult;
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>
