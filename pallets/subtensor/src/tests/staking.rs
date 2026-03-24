@@ -1302,7 +1302,6 @@ fn test_remove_stake_from_hotkey_account() {
     });
 }
 
-
 #[test]
 fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
     new_test_ext(1).execute_with(|| {
