@@ -1245,12 +1245,12 @@ fn test_remove_stake_from_hotkey_account() {
         let subnet_owner_hotkey = U256::from(2);
         let hotkey_id = U256::from(5445);
         let coldkey_id = U256::from(5443433);
-        let amount: u64 = 10_000;
+        let amount: AlphaBalance = 10_000u64.into();
 
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, 192213123);
 
-        // Track baselines (alpha on subnet + tao-equivalent total).
+        // Baselines before adding stake.
         let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
@@ -1258,52 +1258,50 @@ fn test_remove_stake_from_hotkey_account() {
         );
         let total_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey_id);
 
-        // Add alpha stake (internal helper).
-        let added_alpha = SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        // Add alpha stake directly through the internal helper.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
             netuid,
-            amount.into(),
+            amount,
         );
 
-        // Alpha stake should increase by (roughly) what the share pool actually credited.
+        // Alpha stake should increase by exactly the credited alpha amount.
         let alpha_after_add = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
             netuid,
         );
-        assert_abs_diff_eq!(
-            alpha_after_add,
-            alpha_before.saturating_add(added_alpha),
-            epsilon = 2.into()
-        );
+        assert_eq!(alpha_after_add, alpha_before.saturating_add(amount));
 
-        // Remove stake: remove exactly the credited alpha.
-        let removed_alpha = SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        // Tao-equivalent total stake should have increased from baseline.
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id) > total_before);
+
+        // Remove exactly the same alpha amount.
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
             netuid,
-            added_alpha,
+            amount,
         );
 
-        assert_abs_diff_eq!(removed_alpha, added_alpha, epsilon = 2.into());
-
-        // Alpha stake should return to baseline.
+        // Alpha stake should return to its original baseline.
         let alpha_after_remove = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
             netuid,
         );
-        assert_abs_diff_eq!(alpha_after_remove, alpha_before, epsilon = 2.into());
+        assert_eq!(alpha_after_remove, alpha_before);
 
-        // Tao-equivalent total should also return to baseline (price may be != 1.0).
+        // Tao-equivalent total stake should also return to baseline.
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
             total_before,
-            epsilon = 25.into()
+            epsilon = 10.into()
         );
     });
 }
+
 
 #[test]
 fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
@@ -4164,14 +4162,13 @@ fn test_remove_99_9991_per_cent_stake_works_precisely() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // Set fee rate to 0 so that alpha fee is not moved to block producer
-        // and the hotkey stake does drop to 0
+        // Set fee rate to 0 so that alpha fee is not moved to block producer.
         pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 
         // Give it some $$$ in his coldkey balance (in addition to any leftover buffer from registration)
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
-        // Stake to hotkey account, and check if the result is ok
+        // Stake to hotkey account.
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -4179,18 +4176,24 @@ fn test_remove_99_9991_per_cent_stake_works_precisely() {
             amount.into()
         ));
 
-        // Remove 99.9991% stake
+        // Remove 99.9991% stake.
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &coldkey_account_id,
             netuid,
         );
+        let coldkey_balance_before_remove =
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+
         remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
+
         let remove_amount = AlphaBalance::from(
             (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>(),
         );
-        // we expected the entire stake to be returned
-        let (expected_balance, _) = mock::swap_alpha_to_tao(netuid, remove_amount);
+
+        // Expected TAO returned by swapping exactly the removed alpha.
+        let (expected_returned_balance, _) = mock::swap_alpha_to_tao(netuid, remove_amount);
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -4198,13 +4201,24 @@ fn test_remove_99_9991_per_cent_stake_works_precisely() {
             remove_amount,
         ));
 
-        // Check that all alpha was unstaked and all TAO balance was returned (less fees)
+        // Compare the returned delta, not the absolute coldkey balance, because
+        // registration / staking can leave a small pre-existing balance on coldkey.
+        let coldkey_balance_after_remove =
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+        let actual_returned_balance = TaoBalance::from(
+            coldkey_balance_after_remove
+                .to_u64()
+                .saturating_sub(coldkey_balance_before_remove.to_u64()),
+        );
+
         assert_abs_diff_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            expected_balance,
+            actual_returned_balance,
+            expected_returned_balance,
             epsilon = 10.into(),
         );
+
         assert!(!SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id).is_zero());
+
         let new_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &coldkey_account_id,

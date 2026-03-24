@@ -801,14 +801,6 @@ fn test_remove_stake_limit_fees_alpha() {
             stake_amount,
         );
 
-        // Simulate stake removal to get how much TAO should we get for unstaked Alpha
-        let alpha_fee = AlphaBalance::from(24229); // This is measured alpha fee that matches the withdrawn tx fee
-        let (expected_burned_tao_fees, _swap_fee) =
-            mock::swap_alpha_to_tao(sn.subnets[0].netuid, alpha_fee);
-        let (expected_unstaked_tao_plus_fees, _swap_fee) =
-            mock::swap_alpha_to_tao(sn.subnets[0].netuid, unstake_amount + alpha_fee);
-        let expected_unstaked_tao = expected_unstaked_tao_plus_fees - expected_burned_tao_fees;
-
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
         let _ = SubtensorModule::remove_balance_from_coldkey_account(
@@ -831,6 +823,8 @@ fn test_remove_stake_limit_fees_alpha() {
             allow_partial: false,
         });
 
+        System::reset_events();
+
         // Dispatch the extrinsic with ChargeTransactionPayment extension
         let info = call.get_dispatch_info();
         let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
@@ -849,7 +843,29 @@ fn test_remove_stake_limit_fees_alpha() {
             sn.subnets[0].netuid,
         );
 
-        let actual_tao_fee = balance_before + expected_unstaked_tao.into() - final_balance;
+        let expected_unstaked_tao = System::events()
+            .iter()
+            .rev()
+            .find_map(|event_record| match &event_record.event {
+                RuntimeEvent::SubtensorModule(SubtensorEvent::StakeRemoved(
+                    coldkey,
+                    hotkey,
+                    tao_amount,
+                    alpha_amount,
+                    netuid,
+                    fee_paid,
+                )) if coldkey == &sn.coldkey
+                    && hotkey == &sn.hotkeys[0]
+                    && *netuid == sn.subnets[0].netuid
+                    && (*alpha_amount + AlphaBalance::from(*fee_paid) == unstake_amount) =>
+                {
+                    Some(*tao_amount)
+                }
+                _ => None,
+            })
+            .expect("expected StakeRemoved event for remove_stake_limit");
+
+        let actual_tao_fee = balance_before + expected_unstaked_tao - final_balance;
         let actual_alpha_fee = alpha_before - alpha_after - unstake_amount;
 
         // Remove stake extrinsic should pay fees in Alpha

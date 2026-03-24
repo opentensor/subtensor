@@ -821,4 +821,5 @@ pub fn setup_stake(
         netuid,
         stake_amount.into(),
     ));
+    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
 }
