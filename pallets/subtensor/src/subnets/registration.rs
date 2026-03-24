@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_register(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         hotkey: T::AccountId,
     ) -> DispatchResult {
@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_register_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         hotkey: T::AccountId,
         limit_price: u64,
