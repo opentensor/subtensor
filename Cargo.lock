@@ -9974,6 +9974,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
+ "sp-io",
+ "sp-keyring",
  "sp-runtime",
  "substrate-fixed",
  "subtensor-runtime-common",

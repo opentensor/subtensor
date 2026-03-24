@@ -2,6 +2,9 @@
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod tests;
+
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -262,7 +265,6 @@ pub mod pallet {
 
             for signed_order in orders {
                 // Best-effort: individual order failures do not revert the batch.
-                // TODO: VERIFY IF PRICE IS CHECK AFTER EACH ORDER
                 let _ = Self::try_execute_order(signed_order);
             }
 
@@ -569,7 +571,7 @@ pub mod pallet {
         /// Validate every order against `netuid`, signature, expiry, and price.
         /// Valid orders are split into two BoundedVecs by side.
         /// Each entry is `(order_id, signer, hotkey, gross, net, fee)`.
-        fn validate_and_classify(
+        pub(crate) fn validate_and_classify(
             netuid: NetUid,
             orders: &BoundedVec<SignedOrder<T::AccountId, T::Signature>, T::MaxOrdersPerBatch>,
             now_ms: u64,
@@ -695,7 +697,7 @@ pub mod pallet {
         ///
         /// - Buy-dominant: total alpha = pool output + sell-side alpha (passed through).
         /// - Sell-dominant: total alpha = buy-side TAO converted at `current_price`.
-        fn distribute_alpha_pro_rata(
+        pub(crate) fn distribute_alpha_pro_rata(
             buys: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
             actual_out: u128,
             total_buy_net: u128,
@@ -748,7 +750,7 @@ pub mod pallet {
         ///
         /// Fee on TAO output: `ppb(share)` is withheld from each seller's payout and
         /// left in the pallet account. Returns the total sell-side fee TAO accumulated.
-        fn distribute_tao_pro_rata(
+        pub(crate) fn distribute_tao_pro_rata(
             sells: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
             actual_out: u128,
             total_buy_net: u128,
@@ -799,7 +801,7 @@ pub mod pallet {
         ///   (passed in as `sell_fee_tao`).
         ///
         /// Both transfers are best-effort and do not revert the batch on failure.
-        fn collect_fees(
+        pub(crate) fn collect_fees(
             buys: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
             sell_fee_tao: u64,
             pallet_acct: &T::AccountId,
@@ -824,7 +826,7 @@ pub mod pallet {
         }
 
         /// Compute the net amount field for the `GroupExecutionSummary` event.
-        fn net_amount_for_event(
+        pub(crate) fn net_amount_for_event(
             net_side: &OrderSide,
             total_buy_net: u128,
             total_sell_net: u128,
@@ -845,14 +847,14 @@ pub mod pallet {
             }
         }
 
-        fn ppb_of_tao(amount: TaoBalance, ppb: u32) -> TaoBalance {
+        pub(crate) fn ppb_of_tao(amount: TaoBalance, ppb: u32) -> TaoBalance {
             let result = (amount.to_u64() as u128)
                 .saturating_mul(ppb as u128)
                 .saturating_div(1_000_000_000);
             TaoBalance::from(result as u64)
         }
 
-        fn ppb_of_alpha(amount: AlphaBalance, ppb: u32) -> AlphaBalance {
+        pub(crate) fn ppb_of_alpha(amount: AlphaBalance, ppb: u32) -> AlphaBalance {
             let result = (amount.to_u64() as u128)
                 .saturating_mul(ppb as u128)
                 .saturating_div(1_000_000_000);
