@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure the hotkey has no outstanding stake from any coldkey.
         ensure!(
-            Alpha::<T>::iter_prefix((hotkey,)).next().is_none(),
+            Self::alpha_iter_single_prefix(hotkey).next().is_none(),
             Error::<T>::HotkeyHasOutstandingStake
         );
 
