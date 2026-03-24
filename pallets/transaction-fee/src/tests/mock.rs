@@ -823,3 +823,65 @@ pub fn setup_stake(
     ));
     remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
 }
+
+pub(crate) fn quote_remove_stake_after_alpha_fee(
+    coldkey: &U256,
+    hotkey: &U256,
+    netuid: NetUid,
+    alpha: AlphaBalance,
+) -> (u64, u64) {
+    if netuid.is_root() {
+        return (alpha.into(), 0);
+    }
+
+    let call: RuntimeCall = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+        hotkey: *hotkey,
+        netuid,
+        amount_unstaked: alpha,
+    });
+    let info =
+        <RuntimeCall as frame_support::dispatch::GetDispatchInfo>::get_dispatch_info(&call);
+    let tao_fee = pallet_transaction_payment::Pallet::<Test>::compute_fee(0, &info, 0.into());
+
+    frame_support::storage::with_transaction(
+        || -> frame_support::storage::TransactionOutcome<
+            Result<(u64, u64), sp_runtime::DispatchError>,
+        > {
+            let alpha_balance =
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+
+            let mut alpha_fee =
+                pallet_subtensor_swap::Pallet::<Test>::get_alpha_amount_for_tao(
+                    netuid,
+                    tao_fee.into(),
+                );
+
+            if alpha_fee.is_zero() {
+                alpha_fee = alpha_balance;
+            }
+
+            let alpha_fee = alpha_fee.min(alpha_balance);
+
+            if !alpha_fee.is_zero() {
+                assert_ok!(SubtensorModule::unstake_from_subnet(
+                    hotkey,
+                    coldkey,
+                    netuid,
+                    alpha_fee,
+                    0.into(),
+                    true,
+                ));
+            }
+
+            let alpha_after_fee =
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, netuid,
+                );
+            let quoted_alpha = alpha.min(alpha_after_fee);
+
+            let quote = swap_alpha_to_tao(netuid, quoted_alpha);
+            frame_support::storage::TransactionOutcome::Rollback(Ok(quote))
+        },
+    )
+    .expect("transactional quote should not fail")
+}

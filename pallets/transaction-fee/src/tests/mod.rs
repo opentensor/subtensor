@@ -220,8 +220,13 @@ fn test_remove_stake_fees_alpha() {
         );
 
         // Simulate stake removal to get how much TAO should we get for unstaked Alpha
-        let (expected_unstaked_tao, swap_fee) =
-            mock::swap_alpha_to_tao(sn.subnets[0].netuid, unstake_amount);
+        // after the alpha-fee pre-withdrawal has already moved the pool.
+        let (expected_unstaked_tao, swap_fee) = mock::quote_remove_stake_after_alpha_fee(
+            &sn.coldkey,
+            &sn.hotkeys[0],
+            sn.subnets[0].netuid,
+            unstake_amount,
+        );
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
