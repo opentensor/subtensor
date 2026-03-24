@@ -288,5 +288,7 @@ mod errors {
         ColdkeySwapDisputed,
         /// Coldkey swap clear too early.
         ColdkeySwapClearTooEarly,
+        /// Disabled temporarily.
+        DisabledTemporarily,
     }
 }
