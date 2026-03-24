@@ -3,71 +3,15 @@
 //! Extrinsics are NOT tested here. Each section focuses on one helper.
 
 use frame_support::{BoundedVec, traits::ConstU32};
-use sp_core::{H256, Pair};
+use sp_core::H256;
 use sp_keyring::Sr25519Keyring as AccountKeyring;
-use sp_runtime::{AccountId32, MultiSignature};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
 use crate::pallet::Pallet as LimitOrders;
-use crate::{Order, OrderSide, OrderStatus, Orders, SignedOrder, pallet::ProtocolFee};
+use crate::{OrderEntry, OrderSide, OrderStatus, Orders, pallet::ProtocolFee};
 
 use super::mock::*;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-fn alice() -> AccountId32 {
-    AccountKeyring::Alice.to_account_id()
-}
-
-fn bob() -> AccountId32 {
-    AccountKeyring::Bob.to_account_id()
-}
-
-fn charlie() -> AccountId32 {
-    AccountKeyring::Charlie.to_account_id()
-}
-
-fn netuid_1() -> NetUid {
-    NetUid::from(1u16)
-}
-
-/// Create a `SignedOrder` signed by the given `AccountKeyring` key.
-fn make_signed_order(
-    keyring: AccountKeyring,
-    hotkey: AccountId32,
-    netuid: NetUid,
-    side: OrderSide,
-    amount: u64,
-    limit_price: u64,
-    expiry: u64,
-) -> SignedOrder<AccountId32, MultiSignature> {
-    let signer = keyring.to_account_id();
-    let order = Order {
-        signer,
-        hotkey,
-        netuid,
-        side,
-        amount,
-        limit_price,
-        expiry,
-    };
-    use codec::Encode;
-    let msg = order.encode();
-    let sig = keyring.pair().sign(&msg);
-    SignedOrder {
-        order,
-        signature: MultiSignature::Sr25519(sig),
-    }
-}
-
-fn bounded_orders(
-    v: Vec<SignedOrder<AccountId32, MultiSignature>>,
-) -> BoundedVec<SignedOrder<AccountId32, MultiSignature>, ConstU32<64>> {
-    BoundedVec::try_from(v).unwrap()
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ppb_of_tao / ppb_of_alpha
@@ -192,7 +136,7 @@ fn validate_and_classify_separates_buys_and_sells() {
         let buy_order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
-            netuid_1(),
+            netuid(),
             OrderSide::Buy,
             1_000u64,     // amount in TAO
             2_000_000u64, // limit_price: willing to pay up to 2 TAO/alpha (price=1 < 2 ✓)
@@ -201,16 +145,16 @@ fn validate_and_classify_separates_buys_and_sells() {
         let sell_order = make_signed_order(
             AccountKeyring::Bob,
             alice(),
-            netuid_1(),
+            netuid(),
             OrderSide::Sell,
             500u64, // amount in alpha
             1u64,   // limit_price: sell if price >= 1 TAO/alpha (price=1 >= 1 ✓)
             2_000_000u64,
         );
 
-        let orders = bounded_orders(vec![buy_order, sell_order]);
+        let orders = bounded(vec![buy_order, sell_order]);
         let (buys, sells) = LimitOrders::<Test>::validate_and_classify(
-            netuid_1(),
+            netuid(),
             &orders,
             1_000_000u64,
             0u32,
@@ -221,19 +165,19 @@ fn validate_and_classify_separates_buys_and_sells() {
         assert_eq!(sells.len(), 1, "expected 1 valid sell");
 
         // Buy entry: gross=1000, net=1000 (0% fee), fee=0
-        let (_, signer, _, gross, net, fee) = &buys[0];
-        assert_eq!(signer, &alice());
-        assert_eq!(*gross, 1_000u64);
-        assert_eq!(*net, 1_000u64);
-        assert_eq!(*fee, 0u64);
+        let buy = &buys[0];
+        assert_eq!(buy.signer, alice());
+        assert_eq!(buy.gross, 1_000u64);
+        assert_eq!(buy.net, 1_000u64);
+        assert_eq!(buy.fee, 0u64);
 
         // Sell entry: gross=500, net=500, fee=0 (fee deferred to distribution)
-        let (_, signer, _, gross, net, fee) = &sells[0];
-        assert_eq!(signer, &bob());
-        assert_eq!(*gross, 500u64);
-        assert_eq!(*net, 500u64);
+        let sell = &sells[0];
+        assert_eq!(sell.signer, bob());
+        assert_eq!(sell.gross, 500u64);
+        assert_eq!(sell.net, 500u64);
         assert_eq!(
-            *fee, 0u64,
+            sell.fee, 0u64,
             "sell fee is always 0 here — applied on TAO output"
         );
     });
@@ -256,9 +200,9 @@ fn validate_and_classify_skips_wrong_netuid() {
             2_000_000u64,
         );
 
-        let orders = bounded_orders(vec![wrong_netuid_order]);
+        let orders = bounded(vec![wrong_netuid_order]);
         let (buys, sells) = LimitOrders::<Test>::validate_and_classify(
-            netuid_1(), // batch is for netuid 1
+            netuid(), // batch is for netuid 1
             &orders,
             1_000_000u64,
             0u32,
@@ -281,16 +225,16 @@ fn validate_and_classify_skips_expired_order() {
         let expired = make_signed_order(
             AccountKeyring::Alice,
             bob(),
-            netuid_1(),
+            netuid(),
             OrderSide::Buy,
             1_000u64,
             2_000_000u64,
             2_000_000u64, // expiry already past
         );
 
-        let orders = bounded_orders(vec![expired]);
+        let orders = bounded(vec![expired]);
         let (buys, sells) = LimitOrders::<Test>::validate_and_classify(
-            netuid_1(),
+            netuid(),
             &orders,
             2_000_001u64,
             0u32,
@@ -310,16 +254,16 @@ fn validate_and_classify_skips_price_condition_not_met_for_buy() {
         let order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
-            netuid_1(),
+            netuid(),
             OrderSide::Buy,
             1_000u64,
             2u64, // limit_price = 2 TAO/alpha
             2_000_000u64,
         );
 
-        let orders = bounded_orders(vec![order]);
+        let orders = bounded(vec![order]);
         let (buys, _) = LimitOrders::<Test>::validate_and_classify(
-            netuid_1(),
+            netuid(),
             &orders,
             1_000_000u64,
             0u32,
@@ -337,7 +281,7 @@ fn validate_and_classify_skips_already_processed_order() {
         let order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
-            netuid_1(),
+            netuid(),
             OrderSide::Buy,
             1_000u64,
             2_000_000u64,
@@ -345,13 +289,12 @@ fn validate_and_classify_skips_already_processed_order() {
         );
 
         // Pre-mark as fulfilled on-chain.
-        use codec::Encode;
-        let order_id = H256(sp_core::hashing::blake2_256(&order.order.encode()));
-        Orders::<Test>::insert(order_id, OrderStatus::Fulfilled);
+        let oid = LimitOrders::<Test>::derive_order_id(&order.order);
+        Orders::<Test>::insert(oid, OrderStatus::Fulfilled);
 
-        let orders = bounded_orders(vec![order]);
+        let orders = bounded(vec![order]);
         let (buys, _) = LimitOrders::<Test>::validate_and_classify(
-            netuid_1(),
+            netuid(),
             &orders,
             1_000_000u64,
             0u32,
@@ -373,16 +316,16 @@ fn validate_and_classify_applies_buy_fee_to_net() {
         let order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
-            netuid_1(),
+            netuid(),
             OrderSide::Buy,
             1_000_000_000u64,
             u64::MAX, // limit price: accept any price
             2_000_000u64,
         );
 
-        let orders = bounded_orders(vec![order]);
+        let orders = bounded(vec![order]);
         let (buys, _) = LimitOrders::<Test>::validate_and_classify(
-            netuid_1(),
+            netuid(),
             &orders,
             1_000_000u64,
             1_000_000u32,
@@ -390,10 +333,10 @@ fn validate_and_classify_applies_buy_fee_to_net() {
         );
 
         assert_eq!(buys.len(), 1);
-        let (_, _, _, gross, net, fee) = &buys[0];
-        assert_eq!(*gross, 1_000_000_000u64);
-        assert_eq!(*fee, 1_000_000u64);
-        assert_eq!(*net, 999_000_000u64);
+        let entry = &buys[0];
+        assert_eq!(entry.gross, 1_000_000_000u64);
+        assert_eq!(entry.fee, 1_000_000u64);
+        assert_eq!(entry.net, 999_000_000u64);
     });
 }
 
@@ -465,24 +408,31 @@ fn validate_and_classify_applies_buy_fee_to_net() {
 
 fn make_buy_entry(
     order_id: H256,
-    signer: AccountId32,
-    hotkey: AccountId32,
+    signer: AccountId,
+    hotkey: AccountId,
     gross: u64,
     net: u64,
     fee: u64,
-) -> (H256, AccountId32, AccountId32, u64, u64, u64) {
-    (order_id, signer, hotkey, gross, net, fee)
+) -> OrderEntry<AccountId> {
+    OrderEntry {
+        order_id,
+        signer,
+        hotkey,
+        gross,
+        net,
+        fee,
+    }
 }
 
 fn bounded_buy_entries(
-    v: Vec<(H256, AccountId32, AccountId32, u64, u64, u64)>,
-) -> BoundedVec<(H256, AccountId32, AccountId32, u64, u64, u64), ConstU32<64>> {
+    v: Vec<OrderEntry<AccountId>>,
+) -> BoundedVec<OrderEntry<AccountId>, ConstU32<64>> {
     BoundedVec::try_from(v).unwrap()
 }
 
 fn bounded_sell_entries(
-    v: Vec<(H256, AccountId32, AccountId32, u64, u64, u64)>,
-) -> BoundedVec<(H256, AccountId32, AccountId32, u64, u64, u64), ConstU32<64>> {
+    v: Vec<OrderEntry<AccountId>>,
+) -> BoundedVec<OrderEntry<AccountId>, ConstU32<64>> {
     BoundedVec::try_from(v).unwrap()
 }
 
@@ -511,7 +461,7 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_a() {
             U96F32::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 
@@ -566,7 +516,7 @@ fn distribute_alpha_pro_rata_sell_dominant_scenario_b() {
             U96F32::from_num(2u32), // price = 2 TAO/alpha
             &pallet_acct,
             &pallet_hk,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 
@@ -622,7 +572,7 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_c() {
             U96F32::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 
@@ -669,7 +619,7 @@ fn distribute_alpha_pro_rata_dust_remains_in_pallet_scenario_d() {
 
         // Seed the pallet account with the 10 alpha it would hold after collect_assets
         // and the pool swap (actual_out=10, no sellers).
-        MockSwap::set_alpha_balance(pallet_acct.clone(), pallet_hk.clone(), netuid_1(), 10);
+        MockSwap::set_alpha_balance(pallet_acct.clone(), pallet_hk.clone(), netuid(), 10);
 
         let entries = bounded_buy_entries(vec![
             make_buy_entry(H256::repeat_byte(9), alice(), hotkey.clone(), 1, 1, 0),
@@ -686,7 +636,7 @@ fn distribute_alpha_pro_rata_dust_remains_in_pallet_scenario_d() {
             U96F32::from_num(1u32),
             &pallet_acct,
             &pallet_hk,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 
@@ -715,7 +665,7 @@ fn distribute_alpha_pro_rata_dust_remains_in_pallet_scenario_d() {
 
         // The pallet account started with 10 and sent out 9 — 1 alpha dust remains
         // in the pallet account, not burnt, not distributed.
-        let pallet_remaining = MockSwap::alpha_balance(&pallet_acct, &pallet_hk, netuid_1());
+        let pallet_remaining = MockSwap::alpha_balance(&pallet_acct, &pallet_hk, netuid());
         assert_eq!(
             pallet_remaining, 1u64,
             "1 alpha dust stays in pallet account, not burnt"
@@ -807,7 +757,7 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee_scenario_a() {
             U96F32::from_num(2u32),
             0u32, // fee_ppb = 0
             &pallet_acct,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 
@@ -849,7 +799,7 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee_scenario_b() {
             U96F32::from_num(2u32),
             10_000_000u32, // 1% fee
             &pallet_acct,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 
@@ -891,7 +841,7 @@ fn distribute_tao_pro_rata_buy_dominant_scenario_c() {
             U96F32::from_num(2u32),
             0u32,
             &pallet_acct,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 
@@ -938,7 +888,7 @@ fn distribute_tao_pro_rata_dust_remains_in_pallet_scenario_d() {
             U96F32::from_num(1u32),
             0u32, // fee_ppb = 0
             &pallet_acct,
-            netuid_1(),
+            netuid(),
         )
         .unwrap();
 

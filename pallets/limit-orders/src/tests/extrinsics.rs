@@ -4,10 +4,9 @@
 //! and event emission are all verified. SwapInterface calls are handled by
 //! `MockSwap`, which records calls and maintains in-memory balance ledgers.
 
-use frame_support::{assert_noop, assert_ok, BoundedVec};
-use sp_core::{H256, Pair};
+use frame_support::{assert_noop, assert_ok};
 use sp_keyring::Sr25519Keyring as AccountKeyring;
-use sp_runtime::{DispatchError, MultiSignature};
+use sp_runtime::DispatchError;
 use subtensor_runtime_common::NetUid;
 
 use crate::{
@@ -19,50 +18,6 @@ type LimitOrders = crate::pallet::Pallet<Test>;
 
 use super::mock::*;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-fn alice() -> AccountId {
-    AccountKeyring::Alice.to_account_id()
-}
-fn bob() -> AccountId {
-    AccountKeyring::Bob.to_account_id()
-}
-fn charlie() -> AccountId {
-    AccountKeyring::Charlie.to_account_id()
-}
-fn dave() -> AccountId {
-    AccountKeyring::Dave.to_account_id()
-}
-
-fn netuid() -> NetUid {
-    NetUid::from(1u16)
-}
-
-fn make_signed_order(
-    keyring: AccountKeyring,
-    hotkey: AccountId,
-    netuid: NetUid,
-    side: OrderSide,
-    amount: u64,
-    limit_price: u64,
-    expiry: u64,
-) -> crate::SignedOrder<AccountId, MultiSignature> {
-    use codec::Encode;
-    let signer = keyring.to_account_id();
-    let order = Order { signer, hotkey, netuid, side, amount, limit_price, expiry };
-    let sig = keyring.pair().sign(&order.encode());
-    crate::SignedOrder { order, signature: MultiSignature::Sr25519(sig) }
-}
-
-fn bounded(
-    v: Vec<crate::SignedOrder<AccountId, MultiSignature>>,
-) -> BoundedVec<crate::SignedOrder<AccountId, MultiSignature>, frame_support::traits::ConstU32<64>>
-{
-    BoundedVec::try_from(v).unwrap()
-}
-
 /// Check that a specific pallet event was emitted.
 fn assert_event(event: Event<Test>) {
     assert!(
@@ -73,13 +28,6 @@ fn assert_event(event: Event<Test>) {
     );
 }
 
-fn order_id(order: &Order<AccountId>) -> H256 {
-    use codec::Encode;
-    H256(sp_core::hashing::blake2_256(&order.encode()))
-}
-
-const FAR_FUTURE: u64 = u64::MAX;
-
 // ─────────────────────────────────────────────────────────────────────────────
 // set_admin
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,7 +37,9 @@ fn set_admin_root_can_set_admin() {
     new_test_ext().execute_with(|| {
         assert_ok!(LimitOrders::set_admin(RuntimeOrigin::root(), Some(alice())));
         assert_eq!(Admin::<Test>::get(), Some(alice()));
-        assert_event(Event::AdminSet { new_admin: Some(alice()) });
+        assert_event(Event::AdminSet {
+            new_admin: Some(alice()),
+        });
     });
 }
 
@@ -130,7 +80,10 @@ fn set_admin_unsigned_origin_rejected() {
 #[test]
 fn set_protocol_fee_root_can_set() {
     new_test_ext().execute_with(|| {
-        assert_ok!(LimitOrders::set_protocol_fee(RuntimeOrigin::root(), 1_000_000));
+        assert_ok!(LimitOrders::set_protocol_fee(
+            RuntimeOrigin::root(),
+            1_000_000
+        ));
         assert_eq!(ProtocolFee::<Test>::get(), 1_000_000);
         assert_event(Event::ProtocolFeeSet { fee: 1_000_000 });
     });
@@ -140,7 +93,10 @@ fn set_protocol_fee_root_can_set() {
 fn set_protocol_fee_admin_can_set() {
     new_test_ext().execute_with(|| {
         Admin::<Test>::put(alice());
-        assert_ok!(LimitOrders::set_protocol_fee(RuntimeOrigin::signed(alice()), 500_000));
+        assert_ok!(LimitOrders::set_protocol_fee(
+            RuntimeOrigin::signed(alice()),
+            500_000
+        ));
         assert_eq!(ProtocolFee::<Test>::get(), 500_000);
         assert_event(Event::ProtocolFeeSet { fee: 500_000 });
     });
@@ -197,9 +153,15 @@ fn cancel_order_signer_can_cancel() {
         };
         let id = order_id(&order);
 
-        assert_ok!(LimitOrders::cancel_order(RuntimeOrigin::signed(alice()), order));
+        assert_ok!(LimitOrders::cancel_order(
+            RuntimeOrigin::signed(alice()),
+            order
+        ));
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Cancelled));
-        assert_event(Event::OrderCancelled { order_id: id, signer: alice() });
+        assert_event(Event::OrderCancelled {
+            order_id: id,
+            signer: alice(),
+        });
     });
 }
 
@@ -297,12 +259,20 @@ fn execute_orders_buy_order_fulfilled() {
         MockSwap::set_price(1.0);
         // Price = 1.0 ≤ limit = 2.0 → condition met.
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, 2_000_000_000, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            2_000_000_000,
+            FAR_FUTURE,
         );
         let id = order_id(&signed.order);
 
-        assert_ok!(LimitOrders::execute_orders(RuntimeOrigin::signed(charlie()), bounded(vec![signed])));
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
 
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
         assert_event(Event::OrderExecuted {
@@ -321,12 +291,20 @@ fn execute_orders_sell_order_fulfilled() {
         MockSwap::set_price(2.0);
         // Price = 2.0 ≥ limit = 1 → condition met.
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Sell, 500, 1, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Sell,
+            500,
+            1,
+            FAR_FUTURE,
         );
         let id = order_id(&signed.order);
 
-        assert_ok!(LimitOrders::execute_orders(RuntimeOrigin::signed(charlie()), bounded(vec![signed])));
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
 
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
         assert_event(Event::OrderExecuted {
@@ -344,12 +322,20 @@ fn execute_orders_expired_order_skipped() {
         MockTime::set(2_000_001); // now > expiry
         MockSwap::set_price(1.0);
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, 2_000_000, // expiry in the past
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            2_000_000, // expiry in the past
         );
         let id = order_id(&signed.order);
 
-        assert_ok!(LimitOrders::execute_orders(RuntimeOrigin::signed(charlie()), bounded(vec![signed])));
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
 
         // Skipped — storage untouched.
         assert!(Orders::<Test>::get(id).is_none());
@@ -362,12 +348,20 @@ fn execute_orders_price_not_met_skipped() {
         MockTime::set(1_000_000);
         MockSwap::set_price(5.0); // price 5.0 > limit 2 → buy condition not met
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, 2, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            2,
+            FAR_FUTURE,
         );
         let id = order_id(&signed.order);
 
-        assert_ok!(LimitOrders::execute_orders(RuntimeOrigin::signed(charlie()), bounded(vec![signed])));
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
 
         assert!(Orders::<Test>::get(id).is_none());
     });
@@ -379,14 +373,22 @@ fn execute_orders_already_processed_skipped() {
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let id = order_id(&signed.order);
         Orders::<Test>::insert(id, OrderStatus::Fulfilled);
 
         // Should succeed (batch-level) but skip this order silently.
-        assert_ok!(LimitOrders::execute_orders(RuntimeOrigin::signed(charlie()), bounded(vec![signed])));
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
         // Still Fulfilled (not changed).
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
     });
@@ -399,12 +401,22 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
         MockSwap::set_price(1.0);
 
         let valid = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let expired = make_signed_order(
-            AccountKeyring::Bob, alice(), netuid(),
-            OrderSide::Buy, 500, u64::MAX, 500_000, // already expired
+            AccountKeyring::Bob,
+            alice(),
+            netuid(),
+            OrderSide::Buy,
+            500,
+            u64::MAX,
+            500_000, // already expired
         );
         let valid_id = order_id(&valid.order);
 
@@ -435,15 +447,30 @@ fn execute_orders_buy_with_fee_charges_fee() {
         ProtocolFee::<Test>::put(10_000_000u32); // 1%
 
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
         MockSwap::set_tao_balance(alice(), 1_000);
-        assert_ok!(LimitOrders::execute_orders(RuntimeOrigin::signed(charlie()), bounded(vec![signed])));
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
 
         // One buy_alpha call for the net amount (990 TAO after 1% fee).
-        let buys: Vec<_> = MockSwap::log().into_iter()
-            .filter_map(|c| if let super::mock::SwapCall::BuyAlpha { tao, .. } = c { Some(tao) } else { None })
+        let buys: Vec<_> = MockSwap::log()
+            .into_iter()
+            .filter_map(|c| {
+                if let super::mock::SwapCall::BuyAlpha { tao, .. } = c {
+                    Some(tao)
+                } else {
+                    None
+                }
+            })
             .collect();
         assert_eq!(buys, vec![990], "main swap must use 990 TAO after 1% fee");
 
@@ -466,14 +493,29 @@ fn execute_orders_sell_with_fee_charges_fee() {
         ProtocolFee::<Test>::put(10_000_000u32); // 1%
 
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Sell, 1_000, 0, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Sell,
+            1_000,
+            0,
+            FAR_FUTURE,
         );
-        assert_ok!(LimitOrders::execute_orders(RuntimeOrigin::signed(charlie()), bounded(vec![signed])));
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
 
         // Full 1_000 alpha sold (no alpha deducted for fee).
-        let sells: Vec<_> = MockSwap::log().into_iter()
-            .filter_map(|c| if let super::mock::SwapCall::SellAlpha { alpha, .. } = c { Some(alpha) } else { None })
+        let sells: Vec<_> = MockSwap::log()
+            .into_iter()
+            .filter_map(|c| {
+                if let super::mock::SwapCall::SellAlpha { alpha, .. } = c {
+                    Some(alpha)
+                } else {
+                    None
+                }
+            })
             .collect();
         assert_eq!(sells, vec![1_000], "full alpha amount must be sold");
 
@@ -503,8 +545,13 @@ fn execute_batched_orders_all_invalid_returns_ok() {
     new_test_ext().execute_with(|| {
         MockTime::set(2_000_001); // all expired
         let expired = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, 1_000_000,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            1_000_000,
         );
         // Returns Ok even when nothing executes.
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -514,7 +561,10 @@ fn execute_batched_orders_all_invalid_returns_ok() {
         ));
         // No summary event — early return when executed_count == 0.
         let has_summary = System::events().iter().any(|r| {
-            matches!(&r.event, RuntimeEvent::LimitOrders(Event::GroupExecutionSummary { .. }))
+            matches!(
+                &r.event,
+                RuntimeEvent::LimitOrders(Event::GroupExecutionSummary { .. })
+            )
         });
         assert!(!has_summary);
     });
@@ -528,8 +578,13 @@ fn execute_batched_orders_skips_wrong_netuid() {
         MockSwap::set_buy_alpha_return(100);
 
         let wrong_net = make_signed_order(
-            AccountKeyring::Alice, bob(), NetUid::from(99u16), // wrong netuid
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            NetUid::from(99u16), // wrong netuid
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let id = order_id(&wrong_net.order);
 
@@ -539,7 +594,10 @@ fn execute_batched_orders_skips_wrong_netuid() {
             bounded(vec![wrong_net]),
         ));
 
-        assert!(Orders::<Test>::get(id).is_none(), "wrong-netuid order must not be fulfilled");
+        assert!(
+            Orders::<Test>::get(id).is_none(),
+            "wrong-netuid order must not be fulfilled"
+        );
     });
 }
 
@@ -558,12 +616,22 @@ fn execute_batched_orders_buy_only_fulfills_orders_and_distributes_alpha() {
         MockSwap::set_tao_balance(bob(), 400);
 
         let alice_order = make_signed_order(
-            AccountKeyring::Alice, dave(), netuid(),
-            OrderSide::Buy, 600, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderSide::Buy,
+            600,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let bob_order = make_signed_order(
-            AccountKeyring::Bob, dave(), netuid(),
-            OrderSide::Buy, 400, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderSide::Buy,
+            400,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let alice_id = order_id(&alice_order.order);
         let bob_id = order_id(&bob_order.order);
@@ -609,12 +677,22 @@ fn execute_batched_orders_sell_only_fulfills_orders_and_distributes_tao() {
         MockSwap::set_alpha_balance(bob(), dave(), netuid(), 200);
 
         let alice_order = make_signed_order(
-            AccountKeyring::Alice, dave(), netuid(),
-            OrderSide::Sell, 300, 0, FAR_FUTURE, // limit=0 → accept any price
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderSide::Sell,
+            300,
+            0,
+            FAR_FUTURE, // limit=0 → accept any price
         );
         let bob_order = make_signed_order(
-            AccountKeyring::Bob, dave(), netuid(),
-            OrderSide::Sell, 200, 0, FAR_FUTURE,
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderSide::Sell,
+            200,
+            0,
+            FAR_FUTURE,
         );
         let alice_id = order_id(&alice_order.order);
         let bob_id = order_id(&bob_order.order);
@@ -665,16 +743,31 @@ fn execute_batched_orders_buy_dominant_mixed() {
         MockSwap::set_alpha_balance(charlie(), dave(), netuid(), 200);
 
         let alice_buy = make_signed_order(
-            AccountKeyring::Alice, dave(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let bob_buy = make_signed_order(
-            AccountKeyring::Bob, dave(), netuid(),
-            OrderSide::Buy, 600, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderSide::Buy,
+            600,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let charlie_sell = make_signed_order(
-            AccountKeyring::Charlie, dave(), netuid(),
-            OrderSide::Sell, 200, 0, FAR_FUTURE,
+            AccountKeyring::Charlie,
+            dave(),
+            netuid(),
+            OrderSide::Sell,
+            200,
+            0,
+            FAR_FUTURE,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -720,16 +813,31 @@ fn execute_batched_orders_sell_dominant_mixed() {
         MockSwap::set_alpha_balance(charlie(), dave(), netuid(), 200);
 
         let alice_buy = make_signed_order(
-            AccountKeyring::Alice, dave(), netuid(),
-            OrderSide::Buy, 200, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderSide::Buy,
+            200,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let bob_sell = make_signed_order(
-            AccountKeyring::Bob, dave(), netuid(),
-            OrderSide::Sell, 300, 0, FAR_FUTURE,
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderSide::Sell,
+            300,
+            0,
+            FAR_FUTURE,
         );
         let charlie_sell = make_signed_order(
-            AccountKeyring::Charlie, dave(), netuid(),
-            OrderSide::Sell, 200, 0, FAR_FUTURE,
+            AccountKeyring::Charlie,
+            dave(),
+            netuid(),
+            OrderSide::Sell,
+            200,
+            0,
+            FAR_FUTURE,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -765,8 +873,13 @@ fn execute_batched_orders_fee_forwarded_to_collector() {
         ProtocolFee::<Test>::put(10_000_000u32);
 
         let alice_buy = make_signed_order(
-            AccountKeyring::Alice, dave(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -788,8 +901,13 @@ fn execute_batched_orders_cancelled_order_skipped() {
         MockSwap::set_buy_alpha_return(100);
 
         let signed = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
         let id = order_id(&signed.order);
         Orders::<Test>::insert(id, OrderStatus::Cancelled);
@@ -819,8 +937,13 @@ fn execute_batched_orders_buy_zero_alpha_returns_error() {
         MockSwap::set_tao_balance(alice(), 1_000);
 
         let order = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Buy, 1_000, u64::MAX, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
         );
 
         assert_noop!(
@@ -844,8 +967,13 @@ fn execute_batched_orders_sell_zero_tao_returns_error() {
         MockSwap::set_alpha_balance(alice(), bob(), netuid(), 1_000);
 
         let order = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Sell, 1_000, 0, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Sell,
+            1_000,
+            0,
+            FAR_FUTURE,
         );
 
         assert_noop!(
@@ -869,8 +997,13 @@ fn execute_batched_orders_sell_alpha_respects_swap_fail() {
         MockSwap::set_alpha_balance(alice(), bob(), netuid(), 1_000);
 
         let order = make_signed_order(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderSide::Sell, 1_000, 0, FAR_FUTURE,
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderSide::Sell,
+            1_000,
+            0,
+            FAR_FUTURE,
         );
 
         assert_noop!(

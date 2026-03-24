@@ -6,12 +6,14 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use codec::Encode;
 use frame_support::{
-    PalletId, construct_runtime, derive_impl, parameter_types,
+    BoundedVec, PalletId, construct_runtime, derive_impl, parameter_types,
     traits::{ConstU32, Everything},
 };
 use frame_system as system;
-use sp_core::H256;
+use sp_core::{H256, Pair};
+use sp_keyring::Sr25519Keyring as AccountKeyring;
 use sp_runtime::{
     AccountId32, BuildStorage, MultiSignature,
     traits::{BlakeTwo256, IdentityLookup},
@@ -203,7 +205,9 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         _limit_price: TaoBalance,
     ) -> Result<AlphaBalance, frame_support::pallet_prelude::DispatchError> {
         if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
-            return Err(frame_support::pallet_prelude::DispatchError::Other("pool error"));
+            return Err(frame_support::pallet_prelude::DispatchError::Other(
+                "pool error",
+            ));
         }
         let tao = tao_amount.to_u64();
         let alpha_out = MOCK_BUY_ALPHA_RETURN.with(|v| *v.borrow());
@@ -215,7 +219,9 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         });
         ALPHA_BALANCES.with(|b| {
             let mut map = b.borrow_mut();
-            let bal = map.entry((coldkey.clone(), hotkey.clone(), netuid)).or_insert(0);
+            let bal = map
+                .entry((coldkey.clone(), hotkey.clone(), netuid))
+                .or_insert(0);
             *bal = bal.saturating_add(alpha_out);
         });
         SWAP_LOG.with(|l| {
@@ -237,14 +243,18 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         _limit_price: TaoBalance,
     ) -> Result<TaoBalance, frame_support::pallet_prelude::DispatchError> {
         if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
-            return Err(frame_support::pallet_prelude::DispatchError::Other("pool error"));
+            return Err(frame_support::pallet_prelude::DispatchError::Other(
+                "pool error",
+            ));
         }
         let alpha = alpha_amount.to_u64();
         let tao_out = MOCK_SELL_TAO_RETURN.with(|v| *v.borrow());
         // Debit alpha from (coldkey, hotkey, netuid), credit TAO to coldkey.
         ALPHA_BALANCES.with(|b| {
             let mut map = b.borrow_mut();
-            let bal = map.entry((coldkey.clone(), hotkey.clone(), netuid)).or_insert(0);
+            let bal = map
+                .entry((coldkey.clone(), hotkey.clone(), netuid))
+                .or_insert(0);
             *bal = bal.saturating_sub(alpha);
         });
         TAO_BALANCES.with(|b| {
@@ -361,6 +371,62 @@ impl pallet_limit_orders::Config for Test {
     type MaxOrdersPerBatch = ConstU32<64>;
     type PalletId = LimitOrdersPalletId;
     type PalletHotkey = PalletHotkeyAccount;
+}
+
+// ── Shared test helpers ───────────────────────────────────────────────────────
+
+pub fn alice() -> AccountId {
+    AccountKeyring::Alice.to_account_id()
+}
+pub fn bob() -> AccountId {
+    AccountKeyring::Bob.to_account_id()
+}
+pub fn charlie() -> AccountId {
+    AccountKeyring::Charlie.to_account_id()
+}
+pub fn dave() -> AccountId {
+    AccountKeyring::Dave.to_account_id()
+}
+pub fn netuid() -> NetUid {
+    NetUid::from(1u16)
+}
+
+pub const FAR_FUTURE: u64 = u64::MAX;
+
+pub fn make_signed_order(
+    keyring: AccountKeyring,
+    hotkey: AccountId,
+    netuid: NetUid,
+    side: crate::OrderSide,
+    amount: u64,
+    limit_price: u64,
+    expiry: u64,
+) -> crate::SignedOrder<AccountId, MultiSignature> {
+    let signer = keyring.to_account_id();
+    let order = crate::Order {
+        signer,
+        hotkey,
+        netuid,
+        side,
+        amount,
+        limit_price,
+        expiry,
+    };
+    let sig = keyring.pair().sign(&order.encode());
+    crate::SignedOrder {
+        order,
+        signature: MultiSignature::Sr25519(sig),
+    }
+}
+
+pub fn bounded(
+    v: Vec<crate::SignedOrder<AccountId, MultiSignature>>,
+) -> BoundedVec<crate::SignedOrder<AccountId, MultiSignature>, ConstU32<64>> {
+    BoundedVec::try_from(v).unwrap()
+}
+
+pub fn order_id(order: &crate::Order<AccountId>) -> H256 {
+    crate::pallet::Pallet::<Test>::derive_order_id(order)
 }
 
 // ── Test externalities ────────────────────────────────────────────────────────
