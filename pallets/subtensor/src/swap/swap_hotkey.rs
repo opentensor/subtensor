@@ -27,11 +27,11 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
     pub fn do_swap_hotkey(
-        origin: OriginFor<T>,
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-        netuid: Option<NetUid>,
-        keep_stake: bool,
+        _origin: OriginFor<T>,
+        _old_hotkey: &T::AccountId,
+        _new_hotkey: &T::AccountId,
+        _netuid: Option<NetUid>,
+        _keep_stake: bool,
     ) -> DispatchResultWithPostInfo {
         return Err(Error::<T>::DisabledTemporarily.into());
         // 1. Ensure the origin is signed and get the coldkey
@@ -263,6 +263,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    #[allow(unused)]
     fn swap_hotkey_on_subnet(
         coldkey: &T::AccountId,
         old_hotkey: &T::AccountId,
