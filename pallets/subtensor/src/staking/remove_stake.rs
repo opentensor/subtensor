@@ -589,8 +589,8 @@ impl<T: Config> Pallet<T> {
         // 7.a) Remove every (hot, cold, netuid) α entry.
         for (hot, cold) in keys_to_remove {
             WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(2));
-            Alpha::<T>::remove((hot, cold, netuid));
-            AlphaV2::<T>::remove((hot, cold, netuid));
+            Alpha::<T>::remove((&hot, &cold, netuid));
+            AlphaV2::<T>::remove((&hot, &cold, netuid));
         }
         // 7.b) Clear share‑pool totals for each hotkey on this subnet.
         for hot in hotkeys_in_subnet.iter() {
