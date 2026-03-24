@@ -51,6 +51,12 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
 /// The envelope the admin submits on-chain: the order payload plus the user's
 /// signature over the SCALE-encoded `Order`.
 ///
+/// TODO: evaluate cross-chain replay protection. The signature covers only the
+/// SCALE-encoded `Order` with no chain-specific domain separator (genesis hash,
+/// chain ID, or pallet prefix). A signed order is therefore valid on any chain
+/// that shares the same runtime types (e.g. a testnet fork). Consider prepending
+/// a domain tag to the signed payload or adding the genesis hash as an `Order` field.
+///
 /// Signature verification is performed against `order.signer` (the AccountId)
 /// directly, which works because in Substrate sr25519/ed25519 AccountIds are
 /// the raw public keys.
@@ -150,6 +156,12 @@ pub mod pallet {
     #[pallet::storage]
     pub type ProtocolFee<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+    /// The privileged account that may call `set_protocol_fee`.
+    /// Absent ⇒ no admin set; only root can change the fee.
+    /// Set by root via `set_admin`.
+    #[pallet::storage]
+    pub type Admin<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
     /// Tracks the on-chain status of a known `OrderId`.
     /// Absent ⇒ never seen (still executable if valid).
     /// Present ⇒ Fulfilled or Cancelled (both are terminal).
@@ -178,6 +190,8 @@ pub mod pallet {
         },
         /// The protocol fee was updated.
         ProtocolFeeSet { fee: u32 },
+        /// The admin account was updated by root.
+        AdminSet { new_admin: Option<T::AccountId> },
         /// Summary emitted once per `execute_batched_orders` call.
         GroupExecutionSummary {
             /// The subnet all orders in this batch belong to.
@@ -209,6 +223,10 @@ pub mod pallet {
         PriceConditionNotMet,
         /// Caller is not the order signer (required for cancellation).
         Unauthorized,
+        /// Caller is neither root nor the current admin.
+        NotAdmin,
+        /// The pool swap returned zero output for a non-zero input.
+        SwapReturnedZero,
     }
 
     // ── Extrinsics ────────────────────────────────────────────────────────────
@@ -302,13 +320,34 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Set the protocol fee in parts-per-billion. Requires root.
+        /// Set the protocol fee in parts-per-billion.
+        ///
+        /// May be called by root or the current admin account.
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
+        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)))]
         pub fn set_protocol_fee(origin: OriginFor<T>, fee: u32) -> DispatchResult {
-            ensure_root(origin)?;
+            let is_root = ensure_root(origin.clone()).is_ok();
+            if !is_root {
+                let who = ensure_signed(origin)?;
+                ensure!(Admin::<T>::get().as_ref() == Some(&who), Error::<T>::NotAdmin);
+            }
             ProtocolFee::<T>::put(fee);
             Self::deposit_event(Event::ProtocolFeeSet { fee });
+            Ok(())
+        }
+
+        /// Set or clear the admin account. Requires root.
+        ///
+        /// Pass `None` to remove the admin, leaving only root able to change fees.
+        #[pallet::call_index(5)]
+        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
+        pub fn set_admin(origin: OriginFor<T>, new_admin: Option<T::AccountId>) -> DispatchResult {
+            ensure_root(origin)?;
+            match &new_admin {
+                Some(a) => Admin::<T>::put(a),
+                None => Admin::<T>::kill(),
+            }
+            Self::deposit_event(Event::AdminSet { new_admin });
             Ok(())
         }
     }
@@ -383,51 +422,35 @@ pub mod pallet {
                         TaoBalance::from(order.limit_price),
                     )?;
 
-                    // Route the fee TAO to the fee collector as staked alpha.
+                    // Forward the fee TAO directly to FeeCollector.
                     if !fee_tao.is_zero() {
-                        T::SwapInterface::buy_alpha(
+                        T::SwapInterface::transfer_tao(
                             &order.signer,
                             &T::FeeCollector::get(),
-                            order.netuid,
                             fee_tao,
-                            T::SwapInterface::current_alpha_price(order.netuid)
-                                .saturating_to_num::<u64>()
-                                .into(),
                         )
                         .ok();
                     }
                 }
                 OrderSide::Sell => {
-                    let alpha_in = AlphaBalance::from(order.amount);
-                    let fee_alpha = Self::ppb_of_alpha(alpha_in, fee_ppb);
-                    let alpha_after_fee = alpha_in.saturating_sub(fee_alpha);
-
-                    T::SwapInterface::sell_alpha(
+                    // Sell the full alpha amount; fee is taken from the TAO output.
+                    let tao_out = T::SwapInterface::sell_alpha(
                         &order.signer,
                         &order.hotkey,
                         order.netuid,
-                        alpha_after_fee,
+                        AlphaBalance::from(order.amount),
                         TaoBalance::from(order.limit_price),
                     )?;
 
-                    // Sell fee alpha separately; TAO proceeds go to fee collector.
-                    if !fee_alpha.is_zero() {
-                        let fee_tao = T::SwapInterface::sell_alpha(
+                    // Deduct protocol fee from TAO output and forward to FeeCollector.
+                    let fee_tao = Self::ppb_of_tao(tao_out, fee_ppb);
+                    if !fee_tao.is_zero() {
+                        T::SwapInterface::transfer_tao(
                             &order.signer,
-                            &order.hotkey,
-                            order.netuid,
-                            fee_alpha,
-                            TaoBalance::ZERO,
+                            &T::FeeCollector::get(),
+                            fee_tao,
                         )
-                        .unwrap_or(TaoBalance::ZERO);
-
-                        if !fee_tao.is_zero() {
-                            // The sell_alpha implementation is expected to credit TAO to
-                            // the signer; transferring to fee collector requires a
-                            // runtime-level BalanceOps call outside this pallet's scope.
-                            // TODO: integrate BalanceOps to move fee TAO to FeeCollector.
-                            let _ = fee_tao;
-                        }
+                        .ok();
                     }
                 }
             }
@@ -492,7 +515,7 @@ pub mod pallet {
                 &pallet_acct,
                 &pallet_hotkey,
                 netuid,
-            );
+            )?;
 
             // Give every buyer their pro-rata share of (pool alpha output + offset sell alpha).
             Self::distribute_alpha_pro_rata(
@@ -654,23 +677,24 @@ pub mod pallet {
             pallet_acct: &T::AccountId,
             pallet_hotkey: &T::AccountId,
             netuid: NetUid,
-        ) -> (OrderSide, u128) {
+        ) -> Result<(OrderSide, u128), DispatchError> {
             if total_buy_net >= total_sell_tao_equiv {
                 let net_tao = (total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64;
                 let actual_alpha = if net_tao > 0 {
-                    T::SwapInterface::buy_alpha(
+                    let out = T::SwapInterface::buy_alpha(
                         pallet_acct,
                         pallet_hotkey,
                         netuid,
                         TaoBalance::from(net_tao),
                         TaoBalance::ZERO,
-                    )
-                    .unwrap_or(AlphaBalance::ZERO)
-                    .to_u64() as u128
+                    )?
+                    .to_u64() as u128;
+                    ensure!(out > 0, Error::<T>::SwapReturnedZero);
+                    out
                 } else {
                     0u128
                 };
-                (OrderSide::Buy, actual_alpha)
+                Ok((OrderSide::Buy, actual_alpha))
             } else {
                 let total_buy_alpha_equiv: u128 = if current_price > U96F32::from_num(0u32) {
                     (U96F32::from_num(total_buy_net) / current_price).saturating_to_num::<u128>()
@@ -679,19 +703,20 @@ pub mod pallet {
                 };
                 let net_alpha = (total_sell_net.saturating_sub(total_buy_alpha_equiv)) as u64;
                 let actual_tao = if net_alpha > 0 {
-                    T::SwapInterface::sell_alpha(
+                    let out = T::SwapInterface::sell_alpha(
                         pallet_acct,
                         pallet_hotkey,
                         netuid,
                         AlphaBalance::from(net_alpha),
                         TaoBalance::ZERO,
-                    )
-                    .unwrap_or(TaoBalance::ZERO)
-                    .to_u64() as u128
+                    )?
+                    .to_u64() as u128;
+                    ensure!(out > 0, Error::<T>::SwapReturnedZero);
+                    out
                 } else {
                     0u128
                 };
-                (OrderSide::Sell, actual_tao)
+                Ok((OrderSide::Sell, actual_tao))
             }
         }
 

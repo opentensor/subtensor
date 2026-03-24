@@ -102,6 +102,8 @@ thread_local! {
     /// on residual balances after distribution.
     pub static TAO_BALANCES: RefCell<HashMap<AccountId, u64>> =
         RefCell::new(HashMap::new());
+    /// When `true`, `buy_alpha` and `sell_alpha` return `DispatchError::Other("pool error")`.
+    pub static MOCK_SWAP_FAIL: RefCell<bool> = RefCell::new(false);
 }
 
 pub struct MockSwap;
@@ -115,6 +117,9 @@ impl MockSwap {
     }
     pub fn set_sell_tao_return(tao: u64) {
         MOCK_SELL_TAO_RETURN.with(|v| *v.borrow_mut() = tao);
+    }
+    pub fn set_swap_fail(fail: bool) {
+        MOCK_SWAP_FAIL.with(|v| *v.borrow_mut() = fail);
     }
     pub fn clear_log() {
         SWAP_LOG.with(|l| l.borrow_mut().clear());
@@ -197,17 +202,31 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         tao_amount: TaoBalance,
         _limit_price: TaoBalance,
     ) -> Result<AlphaBalance, frame_support::pallet_prelude::DispatchError> {
+        if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
+            return Err(frame_support::pallet_prelude::DispatchError::Other("pool error"));
+        }
+        let tao = tao_amount.to_u64();
+        let alpha_out = MOCK_BUY_ALPHA_RETURN.with(|v| *v.borrow());
+        // Debit TAO from coldkey, credit alpha to (coldkey, hotkey, netuid).
+        TAO_BALANCES.with(|b| {
+            let mut map = b.borrow_mut();
+            let bal = map.entry(coldkey.clone()).or_insert(0);
+            *bal = bal.saturating_sub(tao);
+        });
+        ALPHA_BALANCES.with(|b| {
+            let mut map = b.borrow_mut();
+            let bal = map.entry((coldkey.clone(), hotkey.clone(), netuid)).or_insert(0);
+            *bal = bal.saturating_add(alpha_out);
+        });
         SWAP_LOG.with(|l| {
             l.borrow_mut().push(SwapCall::BuyAlpha {
                 coldkey: coldkey.clone(),
                 hotkey: hotkey.clone(),
                 netuid,
-                tao: tao_amount.to_u64(),
+                tao,
             })
         });
-        Ok(AlphaBalance::from(
-            MOCK_BUY_ALPHA_RETURN.with(|v| *v.borrow()),
-        ))
+        Ok(AlphaBalance::from(alpha_out))
     }
 
     fn sell_alpha(
@@ -217,15 +236,31 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         alpha_amount: AlphaBalance,
         _limit_price: TaoBalance,
     ) -> Result<TaoBalance, frame_support::pallet_prelude::DispatchError> {
+        if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
+            return Err(frame_support::pallet_prelude::DispatchError::Other("pool error"));
+        }
+        let alpha = alpha_amount.to_u64();
+        let tao_out = MOCK_SELL_TAO_RETURN.with(|v| *v.borrow());
+        // Debit alpha from (coldkey, hotkey, netuid), credit TAO to coldkey.
+        ALPHA_BALANCES.with(|b| {
+            let mut map = b.borrow_mut();
+            let bal = map.entry((coldkey.clone(), hotkey.clone(), netuid)).or_insert(0);
+            *bal = bal.saturating_sub(alpha);
+        });
+        TAO_BALANCES.with(|b| {
+            let mut map = b.borrow_mut();
+            let bal = map.entry(coldkey.clone()).or_insert(0);
+            *bal = bal.saturating_add(tao_out);
+        });
         SWAP_LOG.with(|l| {
             l.borrow_mut().push(SwapCall::SellAlpha {
                 coldkey: coldkey.clone(),
                 hotkey: hotkey.clone(),
                 netuid,
-                alpha: alpha_amount.to_u64(),
+                alpha,
             })
         });
-        Ok(TaoBalance::from(MOCK_SELL_TAO_RETURN.with(|v| *v.borrow())))
+        Ok(TaoBalance::from(tao_out))
     }
 
     fn current_alpha_price(_netuid: NetUid) -> U96F32 {
