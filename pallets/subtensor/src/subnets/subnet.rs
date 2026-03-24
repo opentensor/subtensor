@@ -277,9 +277,7 @@ impl<T: Config> Pallet<T> {
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_difficulty(netuid, u64::MAX);
         Self::set_max_difficulty(netuid, u64::MAX);
-
         Self::set_burn(netuid, TaoBalance::from(1_000_000_000));
-        let current_block = Self::get_current_block_as_u64();
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
