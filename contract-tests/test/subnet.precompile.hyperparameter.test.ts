@@ -517,7 +517,7 @@ describe("Test the Subnet precompile contract", () => {
     //     const tx = await contract.setAlphaValues(netuid, newValue[0], newValue[1]);
     //     await tx.wait();
 
-    //     let onchainValue = await api.query.SubtensorModule.AlphaValues.getValue(netuid)
+    //     let onchainValue = await api.query.SubtensorModule.AlphaV2Values.getValue(netuid)
 
     //     let value = await contract.getAlphaValues(netuid)
     //     let valueFromContract = [Number(value[0]), Number(value[1])]

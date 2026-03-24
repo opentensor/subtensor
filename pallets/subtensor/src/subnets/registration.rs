@@ -154,7 +154,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_faucet(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         block_number: u64,
         nonce: u64,
         work: Vec<u8>,
