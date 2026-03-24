@@ -20,6 +20,7 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use share_pool::SafeFloat;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -331,8 +332,8 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = TaoCurrencyReserve<Self>;
-    type AlphaReserve = AlphaCurrencyReserve<Self>;
+    type TaoReserve = TaoBalanceReserve<Self>;
+    type AlphaReserve = AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -1032,4 +1033,15 @@ pub fn commit_dummy(who: U256, netuid: NetUid) {
         netuid,
         hash
     ));
+}
+
+#[allow(dead_code)]
+pub fn sf_to_u128(sf: &SafeFloat) -> u128 {
+    let alpha_f64: f64 = sf.into();
+    alpha_f64 as u128
+}
+
+#[allow(dead_code)]
+pub fn sf_from_u64(val: u64) -> SafeFloat {
+    SafeFloat::from(val)
 }

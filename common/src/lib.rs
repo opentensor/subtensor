@@ -259,7 +259,7 @@ pub trait BalanceOps<AccountId> {
         hotkey: &AccountId,
         netuid: NetUid,
         alpha: AlphaBalance,
-    ) -> Result<AlphaBalance, DispatchError>;
+    ) -> Result<(), DispatchError>;
 }
 
 /// Allows to query the current block author

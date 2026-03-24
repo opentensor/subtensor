@@ -47,6 +47,7 @@ pub trait SwapHandler {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
     fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
+    fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoBalance) -> AlphaBalance;
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

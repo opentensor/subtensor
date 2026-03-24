@@ -13,9 +13,11 @@ use ml_kem::{
     Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
     kem::{Decapsulate, DecapsulationKey},
 };
+use sp_io::hashing::twox_128;
 use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
 use stp_shield::{
-    INHERENT_IDENTIFIER, InherentType, LOG_TARGET, ShieldPublicKey, ShieldedTransaction,
+    INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
+    ShieldedTransaction,
 };
 
 use alloc::vec;
@@ -41,7 +43,6 @@ type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
 type CheckedOf<T, Context> = <T as Checkable<Context>>::Checked;
 type ApplyableCallOf<T> = <T as Applyable>::Call;
 
-const MLKEM768_PK_LEN: usize = 1184;
 const MAX_EXTRINSIC_DEPTH: u32 = 8;
 
 #[frame_support::pallet]
@@ -60,25 +61,32 @@ pub mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    // Current block author ML‑KEM‑768 public key bytes.
-    //
-    // Note: Do not use this to encrypt transactions as this
-    // is only used to validate transactions in the extension.
-    // Use `NextKey` instead.
+    /// Current block author's ML-KEM-768 encapsulation key (internal, not for encryption).
     #[pallet::storage]
-    pub type CurrentKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
+    pub type CurrentKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
-    // Next block author ML‑KEM‑768 public key bytes.
-    //
-    // This is the key that should be used to encrypt transactions.
+    /// Next block author's key, staged here before promoting to `CurrentKey`.
     #[pallet::storage]
-    pub type NextKey<T> = StorageValue<_, ShieldPublicKey, OptionQuery>;
+    pub type PendingKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
-    /// Latest announced ML‑KEM‑768 public key per block author.
-    /// This is the key the author will use for decapsulation in their next slot.
+    /// Key users should encrypt with (N+2 author's key).
+    #[pallet::storage]
+    pub type NextKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
+
+    /// Per-author ML-KEM-768 encapsulation key, updated each time the author produces a block.
     #[pallet::storage]
     pub type AuthorKeys<T: Config> =
-        StorageMap<_, Twox64Concat, T::AuthorityId, ShieldPublicKey, OptionQuery>;
+        StorageMap<_, Twox64Concat, T::AuthorityId, ShieldEncKey, OptionQuery>;
+
+    /// Block number at which `PendingKey` is no longer valid (exclusive upper bound).
+    /// Updated every block during rotation.
+    #[pallet::storage]
+    pub type PendingKeyExpiresAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+
+    /// Block number at which `NextKey` is no longer valid (exclusive upper bound).
+    /// Updated every block during rotation.
+    #[pallet::storage]
+    pub type NextKeyExpiresAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
     /// Stores whether some migration has been run.
     #[pallet::storage]
@@ -94,8 +102,8 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// The announced ML‑KEM public key length is invalid.
-        BadPublicKeyLen,
+        /// The announced ML‑KEM encapsulation key length is invalid.
+        BadEncKeyLen,
         /// Unreachable.
         Unreachable,
     }
@@ -115,50 +123,73 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Announce the ML‑KEM public key that will become `CurrentKey` in
-        /// the next block the current author will produce.
+        /// Rotate the key chain and announce the current author's ML-KEM encapsulation key.
         ///
-        /// Note: The public key can be `None` if the author failed to include the key in the
-        /// inherent data (which should never happen except node failure). In that case, we
-        /// store the next key as `None` to reflect that this author will not be able
-        /// handle encrypted transactions in his next block.
+        /// Called as an inherent every block. `enc_key` is `None` on node failure,
+        /// which removes the author from future shielded tx eligibility.
+        ///
+        /// Key rotation order (using pre-update AuthorKeys):
+        ///   1. CurrentKey  ← PendingKey
+        ///   2. PendingKey  ← NextKey
+        ///   3. NextKey     ← next-next author's key  (user-facing)
+        ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(23_190_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2_u64))
-        .saturating_add(T::DbWeight::get().writes(3_u64)))]
+        #[pallet::weight(Weight::from_parts(33_230_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4_u64))
+        .saturating_add(T::DbWeight::get().writes(6_u64)))]
         pub fn announce_next_key(
             origin: OriginFor<T>,
-            public_key: Option<ShieldPublicKey>,
+            enc_key: Option<ShieldEncKey>,
         ) -> DispatchResult {
             ensure_none(origin)?;
 
-            let author = T::FindAuthors::find_current_author()
-                // This should never happen as we are in an inherent.
-                .ok_or(Error::<T>::Unreachable)?;
+            let author = T::FindAuthors::find_current_author().ok_or(Error::<T>::Unreachable)?;
+            let now = <frame_system::Pallet<T>>::block_number();
 
-            // Shift the key chain: Current ← NextKey.
-            // NextKey was set in the previous block to be the current author's key,
-            // so this naturally tracks the last 2 keys users may have encrypted with.
-            CurrentKey::<T>::set(NextKey::<T>::get());
-
-            if let Some(public_key) = &public_key {
-                ensure!(
-                    public_key.len() == MLKEM768_PK_LEN,
-                    Error::<T>::BadPublicKeyLen
-                );
-                AuthorKeys::<T>::insert(&author, public_key.clone());
+            // 1. CurrentKey ← PendingKey
+            if let Some(pending_key) = PendingKey::<T>::take() {
+                CurrentKey::<T>::put(pending_key);
             } else {
-                // If the author did not announce a key, remove his old key from storage,
-                // he will not be able to accept shielded transactions in his next block.
+                CurrentKey::<T>::kill();
+            }
+
+            // 2. PendingKey ← NextKey (what was N+2 last block is now N+1)
+            if let Some(next_key) = NextKey::<T>::take() {
+                PendingKey::<T>::put(next_key);
+            } else {
+                PendingKey::<T>::kill();
+            }
+
+            // 3. NextKey ← next-next author's key
+            if let Some(next_next_author) = T::FindAuthors::find_next_next_author()
+                && let Some(key) = AuthorKeys::<T>::get(&next_next_author)
+            {
+                NextKey::<T>::put(key);
+            } else {
+                NextKey::<T>::kill();
+            }
+
+            // 4. Update AuthorKeys after rotations for consistent reads above.
+            if let Some(enc_key) = &enc_key {
+                ensure!(
+                    enc_key.len() == MLKEM768_ENC_KEY_LEN,
+                    Error::<T>::BadEncKeyLen
+                );
+                AuthorKeys::<T>::insert(&author, enc_key.clone());
+            } else {
                 AuthorKeys::<T>::remove(&author);
             }
 
-            // Expose the next block author's key so users can encrypt for them.
-            NextKey::<T>::kill();
-            if let Some(next_author) = T::FindAuthors::find_next_author()
-                && let Some(key) = AuthorKeys::<T>::get(&next_author)
-            {
-                NextKey::<T>::put(key);
+            // 5. Set expiration blocks for user-facing keys.
+            if PendingKey::<T>::get().is_some() {
+                PendingKeyExpiresAt::<T>::put(now + 2u32.into());
+            } else {
+                PendingKeyExpiresAt::<T>::kill();
+            }
+            if NextKey::<T>::get().is_some() {
+                NextKeyExpiresAt::<T>::put(now + 3u32.into());
+            } else {
+                NextKeyExpiresAt::<T>::kill();
             }
 
             Ok(())
@@ -168,7 +199,7 @@ pub mod pallet {
         ///
         /// Client‑side:
         ///
-        ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
+        ///   1. Read `NextKey` (ML‑KEM encapsulation key bytes) from storage.
         ///   2. Sign your extrinsic so that it can be executed when added to the pool,
         ///        i.e. you may need to increment the nonce if you submit using the same account.
         ///   3. Encrypt:
@@ -208,13 +239,13 @@ pub mod pallet {
         const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
         fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-            let public_key = data
+            let enc_key = data
                 .get_data::<InherentType>(&INHERENT_IDENTIFIER)
                 .inspect_err(
-                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded public key inherent data: {:?}", e),
+                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded enc key inherent data: {:?}", e),
                 )
                 .ok()??;
-            Some(Call::announce_next_key { public_key })
+            Some(Call::announce_next_key { enc_key })
         }
 
         fn is_inherent(call: &Self::Call) -> bool {
@@ -259,6 +290,12 @@ impl<T: Config> Pallet<T> {
         ShieldedTransaction::parse(ciphertext)
     }
 
+    pub fn is_shielded_using_current_key(key_hash: &[u8; 16]) -> bool {
+        let pending = PendingKey::<T>::get();
+        let pending_hash = pending.as_ref().map(|k| twox_128(&k[..]));
+        pending_hash.as_ref() == Some(key_hash)
+    }
+
     pub fn try_unshield_tx<Block: BlockT>(
         dec_key_bytes: alloc::vec::Vec<u8>,
         shielded_tx: ShieldedTransaction,
@@ -280,14 +317,14 @@ impl<T: Config> Pallet<T> {
 
 pub trait FindAuthors<T: Config> {
     fn find_current_author() -> Option<T::AuthorityId>;
-    fn find_next_author() -> Option<T::AuthorityId>;
+    fn find_next_next_author() -> Option<T::AuthorityId>;
 }
 
 impl<T: Config> FindAuthors<T> for () {
     fn find_current_author() -> Option<T::AuthorityId> {
         None
     }
-    fn find_next_author() -> Option<T::AuthorityId> {
+    fn find_next_next_author() -> Option<T::AuthorityId> {
         None
     }
 }

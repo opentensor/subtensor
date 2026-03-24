@@ -152,7 +152,7 @@ impl ConsensusMechanism for BabeConsensus {
         }
     }
 
-    fn build_biq(&mut self) -> Result<BIQ<'_>, sc_service::Error>
+    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ<'_>, sc_service::Error>
     where
         NumberFor<Block>: BlockNumberOps,
     {
@@ -188,6 +188,7 @@ impl ConsensusMechanism for BabeConsensus {
                 let conditional_block_import = ConditionalEVMBlockImport::new(
                     babe_import.clone(),
                     FrontierBlockImport::new(babe_import.clone(), client.clone()),
+                    skip_history_backfill,
                 );
 
                 let slot_duration = babe_link.config().slot_duration();

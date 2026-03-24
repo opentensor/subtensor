@@ -1282,7 +1282,8 @@ fn test_claim_root_with_swap_hotkey() {
             &hotkey,
             &new_hotkey,
             &mut weight,
-            netuid
+            netuid,
+            false,
         ));
 
         // Check swapped keys claimed values

@@ -1,0 +1,10 @@
+name: eco-tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "ok"

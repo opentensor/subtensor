@@ -580,7 +580,7 @@ impl<T: Config> Pallet<T> {
 
         // Small delta is not allowed
         ensure!(
-            liquidity_delta.abs() >= T::MinimumLiquidity::get() as i64,
+            liquidity_delta.unsigned_abs() >= T::MinimumLiquidity::get(),
             Error::<T>::InvalidLiquidityValue
         );
         let mut delta_liquidity_abs = liquidity_delta.unsigned_abs();
@@ -1197,5 +1197,24 @@ impl<T: Config> SwapHandler for Pallet<T> {
     }
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
         EnabledUserLiquidity::<T>::insert(netuid, enabled)
+    }
+
+    /// Get the amount of Alpha that needs to be sold to get a given amount of Tao
+    fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoBalance) -> AlphaBalance {
+        match T::SubnetInfo::mechanism(netuid.into()) {
+            1 => {
+                // For uniswap v3: Use no-slippage method. Amount is supposed to be small,
+                // hence we can neglect slippage and return slightly lower amount.
+                let alpha_price = Self::current_price(netuid.into());
+                AlphaBalance::from(
+                    U96F32::from(u64::from(tao_amount))
+                        .safe_div(alpha_price)
+                        .saturating_to_num::<u64>(),
+                )
+            }
+
+            // Static subnet, alpha == tao
+            _ => u64::from(tao_amount).into(),
+        }
     }
 }

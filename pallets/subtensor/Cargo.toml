@@ -56,10 +56,10 @@ rand_chacha.workspace = true
 pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
 pallet-shield.workspace = true
+pallet-scheduler.workspace = true
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
-pallet-scheduler.workspace = true
 pallet-subtensor-proxy.workspace = true
 pallet-aura.workspace = true
 subtensor-runtime-common.workspace = true

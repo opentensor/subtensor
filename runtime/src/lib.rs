@@ -10,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use core::num::NonZeroU64;
 
+pub mod check_mortality;
 pub mod check_nonce;
 mod migrations;
 pub mod sudo_wrapper;
@@ -136,12 +137,12 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
         authorities.get(author_index as usize).cloned()
     }
 
-    fn find_next_author() -> Option<AuraId> {
-        let next_slot = Aura::current_slot_from_digests()?.checked_add(1)?;
+    fn find_next_next_author() -> Option<AuraId> {
+        let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
         let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
-        let next_author_index = next_slot % authorities.len() as u64;
+        let author_index = slot % authorities.len() as u64;
 
-        authorities.get(next_author_index as usize).cloned()
+        authorities.get(author_index as usize).cloned()
     }
 }
 
@@ -193,7 +194,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 frame_system::CheckSpecVersion::<Runtime>::new(),
                 frame_system::CheckTxVersion::<Runtime>::new(),
                 frame_system::CheckGenesis::<Runtime>::new(),
-                frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+                check_mortality::CheckMortality::<Runtime>::from(Era::Immortal),
                 check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
                 frame_system::CheckWeight::<Runtime>::new(),
             ),
@@ -267,7 +268,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 387,
+    spec_version: 393,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1117,7 +1118,7 @@ parameter_types! {
     // 0 days
     pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(1_000_000); // 0.001 TAO
-    pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const HotkeySwapOnSubnetInterval : BlockNumber = 24 * 60 * 60 / 12; // 1 day
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
@@ -1210,8 +1211,8 @@ impl pallet_subtensor_swap::Config for Runtime {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
-    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
+    type TaoReserve = pallet_subtensor::TaoBalanceReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -1671,7 +1672,7 @@ pub type SystemTxExtension = (
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
-    frame_system::CheckEra<Runtime>,
+    check_mortality::CheckMortality<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
 );
@@ -2650,6 +2651,10 @@ impl_runtime_apis! {
     impl stp_shield::ShieldApi<Block> for Runtime {
         fn try_decode_shielded_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
             MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
+        }
+
+        fn is_shielded_using_current_key(key_hash: &[u8; 16]) -> bool {
+            MevShield::is_shielded_using_current_key(key_hash)
         }
 
         fn try_unshield_tx(dec_key_bytes: Vec<u8>, shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
