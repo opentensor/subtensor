@@ -9,8 +9,8 @@ use sp_runtime::{AccountId32, MultiSignature};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
-use crate::{Order, OrderSide, OrderStatus, Orders, SignedOrder, pallet::ProtocolFee};
 use crate::pallet::Pallet as LimitOrders;
+use crate::{Order, OrderSide, OrderStatus, Orders, SignedOrder, pallet::ProtocolFee};
 
 use super::mock::*;
 
@@ -203,8 +203,8 @@ fn validate_and_classify_separates_buys_and_sells() {
             alice(),
             netuid_1(),
             OrderSide::Sell,
-            500u64,   // amount in alpha
-            1u64,     // limit_price: sell if price >= 1 TAO/alpha (price=1 >= 1 ✓)
+            500u64, // amount in alpha
+            1u64,   // limit_price: sell if price >= 1 TAO/alpha (price=1 >= 1 ✓)
             2_000_000u64,
         );
 
@@ -232,7 +232,10 @@ fn validate_and_classify_separates_buys_and_sells() {
         assert_eq!(signer, &bob());
         assert_eq!(*gross, 500u64);
         assert_eq!(*net, 500u64);
-        assert_eq!(*fee, 0u64, "sell fee is always 0 here — applied on TAO output");
+        assert_eq!(
+            *fee, 0u64,
+            "sell fee is always 0 here — applied on TAO output"
+        );
     });
 }
 
@@ -373,7 +376,7 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             netuid_1(),
             OrderSide::Buy,
             1_000_000_000u64,
-            u64::MAX,     // limit price: accept any price
+            u64::MAX, // limit price: accept any price
             2_000_000u64,
         );
 
@@ -398,11 +401,17 @@ fn validate_and_classify_applies_buy_fee_to_net() {
 // distribute_alpha_pro_rata
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Scenario A – buy-dominant
-// ──────────────────────────
+// Scenario A – buy-dominant, pool rate = 1:1
+// ───────────────────────────────────────────
+// Both buyers and sellers are present, but buys exceed sells in TAO terms.
+// Sellers are settled first (they receive TAO in distribute_tao_pro_rata).
+// Their alpha (200 total) stays in the pallet account as passthrough for buyers.
+// The residual buy TAO hits the pool and returns 800 alpha (at 1:1 rate).
+//
 // 3 buyers: Alice 300 TAO net, Bob 200 TAO net, Charlie 500 TAO net (total 1000)
-// Pool returns 800 alpha; seller alpha passed-through = 200.
-// Total alpha pool = 800 + 200 = 1000 alpha.
+// Sellers contributed 200 alpha (passthrough, no pool interaction).
+// Net residual TAO to pool = 1000 - 200 = 800 TAO → pool returns 800 alpha (1:1).
+// Total alpha available to buyers = 800 (pool) + 200 (seller passthrough) = 1000.
 //
 // Pro-rata shares (proportional to each buyer's net TAO):
 //   Alice:   1000 * 300 / 1000 = 300 alpha
@@ -411,12 +420,48 @@ fn validate_and_classify_applies_buy_fee_to_net() {
 //
 // Scenario B – sell-dominant
 // ───────────────────────────
+// Both buyers and sellers are present, but sells exceed buys in TAO terms.
+// Buyers are settled from the sellers' alpha directly (no pool for them).
+// The residual sell alpha hits the pool; sellers receive TAO in distribute_tao_pro_rata.
+//
 // 2 buyers: Alice 400 TAO net, Bob 600 TAO net (total 1000)
 // Price = 2.0 TAO/alpha → total alpha for buyers = 1000 / 2 = 500 alpha.
 //
 // Pro-rata shares:
 //   Alice:  500 * 400 / 1000 = 200 alpha
 //   Bob:    500 * 600 / 1000 = 300 alpha
+//
+// Scenario C – buy-dominant, pool rate != 1:1
+// ────────────────────────────────────────────────────────
+// Same structure as Scenario A but the pool returns fewer alpha than the TAO
+// sent in, simulating realistic AMM. Pro-rata is computed over
+// whatever the pool actually returned — the distribution logic is rate-agnostic.
+//
+// 3 buyers: Alice 300 TAO net, Bob 200 TAO net, Charlie 500 TAO net (total 1000)
+// Sellers contributed 200 alpha (passthrough).
+// Net residual TAO to pool = 800 TAO → pool returns 750 alpha (slippage).
+// Total alpha available to buyers = 750 (pool) + 200 (seller passthrough) = 950.
+//
+// Pro-rata shares:
+//   Alice:   950 * 300 / 1000 = 285 alpha
+//   Bob:     950 * 200 / 1000 = 190 alpha
+//   Charlie: 950 * 500 / 1000 = 475 alpha
+//
+// Scenario D – buy-dominant, indivisible remainder (dust)
+// ─────────────────────────────────────────────────────────
+// Integer division floors every share. The sum of floors is strictly less than
+// total_alpha when total_alpha is not divisible by total_buy_net.
+// The leftover alpha stays in the pallet intermediary account (never transferred).
+//
+// 3 buyers: Alice 1 TAO net, Bob 1 TAO net, Charlie 1 TAO net (total 3)
+// Pool returns 10 alpha; no sellers → total_alpha = 10.
+//
+// Pro-rata shares (floor):
+//   Alice:   floor(10 * 1 / 3) = 3 alpha
+//   Bob:     floor(10 * 1 / 3) = 3 alpha
+//   Charlie: floor(10 * 1 / 3) = 3 alpha
+//   Total distributed: 9 alpha
+//   Dust remaining in pallet account: 10 - 9 = 1 alpha (never transferred)
 
 fn make_buy_entry(
     order_id: H256,
@@ -442,9 +487,8 @@ fn bounded_sell_entries(
 }
 
 #[test]
-fn distribute_alpha_pro_rata_buy_dominant() {
+fn distribute_alpha_pro_rata_buy_dominant_scenario_a() {
     new_test_ext().execute_with(|| {
-        MockSwap::clear_log();
         // Pool returned 800 alpha; sell-side passthrough = 200 alpha.
         // Total = 1000 alpha distributed across 3 buyers (300, 200, 500 TAO net).
         // Expected shares: Alice 300, Bob 200, Charlie 500.
@@ -452,7 +496,7 @@ fn distribute_alpha_pro_rata_buy_dominant() {
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_buy_entries(vec![
             make_buy_entry(H256::repeat_byte(1), alice(), hotkey.clone(), 300, 300, 0),
-            make_buy_entry(H256::repeat_byte(2), bob(),   hotkey.clone(), 200, 200, 0),
+            make_buy_entry(H256::repeat_byte(2), bob(), hotkey.clone(), 200, 200, 0),
             make_buy_entry(H256::repeat_byte(3), charlie(), hotkey.clone(), 500, 500, 0),
         ]);
         let pallet_acct = PalletHotkeyAccount::get(); // reuse as coldkey for brevity
@@ -476,9 +520,21 @@ fn distribute_alpha_pro_rata_buy_dominant() {
         assert_eq!(transfers.len(), 3);
 
         // Check each recipient's amount (signer is to_coldkey).
-        let alice_amt = transfers.iter().find(|(_, _, to_ck, _, _, _)| to_ck == &alice()).unwrap().5;
-        let bob_amt   = transfers.iter().find(|(_, _, to_ck, _, _, _)| to_ck == &bob()).unwrap().5;
-        let charlie_amt = transfers.iter().find(|(_, _, to_ck, _, _, _)| to_ck == &charlie()).unwrap().5;
+        let alice_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &alice())
+            .unwrap()
+            .5;
+        let bob_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &bob())
+            .unwrap()
+            .5;
+        let charlie_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &charlie())
+            .unwrap()
+            .5;
 
         assert_eq!(alice_amt, 300u64, "Alice should receive 300 alpha");
         assert_eq!(bob_amt, 200u64, "Bob should receive 200 alpha");
@@ -487,9 +543,8 @@ fn distribute_alpha_pro_rata_buy_dominant() {
 }
 
 #[test]
-fn distribute_alpha_pro_rata_sell_dominant() {
+fn distribute_alpha_pro_rata_sell_dominant_scenario_b() {
     new_test_ext().execute_with(|| {
-        MockSwap::clear_log();
         // Price = 2.0 TAO/alpha; buyers have 400 + 600 = 1000 TAO net.
         // Total alpha = 1000 / 2 = 500.
         // Expected: Alice 200 alpha, Bob 300 alpha.
@@ -497,7 +552,7 @@ fn distribute_alpha_pro_rata_sell_dominant() {
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_buy_entries(vec![
             make_buy_entry(H256::repeat_byte(4), alice(), hotkey.clone(), 400, 400, 0),
-            make_buy_entry(H256::repeat_byte(5), bob(),   hotkey.clone(), 600, 600, 0),
+            make_buy_entry(H256::repeat_byte(5), bob(), hotkey.clone(), 600, 600, 0),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
         let pallet_hk = PalletHotkeyAccount::get();
@@ -518,11 +573,153 @@ fn distribute_alpha_pro_rata_sell_dominant() {
         let transfers = MockSwap::alpha_transfers();
         assert_eq!(transfers.len(), 2);
 
-        let alice_amt = transfers.iter().find(|(_, _, to_ck, _, _, _)| to_ck == &alice()).unwrap().5;
-        let bob_amt   = transfers.iter().find(|(_, _, to_ck, _, _, _)| to_ck == &bob()).unwrap().5;
+        let alice_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &alice())
+            .unwrap()
+            .5;
+        let bob_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &bob())
+            .unwrap()
+            .5;
 
         assert_eq!(alice_amt, 200u64, "Alice should receive 200 alpha");
         assert_eq!(bob_amt, 300u64, "Bob should receive 300 alpha");
+    });
+}
+
+#[test]
+fn distribute_alpha_pro_rata_buy_dominant_scenario_c() {
+    new_test_ext().execute_with(|| {
+        // Scenario C: same buyer setup as A but pool returns 750 alpha (slippage)
+        // instead of 800. Proves pro-rata is computed over actual pool output and
+        // is therefore rate-agnostic — the distribution logic doesn't assume 1:1.
+        //
+        // Net residual TAO to pool = 800 TAO → pool returns 750 alpha (not 800).
+        // Total alpha = 750 (pool) + 200 (seller passthrough) = 950.
+        //
+        // Expected shares:
+        //   Alice:   950 * 300 / 1000 = 285 alpha
+        //   Bob:     950 * 200 / 1000 = 190 alpha
+        //   Charlie: 950 * 500 / 1000 = 475 alpha
+
+        let hotkey = AccountKeyring::Dave.to_account_id();
+        let entries = bounded_buy_entries(vec![
+            make_buy_entry(H256::repeat_byte(6), alice(), hotkey.clone(), 300, 300, 0),
+            make_buy_entry(H256::repeat_byte(7), bob(), hotkey.clone(), 200, 200, 0),
+            make_buy_entry(H256::repeat_byte(8), charlie(), hotkey.clone(), 500, 500, 0),
+        ]);
+        let pallet_acct = PalletHotkeyAccount::get();
+        let pallet_hk = PalletHotkeyAccount::get();
+
+        LimitOrders::<Test>::distribute_alpha_pro_rata(
+            &entries,
+            750u128,   // actual_out from pool (750, not 800 — slippage)
+            1_000u128, // total_buy_net (TAO)
+            200u128,   // total_sell_net (alpha passthrough)
+            &OrderSide::Buy,
+            U96F32::from_num(1u32),
+            &pallet_acct,
+            &pallet_hk,
+            netuid_1(),
+        )
+        .unwrap();
+
+        let transfers = MockSwap::alpha_transfers();
+        assert_eq!(transfers.len(), 3);
+
+        let alice_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &alice())
+            .unwrap()
+            .5;
+        let bob_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &bob())
+            .unwrap()
+            .5;
+        let charlie_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &charlie())
+            .unwrap()
+            .5;
+
+        assert_eq!(
+            alice_amt, 285u64,
+            "Alice receives 950 * 300/1000 = 285 alpha"
+        );
+        assert_eq!(bob_amt, 190u64, "Bob receives 950 * 200/1000 = 190 alpha");
+        assert_eq!(
+            charlie_amt, 475u64,
+            "Charlie receives 950 * 500/1000 = 475 alpha"
+        );
+    });
+}
+
+#[test]
+fn distribute_alpha_pro_rata_dust_remains_in_pallet_scenario_d() {
+    new_test_ext().execute_with(|| {
+        // Scenario D: total_alpha = 10, three equal buyers (total_buy_net = 3).
+        // floor(10 * 1/3) = 3 each → 9 distributed → 1 alpha dust stays in pallet.
+
+        let hotkey = AccountKeyring::Dave.to_account_id();
+        let pallet_acct = PalletHotkeyAccount::get();
+        let pallet_hk = PalletHotkeyAccount::get();
+
+        // Seed the pallet account with the 10 alpha it would hold after collect_assets
+        // and the pool swap (actual_out=10, no sellers).
+        MockSwap::set_alpha_balance(pallet_acct.clone(), pallet_hk.clone(), netuid_1(), 10);
+
+        let entries = bounded_buy_entries(vec![
+            make_buy_entry(H256::repeat_byte(9), alice(), hotkey.clone(), 1, 1, 0),
+            make_buy_entry(H256::repeat_byte(10), bob(), hotkey.clone(), 1, 1, 0),
+            make_buy_entry(H256::repeat_byte(11), charlie(), hotkey.clone(), 1, 1, 0),
+        ]);
+
+        LimitOrders::<Test>::distribute_alpha_pro_rata(
+            &entries,
+            10u128, // actual_out from pool
+            3u128,  // total_buy_net (TAO) — not divisible into 10 evenly
+            0u128,  // total_sell_net — no sellers
+            &OrderSide::Buy,
+            U96F32::from_num(1u32),
+            &pallet_acct,
+            &pallet_hk,
+            netuid_1(),
+        )
+        .unwrap();
+
+        let transfers = MockSwap::alpha_transfers();
+        assert_eq!(transfers.len(), 3);
+
+        let alice_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &alice())
+            .unwrap()
+            .5;
+        let bob_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &bob())
+            .unwrap()
+            .5;
+        let charlie_amt = transfers
+            .iter()
+            .find(|(_, _, to_ck, _, _, _)| to_ck == &charlie())
+            .unwrap()
+            .5;
+
+        assert_eq!(alice_amt, 3u64, "floor(10 * 1/3) = 3");
+        assert_eq!(bob_amt, 3u64, "floor(10 * 1/3) = 3");
+        assert_eq!(charlie_amt, 3u64, "floor(10 * 1/3) = 3");
+
+        // The pallet account started with 10 and sent out 9 — 1 alpha dust remains
+        // in the pallet account, not burnt, not distributed.
+        let pallet_remaining = MockSwap::alpha_balance(&pallet_acct, &pallet_hk, netuid_1());
+        assert_eq!(
+            pallet_remaining, 1u64,
+            "1 alpha dust stays in pallet account, not burnt"
+        );
     });
 }
 
@@ -531,35 +728,64 @@ fn distribute_alpha_pro_rata_sell_dominant() {
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Scenario A – sell-dominant, fee = 0
-// ──────────────────────────────────
+// ─────────────────────────────────────
+// Both buyers and sellers are present, but sells exceed buys in TAO terms.
+// Buyers are settled first (they receive alpha in distribute_alpha_pro_rata).
+// The residual sell alpha hits the pool; pool returns TAO.
+// Buy-side TAO also stays in pallet as passthrough for sellers.
+//
 // 2 sellers: Alice 400 alpha, Bob 600 alpha (total 1000 alpha)
-// Price = 2.0 TAO/alpha → sell_tao_equiv: Alice 800, Bob 1200, total 2000
-// Pool returned 1200 TAO; buy-side passthrough = 800 TAO. Total = 2000 TAO.
+// Price = 2.0 TAO/alpha → sell_tao_equiv: Alice 800, Bob 1200, total 2000.
+// Pool returned 1200 TAO for the residual alpha; buy passthrough = 800 TAO.
+// Total TAO available to sellers = 1200 (pool) + 800 (buy passthrough) = 2000.
 //
 // Pro-rata shares (proportional to each seller's TAO-equiv):
 //   Alice:  2000 * 800 / 2000 = 800 TAO
 //   Bob:    2000 * 1200 / 2000 = 1200 TAO
 //
 // Scenario B – sell-dominant, fee = 1% (10_000_000 ppb)
-// ─────────────────────────────────────────────────────
-// Same setup. Fee on gross TAO payout:
-//   Alice:  gross 800, fee 8 (1% of 800), net 792 TAO
-//   Bob:    gross 1200, fee 12, net 1188 TAO
+// ────────────────────────────────────────────────────────
+// Same structure as Scenario A. Fee is deducted from each seller's gross TAO
+// payout; the withheld TAO stays in the pallet account for collect_fees.
+//
+// Alice gross=800, fee=8 (1% of 800), net=792 TAO
+// Bob   gross=1200, fee=12, net=1188 TAO
+// Total sell fee returned: 20 TAO
 //
 // Scenario C – buy-dominant
 // ──────────────────────────
+// Both buyers and sellers are present, but buys exceed sells in TAO terms.
+// Sellers receive their alpha valued at current_price — no pool interaction
+// for them. The TAO they receive comes from the buyers' collected TAO directly.
+//
 // 2 sellers: Alice 300 alpha, Bob 200 alpha (total 500 alpha)
 // Price = 2.0 TAO/alpha → sell_tao_equiv: Alice 600, Bob 400, total 1000.
-// (buy-dominant branch) total_tao = total_sell_tao_equiv = 1000.
+// Buy-dominant branch: total_tao = total_sell_tao_equiv = 1000 TAO.
 //
 // Shares:
 //   Alice:  1000 * 600 / 1000 = 600 TAO
 //   Bob:    1000 * 400 / 1000 = 400 TAO
+//
+// Scenario D – sell-dominant, indivisible remainder (dust)
+// ─────────────────────────────────────────────────────────
+// Integer division floors every gross share. The leftover TAO stays in the
+// pallet intermediary account (never transferred, not burnt).
+//
+// 3 sellers: Alice 1 alpha, Bob 1 alpha, Charlie 1 alpha (total 3 alpha)
+// Price = 1.0 TAO/alpha → sell_tao_equiv = 1 each, total_sell_tao_equiv = 3.
+// No buyers; actual_out from pool = 10 TAO, buy passthrough = 0.
+// total_tao = 10 + 0 = 10.
+//
+// Pro-rata shares (floor):
+//   Alice:   floor(10 * 1 / 3) = 3 TAO
+//   Bob:     floor(10 * 1 / 3) = 3 TAO
+//   Charlie: floor(10 * 1 / 3) = 3 TAO
+//   Total distributed: 9 TAO
+//   Dust remaining in pallet account: 10 - 9 = 1 TAO (never transferred)
 
 #[test]
-fn distribute_tao_pro_rata_sell_dominant_no_fee() {
+fn distribute_tao_pro_rata_sell_dominant_no_fee_scenario_a() {
     new_test_ext().execute_with(|| {
-        MockSwap::clear_log();
         // Price = 2, total_tao = 1200 (pool) + 800 (buy passthrough) = 2000
         // Alice alpha=400 → tao_equiv=800; Bob alpha=600 → tao_equiv=1200.
         // total_sell_tao_equiv = 2000.
@@ -568,7 +794,7 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee() {
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_sell_entries(vec![
             make_buy_entry(H256::repeat_byte(6), alice(), hotkey.clone(), 400, 400, 0),
-            make_buy_entry(H256::repeat_byte(7), bob(),   hotkey.clone(), 600, 600, 0),
+            make_buy_entry(H256::repeat_byte(7), bob(), hotkey.clone(), 600, 600, 0),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
@@ -587,8 +813,12 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee() {
 
         let transfers = MockSwap::tao_transfers();
         assert_eq!(transfers.len(), 2);
-        let alice_tao = transfers.iter().find(|(_, to, _)| to == &alice()).unwrap().2;
-        let bob_tao   = transfers.iter().find(|(_, to, _)| to == &bob()).unwrap().2;
+        let alice_tao = transfers
+            .iter()
+            .find(|(_, to, _)| to == &alice())
+            .unwrap()
+            .2;
+        let bob_tao = transfers.iter().find(|(_, to, _)| to == &bob()).unwrap().2;
 
         assert_eq!(alice_tao, 800u64, "Alice should receive 800 TAO");
         assert_eq!(bob_tao, 1_200u64, "Bob should receive 1200 TAO");
@@ -597,9 +827,8 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee() {
 }
 
 #[test]
-fn distribute_tao_pro_rata_sell_dominant_with_fee() {
+fn distribute_tao_pro_rata_sell_dominant_with_fee_scenario_b() {
     new_test_ext().execute_with(|| {
-        MockSwap::clear_log();
         // Same setup as above but fee = 10_000_000 ppb = 1%.
         // Alice gross=800, fee=8, net=792; Bob gross=1200, fee=12, net=1188.
         // Total sell fee = 20.
@@ -607,7 +836,7 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee() {
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_sell_entries(vec![
             make_buy_entry(H256::repeat_byte(8), alice(), hotkey.clone(), 400, 400, 0),
-            make_buy_entry(H256::repeat_byte(9), bob(),   hotkey.clone(), 600, 600, 0),
+            make_buy_entry(H256::repeat_byte(9), bob(), hotkey.clone(), 600, 600, 0),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
@@ -626,8 +855,12 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee() {
 
         let transfers = MockSwap::tao_transfers();
         assert_eq!(transfers.len(), 2);
-        let alice_tao = transfers.iter().find(|(_, to, _)| to == &alice()).unwrap().2;
-        let bob_tao   = transfers.iter().find(|(_, to, _)| to == &bob()).unwrap().2;
+        let alice_tao = transfers
+            .iter()
+            .find(|(_, to, _)| to == &alice())
+            .unwrap()
+            .2;
+        let bob_tao = transfers.iter().find(|(_, to, _)| to == &bob()).unwrap().2;
 
         assert_eq!(alice_tao, 792u64, "Alice net after 1% fee on 800");
         assert_eq!(bob_tao, 1_188u64, "Bob net after 1% fee on 1200");
@@ -636,9 +869,8 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee() {
 }
 
 #[test]
-fn distribute_tao_pro_rata_buy_dominant() {
+fn distribute_tao_pro_rata_buy_dominant_scenario_c() {
     new_test_ext().execute_with(|| {
-        MockSwap::clear_log();
         // Buy-dominant: total_tao = total_sell_tao_equiv = 1000.
         // Alice alpha=300 → tao_equiv=600; Bob alpha=200 → tao_equiv=400.
         // Shares: Alice 600, Bob 400.
@@ -646,7 +878,7 @@ fn distribute_tao_pro_rata_buy_dominant() {
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_sell_entries(vec![
             make_buy_entry(H256::repeat_byte(10), alice(), hotkey.clone(), 300, 300, 0),
-            make_buy_entry(H256::repeat_byte(11), bob(),   hotkey.clone(), 200, 200, 0),
+            make_buy_entry(H256::repeat_byte(11), bob(), hotkey.clone(), 200, 200, 0),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
@@ -665,12 +897,78 @@ fn distribute_tao_pro_rata_buy_dominant() {
 
         let transfers = MockSwap::tao_transfers();
         assert_eq!(transfers.len(), 2);
-        let alice_tao = transfers.iter().find(|(_, to, _)| to == &alice()).unwrap().2;
-        let bob_tao   = transfers.iter().find(|(_, to, _)| to == &bob()).unwrap().2;
+        let alice_tao = transfers
+            .iter()
+            .find(|(_, to, _)| to == &alice())
+            .unwrap()
+            .2;
+        let bob_tao = transfers.iter().find(|(_, to, _)| to == &bob()).unwrap().2;
 
         assert_eq!(alice_tao, 600u64, "Alice should receive 600 TAO");
         assert_eq!(bob_tao, 400u64, "Bob should receive 400 TAO");
         assert_eq!(sell_fee, 0u64);
+    });
+}
+
+#[test]
+fn distribute_tao_pro_rata_dust_remains_in_pallet_scenario_d() {
+    new_test_ext().execute_with(|| {
+        // Scenario D: total_tao = 10, three equal sellers (total_sell_tao_equiv = 3).
+        // floor(10 * 1/3) = 3 each → 9 distributed → 1 TAO dust stays in pallet.
+
+        let hotkey = AccountKeyring::Dave.to_account_id();
+        let pallet_acct = PalletHotkeyAccount::get();
+
+        // Seed the pallet account with the 10 TAO it would hold after collect_assets
+        // and the pool swap (actual_out=10, no buyers).
+        MockSwap::set_tao_balance(pallet_acct.clone(), 10);
+
+        let entries = bounded_sell_entries(vec![
+            make_buy_entry(H256::repeat_byte(12), alice(), hotkey.clone(), 1, 1, 0),
+            make_buy_entry(H256::repeat_byte(13), bob(), hotkey.clone(), 1, 1, 0),
+            make_buy_entry(H256::repeat_byte(14), charlie(), hotkey.clone(), 1, 1, 0),
+        ]);
+
+        let sell_fee = LimitOrders::<Test>::distribute_tao_pro_rata(
+            &entries,
+            10u128, // actual_out from pool (TAO)
+            0u128,  // total_buy_net — no buyers
+            3u128,  // total_sell_tao_equiv — not divisible into 10 evenly
+            &OrderSide::Sell,
+            U96F32::from_num(1u32),
+            0u32, // fee_ppb = 0
+            &pallet_acct,
+            netuid_1(),
+        )
+        .unwrap();
+
+        let transfers = MockSwap::tao_transfers();
+        assert_eq!(transfers.len(), 3);
+
+        let alice_tao = transfers
+            .iter()
+            .find(|(_, to, _)| to == &alice())
+            .unwrap()
+            .2;
+        let bob_tao = transfers.iter().find(|(_, to, _)| to == &bob()).unwrap().2;
+        let charlie_tao = transfers
+            .iter()
+            .find(|(_, to, _)| to == &charlie())
+            .unwrap()
+            .2;
+
+        assert_eq!(alice_tao, 3u64, "floor(10 * 1/3) = 3");
+        assert_eq!(bob_tao, 3u64, "floor(10 * 1/3) = 3");
+        assert_eq!(charlie_tao, 3u64, "floor(10 * 1/3) = 3");
+        assert_eq!(sell_fee, 0u64);
+
+        // The pallet account started with 10 TAO and sent out 9 — 1 TAO dust remains,
+        // not burnt, not distributed.
+        let pallet_remaining = MockSwap::tao_balance(&pallet_acct);
+        assert_eq!(
+            pallet_remaining, 1u64,
+            "1 TAO dust stays in pallet account, not burnt"
+        );
     });
 }
 
@@ -686,13 +984,25 @@ fn distribute_tao_pro_rata_buy_dominant() {
 #[test]
 fn collect_fees_forwards_combined_fees_to_collector() {
     new_test_ext().execute_with(|| {
-        MockSwap::clear_log();
-
         let hotkey = AccountKeyring::Dave.to_account_id();
         // Buy entries carry fee in field index 5.
         let buys = bounded_buy_entries(vec![
-            make_buy_entry(H256::repeat_byte(20), alice(), hotkey.clone(), 1_000, 950, 50),
-            make_buy_entry(H256::repeat_byte(21), bob(),   hotkey.clone(), 1_500, 1_350, 150),
+            make_buy_entry(
+                H256::repeat_byte(20),
+                alice(),
+                hotkey.clone(),
+                1_000,
+                950,
+                50,
+            ),
+            make_buy_entry(
+                H256::repeat_byte(21),
+                bob(),
+                hotkey.clone(),
+                1_500,
+                1_350,
+                150,
+            ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
@@ -710,13 +1020,16 @@ fn collect_fees_forwards_combined_fees_to_collector() {
 #[test]
 fn collect_fees_no_transfer_when_zero_fees() {
     new_test_ext().execute_with(|| {
-        MockSwap::clear_log();
-
         // No buy fees, no sell fee.
         let hotkey = AccountKeyring::Dave.to_account_id();
-        let buys = bounded_buy_entries(vec![
-            make_buy_entry(H256::repeat_byte(22), alice(), hotkey, 1_000, 1_000, 0),
-        ]);
+        let buys = bounded_buy_entries(vec![make_buy_entry(
+            H256::repeat_byte(22),
+            alice(),
+            hotkey,
+            1_000,
+            1_000,
+            0,
+        )]);
         let pallet_acct = PalletHotkeyAccount::get();
 
         LimitOrders::<Test>::collect_fees(&buys, 0u64, &pallet_acct);

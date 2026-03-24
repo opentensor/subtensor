@@ -15,15 +15,7 @@ use subtensor_swap_interface::OrderSwapInterface;
 // ── Data structures ──────────────────────────────────────────────────────────
 
 #[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    TypeInfo,
-    MaxEncodedLen,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
+    Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub enum OrderSide {
     Buy,
@@ -34,15 +26,7 @@ pub enum OrderSide {
 /// Only its H256 hash is stored on-chain; the full struct is submitted by the
 /// admin at execution time (or by the user at cancellation time).
 #[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    TypeInfo,
-    MaxEncodedLen,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
+    Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> {
     /// The coldkey that authorised this order (pays TAO for buys; owns the
@@ -71,15 +55,7 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
 /// directly, which works because in Substrate sr25519/ed25519 AccountIds are
 /// the raw public keys.
 #[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    TypeInfo,
-    MaxEncodedLen,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
+    Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub struct SignedOrder<
     AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone,
@@ -91,15 +67,7 @@ pub struct SignedOrder<
 }
 
 #[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    TypeInfo,
-    MaxEncodedLen,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
+    Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub enum OrderStatus {
     /// The order was successfully executed.
@@ -114,9 +82,9 @@ pub enum OrderStatus {
 pub mod pallet {
     use super::*;
     use frame_support::{
+        PalletId,
         pallet_prelude::*,
         traits::{Get, UnixTime},
-        PalletId,
     };
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
@@ -314,10 +282,7 @@ pub mod pallet {
         /// Cancelled, the order can never be executed.
         #[pallet::call_index(1)]
         #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
-        pub fn cancel_order(
-            origin: OriginFor<T>,
-            order: Order<T::AccountId>,
-        ) -> DispatchResult {
+        pub fn cancel_order(origin: OriginFor<T>, order: Order<T::AccountId>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(order.signer == who, Error::<T>::Unauthorized);
 
@@ -371,7 +336,9 @@ pub mod pallet {
             current_price: U96F32,
         ) -> bool {
             let order = &signed_order.order;
-            signed_order.signature.verify(order.encode().as_slice(), &order.signer)
+            signed_order
+                .signature
+                .verify(order.encode().as_slice(), &order.signer)
                 && Orders::<T>::get(order_id).is_none()
                 && now_ms <= order.expiry
                 && match order.side {
@@ -495,10 +462,11 @@ pub mod pallet {
                 return Ok(());
             }
 
-            let total_buy_net: u128 =
-                valid_buys.iter().map(|(_, _, _, _, n, _)| *n as u128).sum();
-            let total_sell_net: u128 =
-                valid_sells.iter().map(|(_, _, _, _, n, _)| *n as u128).sum();
+            let total_buy_net: u128 = valid_buys.iter().map(|(_, _, _, _, n, _)| *n as u128).sum();
+            let total_sell_net: u128 = valid_sells
+                .iter()
+                .map(|(_, _, _, _, n, _)| *n as u128)
+                .sum();
             let total_sell_tao_equiv: u128 = current_price
                 .saturating_mul(U96F32::from_num(total_sell_net))
                 .saturating_to_num::<u128>();
@@ -507,7 +475,13 @@ pub mod pallet {
             let pallet_hotkey = T::PalletHotkey::get();
 
             // Pull all input assets into the pallet intermediary before touching the pool.
-            Self::collect_assets(&valid_buys, &valid_sells, &pallet_acct, &pallet_hotkey, netuid)?;
+            Self::collect_assets(
+                &valid_buys,
+                &valid_sells,
+                &pallet_acct,
+                &pallet_hotkey,
+                netuid,
+            )?;
 
             // Execute a single pool swap for the residual (buy TAO minus sell TAO-equiv, or vice versa).
             let (net_side, actual_out) = Self::net_pool_swap(
@@ -601,8 +575,8 @@ pub mod pallet {
                     let (net, fee) = match order.side {
                         // Buy: fee on TAO input — buyer contributes less TAO to the pool.
                         OrderSide::Buy => {
-                            let f = Self::ppb_of_tao(TaoBalance::from(order.amount), fee_ppb)
-                                .to_u64();
+                            let f =
+                                Self::ppb_of_tao(TaoBalance::from(order.amount), fee_ppb).to_u64();
                             (order.amount.saturating_sub(f), f)
                         }
                         // Sell: fee on TAO output — seller contributes full alpha; the fee
@@ -613,14 +587,25 @@ pub mod pallet {
 
                     Some((
                         order.side.clone(),
-                        (order_id, order.signer.clone(), order.hotkey.clone(), order.amount, net, fee),
+                        (
+                            order_id,
+                            order.signer.clone(),
+                            order.hotkey.clone(),
+                            order.amount,
+                            net,
+                            fee,
+                        ),
                     ))
                 })
                 .for_each(|(side, entry)| {
                     // try_push cannot fail: both vecs share the same bound as `orders`.
                     match side {
-                        OrderSide::Buy => { let _ = buys.try_push(entry); }
-                        OrderSide::Sell => { let _ = sells.try_push(entry); }
+                        OrderSide::Buy => {
+                            let _ = buys.try_push(entry);
+                        }
+                        OrderSide::Sell => {
+                            let _ = sells.try_push(entry);
+                        }
                     }
                 });
 
@@ -630,8 +615,14 @@ pub mod pallet {
         /// Pull gross TAO from each buyer and gross staked alpha from each seller
         /// into the pallet intermediary account, bypassing the pool.
         fn collect_assets(
-            buys: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
-            sells: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
+            buys: &BoundedVec<
+                (H256, T::AccountId, T::AccountId, u64, u64, u64),
+                T::MaxOrdersPerBatch,
+            >,
+            sells: &BoundedVec<
+                (H256, T::AccountId, T::AccountId, u64, u64, u64),
+                T::MaxOrdersPerBatch,
+            >,
             pallet_acct: &T::AccountId,
             pallet_hotkey: &T::AccountId,
             netuid: NetUid,
@@ -641,7 +632,12 @@ pub mod pallet {
             }
             for (_, signer, hotkey, gross, _, _) in sells.iter() {
                 T::SwapInterface::transfer_staked_alpha(
-                    signer, hotkey, pallet_acct, pallet_hotkey, netuid, AlphaBalance::from(*gross),
+                    signer,
+                    hotkey,
+                    pallet_acct,
+                    pallet_hotkey,
+                    netuid,
+                    AlphaBalance::from(*gross),
                 )?;
             }
             Ok(())
@@ -663,8 +659,11 @@ pub mod pallet {
                 let net_tao = (total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64;
                 let actual_alpha = if net_tao > 0 {
                     T::SwapInterface::buy_alpha(
-                        pallet_acct, pallet_hotkey, netuid,
-                        TaoBalance::from(net_tao), TaoBalance::ZERO,
+                        pallet_acct,
+                        pallet_hotkey,
+                        netuid,
+                        TaoBalance::from(net_tao),
+                        TaoBalance::ZERO,
                     )
                     .unwrap_or(AlphaBalance::ZERO)
                     .to_u64() as u128
@@ -681,8 +680,11 @@ pub mod pallet {
                 let net_alpha = (total_sell_net.saturating_sub(total_buy_alpha_equiv)) as u64;
                 let actual_tao = if net_alpha > 0 {
                     T::SwapInterface::sell_alpha(
-                        pallet_acct, pallet_hotkey, netuid,
-                        AlphaBalance::from(net_alpha), TaoBalance::ZERO,
+                        pallet_acct,
+                        pallet_hotkey,
+                        netuid,
+                        AlphaBalance::from(net_alpha),
+                        TaoBalance::ZERO,
                     )
                     .unwrap_or(TaoBalance::ZERO)
                     .to_u64() as u128
@@ -698,7 +700,10 @@ pub mod pallet {
         /// - Buy-dominant: total alpha = pool output + sell-side alpha (passed through).
         /// - Sell-dominant: total alpha = buy-side TAO converted at `current_price`.
         pub(crate) fn distribute_alpha_pro_rata(
-            buys: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
+            buys: &BoundedVec<
+                (H256, T::AccountId, T::AccountId, u64, u64, u64),
+                T::MaxOrdersPerBatch,
+            >,
             actual_out: u128,
             total_buy_net: u128,
             total_sell_net: u128,
@@ -728,7 +733,11 @@ pub mod pallet {
                 };
                 if share > 0 {
                     T::SwapInterface::transfer_staked_alpha(
-                        pallet_acct, pallet_hotkey, signer, hotkey, netuid,
+                        pallet_acct,
+                        pallet_hotkey,
+                        signer,
+                        hotkey,
+                        netuid,
                         AlphaBalance::from(share),
                     )?;
                 }
@@ -751,7 +760,10 @@ pub mod pallet {
         /// Fee on TAO output: `ppb(share)` is withheld from each seller's payout and
         /// left in the pallet account. Returns the total sell-side fee TAO accumulated.
         pub(crate) fn distribute_tao_pro_rata(
-            sells: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
+            sells: &BoundedVec<
+                (H256, T::AccountId, T::AccountId, u64, u64, u64),
+                T::MaxOrdersPerBatch,
+            >,
             actual_out: u128,
             total_buy_net: u128,
             total_sell_tao_equiv: u128,
@@ -802,7 +814,10 @@ pub mod pallet {
         ///
         /// Both transfers are best-effort and do not revert the batch on failure.
         pub(crate) fn collect_fees(
-            buys: &BoundedVec<(H256, T::AccountId, T::AccountId, u64, u64, u64), T::MaxOrdersPerBatch>,
+            buys: &BoundedVec<
+                (H256, T::AccountId, T::AccountId, u64, u64, u64),
+                T::MaxOrdersPerBatch,
+            >,
             sell_fee_tao: u64,
             pallet_acct: &T::AccountId,
         ) {
@@ -812,8 +827,11 @@ pub mod pallet {
             let total_fee = total_buy_fee.saturating_add(sell_fee_tao);
             if total_fee > 0 {
                 T::SwapInterface::transfer_tao(
-                    pallet_acct, &fee_collector, TaoBalance::from(total_fee),
-                ).ok();
+                    pallet_acct,
+                    &fee_collector,
+                    TaoBalance::from(total_fee),
+                )
+                .ok();
             }
 
             // TODO: sweep rounding dust and any emissions accrued on the pallet account.
@@ -837,8 +855,7 @@ pub mod pallet {
                 OrderSide::Buy => (total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64,
                 OrderSide::Sell => {
                     let buy_alpha_equiv: u64 = if current_price > U96F32::from_num(0u32) {
-                        (U96F32::from_num(total_buy_net) / current_price)
-                            .saturating_to_num::<u64>()
+                        (U96F32::from_num(total_buy_net) / current_price).saturating_to_num::<u64>()
                     } else {
                         0u64
                     };

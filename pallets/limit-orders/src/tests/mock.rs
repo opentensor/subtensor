@@ -4,6 +4,7 @@
 //! out of the box; test keys come from `sp_keyring::AccountKeyring`.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use frame_support::{
     PalletId, construct_runtime, derive_impl, parameter_types,
@@ -91,6 +92,16 @@ thread_local! {
     pub static MOCK_BUY_ALPHA_RETURN: RefCell<u64> = RefCell::new(0u64);
     /// Fixed TAO returned by `sell_alpha` (default 0 — tests override as needed).
     pub static MOCK_SELL_TAO_RETURN: RefCell<u64> = RefCell::new(0u64);
+    /// In-memory staked alpha ledger: (coldkey, hotkey, netuid) → balance.
+    /// `transfer_staked_alpha` debits/credits this map so tests can assert
+    /// on residual balances after distribution.
+    pub static ALPHA_BALANCES: RefCell<HashMap<(AccountId, AccountId, NetUid), u64>> =
+        RefCell::new(HashMap::new());
+    /// In-memory free TAO ledger: account → balance.
+    /// `transfer_tao` debits/credits this map so tests can assert
+    /// on residual balances after distribution.
+    pub static TAO_BALANCES: RefCell<HashMap<AccountId, u64>> =
+        RefCell::new(HashMap::new());
 }
 
 pub struct MockSwap;
@@ -107,6 +118,32 @@ impl MockSwap {
     }
     pub fn clear_log() {
         SWAP_LOG.with(|l| l.borrow_mut().clear());
+        ALPHA_BALANCES.with(|b| b.borrow_mut().clear());
+        TAO_BALANCES.with(|b| b.borrow_mut().clear());
+    }
+    /// Seed a staked alpha balance for a (coldkey, hotkey, netuid) triple.
+    pub fn set_alpha_balance(coldkey: AccountId, hotkey: AccountId, netuid: NetUid, amount: u64) {
+        ALPHA_BALANCES.with(|b| {
+            b.borrow_mut().insert((coldkey, hotkey, netuid), amount);
+        });
+    }
+    /// Query the current staked alpha balance for a (coldkey, hotkey, netuid) triple.
+    pub fn alpha_balance(coldkey: &AccountId, hotkey: &AccountId, netuid: NetUid) -> u64 {
+        ALPHA_BALANCES.with(|b| {
+            *b.borrow()
+                .get(&(coldkey.clone(), hotkey.clone(), netuid))
+                .unwrap_or(&0)
+        })
+    }
+    /// Seed a free TAO balance for an account.
+    pub fn set_tao_balance(account: AccountId, amount: u64) {
+        TAO_BALANCES.with(|b| {
+            b.borrow_mut().insert(account, amount);
+        });
+    }
+    /// Query the current free TAO balance for an account.
+    pub fn tao_balance(account: &AccountId) -> u64 {
+        TAO_BALANCES.with(|b| *b.borrow().get(account).unwrap_or(&0))
     }
     pub fn log() -> Vec<SwapCall> {
         SWAP_LOG.with(|l| l.borrow().clone())
@@ -136,7 +173,14 @@ impl MockSwap {
                     amount,
                 } = c
                 {
-                    Some((from_coldkey, from_hotkey, to_coldkey, to_hotkey, netuid, amount))
+                    Some((
+                        from_coldkey,
+                        from_hotkey,
+                        to_coldkey,
+                        to_hotkey,
+                        netuid,
+                        amount,
+                    ))
                 } else {
                     None
                 }
@@ -181,9 +225,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
                 alpha: alpha_amount.to_u64(),
             })
         });
-        Ok(TaoBalance::from(
-            MOCK_SELL_TAO_RETURN.with(|v| *v.borrow()),
-        ))
+        Ok(TaoBalance::from(MOCK_SELL_TAO_RETURN.with(|v| *v.borrow())))
     }
 
     fn current_alpha_price(_netuid: NetUid) -> U96F32 {
@@ -195,11 +237,19 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         to: &AccountId,
         amount: TaoBalance,
     ) -> frame_support::pallet_prelude::DispatchResult {
+        let amt = amount.to_u64();
+        TAO_BALANCES.with(|b| {
+            let mut map = b.borrow_mut();
+            let from_bal = map.entry(from.clone()).or_insert(0);
+            *from_bal = from_bal.saturating_sub(amt);
+            let to_bal = map.entry(to.clone()).or_insert(0);
+            *to_bal = to_bal.saturating_add(amt);
+        });
         SWAP_LOG.with(|l| {
             l.borrow_mut().push(SwapCall::TransferTao {
                 from: from.clone(),
                 to: to.clone(),
-                amount: amount.to_u64(),
+                amount: amt,
             })
         });
         Ok(())
@@ -213,6 +263,18 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         netuid: NetUid,
         amount: AlphaBalance,
     ) -> frame_support::pallet_prelude::DispatchResult {
+        let amt = amount.to_u64();
+        ALPHA_BALANCES.with(|b| {
+            let mut map = b.borrow_mut();
+            let from_bal = map
+                .entry((from_coldkey.clone(), from_hotkey.clone(), netuid))
+                .or_insert(0);
+            *from_bal = from_bal.saturating_sub(amt);
+            let to_bal = map
+                .entry((to_coldkey.clone(), to_hotkey.clone(), netuid))
+                .or_insert(0);
+            *to_bal = to_bal.saturating_add(amt);
+        });
         SWAP_LOG.with(|l| {
             l.borrow_mut().push(SwapCall::TransferStakedAlpha {
                 from_coldkey: from_coldkey.clone(),
@@ -220,7 +282,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
                 to_coldkey: to_coldkey.clone(),
                 to_hotkey: to_hotkey.clone(),
                 netuid,
-                amount: amount.to_u64(),
+                amount: amt,
             })
         });
         Ok(())

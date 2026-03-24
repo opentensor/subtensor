@@ -86,11 +86,7 @@ pub trait OrderSwapInterface<AccountId> {
     /// Used by the batch executor to collect TAO from buy-order signers into
     /// the pallet intermediary account and to distribute TAO to sell-order
     /// signers after internal matching.
-    fn transfer_tao(
-        from: &AccountId,
-        to: &AccountId,
-        amount: TaoBalance,
-    ) -> DispatchResult;
+    fn transfer_tao(from: &AccountId, to: &AccountId, amount: TaoBalance) -> DispatchResult;
 
     /// Move `amount` staked alpha directly between two (coldkey, hotkey) pairs
     /// on `netuid` **without going through the AMM pool**.

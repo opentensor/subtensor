@@ -1,2 +1,2 @@
-pub mod auxiliary;
 pub mod mock;
+pub mod tests;
