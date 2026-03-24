@@ -3998,42 +3998,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "eco-tests"
-version = "0.1.0"
-dependencies = [
- "approx",
- "frame-support",
- "frame-system",
- "hex-literal",
- "log",
- "pallet-balances",
- "pallet-crowdloan",
- "pallet-drand",
- "pallet-preimage",
- "pallet-scheduler",
- "pallet-shield",
- "pallet-subtensor",
- "pallet-subtensor-proxy",
- "pallet-subtensor-swap",
- "pallet-subtensor-utility",
- "parity-scale-codec",
- "rand 0.10.0",
- "safe-math",
- "scale-info",
- "share-pool",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "sp-tracing",
- "subtensor-runtime-common",
- "subtensor-swap-interface",
- "tracing",
- "tracing-log",
- "tracing-subscriber 0.3.18",
-]
-
-[[package]]
 name = "ed25519"
 version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
