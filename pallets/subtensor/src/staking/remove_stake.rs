@@ -598,7 +598,7 @@ impl<T: Config> Pallet<T> {
             TotalHotkeyAlpha::<T>::remove(&hot, netuid);
             WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
             TotalHotkeyShares::<T>::remove(&hot, netuid);
-            TotalHotkeySharesV2::<T>::remove(&hot, netuid);
+            TotalHotkeySharesV2::<T>::remove(hot, netuid);
         }
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
         WeightMeterWrapper!(meter_weight, T::DbWeight::get().writes(1));
