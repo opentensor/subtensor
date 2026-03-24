@@ -726,20 +726,19 @@ pub mod pallet {
             };
 
             for (order_id, signer, hotkey, _, net, _) in buys.iter() {
-                let share: u64 = if total_buy_net > 0 {
-                    (total_alpha.saturating_mul(*net as u128) / total_buy_net) as u64
-                } else {
-                    0u64
-                };
-                if share > 0 {
-                    T::SwapInterface::transfer_staked_alpha(
-                        pallet_acct,
-                        pallet_hotkey,
-                        signer,
-                        hotkey,
-                        netuid,
-                        AlphaBalance::from(share),
-                    )?;
+                if total_buy_net > 0 {
+                    let share: u64 =
+                        (total_alpha.saturating_mul(*net as u128) / total_buy_net) as u64;
+                    if share > 0 {
+                        T::SwapInterface::transfer_staked_alpha(
+                            pallet_acct,
+                            pallet_hotkey,
+                            signer,
+                            hotkey,
+                            netuid,
+                            AlphaBalance::from(share),
+                        )?;
+                    }
                 }
                 Orders::<T>::insert(order_id, OrderStatus::Fulfilled);
                 Self::deposit_event(Event::OrderExecuted {
