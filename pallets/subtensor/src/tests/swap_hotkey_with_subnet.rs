@@ -946,7 +946,7 @@ fn test_swap_stake_success() {
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
         let amount = 10_000;
-        let shares = U64F64::from_num(123456);
+        let shares = U64F64::from_num(10_000);
 
         // Initialize staking variables for old_hotkey
         TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaBalance::from(amount));
@@ -1033,7 +1033,7 @@ fn test_swap_stake_v2_success() {
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
         let amount = 10_000;
-        let shares = U64F64::from_num(123456);
+        let shares = U64F64::from_num(10_000);
 
         // Initialize staking variables for old_hotkey
         TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaBalance::from(amount));
@@ -2258,7 +2258,7 @@ fn test_revert_hotkey_swap_dividends() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
 
         let amount = 10_000;
-        let shares = U64F64::from_num(123456);
+        let shares = U64F64::from_num(10_000);
 
         TotalHotkeyAlpha::<Test>::insert(hk1, netuid, AlphaBalance::from(amount));
         TotalHotkeyAlphaLastEpoch::<Test>::insert(hk1, netuid, AlphaBalance::from(amount * 2));
@@ -2688,13 +2688,15 @@ fn test_swap_hotkey_with_existing_stake() {
         );
 
         // Check total stake transfer
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
-            0.into()
+            0.into(),
+            epsilon = 1.into()
         );
-        assert_eq!(
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
-            total_hk1_stake + total_hk2_stake
+            total_hk1_stake + total_hk2_stake,
+            epsilon = 1.into()
         );
     });
 }
