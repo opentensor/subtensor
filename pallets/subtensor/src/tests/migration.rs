@@ -28,10 +28,13 @@ use pallet_scheduler::ScheduledOf;
 use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
-use sp_runtime::{AccountId32, traits::{Hash, Zero}};
+use sp_runtime::{
+    AccountId32,
+    traits::{Hash, Zero},
+};
 use sp_std::marker::PhantomData;
-use substrate_fixed::types::extra::U2;
 use substrate_fixed::types::{I96F32, U64F64};
+use substrate_fixed::{traits::ToFixed, types::extra::U2};
 use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance};
 
 #[allow(clippy::arithmetic_side_effects)]
@@ -3130,11 +3133,13 @@ fn test_migrate_fix_bad_hk_swap_only_genesis() {
         const MIGRATION_NAME: &[u8] = b"migrate_fix_bad_hk_swap";
 
         let coldkey = "5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo";
-        let account_id32: AccountId32 = AccountId32::from_ss58check(coldkey).expect("Invalid coldkey");
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(coldkey).expect("Invalid coldkey");
         let mut account_id32_slice: &[u8] = account_id32.as_ref();
-        let coldkey_account_id: <Test as Config>::AccountId = <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid coldkey");
+        let coldkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid coldkey");
         let netuid = NetUid::from(59);
-        // Setup 
+        // Setup
         // Add subnet 59
         add_network(netuid, 10, 0);
         SubtokenEnabled::<Test>::insert(netuid, true);
@@ -3142,16 +3147,22 @@ fn test_migrate_fix_bad_hk_swap_only_genesis() {
 
         // Add stake to hotkey matching
         let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
-        let account_id32: AccountId32 = AccountId32::from_ss58check(hotkey).expect("Invalid hotkey");
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(hotkey).expect("Invalid hotkey");
         let mut account_id32_slice: &[u8] = account_id32.as_ref();
-        let hotkey_account_id: <Test as Config>::AccountId = <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
+        let hotkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid, stake_added);
-
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_added,
+        );
 
         // Check genesis hash
         let genesis_hash = frame_system::Pallet::<Test>::block_hash(0);
@@ -3165,10 +3176,16 @@ fn test_migrate_fix_bad_hk_swap_only_genesis() {
         assert!(!w.is_zero(), "weight must be non-zero");
 
         // Check stake did not change
-        assert_eq!(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid), stake_added);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            stake_added
+        );
     });
 }
-
 
 #[test]
 fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
@@ -3177,11 +3194,13 @@ fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
         const MIGRATION_NAME: &[u8] = b"migrate_fix_bad_hk_swap";
 
         let coldkey = "5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo";
-        let account_id32: AccountId32 = AccountId32::from_ss58check(coldkey).expect("Invalid coldkey");
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(coldkey).expect("Invalid coldkey");
         let mut account_id32_slice: &[u8] = account_id32.as_ref();
-        let coldkey_account_id: <Test as Config>::AccountId = <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid coldkey");
+        let coldkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid coldkey");
         let netuid = NetUid::from(59);
-        // Setup 
+        // Setup
         // Add subnet 59
         add_network(netuid, 10, 0);
         SubtokenEnabled::<Test>::insert(netuid, true);
@@ -3189,19 +3208,26 @@ fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
 
         // Add stake to hotkey matching
         let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
-        let account_id32: AccountId32 = AccountId32::from_ss58check(hotkey).expect("Invalid hotkey");
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(hotkey).expect("Invalid hotkey");
         let mut account_id32_slice: &[u8] = account_id32.as_ref();
-        let hotkey_account_id: <Test as Config>::AccountId = <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
+        let hotkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid, stake_added);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_added,
+        );
 
         // Set genesis hash to mainnet genesis
         let mainnet_genesis =
-        hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+            hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
         frame_system::BlockHash::<Test>::insert(0, H256::from_slice(&mainnet_genesis));
         // Check genesis hash
         let genesis_hash = frame_system::Pallet::<Test>::block_hash(0);
@@ -3213,7 +3239,14 @@ fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
         assert!(!w.is_zero(), "weight must be non-zero");
 
         // Check stake DID change
-        assert_ne!(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid), stake_added);
+        assert_ne!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            stake_added
+        );
     });
 }
 
@@ -3228,7 +3261,6 @@ fn test_migrate_fix_bad_hk_swap_mainnet() {
     new_test_ext(1).execute_with(|| {
         use crate::migrations::migrate_fix_bad_hk_swap::*;
 
-        
         let netuid = NetUid::from(59);
         // Add subnet 59
         add_network(netuid, 10, 0);
@@ -3239,7 +3271,7 @@ fn test_migrate_fix_bad_hk_swap_mainnet() {
         let hotkey_account_id = decode_account_id32::<Test>(hotkey).expect("Invalid hotkey");
 
         #[rustfmt::skip]
-        let diffs: [(&str, i64); 112] = [ 
+        let diffs: [(&str, i64); 112] = [
             ("5Fn9SqQhx5bhDua7AGgkKxxk3gfZ75WWBGCMPeKH1WBgPaMQ", -2375685930981_i64),
             ("5Fnhtm7cpxEbZaChnRZ8yWoF8MXVxmobkmLRehh5bkYtyZA9", -4090996138227),
             ("5C7j3w2zz1SVejRuFrb2zFWHXT7UfG7eWA87KXL1WyV5KLVR", -607494031),
@@ -3357,7 +3389,12 @@ fn test_migrate_fix_bad_hk_swap_mainnet() {
         for (coldkey, diff) in diffs {
             let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
             if diff > 0 {
-                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid, diff.unsigned_abs().into());
+                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                    diff.unsigned_abs().into(),
+                );
             }
         }
 
@@ -3367,11 +3404,41 @@ fn test_migrate_fix_bad_hk_swap_mainnet() {
         // Check stake is near 0 for all positive entires and near diff for all negative
         for (coldkey, diff) in diffs {
             let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
             if diff > 0 {
-                assert_relative_eq!(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid), 0.into(), epsilon = 100_000_000.into());
+                assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
             } else {
-                assert_relative_eq!(SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey_account_id, &coldkey_account_id, netuid), diff.unsigned_abs().into(), epsilon = 100_000_000.into());
+                let diff_float: f64 =
+                    num_traits::ToPrimitive::to_f64(&diff.unsigned_abs()).expect("float conv fail");
+                assert_relative_eq!(stake_float, diff_float, max_relative = 0.001_f64);
             }
         }
     });
+}
+
+
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_mainnet_some_exits() {
+    // test with some of the gainers have exited fully or partially before the migration
+    // i.e. balance is less than they owe
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_mainnet_has_more() {
+    // test with some of the gainers have a balance higher than the gain before the migration
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_mainnet_some_entries() {
+    // test with some of the losers have an existing balance before the migration
 }
