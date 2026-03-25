@@ -129,7 +129,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         limit_price: u64,
     ) -> DispatchResult {
-        let coldkey = ensure_signed(origin)?;
+        let coldkey = ensure_signed(origin.clone())?;
         log::debug!(
             "do_register_limit( netuid:{netuid:?} coldkey:{coldkey:?} limit_price:{limit_price:?} )"
         );
