@@ -8301,6 +8301,7 @@ dependencies = [
  "memmap2 0.9.8",
  "node-subtensor-runtime",
  "num-traits",
+ "pallet-balances",
  "pallet-commitments",
  "pallet-drand",
  "pallet-shield",
@@ -16376,9 +16377,18 @@ dependencies = [
 name = "share-pool"
 version = "0.1.0"
 dependencies = [
+ "approx",
+ "log",
+ "num-traits",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "rayon",
  "safe-math",
+ "scale-info",
+ "sp-core",
  "sp-std",
  "substrate-fixed",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -18286,6 +18296,7 @@ dependencies = [
 name = "subtensor-transaction-fee"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "frame-executive",
  "frame-support",
  "frame-system",

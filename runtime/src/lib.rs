@@ -268,7 +268,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 392,
+    spec_version: 394,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1210,8 +1210,8 @@ impl pallet_subtensor_swap::Config for Runtime {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
-    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
+    type TaoReserve = pallet_subtensor::TaoBalanceReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
