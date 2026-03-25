@@ -1,5 +1,8 @@
 name: eco-tests
 
+permissions:
+  contents: read
+
 concurrency:
   group: eco-tests-${{ github.ref }}
   cancel-in-progress: true
