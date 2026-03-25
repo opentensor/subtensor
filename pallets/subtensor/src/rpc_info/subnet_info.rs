@@ -29,7 +29,7 @@ pub struct SubnetInfo<AccountId: TypeInfo + Encode + Decode> {
     owner: AccountId,
 }
 
-#[freeze_struct("ab2a1adcd6970bc9")]
+#[freeze_struct("c8976c0491130e76")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     netuid: Compact<NetUid>,
@@ -50,7 +50,7 @@ pub struct SubnetInfov2<AccountId: TypeInfo + Encode + Decode> {
     emission_value: Compact<u64>,
     burn: Compact<TaoBalance>,
     owner: AccountId,
-    identity: Option<SubnetIdentityV4>,
+    identity: Option<SubnetIdentityOf>,
 }
 
 #[freeze_struct("fd2db338b156d251")]
