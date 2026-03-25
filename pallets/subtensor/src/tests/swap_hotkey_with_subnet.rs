@@ -2558,10 +2558,10 @@ fn test_swap_hotkey_with_existing_stake() {
         let staker2 = U256::from(6);
         let subnet_owner_coldkey = U256::from(1000);
         let subnet_owner_hotkey = U256::from(1001);
-        let staked_tao_1 = DefaultMinStake::<Test>::get().to_u64() * 321;
-        let staked_tao_2 = DefaultMinStake::<Test>::get().to_u64() * 123;
-        let staked_tao_3 = DefaultMinStake::<Test>::get().to_u64() * 234;
-        let staked_tao_4 = DefaultMinStake::<Test>::get().to_u64() * 156;
+        let staked_tao_1 = 100_000_000;
+        let staked_tao_2 = 200_000_000;
+        let staked_tao_3 = 300_000_000;
+        let staked_tao_4 = 500_000_000;
 
         // Set up initial state
         let netuid = add_dynamic_network(&subnet_owner_coldkey, &subnet_owner_hotkey);
@@ -2604,6 +2604,11 @@ fn test_swap_hotkey_with_existing_stake() {
             netuid,
             staked_tao_4.into()
         ));
+
+        // Emulate effect of emission into alpha pool - makes numerators and denominators not equal to alpha
+        let emission = AlphaBalance::from(1_000_000_000);
+        SubtensorModule::increase_stake_for_hotkey_on_subnet(&old_hotkey, netuid, emission);
+        SubtensorModule::increase_stake_for_hotkey_on_subnet(&new_hotkey, netuid, emission);
 
         // Hotkey new_hotkey gets deregistered, stake stays
         IsNetworkMember::<Test>::remove(new_hotkey, netuid);
