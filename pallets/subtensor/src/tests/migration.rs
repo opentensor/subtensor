@@ -3415,6 +3415,11 @@ fn test_migrate_fix_bad_hk_swap_mainnet() {
             )
             .expect("float conv fail");
             if diff > 0 {
+                log::debug!(
+                    "diff: {} for ck: {}",
+                    diff,
+                    coldkey
+                );
                 assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
             } else {
                 let diff_float: f64 =
