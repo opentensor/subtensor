@@ -1,11 +1,11 @@
 ---
 name: fix
-description: Commit changes, run Rust fix tools, run tests, and amend with any fixes
+description: Commit current changes, run Rust autofix/lint/format, run pallet-subtensor tests, amend with any fixes.
 ---
 
 # Fix Skill
 
-Commit current changes with a descriptive message, then run Rust fix tools one by one, amending the commit after each tool if it produced changes, then run unit tests and fix any failures.
+Create or reuse one commit, run the Rust fix pipeline in order, run unit tests, and fold all resulting changes into that same commit.
 
 ## Steps
 

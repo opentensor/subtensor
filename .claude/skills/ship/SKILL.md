@@ -1,11 +1,11 @@
 ---
 name: ship
-description: Ship the current branch: fix, push, create PR, watch CI, fix failures, code review
+description: Ship current branch end-to-end: run /fix, push, open/update PR, triage CI failures, then deliver review findings for approval.
 ---
 
 # Ship Skill
 
-Ship the current branch: fix, push, create PR if needed, watch CI, fix failures, and perform code review.
+Ship the branch through CI and review without force-pushes, and never apply review fixes without explicit user approval.
 
 ## Phase 1: Fix and Push
 
