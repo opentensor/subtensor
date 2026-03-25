@@ -129,8 +129,9 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         limit_price: u64,
     ) -> DispatchResult {
+        let coldkey = ensure_signed(origin)?;
         log::debug!(
-            "do_register_limit( netuid:{netuid:?} hotkey:{hotkey:?} limit_price:{limit_price:?} )"
+            "do_register_limit( netuid:{netuid:?} coldkey:{coldkey:?} limit_price:{limit_price:?} )"
         );
 
         // Minimal validation before reading/comparing burn.
