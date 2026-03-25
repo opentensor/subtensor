@@ -736,7 +736,8 @@ pub fn register_ok_neuron(
 ) {
     let reserve: u64 = 1_000_000_000_000;
     let tao_reserve = SubnetTAO::<Test>::get(netuid);
-    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaInProvided::<Test>::get(netuid);
+    let alpha_reserve =
+        SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaInProvided::<Test>::get(netuid);
 
     if tao_reserve.is_zero() && alpha_reserve.is_zero() {
         setup_reserves(netuid, reserve.into(), reserve.into());

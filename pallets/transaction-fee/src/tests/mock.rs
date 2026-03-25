@@ -578,7 +578,8 @@ pub fn register_ok_neuron(
     // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
     let reserve: u64 = 1_000_000_000_000;
     let tao_reserve = SubnetTAO::<Test>::get(netuid);
-    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaInProvided::<Test>::get(netuid);
+    let alpha_reserve =
+        SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaInProvided::<Test>::get(netuid);
 
     if tao_reserve.is_zero() && alpha_reserve.is_zero() {
         setup_reserves(netuid, reserve.into(), reserve.into());
@@ -837,8 +838,7 @@ pub(crate) fn quote_remove_stake_after_alpha_fee(
         netuid,
         amount_unstaked: alpha,
     });
-    let info =
-        <RuntimeCall as frame_support::dispatch::GetDispatchInfo>::get_dispatch_info(&call);
+    let info = <RuntimeCall as frame_support::dispatch::GetDispatchInfo>::get_dispatch_info(&call);
     let tao_fee = pallet_transaction_payment::Pallet::<Test>::compute_fee(0, &info, 0.into());
 
     frame_support::storage::with_transaction(
