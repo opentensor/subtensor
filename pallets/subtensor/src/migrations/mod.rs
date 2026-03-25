@@ -16,6 +16,7 @@ pub mod migrate_crv3_v2_to_timelocked;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
 pub mod migrate_disable_commit_reveal;
+pub mod migrate_fix_bad_hk_swap;
 pub mod migrate_fix_childkeys;
 pub mod migrate_fix_is_network_member;
 pub mod migrate_fix_root_subnet_tao;
