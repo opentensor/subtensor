@@ -24,6 +24,11 @@
 //     sender, which effectively unstakes the specified amount and credits it to the message sender
 //   - Precompile checks the result of do_remove_stake and, in case of a failure, reverts the transaction.
 //
+// Without an approve/allowance system, when an EOA transfers stake to a contract it is impossible for the
+// contract to know who sent funds and how much. For that reason, the precompile provides an `approve`
+// function for the sender to approve a spender (the contract) to call `transferStakeFrom`.
+// The allowance is specific to a pair of `(spender, netuid)`, but doesn't specify the `hotkey` which is instead
+// provided only in `transferStakeFrom`.
 
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -58,12 +63,15 @@ impl StorageInstance for AllowancesPrefix {
 
 pub type AllowancesStorage<R> = StorageDoubleMap<
     AllowancesPrefix,
+
     // For each approver
     Blake2_128Concat,
     <R as frame_system::Config>::AccountId,
+
     // For each pair of (spender, netuid)
     Blake2_128Concat,
     (<R as frame_system::Config>::AccountId, u16),
+
     // Allowed amount
     U256,
     ValueQuery,
