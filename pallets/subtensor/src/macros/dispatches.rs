@@ -1104,7 +1104,7 @@ mod dispatches {
         ///
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
-        #[pallet::weight(Weight::from_parts(161_700_000, 0)
+        #[pallet::weight(Weight::from_parts(238_900_000, 0)
         .saturating_add(T::DbWeight::get().reads(25_u64))
         .saturating_add(T::DbWeight::get().writes(19_u64)))]
         pub fn swap_coldkey(
@@ -1554,7 +1554,7 @@ mod dispatches {
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
-        #[pallet::weight((Weight::from_parts(164_300_000, 0)
+        #[pallet::weight((Weight::from_parts(240_400_000, 0)
         .saturating_add(T::DbWeight::get().reads(19_u64))
         .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn move_stake(
