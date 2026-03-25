@@ -1001,13 +1001,8 @@ impl<T: Config> Pallet<T> {
         lo
     }
 
-    /// Checked division helper that returns 0 on division-by-zero.
-    ///
-    /// Safe / non-panicking.
+    /// Checked division helper.
     pub fn checked_div_or_zero_u64(numerator: u64, denominator: u64) -> u64 {
-        match numerator.checked_div(denominator) {
-            Some(v) => v,
-            None => 0,
-        }
+        numerator.checked_div(denominator).unwrap_or_default()
     }
 }

@@ -3,7 +3,6 @@
 use super::mock::*;
 use crate::*;
 use frame_support::{assert_err, assert_ok};
-use frame_system::Config;
 use sp_core::{H160, U256};
 use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex};
 

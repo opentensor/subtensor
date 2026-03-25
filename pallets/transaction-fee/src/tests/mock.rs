@@ -578,8 +578,7 @@ pub fn register_ok_neuron(
     // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
     let reserve: u64 = 1_000_000_000_000;
     let tao_reserve = SubnetTAO::<Test>::get(netuid);
-    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)
-        .saturating_add(SubnetAlphaInProvided::<Test>::get(netuid));
+    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaInProvided::<Test>::get(netuid);
 
     if tao_reserve.is_zero() && alpha_reserve.is_zero() {
         setup_reserves(netuid, reserve.into(), reserve.into());
@@ -597,8 +596,7 @@ pub fn register_ok_neuron(
         // Small buffer for safety (fees / rounding / future changes).
         let buffer: TaoBalance = 10.into();
 
-        let min_balance_needed: TaoBalance =
-            burn.saturating_add(min_remaining).saturating_add(buffer);
+        let min_balance_needed: TaoBalance = burn + min_remaining + buffer;
 
         let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {

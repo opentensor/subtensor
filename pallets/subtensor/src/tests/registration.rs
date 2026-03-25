@@ -1,21 +1,15 @@
 #![allow(clippy::unwrap_used)]
 
 use crate::*;
-use approx::assert_abs_diff_eq;
-use frame_support::dispatch::DispatchInfo;
-use frame_support::sp_runtime::{DispatchError, transaction_validity::TransactionSource};
-use frame_support::traits::Currency;
-use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::{Config, RawOrigin};
+use frame_support::{assert_noop, assert_ok};
+use frame_system::Config;
 use sp_core::U256;
-use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
 use subtensor_runtime_common::{
-    AlphaBalance, CustomTransactionError, NetUid, NetUidStorageIndex, Token,
+    AlphaBalance, NetUid, NetUidStorageIndex, Token,
 };
 
 use super::mock;
 use super::mock::*;
-use crate::extensions::SubtensorTransactionExtension;
 use crate::{AxonInfoOf, Error};
 
 /********************************************

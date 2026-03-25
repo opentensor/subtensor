@@ -976,9 +976,7 @@ fn test_remove_stake_total_issuance_no_change() {
 
         // Ground-truth fee/loss is the net issuance reduction after stake+unstake.
         let fee_balance = issuance_before.saturating_sub(issuance_after_unstake);
-        let total_fee_actual: u64 = fee_balance
-            .try_into()
-            .expect("fee should fit into u64 in tests");
+        let total_fee_actual: u64 = fee_balance.into();
 
         // Final coldkey balance should be baseline minus the effective fee.
         let balance_after = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
