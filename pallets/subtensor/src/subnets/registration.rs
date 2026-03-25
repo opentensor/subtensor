@@ -112,7 +112,6 @@ impl<T: Config> Pallet<T> {
         let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey)?;
 
         // 10) counters
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, registration_cost.into());
 
@@ -479,7 +478,6 @@ impl<T: Config> Pallet<T> {
                 // Since this function runs every block in `on_initialize`,
                 // applying the per-block factor once here gives continuous
                 // exponential decay.
-                //
                 if current_block > 1 {
                     let burn_u64: u64 = Self::get_burn(netuid).into();
                     let factor_q32: u64 = Self::decay_factor_q32(half_life);
@@ -518,6 +516,11 @@ impl<T: Config> Pallet<T> {
 
             // --- 3) Reset per-block registrations counter for the new block.
             Self::set_registrations_this_block(netuid, 0);
+
+            // --- 4) Root keeps interval-based admission, so reset that counter on the root epoch boundary.
+            if netuid.is_root() && Self::should_run_epoch(netuid, current_block) {
+                Self::set_registrations_this_interval(netuid, 0);
+            }
         }
     }
 }
