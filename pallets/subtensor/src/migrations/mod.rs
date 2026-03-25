@@ -16,6 +16,7 @@ pub mod migrate_crv3_v2_to_timelocked;
 pub mod migrate_delete_subnet_21;
 pub mod migrate_delete_subnet_3;
 pub mod migrate_disable_commit_reveal;
+pub mod migrate_fix_bad_hk_swap;
 pub mod migrate_fix_childkeys;
 pub mod migrate_fix_is_network_member;
 pub mod migrate_fix_root_subnet_tao;
@@ -60,7 +61,6 @@ pub mod migrate_to_v1_separate_emission;
 pub mod migrate_to_v2_fixed_total_stake;
 pub mod migrate_transfer_ownership_to_foundation;
 pub mod migrate_upgrade_revealed_commitments;
-pub mod migrate_fix_bad_hk_swap;
 
 pub(crate) fn migrate_storage<T: Config>(
     migration_name: &'static str,

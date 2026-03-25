@@ -1,27 +1,36 @@
 use super::*;
-use codec::EncodeLike;
 use frame_support::{traits::Get, weights::Weight};
 use frame_system::pallet_prelude::BlockNumberFor;
 use log;
 use safe_math::FixedExt;
 use scale_info::prelude::string::String;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::{AccountId32, MultiAddress};
-use substrate_fixed::types::U64F64;
+use sp_runtime::AccountId32;
+use substrate_fixed::{traits::ToFixed, types::U64F64};
 
-pub fn try_restore_shares<T: Config>() -> Weight
-{
+pub fn decode_account_id32<T: Config>(ss58_string: &str) -> Option<T::AccountId> {
+    let account_id32: AccountId32 = AccountId32::from_string(ss58_string).ok()?;
+    let mut account_id32_slice: &[u8] = account_id32.as_ref();
+    T::AccountId::decode(&mut account_id32_slice).ok()
+}
+
+pub fn try_restore_shares<T: Config>() -> Weight {
     let mut weight = T::DbWeight::get().reads(1);
 
     let effected_hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
-    let hk_as_acctid32: AccountId32 = AccountId32::from_string(effected_hotkey).unwrap();
-	let hk_as_multiaddr = MultiAddress::Address32(hk_as_acctid32.into());
-	let hk_as_acctid: T::AccountId = T::AccountId::decode(hk_as_acctid32.as_mut()).unwrap();
+    let hk_as_acctid: T::AccountId =
+        if let Some(hk_as_acctid) = decode_account_id32::<T>(effected_hotkey) {
+            hk_as_acctid
+        } else {
+            log::error!("Failed to decode hotkey: {}", effected_hotkey);
+            return weight;
+        };
 
     let effected_netuid = 59.into();
 
-	let diffs = [
-		("5Fn9SqQhx5bhDua7AGgkKxxk3gfZ75WWBGCMPeKH1WBgPaMQ", -2375685930981),
+    #[rustfmt::skip]
+	let diffs: [(&str, i64); 112] = [ 
+		("5Fn9SqQhx5bhDua7AGgkKxxk3gfZ75WWBGCMPeKH1WBgPaMQ", -2375685930981_i64),
 		("5Fnhtm7cpxEbZaChnRZ8yWoF8MXVxmobkmLRehh5bkYtyZA9", -4090996138227),
 		("5C7j3w2zz1SVejRuFrb2zFWHXT7UfG7eWA87KXL1WyV5KLVR", -607494031),
 		("5DthZ1rvnXBb9oXVNtrMaMsDAnRxBPZCjD6fdRdeqC3fg1ca", -17022477949),
@@ -136,8 +145,8 @@ pub fn try_restore_shares<T: Config>() -> Weight
 	];
 
     let curr_total_alpha =
-        U64F64::from_num(TotalHotkeyAlpha::<T>::get(hk_as_acctid, effected_netuid));
-    let curr_total_hotkey_shares = TotalHotkeyShares::<T>::get(hk_as_acctid, effected_netuid);
+        U64F64::from_num(TotalHotkeyAlpha::<T>::get(&hk_as_acctid, effected_netuid));
+    let curr_total_hotkey_shares = TotalHotkeyShares::<T>::get(&hk_as_acctid, effected_netuid);
     weight = weight.saturating_add(T::DbWeight::get().reads(2));
 
     let mut total_burned: AlphaBalance = 0.into();
@@ -145,10 +154,10 @@ pub fn try_restore_shares<T: Config>() -> Weight
     let mut total_lost: U64F64 = U64F64::from_num(0);
 
     for (ck, diff) in diffs {
-        if let Ok(ck_as_acctid) = AccountId32::from_string(ck) {
+        if let Some(ck_as_acctid) = decode_account_id32::<T>(ck) {
             let curr_shares = U64F64::from_num(Alpha::<T>::get((
-                hk_as_acctid,
-                ck_as_acctid,
+                &hk_as_acctid,
+                &ck_as_acctid,
                 effected_netuid,
             )));
             let curr_bal = curr_shares
@@ -164,8 +173,8 @@ pub fn try_restore_shares<T: Config>() -> Weight
                         diff_fixed.saturating_to_num::<u64>().into();
                     let actual_decrease =
                         Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                            hk_as_acctid,
-                            ck_as_acctid,
+                            &hk_as_acctid,
+                            &ck_as_acctid,
                             effected_netuid,
                             as_alpha_balance,
                         );
@@ -194,7 +203,7 @@ pub fn try_restore_shares<T: Config>() -> Weight
         }
     }
 
-    let not_burned = total_given.saturating_sub(U64F64::from_num(total_burned.into()));
+    let not_burned = total_given.saturating_sub(total_burned.to_fixed());
     if not_burned > 0 {
         log::warn!(
             target: "undohkswap",
@@ -206,9 +215,9 @@ pub fn try_restore_shares<T: Config>() -> Weight
 
     // value that can be returned per unit lost
     let value_per_lost: U64F64 = U64F64::from_num(total_burned).safe_div(total_lost);
-    let total_returned: AlphaBalance = 0.into();
+    let mut total_returned: AlphaBalance = 0.into();
     for (ck, diff) in diffs {
-        if let Ok(ck_as_acctid) = AccountId32::from_string(ck) {
+        if let Some(ck_as_acctid) = decode_account_id32::<T>(ck) {
             if diff > 0 {
                 // lose some, return as much as we can, proportionally
                 let diff_fixed = U64F64::from_num(diff);
@@ -217,8 +226,8 @@ pub fn try_restore_shares<T: Config>() -> Weight
 
                 let as_alpha_balance: AlphaBalance = diff_prop.saturating_to_num::<u64>().into();
                 let actual_increase = Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                    hk_as_acctid,
-                    ck_as_acctid,
+                    &hk_as_acctid,
+                    &ck_as_acctid,
                     effected_netuid,
                     as_alpha_balance,
                 );
@@ -242,7 +251,7 @@ pub fn try_restore_shares<T: Config>() -> Weight
         }
     }
 
-    let not_returned = total_lost.saturating_sub(U64F64::from_num(total_returned.into()));
+    let not_returned = total_lost.saturating_sub(total_returned.to_fixed());
     if not_returned > 0 {
         log::warn!(
             target: "undohkswap",
