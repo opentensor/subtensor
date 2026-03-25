@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
     /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.
     /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.
     /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.
-    /// * **`identity`** – `Option<SubnetIdentityOfV4>` &nbsp;Optional metadata for the subnet.
+    /// * **`identity`** – `Option<SubnetIdentityOf>` &nbsp;Optional metadata for the subnet.
     ///
     /// ### Events
     /// * `NetworkAdded(netuid, mechid)` – always.
@@ -112,7 +112,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
         mechid: u16,
-        identity: Option<SubnetIdentityOfV4>,
+        identity: Option<SubnetIdentityOf>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -242,7 +242,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidIdentity
             );
 
-            SubnetIdentitiesV4::<T>::insert(netuid_to_register, identity_value);
+            SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 

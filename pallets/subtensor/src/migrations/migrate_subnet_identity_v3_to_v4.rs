@@ -22,27 +22,23 @@ pub fn migrate_subnet_identity_v3_to_v4<T: Config>() -> Weight {
 
     let mut migrated_count: u64 = 0;
 
-    for (netuid, v3_identity) in SubnetIdentitiesV3::<T>::iter() {
-        let v4_identity = SubnetIdentityOfV4 {
-            subnet_name: v3_identity.subnet_name,
-            github_repo: v3_identity.github_repo,
-            subnet_contact: v3_identity.subnet_contact,
-            subnet_url: v3_identity.subnet_url,
-            discord: v3_identity.discord,
-            description: v3_identity.description,
-            logo_url: v3_identity.logo_url,
-            additional: v3_identity.additional,
-            agent_docs_url: vec![],
-        };
-        SubnetIdentitiesV4::<T>::insert(netuid, v4_identity);
+    // Translate V3-encoded entries to V4 in place within SubnetIdentitiesV3.
+    SubnetIdentitiesV3::<T>::translate::<SubnetIdentityV3, _>(|_netuid, v3| {
         migrated_count += 1;
-    }
+        Some(SubnetIdentityOf {
+            subnet_name: v3.subnet_name,
+            github_repo: v3.github_repo,
+            subnet_contact: v3.subnet_contact,
+            subnet_url: v3.subnet_url,
+            discord: v3.discord,
+            description: v3.description,
+            logo_url: v3.logo_url,
+            additional: v3.additional,
+            agent_docs_url: vec![],
+        })
+    });
 
-    weight = weight.saturating_add(T::DbWeight::get().reads(migrated_count));
-    weight = weight.saturating_add(T::DbWeight::get().writes(migrated_count));
-
-    // Remove old V3 entries
-    remove_prefix::<T>("SubtensorModule", "SubnetIdentitiesV3", &mut weight);
+    weight = weight.saturating_add(T::DbWeight::get().reads_writes(migrated_count, migrated_count));
 
     HasMigrationRun::<T>::insert(&migration_name, true);
     weight = weight.saturating_add(T::DbWeight::get().writes(1));

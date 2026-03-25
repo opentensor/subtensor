@@ -1209,7 +1209,7 @@ mod pallet_benchmarks {
     fn register_network_with_identity() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);
-        let identity: Option<SubnetIdentityOfV4> = None;
+        let identity: Option<SubnetIdentityOf> = None;
 
         Subtensor::<T>::set_network_registration_allowed(1.into(), true);
         Subtensor::<T>::set_network_rate_limit(1);

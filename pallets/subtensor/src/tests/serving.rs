@@ -950,7 +950,7 @@ fn test_do_set_subnet_identity() {
 
         // Check if subnet identity is set correctly
         let stored_identity =
-            SubnetIdentitiesV4::<Test>::get(netuid).expect("Subnet identity should be set");
+            SubnetIdentitiesV3::<Test>::get(netuid).expect("Subnet identity should be set");
         assert_eq!(stored_identity.subnet_name, subnet_name);
         assert_eq!(stored_identity.github_repo, github_repo);
         assert_eq!(stored_identity.subnet_contact, subnet_contact);
@@ -993,7 +993,7 @@ fn test_do_set_subnet_identity() {
         ));
 
         let updated_identity =
-            SubnetIdentitiesV4::<Test>::get(netuid).expect("Updated subnet identity should be set");
+            SubnetIdentitiesV3::<Test>::get(netuid).expect("Updated subnet identity should be set");
         assert_eq!(updated_identity.subnet_name, new_subnet_name);
         assert_eq!(updated_identity.github_repo, new_github_repo);
         assert_eq!(updated_identity.logo_url, logo_url);
@@ -1024,7 +1024,7 @@ fn test_do_set_subnet_identity() {
 fn test_is_valid_subnet_identity() {
     new_test_ext(1).execute_with(|| {
         // Test valid subnet identity
-        let valid_identity = SubnetIdentityV4 {
+        let valid_identity = SubnetIdentityOf {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1038,7 +1038,7 @@ fn test_is_valid_subnet_identity() {
         assert!(SubtensorModule::is_valid_subnet_identity(&valid_identity));
 
         // Test subnet identity with total length exactly at the maximum
-        let max_length_identity = SubnetIdentityV4 {
+        let max_length_identity = SubnetIdentityOf {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1054,7 +1054,7 @@ fn test_is_valid_subnet_identity() {
         ));
 
         // Test subnet identity with total length exceeding the maximum
-        let invalid_length_identity = SubnetIdentityV4 {
+        let invalid_length_identity = SubnetIdentityOf {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1070,7 +1070,7 @@ fn test_is_valid_subnet_identity() {
         ));
 
         // Test subnet identity with one field exceeding its maximum
-        let invalid_field_identity = SubnetIdentityV4 {
+        let invalid_field_identity = SubnetIdentityOf {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1086,7 +1086,7 @@ fn test_is_valid_subnet_identity() {
         ));
 
         // Test subnet identity with empty fields
-        let empty_identity = SubnetIdentityV4 {
+        let empty_identity = SubnetIdentityOf {
             subnet_name: vec![],
             github_repo: vec![],
             subnet_contact: vec![],
@@ -1100,7 +1100,7 @@ fn test_is_valid_subnet_identity() {
         assert!(SubtensorModule::is_valid_subnet_identity(&empty_identity));
 
         // Test subnet identity with some empty and some filled fields
-        let mixed_identity = SubnetIdentityV4 {
+        let mixed_identity = SubnetIdentityOf {
             subnet_name: b"Test Subnet".to_vec(),
             github_repo: vec![],
             subnet_contact: b"contact@testsubnet.com".to_vec(),
@@ -1114,7 +1114,7 @@ fn test_is_valid_subnet_identity() {
         assert!(SubtensorModule::is_valid_subnet_identity(&mixed_identity));
 
         // Test subnet identity with agent_docs_url exceeding max
-        let invalid_agent_docs = SubnetIdentityV4 {
+        let invalid_agent_docs = SubnetIdentityOf {
             subnet_name: vec![],
             github_repo: vec![],
             subnet_contact: vec![],

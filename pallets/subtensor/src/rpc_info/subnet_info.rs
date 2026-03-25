@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T> {
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
         let burn = Compact::from(Self::get_burn(netuid));
-        let identity: Option<SubnetIdentityV4> = SubnetIdentitiesV4::<T>::get(netuid);
+        let identity: Option<SubnetIdentityOf> = SubnetIdentitiesV3::<T>::get(netuid);
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();

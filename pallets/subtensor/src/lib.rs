@@ -253,8 +253,8 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentities. (DEPRECATED for V2)
-    pub type SubnetIdentityOf = SubnetIdentity;
+    ///  Struct for SubnetIdentities. (DEPRECATED)
+    pub type SubnetIdentityOfV1 = SubnetIdentity;
     /// Data structure for Subnet Identities. (DEPRECATED for V2)
     #[crate::freeze_struct("f448dc3dad763108")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
@@ -289,9 +289,9 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentitiesV3. (DEPRECATED for V4)
+    ///  Struct for SubnetIdentitiesV3. (DEPRECATED)
     pub type SubnetIdentityOfV3 = SubnetIdentityV3;
-    /// Data structure for Subnet Identities (DEPRECATED for V4)
+    /// Data structure for Subnet Identities (DEPRECATED)
     #[crate::freeze_struct("6a441335f985a0b")]
     #[derive(
         Encode, Decode, DecodeWithMemTracking, Default, TypeInfo, Clone, PartialEq, Eq, Debug,
@@ -315,8 +315,9 @@ pub mod pallet {
         pub additional: Vec<u8>,
     }
 
-    ///  Struct for SubnetIdentitiesV4.
-    pub type SubnetIdentityOfV4 = SubnetIdentityV4;
+    /// Type alias for the current subnet identity version.
+    /// Update this alias when introducing a new version.
+    pub type SubnetIdentityOf = SubnetIdentityV4;
     /// Data structure for Subnet Identities
     #[crate::freeze_struct("4b9718ba1a9cb75f")]
     #[derive(
@@ -2150,15 +2151,10 @@ pub mod pallet {
     pub type IdentitiesV2<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ChainIdentityOfV2, OptionQuery>;
 
-    /// --- MAP ( netuid ) --> SubnetIdentityOfV3 (DEPRECATED for V4)
+    /// --- MAP ( netuid ) --> SubnetIdentityOf
     #[pallet::storage]
     pub type SubnetIdentitiesV3<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV3, OptionQuery>;
-
-    /// --- MAP ( netuid ) --> SubnetIdentityOfV4
-    #[pallet::storage]
-    pub type SubnetIdentitiesV4<T: Config> =
-        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOfV4, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, NetUid, SubnetIdentityOf, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====

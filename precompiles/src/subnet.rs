@@ -99,7 +99,7 @@ where
         additional: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
         let hotkey = R::AccountId::from(hotkey.0);
-        let identity = pallet_subtensor::SubnetIdentityOfV4 {
+        let identity = pallet_subtensor::SubnetIdentityOf {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),
             subnet_contact: subnet_contact.into(),
@@ -140,7 +140,7 @@ where
         logo_url: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
         let hotkey = R::AccountId::from(hotkey.0);
-        let identity = pallet_subtensor::SubnetIdentityOfV4 {
+        let identity = pallet_subtensor::SubnetIdentityOf {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),
             subnet_contact: subnet_contact.into(),

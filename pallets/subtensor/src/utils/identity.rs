@@ -118,7 +118,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Create the identity struct with the provided information
-        let identity: SubnetIdentityOfV4 = SubnetIdentityOfV4 {
+        let identity: SubnetIdentityOf = SubnetIdentityOf {
             subnet_name,
             github_repo,
             subnet_contact,
@@ -137,7 +137,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Store the validated identity in the blockchain state
-        SubnetIdentitiesV4::<T>::insert(netuid, identity.clone());
+        SubnetIdentitiesV3::<T>::insert(netuid, identity.clone());
 
         // Log the identity set event
         log::debug!("SubnetIdentitySet( netuid:{netuid:?} ) ");
@@ -190,20 +190,20 @@ impl<T: Config> Pallet<T> {
             && identity.additional.len() <= 1024
     }
 
-    /// Validates the given SubnetIdentityOfV4 struct.
+    /// Validates the given SubnetIdentityOf struct.
     ///
-    /// This function checks if the total length of all fields in the SubnetIdentityOfV4 struct
+    /// This function checks if the total length of all fields in the SubnetIdentityOf struct
     /// is within limits, and if each individual field is also within its respective maximum
     /// byte limit.
     ///
     /// # Arguments
     ///
-    /// * `identity` - A reference to the SubnetIdentityOfV4 struct to be validated.
+    /// * `identity` - A reference to the SubnetIdentityOf struct to be validated.
     ///
     /// # Returns
     ///
-    /// * `bool` - Returns true if the SubnetIdentityV4 is valid, false otherwise.
-    pub fn is_valid_subnet_identity(identity: &SubnetIdentityOfV4) -> bool {
+    /// * `bool` - Returns true if the SubnetIdentityOf is valid, false otherwise.
+    pub fn is_valid_subnet_identity(identity: &SubnetIdentityOf) -> bool {
         let total_length = identity
             .subnet_name
             .len()

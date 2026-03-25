@@ -3039,3 +3039,117 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
         );
     });
 }
+
+#[test]
+fn test_migrate_subnet_identity_v3_to_v4() {
+    new_test_ext(1).execute_with(|| {
+        let migration_name = b"migrate_subnet_identity_v3_to_v4".to_vec();
+
+        // Ensure migration has not run yet
+        assert!(
+            !HasMigrationRun::<Test>::get(&migration_name),
+            "Migration should not have run yet"
+        );
+
+        // Build raw V3 identities and write them under the SubnetIdentitiesV3 prefix.
+        let v3_identity_1 = SubnetIdentityV3 {
+            subnet_name: b"Alpha Subnet".to_vec(),
+            github_repo: b"https://github.com/alpha".to_vec(),
+            subnet_contact: b"alpha@example.com".to_vec(),
+            subnet_url: b"https://alpha.example.com".to_vec(),
+            discord: b"alpha#1234".to_vec(),
+            description: b"The first subnet".to_vec(),
+            logo_url: b"https://alpha.example.com/logo.png".to_vec(),
+            additional: b"extra info".to_vec(),
+        };
+
+        let v3_identity_2 = SubnetIdentityV3 {
+            subnet_name: b"Beta Subnet".to_vec(),
+            github_repo: vec![],
+            subnet_contact: vec![],
+            subnet_url: vec![],
+            discord: vec![],
+            description: b"Minimal subnet".to_vec(),
+            logo_url: vec![],
+            additional: vec![],
+        };
+
+        let netuid_1 = NetUid::from(1);
+        let netuid_2 = NetUid::from(42);
+
+        // Write raw V3-encoded bytes into the SubnetIdentitiesV3 storage prefix.
+        // Key layout: twox_128("SubtensorModule") ++ twox_128("SubnetIdentitiesV3") ++ Blake2_128Concat(netuid)
+        let pallet_prefix = twox_128(b"SubtensorModule");
+        let storage_prefix = twox_128(b"SubnetIdentitiesV3");
+
+        for (netuid, v3_identity) in [(netuid_1, &v3_identity_1), (netuid_2, &v3_identity_2)] {
+            let mut key = Vec::new();
+            key.extend_from_slice(&pallet_prefix);
+            key.extend_from_slice(&storage_prefix);
+            key.extend_from_slice(&frame_support::Blake2_128Concat::hash(
+                &netuid.encode(),
+            ));
+            put_raw(&key, &v3_identity.encode());
+        }
+
+        // Verify V3 data is present as raw bytes (cannot read via the typed
+        // SubnetIdentitiesV3 accessor because its value type is now V4).
+        {
+            let mut key = Vec::new();
+            key.extend_from_slice(&pallet_prefix);
+            key.extend_from_slice(&storage_prefix);
+            key.extend_from_slice(&frame_support::Blake2_128Concat::hash(
+                &netuid_1.encode(),
+            ));
+            assert!(
+                get_raw(&key).is_some(),
+                "Raw V3 bytes should exist at storage key"
+            );
+        }
+
+        // Run the migration
+        let weight =
+            crate::migrations::migrate_subnet_identity_v3_to_v4::migrate_subnet_identity_v3_to_v4::<
+                Test,
+            >();
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        // Migration should be marked as completed
+        assert!(
+            HasMigrationRun::<Test>::get(&migration_name),
+            "Migration should be marked as run"
+        );
+
+        // Read back via the typed storage accessor (expects V4 encoding)
+        let read_1 = SubnetIdentitiesV3::<Test>::get(netuid_1)
+            .expect("Identity 1 should exist after migration");
+        assert_eq!(read_1.subnet_name, b"Alpha Subnet".to_vec());
+        assert_eq!(read_1.github_repo, b"https://github.com/alpha".to_vec());
+        assert_eq!(read_1.subnet_contact, b"alpha@example.com".to_vec());
+        assert_eq!(read_1.subnet_url, b"https://alpha.example.com".to_vec());
+        assert_eq!(read_1.discord, b"alpha#1234".to_vec());
+        assert_eq!(read_1.description, b"The first subnet".to_vec());
+        assert_eq!(
+            read_1.logo_url,
+            b"https://alpha.example.com/logo.png".to_vec()
+        );
+        assert_eq!(read_1.additional, b"extra info".to_vec());
+        assert_eq!(read_1.agent_docs_url, Vec::<u8>::new());
+
+        let read_2 = SubnetIdentitiesV3::<Test>::get(netuid_2)
+            .expect("Identity 2 should exist after migration");
+        assert_eq!(read_2.subnet_name, b"Beta Subnet".to_vec());
+        assert_eq!(read_2.description, b"Minimal subnet".to_vec());
+        assert_eq!(read_2.agent_docs_url, Vec::<u8>::new());
+
+        // Running the migration again should be a no-op
+        let _weight_second =
+            crate::migrations::migrate_subnet_identity_v3_to_v4::migrate_subnet_identity_v3_to_v4::<
+                Test,
+            >();
+        let reread_1 = SubnetIdentitiesV3::<Test>::get(netuid_1)
+            .expect("Identity 1 should still exist");
+        assert_eq!(reread_1.subnet_name, b"Alpha Subnet".to_vec());
+        assert_eq!(reread_1.agent_docs_url, Vec::<u8>::new());
+    });
+}

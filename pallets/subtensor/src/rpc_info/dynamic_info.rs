@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
             pending_root_emission: TaoBalance::ZERO.into(),
             subnet_volume: SubnetVolume::<T>::get(netuid).into(),
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(),
-            subnet_identity: SubnetIdentitiesV4::<T>::get(netuid),
+            subnet_identity: SubnetIdentitiesV3::<T>::get(netuid),
             moving_price: SubnetMovingPrice::<T>::get(netuid),
         })
     }

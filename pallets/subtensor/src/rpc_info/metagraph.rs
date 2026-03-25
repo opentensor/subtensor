@@ -673,7 +673,7 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact)
                 .collect(), // Symbol.
-            identity: SubnetIdentitiesV4::<T>::get(netuid), // identity information.
+            identity: SubnetIdentitiesV3::<T>::get(netuid), // identity information.
             network_registered_at: NetworkRegisteredAt::<T>::get(netuid).into(), // block at registration
 
             // Keys for owner.
@@ -916,7 +916,7 @@ impl<T: Config> Pallet<T> {
             },
             Some(SelectiveMetagraphIndex::Identity) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                identity: Some(SubnetIdentitiesV4::<T>::get(netuid)),
+                identity: Some(SubnetIdentitiesV3::<T>::get(netuid)),
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::NetworkRegisteredAt) => SelectiveMetagraph {
