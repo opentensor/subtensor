@@ -2546,3 +2546,150 @@ fn test_revert_claim_root_with_swap_hotkey() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_with_existing_stake --exact --show-output
+#[test]
+fn test_swap_hotkey_with_existing_stake() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(4);
+        let staker1 = U256::from(5);
+        let staker2 = U256::from(6);
+        let subnet_owner_coldkey = U256::from(1000);
+        let subnet_owner_hotkey = U256::from(1001);
+        let staked_tao_1 = DefaultMinStake::<Test>::get().to_u64() * 321;
+        let staked_tao_2 = DefaultMinStake::<Test>::get().to_u64() * 123;
+        let staked_tao_3 = DefaultMinStake::<Test>::get().to_u64() * 234;
+        let staked_tao_4 = DefaultMinStake::<Test>::get().to_u64() * 156;
+
+        // Set up initial state
+        let netuid = add_dynamic_network(&subnet_owner_coldkey, &subnet_owner_hotkey);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 1234);
+        register_ok_neuron(netuid, new_hotkey, coldkey, 1234);
+
+        // Add balance to coldkeys
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_u64.into());
+        SubtensorModule::add_balance_to_coldkey_account(&staker1, 10_000_000_000_u64.into());
+        SubtensorModule::add_balance_to_coldkey_account(&staker2, 10_000_000_000_u64.into());
+
+        // Stake with staker1 coldkey on old_hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(staker1),
+            old_hotkey,
+            netuid,
+            staked_tao_1.into()
+        ));
+
+        // Stake with staker2 coldkey on old_hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(staker2),
+            old_hotkey,
+            netuid,
+            staked_tao_2.into()
+        ));
+
+        // Stake with staker1 coldkey on new_hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(staker1),
+            new_hotkey,
+            netuid,
+            staked_tao_3.into()
+        ));
+
+        // Stake with staker2 coldkey on new_hotkey
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(staker2),
+            new_hotkey,
+            netuid,
+            staked_tao_4.into()
+        ));
+
+        // Hotkey new_hotkey gets deregistered, stake stays
+        IsNetworkMember::<Test>::remove(new_hotkey, netuid);
+
+        let hk1_stake_1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &staker1,
+            netuid,
+        );
+        let hk2_stake_1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &new_hotkey,
+            &staker1,
+            netuid,
+        );
+        let hk1_stake_2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &staker2,
+            netuid,
+        );
+        let hk2_stake_2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &new_hotkey,
+            &staker2,
+            netuid,
+        );
+
+        assert!(!hk1_stake_1.is_zero());
+        assert!(!hk2_stake_1.is_zero());
+        assert!(!hk1_stake_2.is_zero());
+        assert!(!hk2_stake_2.is_zero());
+
+        let total_hk1_stake = SubtensorModule::get_total_stake_for_hotkey(&old_hotkey);
+        let total_hk2_stake = SubtensorModule::get_total_stake_for_hotkey(&new_hotkey);
+        assert!(!total_hk1_stake.is_zero());
+        assert!(!total_hk2_stake.is_zero());
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid),
+            false
+        ));
+
+        // Check correctness of stake transfer
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &staker1,
+                netuid
+            ),
+            0.into()
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &staker2,
+                netuid
+            ),
+            0.into()
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &staker1,
+                netuid
+            ),
+            hk2_stake_1 + hk1_stake_1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &staker2,
+                netuid
+            ),
+            hk2_stake_2 + hk1_stake_2
+        );
+
+        // Check total stake transfer
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&old_hotkey),
+            0.into()
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&new_hotkey),
+            total_hk1_stake + total_hk2_stake
+        );
+    });
+}
