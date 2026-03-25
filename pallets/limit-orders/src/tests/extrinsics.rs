@@ -923,6 +923,59 @@ fn execute_batched_orders_cancelled_order_skipped() {
     });
 }
 
+#[test]
+fn execute_batched_orders_fees_charged_on_both_sides_when_matched_internally() {
+    new_test_ext().execute_with(|| {
+        // fee = 1% (10_000_000 ppb), price = 1.0 TAO/alpha.
+        //
+        // Alice buys  1_000 TAO  → buy fee = 10 TAO, net = 990 TAO.
+        // Bob   sells 1_000 alpha → sell_tao_equiv = 1_000 TAO.
+        //
+        // sell-dominant: residual = 1_000 - 990 = 10 alpha sent to pool.
+        // Pool returns 9 TAO (mocked) for that residual.
+        // total_tao for sellers = 9 (pool) + 990 (buy passthrough) = 999.
+        // Bob gross_share = 999 * 1_000/1_000 = 999.
+        // Sell fee = 1% of 999 = 9 TAO; Bob nets 990 TAO.
+        // FeeCollector total = buy_fee(10) + sell_fee(9) = 19 TAO.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_sell_tao_return(9);
+        MockSwap::set_tao_balance(alice(), 1_000);
+        MockSwap::set_alpha_balance(bob(), dave(), netuid(), 1_000);
+        ProtocolFee::<Test>::put(10_000_000u32); // 1%
+
+        let alice_buy = make_signed_order(
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderSide::Buy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+        );
+        let bob_sell = make_signed_order(
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderSide::Sell,
+            1_000,
+            0,
+            FAR_FUTURE,
+        );
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie()),
+            netuid(),
+            bounded(vec![alice_buy, bob_sell]),
+        ));
+
+        // Both sides charged: FeeCollector gets buy fee (10) + sell fee (9) = 19.
+        assert_eq!(MockSwap::tao_balance(&FeeCollectorAccount::get()), 19);
+        // Bob receives 990 TAO after sell-side fee.
+        assert_eq!(MockSwap::tao_balance(&bob()), 990);
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // net_pool_swap – SwapReturnedZero errors
 // ─────────────────────────────────────────────────────────────────────────────
