@@ -680,6 +680,12 @@ pub mod pallet {
         0.into()
     }
 
+    /// Default maximum childkey take.
+    #[pallet::type_value]
+    pub fn DefaultSubnetEmissionCap<T: Config>() -> u16 {
+        256_u16
+    }
+
     /// Default value for blocks since last step.
     #[pallet::type_value]
     pub fn DefaultBlocksSinceLastStep<T: Config>() -> u64 {
@@ -1635,6 +1641,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type PendingServerEmission<T> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// --- ITEM ( subnet_emission_cap )
+    #[pallet::storage]
+    pub type SubnetEmissionCap<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetEmissionCap<T>>;
 
     /// --- MAP ( netuid ) --> pending_validator_emission
     #[pallet::storage]
