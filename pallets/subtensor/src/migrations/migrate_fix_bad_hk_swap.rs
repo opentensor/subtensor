@@ -164,12 +164,29 @@ pub fn try_restore_shares<T: Config>() -> Weight {
                 .safe_div(curr_total_hotkey_shares)
                 .saturating_mul(curr_total_alpha);
             weight = weight.saturating_add(T::DbWeight::get().reads(1));
-            if diff > 0 && curr_bal > 0 {
+
+            if diff > 0 {
+                log::debug!(
+                    target: "undohkswap",
+                    "Coldkey '{}' has balance {:?} of {:?} diff: {}",
+                    ck,
+                    curr_bal,
+                    curr_total_alpha,
+                    diff
+                );
+
                 // remove excess, if possible
                 let diff_fixed = U64F64::from_num(diff);
                 total_given = total_given.saturating_add(diff_fixed);
 
                 let able_to_remove = diff_fixed.min(curr_bal);
+                log::debug!(
+                    target: "undohkswap",
+                    "Coldkey '{}' able to remove {:?} of {:?}",
+                    ck,
+                    able_to_remove,
+                    curr_bal
+                );
 
                 let as_alpha_balance: AlphaBalance =
                     able_to_remove.saturating_to_num::<u64>().into();
@@ -182,7 +199,7 @@ pub fn try_restore_shares<T: Config>() -> Weight {
                     );
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
 
-                if actual_decrease.to_u64() != diff_fixed.saturating_to_num::<u64>() {
+                if actual_decrease.to_u64() < diff_fixed.saturating_to_num::<u64>() {
                     log::warn!(
                         target: "undohkswap",
                         "Coldkey '{}' failed to burn all {:?}, instead {:?}",
@@ -190,6 +207,26 @@ pub fn try_restore_shares<T: Config>() -> Weight {
                         diff_fixed,
                         actual_decrease
                     )
+                } else if actual_decrease.to_u64() > diff_fixed.saturating_to_num::<u64>() {
+                    log::warn!(
+                        target: "undohkswap",
+                        "Coldkey '{}' burned more than expected {:?}, instead {:?}",
+                        ck,
+                        diff_fixed,
+                        actual_decrease
+                    );
+                    // Return excess removed
+                    let excess = actual_decrease
+                        .to_u64()
+                        .saturating_sub(diff_fixed.saturating_to_num::<u64>());
+                    let excess_as_alpha_balance: AlphaBalance = excess.into();
+                    Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        &hk_as_acctid,
+                        &ck_as_acctid,
+                        effected_netuid,
+                        excess_as_alpha_balance,
+                    );
+                    weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
                 }
                 total_burned = total_burned.saturating_add(actual_decrease);
             } else {
