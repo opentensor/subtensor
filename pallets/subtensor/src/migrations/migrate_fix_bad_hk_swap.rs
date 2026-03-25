@@ -9,7 +9,7 @@ use sp_runtime::AccountId32;
 use substrate_fixed::{traits::ToFixed, types::U64F64};
 
 pub fn decode_account_id32<T: Config>(ss58_string: &str) -> Option<T::AccountId> {
-    let account_id32: AccountId32 = AccountId32::from_string(ss58_string).ok()?;
+    let account_id32: AccountId32 = AccountId32::from_ss58check(ss58_string).ok()?;
     let mut account_id32_slice: &[u8] = account_id32.as_ref();
     T::AccountId::decode(&mut account_id32_slice).ok()
 }
@@ -166,7 +166,7 @@ pub fn try_restore_shares<T: Config>() -> Weight {
             weight = weight.saturating_add(T::DbWeight::get().reads(1));
             if diff < 0 {
                 // remove excess, if possible
-                let diff_fixed = U64F64::from_num(diff * -1);
+                let diff_fixed = U64F64::from_num(diff.abs());
                 total_given = total_given.saturating_add(diff_fixed);
                 if diff_fixed <= curr_bal {
                     let as_alpha_balance: AlphaBalance =
@@ -262,7 +262,7 @@ pub fn try_restore_shares<T: Config>() -> Weight {
         )
     }
 
-    return weight;
+    weight
 }
 
 pub fn migrate_fix_bad_hk_swap<T: Config>() -> Weight {
