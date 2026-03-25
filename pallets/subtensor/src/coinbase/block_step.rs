@@ -293,7 +293,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
 
     pub fn root_proportion(netuid: NetUid) -> U96F32 {
         let alpha_issuance = U96F32::from_num(Self::get_alpha_issuance(netuid));
-        let root_tao: U96F32 = U96F32::from_num(SubnetTAO::<T>::get(NetUid::ROOT));
+        let root_tao: U96F32 = U96F32::from_num(Self::get_subnet_tao(NetUid::ROOT));
         let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());
 
         let root_proportion: U96F32 = tao_weight

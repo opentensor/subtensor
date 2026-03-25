@@ -1,11 +1,4 @@
 use alloc::collections::BTreeMap;
-use frame_support::traits::{
-    Imbalance,
-    tokens::{
-        Fortitude, Precision, Preservation,
-        fungible::{Balanced as _, Inspect as _},
-    },
-};
 use safe_math::*;
 use share_pool::SafeFloat;
 use substrate_fixed::types::U96F32;
@@ -286,92 +279,6 @@ impl<T: Config> Pallet<T> {
         for ((hotkey, coldkey, netuid), _) in Self::alpha_iter() {
             Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
         }
-    }
-
-    pub fn add_balance_to_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) {
-        // infallible
-        let _ = <T as Config>::Currency::deposit(coldkey, amount, Precision::BestEffort);
-    }
-
-    pub fn can_remove_balance_from_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> bool {
-        let current_balance = Self::get_coldkey_balance(coldkey);
-        if amount > current_balance {
-            return false;
-        }
-
-        // This bit is currently untested. @todo
-
-        <T as Config>::Currency::can_withdraw(coldkey, amount)
-            .into_result(false)
-            .is_ok()
-    }
-
-    pub fn get_coldkey_balance(
-        coldkey: &T::AccountId,
-    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
-    {
-        <T as Config>::Currency::reducible_balance(
-            coldkey,
-            Preservation::Expendable,
-            Fortitude::Polite,
-        )
-    }
-
-    #[must_use = "Balance must be used to preserve total issuance of token"]
-    pub fn remove_balance_from_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<TaoBalance, DispatchError> {
-        if amount.is_zero() {
-            return Ok(TaoBalance::ZERO);
-        }
-
-        let credit = <T as Config>::Currency::withdraw(
-            coldkey,
-            amount,
-            Precision::BestEffort,
-            Preservation::Preserve,
-            Fortitude::Polite,
-        )
-        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
-        .peek();
-
-        if credit.is_zero() {
-            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
-        }
-
-        Ok(credit.into())
-    }
-
-    pub fn kill_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<TaoBalance, DispatchError> {
-        if amount.is_zero() {
-            return Ok(0.into());
-        }
-
-        let credit = <T as Config>::Currency::withdraw(
-            coldkey,
-            amount,
-            Precision::Exact,
-            Preservation::Expendable,
-            Fortitude::Force,
-        )
-        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
-        .peek();
-
-        if credit.is_zero() {
-            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
-        }
-
-        Ok(credit)
     }
 
     pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {

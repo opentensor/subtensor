@@ -49,8 +49,6 @@ impl<T: Config> Pallet<T> {
             "do_add_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid:{netuid:?}, stake_to_be_added:{stake_to_be_added:?} )"
         );
 
-        Self::ensure_subtoken_enabled(netuid)?;
-
         // 2. Validate user input
         Self::validate_add_stake(
             &coldkey,

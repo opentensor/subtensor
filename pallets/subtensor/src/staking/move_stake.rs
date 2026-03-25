@@ -471,9 +471,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
-        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid)
+        let subnet_tao_1 = Self::get_subnet_tao(origin_netuid)
             .saturating_add(SubnetTaoProvided::<T>::get(origin_netuid));
-        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
+        let subnet_tao_2 = Self::get_subnet_tao(destination_netuid)
             .saturating_add(SubnetTaoProvided::<T>::get(destination_netuid));
         if subnet_tao_1.is_zero() || subnet_tao_2.is_zero() {
             return Err(Error::<T>::ZeroMaxStakeAmount.into());
