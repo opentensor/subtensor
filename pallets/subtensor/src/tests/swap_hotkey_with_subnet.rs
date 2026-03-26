@@ -2729,16 +2729,8 @@ fn test_revert_hotkey_swap_with_revert_stake_the_same() {
         ));
 
         // Setup
-        super::mock::setup_reserves(
-            netuid_1,
-            (stake_ck4 * 100).into(),
-            (stake_ck4 * 100).into(),
-        );
-        super::mock::setup_reserves(
-            netuid_2,
-            (stake_ck4 * 100).into(),
-            (stake_ck4 * 100).into(),
-        );
+        super::mock::setup_reserves(netuid_1, (stake_ck4 * 100).into(), (stake_ck4 * 100).into());
+        super::mock::setup_reserves(netuid_2, (stake_ck4 * 100).into(), (stake_ck4 * 100).into());
 
         add_network(netuid_1, tempo, 0);
         add_network(netuid_2, tempo, 0);
@@ -2808,7 +2800,8 @@ fn test_revert_hotkey_swap_with_revert_stake_the_same() {
         let hk1_stake_before_swap_sn_1 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey_2, netuid_1);
         assert_eq!(
-            hk1_stake_before_swap_sn_1, (stake_ck2).into(),
+            hk1_stake_before_swap_sn_1,
+            (stake_ck2).into(),
             "stake for ck2 should be only his stake"
         );
 
@@ -2835,36 +2828,60 @@ fn test_revert_hotkey_swap_with_revert_stake_the_same() {
             netuid_1,
             stake_ck4.into(),
         )
-            .unwrap();
+        .unwrap();
 
         // Check stake moved to new hotkey on subnet1
         let new_hotkey_stake_after_swap_ck =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey, netuid_1);
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &coldkey,
+                netuid_1,
+            );
         assert_eq!(new_hotkey_stake_after_swap_ck, stake1.into());
 
         // Check stake moved for ck2
         let new_hotkey_stake_after_swap_ck_1 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_2, netuid_1);
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &coldkey_2,
+                netuid_1,
+            );
         assert_eq!(new_hotkey_stake_after_swap_ck_1, stake_ck2.into());
 
         // Check stake moved for ck3
         let new_hotkey_stake_after_swap_ck_3 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_3, netuid_1);
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &coldkey_3,
+                netuid_1,
+            );
         assert_eq!(new_hotkey_stake_after_swap_ck_3, stake_ck3.into());
 
         step_block(20);
 
         // Let's check individual stakes; they changed because of emissions
         let new_hotkey_stake_before_revert_ck =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey, netuid_1);
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &coldkey,
+                netuid_1,
+            );
         assert!(new_hotkey_stake_before_revert_ck > stake1.into());
 
         let new_hotkey_stake_before_revert_ck_2 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_2, netuid_1);
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &coldkey_2,
+                netuid_1,
+            );
         assert!(new_hotkey_stake_before_revert_ck_2 > stake_ck2.into());
 
         let new_hotkey_stake_before_revert_ck_3 =
-            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_3, netuid_1);
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &new_hotkey,
+                &coldkey_3,
+                netuid_1,
+            );
         assert!(new_hotkey_stake_before_revert_ck_3 > stake_ck3.into());
 
         // Reverting back: hk2 -> hk1
@@ -2879,14 +2896,23 @@ fn test_revert_hotkey_swap_with_revert_stake_the_same() {
         // Let's check individual stakes; they changed because of emissions
         let old_hotkey_stake_after_revert_ck =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid_1);
-        assert_eq!(old_hotkey_stake_after_revert_ck, new_hotkey_stake_before_revert_ck);
+        assert_eq!(
+            old_hotkey_stake_after_revert_ck,
+            new_hotkey_stake_before_revert_ck
+        );
 
         let old_hotkey_stake_after_revert_ck_2 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey_2, netuid_1);
-        assert_eq!(old_hotkey_stake_after_revert_ck_2, new_hotkey_stake_before_revert_ck_2);
+        assert_eq!(
+            old_hotkey_stake_after_revert_ck_2,
+            new_hotkey_stake_before_revert_ck_2
+        );
 
         let old_hotkey_stake_after_revert_ck_3 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey_3, netuid_1);
-        assert_eq!(old_hotkey_stake_after_revert_ck_3, new_hotkey_stake_before_revert_ck_3);
+        assert_eq!(
+            old_hotkey_stake_after_revert_ck_3,
+            new_hotkey_stake_before_revert_ck_3
+        );
     });
 }
