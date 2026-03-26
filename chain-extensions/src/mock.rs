@@ -438,7 +438,6 @@ impl pallet_subtensor_swap::Config for Test {
     type TaoReserve = TaoBalanceReserve<Self>;
     type AlphaReserve = AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
-    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
