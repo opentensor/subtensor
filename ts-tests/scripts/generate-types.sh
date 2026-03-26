@@ -34,7 +34,7 @@ if [ "$GENERATE_TYPES" = true ]; then
   echo "==> Starting dev node (logs at $NODE_LOG)..."
   "$BINARY" --one --dev &>"$NODE_LOG" &
   NODE_PID=$!
-  trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null; true" EXIT
+  trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null; exit 0" EXIT
 
   TIMEOUT=60
   ELAPSED=0
