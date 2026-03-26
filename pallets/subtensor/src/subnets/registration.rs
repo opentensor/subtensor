@@ -62,7 +62,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
-        // 5) compute current burn price (already updated in on_initialize for this block)
+        // 5) compute current burn price.
+        // This has already been decayed in `on_initialize` for this block, and
+        // successful registrations in the same block bump it immediately.
         let registration_cost: TaoBalance = Self::get_burn(netuid);
 
         ensure!(
@@ -111,11 +113,14 @@ impl<T: Config> Pallet<T> {
         // 9) register neuron
         let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey)?;
 
-        // 10) counters
+        // 10) immediate burn bump for subsequent registrations in this block
+        Self::bump_registration_price_after_registration(netuid);
+
+        // 11) counters
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, registration_cost.into());
 
-        // 11) event
+        // 12) event
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?} )");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
@@ -460,13 +465,7 @@ impl<T: Config> Pallet<T> {
     /// Behavior:
     /// - Each non-genesis block: burn decays continuously by a per-block factor `f`,
     ///   where `f ^ BurnHalfLife = 1/2`.
-    /// - Each block: if there were registrations in the previous block, burn is
-    ///   multiplied by `BurnIncreaseMult ^ regs_prev_block`.
-    /// - Each block: `RegistrationsThisBlock` is reset to 0 for the new block.
     ///
-    /// Notes:
-    /// - This runs in `on_initialize(current_block)`.
-    /// - Continuous decay is applied once per non-genesis block.
     pub fn update_registration_prices_for_networks() {
         let current_block: u64 = Self::get_current_block_as_u64();
 
@@ -493,34 +492,32 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // --- 2) Apply post-registration bump.
-            //
-            // At the start of block N, RegistrationsThisBlock contains the count from block N-1.
-            if !netuid.is_root() {
-                let regs_prev_block: u16 = RegistrationsThisBlock::<T>::get(netuid);
-                if regs_prev_block > 0 {
-                    let mult: u64 = BurnIncreaseMult::<T>::get(netuid).max(1);
-                    let bump: u64 = Self::saturating_pow_u64(mult, regs_prev_block);
-
-                    let burn_u64: u64 = Self::get_burn(netuid).into();
-                    let mut new_burn_u64: u64 = burn_u64.saturating_mul(bump);
-
-                    // Prevent stuck-at-zero behavior.
-                    if new_burn_u64 == 0 {
-                        new_burn_u64 = 1;
-                    }
-
-                    Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
-                }
-            }
-
-            // --- 3) Reset per-block registrations counter for the new block.
+            // --- 2) Reset per-block registrations counter for the new block.
             Self::set_registrations_this_block(netuid, 0);
 
-            // --- 4) Root keeps interval-based admission, so reset that counter on the root epoch boundary.
+            // --- 3) Root keeps interval-based admission, so reset that counter on the root epoch boundary.
             if netuid.is_root() && Self::should_run_epoch(netuid, current_block) {
                 Self::set_registrations_this_interval(netuid, 0);
             }
         }
+    }
+
+    pub fn bump_registration_price_after_registration(netuid: NetUid) {
+        // Root does not use the per-registration burn bump path.
+        if netuid.is_root() {
+            return;
+        }
+
+        let mult: u64 = BurnIncreaseMult::<T>::get(netuid).max(1);
+        let burn_u64: u64 = Self::get_burn(netuid).into();
+
+        let mut new_burn_u64: u64 = burn_u64.saturating_mul(mult);
+
+        // Prevent stuck-at-zero behavior.
+        if new_burn_u64 == 0 {
+            new_burn_u64 = 1;
+        }
+
+        Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
     }
 }
