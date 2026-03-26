@@ -2700,3 +2700,193 @@ fn test_swap_hotkey_with_existing_stake() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_revert_hotkey_swap_with_revert_stake_the_same --exact --nocapture
+#[test]
+fn test_revert_hotkey_swap_with_revert_stake_the_same() {
+    new_test_ext(1).execute_with(|| {
+        let netuid_1 = NetUid::from(1);
+        let netuid_2 = NetUid::from(2);
+        let tempo: u16 = 13;
+        let hk1 = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let random_hotkey = U256::from(3);
+        let coldkey = U256::from(3);
+        let coldkey_2 = U256::from(4);
+        let coldkey_3 = U256::from(5);
+        let coldkey_4 = U256::from(6);
+        let random_coldkey = U256::from(7);
+        let initial_balance = 10_000_000_000u64 * 2;
+        let stake1 = 500_000_000u64;
+        let stake2 = 1_000_000_000u64;
+        let stake_ck2 = 1_500_000_000u64;
+        let stake_ck3 = 300_000_000u64;
+        let stake_ck4 = 900_000_000u64;
+
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(random_coldkey),
+            random_hotkey
+        ));
+
+        // Setup
+        super::mock::setup_reserves(
+            netuid_1,
+            (stake_ck4 * 100).into(),
+            (stake_ck4 * 100).into(),
+        );
+        super::mock::setup_reserves(
+            netuid_2,
+            (stake_ck4 * 100).into(),
+            (stake_ck4 * 100).into(),
+        );
+
+        add_network(netuid_1, tempo, 0);
+        add_network(netuid_2, tempo, 0);
+
+        SubnetMechanism::<Test>::insert(netuid_1, 1);
+        SubnetMechanism::<Test>::insert(netuid_2, 1);
+
+        register_ok_neuron(netuid_1, hk1, coldkey, 0);
+        register_ok_neuron(netuid_2, hk1, coldkey, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_4, initial_balance.into());
+        SubtensorModule::add_balance_to_coldkey_account(&random_coldkey, initial_balance.into());
+        step_block(20); // Waiting interval to be able to swap later
+
+        // Checking stake for hk1 on both networks
+        let hk1_stake_before_increase_sn_1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid_1);
+        assert!(
+            hk1_stake_before_increase_sn_1 == 0.into(),
+            "hk1 should have empty stake"
+        );
+
+        let hk1_stake_before_increase_sn_2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid_2);
+        assert!(
+            hk1_stake_before_increase_sn_2 == 0.into(),
+            "hk1 should have empty stake"
+        );
+
+        // Adding stake to hk1 on both networks
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &coldkey,
+            netuid_1,
+            stake1.into(),
+        );
+        // Adding another stake for different coldkey
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &coldkey_2,
+            netuid_1,
+            stake_ck2.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &coldkey_3,
+            netuid_1,
+            stake_ck3.into(),
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hk1,
+            &coldkey,
+            netuid_2,
+            stake2.into(),
+        );
+
+        // The stake for validator
+        let hk1_stake_before_swap_sn_1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid_1);
+        assert!(
+            hk1_stake_before_swap_sn_1 == stake1.into(),
+            "hk1 should have stake before swap on sn_1"
+        );
+
+        // Let's check individual stake
+        let hk1_stake_before_swap_sn_1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey_2, netuid_1);
+        assert_eq!(
+            hk1_stake_before_swap_sn_1, (stake_ck2).into(),
+            "stake for ck2 should be only his stake"
+        );
+
+        let hk1_stake_before_swap_sn_2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid_2);
+        assert!(
+            hk1_stake_before_swap_sn_2 == stake2.into(),
+            "hk1 should have stake before swap on sn_2"
+        );
+
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &hk1,
+            &new_hotkey,
+            Some(netuid_1),
+            false
+        ));
+
+        assert_eq!(Owner::<Test>::get(hk1), coldkey);
+
+        SubtensorModule::do_add_stake(
+            RawOrigin::Signed(random_coldkey).into(),
+            hk1,
+            netuid_1,
+            stake_ck4.into(),
+        )
+            .unwrap();
+
+        // Check stake moved to new hotkey on subnet1
+        let new_hotkey_stake_after_swap_ck =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey, netuid_1);
+        assert_eq!(new_hotkey_stake_after_swap_ck, stake1.into());
+
+        // Check stake moved for ck2
+        let new_hotkey_stake_after_swap_ck_1 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_2, netuid_1);
+        assert_eq!(new_hotkey_stake_after_swap_ck_1, stake_ck2.into());
+
+        // Check stake moved for ck3
+        let new_hotkey_stake_after_swap_ck_3 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_3, netuid_1);
+        assert_eq!(new_hotkey_stake_after_swap_ck_3, stake_ck3.into());
+
+        step_block(20);
+
+        // Let's check individual stakes; they changed because of emissions
+        let new_hotkey_stake_before_revert_ck =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey, netuid_1);
+        assert!(new_hotkey_stake_before_revert_ck > stake1.into());
+
+        let new_hotkey_stake_before_revert_ck_2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_2, netuid_1);
+        assert!(new_hotkey_stake_before_revert_ck_2 > stake_ck2.into());
+
+        let new_hotkey_stake_before_revert_ck_3 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey_3, netuid_1);
+        assert!(new_hotkey_stake_before_revert_ck_3 > stake_ck3.into());
+
+        // Reverting back: hk2 -> hk1
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &new_hotkey,
+            &hk1,
+            Some(netuid_1),
+            false
+        ));
+
+        // Let's check individual stakes; they changed because of emissions
+        let old_hotkey_stake_after_revert_ck =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey, netuid_1);
+        assert_eq!(old_hotkey_stake_after_revert_ck, new_hotkey_stake_before_revert_ck);
+
+        let old_hotkey_stake_after_revert_ck_2 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey_2, netuid_1);
+        assert_eq!(old_hotkey_stake_after_revert_ck_2, new_hotkey_stake_before_revert_ck_2);
+
+        let old_hotkey_stake_after_revert_ck_3 =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey_3, netuid_1);
+        assert_eq!(old_hotkey_stake_after_revert_ck_3, new_hotkey_stake_before_revert_ck_3);
+    });
+}
