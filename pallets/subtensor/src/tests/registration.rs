@@ -269,15 +269,15 @@ fn test_registration_already_active_hotkey_error() {
 // -----------------------------
 
 #[test]
-fn test_burn_increases_next_block_after_registration() {
+fn test_burn_decay() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 13, 0);
         mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
         // Make behavior deterministic for this test:
-        // - no interval rollover during the test
-        // - x2 bump on the block after registration
+        // - very slow decay
+        // - x2 bump on successful registration
         BurnHalfLife::<Test>::insert(netuid, 1_000);
         BurnIncreaseMult::<Test>::insert(netuid, 2);
 
@@ -287,19 +287,16 @@ fn test_burn_increases_next_block_after_registration() {
         let hotkey = U256::from(200);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000.into());
 
-        // Register in this block. Burn itself does not change until next block.
+        // Register in this block. Burn updates immediately now.
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             netuid,
             hotkey
         ));
-        assert_eq!(SubtensorModule::get_burn(netuid), 1_000u64.into());
+        assert_eq!(SubtensorModule::get_burn(netuid), 2_000u64.into());
 
-        // Next block:
-        // 1) continuous per-block decay floors 1000 -> 999
-        // 2) then previous-block registration bump applies: 999 * 2 = 1998
+        // Next block only continuous decay applies: 2000 -> 1998.
         step_block(1);
-
         assert_eq!(SubtensorModule::get_burn(netuid), 1_998u64.into());
     });
 }
@@ -342,7 +339,7 @@ fn test_burn_floor_prevents_zero_stuck_and_allows_bump() {
         step_block(1);
         assert_eq!(SubtensorModule::get_burn(netuid), 1u64.into());
 
-        // Register now; bump should apply next block and not be stuck at 0.
+        // Register now; bump should apply immediately and not be stuck at 0.
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000.into());
@@ -353,10 +350,12 @@ fn test_burn_floor_prevents_zero_stuck_and_allows_bump() {
             hotkey
         ));
 
-        step_block(1);
-
-        // burn should become 2 (after halving floor then bump)
+        // Immediate bump on successful registration.
         assert_eq!(SubtensorModule::get_burn(netuid), 2u64.into());
+
+        // Next block decays 2 -> 1, and the floor prevents it getting stuck at 0.
+        step_block(1);
+        assert_eq!(SubtensorModule::get_burn(netuid), 1u64.into());
     });
 }
 
@@ -709,189 +708,48 @@ fn test_registration_pruning_1() {
     });
 }
 
-// DEPRECATED #[test]
-// fn test_network_connection_requirement() {
-//     new_test_ext(1).execute_with(|| {
-//         // Add a networks and connection requirements.
-//         let netuid_a: u16 = 0;
-//         let netuid_b: u16 = 1;
-//         add_network(netuid_a, 10, 0);
-//         add_network(netuid_b, 10, 0);
+#[test]
+fn test_bump_registration_price_after_registration_applies_multiplier_immediately() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 13, 0);
+        mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
-//         // Bulk values.
-//         let hotkeys: Vec<U256> = (0..=10).map(|x| U256::from(x)).collect();
-//         let coldkeys: Vec<U256> = (0..=10).map(|x| U256::from(x)).collect();
+        BurnIncreaseMult::<Test>::insert(netuid, 3);
+        SubtensorModule::set_burn(netuid, 1_000u64.into());
 
-//         // Add a connection requirement between the A and B. A requires B.
-//         SubtensorModule::add_connection_requirement(netuid_a, netuid_b, u16::MAX);
-//         SubtensorModule::set_max_registrations_per_block(netuid_a, 10); // Enough for the below tests.
-//         SubtensorModule::set_max_registrations_per_block(netuid_b, 10); // Enough for the below tests.
-//         SubtensorModule::set_max_allowed_uids(netuid_a, 10); // Enough for the below tests.
-//         SubtensorModule::set_max_allowed_uids(netuid_b, 10); // Enough for the below tests.
+        SubtensorModule::bump_registration_price_after_registration(netuid);
 
-//         // Attempt registration on A fails because the hotkey is not registered on network B.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 3942084, &U256::from(0));
-//         assert_eq!(
-//             SubtensorModule::register(
-//                 <<Test as Config>::RuntimeOrigin>::signed(hotkeys[0]),
-//                 netuid_a,
-//                 0,
-//                 nonce,
-//                 work,
-//                 hotkeys[0],
-//                 coldkeys[0]
-//             ),
-//             Err(Error::<Test>::DidNotPassConnectedNetworkRequirement.into())
-//         );
+        assert_eq!(SubtensorModule::get_burn(netuid), 3_000u64.into());
+    });
+}
 
-//         // Attempt registration on B passes because there is no exterior requirement.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 5942084, &U256::from(0));
-//         assert_ok!(SubtensorModule::register(
-//             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[0]),
-//             netuid_b,
-//             0,
-//             nonce,
-//             work,
-//             hotkeys[0],
-//             coldkeys[0]
-//         ));
+#[test]
+fn test_update_registration_prices_for_networks_runs_on_next_block_step() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        add_network(netuid, 13, 0);
+        mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
-//         // Attempt registration on A passes because this key is in the top 100 of keys on network B.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 6942084, &U256::from(0));
-//         assert_ok!(SubtensorModule::register(
-//             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[0]),
-//             netuid_a,
-//             0,
-//             nonce,
-//             work,
-//             hotkeys[0],
-//             coldkeys[0]
-//         ));
+        // Gentle decay so the one-block result is deterministic.
+        BurnHalfLife::<Test>::insert(netuid, 1_000);
+        BurnIncreaseMult::<Test>::insert(netuid, 2);
+        SubtensorModule::set_burn(netuid, 1_000u64.into());
 
-//         // Lets attempt the key registration on A. Fails because we are not in B.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 634242084, &U256::from(1));
-//         assert_eq!(
-//             SubtensorModule::register(
-//                 <<Test as Config>::RuntimeOrigin>::signed(hotkeys[1]),
-//                 netuid_a,
-//                 0,
-//                 nonce,
-//                 work,
-//                 hotkeys[1],
-//                 coldkeys[1]
-//             ),
-//             Err(Error::<Test>::DidNotPassConnectedNetworkRequirement.into())
-//         );
+        // Seed the per-block counter to prove that stepping one block only
+        // performs decay + reset now, and does not apply a delayed bump.
+        RegistrationsThisBlock::<Test>::insert(netuid, 3);
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 3);
 
-//         // Lets register the next key on B. Passes, np.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 7942084, &U256::from(1));
-//         assert_ok!(SubtensorModule::register(
-//             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[1]),
-//             netuid_b,
-//             0,
-//             nonce,
-//             work,
-//             hotkeys[1],
-//             coldkeys[1]
-//         ));
+        step_block(1);
 
-//         // Lets make the connection requirement harder. Top 0th percentile.
-//         SubtensorModule::add_connection_requirement(netuid_a, netuid_b, 0);
-
-//         // Attempted registration passes because the prunning score for hotkey_1 is the top keys on network B.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 8942084, &U256::from(1));
-//         assert_ok!(SubtensorModule::register(
-//             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[1]),
-//             netuid_a,
-//             0,
-//             nonce,
-//             work,
-//             hotkeys[1],
-//             coldkeys[1]
-//         ));
-
-//         // Lets register key 3 with lower prunning score.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 9942084, &U256::from(2));
-//         assert_ok!(SubtensorModule::register(
-//             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[2]),
-//             netuid_b,
-//             0,
-//             nonce,
-//             work,
-//             hotkeys[2],
-//             coldkeys[2]
-//         ));
-//         SubtensorModule::set_pruning_score_for_uid(
-//             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[2]).unwrap(),
-//             0,
-//         ); // Set prunning score to 0.
-//         SubtensorModule::set_pruning_score_for_uid(
-//             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[1]).unwrap(),
-//             0,
-//         ); // Set prunning score to 0.
-//         SubtensorModule::set_pruning_score_for_uid(
-//             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[0]).unwrap(),
-//             0,
-//         ); // Set prunning score to 0.
-
-//         // Lets register key 4 with higher prunining score.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 10142084, &U256::from(3));
-//         assert_ok!(SubtensorModule::register(
-//             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[3]),
-//             netuid_b,
-//             0,
-//             nonce,
-//             work,
-//             hotkeys[3],
-//             coldkeys[3]
-//         ));
-//         SubtensorModule::set_pruning_score_for_uid(
-//             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[3]).unwrap(),
-//             1,
-//         ); // Set prunning score to 1.
-
-//         // Attempted register of key 3 fails because of bad prunning score on B.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 11142084, &U256::from(2));
-//         assert_eq!(
-//             SubtensorModule::register(
-//                 <<Test as Config>::RuntimeOrigin>::signed(hotkeys[2]),
-//                 netuid_a,
-//                 0,
-//                 nonce,
-//                 work,
-//                 hotkeys[2],
-//                 coldkeys[2]
-//             ),
-//             Err(Error::<Test>::DidNotPassConnectedNetworkRequirement.into())
-//         );
-
-//         // Attempt to register key 4 passes because of best prunning score on B.
-//         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 12142084, &U256::from(3));
-//         assert_ok!(SubtensorModule::register(
-//             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[3]),
-//             netuid_a,
-//             0,
-//             nonce,
-//             work,
-//             hotkeys[3],
-//             coldkeys[3]
-//         ));
-//     });
-// }
+        // `update_registration_prices_for_networks()` is invoked from on_initialize.
+        // With the immediate-bump registration fix, the next block should only decay:
+        // 1000 -> 999, and reset the bookkeeping counter.
+        assert_eq!(SubtensorModule::get_burn(netuid), 999u64.into());
+        assert_eq!(RegistrationsThisBlock::<Test>::get(netuid), 0);
+    });
+}
 
 #[test]
 fn test_neuron_registration_disabled() {
