@@ -827,6 +827,7 @@ pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) 
 pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
     add_network(netuid, tempo, _modality);
     SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+    SubtensorModule::set_yuma3_enabled(netuid, false);
 }
 
 // Helper function to set up a neuron with stake
