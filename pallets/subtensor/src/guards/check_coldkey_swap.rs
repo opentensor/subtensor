@@ -1,31 +1,32 @@
 use crate::{Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config, Error};
-use frame_support::dispatch::{
-    DispatchGuard, DispatchInfo, DispatchResultWithPostInfo, PostDispatchInfo,
+use frame_support::{
+    dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
+    pallet_prelude::*,
+    traits::{IsSubType, OriginTrait},
 };
-use frame_support::traits::{IsSubType, OriginTrait};
 use sp_runtime::traits::Dispatchable;
 use sp_std::marker::PhantomData;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 
-/// Dispatch guard that blocks most calls when a coldkey swap is active.
+/// Dispatch extension that blocks most calls when a coldkey swap is active.
 ///
 /// When a coldkey swap has been announced for the signing account:
 /// - If the swap is disputed, ALL calls are blocked.
 /// - Otherwise, only swap-related calls and MEV-protected calls (`submit_encrypted`)
 ///   are allowed through.
 ///
-/// Root origin bypasses this guard entirely (handled by `check_dispatch_guard`).
+/// Root origin bypasses this extension entirely.
 /// Non-signed origins pass through.
 ///
-/// Because this is a `DispatchGuard` (not a `TransactionExtension`), it fires at every
+/// Because this is a `DispatchExtension` (not a `TransactionExtension`), it fires at every
 /// `call.dispatch(origin)` site — including inside the proxy pallet's `do_proxy()`.
 /// This means nested proxies of any depth are handled automatically with the real
 /// resolved origin.
 pub struct CheckColdkeySwap<T: Config>(PhantomData<T>);
 
-impl<T> DispatchGuard<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
+impl<T> DispatchExtension<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
 where
     T: Config + pallet_shield::Config,
     <T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -33,9 +34,18 @@ where
         + IsSubType<pallet_shield::Call<T>>,
     DispatchableOriginOf<T>: OriginTrait<AccountId = T::AccountId>,
 {
-    fn check(origin: &DispatchableOriginOf<T>, call: &CallOf<T>) -> DispatchResultWithPostInfo {
+    type Pre = ();
+
+    fn weight(_call: &CallOf<T>) -> Weight {
+        Weight::zero()
+    }
+
+    fn pre_dispatch(
+        origin: &DispatchableOriginOf<T>,
+        call: &CallOf<T>,
+    ) -> Result<Self::Pre, DispatchErrorWithPostInfo> {
         // Only care about signed origins.
-        // Root is already bypassed by check_dispatch_guard() before we get here.
+        // Root is already bypassed by the extension before we get here.
         let Some(who) = origin.as_signer() else {
             return Ok(().into());
         };

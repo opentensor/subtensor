@@ -381,7 +381,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchGuard = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
