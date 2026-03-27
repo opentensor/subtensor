@@ -9,7 +9,7 @@ Create or reuse one commit, run the Rust fix pipeline in order and fold all resu
 
 ## Steps
 
-1. Stage all changes and create a commit with a descriptive message summarizing the changes
+1. Stage all changes and create a commit with a descriptive message summarizing the changes (unless there are none)
 2. Do this:
    a. Run `cargo check --workspace`
    b. Run `cargo clippy --fix --workspace --all-features --all-targets --allow-dirty`

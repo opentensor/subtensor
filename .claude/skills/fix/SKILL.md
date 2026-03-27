@@ -10,18 +10,18 @@ Create or reuse one commit, run the Rust fix pipeline in order, run unit tests, 
 ## Steps
 
 1. Run /format
-2. In a Sonnet subagent run:
+2. In a subagent (subagent_type: `general-purpose`, model: `sonnet`) run:
    - `cargo test -p pallet-subtensor --lib` and capture full output
    - If any tests fail, analyze the failures
-    - Read the failing test code AND the source code it tests
-    - Determine the root cause
-    - Apply fixes using Edit tools
-    - Re-run the tests to confirm the fix works
-    - After fixing, if there are further failures, repeat (up to 3 fix-and-retest cycles)
+     - Read the failing test code AND the source code it tests
+     - Determine the root cause
+     - Apply fixes using Edit tools
+     - Re-run the tests to confirm the fix works
+     - After fixing, if there are further failures, repeat (up to 3 fix-and-retest cycles)
    - Summarize:
-    - Which tests failed, if any
-    - What was fixed and how
-    - Whether all tests pass now
+     - Which tests failed, if any
+     - What was fixed and how
+     - Whether all tests pass now
 3. Amend commit with test fixes, if any, then /format
 4. Run `git show -s` for user to review
 

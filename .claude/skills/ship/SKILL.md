@@ -13,6 +13,7 @@ Run the following skill in a subagent to prevent context pollution. Make the sub
 2. Push the branch to origin
 3. Create a PR with a comprehensive description if none exists yet
    - Update the description if PR exists already
+   - Add label `skip-cargo-audit` to the PR
 4. Poll CI status in a loop:
    - Run: `gh pr checks --json name,state,conclusion,link --watch --fail-fast 2>/dev/null || gh pr checks`
    - If `--watch` is not available, poll manually every 90 seconds using `gh pr checks --json name,state,conclusion,link` until all checks have completed (no checks with state "pending" or conclusion "").
@@ -43,7 +44,7 @@ Run the following skill in a subagent to prevent context pollution. Make the sub
        - **Description** of the problem.
      - The review must check for: correctness, safety (no panics, no unchecked arithmetic, no indexing), edge cases, naming, documentation gaps, test coverage, and adherence to Substrate/Rust best practices.
      - Return the full list of issues.
-9. **For each issue**, launch TWO subagents **in parallel**:
+9. **For each issue**, run fix designer then fix reviewer in sequence; run all issues concurrently with each other:
     - **Fix designer** (subagent_type: `general-purpose`, model: `sonnet`): Given the issue description and relevant code context, design a concrete proposed fix with exact code changes (old code -> new code). Return the fix as a structured plan.
     - **Fix reviewer** (subagent_type: `general-purpose`, model: `opus`): Given the issue description, the relevant code context, and the proposed fix (once the fix designer returns — so the reviewer runs AFTER the designer, but reviewers for different issues run in parallel with each other). The reviewer must check:
       - Does the fix actually solve the issue?
