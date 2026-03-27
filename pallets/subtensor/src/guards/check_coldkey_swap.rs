@@ -118,7 +118,7 @@ mod tests {
         ]
     }
 
-    /// Calls that should be allowed through the guard during an active (undisputed) swap.
+    /// Calls that should be allowed through the extension during an active (undisputed) swap.
     fn authorized_calls() -> Vec<RuntimeCall> {
         vec![
             RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap {
@@ -158,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn none_bypasses_guard() {
+    fn none_bypasses_extension() {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[test]
-    fn root_bypasses_guard() {
+    fn root_bypasses_extension() {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
@@ -203,7 +203,7 @@ mod tests {
                     assert_ne!(
                         err.error,
                         Error::<Test>::ColdkeySwapAnnounced.into(),
-                        "Authorized call should not be blocked by the guard"
+                        "Authorized call should not be blocked by the extension"
                     );
                 }
             }
