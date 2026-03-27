@@ -734,6 +734,7 @@ pub fn register_ok_neuron(
     coldkey_account_id: U256,
     _start_nonce: u64,
 ) {
+    SubtensorModule::set_burn(netuid, TaoBalance::from(0));
     let reserve: u64 = 1_000_000_000_000;
     let tao_reserve = SubnetTAO::<Test>::get(netuid);
     let alpha_reserve =
@@ -791,7 +792,7 @@ pub fn register_ok_neuron(
             panic!("Expected Ok(_). Got Err({e:?})");
         }
     }
-
+    SubtensorModule::set_burn(netuid, TaoBalance::from(0));
     log::info!(
         "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
