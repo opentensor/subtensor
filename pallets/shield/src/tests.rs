@@ -488,7 +488,7 @@ mod encrypted_extrinsics_tests {
             // Verify the extrinsic was stored at index 0 with account ID
             let expected = PendingExtrinsic::<Test> {
                 who,
-                call: encoded_call,
+                encrypted_call: encoded_call,
                 submitted_at: 1,
             };
             assert_eq!(PendingExtrinsics::<Test>::get(0), Some(expected));
@@ -567,40 +567,34 @@ mod encrypted_extrinsics_tests {
         new_test_ext().execute_with(|| {
             System::set_block_number(1);
 
-            // Test with multiple calls to ensure the iteration works correctly.
-
-            let call1 = RuntimeCall::System(frame_system::Call::remark {
-                remark: vec![1, 2, 3],
-            });
-            let call2 = RuntimeCall::System(frame_system::Call::remark {
-                remark: vec![4, 5, 6],
-            });
+            // A root-only call dispatched from a signed origin will fail.
+            let failing_call =
+                RuntimeCall::System(frame_system::Call::set_heap_pages { pages: 64 });
 
             assert_ok!(MevShield::store_encrypted(
                 RuntimeOrigin::signed(1),
-                BoundedVec::truncate_from(call1.encode()),
-            ));
-            assert_ok!(MevShield::store_encrypted(
-                RuntimeOrigin::signed(1),
-                BoundedVec::truncate_from(call2.encode()),
+                BoundedVec::truncate_from(failing_call.encode()),
             ));
 
-            // Verify there are 2 pending extrinsics
-            assert_eq!(NextPendingExtrinsicIndex::<Test>::get(), 2);
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 2);
+            // Verify there is 1 pending extrinsic
+            assert_eq!(NextPendingExtrinsicIndex::<Test>::get(), 1);
+            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
             assert!(PendingExtrinsics::<Test>::get(0).is_some());
-            assert!(PendingExtrinsics::<Test>::get(1).is_some());
 
             // Run on_initialize
             MevShield::on_initialize(2);
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
-            assert!(PendingExtrinsics::<Test>::get(1).is_none());
 
-            // Verify both calls were dispatched
-            System::assert_has_event(crate::Event::<Test>::ExtrinsicDispatched { index: 0 }.into());
-            System::assert_has_event(crate::Event::<Test>::ExtrinsicDispatched { index: 1 }.into());
+            // Verify the call failed
+            System::assert_has_event(
+                crate::Event::<Test>::ExtrinsicDispatchFailed {
+                    index: 0,
+                    error: sp_runtime::DispatchError::BadOrigin,
+                }
+                .into(),
+            );
         });
     }
 
@@ -775,7 +769,7 @@ mod encrypted_extrinsics_tests {
             });
             let pending = PendingExtrinsic::<Test> {
                 who: 1,
-                call: BoundedVec::truncate_from(call.encode()),
+                encrypted_call: BoundedVec::truncate_from(call.encode()),
                 submitted_at: 1,
             };
 
