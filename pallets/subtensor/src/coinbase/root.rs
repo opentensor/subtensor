@@ -214,7 +214,7 @@ impl<T: Config> Pallet<T> {
 
         // --- Perform the cleanup before removing the network.
         // Will handle it in dissolve network PR.
-        let _ = T::SwapInterface::dissolve_all_liquidity_providers(netuid);
+        T::SwapInterface::dissolve_all_liquidity_providers(netuid).map_err(|e| e.error)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
