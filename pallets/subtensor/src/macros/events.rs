@@ -547,5 +547,13 @@ mod events {
             /// Resulting swapped TAO amount
             tao_amount: TaoBalance,
         },
+
+        /// Root claim coldkey migration event.
+        RootClaimColdkeyMigrated {
+            /// Keys migrated this block
+            processed_keys: u64,
+            /// Added coldkeys
+            added_coldkeys: u64,
+        },
     }
 }
