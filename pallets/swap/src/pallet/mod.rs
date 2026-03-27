@@ -607,16 +607,13 @@ mod pallet {
         /// Emits `Event::UserLiquidityToggled` on success
         #[pallet::call_index(5)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::disable_lp())]
-        pub fn disable_lp(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn disable_lp(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
-            let mut weight = Weight::default();
 
             for netuid in 1..=128 {
                 let netuid = NetUid::from(netuid as u16);
                 if EnabledUserLiquidity::<T>::get(netuid) {
-                    weight = weight.saturating_add(T::DbWeight::get().reads(1));
                     EnabledUserLiquidity::<T>::insert(netuid, false);
-                    weight = weight.saturating_add(T::DbWeight::get().writes(1));
                     Self::deposit_event(Event::UserLiquidityToggled {
                         netuid,
                         enable: false,
@@ -626,13 +623,10 @@ mod pallet {
                 // Remove provided liquidity unconditionally because the network may have
                 // user liquidity previously disabled
                 // Ignore result to avoid early stopping
-                if let Ok(result) = Self::do_dissolve_all_liquidity_providers(netuid) {
-                    weight =
-                        weight.saturating_add(result.actual_weight.unwrap_or(Weight::default()));
-                }
+                let _ = Self::do_dissolve_all_liquidity_providers(netuid);
             }
 
-            Ok(Some(weight).into())
+            Ok(())
         }
     }
 }
