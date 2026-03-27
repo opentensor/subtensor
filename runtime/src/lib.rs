@@ -724,6 +724,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register_limit { .. })
             ),
             ProxyType::RootWeights => false, // deprecated
             ProxyType::ChildKeys => matches!(
