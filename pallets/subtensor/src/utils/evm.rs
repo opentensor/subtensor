@@ -10,7 +10,7 @@ use subtensor_runtime_common::NetUid;
 const MESSAGE_PREFIX: &str = "\x19Ethereum Signed Message:\n";
 
 impl<T: Config> Pallet<T> {
-    pub(crate) fn hash_message_eip191<M: AsRef<[u8]>>(message: M) -> [u8; 32] {
+    pub fn hash_message_eip191<M: AsRef<[u8]>>(message: M) -> [u8; 32] {
         let msg_len = message.as_ref().len().to_string();
         keccak_256(
             &[
