@@ -165,8 +165,6 @@ pub mod pallet {
         AddressMapping,
         /// Voting power precompile
         VotingPower,
-        /// Drand randomness precompile
-        Drand,
     }
 
     #[pallet::type_value]
