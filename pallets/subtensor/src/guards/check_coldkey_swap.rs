@@ -37,7 +37,7 @@ where
     type Pre = ();
 
     fn weight(_call: &CallOf<T>) -> Weight {
-        Weight::zero()
+        T::DbWeight::get().reads(2)
     }
 
     fn pre_dispatch(
