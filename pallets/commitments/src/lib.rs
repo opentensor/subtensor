@@ -31,6 +31,7 @@ use sp_runtime::{
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
 };
 use sp_std::{boxed::Box, vec::Vec};
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::NetUid;
 use tle::{
     curves::drand::TinyBLS381,
@@ -589,6 +590,7 @@ type OriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
+#[freeze_struct("7f03f99666ee2c4f")]
 pub struct CommitmentsTransactionExtension<T>(PhantomData<T>);
 
 impl<T> sp_std::fmt::Debug for CommitmentsTransactionExtension<T> {
