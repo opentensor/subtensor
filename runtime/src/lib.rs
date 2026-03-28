@@ -204,6 +204,7 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
                 pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
                 pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
                 pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+                pallet_commitments::CommitmentsTransactionExtension::<Runtime>::new(),
             ),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
@@ -1681,6 +1682,7 @@ pub type CustomTxExtension = (
     pallet_shield::CheckShieldedTxValidity<Runtime>,
     pallet_subtensor::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
+    pallet_commitments::CommitmentsTransactionExtension<Runtime>,
 );
 pub type TxExtension = (
     SystemTxExtension,
