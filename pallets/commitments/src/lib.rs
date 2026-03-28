@@ -12,16 +12,24 @@ pub mod weights;
 
 use ark_serialize::CanonicalDeserialize;
 use codec::Encode;
-use frame_support::IterableStorageDoubleMap;
 use frame_support::{
-    BoundedVec,
-    traits::{Currency, Get},
+    BoundedVec, IterableStorageDoubleMap,
+    pallet_prelude::{
+        Decode, DecodeWithMemTracking, PhantomData, ValidTransaction, ValidateResult,
+    },
+    traits::{Currency, Get, IsSubType},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
 use scale_info::prelude::collections::BTreeSet;
-use sp_runtime::SaturatedConversion;
-use sp_runtime::{Saturating, Weight, traits::Zero};
+use sp_runtime::{
+    SaturatedConversion, Saturating, Weight,
+    traits::Zero,
+    traits::{
+        AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
+    },
+    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidityError},
+};
 use sp_std::{boxed::Box, vec::Vec};
 use subtensor_runtime_common::NetUid;
 use tle::{
@@ -573,6 +581,83 @@ impl<T: Config> Pallet<T> {
         TimelockedIndex::<T>::mutate(|index| {
             index.retain(|(n, _)| *n != netuid);
         });
+    }
+}
+
+type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
+type OriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
+
+#[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct CommitmentsTransactionExtension<T>(PhantomData<T>);
+
+impl<T> sp_std::fmt::Debug for CommitmentsTransactionExtension<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "CommitmentsTransactionExtension")
+    }
+}
+
+impl<T> CommitmentsTransactionExtension<T>
+where
+    T: Config + Send + Sync + TypeInfo,
+    CallOf<T>: Dispatchable + IsSubType<pallet::Call<T>>,
+{
+    pub fn new() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<T> TransactionExtension<CallOf<T>> for CommitmentsTransactionExtension<T>
+where
+    T: Config + Send + Sync + TypeInfo,
+    CallOf<T>: Dispatchable + IsSubType<pallet::Call<T>>,
+    OriginOf<T>: AsSystemOriginSigner<T::AccountId> + Clone,
+{
+    const IDENTIFIER: &'static str = "CommitmentsTransactionExtension";
+
+    type Implicit = ();
+    type Val = ();
+    type Pre = ();
+
+    fn weight(&self, _call: &CallOf<T>) -> Weight {
+        Weight::from_parts(0, 0)
+    }
+
+    fn validate(
+        &self,
+        origin: OriginOf<T>,
+        call: &CallOf<T>,
+        _info: &DispatchInfoOf<CallOf<T>>,
+        _len: usize,
+        _self_implicit: Self::Implicit,
+        _inherited_implication: &impl Implication,
+        _source: TransactionSource,
+    ) -> ValidateResult<Self::Val, CallOf<T>> {
+        let Some(who) = origin.as_system_origin_signer() else {
+            return Ok((ValidTransaction::default(), (), origin));
+        };
+
+        match call.is_sub_type() {
+            Some(pallet::Call::set_commitment { netuid, .. }) => {
+                if !T::CanCommit::can_commit(*netuid, who) {
+                    return Err(InvalidTransaction::BadSigner.into());
+                }
+
+                Ok((ValidTransaction::default(), (), origin))
+            }
+            _ => Ok((ValidTransaction::default(), (), origin)),
+        }
+    }
+
+    fn prepare(
+        self,
+        _val: Self::Val,
+        _origin: &OriginOf<T>,
+        _call: &CallOf<T>,
+        _info: &DispatchInfoOf<CallOf<T>>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        Ok(())
     }
 }
 
