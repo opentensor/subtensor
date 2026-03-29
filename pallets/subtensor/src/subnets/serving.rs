@@ -70,8 +70,8 @@ impl<T: Config> Pallet<T> {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // Validate user input
-        Self::validate_serve_axon(
+        // Validate user input and build the axon struct.
+        let mut prev_axon = Self::validate_serve_axon(
             &hotkey_id,
             netuid,
             version,
@@ -90,17 +90,8 @@ impl<T: Config> Pallet<T> {
             NeuronCertificates::<T>::insert(netuid, hotkey_id.clone(), certificate)
         }
 
-        // We insert the axon meta.
-        let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
+        // Record the block at insert time.
         prev_axon.block = Self::get_current_block_as_u64();
-        prev_axon.version = version;
-        prev_axon.ip = ip;
-        prev_axon.port = port;
-        prev_axon.ip_type = ip_type;
-        prev_axon.protocol = protocol;
-        prev_axon.placeholder1 = placeholder1;
-        prev_axon.placeholder2 = placeholder2;
-
         Axons::<T>::insert(netuid, hotkey_id.clone(), prev_axon);
 
         // We deposit axon served event.
@@ -137,11 +128,8 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully serving the axon info.
     ///
     /// # Raises:
-    /// * 'MechanismDoesNotExist':
-    ///     - Attempting to set weights on a non-existent network.
-    ///
-    /// * 'NotRegistered':
-    ///     - Attempting to set weights from a non registered account.
+    /// * 'HotKeyNotRegisteredInNetwork':
+    ///     - Attempting to serve prometheus from a hotkey not registered on the target network.
     ///
     /// * 'InvalidIpType':
     ///     - The ip type is not 4 or 6.
@@ -321,7 +309,7 @@ impl<T: Config> Pallet<T> {
         protocol: u8,
         placeholder1: u8,
         placeholder2: u8,
-    ) -> Result<(), Error<T>> {
+    ) -> Result<AxonInfoOf, Error<T>> {
         // Ensure the hotkey is registered on this specific network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, hotkey_id),
@@ -344,8 +332,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
-        // Validate axon data with delegate func
-        prev_axon.block = Self::get_current_block_as_u64();
+        // Assemble and validate the updated axon state.
+        prev_axon.block = current_block;
         prev_axon.version = version;
         prev_axon.ip = ip;
         prev_axon.port = port;
@@ -360,6 +348,6 @@ impl<T: Config> Pallet<T> {
             axon_validated.err().unwrap_or(Error::<T>::InvalidPort)
         );
 
-        Ok(())
+        Ok(prev_axon)
     }
 }

@@ -74,6 +74,7 @@ pub fn migrate_remove_orphan_axon_prom_cert_v2<T: Config>() -> Weight {
 
         if cleaned_axons > 0 || cleaned_prometheus > 0 || cleaned_certificates > 0 {
             log::info!(
+                target: "runtime",
                 "Cleaned {cleaned_axons} axons, {cleaned_prometheus} prometheus, \
                  {cleaned_certificates} neuron certificates for network {network}"
             );
