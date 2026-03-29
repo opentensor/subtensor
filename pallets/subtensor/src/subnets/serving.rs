@@ -101,13 +101,6 @@ impl<T: Config> Pallet<T> {
         prev_axon.placeholder1 = placeholder1;
         prev_axon.placeholder2 = placeholder2;
 
-        // Validate axon data with delegate func
-        let axon_validated = Self::validate_axon_data(&prev_axon);
-        ensure!(
-            axon_validated.is_ok(),
-            axon_validated.err().unwrap_or(Error::<T>::InvalidPort)
-        );
-
         Axons::<T>::insert(netuid, hotkey_id.clone(), prev_axon);
 
         // We deposit axon served event.
@@ -170,17 +163,17 @@ impl<T: Config> Pallet<T> {
         // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
+        // Ensure the hotkey is registered on this specific network.
+        ensure!(
+            Self::is_hotkey_registered_on_network(netuid, &hotkey_id),
+            Error::<T>::HotKeyNotRegisteredInNetwork
+        );
+
         // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
             Self::is_valid_ip_address(ip_type, ip, false),
             Error::<T>::InvalidIpAddress
-        );
-
-        // Ensure the hotkey is registered on this specific network.
-        ensure!(
-            Self::is_hotkey_registered_on_network(netuid, &hotkey_id),
-            Error::<T>::HotKeyNotRegisteredInNetwork
         );
 
         // We get the previous axon info assoicated with this ( netuid, uid )

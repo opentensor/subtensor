@@ -25,6 +25,7 @@ pub fn migrate_remove_orphan_axon_prom_cert_v2<T: Config>() -> Weight {
         return weight;
     }
     log::info!(
+        target: "runtime",
         "Running migration '{}'",
         String::from_utf8_lossy(&migration_name)
     );

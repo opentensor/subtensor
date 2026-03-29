@@ -1324,3 +1324,36 @@ fn test_serve_prometheus_rejects_hotkey_registered_on_other_network() {
         );
     });
 }
+
+/// serve_axon must not write a NeuronCertificate when the hotkey is not registered on the target subnet.
+#[test]
+fn test_serve_axon_with_cert_rejects_unregistered_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(100);
+        let netuid_registered = NetUid::from(1);
+        let netuid_target = NetUid::from(2);
+
+        add_network(netuid_registered, 13, 0);
+        add_network(netuid_target, 13, 0);
+        register_ok_neuron(netuid_registered, hotkey, U256::from(101), 0);
+
+        assert_noop!(
+            SubtensorModule::serve_axon(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+                netuid_target,
+                2,
+                1676056785,
+                128,
+                4,
+                0,
+                0,
+                0,
+            ),
+            Error::<Test>::HotKeyNotRegisteredInNetwork
+        );
+        assert!(
+            !NeuronCertificates::<Test>::contains_key(netuid_target, hotkey),
+            "no certificate should be written when registration check fails"
+        );
+    });
+}
