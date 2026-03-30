@@ -167,6 +167,9 @@ be added at any point during the job — it's checked between expensive steps.
 # Build + generate weights for a single pallet
 ./scripts/benchmark_all.sh pallet_subtensor
 
+# Run benchmark unit tests (fast, no real measurements — just checks setup)
+cargo test -p pallet-subtensor --features runtime-benchmarks benchmarks
+
 # Compare two weight files
 cargo run -p subtensor-weight-tools --bin weight-compare -- \
   --old pallets/foo/src/weights.rs \
