@@ -14,12 +14,11 @@ use ark_serialize::CanonicalDeserialize;
 use codec::Encode;
 use frame_support::{
     BoundedVec, IterableStorageDoubleMap,
-    dispatch::{DispatchInfo, PostDispatchInfo},
+    dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
     pallet_prelude::{
-        Decode, DecodeWithMemTracking, DispatchResultWithPostInfo, OriginTrait, PhantomData,
-        ValidTransaction, ValidateResult,
+        Decode, DecodeWithMemTracking, PhantomData, ValidTransaction, ValidateResult,
     },
-    traits::{Currency, Get, IsSubType},
+    traits::{Currency, Get, IsSubType, OriginTrait},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
@@ -665,18 +664,27 @@ where
     }
 }
 
-pub struct CommitmentsDispatchGuard<T: Config>(PhantomData<T>);
+pub struct CommitmentsDispatchExtension<T: Config>(PhantomData<T>);
 
-impl<T> DispatchGuard<<T as frame_system::Config>::RuntimeCall> for CommitmentsDispatchGuard<T>
+impl<T> DispatchExtension<CallOf<T>> for CommitmentsDispatchExtension<T>
 where
     T: Config,
-    <T as frame_system::Config>::RuntimeCall:
+    CallOf<T>:
         Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + IsSubType<pallet::Call<T>>,
     OriginOf<T>: OriginTrait<AccountId = T::AccountId>,
 {
-    fn check(origin: &OriginOf<T>, call: &CallOf<T>) -> DispatchResultWithPostInfo {
+    type Pre = ();
+
+    fn weight(_call: &CallOf<T>) -> Weight {
+        T::DbWeight::get().reads(1)
+    }
+
+    fn pre_dispatch(
+        origin: &OriginOf<T>,
+        call: &CallOf<T>,
+    ) -> Result<Self::Pre, DispatchErrorWithPostInfo> {
         let Some(who) = origin.as_signer() else {
-            return Ok(().into());
+            return Ok(());
         };
 
         if let Some(pallet::Call::set_commitment { netuid, .. }) = call.is_sub_type() {
@@ -685,7 +693,7 @@ where
             }
         }
 
-        Ok(().into())
+        Ok(())
     }
 }
 
