@@ -63,14 +63,14 @@ for pallet in "${PALLETS[@]}"; do
   echo "════════════════════════════════════════════════════════"
 
   "$NODE_BIN" benchmark pallet \
-    --runtime "$RUNTIME_WASM" \
+    --runtime="$RUNTIME_WASM" \
     --genesis-builder=runtime \
     --genesis-builder-preset=benchmark \
     --wasm-execution=compiled \
-    --pallet "$pallet" \
-    --extrinsic "*" \
-    --steps "$STEPS" \
-    --repeat "$REPEAT" \
+    --pallet="$pallet" \
+    --extrinsic="*" \
+    --steps="$STEPS" \
+    --repeat="$REPEAT" \
     --no-storage-info \
     --no-min-squares \
     --no-median-slopes \

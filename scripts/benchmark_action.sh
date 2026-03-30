@@ -49,12 +49,19 @@ for pallet in "${!OUTPUTS[@]}"; do
   echo "════ $pallet ════"
 
   if ! "$NODE_BIN" benchmark pallet \
-    --runtime "$RUNTIME_WASM" --genesis-builder=runtime \
-    --genesis-builder-preset=benchmark --wasm-execution=compiled \
-    --pallet "$pallet" --extrinsic "*" \
-    --steps "$STEPS" --repeat "$REPEAT" \
-    --no-storage-info --no-min-squares --no-median-slopes \
-    --output="$tmp" --template="$TEMPLATE" 2>&1; then
+    --runtime="$RUNTIME_WASM" \
+    --genesis-builder=runtime \
+    --genesis-builder-preset=benchmark \
+    --wasm-execution=compiled \
+    --pallet="$pallet" \
+    --extrinsic="*" \
+    --steps="$STEPS" \
+    --repeat="$REPEAT" \
+    --no-storage-info \
+    --no-min-squares \
+    --no-median-slopes \
+    --output="$tmp" \
+    --template="$TEMPLATE" 2>&1; then
     SUMMARY+=("$pallet: FAILED"); FAILED=1; rm -f "$tmp"; continue
   fi
 
