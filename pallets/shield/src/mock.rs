@@ -101,6 +101,7 @@ impl pallet_shield::Config for Test {
     type FindAuthors = MockFindAuthors;
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = MockDecryptor;
+    type WeightInfo = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

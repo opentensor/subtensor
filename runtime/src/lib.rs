@@ -151,6 +151,7 @@ impl pallet_shield::Config for Runtime {
     type FindAuthors = FindAuraAuthors;
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = ();
+    type WeightInfo = pallet_shield::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {

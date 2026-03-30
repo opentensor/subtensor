@@ -32,6 +32,9 @@ pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+pub mod weights;
+pub use weights::WeightInfo;
+
 #[cfg(test)]
 pub mod mock;
 
@@ -82,6 +85,9 @@ pub mod pallet {
 
         /// Decryptor for stored extrinsics.
         type ExtrinsicDecryptor: ExtrinsicDecryptor<<Self as pallet::Config>::RuntimeCall>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -246,9 +252,7 @@ pub mod pallet {
         ///   3. NextKey     ← next-next author's key  (user-facing)
         ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(33_230_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4_u64))
-        .saturating_add(T::DbWeight::get().writes(6_u64)))]
+        #[pallet::weight(T::WeightInfo::announce_next_key())]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             enc_key: Option<ShieldEncKey>,
@@ -328,9 +332,7 @@ pub mod pallet {
         ///        ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(207_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(0_u64))
-        .saturating_add(T::DbWeight::get().writes(0_u64)))]
+        #[pallet::weight(T::WeightInfo::submit_encrypted())]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
             ciphertext: BoundedVec<u8, ConstU32<8192>>,
@@ -344,9 +346,7 @@ pub mod pallet {
 
         /// Store an encrypted extrinsic for later execution in on_initialize.
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::from_parts(10_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(2_u64))
-        .saturating_add(T::DbWeight::get().writes(3_u64)))]
+        #[pallet::weight(T::WeightInfo::store_encrypted())]
         pub fn store_encrypted(
             origin: OriginFor<T>,
             encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
@@ -377,7 +377,7 @@ pub mod pallet {
 
         /// Set the maximum number of pending extrinsics allowed in the queue.
         #[pallet::call_index(3)]
-        #[pallet::weight(T::DbWeight::get().writes(1_u64))]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
         pub fn set_max_pending_extrinsics_number(
             origin: OriginFor<T>,
             value: u32,
@@ -393,7 +393,7 @@ pub mod pallet {
         /// Set the maximum weight allowed for on_initialize processing.
         /// Rejects values exceeding the absolute limit (half of total block weight).
         #[pallet::call_index(4)]
-        #[pallet::weight(T::DbWeight::get().writes(1_u64))]
+        #[pallet::weight(T::WeightInfo::set_on_initialize_weight())]
         pub fn set_on_initialize_weight(origin: OriginFor<T>, value: u64) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -410,7 +410,7 @@ pub mod pallet {
 
         /// Set the extrinsic lifetime (max blocks between submission and execution).
         #[pallet::call_index(5)]
-        #[pallet::weight(T::DbWeight::get().writes(1_u64))]
+        #[pallet::weight(T::WeightInfo::set_stored_extrinsic_lifetime())]
         pub fn set_stored_extrinsic_lifetime(origin: OriginFor<T>, value: u32) -> DispatchResult {
             ensure_root(origin)?;
 

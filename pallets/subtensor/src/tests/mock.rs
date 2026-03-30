@@ -102,6 +102,7 @@ impl pallet_shield::Config for Test {
     type FindAuthors = ();
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = ();
+    type WeightInfo = ();
 }
 
 pub struct NoNestingCallFilter;
