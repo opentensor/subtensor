@@ -47,7 +47,10 @@ where
         // Only care about signed origins.
         // Root is already bypassed by the extension before we get here.
         let Some(who) = origin.as_signer() else {
-            return Ok(().into());
+            return {
+                let _: () = ().into();
+                Ok(())
+            };
         };
 
         if ColdkeySwapAnnouncements::<T>::contains_key(who) {
@@ -75,7 +78,8 @@ where
             }
         }
 
-        Ok(().into())
+        let _: () = ().into();
+        Ok(())
     }
 }
 
