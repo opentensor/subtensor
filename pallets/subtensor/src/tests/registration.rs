@@ -1254,7 +1254,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
     }
 
     fn ref_bump(prev: u64, mult: u64) -> u64 {
-        let mut next = prev.saturating_mul(mult.max(1));
+        let mut next = prev * mult.max(1);
 
         // Match pallet behavior exactly.
         if next == 0 {
