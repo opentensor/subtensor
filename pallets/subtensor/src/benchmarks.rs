@@ -1866,7 +1866,7 @@ mod pallet_benchmarks {
 
         assert_eq!(PendingChildKeyCooldown::<T>::get(), cooldown);
     }
- 
+
     impl_benchmark_test_suite!(
         Subtensor,
         crate::tests::mock::new_test_ext(1),
