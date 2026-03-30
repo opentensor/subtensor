@@ -45,13 +45,22 @@ its `blake2_256` hash (`OrderId`) is persisted.
 
 | Field         | Type        | Description |
 |---------------|-------------|-------------|
-| `signer`      | `AccountId` | Coldkey that authorises the order. For buys: pays TAO. For sells: owns the staked alpha. |
-| `hotkey`      | `AccountId` | Hotkey to stake to (buy) or unstake from (sell). |
+| `signer`      | `AccountId` | Coldkey that authorises the order. For buy types: pays TAO. For sell types: owns the staked alpha. |
+| `hotkey`      | `AccountId` | Hotkey to stake to (buy types) or unstake from (sell types). |
 | `netuid`      | `NetUid`    | Target subnet. |
-| `side`        | `OrderSide` | `Buy` or `Sell`. |
-| `amount`      | `u64`       | Input amount in raw units. TAO for buys; alpha for sells. |
-| `limit_price` | `u64`       | Price threshold in TAO/alpha raw units. Buy: maximum acceptable price. Sell: minimum acceptable price. |
+| `order_type`  | `OrderType` | One of `BuyLimit`, `BuyStop`, `TakeProfit`, or `StopLoss` (see table below). |
+| `amount`      | `u64`       | Input amount in raw units. TAO for buy types; alpha for sell types. |
+| `limit_price` | `u64`       | Price threshold in TAO/alpha raw units. Trigger direction depends on `OrderType` (see table below). |
 | `expiry`      | `u64`       | Unix timestamp in milliseconds. Order must not execute after this time. |
+
+### `OrderType`
+
+| Variant      | Action        | Triggers when           | Use case |
+|--------------|---------------|-------------------------|----------|
+| `BuyLimit`   | Buy alpha      | price ≤ `limit_price`  | Enter a position at or below a target price. |
+| `BuyStop`    | Buy alpha      | price ≥ `limit_price`  | Enter a position once price breaks above a level (momentum / breakout). |
+| `TakeProfit` | Sell alpha     | price ≥ `limit_price`  | Exit a position once price rises to a profit target. |
+| `StopLoss`   | Sell alpha     | price ≤ `limit_price`  | Exit a position to limit downside if price falls to a floor. |
 
 ### `SignedOrder<AccountId, Signature>`
 
@@ -145,7 +154,8 @@ interaction:
 
 1. **Validate & classify** — orders with wrong netuid, invalid signature,
    already-processed id, past expiry, or price condition not met emit
-   `OrderSkipped` and are dropped. The rest are split into `buys` and `sells`.
+   `OrderSkipped` and are dropped. The rest are split into buy-side
+   (`BuyLimit`, `BuyStop`) and sell-side (`TakeProfit`, `StopLoss`) groups.
 
 2. **Collect assets** — gross TAO is pulled from each buyer's free balance into
    the pallet intermediary account. Gross alpha stake is moved from each seller's
@@ -240,10 +250,10 @@ remove the admin, leaving only root able to change the fee. Emits `AdminSet`.
 
 All fees are collected in TAO regardless of order side.
 
-| Order side | Fee deducted from | Timing |
-|------------|-------------------|--------|
-| Buy        | TAO input         | Before pool swap (`validate_and_classify`) |
-| Sell       | TAO output        | After pool swap (`distribute_tao_pro_rata`) |
+| Order type              | Fee deducted from | Timing |
+|-------------------------|-------------------|--------|
+| `BuyLimit`, `BuyStop`   | TAO input         | Before pool swap (`validate_and_classify`) |
+| `TakeProfit`, `StopLoss`| TAO output        | After pool swap (`distribute_tao_pro_rata`) |
 
 Fee formula: `fee = floor(amount × fee_ppb / 1_000_000_000)`.
 

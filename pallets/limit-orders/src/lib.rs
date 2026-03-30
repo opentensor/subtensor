@@ -66,7 +66,7 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     /// Target subnet.
     pub netuid: NetUid,
     /// Order type (BuyLimit, BuyStop, TakeProfit, or StopLoss).
-    pub side: OrderType,
+    pub order_type: OrderType,
     /// Input amount: TAO (raw) for Buy, alpha (raw) for Sell.
     pub amount: u64,
     /// Price threshold in TAO/alpha (raw units, same scale as
@@ -222,7 +222,7 @@ pub mod pallet {
             order_id: H256,
             signer: T::AccountId,
             netuid: NetUid,
-            side: OrderType,
+            order_type: OrderType,
             /// Input amount: TAO (raw) for Buy orders, alpha (raw) for Sell orders.
             amount_in: u64,
             /// Output amount: alpha (raw) received for Buy orders, TAO (raw) received for Sell orders (after fee).
@@ -431,7 +431,7 @@ pub mod pallet {
                 .verify(order.encode().as_slice(), &order.signer)
                 && Orders::<T>::get(order_id).is_none()
                 && now_ms <= order.expiry
-                && match order.side {
+                && match order.order_type {
                     OrderType::TakeProfit | OrderType::BuyStop => {
                         current_price >= U96F32::saturating_from_num(order.limit_price)
                     }
@@ -458,7 +458,7 @@ pub mod pallet {
 
             // 5. Execute the swap, taking protocol fee from the input.
             let fee_ppb = ProtocolFee::<T>::get();
-            let (amount_in, amount_out) = if order.side.is_buy() {
+            let (amount_in, amount_out) = if order.order_type.is_buy() {
                 let tao_in = TaoBalance::from(order.amount);
                 // Deduct protocol fee from TAO input before swapping.
                 let fee_tao = Self::ppb_of_tao(tao_in, fee_ppb);
@@ -503,7 +503,7 @@ pub mod pallet {
                 order_id,
                 signer: order.signer.clone(),
                 netuid: order.netuid,
-                side: order.side.clone(),
+                order_type: order.order_type.clone(),
                 amount_in,
                 amount_out,
             });
@@ -634,7 +634,7 @@ pub mod pallet {
                         return None;
                     }
 
-                    let (net, fee) = if order.side.is_buy() {
+                    let (net, fee) = if order.order_type.is_buy() {
                         // Buy: fee on TAO input — buyer contributes less TAO to the pool.
                         let f = Self::ppb_of_tao(TaoBalance::from(order.amount), fee_ppb).to_u64();
                         (order.amount.saturating_sub(f), f)
@@ -649,7 +649,7 @@ pub mod pallet {
                         order_id,
                         signer: order.signer.clone(),
                         hotkey: order.hotkey.clone(),
-                        side: order.side.clone(),
+                        side: order.order_type.clone(),
                         gross: order.amount,
                         net,
                         fee,
@@ -783,7 +783,7 @@ pub mod pallet {
                     order_id: e.order_id,
                     signer: e.signer.clone(),
                     netuid,
-                    side: e.side.clone(),
+                    order_type: e.side.clone(),
                     amount_in: e.gross,
                     amount_out: share,
                 });
@@ -837,7 +837,7 @@ pub mod pallet {
                     order_id: e.order_id,
                     signer: e.signer.clone(),
                     netuid,
-                    side: e.side.clone(),
+                    order_type: e.side.clone(),
                     amount_in: e.gross,
                     amount_out: net_share,
                 });
