@@ -3,6 +3,7 @@
 
 use codec::{Compact, Encode};
 use frame_support::{assert_ok, traits::Get};
+use frame_support::traits::GetCallMetadata;
 use node_subtensor_runtime::{
     Executive, HotkeySwapOnSubnetInterval, Runtime, RuntimeCall, SignedPayload,
     SubtensorInitialTxDelegateTakeRateLimit, System, TxExtension, UncheckedExtrinsic,
@@ -11,8 +12,7 @@ use node_subtensor_runtime::{
     rate_limiting::legacy::{Hyperparameter, RateLimitKey, storage as legacy_storage},
     sudo_wrapper, transaction_payment_wrapper,
 };
-use pallet_rate_limiting::RateLimitTarget;
-use pallet_rate_limiting::RateLimitingInterface;
+use pallet_rate_limiting::{RateLimitTarget, RateLimitingInterface, TransactionIdentifier};
 use sp_core::{H256, Pair, sr25519};
 use sp_runtime::{
     BoundedVec, MultiSignature,
@@ -175,6 +175,29 @@ mod register_network {
             assert_eq!(actual_after_one, expected_after_one);
         });
     }
+}
+
+#[test]
+fn subtensor_root_register_call_metadata_resolves() {
+    let hotkey_pair = sr25519::Pair::from_seed(&[99u8; 32]);
+    let hotkey = AccountId::from(hotkey_pair.public());
+    let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { hotkey });
+
+    let identifier = TransactionIdentifier::from_call(&call).expect("identifier for call");
+    let modules = RuntimeCall::get_module_names();
+    let subtensor_module = modules.get(identifier.pallet_index as usize).copied();
+    let subtensor_calls = RuntimeCall::get_call_names("SubtensorModule");
+    println!("identifier={identifier:?}");
+    println!("subtensor_module={subtensor_module:?}");
+    println!("subtensor_calls_len={}", subtensor_calls.len());
+    println!(
+        "subtensor_call_at_index={:?}",
+        subtensor_calls.get(identifier.extrinsic_index as usize)
+    );
+    assert_eq!(
+        identifier.names::<RuntimeCall>(),
+        Some(("SubtensorModule", "root_register"))
+    );
 }
 
 mod serving {

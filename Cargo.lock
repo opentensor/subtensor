@@ -8304,6 +8304,7 @@ dependencies = [
  "pallet-commitments",
  "pallet-drand",
  "pallet-rate-limiting",
+ "pallet-rate-limiting-rpc",
  "pallet-shield",
  "pallet-subtensor",
  "pallet-subtensor-swap-rpc",
