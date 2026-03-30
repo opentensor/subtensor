@@ -20,7 +20,7 @@ use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 #[test]
@@ -75,10 +75,10 @@ fn test_claim_root_with_drain_emissions() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Check new validator stake
@@ -144,10 +144,10 @@ fn test_claim_root_with_drain_emissions() {
 
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Check claimable (round 2)
@@ -246,10 +246,10 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -348,10 +348,10 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -440,10 +440,10 @@ fn test_claim_root_with_changed_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -493,10 +493,10 @@ fn test_claim_root_with_changed_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -547,10 +547,10 @@ fn test_claim_root_with_changed_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -600,8 +600,8 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
         let current_price =
@@ -637,10 +637,10 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Claim root alpha
@@ -682,10 +682,10 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
 
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -719,10 +719,10 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
 
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -770,7 +770,7 @@ fn test_claim_root_with_run_coinbase() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 200_000_000u64;
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(root_stake));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(root_stake));
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -888,7 +888,7 @@ fn test_claim_root_with_block_emissions() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 200_000_000u64;
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(root_stake));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(root_stake));
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -1003,7 +1003,7 @@ fn test_claim_root_coinbase_distribution() {
 
         let root_stake = 200_000_000u64;
         let initial_tao = 200_000_000u64;
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_tao));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(initial_tao));
 
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -1021,7 +1021,7 @@ fn test_claim_root_coinbase_distribution() {
         );
 
         let initial_alpha_issuance = SubtensorModule::get_alpha_issuance(netuid);
-        let alpha_emissions: AlphaCurrency = 1_000_000_000u64.into();
+        let alpha_emissions: AlphaBalance = 1_000_000_000u64.into();
 
         // Set moving price > 1.0 and price > 1.0
         // So we turn ON root sell
@@ -1148,10 +1148,10 @@ fn test_claim_root_with_swap_coldkey() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Claim root alpha
@@ -1184,13 +1184,7 @@ fn test_claim_root_with_swap_coldkey() {
         );
 
         // Swap coldkey
-        let mut weight = Weight::zero();
-
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &coldkey,
-            &new_coldkey,
-            &mut weight
-        ));
+        assert_ok!(SubtensorModule::do_swap_coldkey(&coldkey, &new_coldkey,));
 
         // Check swapped keys claimed values
 
@@ -1239,10 +1233,10 @@ fn test_claim_root_with_swap_hotkey() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Claim root alpha
@@ -1286,7 +1280,8 @@ fn test_claim_root_with_swap_hotkey() {
             &hotkey,
             &new_hotkey,
             &mut weight,
-            netuid
+            netuid,
+            false,
         ));
 
         // Check swapped keys claimed values
@@ -1320,8 +1315,8 @@ fn test_claim_root_on_network_deregistration() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
         let current_price =
@@ -1356,10 +1351,10 @@ fn test_claim_root_on_network_deregistration() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -1497,10 +1492,10 @@ fn test_claim_root_with_unrelated_subnets() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Claim root alpha
@@ -1568,8 +1563,8 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
@@ -1603,10 +1598,10 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Check RootAlphaDividendsPerSubnet value
@@ -1624,10 +1619,10 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
 
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         let root_claim_dividends2 = RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey);
@@ -1675,10 +1670,10 @@ fn test_claim_root_with_keep_subnets() {
         let pending_root_alpha = 1_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         let claimable = *RootClaimable::<Test>::get(hotkey)
@@ -1734,8 +1729,8 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
         SubnetMechanism::<Test>::insert(netuid, 1);
 
-        let tao_reserve = TaoCurrency::from(50_000_000_000);
-        let alpha_in = AlphaCurrency::from(100_000_000_000);
+        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
         SubnetTAO::<Test>::insert(netuid, tao_reserve);
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
         let current_price =
@@ -1771,10 +1766,10 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Claim root alpha
@@ -1883,10 +1878,10 @@ fn test_claim_root_with_moved_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(
@@ -1926,10 +1921,10 @@ fn test_claim_root_with_moved_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         // Transfer stake to other coldkey
@@ -2017,10 +2012,10 @@ fn test_claim_root_with_moved_stake() {
         let pending_root_alpha = 10_000_000u64;
         SubtensorModule::distribute_emission(
             netuid,
-            AlphaCurrency::ZERO,
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
             pending_root_alpha.into(),
-            AlphaCurrency::ZERO,
+            AlphaBalance::ZERO,
         );
 
         assert_ok!(SubtensorModule::claim_root(

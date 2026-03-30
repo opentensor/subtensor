@@ -2,7 +2,7 @@
 use super::mock::*;
 
 use crate::Error;
-use crate::transaction_extension::SubtensorTransactionExtension;
+use crate::extensions::SubtensorTransactionExtension;
 use crate::*;
 use frame_support::assert_noop;
 use frame_support::{
@@ -12,6 +12,7 @@ use frame_support::{
 use frame_system::{Config, RawOrigin};
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
+use subtensor_runtime_common::CustomTransactionError;
 
 mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};

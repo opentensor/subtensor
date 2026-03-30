@@ -20,6 +20,7 @@ use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use share_pool::SafeFloat;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -28,7 +29,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
-use subtensor_runtime_common::{NetUid, TaoCurrency};
+use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -37,16 +38,17 @@ type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
-        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
-        SubtensorModule: crate::{Pallet, Call, Storage, Event<T>} = 7,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
-        Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
-        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
-        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
-        Proxy: pallet_subtensor_proxy = 14,
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        Shield: pallet_shield = 3,
+        SubtensorModule: crate = 4,
+        Utility: pallet_utility = 5,
+        Scheduler: pallet_scheduler = 6,
+        Preimage: pallet_preimage = 7,
+        Drand: pallet_drand = 8,
+        Swap: pallet_subtensor_swap = 9,
+        Crowdloan: pallet_crowdloan = 10,
+        Proxy: pallet_subtensor_proxy = 11,
     }
 );
 
@@ -73,7 +75,7 @@ pub type Address = AccountId;
 
 // Balance of an account.
 #[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = TaoBalance;
 
 // An index to a block.
 #[allow(dead_code)]
@@ -93,6 +95,11 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
+}
+
+impl pallet_shield::Config for Test {
+    type AuthorityId = sp_core::sr25519::Public;
+    type FindAuthors = ();
 }
 
 pub struct NoNestingCallFilter;
@@ -133,7 +140,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<TaoBalance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -142,11 +149,22 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
+    type DispatchGuard = crate::CheckColdkeySwap<Test>;
 }
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
+}
+
+pub const MOCK_BLOCK_BUILDER: u64 = 12345u64;
+
+pub struct MockAuthorshipProvider;
+
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(MOCK_BLOCK_BUILDER))
+    }
 }
 
 parameter_types! {
@@ -156,8 +174,8 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = 1;
-    pub const TransactionByteFee: Balance = 100;
+    pub const ExistentialDeposit: Balance = TaoBalance::new(1);
+    pub const TransactionByteFee: Balance = TaoBalance::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialAlphaSigmoidSteepness: i16 = 1000;
@@ -166,7 +184,7 @@ parameter_types! {
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMinAllowedUids: u16 = 2;
-    pub const InitialMaxAllowedUids: u16 = 4;
+    pub const InitialMaxAllowedUids: u16 = 256;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty:u16 = u16::MAX;
     pub const InitialBondsResetOn: bool = false;
@@ -185,8 +203,8 @@ parameter_types! {
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
-    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
-    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
+    pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -212,9 +230,8 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    // pub const InitialNetworkMaxStake: u64 = u64::MAX; // (DEPRECATED)
-    pub const InitialColdkeySwapScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
-    pub const InitialColdkeySwapRescheduleDuration: u64 = 24 * 60 * 60 / 12; // Default as 1 day
+    pub const InitialColdkeySwapAnnouncementDelay: u64 = 50;
+    pub const InitialColdkeySwapReannouncementDelay: u64 = 10;
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
@@ -284,8 +301,8 @@ impl crate::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
-    type InitialColdkeySwapScheduleDuration = InitialColdkeySwapScheduleDuration;
-    type InitialColdkeySwapRescheduleDuration = InitialColdkeySwapRescheduleDuration;
+    type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
+    type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
     type InitialTaoWeight = InitialTaoWeight;
     type InitialEmaPriceHalvingPeriod = InitialEmaPriceHalvingPeriod;
@@ -299,6 +316,7 @@ impl crate::Config for Test {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
 }
 
 // Swap-related parameter types
@@ -314,8 +332,8 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = TaoCurrencyReserve<Self>;
-    type AlphaReserve = AlphaCurrencyReserve<Self>;
+    type TaoReserve = TaoBalanceReserve<Self>;
+    type AlphaReserve = AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
@@ -364,8 +382,8 @@ impl pallet_utility::Config for Test {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = 1;
-    pub const PreimageByteDeposit: Balance = 1;
+    pub const PreimageBaseDeposit: Balance = TaoBalance::new(1);
+    pub const PreimageByteDeposit: Balance = TaoBalance::new(1);
 }
 
 impl pallet_preimage::Config for Test {
@@ -428,17 +446,17 @@ impl pallet_crowdloan::Config for Test {
 // Proxy Pallet config
 parameter_types! {
     // Set as 1 for testing purposes
-    pub const ProxyDepositBase: Balance = 1;
+    pub const ProxyDepositBase: Balance = TaoBalance::new(1);
     // Set as 1 for testing purposes
-    pub const ProxyDepositFactor: Balance = 1;
+    pub const ProxyDepositFactor: Balance = TaoBalance::new(1);
     // Set as 20 for testing purposes
     pub const MaxProxies: u32 = 20; // max num proxies per acct
     // Set as 15 for testing purposes
     pub const MaxPending: u32 = 15; // max blocks pending ~15min
     // Set as 1 for testing purposes
-    pub const AnnouncementDepositBase: Balance =  1;
+    pub const AnnouncementDepositBase: Balance =  TaoBalance::new(1);
     // Set as 1 for testing purposes
-    pub const AnnouncementDepositFactor: Balance = 1;
+    pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
 }
 
 impl pallet_proxy::Config for Test {
@@ -601,8 +619,8 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
     pallet_balances::GenesisConfig::<Test> {
         balances: balances
             .iter()
-            .map(|(a, b)| (*a, *b as u64))
-            .collect::<Vec<(U256, u64)>>(),
+            .map(|(a, b)| (*a, TaoBalance::from(*b as u64)))
+            .collect::<Vec<(U256, TaoBalance)>>(),
         dev_accounts: None,
     }
     .assimilate_storage(&mut t)
@@ -808,11 +826,12 @@ pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) 
 pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
     add_network(netuid, tempo, _modality);
     SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+    SubtensorModule::set_yuma3_enabled(netuid, false);
 }
 
 // Helper function to set up a neuron with stake
 #[allow(dead_code)]
-pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoCurrency) {
+pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoBalance) {
     register_ok_neuron(netuid, hotkey, coldkey, stake.into());
     increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
 }
@@ -882,7 +901,7 @@ pub fn step_rate_limit(transaction_type: &TransactionType, netuid: NetUid) {
 pub fn increase_stake_on_coldkey_hotkey_account(
     coldkey: &U256,
     hotkey: &U256,
-    tao_staked: TaoCurrency,
+    tao_staked: TaoBalance,
     netuid: NetUid,
 ) {
     SubtensorModule::stake_into_subnet(
@@ -903,7 +922,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
 /// * `hotkey` - The hotkey account ID.
 /// * `increment` - The amount to be incremented.
 #[allow(dead_code)]
-pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoCurrency, netuid: NetUid) {
+pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoBalance, netuid: NetUid) {
     increase_stake_on_coldkey_hotkey_account(
         &SubtensorModule::get_owning_coldkey_for_hotkey(hotkey),
         hotkey,
@@ -916,12 +935,12 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
     StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
 }
 
-pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }
 
-pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurrency, u64) {
+pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoBalance) -> (AlphaBalance, u64) {
     if netuid.is_root() {
         return (tao.to_u64().into(), 0);
     }
@@ -940,23 +959,23 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoCurrency) -> (AlphaCurre
     let result = result.unwrap();
 
     // we don't want to have silent 0 comparisons in tests
-    assert!(result.amount_paid_out > AlphaCurrency::ZERO);
+    assert!(result.amount_paid_out > AlphaBalance::ZERO);
 
     (result.amount_paid_out, result.fee_paid.into())
 }
 
 pub(crate) fn swap_alpha_to_tao_ext(
     netuid: NetUid,
-    alpha: AlphaCurrency,
+    alpha: AlphaBalance,
     drop_fees: bool,
-) -> (TaoCurrency, u64) {
+) -> (TaoBalance, u64) {
     if netuid.is_root() {
         return (alpha.to_u64().into(), 0);
     }
 
     println!(
         "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
-        <Test as pallet::Config>::SwapInterface::min_price::<TaoCurrency>()
+        <Test as pallet::Config>::SwapInterface::min_price::<TaoBalance>()
     );
 
     let order = GetTaoForAlpha::<Test>::with_amount(alpha);
@@ -978,7 +997,7 @@ pub(crate) fn swap_alpha_to_tao_ext(
     (result.amount_paid_out, result.fee_paid.into())
 }
 
-pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaCurrency) -> (TaoCurrency, u64) {
+pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaBalance) -> (TaoBalance, u64) {
     swap_alpha_to_tao_ext(netuid, alpha, false)
 }
 
@@ -1004,4 +1023,15 @@ pub fn commit_dummy(who: U256, netuid: NetUid) {
         netuid,
         hash
     ));
+}
+
+#[allow(dead_code)]
+pub fn sf_to_u128(sf: &SafeFloat) -> u128 {
+    let alpha_f64: f64 = sf.into();
+    alpha_f64 as u128
+}
+
+#[allow(dead_code)]
+pub fn sf_from_u64(val: u64) -> SafeFloat {
+    SafeFloat::from(val)
 }

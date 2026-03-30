@@ -39,7 +39,7 @@ use precompile_utils::EvmResult;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
-use subtensor_runtime_common::{Currency, NetUid, ProxyType};
+use subtensor_runtime_common::{NetUid, ProxyType, Token};
 
 use crate::{PrecompileExt, PrecompileHandleExt};
 
@@ -48,7 +48,7 @@ use crate::{PrecompileExt, PrecompileHandleExt};
 // to stop supporting both precompiles.
 //
 // All the future extensions should happen in StakingPrecompileV2.
-pub(crate) struct StakingPrecompileV2<R>(PhantomData<R>);
+pub struct StakingPrecompileV2<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for StakingPrecompileV2<R>
 where
@@ -57,6 +57,8 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -67,7 +69,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
@@ -82,6 +86,8 @@ where
         + pallet_evm::Config
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
+        + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -92,7 +98,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
 {
@@ -307,7 +315,8 @@ where
         let hotkey = R::AccountId::from(hotkey.0);
         let mut coldkeys: Vec<H256> = vec![];
         let netuid = NetUid::from(try_u16_from_u256(netuid)?);
-        for ((coldkey, netuid_in_alpha), _) in pallet_subtensor::Alpha::<R>::iter_prefix((hotkey,))
+        for (coldkey, netuid_in_alpha, _) in
+            pallet_subtensor::Pallet::<R>::alpha_iter_single_prefix(&hotkey)
         {
             if netuid == netuid_in_alpha {
                 let key: [u8; 32] = coldkey.into();
@@ -442,7 +451,7 @@ where
 }
 
 // Deprecated, exists for backward compatibility.
-pub(crate) struct StakingPrecompile<R>(PhantomData<R>);
+pub struct StakingPrecompile<R>(PhantomData<R>);
 
 impl<R> PrecompileExt<R::AccountId> for StakingPrecompile<R>
 where
@@ -451,6 +460,8 @@ where
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config
+        + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -462,7 +473,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,
@@ -478,6 +491,8 @@ where
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config
+        + pallet_shield::Config
+        + pallet_subtensor_proxy::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -489,7 +504,9 @@ where
         + GetDispatchInfo
         + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_balances::Call<R>>
-        + IsSubType<pallet_subtensor::Call<R>>,
+        + IsSubType<pallet_subtensor::Call<R>>
+        + IsSubType<pallet_shield::Call<R>>
+        + IsSubType<pallet_subtensor_proxy::Call<R>>,
     <R as pallet_evm::Config>::AddressMapping: AddressMapping<R::AccountId>,
     <R as pallet_balances::Config>::Balance: TryFrom<U256>,
     <<R as frame_system::Config>::Lookup as StaticLookup>::Source: From<R::AccountId>,

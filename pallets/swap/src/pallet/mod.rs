@@ -3,9 +3,10 @@ use core::ops::Neg;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
+use sp_arithmetic::Perbill;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
 };
 
 use crate::{
@@ -39,10 +40,10 @@ mod pallet {
         type SubnetInfo: SubnetInfo<Self::AccountId>;
 
         /// Tao reserves info.
-        type TaoReserve: CurrencyReserve<TaoCurrency>;
+        type TaoReserve: TokenReserve<TaoBalance>;
 
         /// Alpha reserves info.
-        type AlphaReserve: CurrencyReserve<AlphaCurrency>;
+        type AlphaReserve: TokenReserve<AlphaBalance>;
 
         /// Implementor of
         /// [`BalanceOps`](subtensor_swap_interface::BalanceOps).
@@ -76,6 +77,13 @@ mod pallet {
     #[pallet::type_value]
     pub fn DefaultFeeRate() -> u16 {
         33 // ~0.05 %
+    }
+
+    /// Fee split between pool and block builder.
+    /// Pool receives the portion returned by this function
+    #[pallet::type_value]
+    pub fn DefaultFeeSplit() -> Perbill {
+        Perbill::zero()
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
@@ -149,12 +157,11 @@ mod pallet {
 
     /// TAO reservoir for scraps of protocol claimed fees.
     #[pallet::storage]
-    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoBalance, ValueQuery>;
 
     /// Alpha reservoir for scraps of protocol claimed fees.
     #[pallet::storage]
-    pub type ScrapReservoirAlpha<T> =
-        StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+    pub type ScrapReservoirAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -179,9 +186,9 @@ mod pallet {
             /// The amount of liquidity added to the position
             liquidity: u64,
             /// The amount of TAO tokens committed to the position
-            tao: TaoCurrency,
+            tao: TaoBalance,
             /// The amount of Alpha tokens committed to the position
-            alpha: AlphaCurrency,
+            alpha: AlphaBalance,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -201,13 +208,13 @@ mod pallet {
             /// The amount of liquidity removed from the position
             liquidity: u64,
             /// The amount of TAO tokens returned to the user
-            tao: TaoCurrency,
+            tao: TaoBalance,
             /// The amount of Alpha tokens returned to the user
-            alpha: AlphaCurrency,
+            alpha: AlphaBalance,
             /// The amount of TAO fees earned from the position
-            fee_tao: TaoCurrency,
+            fee_tao: TaoBalance,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: AlphaCurrency,
+            fee_alpha: AlphaBalance,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -232,9 +239,9 @@ mod pallet {
             /// The amount of Alpha tokens returned to the user
             alpha: i64,
             /// The amount of TAO fees earned from the position
-            fee_tao: TaoCurrency,
+            fee_tao: TaoBalance,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: AlphaCurrency,
+            fee_alpha: AlphaBalance,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -299,13 +306,7 @@ mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_fee_rate())]
         pub fn set_fee_rate(origin: OriginFor<T>, netuid: NetUid, rate: u16) -> DispatchResult {
-            if ensure_root(origin.clone()).is_err() {
-                let account_id: T::AccountId = ensure_signed(origin)?;
-                ensure!(
-                    T::SubnetInfo::is_owner(&account_id, netuid.into()),
-                    DispatchError::BadOrigin
-                );
-            }
+            ensure_root(origin)?;
 
             // Ensure that the subnet exists.
             ensure!(
@@ -371,62 +372,67 @@ mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::add_liquidity())]
         pub fn add_liquidity(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuid: NetUid,
-            tick_low: TickIndex,
-            tick_high: TickIndex,
-            liquidity: u64,
+            _hotkey: T::AccountId,
+            _netuid: NetUid,
+            _tick_low: TickIndex,
+            _tick_high: TickIndex,
+            _liquidity: u64,
         ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
+            ensure_signed(origin)?;
 
-            // Ensure that the subnet exists.
-            ensure!(
-                T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::MechanismDoesNotExist
-            );
+            // Extrinsic should have no effect. This fix may have to be reverted later,
+            // so leaving the code in for now.
 
-            ensure!(
-                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
-                Error::<T>::SubtokenDisabled
-            );
+            // // Ensure that the subnet exists.
+            // ensure!(
+            //     T::SubnetInfo::exists(netuid.into()),
+            //     Error::<T>::MechanismDoesNotExist
+            // );
 
-            let (position_id, tao, alpha) = Self::do_add_liquidity(
-                netuid.into(),
-                &coldkey,
-                &hotkey,
-                tick_low,
-                tick_high,
-                liquidity,
-            )?;
-            let alpha = AlphaCurrency::from(alpha);
-            let tao = TaoCurrency::from(tao);
+            // ensure!(
+            //     T::SubnetInfo::is_subtoken_enabled(netuid.into()),
+            //     Error::<T>::SubtokenDisabled
+            // );
 
-            // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
-            let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
-            ensure!(tao_provided == tao, Error::<T>::InsufficientBalance);
+            // let (position_id, tao, alpha) = Self::do_add_liquidity(
+            //     netuid.into(),
+            //     &coldkey,
+            //     &hotkey,
+            //     tick_low,
+            //     tick_high,
+            //     liquidity,
+            // )?;
+            // let alpha = AlphaBalance::from(alpha);
+            // let tao = TaoBalance::from(tao);
 
-            let alpha_provided =
-                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
-            ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
+            // // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
+            // let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
+            // ensure!(tao_provided == tao, Error::<T>::InsufficientBalance);
 
-            // Add provided liquidity to user-provided reserves
-            T::TaoReserve::increase_provided(netuid.into(), tao_provided);
-            T::AlphaReserve::increase_provided(netuid.into(), alpha_provided);
+            // let alpha_provided =
+            //     T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), alpha)?;
+            // ensure!(alpha_provided == alpha, Error::<T>::InsufficientBalance);
 
-            // Emit an event
-            Self::deposit_event(Event::LiquidityAdded {
-                coldkey,
-                hotkey,
-                netuid,
-                position_id,
-                liquidity,
-                tao,
-                alpha,
-                tick_low,
-                tick_high,
-            });
+            // // Add provided liquidity to user-provided reserves
+            // T::TaoReserve::increase_provided(netuid.into(), tao_provided);
+            // T::AlphaReserve::increase_provided(netuid.into(), alpha_provided);
 
-            Ok(())
+            // // Emit an event
+            // Self::deposit_event(Event::LiquidityAdded {
+            //     coldkey,
+            //     hotkey,
+            //     netuid,
+            //     position_id,
+            //     liquidity,
+            //     tao,
+            //     alpha,
+            //     tick_low,
+            //     tick_high,
+            // });
+
+            // Ok(())
+
+            Err(Error::<T>::UserLiquidityDisabled.into())
         }
 
         /// Remove liquidity from a specific position.
@@ -527,12 +533,7 @@ mod pallet {
                 let tao_provided = T::BalanceOps::decrease_balance(&coldkey, result.tao)?;
                 ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
 
-                let alpha_provided =
-                    T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
-                ensure!(
-                    alpha_provided == result.alpha,
-                    Error::<T>::InsufficientBalance
-                );
+                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityModified {
@@ -586,7 +587,7 @@ mod pallet {
             }
 
             // Credit accrued fees to user account (no matter if liquidity is added or removed)
-            if result.fee_tao > TaoCurrency::ZERO {
+            if result.fee_tao > TaoBalance::ZERO {
                 T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
             }
             if !result.fee_alpha.is_zero() {
@@ -621,7 +622,8 @@ mod pallet {
 
                 // Remove provided liquidity unconditionally because the network may have
                 // user liquidity previously disabled
-                Self::do_dissolve_all_liquidity_providers(netuid)?;
+                // Ignore result to avoid early stopping
+                let _ = Self::do_dissolve_all_liquidity_providers(netuid);
             }
 
             Ok(())

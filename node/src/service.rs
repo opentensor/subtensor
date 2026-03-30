@@ -21,11 +21,13 @@ use sp_core::crypto::KeyTypeId;
 use sp_keystore::Keystore;
 use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
+use stc_shield::{self, MemoryShieldKeystore};
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
 use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
+use stp_shield::ShieldKeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
 use crate::cli::Sealing;
@@ -34,7 +36,6 @@ use crate::ethereum::{
     BackendType, EthConfiguration, FrontierBackend, FrontierPartialComponents, StorageOverride,
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
-use crate::mev_shield::{author, proposer};
 
 const LOG_TARGET: &str = "node-service";
 
@@ -240,6 +241,7 @@ pub fn build_manual_seal_import_queue(
         crate::conditional_evm_block_import::ConditionalEVMBlockImport::new(
             grandpa_block_import.clone(),
             fc_consensus::FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+            false,
         );
     Ok((
         sc_consensus_manual_seal::import_queue(
@@ -258,6 +260,7 @@ pub async fn new_full<NB, CM>(
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
     custom_service_signal: Option<Arc<AtomicBool>>,
+    skip_history_backfill: bool,
 ) -> Result<TaskManager, ServiceError>
 where
     NumberFor<Block>: BlockNumberOps,
@@ -274,7 +277,7 @@ where
     }
 
     let mut consensus_mechanism = CM::new();
-    let build_import_queue = consensus_mechanism.build_biq()?;
+    let build_import_queue = consensus_mechanism.build_biq(skip_history_backfill)?;
 
     let PartialComponents {
         client,
@@ -452,9 +455,12 @@ where
             prometheus_registry.clone(),
         ));
 
+        let shield_keystore = Arc::new(MemoryShieldKeystore::new());
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
-        let pending_create_inherent_data_providers =
-            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
+        let pending_create_inherent_data_providers = move |_, ()| {
+            let keystore = shield_keystore.clone();
+            async move { CM::pending_create_inherent_data_providers(slot_duration, keystore) }
+        };
 
         let rpc_methods = consensus_mechanism.rpc_methods(
             client.clone(),
@@ -483,7 +489,8 @@ where
                 fee_history_cache_limit,
                 execute_gas_limit_multiplier,
                 forced_parent_hashes: None,
-                pending_create_inherent_data_providers,
+                pending_create_inherent_data_providers: pending_create_inherent_data_providers
+                    .clone(),
             };
             let deps = crate::rpc::FullDeps {
                 client: client.clone(),
@@ -535,49 +542,9 @@ where
     )
     .await;
 
-    // ==== MEV-SHIELD HOOKS ====
-    let mut mev_timing: Option<author::TimeParams> = None;
-
     if role.is_authority() {
-        let slot_duration = consensus_mechanism.slot_duration(&client)?;
-        let slot_duration_ms: u64 = u64::try_from(slot_duration.as_millis()).unwrap_or(u64::MAX);
+        let shield_keystore = Arc::new(MemoryShieldKeystore::new());
 
-        // For 12s blocks: announce ≈ 7s, decrypt window ≈ 3s.
-        // For 250ms blocks: announce ≈ 145ms, decrypt window ≈ 62ms, etc.
-        let announce_at_ms_raw = slot_duration_ms.saturating_mul(7).saturating_div(12);
-
-        let decrypt_window_ms = slot_duration_ms.saturating_mul(3).saturating_div(12);
-
-        // Ensure announce_at_ms + decrypt_window_ms never exceeds slot_ms.
-        let max_announce = slot_duration_ms.saturating_sub(decrypt_window_ms);
-        let announce_at_ms = announce_at_ms_raw.min(max_announce);
-
-        let timing = author::TimeParams {
-            slot_ms: slot_duration_ms,
-            announce_at_ms,
-            decrypt_window_ms,
-        };
-        mev_timing = Some(timing.clone());
-
-        // Start author-side tasks with dynamic timing.
-        let mev_ctx = author::spawn_author_tasks::<Block, _, _>(
-            &task_manager.spawn_handle(),
-            client.clone(),
-            transaction_pool.clone(),
-            keystore_container.keystore(),
-            timing.clone(),
-        );
-
-        // Start last-portion-of-slot revealer (decrypt -> submit_one).
-        proposer::spawn_revealer::<Block, _, _>(
-            &task_manager.spawn_handle(),
-            client.clone(),
-            transaction_pool.clone(),
-            mev_ctx.clone(),
-        );
-    }
-
-    if role.is_authority() {
         // manual-seal authorship
         if let Some(sealing) = sealing {
             run_manual_seal_authorship(
@@ -590,10 +557,17 @@ where
                 prometheus_registry.as_ref(),
                 telemetry.as_ref(),
                 commands_stream,
+                shield_keystore.clone(),
             )?;
             log::info!("Manual Seal Ready");
             return Ok(task_manager);
         }
+
+        stc_shield::spawn_key_rotation_on_own_import(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            shield_keystore.clone(),
+        );
 
         let proposer_factory = sc_basic_authorship::ProposerFactory::new(
             task_manager.spawn_handle(),
@@ -601,31 +575,15 @@ where
             transaction_pool.clone(),
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|x| x.handle()),
+            shield_keystore.clone(),
         );
 
         let slot_duration = consensus_mechanism.slot_duration(&client)?;
 
-        let start_fraction: f32 = {
-            let (slot_ms, decrypt_ms) = mev_timing
-                .as_ref()
-                .map(|t| (t.slot_ms, t.decrypt_window_ms))
-                .unwrap_or((slot_duration.as_millis(), 3_000));
-
-            let guard_ms: u64 = 200; // small cushion so reveals hit the pool first
-            let after_decrypt_ms = slot_ms.saturating_sub(decrypt_ms).saturating_add(guard_ms);
-
-            let f_raw = if slot_ms > 0 {
-                (after_decrypt_ms as f32) / (slot_ms as f32)
-            } else {
-                // Extremely defensive fallback; should never happen in practice.
-                0.75
-            };
-
-            f_raw.clamp(0.50, 0.98)
+        let create_inherent_data_providers = move |_, ()| {
+            let keystore = shield_keystore.clone();
+            async move { CM::create_inherent_data_providers(slot_duration, keystore) }
         };
-
-        let create_inherent_data_providers =
-            move |_, ()| async move { CM::create_inherent_data_providers(slot_duration) };
 
         consensus_mechanism.start_authoring(
             &mut task_manager,
@@ -641,7 +599,7 @@ where
                 force_authoring,
                 backoff_authoring_blocks,
                 keystore: keystore_container.keystore(),
-                block_proposal_slot_portion: SlotProportion::new(start_fraction),
+                block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
                 max_block_proposal_slot_portion: None,
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
             },
@@ -704,6 +662,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
     eth_config: EthConfiguration,
     sealing: Option<Sealing>,
     custom_service_signal: Option<Arc<AtomicBool>>,
+    skip_history_backfill: bool,
 ) -> Result<TaskManager, ServiceError> {
     match config.network.network_backend {
         sc_network::config::NetworkBackendType::Libp2p => {
@@ -712,6 +671,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
                 eth_config,
                 sealing,
                 custom_service_signal,
+                skip_history_backfill,
             )
             .await
         }
@@ -721,6 +681,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
                 eth_config,
                 sealing,
                 custom_service_signal,
+                skip_history_backfill,
             )
             .await
         }
@@ -730,6 +691,7 @@ pub async fn build_full<CM: ConsensusMechanism>(
 pub fn new_chain_ops<CM: ConsensusMechanism>(
     config: &mut Configuration,
     eth_config: &EthConfiguration,
+    skip_history_backfill: bool,
 ) -> Result<
     (
         Arc<FullClient>,
@@ -749,7 +711,11 @@ pub fn new_chain_ops<CM: ConsensusMechanism>(
         task_manager,
         other,
         ..
-    } = new_partial(config, eth_config, consensus_mechanism.build_biq()?)?;
+    } = new_partial(
+        config,
+        eth_config,
+        consensus_mechanism.build_biq(skip_history_backfill)?,
+    )?;
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
@@ -766,6 +732,7 @@ fn run_manual_seal_authorship(
     commands_stream: mpsc::Receiver<
         sc_consensus_manual_seal::rpc::EngineCommand<<Block as BlockT>::Hash>,
     >,
+    shield_keystore: ShieldKeystorePtr,
 ) -> Result<(), ServiceError> {
     let proposer_factory = sc_basic_authorship::ProposerFactory::new(
         task_manager.spawn_handle(),
@@ -773,6 +740,7 @@ fn run_manual_seal_authorship(
         transaction_pool.clone(),
         prometheus_registry,
         telemetry.as_ref().map(|x| x.handle()),
+        shield_keystore,
     );
 
     thread_local!(static TIMESTAMP: RefCell<u64> = const { RefCell::new(0) });
@@ -790,7 +758,7 @@ fn run_manual_seal_authorship(
             TIMESTAMP.with(|x| {
                 let mut x_ref = x.borrow_mut();
                 *x_ref = x_ref.saturating_add(subtensor_runtime_common::time::SLOT_DURATION);
-                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x.borrow())
+                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x_ref)
             })
         }
 
@@ -807,6 +775,9 @@ fn run_manual_seal_authorship(
     let create_inherent_data_providers =
         move |_, ()| async move { Ok(MockTimestampInherentDataProvider) };
 
+    let aura_data_provider =
+        sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider::new(client.clone());
+
     let manual_seal = match sealing {
         Sealing::Manual => future::Either::Left(sc_consensus_manual_seal::run_manual_seal(
             sc_consensus_manual_seal::ManualSealParams {
@@ -816,7 +787,7 @@ fn run_manual_seal_authorship(
                 pool: transaction_pool,
                 commands_stream,
                 select_chain,
-                consensus_data_provider: None,
+                consensus_data_provider: Some(Box::new(aura_data_provider)),
                 create_inherent_data_providers,
             },
         )),

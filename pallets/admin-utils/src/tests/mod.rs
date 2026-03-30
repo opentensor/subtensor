@@ -10,17 +10,20 @@ use pallet_subtensor::{
     TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit, *,
 };
 // use pallet_subtensor::{migrations, Event};
-use pallet_subtensor::{Event, utils::rate_limiting::TransactionType};
+use pallet_subtensor::{
+    Event, subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET,
+    utils::rate_limiting::TransactionType,
+};
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{Get, Pair, U256, ed25519};
 use substrate_fixed::types::I96F32;
-use subtensor_runtime_common::{Currency, MechId, NetUid, TaoCurrency};
+use subtensor_runtime_common::{MechId, NetUid, TaoBalance, Token};
 
 use crate::Error;
 use crate::pallet::PrecompileEnable;
 use mock::*;
 
-mod mock;
+pub(crate) mod mock;
 
 #[test]
 fn test_sudo_set_default_take() {
@@ -394,7 +397,7 @@ fn test_sudo_subnet_owner_cut() {
 #[test]
 fn test_sudo_set_issuance() {
     new_test_ext().execute_with(|| {
-        let to_be_set = TaoCurrency::from(10);
+        let to_be_set = TaoBalance::from(10);
         assert_eq!(
             AdminUtils::sudo_set_total_issuance(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
@@ -539,6 +542,20 @@ fn test_sudo_set_max_allowed_uids() {
             ),
             Error::<Test>::MaxAllowedUidsGreaterThanDefaultMaxAllowedUids
         );
+
+        // Trying to set max allowed uids that would cause max_allowed_uids * mechanism_count > 256
+        MaxAllowedUids::<Test>::insert(netuid, 8);
+        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(32));
+        let large_max_uids = 16;
+        assert_noop!(
+            AdminUtils::sudo_set_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                large_max_uids
+            ),
+            SubtensorError::<Test>::TooManyUIDsPerMechanism
+        );
+        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(1));
 
         // Normal case
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
@@ -903,7 +920,7 @@ fn test_sudo_set_bonds_penalty() {
 fn test_sudo_set_rao_recycled() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(10);
+        let to_be_set = TaoBalance::from(10);
         add_network(netuid, 10);
         let init_value = SubtensorModule::get_rao_recycled(netuid);
 
@@ -1257,7 +1274,7 @@ fn test_sudo_get_set_alpha() {
         pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<
             Test,
         >();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
 
         // Should fail as signer does not own the subnet
@@ -1382,39 +1399,74 @@ fn test_sudo_get_set_alpha() {
 }
 
 #[test]
-fn test_sudo_set_coldkey_swap_schedule_duration() {
+fn test_sudo_set_coldkey_swap_announcement_delay() {
     new_test_ext().execute_with(|| {
         // Arrange
         let root = RuntimeOrigin::root();
         let non_root = RuntimeOrigin::signed(U256::from(1));
-        let new_duration = 100u32.into();
+        let new_delay = 100u32.into();
 
         // Act & Assert: Non-root account should fail
         assert_noop!(
-            AdminUtils::sudo_set_coldkey_swap_schedule_duration(non_root, new_duration),
+            AdminUtils::sudo_set_coldkey_swap_announcement_delay(non_root, new_delay),
             DispatchError::BadOrigin
         );
 
         // Act: Root account should succeed
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
             root.clone(),
-            new_duration
+            new_delay
         ));
 
-        // Assert: Check if the duration was actually set
+        // Assert: Check if the delay was actually set
         assert_eq!(
-            pallet_subtensor::ColdkeySwapScheduleDuration::<Test>::get(),
-            new_duration
+            pallet_subtensor::ColdkeySwapAnnouncementDelay::<Test>::get(),
+            new_delay
         );
 
         // Act & Assert: Setting the same value again should succeed (idempotent operation)
-        assert_ok!(AdminUtils::sudo_set_coldkey_swap_schedule_duration(
-            root,
-            new_duration
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_announcement_delay(
+            root, new_delay
         ));
 
         // You might want to check for events here if your pallet emits them
-        System::assert_last_event(Event::ColdkeySwapScheduleDurationSet(new_duration).into());
+        System::assert_last_event(Event::ColdkeySwapAnnouncementDelaySet(new_delay).into());
+    });
+}
+
+#[test]
+fn test_sudo_set_coldkey_swap_reannouncement_delay() {
+    new_test_ext().execute_with(|| {
+        // Arrange
+        let root = RuntimeOrigin::root();
+        let non_root = RuntimeOrigin::signed(U256::from(1));
+        let new_delay = 100u32.into();
+
+        // Act & Assert: Non-root account should fail
+        assert_noop!(
+            AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(non_root, new_delay),
+            DispatchError::BadOrigin
+        );
+
+        // Act: Root account should succeed
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(
+            root.clone(),
+            new_delay
+        ));
+
+        // Assert: Check if the delay was actually set
+        assert_eq!(
+            pallet_subtensor::ColdkeySwapReannouncementDelay::<Test>::get(),
+            new_delay
+        );
+
+        // Act & Assert: Setting the same value again should succeed (idempotent operation)
+        assert_ok!(AdminUtils::sudo_set_coldkey_swap_reannouncement_delay(
+            root, new_delay
+        ));
+
+        // You might want to check for events here if your pallet emits them
+        System::assert_last_event(Event::ColdkeySwapReannouncementDelaySet(new_delay).into());
     });
 }
 
@@ -1907,7 +1959,7 @@ fn test_sudo_set_bonds_reset_enabled() {
 fn test_sudo_set_yuma3_enabled() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set: bool = true;
+        let to_be_set: bool = false;
         let sn_owner = U256::from(1);
         add_network(netuid, 10);
         let init_value: bool = SubtensorModule::get_yuma3_enabled(netuid);
@@ -2039,7 +2091,7 @@ fn test_freeze_window_blocks_root_and_owner() {
 fn test_sudo_set_min_burn() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(1_000_000);
+        let to_be_set = TaoBalance::from(1_000_000);
         add_network(netuid, 10);
         let init_value = SubtensorModule::get_min_burn(netuid);
 
@@ -2047,7 +2099,7 @@ fn test_sudo_set_min_burn() {
         assert_ok!(AdminUtils::sudo_set_min_burn(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            TaoCurrency::from(to_be_set)
+            TaoBalance::from(to_be_set)
         ));
         assert_ne!(SubtensorModule::get_min_burn(netuid), init_value);
         assert_eq!(SubtensorModule::get_min_burn(netuid), to_be_set);
@@ -2057,7 +2109,7 @@ fn test_sudo_set_min_burn() {
             AdminUtils::sudo_set_min_burn(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 NetUid::from(42),
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             Error::<Test>::SubnetDoesNotExist
         );
@@ -2067,7 +2119,7 @@ fn test_sudo_set_min_burn() {
             AdminUtils::sudo_set_min_burn(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             DispatchError::BadOrigin
         );
@@ -2275,7 +2327,7 @@ fn test_owner_hyperparam_rate_limit_independent_per_param() {
 fn test_sudo_set_max_burn() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set = TaoCurrency::from(100_000_001);
+        let to_be_set = TaoBalance::from(100_000_001);
         add_network(netuid, 10);
         let init_value = SubtensorModule::get_max_burn(netuid);
 
@@ -2283,7 +2335,7 @@ fn test_sudo_set_max_burn() {
         assert_ok!(AdminUtils::sudo_set_max_burn(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            TaoCurrency::from(to_be_set)
+            TaoBalance::from(to_be_set)
         ));
         assert_ne!(SubtensorModule::get_max_burn(netuid), init_value);
         assert_eq!(SubtensorModule::get_max_burn(netuid), to_be_set);
@@ -2293,7 +2345,7 @@ fn test_sudo_set_max_burn() {
             AdminUtils::sudo_set_max_burn(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 NetUid::from(42),
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             Error::<Test>::SubnetDoesNotExist
         );
@@ -2303,7 +2355,7 @@ fn test_sudo_set_max_burn() {
             AdminUtils::sudo_set_max_burn(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
-                TaoCurrency::from(to_be_set)
+                TaoBalance::from(to_be_set)
             ),
             DispatchError::BadOrigin
         );
@@ -2341,6 +2393,7 @@ fn test_sudo_set_mechanism_count() {
         add_network(netuid, 10);
         // Set the Subnet Owner
         SubnetOwner::<Test>::insert(netuid, sn_owner);
+        MaxAllowedUids::<Test>::insert(netuid, 256_u16);
 
         assert_eq!(
             AdminUtils::sudo_set_mechanism_count(
@@ -2354,7 +2407,13 @@ fn test_sudo_set_mechanism_count() {
             AdminUtils::sudo_set_mechanism_count(RuntimeOrigin::root(), netuid, ss_count_bad),
             pallet_subtensor::Error::<Test>::InvalidValue
         );
+        assert_noop!(
+            AdminUtils::sudo_set_mechanism_count(RuntimeOrigin::root(), netuid, ss_count_ok),
+            pallet_subtensor::Error::<Test>::TooManyUIDsPerMechanism
+        );
 
+        // Reduce max UIDs to 128
+        MaxAllowedUids::<Test>::insert(netuid, 128_u16);
         assert_ok!(AdminUtils::sudo_set_mechanism_count(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -2380,6 +2439,8 @@ fn test_sudo_set_mechanism_count_and_emissions() {
         add_network(netuid, 10);
         // Set the Subnet Owner
         SubnetOwner::<Test>::insert(netuid, sn_owner);
+        MaxMechanismCount::<Test>::set(MechId::from(2));
+        MaxAllowedUids::<Test>::set(netuid, 128_u16);
 
         assert_ok!(AdminUtils::sudo_set_mechanism_count(
             <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
@@ -2864,6 +2925,35 @@ fn test_sudo_set_min_allowed_uids() {
                 SubtensorModule::get_subnetwork_n(netuid) + 1
             ),
             Error::<Test>::MinAllowedUidsGreaterThanCurrentUids
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_max_mechanism_count() {
+    new_test_ext().execute_with(|| {
+        // Normal case
+        assert_ok!(AdminUtils::sudo_set_max_mechanism_count(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            MechId::from(10)
+        ));
+
+        // Zero fails
+        assert_noop!(
+            AdminUtils::sudo_set_max_mechanism_count(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                MechId::from(0)
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
+        );
+
+        // Over max bound fails
+        assert_noop!(
+            AdminUtils::sudo_set_max_mechanism_count(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                MechId::from(MAX_MECHANISM_COUNT_PER_SUBNET + 1)
+            ),
+            pallet_subtensor::Error::<Test>::InvalidValue
         );
     });
 }

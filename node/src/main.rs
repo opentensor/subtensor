@@ -6,11 +6,11 @@ mod benchmarking;
 mod chain_spec;
 mod cli;
 mod client;
+mod clone_spec;
 mod command;
 mod conditional_evm_block_import;
 mod consensus;
 mod ethereum;
-mod mev_shield;
 mod rpc;
 mod service;
 

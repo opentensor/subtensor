@@ -32,32 +32,33 @@ mod benchmarks {
         set_fee_rate(RawOrigin::Root, netuid, rate);
     }
 
-    #[benchmark]
-    fn add_liquidity() {
-        let netuid = NetUid::from(1);
+    // TODO: Revise when user liquidity is available
+    // #[benchmark]
+    // fn add_liquidity() {
+    //     let netuid = NetUid::from(1);
 
-        if !SwapV3Initialized::<T>::get(netuid) {
-            SwapV3Initialized::<T>::insert(netuid, true);
-            AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
-            CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
-            CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
-        }
+    //     if !SwapV3Initialized::<T>::get(netuid) {
+    //         SwapV3Initialized::<T>::insert(netuid, true);
+    //         AlphaSqrtPrice::<T>::insert(netuid, U64F64::from_num(1));
+    //         CurrentTick::<T>::insert(netuid, TickIndex::new(0).unwrap());
+    //         CurrentLiquidity::<T>::insert(netuid, T::MinimumLiquidity::get());
+    //     }
 
-        let caller: T::AccountId = whitelisted_caller();
-        let hotkey: T::AccountId = account("hotkey", 0, 0);
-        let tick_low = TickIndex::new_unchecked(-1000);
-        let tick_high = TickIndex::new_unchecked(1000);
+    //     let caller: T::AccountId = whitelisted_caller();
+    //     let hotkey: T::AccountId = account("hotkey", 0, 0);
+    //     let tick_low = TickIndex::new_unchecked(-1000);
+    //     let tick_high = TickIndex::new_unchecked(1000);
 
-        #[extrinsic_call]
-        add_liquidity(
-            RawOrigin::Signed(caller),
-            hotkey,
-            netuid,
-            tick_low,
-            tick_high,
-            1000,
-        );
-    }
+    //     #[extrinsic_call]
+    //     add_liquidity(
+    //         RawOrigin::Signed(caller),
+    //         hotkey,
+    //         netuid,
+    //         tick_low,
+    //         tick_high,
+    //         1000,
+    //     );
+    // }
 
     #[benchmark]
     fn remove_liquidity() {

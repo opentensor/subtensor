@@ -344,8 +344,9 @@ describe("Balance transfers between substrate and EVM", () => {
             [10, 0, 21000 * 10 * 1e9],
             [10, 10, 21000 * 10 * 1e9],
             [11, 0, 21000 * 10 * 1e9],
-            [11, 1, (21000 * 10 + 21000) * 1e9],
-            [11, 2, (21000 * 10 + 21000) * 1e9],
+            // max_priority_fee_per_gas is disabled
+            // [11, 1, (21000 * 10 + 21000) * 1e9],
+            // [11, 2, (21000 * 10 + 21000) * 1e9],
         ];
 
         for (let i in testCases) {

@@ -21,7 +21,7 @@ use sp_runtime::{
 };
 use sp_std::collections::vec_deque::VecDeque;
 use substrate_fixed::types::I32F32;
-use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{CustomTransactionError, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 use tle::{
     curves::drand::TinyBLS381,
@@ -34,7 +34,7 @@ use w3f_bls::EngineBLS;
 use super::mock;
 use super::mock::*;
 use crate::coinbase::reveal_commits::{LegacyWeightsTlockPayload, WeightsTlockPayload};
-use crate::transaction_extension::SubtensorTransactionExtension;
+use crate::extensions::SubtensorTransactionExtension;
 use crate::*;
 /***************************
   pub fn set_weights() tests
@@ -119,9 +119,9 @@ fn test_commit_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
 
-        let min_stake = 500_000_000_000;
+        let min_stake = 500_000_000_000_u64;
         let reserve = min_stake * 1000;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
@@ -246,14 +246,18 @@ fn test_set_weights_validate() {
 
         // Create netuid
         add_network(netuid, 1, 0);
-        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+        mock::setup_reserves(
+            netuid,
+            1_000_000_000_000_u64.into(),
+            1_000_000_000_000_u64.into(),
+        );
         // Register the hotkey
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
 
-        let min_stake = TaoCurrency::from(500_000_000_000);
+        let min_stake = TaoBalance::from(500_000_000_000_u64);
 
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
@@ -357,9 +361,9 @@ fn test_reveal_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey2, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
         crate::Owner::<Test>::insert(hotkey2, coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
 
-        let min_stake = TaoCurrency::from(500_000_000_000);
+        let min_stake = TaoBalance::from(500_000_000_000_u64);
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
 
@@ -540,10 +544,10 @@ fn test_batch_reveal_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey2, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
         crate::Owner::<Test>::insert(hotkey2, coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
-        let min_stake = TaoCurrency::from(500_000_000_000);
+        let min_stake = TaoBalance::from(500_000_000_000_u64);
         // Set the minimum stake
         SubtensorModule::set_stake_threshold(min_stake.into());
 
@@ -778,7 +782,7 @@ fn test_set_stake_threshold_failed() {
         add_network_disable_commit_reveal(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
 
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);
@@ -787,14 +791,14 @@ fn test_set_stake_threshold_failed() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            19_000_000_000_000.into()
+            19_000_000_000_000_u64.into()
         ));
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey, netuid));
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            20_000_000_000_000.into()
+            20_000_000_000_000_u64.into()
         ));
         assert!(SubtensorModule::check_weights_min_stake(&hotkey, netuid));
 
@@ -815,7 +819,7 @@ fn test_set_stake_threshold_failed() {
             RuntimeOrigin::signed(hotkey),
             hotkey,
             netuid,
-            100_000_000_000_000.into()
+            100_000_000_000_000_u64.into()
         ));
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
@@ -924,7 +928,7 @@ fn test_weights_err_setting_weights_too_fast() {
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(66), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(66), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &(U256::from(66)),
@@ -1017,7 +1021,7 @@ fn test_weights_err_has_duplicate_ids() {
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(77), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(77), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &(U256::from(77)),
@@ -1120,7 +1124,7 @@ fn test_set_weights_err_invalid_uid() {
                 .expect("Not registered.");
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(66), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(66), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &(U256::from(66)),
@@ -1156,7 +1160,7 @@ fn test_set_weight_not_enough_values() {
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &account_id,
             &(U256::from(2)),
@@ -1264,7 +1268,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
             .expect("Not registered.");
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(2), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(1)),
             &(U256::from(2)),
@@ -1727,8 +1731,8 @@ fn test_commit_reveal_weights_ok() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -1795,8 +1799,8 @@ fn test_commit_reveal_tempo_interval() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -1930,8 +1934,8 @@ fn test_commit_reveal_hash() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -2030,8 +2034,8 @@ fn test_commit_reveal_disabled_or_enabled() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -2107,8 +2111,8 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -2193,8 +2197,8 @@ fn test_tempo_change_during_commit_reveal_process() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -2342,8 +2346,8 @@ fn test_commit_reveal_multiple_commits() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -2748,8 +2752,8 @@ fn test_expired_commits_handling_in_commit_and_reveal() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -2947,8 +2951,8 @@ fn test_reveal_at_exact_epoch() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -3111,8 +3115,8 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -3298,8 +3302,8 @@ fn test_commit_reveal_order_enforcement() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -3557,8 +3561,8 @@ fn test_successful_batch_reveal() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -3635,8 +3639,8 @@ fn test_batch_reveal_with_expired_commits() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -4052,8 +4056,8 @@ fn test_batch_reveal_with_out_of_order_commits() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -4453,8 +4457,8 @@ fn test_get_reveal_blocks() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -4587,8 +4591,8 @@ fn test_commit_weights_rate_limit() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(0), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(1), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &(U256::from(0)),
             &(U256::from(0)),
@@ -4775,8 +4779,8 @@ fn test_reveal_crv3_commits_success() {
 
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid2, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &(U256::from(3)),
@@ -6034,7 +6038,7 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
             SubtensorModule::set_validator_permit_for_uid(netuid, i as u16, true);
 
             // add minimal stake so `do_set_weights` will succeed
-            SubtensorModule::add_balance_to_coldkey_account(&cold, 1);
+            SubtensorModule::add_balance_to_coldkey_account(&cold, 1.into());
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hk,
                 &cold,
@@ -6132,7 +6136,7 @@ fn test_reveal_crv3_commits_max_neurons() {
             SubtensorModule::set_validator_permit_for_uid(netuid, i, true);
 
             // give each neuron a nominal stake (safe even if not needed)
-            SubtensorModule::add_balance_to_coldkey_account(&cold, 1);
+            SubtensorModule::add_balance_to_coldkey_account(&cold, 1.into());
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &hk,
                 &cold,
@@ -6354,8 +6358,8 @@ fn test_reveal_crv3_commits_hotkey_check() {
 
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid2, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &(U256::from(3)),
@@ -6471,8 +6475,8 @@ fn test_reveal_crv3_commits_hotkey_check() {
 
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid2, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &(U256::from(3)),
@@ -6737,8 +6741,8 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid2, true);
 
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1);
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey1,
             &U256::from(3),
@@ -6852,5 +6856,111 @@ fn test_reveal_crv3_commits_legacy_payload_success() {
                 .is_empty(),
             "commit storage should be cleaned after reveal"
         );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_subnet_owner_can_validate_without_stake_or_manual_permit --exact --show-output --nocapture
+#[test]
+fn test_subnet_owner_can_validate_without_stake_or_manual_permit() {
+    new_test_ext(0).execute_with(|| {
+        let owner_hotkey = U256::from(10);
+        let owner_coldkey = U256::from(11);
+        let other_hotkey = U256::from(20);
+        let other_coldkey = U256::from(21);
+
+        // Create a real dynamic subnet whose owner hotkey is `owner_hotkey`.
+        let netuid = add_dynamic_network_disable_commit_reveal(&owner_hotkey, &owner_coldkey);
+
+        // Add one non-owner neuron with deterministic subnet stake.
+        register_ok_neuron(netuid, other_hotkey, other_coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&other_coldkey, 1.into());
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &other_hotkey,
+            &other_coldkey,
+            netuid,
+            1.into(),
+        );
+
+        let owner_uid =
+            SubtensorModule::get_owner_uid(netuid).expect("subnet owner should resolve to a uid");
+        let registered_owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &owner_hotkey)
+                .expect("owner hotkey should be registered on the subnet");
+        assert_eq!(registered_owner_uid, owner_uid);
+
+        let other_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &other_hotkey)
+            .expect("other hotkey should be registered on the subnet");
+
+        let (owner_weight_stake, _, _) =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&owner_hotkey, netuid);
+        let (other_weight_stake, _, _) =
+            SubtensorModule::get_stake_weights_for_hotkey_on_subnet(&other_hotkey, netuid);
+        assert!(owner_weight_stake < other_weight_stake);
+
+        // Make the non-owner stake-qualified while the owner remains below threshold.
+        SubtensorModule::set_stake_threshold(1_u64);
+        assert!(SubtensorModule::check_weights_min_stake(
+            &other_hotkey,
+            netuid
+        ));
+
+        // Clear all explicit permits. The owner should not rely on manual permit state.
+        SubtensorModule::set_validator_permit_for_uid(netuid, owner_uid, false);
+        SubtensorModule::set_validator_permit_for_uid(netuid, other_uid, false);
+        assert!(!SubtensorModule::get_validator_permit_for_uid(
+            netuid, owner_uid
+        ));
+        assert!(!SubtensorModule::get_validator_permit_for_uid(
+            netuid, other_uid
+        ));
+
+        // Sanity check: a non-owner without a permit still cannot set non-self weights.
+        assert!(!SubtensorModule::check_validator_permit(
+            netuid,
+            other_uid,
+            &[owner_uid],
+            &[1u16],
+        ));
+        assert_eq!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(other_hotkey),
+                netuid,
+                vec![owner_uid],
+                vec![1u16],
+                0,
+            ),
+            Err(Error::<Test>::NeuronNoValidatorPermit.into())
+        );
+
+        // The subnet owner bypasses both the stake gate and the validator-permit gate.
+        assert!(SubtensorModule::check_weights_min_stake(
+            &owner_hotkey,
+            netuid
+        ));
+        assert!(SubtensorModule::check_validator_permit(
+            netuid,
+            owner_uid,
+            &[other_uid],
+            &[1u16],
+        ));
+
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(owner_hotkey),
+            netuid,
+            vec![other_uid],
+            vec![1u16],
+            0,
+        ));
+
+        // After an epoch, the owner is still validator-eligible even though only the
+        step_epochs(1, netuid);
+        assert!(SubtensorModule::get_validator_permit_for_uid(
+            netuid, owner_uid
+        ));
+
+        // The original top-k result is preserved; the owner is added on top.
+        assert!(SubtensorModule::get_validator_permit_for_uid(
+            netuid, other_uid
+        ));
     });
 }

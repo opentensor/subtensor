@@ -7,6 +7,7 @@ import { PublicClient } from "viem";
 import { PolkadotSigner, TypedApi, getTypedCodecs } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
 import { forceSetBalanceToEthAddress, setMaxChildkeyTake, burnedRegister, forceSetBalanceToSs58Address, addStake, setTxRateLimit, addNewSubnetwork, startCall, setTempo } from "../src/subtensor";
+import { xxhashAsHex } from "@polkadot/util-crypto";
 
 describe("Test the dispatch precompile", () => {
     let publicClient: PublicClient;
@@ -62,6 +63,45 @@ describe("Test the dispatch precompile", () => {
         assert.equal(aliceBalance + transferAmount, aliceBalanceAfterTransfer)
     })
 
+    it("Storage query only allow some pallets prefixed storage", async () => {
+        const authorizedKeys = [
+            await api.query.SubtensorModule.TotalNetworks.getKey(),
+            await api.query.Swap.FeeRate.getKey(),
+            await api.query.Balances.TotalIssuance.getKey(),
+            await api.query.Proxy.Announcements.getKey(),
+            await api.query.Scheduler.Agenda.getKey(),
+            await api.query.Drand.Pulses.getKey(),
+            await api.query.Crowdloan.Crowdloans.getKey(),
+            await api.query.Sudo.Key.getKey(),
+            await api.query.Multisig.Multisigs.getKey(),
+            await api.query.Timestamp.Now.getKey(),
+        ];
+        
+        for (const key of authorizedKeys) {
+            await assert.doesNotReject(
+                publicClient.call({
+                    to: ISTORAGE_QUERY_ADDRESS,
+                    data: key.toString() as `0x${string}`,
+                })
+            );
+        }
+
+        const unauthorizedKeys = [
+            await api.query.System.Events.getKey(),
+            await api.query.Grandpa.CurrentSetId.getKey(),
+            xxhashAsHex(":code" , 128),
+        ];
+
+        for (const key of unauthorizedKeys) {
+            await assert.rejects(
+                publicClient.call({
+                    to: ISTORAGE_QUERY_ADDRESS,
+                    data: key.toString() as `0x${string}`,
+                })
+            );
+        }
+    })
+
 
     it("Value type storage query call via precompile contract works correctly", async () => {
         const key = await api.query.SubtensorModule.MaxChildkeyTake.getKey();
@@ -112,7 +152,6 @@ describe("Test the dispatch precompile", () => {
         const totalHotkeyAlphaValueCodec = codec.query.SubtensorModule.TotalHotkeyAlpha.value;
         const decodedValue = totalHotkeyAlphaValueCodec.dec(rawResultData);
         assert.equal(totalHotkeyAlphaOnChain, decodedValue, "value should be the same as on chain")
-
     })
 
     // Polkadot api can't decode the boolean type for now.

@@ -17,8 +17,8 @@ mod events {
         StakeAdded(
             T::AccountId,
             T::AccountId,
-            TaoCurrency,
-            AlphaCurrency,
+            TaoBalance,
+            AlphaBalance,
             NetUid,
             u64,
         ),
@@ -26,8 +26,8 @@ mod events {
         StakeRemoved(
             T::AccountId,
             T::AccountId,
-            TaoCurrency,
-            AlphaCurrency,
+            TaoBalance,
+            AlphaBalance,
             NetUid,
             u64,
         ),
@@ -38,7 +38,7 @@ mod events {
             NetUid,
             T::AccountId,
             NetUid,
-            TaoCurrency,
+            TaoBalance,
         ),
         /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(NetUidStorageIndex, u16),
@@ -104,11 +104,11 @@ mod events {
         /// setting the prometheus serving rate limit.
         ServingRateLimitSet(NetUid, u64),
         /// setting burn on a network.
-        BurnSet(NetUid, TaoCurrency),
+        BurnSet(NetUid, TaoBalance),
         /// setting max burn on a network.
-        MaxBurnSet(NetUid, TaoCurrency),
+        MaxBurnSet(NetUid, TaoBalance),
         /// setting min burn on a network.
-        MinBurnSet(NetUid, TaoCurrency),
+        MinBurnSet(NetUid, TaoBalance),
         /// setting the transaction rate limit.
         TxRateLimitSet(u64),
         /// setting the delegate take transaction rate limit.
@@ -134,7 +134,7 @@ mod events {
         /// setting tempo on a network
         TempoSet(NetUid, u16),
         /// setting the RAO recycled for registration.
-        RAORecycledForRegistrationSet(NetUid, TaoCurrency),
+        RAORecycledForRegistrationSet(NetUid, TaoBalance),
         /// min stake is set for validators to set weights.
         StakeThresholdSet(u64),
         /// setting the adjustment alpha on a subnet.
@@ -150,7 +150,7 @@ mod events {
         /// the start call delay is set.
         StartCallDelaySet(u64),
         /// the network minimum locking cost is set.
-        NetworkMinLockCostSet(TaoCurrency),
+        NetworkMinLockCostSet(TaoBalance),
         /// the maximum number of subnets is set
         SubnetLimitSet(u16),
         /// the lock cost reduction is set
@@ -172,14 +172,29 @@ mod events {
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
-        /// A coldkey has been swapped
+        /// A coldkey swap announcement has been made.
+        ColdkeySwapAnnounced {
+            /// The account ID of the coldkey that made the announcement.
+            who: T::AccountId,
+            /// The hash of the new coldkey.
+            new_coldkey_hash: T::Hash,
+        },
+        /// A coldkey swap has been reset.
+        ColdkeySwapReset {
+            /// The account ID of the coldkey for which the swap has been reset.
+            who: T::AccountId,
+        },
+        /// A coldkey has been swapped.
         ColdkeySwapped {
-            /// the account ID of old coldkey
+            /// The account ID of old coldkey.
             old_coldkey: T::AccountId,
-            /// the account ID of new coldkey
+            /// The account ID of new coldkey.
             new_coldkey: T::AccountId,
-            /// the swap cost
-            swap_cost: TaoCurrency,
+        },
+        /// A coldkey swap has been disputed.
+        ColdkeySwapDisputed {
+            /// The account ID of the coldkey that was disputed.
+            coldkey: T::AccountId,
         },
         /// All balance of a hotkey has been unstaked and transferred to a new coldkey
         AllBalanceUnstakedAndTransferredToNewColdkey {
@@ -191,17 +206,6 @@ mod events {
             total_balance: <<T as Config>::Currency as fungible::Inspect<
                 <T as frame_system::Config>::AccountId,
             >>::Balance,
-        },
-        /// A coldkey swap has been scheduled
-        ColdkeySwapScheduled {
-            /// The account ID of the old coldkey
-            old_coldkey: T::AccountId,
-            /// The account ID of the new coldkey
-            new_coldkey: T::AccountId,
-            /// The arbitration block for the coldkey swap
-            execution_block: BlockNumberFor<T>,
-            /// The swap cost
-            swap_cost: TaoCurrency,
         },
         /// The arbitration period has been extended
         ArbitrationPeriodExtended {
@@ -224,15 +228,17 @@ mod events {
         SubnetIdentityRemoved(NetUid),
         /// A dissolve network extrinsic scheduled.
         DissolveNetworkScheduled {
-            /// The account ID schedule the dissolve network extrisnic
+            /// The account ID schedule the dissolve network extrinsic
             account: T::AccountId,
             /// network ID will be dissolved
             netuid: NetUid,
             /// extrinsic execution block number
             execution_block: BlockNumberFor<T>,
         },
-        /// The duration of schedule coldkey swap has been set
-        ColdkeySwapScheduleDurationSet(BlockNumberFor<T>),
+        /// The coldkey swap announcement delay has been set.
+        ColdkeySwapAnnouncementDelaySet(BlockNumberFor<T>),
+        /// The coldkey swap reannouncement delay has been set.
+        ColdkeySwapReannouncementDelaySet(BlockNumberFor<T>),
         /// The duration of dissolve network has been set
         DissolveNetworkScheduleDurationSet(BlockNumberFor<T>),
         /// Commit-reveal v3 weights have been successfully committed.
@@ -285,14 +291,14 @@ mod events {
             T::AccountId,
             NetUid,
             NetUid,
-            TaoCurrency,
+            TaoBalance,
         ),
 
         /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
         ///
         /// Parameters:
         /// (coldkey, hotkey, origin_netuid, destination_netuid, amount)
-        StakeSwapped(T::AccountId, T::AccountId, NetUid, NetUid, TaoCurrency),
+        StakeSwapped(T::AccountId, T::AccountId, NetUid, NetUid, TaoBalance),
 
         /// Event called when transfer is toggled on a subnet.
         ///
@@ -316,13 +322,13 @@ mod events {
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaRecycled(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
+        AlphaRecycled(T::AccountId, T::AccountId, AlphaBalance, NetUid),
 
         /// Alpha have been burned without reducing AlphaOut.
         ///
         /// Parameters:
         /// (coldkey, hotkey, amount, subnet_id)
-        AlphaBurned(T::AccountId, T::AccountId, AlphaCurrency, NetUid),
+        AlphaBurned(T::AccountId, T::AccountId, AlphaBalance, NetUid),
 
         /// An EVM key has been associated with a hotkey.
         EvmKeyAssociated {
@@ -423,7 +429,7 @@ mod events {
             /// Owner (coldkey) account associated with the hotkey.
             owner: T::AccountId,
             /// Amount of alpha auto-staked.
-            incentive: AlphaCurrency,
+            incentive: AlphaBalance,
         },
 
         /// End-of-epoch miner incentive alpha by UID
@@ -431,7 +437,7 @@ mod events {
             /// Subnet identifier.
             netuid: NetUidStorageIndex,
             /// UID-indexed array of miner incentive alpha; index equals UID.
-            emissions: Vec<AlphaCurrency>,
+            emissions: Vec<AlphaBalance>,
         },
 
         /// The minimum allowed UIDs for a subnet have been set.
@@ -472,6 +478,35 @@ mod events {
             root_claim_type: RootClaimTypeEnum,
         },
 
+        /// Voting power tracking has been enabled for a subnet.
+        VotingPowerTrackingEnabled {
+            /// The subnet ID
+            netuid: NetUid,
+        },
+
+        /// Voting power tracking has been scheduled for disabling.
+        /// Tracking will continue until disable_at_block, then stop and clear entries.
+        VotingPowerTrackingDisableScheduled {
+            /// The subnet ID
+            netuid: NetUid,
+            /// Block at which tracking will be disabled
+            disable_at_block: u64,
+        },
+
+        /// Voting power tracking has been fully disabled and entries cleared.
+        VotingPowerTrackingDisabled {
+            /// The subnet ID
+            netuid: NetUid,
+        },
+
+        /// Voting power EMA alpha has been set for a subnet.
+        VotingPowerEmaAlphaSet {
+            /// The subnet ID
+            netuid: NetUid,
+            /// The new alpha value (u64 with 18 decimal precision)
+            alpha: u64,
+        },
+
         /// Subnet lease dividends have been distributed.
         SubnetLeaseDividendsDistributed {
             /// The lease ID
@@ -479,7 +514,38 @@ mod events {
             /// The contributor
             contributor: T::AccountId,
             /// The amount of alpha distributed
-            alpha: AlphaCurrency,
+            alpha: AlphaBalance,
+        },
+
+        /// "Add stake and burn" event: alpha token was purchased and burned.
+        AddStakeBurn {
+            /// The subnet ID
+            netuid: NetUid,
+            /// hotky account ID
+            hotkey: T::AccountId,
+            /// Tao provided
+            amount: TaoBalance,
+            /// Alpha burned
+            alpha: AlphaBalance,
+        },
+
+        /// A coldkey swap announcement has been cleared.
+        ColdkeySwapCleared {
+            /// The account ID of the coldkey that cleared the announcement.
+            who: T::AccountId,
+        },
+
+        /// Transaction fee was paid in Alpha.
+        ///
+        /// Emitted in addition to `TransactionFeePaid` when the fee payment path is Alpha.
+        /// `alpha_fee` is the exact Alpha amount deducted.
+        TransactionFeePaidWithAlpha {
+            /// Account that paid the transaction fee.
+            who: T::AccountId,
+            /// Exact fee deducted in Alpha units.
+            alpha_fee: AlphaBalance,
+            /// Resulting swapped TAO amount
+            tao_amount: TaoBalance,
         },
     }
 }

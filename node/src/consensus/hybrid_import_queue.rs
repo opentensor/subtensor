@@ -71,10 +71,12 @@ impl HybridBlockImport {
         client: Arc<FullClient>,
         grandpa_block_import: GrandpaBlockImport,
         babe_config: BabeConfiguration,
+        skip_history_backfill: bool,
     ) -> Self {
         let inner_aura = ConditionalEVMBlockImport::new(
             grandpa_block_import.clone(),
             FrontierBlockImport::new(grandpa_block_import.clone(), client.clone()),
+            skip_history_backfill,
         );
 
         #[allow(clippy::expect_used)]
@@ -88,6 +90,7 @@ impl HybridBlockImport {
         let inner_babe = ConditionalEVMBlockImport::new(
             babe_import.clone(),
             FrontierBlockImport::new(babe_import.clone(), client.clone()),
+            skip_history_backfill,
         );
 
         HybridBlockImport {

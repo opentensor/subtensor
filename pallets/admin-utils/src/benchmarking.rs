@@ -18,6 +18,8 @@ use super::*;
 #[benchmarks]
 mod benchmarks {
     use super::*;
+    #[cfg(test)]
+    use crate::tests::mock;
     use subtensor_runtime_common::NetUid;
 
     #[benchmark]
@@ -263,7 +265,7 @@ mod benchmarks {
         );
 
         #[extrinsic_call]
-		_(RawOrigin::Root, 1u16.into()/*netuid*/, 2048u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
+		_(RawOrigin::Root, 1u16.into()/*netuid*/, 256u16/*max_allowed_uids*/)/*sudo_set_max_allowed_uids*/;
     }
 
     #[benchmark]
@@ -480,7 +482,13 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_coldkey_swap_schedule_duration() {
+    fn sudo_set_coldkey_swap_announcement_delay() {
+        #[extrinsic_call]
+        _(RawOrigin::Root, 100u32.into());
+    }
+
+    #[benchmark]
+    fn sudo_set_coldkey_swap_reannouncement_delay() {
         #[extrinsic_call]
         _(RawOrigin::Root, 100u32.into());
     }
@@ -645,5 +653,5 @@ mod benchmarks {
         ); /* sudo_set_min_non_immune_uids() */
     }
 
-    //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
+    impl_benchmark_test_suite!(AdminUtils, mock::new_test_ext(), mock::Test);
 }
