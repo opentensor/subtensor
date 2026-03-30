@@ -337,9 +337,6 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn recycle_tao(amount: TaoBalance) {
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
-    }
     pub fn increase_issuance(amount: TaoBalance) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }

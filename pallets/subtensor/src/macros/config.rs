@@ -254,5 +254,8 @@ mod config {
         /// Pallet account ID
         #[pallet::constant]
         type SubtensorPalletId: Get<PalletId>;
+        /// Burn account ID
+        #[pallet::constant]
+        type BurnAccountId: Get<PalletId>;
     }
 }

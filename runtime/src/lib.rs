@@ -1122,6 +1122,7 @@ parameter_types! {
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1198,6 +1199,7 @@ impl pallet_subtensor::Config for Runtime {
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
 }
 
 parameter_types! {

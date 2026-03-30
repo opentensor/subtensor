@@ -6,18 +6,25 @@
 /// 
 
 use frame_support::traits::{
+    dispatch::{DispatchError, DispatchResult},
     Imbalance, fungible::Mutate,
     tokens::{
         Fortitude, Precision, Preservation,
-        fungible::{Balanced as _, Inspect as _},
+        fungible::{Balanced, Credit, Inspect},
     },
 };
+use sp_runtime::traits::AccountIdConversion;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 
 use super::*;
 
 pub type BalanceOf<T> =
     <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
+pub type CreditOf<T> = Credit<
+    <T as frame_system::Config>::AccountId,
+    <T as Config>::Currency,
+>;
 
 impl<T: Config> Pallet<T> {
 
@@ -39,12 +46,27 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Permanently remove TAO amount from existence by moving to the burn 
+    /// address. Does not effect issuance rate
     pub fn burn_tao(
         coldkey: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> DispatchResult {
+        let burn_address: T::AccountId = T::BurnAccountId::get().into_account_truncating();
+        Self::transfer_tao(coldkey, &burn_address, amount)?;
+        Ok(())
+    }
+
+    /// Remove TAO from existence and reduce total issuance.
+    /// Effects issuance rate by reducing TI.
+    pub fn recycle_tao(
+        coldkey: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
+
         let _ = <T as Config>::Currency::withdraw(
-                coldkey,
+            coldkey,
             amount,
             Precision::Exact,
             Preservation::Expendable,
@@ -53,8 +75,8 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        Ok(())
-    }
+        Ok(())        
+    }    
 
     pub fn can_remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
@@ -108,38 +130,58 @@ impl<T: Config> Pallet<T> {
         Ok(credit)
     }
 
-    pub fn add_balance_to_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: BalanceOf<T>,
-    ) {
-        // infallible
-        let _ = <T as Config>::Currency::deposit(coldkey, amount, Precision::BestEffort);
+    /// Create TAO and return the imbalance.
+    /// 
+    /// The mint workflow is following:
+    ///   1. mint_tao in block_emission
+    ///   2. spend_tao in run_coinbase (distribute to subnets)
+    ///   3. None should be left, so burn the remainder using burn_credit for records
+    pub fn mint_tao(amount: BalanceOf<T>) -> CreditOf<T> {
+        <T as Config>::Currency::issue(amount)
     }
 
-    #[must_use = "Balance must be used to preserve total issuance of token"]
-    pub fn remove_balance_from_coldkey_account(
+    /// Spend part of the imbalance
+    /// The part parameter is the balance itself that will be credited to the coldkey
+    /// Return the remaining credit or error
+    pub fn spend_tao(
         coldkey: &T::AccountId,
-        amount: BalanceOf<T>,
-    ) -> Result<TaoBalance, DispatchError> {
+        credit: CreditOf<T>,
+        part: BalanceOf<T>,
+    ) -> Result<CreditOf<T>, DispatchError> {
+        let (to_spend, remainder) = credit.split(part);
+
+        T::Currency::resolve(who, to_spend)
+            .map_err(|_credit| DispatchError::Other("Could not resolve partial credit"))?;
+
+        Ok(remainder)
+    }
+
+    /// Finalizes the unused part of the minted TAO. Normally, there should be none, this function 
+    /// is only needed for guarding / logging
+    pub fn burn_credit(credit: CreditOf<T>) -> DispatchResult {
+        let amount = credit.peek();
         if amount.is_zero() {
-            return Ok(TaoBalance::ZERO);
+            // Normal behavior
+            return Ok(());
         }
 
-        let credit = <T as Config>::Currency::withdraw(
-            coldkey,
+        // Some credit is remaining. This is error and it should be corrected. Record the situation with 
+        // burned amount in logs and in burn_address.
+        let burn_address: T::AccountId = T::BurnAccountId::get().into_account_truncating();
+        log::error!(
+            "burn_credit received non-zero credit ({:?}); sending it to burn account {:?}, which will burn it",
             amount,
-            Precision::BestEffort,
-            Preservation::Preserve,
-            Fortitude::Polite,
-        )
-        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
-        .peek();
+            burn_address,
+        );
 
-        if credit.is_zero() {
-            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
-        }
-
-        Ok(credit.into())
+        T::Currency::resolve(&burn_address, credit).map_err(|unresolved_credit| {
+            log::error!(
+                "burn_credit failed: could not resolve credit {:?} into burn account {:?}",
+                unresolved_credit.peek(),
+                burn_address,
+            );
+            DispatchError::Other("Could not resolve burn credit")
+        })
     }
 
     // pub fn drain_tao_imbalance_into_subnet_reserve(imbalance: NegativeImbalance, netuid: NetUid) {
