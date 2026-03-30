@@ -50,7 +50,6 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         to_hotkey: &T::AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
-        intermediate_account: Option<T::AccountId>,
     ) -> DispatchResult {
         // Why not `transfer_stake_within_subnet`?
         //
