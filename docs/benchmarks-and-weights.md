@@ -73,8 +73,10 @@ by running benchmarks on reference hardware.
    );
    ```
 
-9. Register the pallet in `scripts/benchmark_all.sh` by adding an entry to
-   `PALLET_OUTPUTS`.
+The benchmark scripts auto-discover pallets by scanning for directories under
+`pallets/` that have both `benchmarking.rs` and `weights.rs`. No manual
+registration in scripts is needed. If you forget step 8 (`define_benchmarks!`),
+the benchmark CLI will error — no silent failures.
 
 CI will generate real weights automatically when the PR is opened.
 
@@ -159,17 +161,11 @@ be added at any point during the job — it's checked between expensive steps.
 ## Running benchmarks locally
 
 ```sh
-# Build with benchmarks enabled
-cargo build --profile production -p node-subtensor --features runtime-benchmarks
-
-# Generate weights for all pallets
+# Build + generate weights for all pallets
 ./scripts/benchmark_all.sh
 
-# Generate weights for a single pallet
+# Build + generate weights for a single pallet
 ./scripts/benchmark_all.sh pallet_subtensor
-
-# Skip the build step (if already built)
-SKIP_BUILD=1 ./scripts/benchmark_all.sh pallet_drand
 
 # Compare two weight files
 cargo run -p subtensor-weight-tools --bin weight-compare -- \
