@@ -47,6 +47,8 @@ mod hooks {
             for _ in StakingOperationRateLimiter::<T>::drain() {
                 // Clear all entries each block
             }
+
+            Self::deposit_root_claim_accounting_event();
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {

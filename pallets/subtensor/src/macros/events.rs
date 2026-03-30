@@ -547,5 +547,11 @@ mod events {
             /// Resulting swapped TAO amount
             tao_amount: TaoBalance,
         },
+
+        /// Root claimed data for this block.
+        RootClaimedData {
+            /// Root claim data for this block
+            data: BTreeMap<NetUid, PendingRootClaimedData>,
+        },
     }
 }

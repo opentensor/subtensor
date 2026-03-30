@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
@@ -191,6 +192,12 @@ impl<T: Config> Pallet<T> {
                 coldkey,
                 owed_tao.amount_paid_out.into(),
             );
+
+            Self::register_root_claim_swapped_alpha(
+                netuid,
+                owed_u64.into(),
+                owed_tao.amount_paid_out,
+            );
         } else
         /* Keep */
         {
@@ -201,11 +208,25 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 owed_u64.into(),
             );
+
+            Self::register_root_claim_kept_alpha(netuid, owed_u64.into());
         }
 
         // Increase root claimed by owed amount.
         RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
             *root_claimed = root_claimed.saturating_add(owed_u64.into());
+        });
+    }
+
+    fn register_root_claim_swapped_alpha(netuid: NetUid, alpha: AlphaCurrency, tao: TaoCurrency) {
+        PendingSubnetRootClaimData::<T>::mutate(netuid, |data| {
+            data.alpha_swapped = data.alpha_swapped.saturating_add(alpha);
+            data.tao_swapped = data.tao_swapped.saturating_add(tao);
+        });
+    }
+    fn register_root_claim_kept_alpha(netuid: NetUid, alpha: AlphaCurrency) {
+        PendingSubnetRootClaimData::<T>::mutate(netuid, |data| {
+            data.alpha_kept = data.alpha_kept.saturating_add(alpha);
         });
     }
 
@@ -347,6 +368,17 @@ impl<T: Config> Pallet<T> {
         weight
     }
 
+    pub fn deposit_root_claim_accounting_event() {
+        let root_claim_data = PendingSubnetRootClaimData::<T>::iter().collect::<BTreeMap<_, _>>();
+
+        Self::deposit_event(Event::RootClaimedData {
+            data: root_claim_data,
+        });
+
+        // Subnet Number = 100+
+        let _ = PendingSubnetRootClaimData::<T>::clear(u32::MAX, None);
+    }
+
     pub fn change_root_claim_type(coldkey: &T::AccountId, new_type: RootClaimTypeEnum) {
         RootClaimType::<T>::insert(coldkey.clone(), new_type.clone());
 
@@ -388,8 +420,8 @@ impl<T: Config> Pallet<T> {
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);
     }
 
-    /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
+    /// Remove all root claim data for subnet.
+    pub fn clear_root_claim_root_data(netuid: NetUid) {
         let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
 
         for hotkey in hotkeys.iter() {
