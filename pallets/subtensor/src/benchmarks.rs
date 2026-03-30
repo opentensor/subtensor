@@ -1683,6 +1683,7 @@ mod pallet_benchmarks {
         ));
 
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
+        WeightsSetRateLimit::<T>::set(netuid, 0);
 
         #[extrinsic_call]
         _(
@@ -1855,4 +1856,10 @@ mod pallet_benchmarks {
             Some(limit),
         );
     }
+
+    impl_benchmark_test_suite!(
+        Subtensor,
+        crate::tests::mock::new_test_ext(1),
+        crate::tests::mock::Test
+    );
 }
