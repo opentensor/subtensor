@@ -1883,7 +1883,8 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight(Weight::from_parts(1_970_000_000_000, 0))]
+        #[pallet::weight(Weight::from_parts(3_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,

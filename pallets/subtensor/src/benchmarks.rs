@@ -1857,6 +1857,16 @@ mod pallet_benchmarks {
         );
     }
 
+    #[benchmark]
+    fn set_pending_childkey_cooldown() {
+        let cooldown: u64 = 7200;
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, cooldown);
+
+        assert_eq!(PendingChildKeyCooldown::<T>::get(), cooldown);
+    }
+ 
     impl_benchmark_test_suite!(
         Subtensor,
         crate::tests::mock::new_test_ext(1),
