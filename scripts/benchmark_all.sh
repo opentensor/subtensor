@@ -4,6 +4,10 @@ set -euo pipefail
 # Generate weights.rs files for all (or a single) pallet using the standard
 # frame-benchmarking-cli --output / --template approach.
 #
+# Pallets are auto-discovered: any pallet with both benchmarking.rs and
+# weights.rs is included. If a pallet is missing from define_benchmarks!
+# in runtime/src/lib.rs, the benchmark CLI will error — no silent failures.
+#
 # Usage:
 #   ./scripts/benchmark_all.sh                    # build + generate all
 #   ./scripts/benchmark_all.sh pallet_subtensor   # build + generate one pallet
@@ -19,21 +23,15 @@ TEMPLATE="$ROOT_DIR/.maintain/frame-weight-template.hbs"
 STEPS="${STEPS:-50}"
 REPEAT="${REPEAT:-20}"
 
-# Pallet name -> output path (relative to repo root)
-declare -A PALLET_OUTPUTS=(
-  [pallet_subtensor]="pallets/subtensor/src/weights.rs"
-  [pallet_admin_utils]="pallets/admin-utils/src/weights.rs"
-  [pallet_commitments]="pallets/commitments/src/weights.rs"
-  [pallet_drand]="pallets/drand/src/weights.rs"
-  [pallet_shield]="pallets/shield/src/weights.rs"
-  [pallet_crowdloan]="pallets/crowdloan/src/weights.rs"
-  [pallet_registry]="pallets/registry/src/weights.rs"
-  [pallet_subtensor_swap]="pallets/swap/src/weights.rs"
-  [pallet_subtensor_proxy]="pallets/proxy/src/weights.rs"
-  [pallet_subtensor_utility]="pallets/utility/src/weights.rs"
-)
-
 die() { echo "ERROR: $1" >&2; exit 1; }
+
+# ── Auto-discover pallets ────────────────────────────────────────────────────
+typeset -A PALLET_OUTPUTS
+while read -r name path; do
+  PALLET_OUTPUTS[$name]="$path"
+done < <("$SCRIPT_DIR/discover_pallets.sh")
+
+(( ${#PALLET_OUTPUTS} > 0 )) || die "no benchmarked pallets found"
 
 # ── Build ────────────────────────────────────────────────────────────────────
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then

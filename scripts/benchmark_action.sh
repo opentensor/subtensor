@@ -17,21 +17,16 @@ THRESHOLD="${THRESHOLD:-40}"
 STEPS="${STEPS:-50}"
 REPEAT="${REPEAT:-20}"
 
-# Pallet -> output path (keep in sync with benchmark_all.sh)
-declare -A OUTPUTS=(
-  [pallet_subtensor]=pallets/subtensor/src/weights.rs
-  [pallet_admin_utils]=pallets/admin-utils/src/weights.rs
-  [pallet_commitments]=pallets/commitments/src/weights.rs
-  [pallet_drand]=pallets/drand/src/weights.rs
-  [pallet_shield]=pallets/shield/src/weights.rs
-  [pallet_crowdloan]=pallets/crowdloan/src/weights.rs
-  [pallet_registry]=pallets/registry/src/weights.rs
-  [pallet_subtensor_swap]=pallets/swap/src/weights.rs
-  [pallet_subtensor_proxy]=pallets/proxy/src/weights.rs
-  [pallet_subtensor_utility]=pallets/utility/src/weights.rs
-)
-
 die() { echo "ERROR: $1" >&2; exit 1; }
+
+# ── Auto-discover pallets ────────────────────────────────────────────────────
+declare -A OUTPUTS
+while read -r name path; do
+  OUTPUTS[$name]="$path"
+done < <("$SCRIPT_DIR/discover_pallets.sh")
+
+(( ${#OUTPUTS[@]} > 0 )) || die "no benchmarked pallets found"
+
 mkdir -p "$PATCH_DIR"
 
 # Build if needed
