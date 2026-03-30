@@ -14,7 +14,7 @@ use ark_serialize::CanonicalDeserialize;
 use codec::Encode;
 use frame_support::{
     BoundedVec, IterableStorageDoubleMap,
-    dispatch::{DispatchGuard, DispatchInfo, PostDispatchInfo},
+    dispatch::{DispatchInfo, PostDispatchInfo},
     pallet_prelude::{
         Decode, DecodeWithMemTracking, DispatchResultWithPostInfo, OriginTrait, PhantomData,
         ValidTransaction, ValidateResult,
