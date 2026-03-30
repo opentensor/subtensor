@@ -364,7 +364,6 @@ parameter_types! {
 }
 
 impl pallet_limit_orders::Config for Test {
-    type Signature = MultiSignature;
     type SwapInterface = MockSwap;
     type TimeProvider = MockTime;
     type FeeCollector = FeeCollectorAccount;
@@ -401,7 +400,7 @@ pub fn make_signed_order(
     amount: u64,
     limit_price: u64,
     expiry: u64,
-) -> crate::SignedOrder<AccountId, MultiSignature> {
+) -> crate::SignedOrder<AccountId> {
     let signer = keyring.to_account_id();
     let order = crate::Order {
         signer,
@@ -420,8 +419,8 @@ pub fn make_signed_order(
 }
 
 pub fn bounded(
-    v: Vec<crate::SignedOrder<AccountId, MultiSignature>>,
-) -> BoundedVec<crate::SignedOrder<AccountId, MultiSignature>, ConstU32<64>> {
+    v: Vec<crate::SignedOrder<AccountId>>,
+) -> BoundedVec<crate::SignedOrder<AccountId>, ConstU32<64>> {
     BoundedVec::try_from(v).unwrap()
 }
 

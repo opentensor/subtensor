@@ -8,7 +8,7 @@ mod tests;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::{AccountId32, MultiSignature, traits::Verify};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
@@ -85,18 +85,15 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
 /// a domain tag to the signed payload or adding the genesis hash as an `Order` field.
 ///
 /// Signature verification is performed against `order.signer` (the AccountId)
-/// directly, which works because in Substrate sr25519/ed25519 AccountIds are
-/// the raw public keys.
+/// directly. Only sr25519 signatures are accepted; ed25519 and ecdsa variants
+/// of `MultiSignature` are rejected at validation time.
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
-pub struct SignedOrder<
-    AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone,
-    Signature: Encode + Decode + TypeInfo + MaxEncodedLen + Clone,
-> {
+pub struct SignedOrder<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> {
     pub order: Order<AccountId>,
-    /// Signature over `SCALE_ENCODE(order)`.
-    pub signature: Signature,
+    /// Sr25519 signature over `SCALE_ENCODE(order)`.
+    pub signature: MultiSignature,
 }
 
 #[derive(
@@ -142,24 +139,7 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
-        /// Signature type used to verify off-chain order authorisations.
-        ///
-        /// The `Verify::verify` method is called with the order's `signer`
-        /// (`T::AccountId`) as the expected signer, which works for
-        /// sr25519/ed25519 where AccountId == public key.
-        ///
-        /// For the subtensor runtime, set this to `sp_runtime::MultiSignature`.
-        type Signature: Verify<Signer: IdentifyAccount<AccountId = Self::AccountId>>
-            + Encode
-            + Decode
-            + DecodeWithMemTracking
-            + TypeInfo
-            + MaxEncodedLen
-            + Clone
-            + PartialEq
-            + core::fmt::Debug;
-
+    pub trait Config: frame_system::Config<AccountId = AccountId32> {
         /// Full swap + balance execution interface (see [`OrderSwapInterface`]).
         type SwapInterface: OrderSwapInterface<Self::AccountId>;
 
@@ -291,7 +271,7 @@ pub mod pallet {
         ))]
         pub fn execute_orders(
             origin: OriginFor<T>,
-            orders: BoundedVec<SignedOrder<T::AccountId, T::Signature>, T::MaxOrdersPerBatch>,
+            orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -332,7 +312,7 @@ pub mod pallet {
         pub fn execute_batched_orders(
             origin: OriginFor<T>,
             netuid: NetUid,
-            orders: BoundedVec<SignedOrder<T::AccountId, T::Signature>, T::MaxOrdersPerBatch>,
+            orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -418,15 +398,16 @@ pub mod pallet {
         /// valid signature, not yet processed, not expired, and price condition met.
         /// Netuid is intentionally not checked here; callers handle that separately.
         fn is_order_valid(
-            signed_order: &SignedOrder<T::AccountId, T::Signature>,
+            signed_order: &SignedOrder<T::AccountId>,
             order_id: H256,
             now_ms: u64,
             current_price: U96F32,
         ) -> bool {
             let order = &signed_order.order;
-            signed_order
-                .signature
-                .verify(order.encode().as_slice(), &order.signer)
+            matches!(signed_order.signature, MultiSignature::Sr25519(_))
+                && signed_order
+                    .signature
+                    .verify(order.encode().as_slice(), &order.signer)
                 && Orders::<T>::get(order_id).is_none()
                 && now_ms <= order.expiry
                 && match order.order_type {
@@ -442,7 +423,7 @@ pub mod pallet {
         /// Attempt to execute one signed order. Returns an error on any
         /// validation or execution failure without panicking.
         fn try_execute_order(
-            signed_order: SignedOrder<T::AccountId, T::Signature>,
+            signed_order: SignedOrder<T::AccountId>,
         ) -> DispatchResult {
             let order = &signed_order.order;
             let order_id = Self::derive_order_id(order);
@@ -512,7 +493,7 @@ pub mod pallet {
         /// Thin orchestrator for `execute_batched_orders`.
         fn do_execute_batched_orders(
             netuid: NetUid,
-            orders: BoundedVec<SignedOrder<T::AccountId, T::Signature>, T::MaxOrdersPerBatch>,
+            orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
             let now_ms = T::TimeProvider::now().as_millis() as u64;
             let fee_ppb = ProtocolFee::<T>::get();
@@ -607,7 +588,7 @@ pub mod pallet {
         /// Each entry is `(order_id, signer, hotkey, gross, net, fee)`.
         pub(crate) fn validate_and_classify(
             netuid: NetUid,
-            orders: &BoundedVec<SignedOrder<T::AccountId, T::Signature>, T::MaxOrdersPerBatch>,
+            orders: &BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
             now_ms: u64,
             fee_ppb: u32,
             current_price: U96F32,
