@@ -22,10 +22,12 @@ use codec::{Compact, Decode, Encode};
 use ethereum::AuthorizationList;
 use frame_support::{
     PalletId,
-    dispatch::DispatchResult,
+    dispatch::{
+        DispatchGuard, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
+    },
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
+    traits::{Contains, InsideBoth, LinearStoragePrice, OriginTrait, fungible::HoldConsideration},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
@@ -382,7 +384,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchGuard = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchGuard = RuntimeDispatchGuard;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -1720,6 +1722,22 @@ pub type Executive = frame_executive::Executive<
     AllPalletsWithSystem,
     Migrations,
 >;
+
+type RuntimeDispatchableOrigin = <RuntimeCall as Dispatchable>::RuntimeOrigin;
+
+pub struct RuntimeDispatchGuard;
+
+impl DispatchGuard<RuntimeCall> for RuntimeDispatchGuard
+where
+    RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    RuntimeDispatchableOrigin: OriginTrait<AccountId = AccountId>,
+{
+    fn check(origin: &RuntimeDispatchableOrigin, call: &RuntimeCall) -> DispatchResultWithPostInfo {
+        pallet_subtensor::CheckColdkeySwap::<Runtime>::check(origin, call)?;
+        pallet_commitments::CommitmentsDispatchGuard::<Runtime>::check(origin, call)?;
+        Ok(().into())
+    }
+}
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]

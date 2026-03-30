@@ -14,8 +14,10 @@ use ark_serialize::CanonicalDeserialize;
 use codec::Encode;
 use frame_support::{
     BoundedVec, IterableStorageDoubleMap,
+    dispatch::{DispatchGuard, DispatchInfo, PostDispatchInfo},
     pallet_prelude::{
-        Decode, DecodeWithMemTracking, PhantomData, ValidTransaction, ValidateResult,
+        Decode, DecodeWithMemTracking, DispatchResultWithPostInfo, OriginTrait, PhantomData,
+        ValidTransaction, ValidateResult,
     },
     traits::{Currency, Get, IsSubType},
 };
@@ -660,6 +662,30 @@ where
         _len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         Ok(())
+    }
+}
+
+pub struct CommitmentsDispatchGuard<T: Config>(PhantomData<T>);
+
+impl<T> DispatchGuard<<T as frame_system::Config>::RuntimeCall> for CommitmentsDispatchGuard<T>
+where
+    T: Config,
+    <T as frame_system::Config>::RuntimeCall:
+        Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo> + IsSubType<pallet::Call<T>>,
+    OriginOf<T>: OriginTrait<AccountId = T::AccountId>,
+{
+    fn check(origin: &OriginOf<T>, call: &CallOf<T>) -> DispatchResultWithPostInfo {
+        let Some(who) = origin.as_signer() else {
+            return Ok(().into());
+        };
+
+        if let Some(pallet::Call::set_commitment { netuid, .. }) = call.is_sub_type() {
+            if !T::CanCommit::can_commit(*netuid, who) {
+                return Err(Error::<T>::AccountNotAllowedCommit.into());
+            }
+        }
+
+        Ok(().into())
     }
 }
 
