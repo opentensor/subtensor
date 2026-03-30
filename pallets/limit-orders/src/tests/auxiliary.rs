@@ -137,7 +137,7 @@ fn validate_and_classify_separates_buys_and_sells() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderType::BuyLimit,
+            OrderType::LimitBuy,
             1_000u64,     // amount in TAO
             2_000_000u64, // limit_price: willing to pay up to 2 TAO/alpha (price=1 < 2 ✓)
             2_000_000u64, // expiry ms
@@ -194,7 +194,7 @@ fn validate_and_classify_skips_wrong_netuid() {
             AccountKeyring::Alice,
             bob(),
             NetUid::from(99u16), // different netuid
-            OrderType::BuyLimit,
+            OrderType::LimitBuy,
             1_000u64,
             2_000_000u64,
             2_000_000u64,
@@ -226,7 +226,7 @@ fn validate_and_classify_skips_expired_order() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderType::BuyLimit,
+            OrderType::LimitBuy,
             1_000u64,
             2_000_000u64,
             2_000_000u64, // expiry already past
@@ -255,7 +255,7 @@ fn validate_and_classify_skips_price_condition_not_met_for_buy() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderType::BuyLimit,
+            OrderType::LimitBuy,
             1_000u64,
             2u64, // limit_price = 2 TAO/alpha
             2_000_000u64,
@@ -282,7 +282,7 @@ fn validate_and_classify_skips_already_processed_order() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderType::BuyLimit,
+            OrderType::LimitBuy,
             1_000u64,
             2_000_000u64,
             2_000_000u64,
@@ -317,7 +317,7 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderType::BuyLimit,
+            OrderType::LimitBuy,
             1_000_000_000u64,
             u64::MAX, // limit price: accept any price
             2_000_000u64,
@@ -418,7 +418,7 @@ fn make_buy_entry(
         order_id,
         signer,
         hotkey,
-        side: OrderType::BuyLimit,
+        side: OrderType::LimitBuy,
         gross,
         net,
         fee,

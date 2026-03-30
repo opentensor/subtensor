@@ -30,16 +30,14 @@ pub enum OrderSide {
 ///
 /// | Variant      | Action | Triggers when       |
 /// |--------------|--------|---------------------|
-/// | `BuyLimit`   | Buy    | price ≤ limit_price |
-/// | `BuyStop`    | Buy    | price ≥ limit_price |
+/// | `LimitBuy`   | Buy    | price ≤ limit_price |
 /// | `TakeProfit` | Sell   | price ≥ limit_price |
 /// | `StopLoss`   | Sell   | price ≤ limit_price |
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub enum OrderType {
-    BuyLimit,
-    BuyStop,
+    LimitBuy,
     TakeProfit,
     StopLoss,
 }
@@ -47,7 +45,7 @@ pub enum OrderType {
 impl OrderType {
     /// `true` if this order results in buying alpha (staking into subnet).
     pub fn is_buy(&self) -> bool {
-        matches!(self, OrderType::BuyLimit | OrderType::BuyStop)
+        matches!(self, OrderType::LimitBuy)
     }
 }
 
@@ -65,7 +63,7 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub hotkey: AccountId,
     /// Target subnet.
     pub netuid: NetUid,
-    /// Order type (BuyLimit, BuyStop, TakeProfit, or StopLoss).
+    /// Order type (LimitBuy, TakeProfit, or StopLoss).
     pub order_type: OrderType,
     /// Input amount: TAO (raw) for Buy, alpha (raw) for Sell.
     pub amount: u64,
@@ -432,10 +430,10 @@ pub mod pallet {
                 && Orders::<T>::get(order_id).is_none()
                 && now_ms <= order.expiry
                 && match order.order_type {
-                    OrderType::TakeProfit | OrderType::BuyStop => {
+                    OrderType::TakeProfit => {
                         current_price >= U96F32::saturating_from_num(order.limit_price)
                     }
-                    OrderType::StopLoss | OrderType::BuyLimit => {
+                    OrderType::StopLoss | OrderType::LimitBuy => {
                         current_price <= U96F32::saturating_from_num(order.limit_price)
                     }
                 }
