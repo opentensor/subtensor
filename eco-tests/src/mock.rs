@@ -1,4 +1,5 @@
 #![allow(
+    dead_code,
     clippy::arithmetic_side_effects,
     clippy::expect_used,
     clippy::unwrap_used
@@ -6,31 +7,26 @@
 
 use core::num::NonZeroU64;
 
-use crate::utils::rate_limiting::TransactionType;
-use crate::*;
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
-use frame_support::{
-    assert_ok, parameter_types,
-    traits::{Hooks, PrivilegeCmp},
-};
+use frame_support::{parameter_types, traits::PrivilegeCmp};
 use frame_system as system;
-use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
+use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
+use pallet_subtensor::*;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
-use share_pool::SafeFloat;
-use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
+use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
-    BuildStorage, Percent,
+    Percent,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
-use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -41,7 +37,7 @@ frame_support::construct_runtime!(
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         Shield: pallet_shield = 3,
-        SubtensorModule: crate = 4,
+        SubtensorModule: pallet_subtensor::pallet = 4,
         Utility: pallet_utility = 5,
         Scheduler: pallet_scheduler = 6,
         Preimage: pallet_preimage = 7,
@@ -52,33 +48,25 @@ frame_support::construct_runtime!(
     }
 );
 
-#[allow(dead_code)]
-pub type SubtensorCall = crate::Call<Test>;
+pub type SubtensorCall = pallet_subtensor::Call<Test>;
 
-#[allow(dead_code)]
-pub type SubtensorEvent = crate::Event<Test>;
+pub type SubtensorEvent = pallet_subtensor::Event<Test>;
 
-#[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
 
-#[allow(dead_code)]
 pub type TestRuntimeCall = frame_system::Call<Test>;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
-#[allow(dead_code)]
 pub type AccountId = U256;
 
 // The address format for describing accounts.
-#[allow(dead_code)]
 pub type Address = AccountId;
 
 // Balance of an account.
-#[allow(dead_code)]
 pub type Balance = TaoBalance;
 
 // An index to a block.
-#[allow(dead_code)]
 pub type BlockNumber = u64;
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -100,7 +88,6 @@ impl pallet_balances::Config for Test {
 impl pallet_shield::Config for Test {
     type AuthorityId = sp_core::sr25519::Public;
     type FindAuthors = ();
-    type WeightInfo = ();
 }
 
 pub struct NoNestingCallFilter;
@@ -117,8 +104,8 @@ impl Contains<RuntimeCall> for NoNestingCallFilter {
                 };
 
                 !calls.iter().any(|call| {
-					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
-				})
+                    matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+                })
             }
             _ => true,
         }
@@ -150,7 +137,7 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchGuard = crate::CheckColdkeySwap<Test>;
+    type DispatchGuard = pallet_subtensor::CheckColdkeySwap<Test>;
 }
 
 parameter_types! {
@@ -245,7 +232,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = 10;
 }
 
-impl crate::Config for Test {
+impl pallet_subtensor::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
@@ -318,7 +305,6 @@ impl crate::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
-    type WeightInfo = ();
 }
 
 // Swap-related parameter types
@@ -341,8 +327,6 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
-    #[cfg(feature = "runtime-benchmarks")]
-    type BenchmarkHelper = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -532,7 +516,6 @@ impl pallet_drand::Config for Test {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
-    type WeightInfo = ();
 }
 
 impl frame_system::offchain::SigningTypes for Test {
@@ -601,443 +584,4 @@ pub fn init_logs_for_tests() {
         .try_init();
 
     let _ = TEST_LOGS_INIT.set(());
-}
-
-#[allow(dead_code)]
-// Build genesis storage according to the mock runtime.
-pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
-    init_logs_for_tests();
-    let t = frame_system::GenesisConfig::<Test>::default()
-        .build_storage()
-        .unwrap();
-    let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(block_number));
-    ext
-}
-
-#[allow(dead_code)]
-pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExternalities {
-    init_logs_for_tests();
-    let mut t = frame_system::GenesisConfig::<Test>::default()
-        .build_storage()
-        .unwrap();
-
-    pallet_balances::GenesisConfig::<Test> {
-        balances: balances
-            .iter()
-            .map(|(a, b)| (*a, TaoBalance::from(*b as u64)))
-            .collect::<Vec<(U256, TaoBalance)>>(),
-        dev_accounts: None,
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
-
-    t.into()
-}
-
-#[allow(dead_code)]
-pub(crate) fn step_block(n: u16) {
-    for _ in 0..n {
-        Scheduler::on_finalize(System::block_number());
-        Proxy::on_finalize(System::block_number());
-        SubtensorModule::on_finalize(System::block_number());
-        System::on_finalize(System::block_number());
-        System::set_block_number(System::block_number() + 1);
-        System::on_initialize(System::block_number());
-        SubtensorModule::on_initialize(System::block_number());
-        Scheduler::on_initialize(System::block_number());
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) fn run_to_block(n: u64) {
-    run_to_block_ext(n, false)
-}
-
-#[allow(dead_code)]
-pub(crate) fn run_to_block_ext(n: u64, enable_events: bool) {
-    while System::block_number() < n {
-        Scheduler::on_finalize(System::block_number());
-        SubtensorModule::on_finalize(System::block_number());
-        System::on_finalize(System::block_number());
-        System::set_block_number(System::block_number() + 1);
-        System::on_initialize(System::block_number());
-        if !enable_events {
-            System::events().iter().for_each(|event| {
-                log::info!("Event: {:?}", event.event);
-            });
-            System::reset_events();
-        }
-        SubtensorModule::on_initialize(System::block_number());
-        Scheduler::on_initialize(System::block_number());
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) fn next_block_no_epoch(netuid: NetUid) -> u64 {
-    // high tempo to skip automatic epochs in on_initialize
-    let high_tempo: u16 = u16::MAX - 1;
-    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
-
-    SubtensorModule::set_tempo(netuid, high_tempo);
-    let new_block = next_block();
-    SubtensorModule::set_tempo(netuid, old_tempo);
-
-    new_block
-}
-
-#[allow(dead_code)]
-pub(crate) fn run_to_block_no_epoch(netuid: NetUid, n: u64) {
-    // high tempo to skip automatic epochs in on_initialize
-    let high_tempo: u16 = u16::MAX - 1;
-    let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
-
-    SubtensorModule::set_tempo(netuid, high_tempo);
-    run_to_block(n);
-    SubtensorModule::set_tempo(netuid, old_tempo);
-}
-
-#[allow(dead_code)]
-pub(crate) fn step_epochs(count: u16, netuid: NetUid) {
-    for _ in 0..count {
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        log::info!("Blocks to next epoch: {blocks_to_next_epoch:?}");
-        step_block(blocks_to_next_epoch as u16);
-
-        assert!(SubtensorModule::should_run_epoch(
-            netuid,
-            SubtensorModule::get_current_block_as_u64()
-        ));
-        step_block(1);
-    }
-}
-
-/// Increments current block by 1, running all hooks associated with doing so, and asserts
-/// that the block number was in fact incremented.
-///
-/// Returns the new block number.
-#[allow(dead_code)]
-#[cfg(test)]
-pub(crate) fn next_block() -> u64 {
-    let mut block = System::block_number();
-    block += 1;
-    run_to_block(block);
-    assert_eq!(System::block_number(), block);
-    block
-}
-
-#[allow(dead_code)]
-pub fn register_ok_neuron(
-    netuid: NetUid,
-    hotkey_account_id: U256,
-    coldkey_account_id: U256,
-    start_nonce: u64,
-) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
-    );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
-        hotkey_account_id,
-        coldkey_account_id,
-    );
-    assert_ok!(result);
-    log::info!(
-        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
-    );
-}
-
-#[allow(dead_code)]
-pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
-    SubtensorModule::init_new_network(netuid, tempo);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
-    FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
-    SubtokenEnabled::<Test>::insert(netuid, true);
-}
-
-#[allow(dead_code)]
-pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality: u16) {
-    SubtensorModule::init_new_network(netuid, tempo);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
-}
-
-#[allow(dead_code)]
-pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) {
-    SubtensorModule::init_new_network(netuid, tempo);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
-    SubtokenEnabled::<Test>::insert(netuid, false);
-}
-
-#[allow(dead_code)]
-pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
-    let netuid = SubtensorModule::get_next_netuid();
-    let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
-    TotalIssuance::<Test>::mutate(|total_issuance| {
-        *total_issuance = total_issuance.saturating_add(lock_cost);
-    });
-
-    assert_ok!(SubtensorModule::register_network(
-        RawOrigin::Signed(*coldkey).into(),
-        *hotkey
-    ));
-    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
-    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
-    FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
-    SubtokenEnabled::<Test>::insert(netuid, true);
-    netuid
-}
-
-#[allow(dead_code)]
-pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> NetUid {
-    let netuid = SubtensorModule::get_next_netuid();
-    let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
-    TotalIssuance::<Test>::mutate(|total_issuance| {
-        *total_issuance = total_issuance.saturating_add(lock_cost);
-    });
-
-    assert_ok!(SubtensorModule::register_network(
-        RawOrigin::Signed(*coldkey).into(),
-        *hotkey
-    ));
-    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
-    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
-    netuid
-}
-
-#[allow(dead_code)]
-pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) -> NetUid {
-    let netuid = add_dynamic_network(hotkey, coldkey);
-    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
-    netuid
-}
-
-#[allow(dead_code)]
-pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
-    add_network(netuid, tempo, _modality);
-    SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
-    SubtensorModule::set_yuma3_enabled(netuid, false);
-}
-
-// Helper function to set up a neuron with stake
-#[allow(dead_code)]
-pub fn setup_neuron_with_stake(netuid: NetUid, hotkey: U256, coldkey: U256, stake: TaoBalance) {
-    register_ok_neuron(netuid, hotkey, coldkey, stake.into());
-    increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake, netuid);
-}
-
-#[allow(dead_code)]
-pub fn wait_set_pending_children_cooldown(netuid: NetUid) {
-    let cooldown = DefaultPendingCooldown::<Test>::get();
-    step_block(cooldown as u16); // Wait for cooldown to pass
-    step_epochs(1, netuid); // Run next epoch
-}
-
-#[allow(dead_code)]
-pub fn wait_and_set_pending_children(netuid: NetUid) {
-    let original_block = System::block_number();
-    wait_set_pending_children_cooldown(netuid);
-    SubtensorModule::do_set_pending_children(netuid);
-    System::set_block_number(original_block);
-}
-
-#[allow(dead_code)]
-pub fn mock_schedule_children(
-    coldkey: &U256,
-    parent: &U256,
-    netuid: NetUid,
-    child_vec: &[(u64, U256)],
-) {
-    // Set minimum stake for setting children
-    StakeThreshold::<Test>::put(0);
-
-    // Set initial parent-child relationship
-    assert_ok!(SubtensorModule::do_schedule_children(
-        RuntimeOrigin::signed(*coldkey),
-        *parent,
-        netuid,
-        child_vec.to_vec()
-    ));
-}
-
-#[allow(dead_code)]
-pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: NetUid, child_vec: &[(u64, U256)]) {
-    mock_schedule_children(coldkey, parent, netuid, child_vec);
-    wait_and_set_pending_children(netuid);
-}
-
-#[allow(dead_code)]
-pub fn mock_set_children_no_epochs(netuid: NetUid, parent: &U256, child_vec: &[(u64, U256)]) {
-    let backup_block = SubtensorModule::get_current_block_as_u64();
-    PendingChildKeys::<Test>::insert(netuid, parent, (child_vec, 0));
-    System::set_block_number(1);
-    SubtensorModule::do_set_pending_children(netuid);
-    System::set_block_number(backup_block);
-}
-
-// Helper function to wait for the rate limit
-#[allow(dead_code)]
-pub fn step_rate_limit(transaction_type: &TransactionType, netuid: NetUid) {
-    // Check rate limit
-    let limit = transaction_type.rate_limit_on_subnet::<Test>(netuid);
-
-    // Step that many blocks
-    step_block(limit as u16);
-}
-
-/// Helper function to mock now missing increase_stake_on_coldkey_hotkey_account with
-/// minimal changes
-#[allow(dead_code)]
-pub fn increase_stake_on_coldkey_hotkey_account(
-    coldkey: &U256,
-    hotkey: &U256,
-    tao_staked: TaoBalance,
-    netuid: NetUid,
-) {
-    SubtensorModule::stake_into_subnet(
-        hotkey,
-        coldkey,
-        netuid,
-        tao_staked,
-        <Test as Config>::SwapInterface::max_price(),
-        false,
-        false,
-    )
-    .unwrap();
-}
-
-/// Increases the stake on the hotkey account under its owning coldkey.
-///
-/// # Arguments
-/// * `hotkey` - The hotkey account ID.
-/// * `increment` - The amount to be incremented.
-#[allow(dead_code)]
-pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoBalance, netuid: NetUid) {
-    increase_stake_on_coldkey_hotkey_account(
-        &SubtensorModule::get_owning_coldkey_for_hotkey(hotkey),
-        hotkey,
-        increment,
-        netuid,
-    );
-}
-
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
-}
-
-pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
-    SubnetTAO::<Test>::set(netuid, tao);
-    SubnetAlphaIn::<Test>::set(netuid, alpha);
-}
-
-pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoBalance) -> (AlphaBalance, u64) {
-    if netuid.is_root() {
-        return (tao.to_u64().into(), 0);
-    }
-
-    let order = GetAlphaForTao::<Test>::with_amount(tao);
-    let result = <Test as pallet::Config>::SwapInterface::swap(
-        netuid.into(),
-        order,
-        <Test as pallet::Config>::SwapInterface::max_price(),
-        false,
-        true,
-    );
-
-    assert_ok!(&result);
-
-    let result = result.unwrap();
-
-    // we don't want to have silent 0 comparisons in tests
-    assert!(result.amount_paid_out > AlphaBalance::ZERO);
-
-    (result.amount_paid_out, result.fee_paid.into())
-}
-
-pub(crate) fn swap_alpha_to_tao_ext(
-    netuid: NetUid,
-    alpha: AlphaBalance,
-    drop_fees: bool,
-) -> (TaoBalance, u64) {
-    if netuid.is_root() {
-        return (alpha.to_u64().into(), 0);
-    }
-
-    println!(
-        "<Test as pallet::Config>::SwapInterface::min_price() = {:?}",
-        <Test as pallet::Config>::SwapInterface::min_price::<TaoBalance>()
-    );
-
-    let order = GetTaoForAlpha::<Test>::with_amount(alpha);
-    let result = <Test as pallet::Config>::SwapInterface::swap(
-        netuid.into(),
-        order,
-        <Test as pallet::Config>::SwapInterface::min_price(),
-        drop_fees,
-        true,
-    );
-
-    assert_ok!(&result);
-
-    let result = result.unwrap();
-
-    // we don't want to have silent 0 comparisons in tests
-    assert!(!result.amount_paid_out.is_zero());
-
-    (result.amount_paid_out, result.fee_paid.into())
-}
-
-pub(crate) fn swap_alpha_to_tao(netuid: NetUid, alpha: AlphaBalance) -> (TaoBalance, u64) {
-    swap_alpha_to_tao_ext(netuid, alpha, false)
-}
-
-#[allow(dead_code)]
-pub(crate) fn last_event() -> RuntimeEvent {
-    System::events().pop().expect("RuntimeEvent expected").event
-}
-
-pub fn assert_last_event<T: frame_system::pallet::Config>(
-    generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
-) {
-    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
-}
-
-#[allow(dead_code)]
-pub fn commit_dummy(who: U256, netuid: NetUid) {
-    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
-    // any 32‑byte value is fine; hash is never opened
-    let hash = sp_core::H256::from_low_u64_be(0xDEAD_BEEF);
-    assert_ok!(SubtensorModule::do_commit_weights(
-        RuntimeOrigin::signed(who),
-        netuid,
-        hash
-    ));
-}
-
-#[allow(dead_code)]
-pub fn sf_to_u128(sf: &SafeFloat) -> u128 {
-    let alpha_f64: f64 = sf.into();
-    alpha_f64 as u128
-}
-
-#[allow(dead_code)]
-pub fn sf_from_u64(val: u64) -> SafeFloat {
-    SafeFloat::from(val)
 }
