@@ -397,7 +397,7 @@ pub fn make_signed_order(
     keyring: AccountKeyring,
     hotkey: AccountId,
     netuid: NetUid,
-    side: crate::OrderSide,
+    side: crate::OrderType,
     amount: u64,
     limit_price: u64,
     expiry: u64,

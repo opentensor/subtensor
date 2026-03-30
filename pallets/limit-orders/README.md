@@ -86,7 +86,15 @@ in the fee being collected in TAO and forwarded to `FeeCollector`.
 
 Default: `0`.
 
-### `Orders: StorageMap<H256, OrderStatus>`
+### `Admin: StorageValue<Option<AccountId>>`
+
+The privileged account that may call `set_protocol_fee` alongside root.
+`None` means no admin is set; only root can change the fee.
+Set by root via `set_admin`.
+
+Default: absent (`None`).
+
+### `OrderStatus: StorageMap<H256, OrderStatus>`
 
 Maps an `OrderId` (blake2_256 of the SCALE-encoded `Order`) to its terminal
 `OrderStatus`. Absence means the order has never been seen and is still
@@ -105,7 +113,7 @@ neither `Fulfilled` nor `Cancelled` orders can be re-executed.
 | `FeeCollector`        | `Get<Self::AccountId>` (constant)                 | Account that receives all accumulated protocol fees in TAO. |
 | `MaxOrdersPerBatch`   | `Get<u32>` (constant)                             | Maximum number of orders accepted in a single `execute_orders` or `execute_batched_orders` call. Should equal `floor(max_block_weight / per_order_weight)`. |
 | `PalletId`            | `Get<PalletId>` (constant)                        | Used to derive the pallet intermediary account (`PalletId::into_account_truncating`). This account temporarily holds pooled TAO and staked alpha during `execute_batched_orders`. |
-| `PalletHotkey`        | `Get<Self::AccountId>` (constant)                 | Hotkey the pallet intermediary account stakes to/from during batch execution. Must be a dedicated, intentionally unregistered hotkey (not a validator neuron). |
+| `PalletHotkey`        | `Get<Self::AccountId>` (constant)                 | Hotkey the pallet intermediary account stakes to/from during batch execution. Must be a dedicated hotkey registered on every subnet the pallet may operate on. Operators should register it as a non-validator neuron. |
 
 ---
 
@@ -186,9 +194,18 @@ payload is required so the pallet can derive the `OrderId`.
 
 ### `set_protocol_fee(fee)` — call index 3
 
-**Origin:** root.
+**Origin:** root or the current admin account (see `set_admin`).
 
 Sets `ProtocolFee` to `fee` (PPB). Emits `ProtocolFeeSet`.
+
+---
+
+### `set_admin(new_admin)` — call index 5
+
+**Origin:** root.
+
+Sets or clears the privileged admin account stored in `Admin`. Pass `None` to
+remove the admin, leaving only root able to change the fee. Emits `AdminSet`.
 
 ---
 
@@ -199,7 +216,8 @@ Sets `ProtocolFee` to `fee` (PPB). Emits `ProtocolFeeSet`.
 | `OrderExecuted` | `order_id`, `signer`, `netuid`, `side` | An individual order was successfully executed (by either extrinsic). |
 | `OrderSkipped` | `order_id` | An order was dropped during batch validation (bad signature, expired, wrong netuid, already processed, or price condition not met). |
 | `OrderCancelled` | `order_id`, `signer` | The signer registered a cancellation via `cancel_order`. |
-| `ProtocolFeeSet` | `fee` | Root updated the protocol fee. |
+| `ProtocolFeeSet` | `fee` | Root or admin updated the protocol fee. |
+| `AdminSet` | `new_admin` | Root updated the admin account (`None` means admin was removed). |
 | `GroupExecutionSummary` | `netuid`, `net_side`, `net_amount`, `actual_out`, `executed_count` | Emitted once per `execute_batched_orders` call summarising the net pool trade. `net_side` is `Buy` if TAO was sent to the pool, `Sell` if alpha was sent. `net_amount` and `actual_out` are zero when the two sides perfectly offset. |
 
 ---
@@ -213,6 +231,8 @@ Sets `ProtocolFee` to `fee` (PPB). Emits `ProtocolFeeSet`.
 | `OrderExpired` | `now > order.expiry`. |
 | `PriceConditionNotMet` | Current spot price is beyond the order's `limit_price`. |
 | `Unauthorized` | Caller of `cancel_order` is not the order's `signer`. |
+| `NotAdmin` | Caller of `set_protocol_fee` is neither root nor the current admin. |
+| `SwapReturnedZero` | The pool swap returned zero output for a non-zero residual input. |
 
 ---
 

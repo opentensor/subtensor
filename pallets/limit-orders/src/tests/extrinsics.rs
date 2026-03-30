@@ -10,7 +10,7 @@ use sp_runtime::DispatchError;
 use subtensor_runtime_common::NetUid;
 
 use crate::{
-    Admin, Error, Order, OrderSide, OrderStatus, Orders,
+    Admin, Error, Order, OrderSide, OrderStatus, OrderType, Orders,
     pallet::{Event, ProtocolFee},
 };
 
@@ -146,7 +146,7 @@ fn cancel_order_signer_can_cancel() {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
-            side: OrderSide::Buy,
+            side: OrderType::BuyLimit,
             amount: 1_000,
             limit_price: u64::MAX,
             expiry: FAR_FUTURE,
@@ -172,7 +172,7 @@ fn cancel_order_non_signer_rejected() {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
-            side: OrderSide::Buy,
+            side: OrderType::BuyLimit,
             amount: 1_000,
             limit_price: u64::MAX,
             expiry: FAR_FUTURE,
@@ -192,7 +192,7 @@ fn cancel_order_already_cancelled_rejected() {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
-            side: OrderSide::Buy,
+            side: OrderType::BuyLimit,
             amount: 1_000,
             limit_price: u64::MAX,
             expiry: FAR_FUTURE,
@@ -214,7 +214,7 @@ fn cancel_order_already_fulfilled_rejected() {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
-            side: OrderSide::Buy,
+            side: OrderType::BuyLimit,
             amount: 1_000,
             limit_price: u64::MAX,
             expiry: FAR_FUTURE,
@@ -236,7 +236,7 @@ fn cancel_order_unsigned_rejected() {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
-            side: OrderSide::Buy,
+            side: OrderType::BuyLimit,
             amount: 1_000,
             limit_price: u64::MAX,
             expiry: FAR_FUTURE,
@@ -262,7 +262,7 @@ fn execute_orders_buy_order_fulfilled() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             2_000_000_000,
             FAR_FUTURE,
@@ -279,7 +279,9 @@ fn execute_orders_buy_order_fulfilled() {
             order_id: id,
             signer: alice(),
             netuid: netuid(),
-            side: OrderSide::Buy,
+            side: OrderType::BuyLimit,
+            amount_in: 1_000,
+            amount_out: 0,
         });
     });
 }
@@ -294,7 +296,7 @@ fn execute_orders_sell_order_fulfilled() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             500,
             1,
             FAR_FUTURE,
@@ -311,8 +313,128 @@ fn execute_orders_sell_order_fulfilled() {
             order_id: id,
             signer: alice(),
             netuid: netuid(),
-            side: OrderSide::Sell,
+            side: OrderType::TakeProfit,
+            amount_in: 500,
+            amount_out: 0,
         });
+    });
+}
+
+#[test]
+fn execute_orders_buy_stop_order_fulfilled() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(3.0);
+        // Price = 3.0 ≥ limit = 2.0 → condition met.
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::BuyStop,
+            1_000,
+            2, // raw limit_price = 2 TAO/alpha
+            FAR_FUTURE,
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
+
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+        assert_event(Event::OrderExecuted {
+            order_id: id,
+            signer: alice(),
+            netuid: netuid(),
+            side: OrderType::BuyStop,
+            amount_in: 1_000,
+            amount_out: 0,
+        });
+    });
+}
+
+#[test]
+fn execute_orders_buy_stop_price_not_met_skipped() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0); // price 1.0 < limit 2.0 → buy stop condition not met
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::BuyStop,
+            1_000,
+            2, // raw limit_price = 2 TAO/alpha
+            FAR_FUTURE,
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
+
+        assert!(Orders::<Test>::get(id).is_none());
+    });
+}
+
+#[test]
+fn execute_orders_stop_loss_order_fulfilled() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(0.5);
+        // Price = 0.5 ≤ limit = 1.0 → condition met.
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::StopLoss,
+            500,
+            1, // raw limit_price = 1 TAO/alpha
+            FAR_FUTURE,
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
+
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+        assert_event(Event::OrderExecuted {
+            order_id: id,
+            signer: alice(),
+            netuid: netuid(),
+            side: OrderType::StopLoss,
+            amount_in: 500,
+            amount_out: 0,
+        });
+    });
+}
+
+#[test]
+fn execute_orders_stop_loss_price_not_met_skipped() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(2.0); // price 2.0 > limit 1.0 → stop loss condition not met
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::StopLoss,
+            500,
+            1, // raw limit_price = 1 TAO/alpha
+            FAR_FUTURE,
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
+
+        assert!(Orders::<Test>::get(id).is_none());
     });
 }
 
@@ -325,7 +447,7 @@ fn execute_orders_expired_order_skipped() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             2_000_000, // expiry in the past
@@ -351,7 +473,7 @@ fn execute_orders_price_not_met_skipped() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             2,
             FAR_FUTURE,
@@ -376,7 +498,7 @@ fn execute_orders_already_processed_skipped() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -404,7 +526,7 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -413,7 +535,7 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
             AccountKeyring::Bob,
             alice(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             500,
             u64::MAX,
             500_000, // already expired
@@ -450,7 +572,7 @@ fn execute_orders_buy_with_fee_charges_fee() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -496,7 +618,7 @@ fn execute_orders_sell_with_fee_charges_fee() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             1_000,
             0,
             FAR_FUTURE,
@@ -548,7 +670,7 @@ fn execute_batched_orders_all_invalid_returns_ok() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             1_000_000,
@@ -581,7 +703,7 @@ fn execute_batched_orders_skips_wrong_netuid() {
             AccountKeyring::Alice,
             bob(),
             NetUid::from(99u16), // wrong netuid
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -619,7 +741,7 @@ fn execute_batched_orders_buy_only_fulfills_orders_and_distributes_alpha() {
             AccountKeyring::Alice,
             dave(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             600,
             u64::MAX,
             FAR_FUTURE,
@@ -628,7 +750,7 @@ fn execute_batched_orders_buy_only_fulfills_orders_and_distributes_alpha() {
             AccountKeyring::Bob,
             dave(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             400,
             u64::MAX,
             FAR_FUTURE,
@@ -680,7 +802,7 @@ fn execute_batched_orders_sell_only_fulfills_orders_and_distributes_tao() {
             AccountKeyring::Alice,
             dave(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             300,
             0,
             FAR_FUTURE, // limit=0 → accept any price
@@ -689,7 +811,7 @@ fn execute_batched_orders_sell_only_fulfills_orders_and_distributes_tao() {
             AccountKeyring::Bob,
             dave(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             200,
             0,
             FAR_FUTURE,
@@ -746,7 +868,7 @@ fn execute_batched_orders_buy_dominant_mixed() {
             AccountKeyring::Alice,
             dave(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -755,7 +877,7 @@ fn execute_batched_orders_buy_dominant_mixed() {
             AccountKeyring::Bob,
             dave(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             600,
             u64::MAX,
             FAR_FUTURE,
@@ -764,7 +886,7 @@ fn execute_batched_orders_buy_dominant_mixed() {
             AccountKeyring::Charlie,
             dave(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             200,
             0,
             FAR_FUTURE,
@@ -816,7 +938,7 @@ fn execute_batched_orders_sell_dominant_mixed() {
             AccountKeyring::Alice,
             dave(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             200,
             u64::MAX,
             FAR_FUTURE,
@@ -825,7 +947,7 @@ fn execute_batched_orders_sell_dominant_mixed() {
             AccountKeyring::Bob,
             dave(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             300,
             0,
             FAR_FUTURE,
@@ -834,7 +956,7 @@ fn execute_batched_orders_sell_dominant_mixed() {
             AccountKeyring::Charlie,
             dave(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             200,
             0,
             FAR_FUTURE,
@@ -876,7 +998,7 @@ fn execute_batched_orders_fee_forwarded_to_collector() {
             AccountKeyring::Alice,
             dave(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -904,7 +1026,7 @@ fn execute_batched_orders_cancelled_order_skipped() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -948,7 +1070,7 @@ fn execute_batched_orders_fees_charged_on_both_sides_when_matched_internally() {
             AccountKeyring::Alice,
             dave(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -957,7 +1079,7 @@ fn execute_batched_orders_fees_charged_on_both_sides_when_matched_internally() {
             AccountKeyring::Bob,
             dave(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             1_000,
             0,
             FAR_FUTURE,
@@ -993,7 +1115,7 @@ fn execute_batched_orders_buy_zero_alpha_returns_error() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Buy,
+            OrderType::BuyLimit,
             1_000,
             u64::MAX,
             FAR_FUTURE,
@@ -1023,7 +1145,7 @@ fn execute_batched_orders_sell_zero_tao_returns_error() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             1_000,
             0,
             FAR_FUTURE,
@@ -1053,7 +1175,7 @@ fn execute_batched_orders_sell_alpha_respects_swap_fail() {
             AccountKeyring::Alice,
             bob(),
             netuid(),
-            OrderSide::Sell,
+            OrderType::TakeProfit,
             1_000,
             0,
             FAR_FUTURE,

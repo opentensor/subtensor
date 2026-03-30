@@ -15,12 +15,40 @@ use subtensor_swap_interface::OrderSwapInterface;
 
 // ── Data structures ──────────────────────────────────────────────────────────
 
+/// Internal direction of a net pool trade. Used only for `GroupExecutionSummary`
+/// and pool-swap bookkeeping; not part of the public order payload.
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub enum OrderSide {
     Buy,
     Sell,
+}
+
+/// The user-facing order type. Each variant encodes both the execution action
+/// (buy alpha / sell alpha) and the price-trigger direction.
+///
+/// | Variant      | Action | Triggers when       |
+/// |--------------|--------|---------------------|
+/// | `BuyLimit`   | Buy    | price ≤ limit_price |
+/// | `BuyStop`    | Buy    | price ≥ limit_price |
+/// | `TakeProfit` | Sell   | price ≥ limit_price |
+/// | `StopLoss`   | Sell   | price ≤ limit_price |
+#[derive(
+    Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
+)]
+pub enum OrderType {
+    BuyLimit,
+    BuyStop,
+    TakeProfit,
+    StopLoss,
+}
+
+impl OrderType {
+    /// `true` if this order results in buying alpha (staking into subnet).
+    pub fn is_buy(&self) -> bool {
+        matches!(self, OrderType::BuyLimit | OrderType::BuyStop)
+    }
 }
 
 /// The canonical order payload that users sign off-chain.
@@ -37,8 +65,8 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub hotkey: AccountId,
     /// Target subnet.
     pub netuid: NetUid,
-    /// Buy or Sell.
-    pub side: OrderSide,
+    /// Order type (BuyLimit, BuyStop, TakeProfit, or StopLoss).
+    pub side: OrderType,
     /// Input amount: TAO (raw) for Buy, alpha (raw) for Sell.
     pub amount: u64,
     /// Price threshold in TAO/alpha (raw units, same scale as
@@ -90,6 +118,7 @@ pub(crate) struct OrderEntry<AccountId> {
     pub(crate) order_id: H256,
     pub(crate) signer: AccountId,
     pub(crate) hotkey: AccountId,
+    pub(crate) side: OrderType,
     /// Gross input amount (before fee).
     pub(crate) gross: u64,
     /// Net input amount (after fee).
@@ -193,7 +222,11 @@ pub mod pallet {
             order_id: H256,
             signer: T::AccountId,
             netuid: NetUid,
-            side: OrderSide,
+            side: OrderType,
+            /// Input amount: TAO (raw) for Buy orders, alpha (raw) for Sell orders.
+            amount_in: u64,
+            /// Output amount: alpha (raw) received for Buy orders, TAO (raw) received for Sell orders (after fee).
+            amount_out: u64,
         },
         /// An order was skipped during batch execution (invalid signature,
         /// expired, already processed, wrong netuid, or price not met).
@@ -399,11 +432,11 @@ pub mod pallet {
                 && Orders::<T>::get(order_id).is_none()
                 && now_ms <= order.expiry
                 && match order.side {
-                    OrderSide::Buy => {
-                        current_price <= U96F32::saturating_from_num(order.limit_price)
-                    }
-                    OrderSide::Sell => {
+                    OrderType::TakeProfit | OrderType::BuyStop => {
                         current_price >= U96F32::saturating_from_num(order.limit_price)
+                    }
+                    OrderType::StopLoss | OrderType::BuyLimit => {
+                        current_price <= U96F32::saturating_from_num(order.limit_price)
                     }
                 }
         }
@@ -425,53 +458,44 @@ pub mod pallet {
 
             // 5. Execute the swap, taking protocol fee from the input.
             let fee_ppb = ProtocolFee::<T>::get();
-            match order.side {
-                OrderSide::Buy => {
-                    let tao_in = TaoBalance::from(order.amount);
-                    // Deduct protocol fee from TAO input before swapping.
-                    let fee_tao = Self::ppb_of_tao(tao_in, fee_ppb);
-                    let tao_after_fee = tao_in.saturating_sub(fee_tao);
+            let (amount_in, amount_out) = if order.side.is_buy() {
+                let tao_in = TaoBalance::from(order.amount);
+                // Deduct protocol fee from TAO input before swapping.
+                let fee_tao = Self::ppb_of_tao(tao_in, fee_ppb);
+                let tao_after_fee = tao_in.saturating_sub(fee_tao);
 
-                    T::SwapInterface::buy_alpha(
-                        &order.signer,
-                        &order.hotkey,
-                        order.netuid,
-                        tao_after_fee,
-                        TaoBalance::from(order.limit_price),
-                    )?;
+                let alpha_out = T::SwapInterface::buy_alpha(
+                    &order.signer,
+                    &order.hotkey,
+                    order.netuid,
+                    tao_after_fee,
+                    TaoBalance::from(order.limit_price),
+                )?;
 
-                    // Forward the fee TAO directly to FeeCollector.
-                    if !fee_tao.is_zero() {
-                        T::SwapInterface::transfer_tao(
-                            &order.signer,
-                            &T::FeeCollector::get(),
-                            fee_tao,
-                        )
+                // Forward the fee TAO directly to FeeCollector.
+                if !fee_tao.is_zero() {
+                    T::SwapInterface::transfer_tao(&order.signer, &T::FeeCollector::get(), fee_tao)
                         .ok();
-                    }
                 }
-                OrderSide::Sell => {
-                    // Sell the full alpha amount; fee is taken from the TAO output.
-                    let tao_out = T::SwapInterface::sell_alpha(
-                        &order.signer,
-                        &order.hotkey,
-                        order.netuid,
-                        AlphaBalance::from(order.amount),
-                        TaoBalance::from(order.limit_price),
-                    )?;
+                (order.amount, alpha_out.to_u64())
+            } else {
+                // Sell the full alpha amount; fee is taken from the TAO output.
+                let tao_out = T::SwapInterface::sell_alpha(
+                    &order.signer,
+                    &order.hotkey,
+                    order.netuid,
+                    AlphaBalance::from(order.amount),
+                    TaoBalance::from(order.limit_price),
+                )?;
 
-                    // Deduct protocol fee from TAO output and forward to FeeCollector.
-                    let fee_tao = Self::ppb_of_tao(tao_out, fee_ppb);
-                    if !fee_tao.is_zero() {
-                        T::SwapInterface::transfer_tao(
-                            &order.signer,
-                            &T::FeeCollector::get(),
-                            fee_tao,
-                        )
+                // Deduct protocol fee from TAO output and forward to FeeCollector.
+                let fee_tao = Self::ppb_of_tao(tao_out, fee_ppb);
+                if !fee_tao.is_zero() {
+                    T::SwapInterface::transfer_tao(&order.signer, &T::FeeCollector::get(), fee_tao)
                         .ok();
-                    }
                 }
-            }
+                (order.amount, tao_out.saturating_sub(fee_tao).to_u64())
+            };
 
             // 6. Mark as fulfilled and emit event.
             Orders::<T>::insert(order_id, OrderStatus::Fulfilled);
@@ -480,6 +504,8 @@ pub mod pallet {
                 signer: order.signer.clone(),
                 netuid: order.netuid,
                 side: order.side.clone(),
+                amount_in,
+                amount_out,
             });
 
             Ok(())
@@ -608,40 +634,33 @@ pub mod pallet {
                         return None;
                     }
 
-                    let (net, fee) = match order.side {
+                    let (net, fee) = if order.side.is_buy() {
                         // Buy: fee on TAO input — buyer contributes less TAO to the pool.
-                        OrderSide::Buy => {
-                            let f =
-                                Self::ppb_of_tao(TaoBalance::from(order.amount), fee_ppb).to_u64();
-                            (order.amount.saturating_sub(f), f)
-                        }
+                        let f = Self::ppb_of_tao(TaoBalance::from(order.amount), fee_ppb).to_u64();
+                        (order.amount.saturating_sub(f), f)
+                    } else {
                         // Sell: fee on TAO output — seller contributes full alpha; the fee
                         // is deducted from their TAO payout in `distribute_tao_pro_rata`.
                         // No alpha is withheld here, so fee is recorded as 0 in the entry.
-                        OrderSide::Sell => (order.amount, 0u64),
+                        (order.amount, 0u64)
                     };
 
-                    Some((
-                        order.side.clone(),
-                        OrderEntry {
-                            order_id,
-                            signer: order.signer.clone(),
-                            hotkey: order.hotkey.clone(),
-                            gross: order.amount,
-                            net,
-                            fee,
-                        },
-                    ))
+                    Some(OrderEntry {
+                        order_id,
+                        signer: order.signer.clone(),
+                        hotkey: order.hotkey.clone(),
+                        side: order.side.clone(),
+                        gross: order.amount,
+                        net,
+                        fee,
+                    })
                 })
-                .for_each(|(side, entry)| {
+                .for_each(|entry| {
                     // try_push cannot fail: both vecs share the same bound as `orders`.
-                    match side {
-                        OrderSide::Buy => {
-                            let _ = buys.try_push(entry);
-                        }
-                        OrderSide::Sell => {
-                            let _ = sells.try_push(entry);
-                        }
+                    if entry.side.is_buy() {
+                        let _ = buys.try_push(entry);
+                    } else {
+                        let _ = sells.try_push(entry);
                     }
                 });
 
@@ -744,26 +763,29 @@ pub mod pallet {
             };
 
             for e in buys.iter() {
-                if total_buy_net > 0 {
-                    let share: u64 =
-                        (total_alpha.saturating_mul(e.net as u128) / total_buy_net) as u64;
-                    if share > 0 {
-                        T::SwapInterface::transfer_staked_alpha(
-                            pallet_acct,
-                            pallet_hotkey,
-                            &e.signer,
-                            &e.hotkey,
-                            netuid,
-                            AlphaBalance::from(share),
-                        )?;
-                    }
+                let share: u64 = if total_buy_net > 0 {
+                    (total_alpha.saturating_mul(e.net as u128) / total_buy_net) as u64
+                } else {
+                    0
+                };
+                if share > 0 {
+                    T::SwapInterface::transfer_staked_alpha(
+                        pallet_acct,
+                        pallet_hotkey,
+                        &e.signer,
+                        &e.hotkey,
+                        netuid,
+                        AlphaBalance::from(share),
+                    )?;
                 }
                 Orders::<T>::insert(e.order_id, OrderStatus::Fulfilled);
                 Self::deposit_event(Event::OrderExecuted {
                     order_id: e.order_id,
                     signer: e.signer.clone(),
                     netuid,
-                    side: OrderSide::Buy,
+                    side: e.side.clone(),
+                    amount_in: e.gross,
+                    amount_out: share,
                 });
             }
             Ok(())
@@ -815,7 +837,9 @@ pub mod pallet {
                     order_id: e.order_id,
                     signer: e.signer.clone(),
                     netuid,
-                    side: OrderSide::Sell,
+                    side: e.side.clone(),
+                    amount_in: e.gross,
+                    amount_out: net_share,
                 });
             }
             Ok(total_sell_fee_tao)
