@@ -485,7 +485,7 @@ impl<T: Config> Pallet<T> {
 
                     // Prevent stuck-at-zero behavior.
                     if new_burn_u64 == 0 {
-                        new_burn_u64 = 1;
+                        new_burn_u64 = 100_000; // 0.0001 Tao
                     }
 
                     Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
