@@ -1220,7 +1220,7 @@ impl pallet_subtensor_swap::Config for Runtime {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
-    type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
+    type WeightInfo = pallet_subtensor_swap::weights::SubstrateWeight<Runtime>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = SwapBenchmarkHelper;
 }
