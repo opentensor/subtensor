@@ -92,7 +92,7 @@ export async function sudoSwapColdkey(
     api: TypedApi<typeof subtensor>,
     oldAddress: string,
     newAddress: string,
-    swapCost: bigint = 0n
+    swapCost = 0n
 ): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
