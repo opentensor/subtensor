@@ -306,7 +306,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(100_500_000, 0)
+        #[pallet::weight((Weight::from_parts(143_700_000, 0)
         .saturating_add(T::DbWeight::get().reads(11_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -1247,8 +1247,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(36_u64))
-		.saturating_add(T::DbWeight::get().writes(53_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(33_u64))
+		.saturating_add(T::DbWeight::get().writes(46_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1456,8 +1456,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(231_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(35_u64))
-            .saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(32_u64))
+            .saturating_add(T::DbWeight::get().writes(45_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2323,7 +2323,7 @@ mod dispatches {
 
         /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
-        #[pallet::weight(Weight::from_parts(2_283_000, 0)
+        #[pallet::weight(Weight::from_parts(3_306_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
