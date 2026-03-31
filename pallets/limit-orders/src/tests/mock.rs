@@ -106,6 +106,10 @@ thread_local! {
         RefCell::new(HashMap::new());
     /// When `true`, `buy_alpha` and `sell_alpha` return `DispatchError::Other("pool error")`.
     pub static MOCK_SWAP_FAIL: RefCell<bool> = RefCell::new(false);
+    /// Rate-limit flags set by `transfer_staked_alpha` when `set_receiver_limit` is true.
+    /// Key: (hotkey, coldkey, netuid) — mirrors `StakingOperationRateLimiter` in subtensor.
+    pub static RATE_LIMITS: RefCell<std::collections::HashSet<(AccountId, AccountId, NetUid)>> =
+        RefCell::new(std::collections::HashSet::new());
 }
 
 pub struct MockSwap;
@@ -127,6 +131,10 @@ impl MockSwap {
         SWAP_LOG.with(|l| l.borrow_mut().clear());
         ALPHA_BALANCES.with(|b| b.borrow_mut().clear());
         TAO_BALANCES.with(|b| b.borrow_mut().clear());
+        RATE_LIMITS.with(|r| r.borrow_mut().clear());
+    }
+    pub fn is_rate_limited(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> bool {
+        RATE_LIMITS.with(|r| r.borrow().contains(&(hotkey.clone(), coldkey.clone(), netuid)))
     }
     /// Seed a staked alpha balance for a (coldkey, hotkey, netuid) triple.
     pub fn set_alpha_balance(coldkey: AccountId, hotkey: AccountId, netuid: NetUid, amount: u64) {
@@ -203,6 +211,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         netuid: NetUid,
         tao_amount: TaoBalance,
         _limit_price: TaoBalance,
+        _apply_limits: bool,
     ) -> Result<AlphaBalance, frame_support::pallet_prelude::DispatchError> {
         if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
             return Err(frame_support::pallet_prelude::DispatchError::Other(
@@ -241,6 +250,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         netuid: NetUid,
         alpha_amount: AlphaBalance,
         _limit_price: TaoBalance,
+        _apply_limits: bool,
     ) -> Result<TaoBalance, frame_support::pallet_prelude::DispatchError> {
         if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
             return Err(frame_support::pallet_prelude::DispatchError::Other(
@@ -277,10 +287,6 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         MOCK_PRICE.with(|p| *p.borrow())
     }
 
-    fn is_subtoken_enabled(_netuid: NetUid) -> bool {
-        true
-    }
-
     fn transfer_tao(
         from: &AccountId,
         to: &AccountId,
@@ -311,7 +317,20 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         to_hotkey: &AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
+        validate_sender: bool,
+        set_receiver_limit: bool,
     ) -> frame_support::pallet_prelude::DispatchResult {
+        if validate_sender {
+            let rate_limited = RATE_LIMITS.with(|r| {
+                r.borrow()
+                    .contains(&(from_hotkey.clone(), from_coldkey.clone(), netuid))
+            });
+            if rate_limited {
+                return Err(frame_support::pallet_prelude::DispatchError::Other(
+                    "StakingOperationRateLimitExceeded",
+                ));
+            }
+        }
         let amt = amount.to_u64();
         ALPHA_BALANCES.with(|b| {
             let mut map = b.borrow_mut();
@@ -324,6 +343,12 @@ impl OrderSwapInterface<AccountId> for MockSwap {
                 .or_insert(0);
             *to_bal = to_bal.saturating_add(amt);
         });
+        if set_receiver_limit {
+            RATE_LIMITS.with(|r| {
+                r.borrow_mut()
+                    .insert((to_hotkey.clone(), to_coldkey.clone(), netuid));
+            });
+        }
         SWAP_LOG.with(|l| {
             l.borrow_mut().push(SwapCall::TransferStakedAlpha {
                 from_coldkey: from_coldkey.clone(),

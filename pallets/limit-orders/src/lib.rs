@@ -358,8 +358,7 @@ pub mod pallet {
             current_price: U96F32,
         ) -> bool {
             let order = &signed_order.order;
-            T::SwapInterface::is_subtoken_enabled(order.netuid)
-                && matches!(signed_order.signature, MultiSignature::Sr25519(_))
+            matches!(signed_order.signature, MultiSignature::Sr25519(_))
                 && signed_order
                     .signature
                     .verify(order.encode().as_slice(), &order.signer)
@@ -401,6 +400,7 @@ pub mod pallet {
                     order.netuid,
                     tao_after_fee,
                     TaoBalance::from(order.limit_price),
+                    true,
                 )?;
 
                 // Forward the fee TAO to the order's fee recipient.
@@ -417,6 +417,7 @@ pub mod pallet {
                     order.netuid,
                     AlphaBalance::from(order.amount),
                     TaoBalance::from(order.limit_price),
+                    true,
                 )?;
 
                 // Deduct fee from TAO output and forward to the order's fee recipient.
@@ -614,6 +615,8 @@ pub mod pallet {
                     pallet_hotkey,
                     netuid,
                     AlphaBalance::from(e.gross),
+                    true,  // validate_sender: check user's rate limit, subnet, min stake
+                    false, // set_receiver_limit: do not rate-limit the pallet intermediary
                 )?;
             }
             Ok(())
@@ -640,6 +643,7 @@ pub mod pallet {
                         netuid,
                         TaoBalance::from(net_tao),
                         TaoBalance::from(u64::MAX), // no price ceiling for net pool swap
+                        false,
                     )?
                     .to_u64() as u128;
                     ensure!(out > 0, Error::<T>::SwapReturnedZero);
@@ -658,6 +662,7 @@ pub mod pallet {
                         netuid,
                         AlphaBalance::from(net_alpha),
                         TaoBalance::ZERO,
+                        false,
                     )?
                     .to_u64() as u128;
                     ensure!(out > 0, Error::<T>::SwapReturnedZero);
@@ -703,6 +708,8 @@ pub mod pallet {
                         &e.hotkey,
                         netuid,
                         AlphaBalance::from(share),
+                        false, // validate_sender: skip — pallet intermediary needs no validation
+                        true,  // set_receiver_limit: rate-limit the buyer after they receive stake
                     )?;
                 }
                 Orders::<T>::insert(e.order_id, OrderStatus::Fulfilled);

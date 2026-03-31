@@ -59,22 +59,36 @@ pub trait SwapHandler {
 pub trait OrderSwapInterface<AccountId> {
     /// Buy alpha with TAO: debit `tao_amount` from `coldkey`'s free balance,
     /// credit resulting alpha as stake at `hotkey` on `netuid`.
+    ///
+    /// When `apply_limits` is `true` the implementation enforces subnet
+    /// existence, hotkey registration, minimum stake amount, sufficient
+    /// coldkey balance, and sets the staking rate-limit flag for `(hotkey,
+    /// coldkey, netuid)` after a successful stake. Pass `false` for internal
+    /// pallet-intermediary swaps that must bypass these user-facing guards.
     fn buy_alpha(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
         tao_amount: TaoBalance,
         limit_price: TaoBalance,
+        apply_limits: bool,
     ) -> Result<AlphaBalance, DispatchError>;
 
     /// Sell alpha for TAO: remove `alpha_amount` from `coldkey`'s stake at
     /// `hotkey` on `netuid`, credit resulting TAO to `coldkey`'s free balance.
+    ///
+    /// When `apply_limits` is `true` the implementation enforces subnet
+    /// existence, hotkey registration, minimum stake amount, sufficient alpha
+    /// balance, and checks that the staking rate-limit flag is not set for
+    /// `(hotkey, coldkey, netuid)` (i.e. the account did not stake this
+    /// block). Pass `false` for internal pallet-intermediary swaps.
     fn sell_alpha(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: NetUid,
         alpha_amount: AlphaBalance,
         limit_price: TaoBalance,
+        apply_limits: bool,
     ) -> Result<TaoBalance, DispatchError>;
 
     /// Current spot price: TAO per alpha, same scale as
@@ -95,6 +109,25 @@ pub trait OrderSwapInterface<AccountId> {
     /// matching in `execute_batched_orders`: it lets the pallet collect alpha
     /// from sell-order signers into its intermediary account, and later
     /// distribute alpha to buy-order signers, all without touching the pool.
+    ///
+    /// When `validate_sender` is `true`, the sender side is validated before
+    /// the transfer: subnet existence, subtoken enabled, minimum stake amount,
+    /// and the staking rate-limit flag for `(from_hotkey, from_coldkey,
+    /// netuid)` is checked — the transfer is rejected if `from_coldkey`
+    /// already staked this block.
+    ///
+    /// When `set_receiver_limit` is `true`, the staking rate-limit flag for
+    /// `(to_hotkey, to_coldkey, netuid)` is set after the transfer, marking
+    /// that `to_coldkey` has received stake this block.
+    ///
+    /// The two flags are intentionally separate so that each call site can
+    /// opt into only the half it needs:
+    /// - Collecting alpha from users into the pallet intermediary:
+    ///   `validate_sender: true, set_receiver_limit: false` — validates the
+    ///   user but does not rate-limit the intermediary account.
+    /// - Distributing alpha from the pallet intermediary to buyers:
+    ///   `validate_sender: false, set_receiver_limit: true` — skips checking
+    ///   the intermediary (which would fail) and rate-limits the buyer.
     fn transfer_staked_alpha(
         from_coldkey: &AccountId,
         from_hotkey: &AccountId,
@@ -102,7 +135,10 @@ pub trait OrderSwapInterface<AccountId> {
         to_hotkey: &AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
+        validate_sender: bool,
+        set_receiver_limit: bool,
     ) -> DispatchResult;
+
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

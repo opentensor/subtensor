@@ -1312,3 +1312,72 @@ fn execute_batched_orders_four_orders_two_fee_recipients() {
         );
     });
 }
+
+/// A mixed batch (buy + sell) must not rate-limit the pallet intermediary
+/// account during asset collection, which would otherwise block the
+/// subsequent alpha distribution to buyers.
+///
+/// Regression test: previously `transfer_staked_alpha` with a single
+/// `apply_limits: true` flag set the rate-limit on `to_coldkey` (pallet)
+/// during collection, then the distribution step checked `from_coldkey`
+/// (pallet) and failed with `StakingOperationRateLimitExceeded`.
+#[test]
+fn execute_batched_orders_mixed_batch_does_not_rate_limit_pallet_intermediary() {
+    new_test_ext().execute_with(|| {
+        // Alice buys 1_000 TAO; Bob sells 500 alpha.
+        // Buy-dominant: residual 500 TAO goes to pool, pool returns 400 alpha.
+        // Total alpha = 400 (pool) + 500 (Bob passthrough) = 900 → all to Alice.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_buy_alpha_return(400);
+        MockSwap::set_tao_balance(alice(), 1_000);
+        MockSwap::set_alpha_balance(bob(), dave(), netuid(), 500);
+
+        let buy = make_signed_order(
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+        );
+        let sell = make_signed_order(
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderType::TakeProfit,
+            500,
+            0,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+        );
+
+        // Must succeed: collecting Bob's alpha must not rate-limit the pallet
+        // intermediary, so distributing alpha to Alice is not blocked.
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie()),
+            netuid(),
+            bounded(vec![buy, sell]),
+        ));
+
+        // Alice received staked alpha.
+        assert!(
+            MockSwap::alpha_balance(&alice(), &dave(), netuid()) > 0,
+            "alice should hold staked alpha after the buy"
+        );
+        // Alice is rate-limited after receiving stake (set_receiver_limit=true).
+        assert!(
+            MockSwap::is_rate_limited(&dave(), &alice(), netuid()),
+            "alice should be rate-limited after receiving stake"
+        );
+        // Bob's hotkey on the pallet side is NOT rate-limited (set_receiver_limit=false on collect).
+        assert!(
+            !MockSwap::is_rate_limited(&dave(), &bob(), netuid()),
+            "bob's rate-limit should not be set by the collection step"
+        );
+    });
+}
