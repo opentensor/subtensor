@@ -242,5 +242,17 @@ mod benches {
         assert_eq!(ExtrinsicLifetime::<T>::get(), value);
     }
 
+    /// Benchmark `set_max_extrinsic_weight`: root origin, single storage write.
+    /// Uses the maximum allowed value for worst-case.
+    #[benchmark]
+    fn set_max_extrinsic_weight() {
+        let value: u64 = MAX_ON_INITIALIZE_WEIGHT;
+
+        #[extrinsic_call]
+        set_max_extrinsic_weight(RawOrigin::Root, value);
+
+        assert_eq!(MaxExtrinsicWeight::<T>::get(), value);
+    }
+
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

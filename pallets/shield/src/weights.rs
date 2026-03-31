@@ -42,6 +42,7 @@ pub trait WeightInfo {
 	fn set_max_pending_extrinsics_number() -> Weight;
 	fn set_on_initialize_weight() -> Weight;
 	fn set_stored_extrinsic_lifetime() -> Weight;
+	fn set_max_extrinsic_weight() -> Weight;
 }
 
 /// Weights for `pallet_shield` using the Substrate node and recommended hardware.
@@ -124,6 +125,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(5_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `MevShield::MaxExtrinsicWeight` (r:0 w:1)
+	/// Proof: `MevShield::MaxExtrinsicWeight` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	fn set_max_extrinsic_weight() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(5_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -198,6 +209,16 @@ impl WeightInfo for () {
 	/// Storage: `MevShield::ExtrinsicLifetime` (r:0 w:1)
 	/// Proof: `MevShield::ExtrinsicLifetime` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_stored_extrinsic_lifetime() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 4_000_000 picoseconds.
+		Weight::from_parts(5_000_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `MevShield::MaxExtrinsicWeight` (r:0 w:1)
+	/// Proof: `MevShield::MaxExtrinsicWeight` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	fn set_max_extrinsic_weight() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

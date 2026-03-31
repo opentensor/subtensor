@@ -158,6 +158,15 @@ pub mod pallet {
     pub type OnInitializeWeight<T: Config> =
         StorageValue<_, u64, ValueQuery, ConstU64<DEFAULT_ON_INITIALIZE_WEIGHT>>;
 
+    /// Default maximum weight for a single extrinsic (3x set_weights base weight).
+    pub const DEFAULT_MAX_EXTRINSIC_WEIGHT: u64 = 50_000_000_000;
+
+    /// Configurable maximum weight for a single extrinsic dispatched during on_initialize.
+    /// Extrinsics exceeding this limit are removed from the queue.
+    #[pallet::storage]
+    pub type MaxExtrinsicWeight<T: Config> =
+        StorageValue<_, u64, ValueQuery, ConstU64<DEFAULT_MAX_EXTRINSIC_WEIGHT>>;
+
     /// A pending extrinsic stored for later execution.
     #[freeze_struct("f13d2a9d7bd4767d")]
     #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Debug)]
@@ -208,6 +217,10 @@ pub mod pallet {
         OnInitializeWeightSet { value: u64 },
         /// Extrinsic lifetime was updated.
         ExtrinsicLifetimeSet { value: u32 },
+        /// Maximum per-extrinsic weight was updated.
+        MaxExtrinsicWeightSet { value: u64 },
+        /// Extrinsic exceeded the per-extrinsic weight limit and was removed.
+        ExtrinsicWeightExceeded { index: u32 },
     }
 
     #[pallet::error]
@@ -419,6 +432,25 @@ pub mod pallet {
             Self::deposit_event(Event::ExtrinsicLifetimeSet { value });
             Ok(())
         }
+
+        /// Set the maximum weight allowed for a single extrinsic during on_initialize processing.
+        /// Extrinsics exceeding this limit are removed from the queue.
+        /// Rejects values exceeding the absolute limit.
+        #[pallet::call_index(6)]
+        #[pallet::weight(T::WeightInfo::set_max_extrinsic_weight())]
+        pub fn set_max_extrinsic_weight(origin: OriginFor<T>, value: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                value <= MAX_ON_INITIALIZE_WEIGHT,
+                Error::<T>::WeightExceedsAbsoluteMax
+            );
+
+            MaxExtrinsicWeight::<T>::put(value);
+
+            Self::deposit_event(Event::MaxExtrinsicWeightSet { value });
+            Ok(())
+        }
     }
 
     #[pallet::inherent]
@@ -491,6 +523,16 @@ impl<T: Config> Pallet<T> {
             let dispatch_weight = T::DbWeight::get()
                 .writes(2)
                 .saturating_add(info.call_weight);
+
+            // Check per-extrinsic weight limit
+            let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
+            if info.call_weight.any_gt(max_extrinsic_weight) {
+                remove_pending_extrinsic::<T>(index, &mut weight);
+
+                Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
+
+                continue;
+            }
 
             let max_weight = Weight::from_parts(OnInitializeWeight::<T>::get(), 0);
 
