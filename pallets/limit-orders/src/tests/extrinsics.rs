@@ -1200,3 +1200,115 @@ fn execute_batched_orders_fees_batched_for_shared_recipient() {
         assert_eq!(fee_transfers[0].2, 20, "combined fee = 20 TAO");
     });
 }
+
+/// 4 orders split across 2 fee recipients.
+///
+/// Orders:
+///   Alice  LimitBuy    1_000 TAO   fee_recipient = ferdie (buy-fee collector)
+///   Bob    LimitBuy    1_000 TAO   fee_recipient = ferdie (buy-fee collector)
+///   Charlie TakeProfit 1_000 α    fee_recipient = fee_recipient() (sell-fee collector)
+///   Eve    TakeProfit  1_000 α    fee_recipient = fee_recipient() (sell-fee collector)
+///
+/// Neither ferdie nor fee_recipient() are order signers, so every TAO transfer
+/// to those accounts is exclusively a fee transfer — making the single-transfer
+/// assertion unambiguous.
+///
+/// At price 1.0 (1 TAO = 1 α), fee = 1%:
+///   net buy TAO  = (1_000 - 10) + (1_000 - 10) = 1_980
+///   sell α equiv = 2_000 TAO  →  sell-dominant, residual = 20 α → pool
+///   pool returns 18 TAO for residual
+///   total TAO for sellers = 18 + 1_980 = 1_998
+///   each seller gross_share = 1_998 * 1_000 / 2_000 = 999
+///   sell fee = 1% * 999 = 10 TAO each
+///
+/// Expected:
+///   ferdie          receives 10 (Alice) + 10 (Bob)     = 20 TAO (1 transfer)
+///   fee_recipient() receives 10 (Charlie) + 10 (Eve)   = 20 TAO (1 transfer)
+#[test]
+fn execute_batched_orders_four_orders_two_fee_recipients() {
+    new_test_ext().execute_with(|| {
+        let ferdie = AccountKeyring::Ferdie.to_account_id();
+        let eve = AccountKeyring::Eve.to_account_id();
+
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_sell_tao_return(18);
+        MockSwap::set_tao_balance(alice(), 1_000);
+        MockSwap::set_tao_balance(bob(), 1_000);
+        MockSwap::set_alpha_balance(charlie(), dave(), netuid(), 1_000);
+        MockSwap::set_alpha_balance(eve.clone(), dave(), netuid(), 1_000);
+
+        let alice_buy = make_signed_order(
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::from_parts(10_000_000), // 1%
+            ferdie.clone(),
+        );
+        let bob_buy = make_signed_order(
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::from_parts(10_000_000), // 1%
+            ferdie.clone(),
+        );
+        let charlie_sell = make_signed_order(
+            AccountKeyring::Charlie,
+            dave(),
+            netuid(),
+            OrderType::TakeProfit,
+            1_000,
+            0,
+            FAR_FUTURE,
+            Perbill::from_parts(10_000_000), // 1%
+            fee_recipient(),
+        );
+        let eve_sell = make_signed_order(
+            AccountKeyring::Eve,
+            dave(),
+            netuid(),
+            OrderType::TakeProfit,
+            1_000,
+            0,
+            FAR_FUTURE,
+            Perbill::from_parts(10_000_000), // 1%
+            fee_recipient(),
+        );
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(alice()),
+            netuid(),
+            bounded(vec![alice_buy, bob_buy, charlie_sell, eve_sell]),
+        ));
+
+        // ferdie collects Alice's and Bob's buy fees: 10 + 10 = 20 TAO in one transfer.
+        let ferdie_transfers: Vec<_> = MockSwap::tao_transfers()
+            .into_iter()
+            .filter(|(_, to, _)| to == &ferdie)
+            .collect();
+        assert_eq!(ferdie_transfers.len(), 1, "single transfer to ferdie");
+        assert_eq!(
+            ferdie_transfers[0].2, 20,
+            "ferdie receives 20 TAO in buy fees"
+        );
+
+        // fee_recipient() collects Charlie's and Eve's sell fees: 10 + 10 = 20 TAO in one transfer.
+        let fp_transfers: Vec<_> = MockSwap::tao_transfers()
+            .into_iter()
+            .filter(|(_, to, _)| to == &fee_recipient())
+            .collect();
+        assert_eq!(fp_transfers.len(), 1, "single transfer to fee_recipient");
+        assert_eq!(
+            fp_transfers[0].2, 20,
+            "fee_recipient receives 20 TAO in sell fees"
+        );
+    });
+}

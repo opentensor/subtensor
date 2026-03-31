@@ -13,11 +13,15 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         tao_amount: TaoBalance,
         limit_price: TaoBalance,
     ) -> Result<AlphaBalance, DispatchError> {
+        // Debit TAO from the buyer before the pool swap so the pallet's
+        // intermediary account (and individual buyers in execute_orders) cannot
+        // stake more TAO than they actually hold.
+        let actual_tao = Self::remove_balance_from_coldkey_account(coldkey, tao_amount)?;
         Self::stake_into_subnet(
             hotkey,
             coldkey,
             netuid,
-            tao_amount,
+            actual_tao,
             limit_price,
             false,
             false,
@@ -31,11 +35,21 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         alpha_amount: AlphaBalance,
         limit_price: TaoBalance,
     ) -> Result<TaoBalance, DispatchError> {
-        Self::unstake_from_subnet(hotkey, coldkey, netuid, alpha_amount, limit_price, false)
+        let tao_out =
+            Self::unstake_from_subnet(hotkey, coldkey, netuid, alpha_amount, limit_price, false)?;
+        // Credit TAO proceeds to the seller so the pallet's intermediary account
+        // (and individual sellers in execute_orders) have real balance to
+        // distribute or forward to the fee collector.
+        Self::add_balance_to_coldkey_account(coldkey, tao_out);
+        Ok(tao_out)
     }
 
     fn current_alpha_price(netuid: NetUid) -> U96F32 {
         T::SwapInterface::current_alpha_price(netuid)
+    }
+
+    fn is_subtoken_enabled(netuid: NetUid) -> bool {
+        Self::is_subtoken_enabled(netuid)
     }
 
     fn transfer_tao(from: &T::AccountId, to: &T::AccountId, amount: TaoBalance) -> DispatchResult {
