@@ -190,7 +190,7 @@ mod benches {
 
     /// Worst-case `store_encrypted`: queue is nearly full (count = limit - 1),
     /// max-size encrypted call data (8192 bytes).
-    #[benchmark]
+    #[benchmark(extra)]
     fn store_encrypted() {
         let who: T::AccountId = whitelisted_caller();
 

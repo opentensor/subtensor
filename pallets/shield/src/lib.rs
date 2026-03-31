@@ -53,6 +53,14 @@ type ApplyableCallOf<T> = <T as Applyable>::Call;
 
 const MAX_EXTRINSIC_DEPTH: u32 = 8;
 
+/// Weight for `store_encrypted`, intentionally set higher than the benchmark
+/// to discourage abuse of the encrypted extrinsic queue.
+const STORE_ENCRYPTED_WEIGHT: u64 = 20_000_000_000;
+
+pub fn store_encrypted_weight() -> Weight {
+    Weight::from_parts(STORE_ENCRYPTED_WEIGHT, 0)
+}
+
 /// Trait for decrypting stored extrinsics before dispatch.
 pub trait ExtrinsicDecryptor<RuntimeCall> {
     /// Decrypt the stored bytes and return the decoded RuntimeCall.
@@ -158,7 +166,7 @@ pub mod pallet {
     pub type OnInitializeWeight<T: Config> =
         StorageValue<_, u64, ValueQuery, ConstU64<DEFAULT_ON_INITIALIZE_WEIGHT>>;
 
-    /// Default maximum weight for a single extrinsic (3x set_weights base weight).
+    /// Default maximum weight for a single extrinsic.
     pub const DEFAULT_MAX_EXTRINSIC_WEIGHT: u64 = 50_000_000_000;
 
     /// Configurable maximum weight for a single extrinsic dispatched during on_initialize.
@@ -359,7 +367,7 @@ pub mod pallet {
 
         /// Store an encrypted extrinsic for later execution in on_initialize.
         #[pallet::call_index(2)]
-        #[pallet::weight(T::WeightInfo::store_encrypted())]
+        #[pallet::weight(store_encrypted_weight())]
         pub fn store_encrypted(
             origin: OriginFor<T>,
             encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
