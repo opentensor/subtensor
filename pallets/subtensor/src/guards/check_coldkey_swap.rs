@@ -4,6 +4,7 @@ use frame_support::{
     pallet_prelude::*,
     traits::{IsSubType, OriginTrait},
 };
+use pallet_commitments::CanCommit;
 use sp_runtime::traits::Dispatchable;
 use sp_std::marker::PhantomData;
 
@@ -28,24 +29,32 @@ pub struct CheckColdkeySwap<T: Config>(PhantomData<T>);
 
 impl<T> DispatchExtension<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
 where
-    T: Config + pallet_shield::Config,
+    T: Config + pallet_shield::Config + pallet_commitments::Config,
     <T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<Call<T>>
-        + IsSubType<pallet_shield::Call<T>>,
+        + IsSubType<pallet_shield::Call<T>>
+        + IsSubType<pallet_commitments::Call<T>>,
     DispatchableOriginOf<T>: OriginTrait<AccountId = T::AccountId>,
 {
     type Pre = ();
 
-    fn weight(_call: &CallOf<T>) -> Weight {
-        T::DbWeight::get().reads(2)
+    fn weight(call: &CallOf<T>) -> Weight {
+        let mut weight = T::DbWeight::get().reads(2);
+
+        if matches!(
+            IsSubType::<pallet_commitments::Call<T>>::is_sub_type(call),
+            Some(pallet_commitments::Call::set_commitment { .. })
+        ) {
+            weight = weight.saturating_add(T::DbWeight::get().reads(1));
+        }
+
+        weight
     }
 
     fn pre_dispatch(
         origin: &DispatchableOriginOf<T>,
         call: &CallOf<T>,
     ) -> Result<Self::Pre, DispatchErrorWithPostInfo> {
-        // Only care about signed origins.
-        // Root is already bypassed by the extension before we get here.
         let Some(who) = origin.as_signer() else {
             return Ok(());
         };
@@ -75,10 +84,17 @@ where
             }
         }
 
+        if let Some(pallet_commitments::Call::set_commitment { netuid, .. }) =
+            IsSubType::<pallet_commitments::Call<T>>::is_sub_type(call)
+        {
+            if !<T as pallet_commitments::Config>::CanCommit::can_commit(*netuid, who) {
+                return Err(pallet_commitments::Error::<T>::AccountNotAllowedCommit.into());
+            }
+        }
+
         Ok(())
     }
 }
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {

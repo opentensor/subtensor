@@ -49,6 +49,7 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap = 9,
         Crowdloan: pallet_crowdloan = 10,
         Proxy: pallet_subtensor_proxy = 11,
+        Commitments: pallet_commitments = 12,
     }
 );
 

@@ -385,7 +385,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchExtension = RuntimeDispatchExtension;
+    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -1723,47 +1723,6 @@ pub type Executive = frame_executive::Executive<
     AllPalletsWithSystem,
     Migrations,
 >;
-
-type RuntimeDispatchableOrigin = <RuntimeCall as Dispatchable>::RuntimeOrigin;
-type ColdkeySwapDispatchPre =
-    <pallet_subtensor::CheckColdkeySwap<Runtime> as DispatchExtension<RuntimeCall>>::Pre;
-type CommitmentsDispatchPre =
-    <pallet_commitments::CommitmentsDispatchExtension<Runtime> as DispatchExtension<RuntimeCall>>::Pre;
-
-pub struct RuntimeDispatchExtension;
-
-impl DispatchExtension<RuntimeCall> for RuntimeDispatchExtension
-where
-    RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-    RuntimeDispatchableOrigin: OriginTrait<AccountId = AccountId>,
-{
-    type Pre = (ColdkeySwapDispatchPre, CommitmentsDispatchPre);
-
-    fn weight(call: &RuntimeCall) -> Weight {
-        <pallet_subtensor::CheckColdkeySwap<Runtime> as DispatchExtension<RuntimeCall>>::weight(
-            call,
-        )
-        .saturating_add(
-            <pallet_commitments::CommitmentsDispatchExtension<Runtime> as DispatchExtension<
-                RuntimeCall,
-            >>::weight(call),
-        )
-    }
-
-    fn pre_dispatch(
-        origin: &RuntimeDispatchableOrigin,
-        call: &RuntimeCall,
-    ) -> Result<Self::Pre, DispatchErrorWithPostInfo> {
-        let coldkey_swap_pre =
-            <pallet_subtensor::CheckColdkeySwap<Runtime> as DispatchExtension<RuntimeCall>>::pre_dispatch(origin, call)?;
-        let commitments_pre =
-            <pallet_commitments::CommitmentsDispatchExtension<Runtime> as DispatchExtension<
-                RuntimeCall,
-            >>::pre_dispatch(origin, call)?;
-
-        Ok((coldkey_swap_pre, commitments_pre))
-    }
-}
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]

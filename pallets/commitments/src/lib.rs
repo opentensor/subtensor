@@ -663,7 +663,6 @@ where
         Ok(())
     }
 }
-
 pub struct CommitmentsDispatchExtension<T: Config>(PhantomData<T>);
 
 impl<T> DispatchExtension<CallOf<T>> for CommitmentsDispatchExtension<T>
@@ -687,10 +686,10 @@ where
             return Ok(());
         };
 
-        if let Some(pallet::Call::set_commitment { netuid, .. }) = call.is_sub_type() {
-            if !T::CanCommit::can_commit(*netuid, who) {
-                return Err(Error::<T>::AccountNotAllowedCommit.into());
-            }
+        if let Some(pallet::Call::set_commitment { netuid, .. }) = call.is_sub_type()
+            && !T::CanCommit::can_commit(*netuid, who)
+        {
+            return Err(Error::<T>::AccountNotAllowedCommit.into());
         }
 
         Ok(())
