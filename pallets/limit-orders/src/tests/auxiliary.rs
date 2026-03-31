@@ -2,7 +2,7 @@
 //!
 //! Extrinsics are NOT tested here. Each section focuses on one helper.
 
-use frame_support::{assert_noop, assert_ok, BoundedVec, traits::ConstU32};
+use frame_support::{BoundedVec, assert_noop, assert_ok, traits::ConstU32};
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring as AccountKeyring;
 use substrate_fixed::types::U96F32;
@@ -1112,11 +1112,11 @@ fn collect_fees_no_transfer_when_zero_fees() {
 // is_order_valid
 // ─────────────────────────────────────────────────────────────────────────────
 
+use crate::Error;
 use codec::Encode;
 use sp_core::Pair;
 use sp_runtime::{MultiSignature, traits::Verify};
 use subtensor_swap_interface::OrderSwapInterface;
-use crate::Error;
 
 fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
     let keyring = AccountKeyring::Alice;
@@ -1147,7 +1147,9 @@ fn is_order_valid_returns_ok_for_well_formed_order() {
         MockSwap::set_price(1.0);
         let (signed, id) = make_valid_signed_order();
         let price = MockSwap::current_alpha_price(netuid());
-        assert_ok!(LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price));
+        assert_ok!(LimitOrders::<Test>::is_order_valid(
+            &signed, id, 1_000_000, price
+        ));
     });
 }
 

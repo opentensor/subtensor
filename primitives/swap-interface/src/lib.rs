@@ -138,7 +138,6 @@ pub trait OrderSwapInterface<AccountId> {
         validate_sender: bool,
         set_receiver_limit: bool,
     ) -> DispatchResult;
-
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

@@ -70,7 +70,10 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             );
             let available =
                 Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-            ensure!(available >= alpha_amount, Error::<T>::NotEnoughStakeToWithdraw);
+            ensure!(
+                available >= alpha_amount,
+                Error::<T>::NotEnoughStakeToWithdraw
+            );
             Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid)?;
         }
         let tao_out =

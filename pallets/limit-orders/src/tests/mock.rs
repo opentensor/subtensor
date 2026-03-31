@@ -134,7 +134,10 @@ impl MockSwap {
         RATE_LIMITS.with(|r| r.borrow_mut().clear());
     }
     pub fn is_rate_limited(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> bool {
-        RATE_LIMITS.with(|r| r.borrow().contains(&(hotkey.clone(), coldkey.clone(), netuid)))
+        RATE_LIMITS.with(|r| {
+            r.borrow()
+                .contains(&(hotkey.clone(), coldkey.clone(), netuid))
+        })
     }
     /// Seed a staked alpha balance for a (coldkey, hotkey, netuid) triple.
     pub fn set_alpha_balance(coldkey: AccountId, hotkey: AccountId, netuid: NetUid, amount: u64) {
