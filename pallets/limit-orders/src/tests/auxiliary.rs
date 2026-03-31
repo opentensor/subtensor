@@ -2,7 +2,7 @@
 //!
 //! Extrinsics are NOT tested here. Each section focuses on one helper.
 
-use frame_support::{BoundedVec, traits::ConstU32};
+use frame_support::{assert_noop, assert_ok, BoundedVec, traits::ConstU32};
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring as AccountKeyring;
 use substrate_fixed::types::U96F32;
@@ -1105,5 +1105,155 @@ fn collect_fees_no_transfer_when_zero_fees() {
 
         let tao_transfers = MockSwap::tao_transfers();
         assert_eq!(tao_transfers.len(), 0, "no transfer when total fee is zero");
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// is_order_valid
+// ─────────────────────────────────────────────────────────────────────────────
+
+use codec::Encode;
+use sp_core::Pair;
+use sp_runtime::{MultiSignature, traits::Verify};
+use subtensor_swap_interface::OrderSwapInterface;
+use crate::Error;
+
+fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
+    let keyring = AccountKeyring::Alice;
+    let order = crate::Order {
+        signer: keyring.to_account_id(),
+        hotkey: AccountKeyring::Bob.to_account_id(),
+        netuid: netuid(),
+        order_type: OrderType::LimitBuy,
+        amount: 1_000,
+        limit_price: u64::MAX,
+        expiry: u64::MAX,
+        fee_rate: Perbill::zero(),
+        fee_recipient: fee_recipient(),
+    };
+    let id = H256(sp_io::hashing::blake2_256(&order.encode()));
+    let sig = keyring.pair().sign(&order.encode());
+    let signed = crate::SignedOrder {
+        order,
+        signature: MultiSignature::Sr25519(sig),
+    };
+    (signed, id)
+}
+
+#[test]
+fn is_order_valid_returns_ok_for_well_formed_order() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        let (signed, id) = make_valid_signed_order();
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_ok!(LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price));
+    });
+}
+
+#[test]
+fn is_order_valid_invalid_signature_returns_error() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        let (mut signed, id) = make_valid_signed_order();
+        // Replace with a signature from a different key.
+        let wrong_sig = AccountKeyring::Bob.pair().sign(&signed.order.encode());
+        signed.signature = MultiSignature::Sr25519(wrong_sig);
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_noop!(
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            Error::<Test>::InvalidSignature
+        );
+    });
+}
+
+#[test]
+fn is_order_valid_non_sr25519_signature_returns_error() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        let (mut signed, id) = make_valid_signed_order();
+        let ed_pair = sp_core::ed25519::Pair::from_legacy_string("//Alice", None);
+        let ed_sig = ed_pair.sign(&signed.order.encode());
+        signed.signature = MultiSignature::Ed25519(ed_sig);
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_noop!(
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            Error::<Test>::InvalidSignature
+        );
+    });
+}
+
+#[test]
+fn is_order_valid_already_processed_returns_error() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        let (signed, id) = make_valid_signed_order();
+        Orders::<Test>::insert(id, crate::OrderStatus::Fulfilled);
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_noop!(
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            Error::<Test>::OrderAlreadyProcessed
+        );
+    });
+}
+
+#[test]
+fn is_order_valid_expired_order_returns_error() {
+    new_test_ext().execute_with(|| {
+        MockSwap::set_price(1.0);
+        let (signed, id) = make_valid_signed_order();
+        // now_ms (2_000_001) > expiry (u64::MAX is fine, so use a low expiry order).
+        // Re-build a signed order with a past expiry.
+        let keyring = AccountKeyring::Alice;
+        let order = crate::Order {
+            expiry: 500_000,
+            ..signed.order.clone()
+        };
+        let id2 = H256(sp_io::hashing::blake2_256(&order.encode()));
+        let sig = keyring.pair().sign(&order.encode());
+        let signed2 = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Sr25519(sig),
+        };
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_noop!(
+            LimitOrders::<Test>::is_order_valid(&signed2, id2, 1_000_000, price),
+            Error::<Test>::OrderExpired
+        );
+    });
+}
+
+#[test]
+fn is_order_valid_price_condition_not_met_returns_error() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        // Price 5.0 > limit_price 2 → LimitBuy condition (price ≤ limit) not met.
+        MockSwap::set_price(5.0);
+        let keyring = AccountKeyring::Alice;
+        let order = crate::Order {
+            signer: keyring.to_account_id(),
+            hotkey: AccountKeyring::Bob.to_account_id(),
+            netuid: netuid(),
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: 2,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient: fee_recipient(),
+        };
+        let id = H256(sp_io::hashing::blake2_256(&order.encode()));
+        let sig = keyring.pair().sign(&order.encode());
+        let signed = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Sr25519(sig),
+        };
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_noop!(
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            Error::<Test>::PriceConditionNotMet
+        );
     });
 }

@@ -350,12 +350,12 @@ pub mod pallet {
 
         /// Validates all execution preconditions for a signed order.
         /// Netuid is intentionally not checked here; callers handle that separately.
-        fn is_order_valid(
+        pub(crate) fn is_order_valid(
             signed_order: &SignedOrder<T::AccountId>,
             order_id: H256,
             now_ms: u64,
             current_price: U96F32,
-        ) -> Result<(), Error<T>> {
+        ) -> DispatchResult {
             let order = &signed_order.order;
             ensure!(
                 matches!(signed_order.signature, MultiSignature::Sr25519(_))
