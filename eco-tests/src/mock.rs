@@ -18,7 +18,7 @@ use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
 use pallet_subtensor::*;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
-use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
+use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId, Get};
 use sp_runtime::Perbill;
 use sp_runtime::{
     Percent,
@@ -357,6 +357,14 @@ parameter_types! {
     pub const MockCommitmentFieldDeposit: Balance = TaoBalance::new(0);
 }
 
+#[derive(scale_info::TypeInfo)]
+pub struct MockMaxCommitFields;
+impl Get<u32> for MockMaxCommitFields {
+    fn get() -> u32 {
+        3
+    }
+}
+
 pub struct MockCanCommit;
 impl pallet_commitments::CanCommit<AccountId> for MockCanCommit {
     fn can_commit(netuid: NetUid, address: &AccountId) -> bool {
@@ -381,7 +389,7 @@ impl pallet_commitments::Config for Test {
     type WeightInfo = ();
     type CanCommit = MockCanCommit;
     type OnMetadataCommitment = MockOnMetadataCommitment;
-    type MaxFields = frame_support::traits::ConstU32<3>;
+    type MaxFields = MockMaxCommitFields;
     type InitialDeposit = MockCommitmentInitialDeposit;
     type FieldDeposit = MockCommitmentFieldDeposit;
     type TempoInterface = MockTempoInterface;
