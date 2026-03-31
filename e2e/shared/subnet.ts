@@ -1,5 +1,5 @@
 import { subtensor } from "@polkadot-api/descriptors";
-import { TypedApi } from "polkadot-api";
+import { Enum, TypedApi } from "polkadot-api";
 import { KeyPair } from "@polkadot-labs/hdkd-helpers";
 import { getAliceSigner, getSignerFromKeypair, convertPublicKeyToSs58 } from "./address.js";
 import { waitForTransactionWithRetry } from "./transactions.js";
@@ -13,10 +13,20 @@ export async function addNewSubnetwork(
   const alice = getAliceSigner();
   const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue();
 
-  // Disable network rate limit for testing
-  const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue();
+  // Disable register-network rate limiting for test setup via the new grouped target.
+  const target = Enum("Group", 3);
+  const limits = (await api.query.RateLimiting.Limits.getValue(target as never)) as any;
+  const rateLimit =
+    limits?.type === "Global" && limits.value?.type === "Exact"
+      ? BigInt(limits.value.value)
+      : BigInt(0);
+
   if (rateLimit !== BigInt(0)) {
-    const internalCall = api.tx.AdminUtils.sudo_set_network_rate_limit({ rate_limit: BigInt(0) });
+    const internalCall = api.tx.RateLimiting.set_rate_limit({
+      target: target as never,
+      scope: undefined,
+      limit: Enum("Exact", 0) as never,
+    });
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
     await waitForTransactionWithRetry(api, tx, alice, "set_network_rate_limit");
   }
@@ -53,6 +63,13 @@ export async function startCall(
   netuid: number,
   coldkey: KeyPair,
 ): Promise<void> {
+  const existingFirstEmission = await api.query.SubtensorModule.FirstEmissionBlockNumber.getValue(
+    netuid,
+  );
+  if (existingFirstEmission !== undefined) {
+    return;
+  }
+
   const registerBlock = Number(
     await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid),
   );
@@ -68,7 +85,17 @@ export async function startCall(
 
   const signer = getSignerFromKeypair(coldkey);
   const tx = api.tx.SubtensorModule.start_call({ netuid: netuid });
-  await waitForTransactionWithRetry(api, tx, signer, "start_call");
+  try {
+    await waitForTransactionWithRetry(api, tx, signer, "start_call");
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("FirstEmissionBlockNumberAlreadySet")
+    ) {
+      return;
+    }
+    throw error;
+  }
 
   await new Promise((resolve) => setTimeout(resolve, 1000));
 }

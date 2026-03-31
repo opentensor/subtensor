@@ -22,11 +22,22 @@ export async function forceSetBalance(
   ss58Address: string,
   amount: bigint = tao(1e10),
 ): Promise<void> {
+  await forceSetBalances(api, [ss58Address], amount);
+}
+
+export async function forceSetBalances(
+  api: TypedApi<typeof subtensor>,
+  ss58Addresses: string[],
+  amount: bigint = tao(1e10),
+): Promise<void> {
   const alice = getAliceSigner();
-  const internalCall = api.tx.Balances.force_set_balance({
-    who: MultiAddress.Id(ss58Address),
-    new_free: amount,
-  });
-  const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+  const calls = ss58Addresses.map((ss58Address) =>
+    api.tx.Balances.force_set_balance({
+      who: MultiAddress.Id(ss58Address),
+      new_free: amount,
+    }).decodedCall,
+  );
+  const batch = api.tx.Utility.force_batch({ calls });
+  const tx = api.tx.Sudo.sudo({ call: batch.decodedCall });
   await waitForTransactionWithRetry(api, tx, alice, "force_set_balance");
 }

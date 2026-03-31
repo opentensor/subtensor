@@ -8,6 +8,7 @@
     "./chainspec.js": "./chainspec.ts",
     "./sequencer.js": "./sequencer.ts",
     "./client.js": "./client.ts",
+    "./rate-limiting.js": "./rate-limiting.ts",
     "./logger.js": "./logger.ts",
     "./devnet-client.js": "./devnet-client.ts",
     "./address.js": "./address.ts",

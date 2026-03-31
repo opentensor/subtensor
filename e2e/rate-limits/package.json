@@ -1,0 +1,21 @@
+{
+  "name": "e2e-rate-limits",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "debug:boot": "tsx scripts/boot-network.ts",
+    "debug:create-group": "tsx scripts/debug-create-group.ts",
+    "debug:register-call": "tsx scripts/debug-register-call.ts"
+  },
+  "dependencies": {
+    "e2e-shared": "workspace:*",
+    "@polkadot-api/descriptors": "file:../.papi/descriptors",
+    "polkadot-api": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -24,6 +24,7 @@ export {
   type ClientConnection,
   type Signer,
 } from "./client.js";
+export * from "./rate-limiting.js";
 
 // Blockchain API utilities (staking-tests style)
 export * from "./logger.js";

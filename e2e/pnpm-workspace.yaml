@@ -2,6 +2,7 @@ packages:
   - shared
   - shield
   - staking
+  - rate-limits
 
 catalog:
   "@noble/ciphers": "^2.1.1"
