@@ -101,13 +101,14 @@ where
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-                let origin = match env.origin() {
-                    pallet_contracts::Origin::Signed(caller) => RawOrigin::Signed(caller).into(),
-                    pallet_contracts::Origin::Root => RawOrigin::Root.into(),
-                };
+                let origin = convert_origin(env.origin());
 
-                let call_result =
-                    pallet_subtensor::Pallet::<T>::add_stake(origin, hotkey, netuid, amount_staked);
+                let call_result = pallet_subtensor::Pallet::<T>::add_stake(
+                    origin.into(),
+                    hotkey,
+                    netuid,
+                    amount_staked,
+                );
 
                 match call_result {
                     Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
@@ -525,6 +526,17 @@ where
                 Ok(RetVal::Converging(Output::Success as u32))
             }
         }
+    }
+}
+
+// Convert from the contract origin to the raw origin
+fn convert_origin<T>(origin: pallet_contracts::Origin<T>) -> RawOrigin<T::AccountId>
+where
+    T: pallet_contracts::Config,
+{
+    match origin {
+        pallet_contracts::Origin::Signed(caller) => RawOrigin::Signed(caller),
+        pallet_contracts::Origin::Root => RawOrigin::Root,
     }
 }
 
