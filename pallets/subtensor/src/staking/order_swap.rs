@@ -18,7 +18,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Self::ensure_subtoken_enabled(netuid)?;
         if apply_limits {
             ensure!(
-                Self::hotkey_account_exists(hotkey),
+                Self::coldkey_owns_hotkey(coldkey, hotkey),
                 Error::<T>::HotKeyAccountNotExists
             );
             ensure!(
@@ -60,6 +60,11 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subtoken_enabled(netuid)?;
         if apply_limits {
+            ensure!(
+                Self::coldkey_owns_hotkey(coldkey, hotkey),
+                Error::<T>::HotKeyAccountNotExists
+            );
+
             ensure!(!alpha_amount.is_zero(), Error::<T>::AmountTooLow);
             let tao_equiv = T::SwapInterface::current_alpha_price(netuid)
                 .saturating_mul(U96F32::saturating_from_num(alpha_amount.to_u64()))
@@ -102,11 +107,15 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         netuid: NetUid,
         amount: AlphaBalance,
         validate_sender: bool,
-        set_receiver_limit: bool,
+        validate_receiver: bool,
     ) -> DispatchResult {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subtoken_enabled(netuid)?;
         if validate_sender {
+            ensure!(
+                Self::coldkey_owns_hotkey(from_coldkey, from_hotkey),
+                Error::<T>::HotKeyAccountNotExists
+            );
             ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
             let tao_equiv = T::SwapInterface::current_alpha_price(netuid)
                 .saturating_mul(U96F32::saturating_from_num(amount.to_u64()))
@@ -135,7 +144,11 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             to_hotkey,
             Self::get_current_block_as_u64(),
         );
-        if set_receiver_limit {
+        if validate_receiver {
+            ensure!(
+                Self::coldkey_owns_hotkey(to_coldkey, to_hotkey),
+                Error::<T>::HotKeyAccountNotExists
+            );
             Self::set_stake_operation_limit(to_hotkey, to_coldkey, netuid);
         }
         Ok(())

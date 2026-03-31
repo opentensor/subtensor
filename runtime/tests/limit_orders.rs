@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use codec::Encode;
-use frame_support::{BoundedVec, assert_ok};
+use frame_support::{BoundedVec, assert_noop, assert_ok};
 use node_subtensor_runtime::{
     BuildStorage, LimitOrders, Runtime, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule,
     System, pallet_subtensor,
@@ -358,14 +358,14 @@ fn batched_buy_dominant_executes_correctly() {
     });
 }
 
-/// Sell side (5 000 alpha ≈ 5 000 TAO at 1:1) exceeds buy side (2 000 TAO).
+/// Sell side (min_default_stake()*2 alpha ≈ min_default_stake()*2 TAO at 1:1) exceeds buy side (min_default_stake() TAO).
 ///
-/// Residual 3 000 alpha goes to the pool; sellers receive pool TAO + buyer
+/// Residual min_default_stake() alpha goes to the pool; sellers receive pool TAO + buyer
 /// passthrough TAO. Buyers receive the passthrough alpha corresponding to their TAO.
 ///
 /// With the stable mechanism (1 TAO = 1 alpha):
-///   • Alice (buyer 2 000 TAO) → 2 000 alpha staked to Dave
-///   • Bob  (seller 5 000 α)   → 5 000 free TAO
+///   • Alice (buyer min_default_stake() TAO) →  alpha staked to Dave
+///   • Bob  (seller min_default_stake()*2 α)   → min_default_stake()*2 free TAO
 #[test]
 fn batched_sell_dominant_executes_correctly() {
     new_test_ext().execute_with(|| {
@@ -446,6 +446,142 @@ fn batched_sell_dominant_executes_correctly() {
         assert!(
             bob_tao > TaoBalance::ZERO,
             "bob should hold free TAO after sell-dominant batch"
+        );
+    });
+}
+
+#[test]
+fn batched_fails_if_executing_below_minimum_on_sell() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob = Sr25519Keyring::Bob;
+        let bob_id = bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+        let dave_id = Sr25519Keyring::Dave.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Create the hot-key association. Alice-> Charlie, Bob -> Dave
+        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
+        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
+
+        // Alice has free TAO to spend on a buy order.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Seed Bob with staked alph so he has something to sell.
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &dave_id,
+            &bob_id,
+            netuid,
+            initial_alpha,
+        );
+
+        let buy = make_signed_order(
+            alice,
+            charlie_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let sell = make_signed_order(
+            bob,
+            dave_id.clone(),
+            netuid,
+            OrderType::TakeProfit,
+            1u64,
+            0,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![buy, sell].try_into().unwrap();
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id.clone()),
+                netuid,
+                orders,
+            ),
+            pallet_subtensor::Error::<Runtime>::AmountTooLow
+        );
+    });
+}
+
+#[test]
+fn batched_fails_if_executing_without_hot_key_association() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob = Sr25519Keyring::Bob;
+        let bob_id = bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+        let dave_id = Sr25519Keyring::Dave.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Create the hot-key association. Alice is not associating to charlie
+
+        // Alice has free TAO to spend on a buy order.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Seed Bob with staked alph so he has something to sell.
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &dave_id,
+            &bob_id,
+            netuid,
+            initial_alpha,
+        );
+
+        let buy = make_signed_order(
+            alice,
+            charlie_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let sell = make_signed_order(
+            bob,
+            dave_id.clone(),
+            netuid,
+            OrderType::TakeProfit,
+            min_default_stake().to_u64() * 2u64,
+            0,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![buy, sell].try_into().unwrap();
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id.clone()),
+                netuid,
+                orders,
+            ),
+            pallet_subtensor::Error::<Runtime>::HotKeyAccountNotExists
         );
     });
 }
