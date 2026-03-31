@@ -1190,7 +1190,7 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(69)]
-        #[pallet::weight(Weight::from_parts(10_190_000, 0)
+        #[pallet::weight(Weight::from_parts(5_064_000, 0)
         .saturating_add(T::DbWeight::get().reads(0))
         .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
@@ -1455,7 +1455,7 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(79)]
-        #[pallet::weight((Weight::from_parts(396_000_000, 0)
+        #[pallet::weight((Weight::from_parts(232_300_000, 0)
             .saturating_add(T::DbWeight::get().reads(35_u64))
             .saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
