@@ -15,7 +15,7 @@ use frame_system as system;
 use sp_core::{H256, Pair};
 use sp_keyring::Sr25519Keyring as AccountKeyring;
 use sp_runtime::{
-    AccountId32, BuildStorage, MultiSignature,
+    AccountId32, BuildStorage, MultiSignature, Perbill,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use substrate_fixed::types::U96F32;
@@ -277,6 +277,10 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         MOCK_PRICE.with(|p| *p.borrow())
     }
 
+    fn is_subtoken_enabled(_netuid: NetUid) -> bool {
+        true
+    }
+
     fn transfer_tao(
         from: &AccountId,
         to: &AccountId,
@@ -359,14 +363,18 @@ impl frame_support::traits::UnixTime for MockTime {
 
 parameter_types! {
     pub const LimitOrdersPalletId: PalletId = PalletId(*b"lmt/ordr");
-    pub const FeeCollectorAccount: AccountId = AccountId::new([0xfe; 32]);
     pub const PalletHotkeyAccount: AccountId = AccountId::new([0xaa; 32]);
+}
+
+/// A fixed account used in tests as the fee recipient when a concrete
+/// recipient is needed but the test isn't specifically about fees.
+pub fn fee_recipient() -> AccountId {
+    AccountId::new([0xfe; 32])
 }
 
 impl pallet_limit_orders::Config for Test {
     type SwapInterface = MockSwap;
     type TimeProvider = MockTime;
-    type FeeCollector = FeeCollectorAccount;
     type MaxOrdersPerBatch = ConstU32<64>;
     type PalletId = LimitOrdersPalletId;
     type PalletHotkey = PalletHotkeyAccount;
@@ -400,6 +408,8 @@ pub fn make_signed_order(
     amount: u64,
     limit_price: u64,
     expiry: u64,
+    fee_rate: sp_runtime::Perbill,
+    fee_recipient: AccountId,
 ) -> crate::SignedOrder<AccountId> {
     let signer = keyring.to_account_id();
     let order = crate::Order {
@@ -410,6 +420,8 @@ pub fn make_signed_order(
         amount,
         limit_price,
         expiry,
+        fee_rate,
+        fee_recipient,
     };
     let sig = keyring.pair().sign(&order.encode());
     crate::SignedOrder {

@@ -8,61 +8,12 @@ use sp_keyring::Sr25519Keyring as AccountKeyring;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
+use sp_runtime::Perbill;
+
 use crate::pallet::Pallet as LimitOrders;
-use crate::{OrderEntry, OrderSide, OrderStatus, OrderType, Orders, pallet::ProtocolFee};
+use crate::{OrderEntry, OrderSide, OrderStatus, OrderType, Orders};
 
 use super::mock::*;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ppb_of_tao / ppb_of_alpha
-// ─────────────────────────────────────────────────────────────────────────────
-
-#[test]
-fn ppb_of_tao_zero_fee_returns_zero() {
-    new_test_ext().execute_with(|| {
-        // 0 ppb → no fee regardless of amount
-        let fee = LimitOrders::<Test>::ppb_of_tao(TaoBalance::from(1_000_000u64), 0);
-        assert_eq!(fee, TaoBalance::from(0u64));
-    });
-}
-
-#[test]
-fn ppb_of_tao_full_ppb_returns_amount() {
-    new_test_ext().execute_with(|| {
-        // 1_000_000_000 ppb = 100% → fee == amount
-        let amount = TaoBalance::from(500_000u64);
-        let fee = LimitOrders::<Test>::ppb_of_tao(amount, 1_000_000_000u32);
-        assert_eq!(fee, amount);
-    });
-}
-
-#[test]
-fn ppb_of_tao_one_tenth_percent() {
-    new_test_ext().execute_with(|| {
-        // 1_000_000 ppb = 0.1%
-        // 1_000_000 * 1_000_000 / 1_000_000_000 = 1_000
-        let fee = LimitOrders::<Test>::ppb_of_tao(TaoBalance::from(1_000_000_000u64), 1_000_000u32);
-        assert_eq!(fee, TaoBalance::from(1_000_000u64));
-    });
-}
-
-#[test]
-fn ppb_of_alpha_one_tenth_percent() {
-    new_test_ext().execute_with(|| {
-        let fee =
-            LimitOrders::<Test>::ppb_of_alpha(AlphaBalance::from(1_000_000_000u64), 1_000_000u32);
-        assert_eq!(fee, AlphaBalance::from(1_000_000u64));
-    });
-}
-
-#[test]
-fn ppb_of_tao_rounds_down() {
-    new_test_ext().execute_with(|| {
-        // amount=1, ppb=999_999_999 (just under 100%) → floor(0.999…) = 0
-        let fee = LimitOrders::<Test>::ppb_of_tao(TaoBalance::from(1u64), 999_999_999u32);
-        assert_eq!(fee, TaoBalance::from(0u64));
-    });
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // net_amount_for_event
@@ -130,9 +81,6 @@ fn validate_and_classify_separates_buys_and_sells() {
         // Price = 1.0 TAO/alpha.
         MockSwap::set_price(1.0);
 
-        // Fee = 0 ppb for simplicity.
-        ProtocolFee::<Test>::put(0u32);
-
         let buy_order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
@@ -141,6 +89,8 @@ fn validate_and_classify_separates_buys_and_sells() {
             1_000u64,     // amount in TAO
             2_000_000u64, // limit_price: willing to pay up to 2 TAO/alpha (price=1 < 2 ✓)
             2_000_000u64, // expiry ms
+            Perbill::zero(),
+            fee_recipient(),
         );
         let sell_order = make_signed_order(
             AccountKeyring::Bob,
@@ -150,6 +100,8 @@ fn validate_and_classify_separates_buys_and_sells() {
             500u64, // amount in alpha
             1u64,   // limit_price: sell if price >= 1 TAO/alpha (price=1 >= 1 ✓)
             2_000_000u64,
+            Perbill::zero(),
+            fee_recipient(),
         );
 
         let orders = bounded(vec![buy_order, sell_order]);
@@ -157,29 +109,24 @@ fn validate_and_classify_separates_buys_and_sells() {
             netuid(),
             &orders,
             1_000_000u64,
-            0u32,
             U96F32::from_num(1u32),
         );
 
         assert_eq!(buys.len(), 1, "expected 1 valid buy");
         assert_eq!(sells.len(), 1, "expected 1 valid sell");
 
-        // Buy entry: gross=1000, net=1000 (0% fee), fee=0
+        // Buy entry: gross=1000, net=1000 (0% fee_rate)
         let buy = &buys[0];
         assert_eq!(buy.signer, alice());
         assert_eq!(buy.gross, 1_000u64);
         assert_eq!(buy.net, 1_000u64);
-        assert_eq!(buy.fee, 0u64);
+        assert_eq!(buy.fee_rate, Perbill::zero());
 
-        // Sell entry: gross=500, net=500, fee=0 (fee deferred to distribution)
+        // Sell entry: gross=500, net=500 (fee applied on TAO output, not alpha input)
         let sell = &sells[0];
         assert_eq!(sell.signer, bob());
         assert_eq!(sell.gross, 500u64);
         assert_eq!(sell.net, 500u64);
-        assert_eq!(
-            sell.fee, 0u64,
-            "sell fee is always 0 here — applied on TAO output"
-        );
     });
 }
 
@@ -188,7 +135,6 @@ fn validate_and_classify_skips_wrong_netuid() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
-        ProtocolFee::<Test>::put(0u32);
 
         let wrong_netuid_order = make_signed_order(
             AccountKeyring::Alice,
@@ -198,6 +144,8 @@ fn validate_and_classify_skips_wrong_netuid() {
             1_000u64,
             2_000_000u64,
             2_000_000u64,
+            Perbill::zero(),
+            fee_recipient(),
         );
 
         let orders = bounded(vec![wrong_netuid_order]);
@@ -205,7 +153,6 @@ fn validate_and_classify_skips_wrong_netuid() {
             netuid(), // batch is for netuid 1
             &orders,
             1_000_000u64,
-            0u32,
             U96F32::from_num(1u32),
         );
 
@@ -220,7 +167,6 @@ fn validate_and_classify_skips_expired_order() {
         // now_ms = 2_000_001, expiry = 2_000_000 → expired
         MockTime::set(2_000_001);
         MockSwap::set_price(1.0);
-        ProtocolFee::<Test>::put(0u32);
 
         let expired = make_signed_order(
             AccountKeyring::Alice,
@@ -230,6 +176,8 @@ fn validate_and_classify_skips_expired_order() {
             1_000u64,
             2_000_000u64,
             2_000_000u64, // expiry already past
+            Perbill::zero(),
+            fee_recipient(),
         );
 
         let orders = bounded(vec![expired]);
@@ -237,7 +185,6 @@ fn validate_and_classify_skips_expired_order() {
             netuid(),
             &orders,
             2_000_001u64,
-            0u32,
             U96F32::from_num(1u32),
         );
 
@@ -259,6 +206,8 @@ fn validate_and_classify_skips_price_condition_not_met_for_buy() {
             1_000u64,
             2u64, // limit_price = 2 TAO/alpha
             2_000_000u64,
+            Perbill::zero(),
+            fee_recipient(),
         );
 
         let orders = bounded(vec![order]);
@@ -266,7 +215,6 @@ fn validate_and_classify_skips_price_condition_not_met_for_buy() {
             netuid(),
             &orders,
             1_000_000u64,
-            0u32,
             U96F32::from_num(3u32), // current price = 3 > limit 2 → skip
         );
 
@@ -286,6 +234,8 @@ fn validate_and_classify_skips_already_processed_order() {
             1_000u64,
             2_000_000u64,
             2_000_000u64,
+            Perbill::zero(),
+            fee_recipient(),
         );
 
         // Pre-mark as fulfilled on-chain.
@@ -297,7 +247,6 @@ fn validate_and_classify_skips_already_processed_order() {
             netuid(),
             &orders,
             1_000_000u64,
-            0u32,
             U96F32::from_num(1u32),
         );
 
@@ -311,7 +260,6 @@ fn validate_and_classify_applies_buy_fee_to_net() {
         MockTime::set(1_000_000);
         // 1_000_000 ppb = 0.1%
         // amount = 1_000_000_000, fee = 1_000_000, net = 999_000_000
-        ProtocolFee::<Test>::put(1_000_000u32);
 
         let order = make_signed_order(
             AccountKeyring::Alice,
@@ -321,6 +269,8 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             1_000_000_000u64,
             u64::MAX, // limit price: accept any price
             2_000_000u64,
+            Perbill::from_parts(1_000_000), // 0.1% fee
+            fee_recipient(),
         );
 
         let orders = bounded(vec![order]);
@@ -328,14 +278,13 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             netuid(),
             &orders,
             1_000_000u64,
-            1_000_000u32,
             U96F32::from_num(1u32),
         );
 
         assert_eq!(buys.len(), 1);
         let entry = &buys[0];
         assert_eq!(entry.gross, 1_000_000_000u64);
-        assert_eq!(entry.fee, 1_000_000u64);
+        assert_eq!(entry.fee_rate, Perbill::from_parts(1_000_000));
         assert_eq!(entry.net, 999_000_000u64);
     });
 }
@@ -412,7 +361,8 @@ fn make_buy_entry(
     hotkey: AccountId,
     gross: u64,
     net: u64,
-    fee: u64,
+    fee_rate: Perbill,
+    fee_recipient: AccountId,
 ) -> OrderEntry<AccountId> {
     OrderEntry {
         order_id,
@@ -421,7 +371,8 @@ fn make_buy_entry(
         side: OrderType::LimitBuy,
         gross,
         net,
-        fee,
+        fee_rate,
+        fee_recipient,
     }
 }
 
@@ -446,9 +397,33 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_a() {
 
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_buy_entries(vec![
-            make_buy_entry(H256::repeat_byte(1), alice(), hotkey.clone(), 300, 300, 0),
-            make_buy_entry(H256::repeat_byte(2), bob(), hotkey.clone(), 200, 200, 0),
-            make_buy_entry(H256::repeat_byte(3), charlie(), hotkey.clone(), 500, 500, 0),
+            make_buy_entry(
+                H256::repeat_byte(1),
+                alice(),
+                hotkey.clone(),
+                300,
+                300,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(2),
+                bob(),
+                hotkey.clone(),
+                200,
+                200,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(3),
+                charlie(),
+                hotkey.clone(),
+                500,
+                500,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get(); // reuse as coldkey for brevity
         let pallet_hk = PalletHotkeyAccount::get();
@@ -502,8 +477,24 @@ fn distribute_alpha_pro_rata_sell_dominant_scenario_b() {
 
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_buy_entries(vec![
-            make_buy_entry(H256::repeat_byte(4), alice(), hotkey.clone(), 400, 400, 0),
-            make_buy_entry(H256::repeat_byte(5), bob(), hotkey.clone(), 600, 600, 0),
+            make_buy_entry(
+                H256::repeat_byte(4),
+                alice(),
+                hotkey.clone(),
+                400,
+                400,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(5),
+                bob(),
+                hotkey.clone(),
+                600,
+                600,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
         let pallet_hk = PalletHotkeyAccount::get();
@@ -557,9 +548,33 @@ fn distribute_alpha_pro_rata_buy_dominant_scenario_c() {
 
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_buy_entries(vec![
-            make_buy_entry(H256::repeat_byte(6), alice(), hotkey.clone(), 300, 300, 0),
-            make_buy_entry(H256::repeat_byte(7), bob(), hotkey.clone(), 200, 200, 0),
-            make_buy_entry(H256::repeat_byte(8), charlie(), hotkey.clone(), 500, 500, 0),
+            make_buy_entry(
+                H256::repeat_byte(6),
+                alice(),
+                hotkey.clone(),
+                300,
+                300,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(7),
+                bob(),
+                hotkey.clone(),
+                200,
+                200,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(8),
+                charlie(),
+                hotkey.clone(),
+                500,
+                500,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
         let pallet_hk = PalletHotkeyAccount::get();
@@ -623,9 +638,33 @@ fn distribute_alpha_pro_rata_dust_remains_in_pallet_scenario_d() {
         MockSwap::set_alpha_balance(pallet_acct.clone(), pallet_hk.clone(), netuid(), 10);
 
         let entries = bounded_buy_entries(vec![
-            make_buy_entry(H256::repeat_byte(9), alice(), hotkey.clone(), 1, 1, 0),
-            make_buy_entry(H256::repeat_byte(10), bob(), hotkey.clone(), 1, 1, 0),
-            make_buy_entry(H256::repeat_byte(11), charlie(), hotkey.clone(), 1, 1, 0),
+            make_buy_entry(
+                H256::repeat_byte(9),
+                alice(),
+                hotkey.clone(),
+                1,
+                1,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(10),
+                bob(),
+                hotkey.clone(),
+                1,
+                1,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(11),
+                charlie(),
+                hotkey.clone(),
+                1,
+                1,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
         ]);
 
         LimitOrders::<Test>::distribute_alpha_pro_rata(
@@ -744,19 +783,34 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee_scenario_a() {
 
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_sell_entries(vec![
-            make_buy_entry(H256::repeat_byte(6), alice(), hotkey.clone(), 400, 400, 0),
-            make_buy_entry(H256::repeat_byte(7), bob(), hotkey.clone(), 600, 600, 0),
+            make_buy_entry(
+                H256::repeat_byte(6),
+                alice(),
+                hotkey.clone(),
+                400,
+                400,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(7),
+                bob(),
+                hotkey.clone(),
+                600,
+                600,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
-        let sell_fee = LimitOrders::<Test>::distribute_tao_pro_rata(
+        let sell_fees = LimitOrders::<Test>::distribute_tao_pro_rata(
             &entries,
             1_200u128, // actual_out (pool TAO)
             800u128,   // total_buy_net (buy passthrough TAO)
             2_000u128, // total_sell_tao_equiv (Alice 800 + Bob 1200)
             &OrderSide::Sell,
             U96F32::from_num(2u32),
-            0u32, // fee_ppb = 0
             &pallet_acct,
             netuid(),
         )
@@ -773,7 +827,11 @@ fn distribute_tao_pro_rata_sell_dominant_no_fee_scenario_a() {
 
         assert_eq!(alice_tao, 800u64, "Alice should receive 800 TAO");
         assert_eq!(bob_tao, 1_200u64, "Bob should receive 1200 TAO");
-        assert_eq!(sell_fee, 0u64, "No fees at 0 ppb");
+        assert_eq!(
+            sell_fees,
+            vec![] as Vec<(AccountId, u64)>,
+            "No fees at 0 ppb"
+        );
     });
 }
 
@@ -786,19 +844,34 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee_scenario_b() {
 
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_sell_entries(vec![
-            make_buy_entry(H256::repeat_byte(8), alice(), hotkey.clone(), 400, 400, 0),
-            make_buy_entry(H256::repeat_byte(9), bob(), hotkey.clone(), 600, 600, 0),
+            make_buy_entry(
+                H256::repeat_byte(8),
+                alice(),
+                hotkey.clone(),
+                400,
+                400,
+                Perbill::from_parts(10_000_000),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(9),
+                bob(),
+                hotkey.clone(),
+                600,
+                600,
+                Perbill::from_parts(10_000_000),
+                fee_recipient(),
+            ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
-        let sell_fee = LimitOrders::<Test>::distribute_tao_pro_rata(
+        let sell_fees = LimitOrders::<Test>::distribute_tao_pro_rata(
             &entries,
             1_200u128,
             800u128,
             2_000u128,
             &OrderSide::Sell,
             U96F32::from_num(2u32),
-            10_000_000u32, // 1% fee
             &pallet_acct,
             netuid(),
         )
@@ -815,7 +888,11 @@ fn distribute_tao_pro_rata_sell_dominant_with_fee_scenario_b() {
 
         assert_eq!(alice_tao, 792u64, "Alice net after 1% fee on 800");
         assert_eq!(bob_tao, 1_188u64, "Bob net after 1% fee on 1200");
-        assert_eq!(sell_fee, 20u64, "total sell fee = 8 + 12");
+        assert_eq!(
+            sell_fees,
+            vec![(fee_recipient(), 20u64)],
+            "total sell fee = 8 + 12"
+        );
     });
 }
 
@@ -828,19 +905,34 @@ fn distribute_tao_pro_rata_buy_dominant_scenario_c() {
 
         let hotkey = AccountKeyring::Dave.to_account_id();
         let entries = bounded_sell_entries(vec![
-            make_buy_entry(H256::repeat_byte(10), alice(), hotkey.clone(), 300, 300, 0),
-            make_buy_entry(H256::repeat_byte(11), bob(), hotkey.clone(), 200, 200, 0),
+            make_buy_entry(
+                H256::repeat_byte(10),
+                alice(),
+                hotkey.clone(),
+                300,
+                300,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(11),
+                bob(),
+                hotkey.clone(),
+                200,
+                200,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
-        let sell_fee = LimitOrders::<Test>::distribute_tao_pro_rata(
+        let sell_fees = LimitOrders::<Test>::distribute_tao_pro_rata(
             &entries,
             0u128,     // actual_out unused in Buy-dominant branch
             0u128,     // total_buy_net unused in Buy-dominant branch
             1_000u128, // total_sell_tao_equiv (total_tao = this in Buy branch)
             &OrderSide::Buy,
             U96F32::from_num(2u32),
-            0u32,
             &pallet_acct,
             netuid(),
         )
@@ -857,7 +949,7 @@ fn distribute_tao_pro_rata_buy_dominant_scenario_c() {
 
         assert_eq!(alice_tao, 600u64, "Alice should receive 600 TAO");
         assert_eq!(bob_tao, 400u64, "Bob should receive 400 TAO");
-        assert_eq!(sell_fee, 0u64);
+        assert_eq!(sell_fees, vec![] as Vec<(AccountId, u64)>);
     });
 }
 
@@ -875,19 +967,42 @@ fn distribute_tao_pro_rata_dust_remains_in_pallet_scenario_d() {
         MockSwap::set_tao_balance(pallet_acct.clone(), 10);
 
         let entries = bounded_sell_entries(vec![
-            make_buy_entry(H256::repeat_byte(12), alice(), hotkey.clone(), 1, 1, 0),
-            make_buy_entry(H256::repeat_byte(13), bob(), hotkey.clone(), 1, 1, 0),
-            make_buy_entry(H256::repeat_byte(14), charlie(), hotkey.clone(), 1, 1, 0),
+            make_buy_entry(
+                H256::repeat_byte(12),
+                alice(),
+                hotkey.clone(),
+                1,
+                1,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(13),
+                bob(),
+                hotkey.clone(),
+                1,
+                1,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
+            make_buy_entry(
+                H256::repeat_byte(14),
+                charlie(),
+                hotkey.clone(),
+                1,
+                1,
+                Perbill::zero(),
+                fee_recipient(),
+            ),
         ]);
 
-        let sell_fee = LimitOrders::<Test>::distribute_tao_pro_rata(
+        let sell_fees = LimitOrders::<Test>::distribute_tao_pro_rata(
             &entries,
             10u128, // actual_out from pool (TAO)
             0u128,  // total_buy_net — no buyers
             3u128,  // total_sell_tao_equiv — not divisible into 10 evenly
             &OrderSide::Sell,
             U96F32::from_num(1u32),
-            0u32, // fee_ppb = 0
             &pallet_acct,
             netuid(),
         )
@@ -911,7 +1026,7 @@ fn distribute_tao_pro_rata_dust_remains_in_pallet_scenario_d() {
         assert_eq!(alice_tao, 3u64, "floor(10 * 1/3) = 3");
         assert_eq!(bob_tao, 3u64, "floor(10 * 1/3) = 3");
         assert_eq!(charlie_tao, 3u64, "floor(10 * 1/3) = 3");
-        assert_eq!(sell_fee, 0u64);
+        assert_eq!(sell_fees, vec![] as Vec<(AccountId, u64)>);
 
         // The pallet account started with 10 TAO and sent out 9 — 1 TAO dust remains,
         // not burnt, not distributed.
@@ -944,7 +1059,8 @@ fn collect_fees_forwards_combined_fees_to_collector() {
                 hotkey.clone(),
                 1_000,
                 950,
-                50,
+                Perbill::from_parts(50_000_000), // 5% of 1000 = 50
+                fee_recipient(),
             ),
             make_buy_entry(
                 H256::repeat_byte(21),
@@ -952,18 +1068,19 @@ fn collect_fees_forwards_combined_fees_to_collector() {
                 hotkey.clone(),
                 1_500,
                 1_350,
-                150,
+                Perbill::from_parts(100_000_000), // 10% of 1500 = 150
+                fee_recipient(),
             ),
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
-        LimitOrders::<Test>::collect_fees(&buys, 80u64, &pallet_acct);
+        LimitOrders::<Test>::collect_fees(&buys, vec![(fee_recipient(), 80u64)], &pallet_acct);
 
         let tao_transfers = MockSwap::tao_transfers();
-        assert_eq!(tao_transfers.len(), 1, "single transfer to FeeCollector");
+        assert_eq!(tao_transfers.len(), 1, "single transfer to fee_recipient");
         let (from, to, amount) = &tao_transfers[0];
         assert_eq!(from, &pallet_acct, "fee comes from pallet account");
-        assert_eq!(to, &FeeCollectorAccount::get(), "fee goes to FeeCollector");
+        assert_eq!(to, &fee_recipient(), "fee goes to fee_recipient");
         assert_eq!(*amount, 280u64, "total fee = 200 (buy) + 80 (sell)");
     });
 }
@@ -979,11 +1096,12 @@ fn collect_fees_no_transfer_when_zero_fees() {
             hotkey,
             1_000,
             1_000,
-            0,
+            Perbill::zero(),
+            fee_recipient(),
         )]);
         let pallet_acct = PalletHotkeyAccount::get();
 
-        LimitOrders::<Test>::collect_fees(&buys, 0u64, &pallet_acct);
+        LimitOrders::<Test>::collect_fees(&buys, vec![], &pallet_acct);
 
         let tao_transfers = MockSwap::tao_transfers();
         assert_eq!(tao_transfers.len(), 0, "no transfer when total fee is zero");

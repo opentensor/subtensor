@@ -43,15 +43,17 @@ User can cancel at any time via cancel_order
 The payload that a user signs off-chain. Never stored in full on-chain — only
 its `blake2_256` hash (`OrderId`) is persisted.
 
-| Field         | Type        | Description |
-|---------------|-------------|-------------|
-| `signer`      | `AccountId` | Coldkey that authorises the order. For buy types: pays TAO. For sell types: owns the staked alpha. |
-| `hotkey`      | `AccountId` | Hotkey to stake to (buy types) or unstake from (sell types). |
-| `netuid`      | `NetUid`    | Target subnet. |
-| `order_type`  | `OrderType` | One of `LimitBuy`, `TakeProfit`, or `StopLoss` (see table below). |
-| `amount`      | `u64`       | Input amount in raw units. TAO for buy types; alpha for sell types. |
-| `limit_price` | `u64`       | Price threshold in TAO/alpha raw units. Trigger direction depends on `OrderType` (see table below). |
-| `expiry`      | `u64`       | Unix timestamp in milliseconds. Order must not execute after this time. |
+| Field           | Type        | Description |
+|-----------------|-------------|-------------|
+| `signer`        | `AccountId` | Coldkey that authorises the order. For buy types: pays TAO. For sell types: owns the staked alpha. |
+| `hotkey`        | `AccountId` | Hotkey to stake to (buy types) or unstake from (sell types). |
+| `netuid`        | `NetUid`    | Target subnet. |
+| `order_type`    | `OrderType` | One of `LimitBuy`, `TakeProfit`, or `StopLoss` (see table below). |
+| `amount`        | `u64`       | Input amount in raw units. TAO for buy types; alpha for sell types. |
+| `limit_price`   | `u64`       | Price threshold in TAO/alpha raw units. Trigger direction depends on `OrderType` (see table below). |
+| `expiry`        | `u64`       | Unix timestamp in milliseconds. Order must not execute after this time. |
+| `fee_rate`      | `Perbill`   | Per-order fee as a fraction of the input amount. `Perbill::zero()` = no fee. |
+| `fee_recipient` | `AccountId` | Account that receives the fee collected for this order. |
 
 ### `OrderType`
 
@@ -80,29 +82,7 @@ Terminal state of a processed order, stored under its `OrderId`.
 
 ## Storage
 
-### `ProtocolFee: StorageValue<u32>`
-
-Protocol fee in parts-per-billion (PPB).
-
-- `0` = no fee.
-- `1_000_000` = 0.1%.
-- `1_000_000_000` = 100%.
-
-For buy orders the fee is deducted from the TAO input before swapping. For sell
-orders the fee is deducted from the TAO output after swapping. Both flows result
-in the fee being collected in TAO and forwarded to `FeeCollector`.
-
-Default: `0`.
-
-### `Admin: StorageValue<Option<AccountId>>`
-
-The privileged account that may call `set_protocol_fee` alongside root.
-`None` means no admin is set; only root can change the fee.
-Set by root via `set_admin`.
-
-Default: absent (`None`).
-
-### `OrderStatus: StorageMap<H256, OrderStatus>`
+### `Orders: StorageMap<H256, OrderStatus>`
 
 Maps an `OrderId` (blake2_256 of the SCALE-encoded `Order`) to its terminal
 `OrderStatus`. Absence means the order has never been seen and is still
@@ -118,7 +98,6 @@ neither `Fulfilled` nor `Cancelled` orders can be re-executed.
 | `Signature`           | `Verify + ...`                                    | Signature type for off-chain order authorisation. Set to `sp_runtime::MultiSignature` in the subtensor runtime. |
 | `SwapInterface`       | `OrderSwapInterface<Self::AccountId>`             | Full swap + balance execution interface. Implemented by `pallet_subtensor::Pallet<T>`. Provides `buy_alpha`, `sell_alpha`, `transfer_tao`, `transfer_staked_alpha`, and `current_alpha_price`. |
 | `TimeProvider`        | `UnixTime`                                        | Current wall-clock time for expiry checks. |
-| `FeeCollector`        | `Get<Self::AccountId>` (constant)                 | Account that receives all accumulated protocol fees in TAO. |
 | `MaxOrdersPerBatch`   | `Get<u32>` (constant)                             | Maximum number of orders accepted in a single `execute_orders` or `execute_batched_orders` call. Should equal `floor(max_block_weight / per_order_weight)`. |
 | `PalletId`            | `Get<PalletId>` (constant)                        | Used to derive the pallet intermediary account (`PalletId::into_account_truncating`). This account temporarily holds pooled TAO and staked alpha during `execute_batched_orders`. |
 | `PalletHotkey`        | `Get<Self::AccountId>` (constant)                 | Hotkey the pallet intermediary account stakes to/from during batch execution. Must be a dedicated hotkey registered on every subnet the pallet may operate on. Operators should register it as a non-validator neuron. |
@@ -135,8 +114,8 @@ Executes a list of signed limit orders one by one, each interacting with the
 AMM pool independently. Orders that fail validation or whose price condition is
 not met are silently skipped — a single bad order does not revert the batch.
 
-**Fee handling:** protocol fee is deducted from each order's input before the
-pool swap.
+**Fee handling:** each order's `fee_rate` is deducted from the input amount and
+forwarded to that order's `fee_recipient` after execution.
 
 **When to use:** suitable for small batches or when orders target different
 subnets. Use `execute_batched_orders` for same-subnet batches to reduce price
@@ -154,7 +133,8 @@ interaction:
 1. **Validate & classify** — orders with wrong netuid, invalid signature,
    already-processed id, past expiry, or price condition not met emit
    `OrderSkipped` and are dropped. The rest are split into buy-side
-   (`LimitBuy`) and sell-side (`TakeProfit`, `StopLoss`) groups.
+   (`LimitBuy`) and sell-side (`TakeProfit`, `StopLoss`) groups. For buy
+   orders the net TAO (after fee) is pre-computed here.
 
 2. **Collect assets** — gross TAO is pulled from each buyer's free balance into
    the pallet intermediary account. Gross alpha stake is moved from each seller's
@@ -174,20 +154,20 @@ interaction:
    each share; any remainder stays in the pallet intermediary account as dust.
 
 5. **Distribute TAO pro-rata** — every seller receives their share of the total
-   available TAO (pool output + buyer passthrough TAO), minus the protocol fee.
-   Share is proportional to each seller's alpha valued at the current spot price.
-   Integer division floors each share; any remainder stays in the pallet
+   available TAO (pool output + buyer passthrough TAO), minus their order's
+   fee. Share is proportional to each seller's alpha valued at the current spot
+   price. Integer division floors each share; any remainder stays in the pallet
    intermediary account as dust.
 
-6. **Collect fees** — total buy-side fees (withheld from TAO input) plus total
-   sell-side fees (withheld from TAO output) are forwarded in a single transfer
-   to `FeeCollector`.
+6. **Collect fees** — buy-side fees (withheld from each order's TAO input) and
+   sell-side fees (withheld from each order's TAO output) are accumulated per
+   unique `fee_recipient` and forwarded in a single transfer per recipient.
 
 7. **Emit `GroupExecutionSummary`.**
 
 > **Note:** rounding dust (alpha and TAO) accumulates in the pallet intermediary
 > account between batches. If an emission epoch fires while dust is present, the
-> pallet earns emissions it never distributes. See the TODO in `collect_fees`.
+> pallet earns emissions it never distributes.
 
 ---
 
@@ -201,23 +181,6 @@ payload is required so the pallet can derive the `OrderId`.
 
 ---
 
-### `set_protocol_fee(fee)` — call index 3
-
-**Origin:** root or the current admin account (see `set_admin`).
-
-Sets `ProtocolFee` to `fee` (PPB). Emits `ProtocolFeeSet`.
-
----
-
-### `set_admin(new_admin)` — call index 5
-
-**Origin:** root.
-
-Sets or clears the privileged admin account stored in `Admin`. Pass `None` to
-remove the admin, leaving only root able to change the fee. Emits `AdminSet`.
-
----
-
 ## Events
 
 | Event | Fields | Emitted when |
@@ -225,8 +188,6 @@ remove the admin, leaving only root able to change the fee. Emits `AdminSet`.
 | `OrderExecuted` | `order_id`, `signer`, `netuid`, `side` | An individual order was successfully executed (by either extrinsic). |
 | `OrderSkipped` | `order_id` | An order was dropped during batch validation (bad signature, expired, wrong netuid, already processed, or price condition not met). |
 | `OrderCancelled` | `order_id`, `signer` | The signer registered a cancellation via `cancel_order`. |
-| `ProtocolFeeSet` | `fee` | Root or admin updated the protocol fee. |
-| `AdminSet` | `new_admin` | Root updated the admin account (`None` means admin was removed). |
 | `GroupExecutionSummary` | `netuid`, `net_side`, `net_amount`, `actual_out`, `executed_count` | Emitted once per `execute_batched_orders` call summarising the net pool trade. `net_side` is `Buy` if TAO was sent to the pool, `Sell` if alpha was sent. `net_amount` and `actual_out` are zero when the two sides perfectly offset. |
 
 ---
@@ -240,21 +201,26 @@ remove the admin, leaving only root able to change the fee. Emits `AdminSet`.
 | `OrderExpired` | `now > order.expiry`. |
 | `PriceConditionNotMet` | Current spot price is beyond the order's `limit_price`. |
 | `Unauthorized` | Caller of `cancel_order` is not the order's `signer`. |
-| `NotAdmin` | Caller of `set_protocol_fee` is neither root nor the current admin. |
 | `SwapReturnedZero` | The pool swap returned zero output for a non-zero residual input. |
 
 ---
 
 ## Fee model
 
+Fees are specified per-order via `fee_rate: Perbill` and `fee_recipient:
+AccountId` fields on the `Order` struct. There is no global protocol fee or
+admin key.
+
 All fees are collected in TAO regardless of order side.
 
 | Order type              | Fee deducted from | Timing |
 |-------------------------|-------------------|--------|
-| `LimitBuy`              | TAO input         | Before pool swap (`validate_and_classify`) |
-| `TakeProfit`, `StopLoss`| TAO output        | After pool swap (`distribute_tao_pro_rata`) |
+| `LimitBuy`              | TAO input         | Pre-computed in `validate_and_classify`, before pool swap. |
+| `TakeProfit`, `StopLoss`| TAO output        | Deducted in `distribute_tao_pro_rata`, after pool swap. |
 
-Fee formula: `fee = floor(amount × fee_ppb / 1_000_000_000)`.
+Fee formula: `fee = fee_rate * amount` (using `Perbill` multiplication, which
+upcasts to u128 internally to avoid overflow).
 
-Accumulated fees are forwarded to `FeeCollector` at the end of each batch
-execution in a single transfer.
+At the end of each batch, fees are accumulated per unique `fee_recipient` and
+forwarded in a single transfer per recipient. If multiple orders share the same
+`fee_recipient`, they result in exactly one transfer rather than one per order.

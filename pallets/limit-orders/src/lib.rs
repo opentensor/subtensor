@@ -8,7 +8,7 @@ mod tests;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::{AccountId32, MultiSignature, traits::Verify};
+use sp_runtime::{AccountId32, MultiSignature, Perbill, traits::Verify};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
@@ -73,6 +73,10 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub limit_price: u64,
     /// Unix timestamp in milliseconds after which this order must not be executed.
     pub expiry: u64,
+    /// Fee rate applied to this order's TAO amount (input for buys, output for sells).
+    pub fee_rate: Perbill,
+    /// Account that receives the fee collected from this order.
+    pub fee_recipient: AccountId,
 }
 
 /// The envelope the admin submits on-chain: the order payload plus the user's
@@ -117,9 +121,12 @@ pub(crate) struct OrderEntry<AccountId> {
     /// Gross input amount (before fee).
     pub(crate) gross: u64,
     /// Net input amount (after fee).
+    /// For buys: `gross - fee_rate * gross`. For sells: equals `gross` (fee on TAO output).
     pub(crate) net: u64,
-    /// Fee amount (TAO for buys; 0 for sells – applied on TAO output).
-    pub(crate) fee: u64,
+    /// Per-order fee rate.
+    pub(crate) fee_rate: Perbill,
+    /// Per-order fee recipient.
+    pub(crate) fee_recipient: AccountId,
 }
 
 // ── Pallet ───────────────────────────────────────────────────────────────────
@@ -134,6 +141,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::AccountIdConversion;
+    use sp_std::vec::Vec;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -145,10 +153,6 @@ pub mod pallet {
 
         /// Time provider for expiry checks.
         type TimeProvider: UnixTime;
-
-        /// Account that collects protocol fees.
-        #[pallet::constant]
-        type FeeCollector: Get<Self::AccountId>;
 
         /// Maximum number of orders in a single `execute_orders` call.
         /// Should equal `floor(max_block_weight / per_order_weight)`.
@@ -173,16 +177,6 @@ pub mod pallet {
     }
 
     // ── Storage ───────────────────────────────────────────────────────────────
-
-    /// Protocol fee in parts-per-billion (PPB). e.g. 1_000_000 PPB = 0.1%.
-    #[pallet::storage]
-    pub type ProtocolFee<T: Config> = StorageValue<_, u32, ValueQuery>;
-
-    /// The privileged account that may call `set_protocol_fee`.
-    /// Absent ⇒ no admin set; only root can change the fee.
-    /// Set by root via `set_admin`.
-    #[pallet::storage]
-    pub type Admin<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
     /// Tracks the on-chain status of a known `OrderId`.
     /// Absent ⇒ never seen (still executable if valid).
@@ -214,10 +208,6 @@ pub mod pallet {
             order_id: H256,
             signer: T::AccountId,
         },
-        /// The protocol fee was updated.
-        ProtocolFeeSet { fee: u32 },
-        /// The admin account was updated by root.
-        AdminSet { new_admin: Option<T::AccountId> },
         /// Summary emitted once per `execute_batched_orders` call.
         GroupExecutionSummary {
             /// The subnet all orders in this batch belong to.
@@ -249,8 +239,6 @@ pub mod pallet {
         PriceConditionNotMet,
         /// Caller is not the order signer (required for cancellation).
         Unauthorized,
-        /// Caller is neither root nor the current admin.
-        NotAdmin,
         /// The pool swap returned zero output for a non-zero input.
         SwapReturnedZero,
     }
@@ -345,40 +333,6 @@ pub mod pallet {
 
             Ok(())
         }
-
-        /// Set the protocol fee in parts-per-billion.
-        ///
-        /// May be called by root or the current admin account.
-        #[pallet::call_index(3)]
-        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().reads_writes(1, 1)))]
-        pub fn set_protocol_fee(origin: OriginFor<T>, fee: u32) -> DispatchResult {
-            let is_root = ensure_root(origin.clone()).is_ok();
-            if !is_root {
-                let who = ensure_signed(origin)?;
-                ensure!(
-                    Admin::<T>::get().as_ref() == Some(&who),
-                    Error::<T>::NotAdmin
-                );
-            }
-            ProtocolFee::<T>::put(fee);
-            Self::deposit_event(Event::ProtocolFeeSet { fee });
-            Ok(())
-        }
-
-        /// Set or clear the admin account. Requires root.
-        ///
-        /// Pass `None` to remove the admin, leaving only root able to change fees.
-        #[pallet::call_index(5)]
-        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
-        pub fn set_admin(origin: OriginFor<T>, new_admin: Option<T::AccountId>) -> DispatchResult {
-            ensure_root(origin)?;
-            match &new_admin {
-                Some(a) => Admin::<T>::put(a),
-                None => Admin::<T>::kill(),
-            }
-            Self::deposit_event(Event::AdminSet { new_admin });
-            Ok(())
-        }
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────
@@ -404,7 +358,8 @@ pub mod pallet {
             current_price: U96F32,
         ) -> bool {
             let order = &signed_order.order;
-            matches!(signed_order.signature, MultiSignature::Sr25519(_))
+            T::SwapInterface::is_subtoken_enabled(order.netuid)
+                && matches!(signed_order.signature, MultiSignature::Sr25519(_))
                 && signed_order
                     .signature
                     .verify(order.encode().as_slice(), &order.signer)
@@ -422,9 +377,7 @@ pub mod pallet {
 
         /// Attempt to execute one signed order. Returns an error on any
         /// validation or execution failure without panicking.
-        fn try_execute_order(
-            signed_order: SignedOrder<T::AccountId>,
-        ) -> DispatchResult {
+        fn try_execute_order(signed_order: SignedOrder<T::AccountId>) -> DispatchResult {
             let order = &signed_order.order;
             let order_id = Self::derive_order_id(order);
             let now_ms = T::TimeProvider::now().as_millis() as u64;
@@ -435,12 +388,11 @@ pub mod pallet {
                 Error::<T>::InvalidSignature
             );
 
-            // 5. Execute the swap, taking protocol fee from the input.
-            let fee_ppb = ProtocolFee::<T>::get();
+            // 5. Execute the swap, taking the order's fee from the input (buys) or output (sells).
             let (amount_in, amount_out) = if order.order_type.is_buy() {
                 let tao_in = TaoBalance::from(order.amount);
-                // Deduct protocol fee from TAO input before swapping.
-                let fee_tao = Self::ppb_of_tao(tao_in, fee_ppb);
+                // Deduct fee from TAO input before swapping.
+                let fee_tao = TaoBalance::from(order.fee_rate * tao_in.to_u64());
                 let tao_after_fee = tao_in.saturating_sub(fee_tao);
 
                 let alpha_out = T::SwapInterface::buy_alpha(
@@ -451,9 +403,9 @@ pub mod pallet {
                     TaoBalance::from(order.limit_price),
                 )?;
 
-                // Forward the fee TAO directly to FeeCollector.
+                // Forward the fee TAO to the order's fee recipient.
                 if !fee_tao.is_zero() {
-                    T::SwapInterface::transfer_tao(&order.signer, &T::FeeCollector::get(), fee_tao)
+                    T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
                         .ok();
                 }
                 (order.amount, alpha_out.to_u64())
@@ -467,10 +419,10 @@ pub mod pallet {
                     TaoBalance::from(order.limit_price),
                 )?;
 
-                // Deduct protocol fee from TAO output and forward to FeeCollector.
-                let fee_tao = Self::ppb_of_tao(tao_out, fee_ppb);
+                // Deduct fee from TAO output and forward to the order's fee recipient.
+                let fee_tao = TaoBalance::from(order.fee_rate * tao_out.to_u64());
                 if !fee_tao.is_zero() {
-                    T::SwapInterface::transfer_tao(&order.signer, &T::FeeCollector::get(), fee_tao)
+                    T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
                         .ok();
                 }
                 (order.amount, tao_out.saturating_sub(fee_tao).to_u64())
@@ -496,12 +448,11 @@ pub mod pallet {
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
             let now_ms = T::TimeProvider::now().as_millis() as u64;
-            let fee_ppb = ProtocolFee::<T>::get();
             let current_price = T::SwapInterface::current_alpha_price(netuid);
 
             // Filter invalid/expired/price-missed orders; classify the rest into buys and sells.
             let (valid_buys, valid_sells) =
-                Self::validate_and_classify(netuid, &orders, now_ms, fee_ppb, current_price);
+                Self::validate_and_classify(netuid, &orders, now_ms, current_price);
 
             let executed_count = (valid_buys.len() + valid_sells.len()) as u32;
             if executed_count == 0 {
@@ -549,21 +500,20 @@ pub mod pallet {
             )?;
 
             // Give every seller their pro-rata share of (pool TAO output + offset buy TAO),
-            // deducting the fee from each payout; returns the total sell-side fee in TAO.
-            let sell_fee_tao = Self::distribute_tao_pro_rata(
+            // deducting per-order fees from each payout; returns accumulated sell fees by recipient.
+            let sell_fees = Self::distribute_tao_pro_rata(
                 &valid_sells,
                 actual_out,
                 total_buy_net,
                 total_sell_tao_equiv,
                 &net_side,
                 current_price,
-                fee_ppb,
                 &pallet_acct,
                 netuid,
             )?;
 
-            // Forward all accumulated TAO fees (buy input fees + sell output fees) to FeeCollector.
-            Self::collect_fees(&valid_buys, sell_fee_tao, &pallet_acct);
+            // Merge buy and sell fees by recipient and transfer once per unique recipient.
+            Self::collect_fees(&valid_buys, sell_fees, &pallet_acct);
 
             let net_amount = Self::net_amount_for_event(
                 &net_side,
@@ -590,7 +540,6 @@ pub mod pallet {
             netuid: NetUid,
             orders: &BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
             now_ms: u64,
-            fee_ppb: u32,
             current_price: U96F32,
         ) -> (
             BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
@@ -613,15 +562,13 @@ pub mod pallet {
                         return None;
                     }
 
-                    let (net, fee) = if order.order_type.is_buy() {
-                        // Buy: fee on TAO input — buyer contributes less TAO to the pool.
-                        let f = Self::ppb_of_tao(TaoBalance::from(order.amount), fee_ppb).to_u64();
-                        (order.amount.saturating_sub(f), f)
+                    let net = if order.order_type.is_buy() {
+                        // Buy: fee on TAO input — net is the amount that reaches the pool.
+                        order.amount.saturating_sub(order.fee_rate * order.amount)
                     } else {
-                        // Sell: fee on TAO output — seller contributes full alpha; the fee
-                        // is deducted from their TAO payout in `distribute_tao_pro_rata`.
-                        // No alpha is withheld here, so fee is recorded as 0 in the entry.
-                        (order.amount, 0u64)
+                        // Sell: fee on TAO output — full alpha enters the pool; the fee is
+                        // deducted from the TAO payout later in `distribute_tao_pro_rata`.
+                        order.amount
                     };
 
                     Some(OrderEntry {
@@ -631,7 +578,8 @@ pub mod pallet {
                         side: order.order_type.clone(),
                         gross: order.amount,
                         net,
-                        fee,
+                        fee_rate: order.fee_rate,
+                        fee_recipient: order.fee_recipient.clone(),
                     })
                 })
                 .for_each(|entry| {
@@ -691,7 +639,7 @@ pub mod pallet {
                         pallet_hotkey,
                         netuid,
                         TaoBalance::from(net_tao),
-                        TaoBalance::ZERO,
+                        TaoBalance::from(u64::MAX), // no price ceiling for net pool swap
                     )?
                     .to_u64() as u128;
                     ensure!(out > 0, Error::<T>::SwapReturnedZero);
@@ -784,16 +732,16 @@ pub mod pallet {
             total_sell_tao_equiv: u128,
             net_side: &OrderSide,
             current_price: U96F32,
-            fee_ppb: u32,
             pallet_acct: &T::AccountId,
             netuid: NetUid,
-        ) -> Result<u64, DispatchError> {
+        ) -> Result<Vec<(T::AccountId, u64)>, DispatchError> {
             let total_tao: u128 = match net_side {
                 OrderSide::Sell => actual_out.saturating_add(total_buy_net),
                 OrderSide::Buy => total_sell_tao_equiv,
             };
 
-            let mut total_sell_fee_tao: u64 = 0;
+            // Accumulate sell-side fees by recipient (one entry per unique recipient).
+            let mut sell_fees: Vec<(T::AccountId, u64)> = Vec::new();
 
             for e in sells.iter() {
                 let sell_tao_equiv = Self::alpha_to_tao(e.net as u128, current_price);
@@ -802,9 +750,16 @@ pub mod pallet {
                 } else {
                     0u64
                 };
-                let fee = Self::ppb_of_tao(TaoBalance::from(gross_share), fee_ppb).to_u64();
+                let fee = e.fee_rate * gross_share;
                 let net_share = gross_share.saturating_sub(fee);
-                total_sell_fee_tao = total_sell_fee_tao.saturating_add(fee);
+
+                if fee > 0 {
+                    if let Some(entry) = sell_fees.iter_mut().find(|(r, _)| r == &e.fee_recipient) {
+                        entry.1 = entry.1.saturating_add(fee);
+                    } else {
+                        sell_fees.push((e.fee_recipient.clone(), fee));
+                    }
+                }
 
                 T::SwapInterface::transfer_tao(
                     pallet_acct,
@@ -821,33 +776,45 @@ pub mod pallet {
                     amount_out: net_share,
                 });
             }
-            Ok(total_sell_fee_tao)
+            Ok(sell_fees)
         }
 
-        /// Route accumulated protocol fees to `FeeCollector`.
+        /// Forward accumulated fees to their respective recipients.
         ///
-        /// Both buy and sell fees are always in TAO by this point:
-        /// - Buy fees: withheld from TAO input in `validate_and_classify`.
-        /// - Sell fees: withheld from TAO output in `distribute_tao_pro_rata`
-        ///   (passed in as `sell_fee_tao`).
-        ///
-        /// Both transfers are best-effort and do not revert the batch on failure.
+        /// Merges buy-side fees (withheld from TAO input) and sell-side fees
+        /// (withheld from TAO output, passed in as `sell_fees`) by recipient,
+        /// then performs one TAO transfer per unique `fee_recipient`.
+        /// All transfers are best-effort and do not revert the batch on failure.
         pub(crate) fn collect_fees(
             buys: &BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
-            sell_fee_tao: u64,
+            sell_fees: Vec<(T::AccountId, u64)>,
             pallet_acct: &T::AccountId,
         ) {
-            let fee_collector = T::FeeCollector::get();
+            // Start with sell fees; fold in buy fees.
+            // Buy fee was already computed in `validate_and_classify` as `gross - net`,
+            // so we recover it here without recomputing.
+            let mut fees: Vec<(T::AccountId, u64)> = sell_fees;
+            for e in buys.iter() {
+                let fee = e.gross.saturating_sub(e.net);
+                if fee > 0 {
+                    if let Some(entry) = fees.iter_mut().find(|(r, _)| r == &e.fee_recipient) {
+                        entry.1 = entry.1.saturating_add(fee);
+                    } else {
+                        fees.push((e.fee_recipient.clone(), fee));
+                    }
+                }
+            }
 
-            let total_buy_fee: u64 = buys.iter().map(|e| e.fee).sum();
-            let total_fee = total_buy_fee.saturating_add(sell_fee_tao);
-            if total_fee > 0 {
-                T::SwapInterface::transfer_tao(
-                    pallet_acct,
-                    &fee_collector,
-                    TaoBalance::from(total_fee),
-                )
-                .ok();
+            // One transfer per unique fee recipient.
+            for (recipient, amount) in fees {
+                if amount > 0 {
+                    T::SwapInterface::transfer_tao(
+                        pallet_acct,
+                        &recipient,
+                        TaoBalance::from(amount),
+                    )
+                    .ok();
+                }
             }
 
             // TODO: sweep rounding dust and any emissions accrued on the pallet account.
@@ -890,20 +857,6 @@ pub mod pallet {
             price
                 .saturating_mul(U96F32::from_num(alpha))
                 .saturating_to_num::<u128>()
-        }
-
-        pub(crate) fn ppb_of_tao(amount: TaoBalance, ppb: u32) -> TaoBalance {
-            let result = (amount.to_u64() as u128)
-                .saturating_mul(ppb as u128)
-                .saturating_div(1_000_000_000);
-            TaoBalance::from(result as u64)
-        }
-
-        pub(crate) fn ppb_of_alpha(amount: AlphaBalance, ppb: u32) -> AlphaBalance {
-            let result = (amount.to_u64() as u128)
-                .saturating_mul(ppb as u128)
-                .saturating_div(1_000_000_000);
-            AlphaBalance::from(result as u64)
         }
     }
 }
