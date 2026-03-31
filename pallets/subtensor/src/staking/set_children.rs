@@ -602,7 +602,7 @@ impl<T: Config> Pallet<T> {
         // If the childkey cools down before the subnet start call + PendingChildKeyCooldown:
         //   - If Start call happened: Normal track
         //   - If Start call didn't happen: Apply immediately
-        let start_call_occured = SubtokenEnabled::<T>::get(netuid) == true;
+        let start_call_occured = SubtokenEnabled::<T>::get(netuid);
 
         // Iterate over all pending children of this subnet and set as needed
         let mut to_remove: Vec<T::AccountId> = Vec::new();
