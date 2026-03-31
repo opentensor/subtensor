@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Auto-discover benchmarked pallets.
 #
 # Finds all pallets under pallets/ that have both:
