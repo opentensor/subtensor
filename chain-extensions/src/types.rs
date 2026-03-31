@@ -21,6 +21,20 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    CallerAddStakeV1 = 16,
+    CallerRemoveStakeV1 = 17,
+    CallerUnstakeAllV1 = 18,
+    CallerUnstakeAllAlphaV1 = 19,
+    CallerMoveStakeV1 = 20,
+    CallerTransferStakeV1 = 21,
+    CallerSwapStakeV1 = 22,
+    CallerAddStakeLimitV1 = 23,
+    CallerRemoveStakeLimitV1 = 24,
+    CallerSwapStakeLimitV1 = 25,
+    CallerRemoveStakeFullLimitV1 = 26,
+    CallerSetColdkeyAutoStakeHotkeyV1 = 27,
+    CallerAddProxyV1 = 28,
+    CallerRemoveProxyV1 = 29,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]

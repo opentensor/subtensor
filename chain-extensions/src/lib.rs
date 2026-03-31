@@ -101,10 +101,8 @@ where
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-                let origin = convert_origin(env.origin());
-
                 let call_result = pallet_subtensor::Pallet::<T>::add_stake(
-                    origin.into(),
+                    RawOrigin::Signed(env.caller()).into(),
                     hotkey,
                     netuid,
                     amount_staked,
@@ -492,6 +490,442 @@ where
 
                 let call_result = pallet_proxy::Pallet::<T>::remove_proxy(
                     RawOrigin::Signed(env.caller()).into(),
+                    delegate_lookup,
+                    ProxyType::Staking,
+                    0u32.into(),
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerAddStakeV1 => {
+                let weight = Weight::from_parts(394_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(18))
+                    .saturating_add(T::DbWeight::get().writes(9));
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, amount_staked): (T::AccountId, NetUid, TaoBalance) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::add_stake(
+                    origin.into(),
+                    hotkey,
+                    netuid,
+                    amount_staked,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerRemoveStakeV1 => {
+                let weight = Weight::from_parts(196_800_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(19))
+                    .saturating_add(T::DbWeight::get().writes(10));
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, amount_unstaked): (T::AccountId, NetUid, AlphaBalance) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::remove_stake(
+                    origin.into(),
+                    hotkey,
+                    netuid,
+                    amount_unstaked,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerUnstakeAllV1 => {
+                let weight = Weight::from_parts(28_830_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(6))
+                    .saturating_add(T::DbWeight::get().writes(0));
+
+                env.charge_weight(weight)?;
+
+                let hotkey: T::AccountId = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::unstake_all(origin.into(), hotkey);
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerUnstakeAllAlphaV1 => {
+                let weight = Weight::from_parts(358_500_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(36_u64))
+                    .saturating_add(T::DbWeight::get().writes(21_u64));
+
+                env.charge_weight(weight)?;
+
+                let hotkey: T::AccountId = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result =
+                    pallet_subtensor::Pallet::<T>::unstake_all_alpha(origin.into(), hotkey);
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerMoveStakeV1 => {
+                let weight = Weight::from_parts(164_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(15_u64))
+                    .saturating_add(T::DbWeight::get().writes(7_u64));
+
+                env.charge_weight(weight)?;
+
+                let (
+                    origin_hotkey,
+                    destination_hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                ): (T::AccountId, T::AccountId, NetUid, NetUid, AlphaBalance) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::move_stake(
+                    origin.into(),
+                    origin_hotkey,
+                    destination_hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerTransferStakeV1 => {
+                let weight = Weight::from_parts(160_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(13_u64))
+                    .saturating_add(T::DbWeight::get().writes(6_u64));
+
+                env.charge_weight(weight)?;
+
+                let (destination_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                    T::AccountId,
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaBalance,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::transfer_stake(
+                    origin.into(),
+                    destination_coldkey,
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerSwapStakeV1 => {
+                let weight = Weight::from_parts(351_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(35_u64))
+                    .saturating_add(T::DbWeight::get().writes(22_u64));
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, origin_netuid, destination_netuid, alpha_amount): (
+                    T::AccountId,
+                    NetUid,
+                    NetUid,
+                    AlphaBalance,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::swap_stake(
+                    origin.into(),
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerAddStakeLimitV1 => {
+                let weight = Weight::from_parts(402_900_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(24_u64))
+                    .saturating_add(T::DbWeight::get().writes(15));
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, amount_staked, limit_price, allow_partial): (
+                    T::AccountId,
+                    NetUid,
+                    TaoBalance,
+                    TaoBalance,
+                    bool,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::add_stake_limit(
+                    origin.into(),
+                    hotkey,
+                    netuid,
+                    amount_staked,
+                    limit_price,
+                    allow_partial,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerRemoveStakeLimitV1 => {
+                let weight = Weight::from_parts(377_400_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(28_u64))
+                    .saturating_add(T::DbWeight::get().writes(14));
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, amount_unstaked, limit_price, allow_partial): (
+                    T::AccountId,
+                    NetUid,
+                    AlphaBalance,
+                    TaoBalance,
+                    bool,
+                ) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::remove_stake_limit(
+                    origin.into(),
+                    hotkey,
+                    netuid,
+                    amount_unstaked,
+                    limit_price,
+                    allow_partial,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerSwapStakeLimitV1 => {
+                let weight = Weight::from_parts(411_500_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(35_u64))
+                    .saturating_add(T::DbWeight::get().writes(22_u64));
+
+                env.charge_weight(weight)?;
+
+                let (
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                    limit_price,
+                    allow_partial,
+                ): (T::AccountId, NetUid, NetUid, AlphaBalance, TaoBalance, bool) =
+                    env.read_as()
+                        .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::swap_stake_limit(
+                    origin.into(),
+                    hotkey,
+                    origin_netuid,
+                    destination_netuid,
+                    alpha_amount,
+                    limit_price,
+                    allow_partial,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerRemoveStakeFullLimitV1 => {
+                let weight = Weight::from_parts(395_300_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(28_u64))
+                    .saturating_add(T::DbWeight::get().writes(14_u64));
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, limit_price): (T::AccountId, NetUid, Option<TaoBalance>) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::remove_stake_full_limit(
+                    origin.into(),
+                    hotkey,
+                    netuid,
+                    limit_price,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerSetColdkeyAutoStakeHotkeyV1 => {
+                let weight = Weight::from_parts(29_930_000, 0)
+                    .saturating_add(T::DbWeight::get().reads(4_u64))
+                    .saturating_add(T::DbWeight::get().writes(2_u64));
+
+                env.charge_weight(weight)?;
+
+                let (netuid, hotkey): (NetUid, T::AccountId) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_subtensor::Pallet::<T>::set_coldkey_auto_stake_hotkey(
+                    origin.into(),
+                    netuid,
+                    hotkey,
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerAddProxyV1 => {
+                let weight = <T as pallet_proxy::Config>::WeightInfo::add_proxy(
+                    <T as pallet_proxy::Config>::MaxProxies::get(),
+                );
+
+                env.charge_weight(weight)?;
+
+                let delegate: T::AccountId = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let delegate_lookup =
+                    <<T as frame_system::Config>::Lookup as StaticLookup>::Source::from(delegate);
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_proxy::Pallet::<T>::add_proxy(
+                    origin.into(),
+                    delegate_lookup,
+                    ProxyType::Staking,
+                    0u32.into(),
+                );
+
+                match call_result {
+                    Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::CallerRemoveProxyV1 => {
+                let weight = <T as pallet_proxy::Config>::WeightInfo::remove_proxy(
+                    <T as pallet_proxy::Config>::MaxProxies::get(),
+                );
+
+                env.charge_weight(weight)?;
+
+                let delegate: T::AccountId = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+                let delegate_lookup =
+                    <<T as frame_system::Config>::Lookup as StaticLookup>::Source::from(delegate);
+
+                let origin = convert_origin(env.origin());
+
+                let call_result = pallet_proxy::Pallet::<T>::remove_proxy(
+                    origin.into(),
                     delegate_lookup,
                     ProxyType::Staking,
                     0u32.into(),
