@@ -6,6 +6,8 @@ import type { Transaction, TypedApi } from "polkadot-api";
 import type { subtensor } from "@polkadot-api/descriptors";
 import { getPolkadotSigner } from "polkadot-api/signer";
 
+export const TX_TIMEOUT = 30_000;
+
 export async function waitForTransactionWithRetry(
     api: TypedApi<typeof subtensor>,
     tx: Transaction<Record<string, unknown>, string, string, void>,
@@ -33,7 +35,7 @@ export async function waitForTransactionWithRetry(
 export async function waitForTransactionCompletion(
     tx: Transaction<Record<string, unknown>, string, string, void>,
     keypair: KeyringPair,
-    timeout: number | null = 3 * 60 * 1000
+    timeout: number | null = TX_TIMEOUT
 ): Promise<{ txHash: string; blockHash: string }> {
     const callerStack = new Error().stack;
 
@@ -88,6 +90,30 @@ export async function waitForTransactionCompletion(
     });
 }
 
+export async function waitForSudoTransactionWithRetry(
+    api: TypedApi<typeof subtensor>,
+    tx: Transaction<Record<string, unknown>, string, string, void>,
+    signer: KeyringPair,
+    label: string,
+    maxRetries = 1
+): Promise<void> {
+    let retries = 0;
+
+    while (retries < maxRetries) {
+        try {
+            await waitForSudoTransactionCompletion(api, tx, signer, label);
+            return;
+        } catch (error) {
+            log.tx(label, `error: ${error}`);
+            retries += 1;
+            if (retries >= maxRetries) {
+                throw new Error(`[${label}] failed after ${maxRetries} retries`);
+            }
+            await waitForBlocks(api, 1);
+        }
+    }
+}
+
 const SECOND = 1000;
 
 /** Polls the chain until `count` new finalized blocks have been produced. */
@@ -110,4 +136,95 @@ export async function waitForFinalizedBlocks(
     }
 
     throw new Error(`Timed out waiting for ${count} finalized blocks (from #${startBlock}, target #${target})`);
+}
+
+export async function waitForFinalizedBlockAdvance(
+    api: TypedApi<typeof subtensor>,
+    count = 1,
+    pollInterval = 1 * SECOND,
+    timeout = 120 * SECOND
+): Promise<void> {
+    await waitForFinalizedBlocks(api, count, pollInterval, timeout);
+}
+
+async function waitForSudoTransactionCompletion(
+    api: TypedApi<typeof subtensor>,
+    tx: Transaction<Record<string, unknown>, string, string, void>,
+    keypair: KeyringPair,
+    label: string
+): Promise<void> {
+    const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
+    const signerAddress = keypair.address;
+    const account = await api.query.System.Account.getValue(signerAddress, { at: "best" });
+
+    return new Promise((resolve, reject) => {
+        let txHash = "";
+        let timeoutId: ReturnType<typeof setTimeout>;
+        const subscription = tx
+            .signSubmitAndWatch(signer, {
+                at: "best",
+                nonce: account.nonce,
+            })
+            .subscribe({
+                next: async (value) => {
+                    txHash = value.txHash;
+
+                    if (value.type === "txBestBlocksState" && value.found) {
+                        subscription.unsubscribe();
+
+                        if (!value.ok) {
+                            const errorStr = JSON.stringify(value.dispatchError, null, 2);
+                            log.tx(label, `dispatch error: ${errorStr}`);
+                            reject(new Error(`[${label}] dispatch error: ${errorStr}`));
+                            return;
+                        }
+
+                        try {
+                            const events = await api.query.System.Events.getValue({ at: value.block.hash });
+                            const sudoEvent = events.find(
+                                (eventRecord: any) =>
+                                    eventRecord.phase?.type === "ApplyExtrinsic" &&
+                                    eventRecord.phase.value === value.block.index &&
+                                    eventRecord.event?.type === "Sudo" &&
+                                    eventRecord.event?.value?.type === "Sudid"
+                            ) as any;
+
+                            const sudoResult = sudoEvent?.event?.value?.value?.sudo_result;
+                            if (sudoResult?.success === false) {
+                                const errorStr = JSON.stringify(sudoResult.value, null, 2);
+                                log.tx(label, `sudo error: ${errorStr}`);
+                                reject(new Error(`[${label}] sudo error: ${errorStr}`));
+                                return;
+                            }
+
+                            log.tx(label, `included: ${value.txHash}`);
+                            clearTimeout(timeoutId);
+                            resolve();
+                        } catch (error) {
+                            clearTimeout(timeoutId);
+                            reject(error instanceof Error ? error : new Error(String(error)));
+                        }
+
+                        return;
+                    }
+
+                    if (value.type === "txBestBlocksState" && value.isValid === false) {
+                        subscription.unsubscribe();
+                        clearTimeout(timeoutId);
+                        reject(new Error(`[${label}] transaction rejected before inclusion`));
+                    }
+                },
+                error: (error) => {
+                    subscription.unsubscribe();
+                    clearTimeout(timeoutId);
+                    reject(error instanceof Error ? error : new Error(String(error)));
+                },
+            });
+
+        timeoutId = setTimeout(() => {
+            subscription.unsubscribe();
+            log.tx(label, `timeout for tx: ${txHash}`);
+            reject(new Error(`[${label}] timeout`));
+        }, TX_TIMEOUT);
+    });
 }

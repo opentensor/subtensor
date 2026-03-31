@@ -62,6 +62,33 @@
                     "endpoints": ["ws://127.0.0.1:9947"]
                 }
             ]
+        },
+        {
+            "name": "zombienet_rate_limiting",
+            "timeout": 600000,
+            "testFileDir": ["suites/zombienet_rate_limiting"],
+            "runScripts": [
+                "generate-types.sh",
+                "build-spec.sh"
+            ],
+            "foundation": {
+                "type": "zombie",
+                "zombieSpec": {
+                    "configPath": "./configs/zombie_node.json",
+                    "skipBlockCheck": []
+                }
+            },
+            "vitestArgs": {
+                "bail": 1
+            },
+            "connections": [
+                {
+                    "name": "Node",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9947"],
+                    "descriptor": "subtensor"
+                }
+            ]
         }, {
             "name": "zombienet_shield",
             "timeout": 600000,
