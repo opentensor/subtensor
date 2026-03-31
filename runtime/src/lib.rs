@@ -22,13 +22,10 @@ use codec::{Compact, Decode, Encode};
 use ethereum::AuthorizationList;
 use frame_support::{
     PalletId,
-    dispatch::{
-        DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, DispatchResult,
-        PostDispatchInfo,
-    },
+    dispatch::DispatchResult,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{Contains, InsideBoth, LinearStoragePrice, OriginTrait, fungible::HoldConsideration},
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};

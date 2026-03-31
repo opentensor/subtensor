@@ -45,6 +45,7 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap = 9,
         Crowdloan: pallet_crowdloan = 10,
         Proxy: pallet_subtensor_proxy = 11,
+        Commitments: pallet_commitments = 12,
     }
 );
 
@@ -300,7 +301,7 @@ impl pallet_subtensor::Config for Test {
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
     type ProxyInterface = FakeProxier;
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
-    type GetCommitments = ();
+    type GetCommitments = MockGetCommitments;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
@@ -339,7 +340,51 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(_netuid: NetUid) {}
+    fn purge_netuid(netuid: NetUid) {
+        pallet_commitments::Pallet::<Test>::purge_netuid(netuid);
+    }
+}
+
+pub struct MockGetCommitments;
+impl pallet_commitments::GetCommitments<AccountId> for MockGetCommitments {
+    fn get_commitments(netuid: NetUid) -> Vec<(AccountId, Vec<u8>)> {
+        pallet_commitments::Pallet::<Test>::get_commitments(netuid)
+    }
+}
+
+parameter_types! {
+    pub const MockCommitmentInitialDeposit: Balance = TaoBalance::new(0);
+    pub const MockCommitmentFieldDeposit: Balance = TaoBalance::new(0);
+}
+
+pub struct MockCanCommit;
+impl pallet_commitments::CanCommit<AccountId> for MockCanCommit {
+    fn can_commit(netuid: NetUid, address: &AccountId) -> bool {
+        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
+    }
+}
+
+pub struct MockOnMetadataCommitment;
+impl pallet_commitments::OnMetadataCommitment<AccountId> for MockOnMetadataCommitment {
+    fn on_metadata_commitment(_: NetUid, _: &AccountId) {}
+}
+
+pub struct MockTempoInterface;
+impl pallet_commitments::GetTempoInterface for MockTempoInterface {
+    fn get_epoch_index(netuid: NetUid, cur_block: u64) -> u64 {
+        SubtensorModule::get_epoch_index(netuid, cur_block)
+    }
+}
+
+impl pallet_commitments::Config for Test {
+    type Currency = Balances;
+    type WeightInfo = ();
+    type CanCommit = MockCanCommit;
+    type OnMetadataCommitment = MockOnMetadataCommitment;
+    type MaxFields = frame_support::traits::ConstU32<3>;
+    type InitialDeposit = MockCommitmentInitialDeposit;
+    type FieldDeposit = MockCommitmentFieldDeposit;
+    type TempoInterface = MockTempoInterface;
 }
 
 parameter_types! {

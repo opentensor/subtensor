@@ -86,10 +86,9 @@ where
 
         if let Some(pallet_commitments::Call::set_commitment { netuid, .. }) =
             IsSubType::<pallet_commitments::Call<T>>::is_sub_type(call)
+            && !<T as pallet_commitments::Config>::CanCommit::can_commit(*netuid, who)
         {
-            if !<T as pallet_commitments::Config>::CanCommit::can_commit(*netuid, who) {
-                return Err(pallet_commitments::Error::<T>::AccountNotAllowedCommit.into());
-            }
+            return Err(pallet_commitments::Error::<T>::AccountNotAllowedCommit.into());
         }
 
         Ok(())
