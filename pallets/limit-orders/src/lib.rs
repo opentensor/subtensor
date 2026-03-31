@@ -348,30 +348,37 @@ pub mod pallet {
             T::PalletId::get().into_account_truncating()
         }
 
-        /// Returns `true` if `signed_order` passes all execution preconditions:
-        /// valid signature, not yet processed, not expired, and price condition met.
+        /// Validates all execution preconditions for a signed order.
         /// Netuid is intentionally not checked here; callers handle that separately.
         fn is_order_valid(
             signed_order: &SignedOrder<T::AccountId>,
             order_id: H256,
             now_ms: u64,
             current_price: U96F32,
-        ) -> bool {
+        ) -> Result<(), Error<T>> {
             let order = &signed_order.order;
-            matches!(signed_order.signature, MultiSignature::Sr25519(_))
-                && signed_order
-                    .signature
-                    .verify(order.encode().as_slice(), &order.signer)
-                && Orders::<T>::get(order_id).is_none()
-                && now_ms <= order.expiry
-                && match order.order_type {
-                    OrderType::TakeProfit => {
-                        current_price >= U96F32::saturating_from_num(order.limit_price)
-                    }
-                    OrderType::StopLoss | OrderType::LimitBuy => {
-                        current_price <= U96F32::saturating_from_num(order.limit_price)
-                    }
-                }
+            ensure!(
+                matches!(signed_order.signature, MultiSignature::Sr25519(_))
+                    && signed_order
+                        .signature
+                        .verify(order.encode().as_slice(), &order.signer),
+                Error::<T>::InvalidSignature
+            );
+            ensure!(
+                Orders::<T>::get(order_id).is_none(),
+                Error::<T>::OrderAlreadyProcessed
+            );
+            ensure!(now_ms <= order.expiry, Error::<T>::OrderExpired);
+            ensure!(
+                match order.order_type {
+                    OrderType::TakeProfit =>
+                        current_price >= U96F32::saturating_from_num(order.limit_price),
+                    OrderType::StopLoss | OrderType::LimitBuy =>
+                        current_price <= U96F32::saturating_from_num(order.limit_price),
+                },
+                Error::<T>::PriceConditionNotMet
+            );
+            Ok(())
         }
 
         /// Attempt to execute one signed order. Returns an error on any
@@ -382,10 +389,7 @@ pub mod pallet {
             let now_ms = T::TimeProvider::now().as_millis() as u64;
             let current_price = T::SwapInterface::current_alpha_price(order.netuid);
 
-            ensure!(
-                Self::is_order_valid(&signed_order, order_id, now_ms, current_price),
-                Error::<T>::InvalidSignature
-            );
+            Self::is_order_valid(&signed_order, order_id, now_ms, current_price)?;
 
             // 5. Execute the swap, taking the order's fee from the input (buys) or output (sells).
             let (amount_in, amount_out) = if order.order_type.is_buy() {
@@ -556,7 +560,8 @@ pub mod pallet {
                     let order_id = Self::derive_order_id(order);
 
                     let valid = order.netuid == netuid
-                        && Self::is_order_valid(signed_order, order_id, now_ms, current_price);
+                        && Self::is_order_valid(signed_order, order_id, now_ms, current_price)
+                            .is_ok();
 
                     if !valid {
                         Self::deposit_event(Event::OrderSkipped { order_id });
