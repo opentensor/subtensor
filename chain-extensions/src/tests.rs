@@ -752,7 +752,7 @@ impl MockEnv {
     }
 }
 
-impl SubtensorExtensionEnv<AccountId> for MockEnv {
+impl SubtensorExtensionEnv<mock::Test> for MockEnv {
     fn func_id(&self) -> u16 {
         self.func_id
     }
@@ -769,8 +769,8 @@ impl SubtensorExtensionEnv<AccountId> for MockEnv {
         Ok(())
     }
 
-    fn read_as<T: codec::Decode + codec::MaxEncodedLen>(&mut self) -> Result<T, DispatchError> {
-        T::decode(&mut &self.input[..]).map_err(|_| DispatchError::Other("mock env decode failure"))
+    fn read_as<U: codec::Decode + codec::MaxEncodedLen>(&mut self) -> Result<U, DispatchError> {
+        U::decode(&mut &self.input[..]).map_err(|_| DispatchError::Other("mock env decode failure"))
     }
 
     fn write_output(&mut self, data: &[u8]) -> Result<(), DispatchError> {
@@ -781,6 +781,10 @@ impl SubtensorExtensionEnv<AccountId> for MockEnv {
 
     fn caller(&mut self) -> AccountId {
         self.caller
+    }
+
+    fn origin(&mut self) -> pallet_contracts::Origin<mock::Test> {
+        pallet_contracts::Origin::Signed(self.caller.clone())
     }
 }
 

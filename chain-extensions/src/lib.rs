@@ -63,7 +63,7 @@ where
 {
     fn dispatch<Env>(env: &mut Env) -> Result<RetVal, DispatchError>
     where
-        Env: SubtensorExtensionEnv<T::AccountId>,
+        Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
         let func_id: FunctionId = env.func_id().try_into().map_err(|_| {
@@ -101,12 +101,13 @@ where
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
-                let call_result = pallet_subtensor::Pallet::<T>::add_stake(
-                    RawOrigin::Signed(env.caller()).into(),
-                    hotkey,
-                    netuid,
-                    amount_staked,
-                );
+                let origin = match env.origin() {
+                    pallet_contracts::Origin::Signed(caller) => RawOrigin::Signed(caller).into(),
+                    pallet_contracts::Origin::Root => RawOrigin::Root.into(),
+                };
+
+                let call_result =
+                    pallet_subtensor::Pallet::<T>::add_stake(origin, hotkey, netuid, amount_staked);
 
                 match call_result {
                     Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
@@ -527,12 +528,17 @@ where
     }
 }
 
-trait SubtensorExtensionEnv<AccountId> {
+trait SubtensorExtensionEnv<T>
+where
+    T: pallet_contracts::Config,
+{
     fn func_id(&self) -> u16;
     fn charge_weight(&mut self, weight: Weight) -> Result<(), DispatchError>;
-    fn read_as<T: Decode + MaxEncodedLen>(&mut self) -> Result<T, DispatchError>;
+    fn read_as<U: Decode + MaxEncodedLen>(&mut self) -> Result<U, DispatchError>;
     fn write_output(&mut self, data: &[u8]) -> Result<(), DispatchError>;
-    fn caller(&mut self) -> AccountId;
+    fn caller(&mut self) -> T::AccountId;
+    #[allow(dead_code)]
+    fn origin(&mut self) -> pallet_contracts::Origin<T>;
 }
 
 struct ContractsEnvAdapter<'a, 'b, T, E>
@@ -558,7 +564,7 @@ where
     }
 }
 
-impl<'a, 'b, T, E> SubtensorExtensionEnv<T::AccountId> for ContractsEnvAdapter<'a, 'b, T, E>
+impl<'a, 'b, T, E> SubtensorExtensionEnv<T> for ContractsEnvAdapter<'a, 'b, T, E>
 where
     T: pallet_subtensor::Config + pallet_contracts::Config,
     T::AccountId: Clone,
@@ -582,5 +588,9 @@ where
 
     fn caller(&mut self) -> T::AccountId {
         self.env.ext().address().clone()
+    }
+
+    fn origin(&mut self) -> pallet_contracts::Origin<T> {
+        self.env.ext().caller()
     }
 }
