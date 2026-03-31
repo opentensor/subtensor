@@ -11,14 +11,19 @@ use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_consensus_slots::SlotProportion;
 use sc_keystore::LocalKeystore;
 use sc_network::config::SyncMode;
-use sc_network_sync::strategy::warp::{WarpSyncConfig, WarpSyncProvider};
+use sc_network_sync::strategy::warp::{
+    EncodedProof, VerificationResult, WarpSyncConfig, WarpSyncProvider,
+};
 use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as ServiceError};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_core::H256;
 use sp_core::crypto::KeyTypeId;
 use sp_keystore::Keystore;
+use sp_runtime::codec::{DecodeAll, Encode};
+use sp_runtime::generic::BlockId;
 use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 use stc_shield::{self, MemoryShieldKeystore};
@@ -38,6 +43,355 @@ use crate::ethereum::{
 };
 
 const LOG_TARGET: &str = "node-service";
+const MAX_WARP_SYNC_PROOF_SIZE: usize = 8 * 1024 * 1024;
+const TESTNET_WARP_PROTOCOL_ID: &str = "bittensor-testnet";
+
+#[derive(Clone)]
+struct TestnetWarpFragmentOverride {
+    set_id: sp_consensus_grandpa::SetId,
+    block: (H256, u32),
+    authorities: sp_consensus_grandpa::AuthorityList,
+}
+
+struct TestnetWarpSyncProvider {
+    backend: Arc<FullBackend>,
+    authority_set: sc_consensus_grandpa::SharedAuthoritySet<H256, NumberFor<Block>>,
+    canonical_changes: Vec<(sp_consensus_grandpa::SetId, u32)>,
+    inner: sc_consensus_grandpa::warp_proof::NetworkProvider<Block, FullBackend>,
+}
+
+fn authority_list_from_hex(authority_hex: &[&str]) -> sp_consensus_grandpa::AuthorityList {
+    use sp_consensus_grandpa::AuthorityId;
+    use sp_core::ByteArray;
+
+    authority_hex
+        .iter()
+        .map(|hex| {
+            let bytes: Vec<u8> = (0..hex.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("Invalid authority hex"))
+                .collect();
+            (
+                AuthorityId::from_slice(&bytes).expect("Invalid authority key length"),
+                1,
+            )
+        })
+        .collect()
+}
+
+fn testnet_genesis_grandpa_authorities() -> sp_consensus_grandpa::AuthorityList {
+    authority_list_from_hex(&[
+        "dc832c3b7bdfc721e90e5ee9e532c06b62a0def3c79dab5324460d938db6600a",
+        "c8a00ef71912b3868b101cb70ebd029999d1c9b6a1390122a98f60d72b9a0fc4",
+        "ee70f7b52998c2b4f3d42e509e8360cda92b0cd4ca100cd4d32be5a1ac297909",
+        "b57a038c9139a060358f3b654df74a1cb6d15bcdb8438bcebd64ce67ec4301eb",
+        "755f75dfc66aaa3b1e761a8845249509b8bd2fdf0d94cb74e1e12e1e0f4d3519",
+        "d97a64267f177505b0565a18677c9f5d4284d7f2eb96d515556e7e52217f82e9",
+    ])
+}
+
+fn testnet_warp_fragment_overrides() -> Vec<TestnetWarpFragmentOverride> {
+    let authorities = testnet_genesis_grandpa_authorities();
+
+    vec![
+        TestnetWarpFragmentOverride {
+            set_id: 0,
+            block: (
+                H256::from_str(
+                    "0x819a5e54ffa2d267d469c6da44de5e8819b1aad1717a1389c959eab4349722ca",
+                )
+                .expect("Invalid testnet authority change hash"),
+                4_589_660u32,
+            ),
+            authorities: authorities.clone(),
+        },
+        TestnetWarpFragmentOverride {
+            set_id: 1,
+            block: (
+                H256::from_str(
+                    "0x2b001bfdec34d007ab2ac07f712e64d0cb1a6fb4b51f7d47bfb3c7d7336a689b",
+                )
+                .expect("Invalid testnet authority change hash"),
+                4_589_686u32,
+            ),
+            authorities: authorities.clone(),
+        },
+        TestnetWarpFragmentOverride {
+            set_id: 3,
+            block: (
+                H256::from_str(
+                    "0x4d643da5fd7cd2b9ceb795091643e7223819e2a01f942ac049c5b928f7e30dc4",
+                )
+                .expect("Invalid testnet authority change hash"),
+                5_534_451u32,
+            ),
+            authorities,
+        },
+    ]
+}
+
+impl TestnetWarpSyncProvider {
+    fn new(
+        backend: Arc<FullBackend>,
+        authority_set: sc_consensus_grandpa::SharedAuthoritySet<H256, NumberFor<Block>>,
+        overrides: Vec<TestnetWarpFragmentOverride>,
+    ) -> Self {
+        let canonical_changes = overrides
+            .iter()
+            .map(|fork| (fork.set_id, fork.block.1))
+            .collect();
+        let inner = sc_consensus_grandpa::warp_proof::NetworkProvider::new(
+            backend.clone(),
+            authority_set.clone(),
+            sc_consensus_grandpa::warp_proof::HardForks::new_hard_forked_authorities(
+                overrides
+                    .into_iter()
+                    .map(|fork| sc_consensus_grandpa::AuthoritySetHardFork {
+                        set_id: fork.set_id,
+                        block: fork.block,
+                        authorities: fork.authorities,
+                        last_finalized: None,
+                    })
+                    .collect(),
+            ),
+        );
+
+        Self {
+            backend,
+            authority_set,
+            canonical_changes,
+            inner,
+        }
+    }
+
+    fn merged_authority_set_changes(
+        &self,
+        begin_number: NumberFor<Block>,
+    ) -> Result<
+        Vec<(sp_consensus_grandpa::SetId, NumberFor<Block>)>,
+        sc_consensus_grandpa::warp_proof::Error,
+    > {
+        merge_testnet_warp_authority_changes(
+            &self.canonical_changes,
+            begin_number,
+            &self.authority_set.authority_set_changes(),
+        )
+    }
+
+    fn generate_proof(
+        &self,
+        begin: H256,
+    ) -> Result<
+        (
+            Vec<sc_consensus_grandpa::warp_proof::WarpSyncFragment<Block>>,
+            bool,
+        ),
+        sc_consensus_grandpa::warp_proof::Error,
+    > {
+        let blockchain = self.backend.blockchain();
+        let begin_number = blockchain
+            .block_number_from_id(&BlockId::Hash(begin))?
+            .ok_or_else(|| {
+                sc_consensus_grandpa::warp_proof::Error::InvalidRequest(
+                    "Missing start block".to_string(),
+                )
+            })?;
+
+        if begin_number > blockchain.info().finalized_number {
+            return Err(sc_consensus_grandpa::warp_proof::Error::InvalidRequest(
+                "Start block is not finalized".to_string(),
+            ));
+        }
+
+        let canon_hash = blockchain.hash(begin_number)?.expect(
+            "begin number is lower than finalized number; all blocks below finalized number must have been imported; qed.",
+        );
+
+        if canon_hash != begin {
+            return Err(sc_consensus_grandpa::warp_proof::Error::InvalidRequest(
+                "Start block is not in the finalized chain".to_string(),
+            ));
+        }
+
+        let mut proofs = Vec::new();
+        let mut proofs_encoded_len = 0;
+        let mut proof_limit_reached = false;
+
+        for (_, last_block) in self.merged_authority_set_changes(begin_number)? {
+            let hash = match blockchain.block_hash_from_id(&BlockId::Number(last_block))? {
+                Some(hash) => hash,
+                None => {
+                    return Err(sc_consensus_grandpa::warp_proof::Error::InvalidRequest(
+                        "header number comes from previously applied set changes; corresponding hash must exist in db.".to_string(),
+                    ));
+                }
+            };
+
+            let header = match blockchain.header(hash)? {
+                Some(header) => header,
+                None => {
+                    return Err(sc_consensus_grandpa::warp_proof::Error::InvalidRequest(
+                        "header hash obtained from header number exists in db; corresponding header must exist in db too.".to_string(),
+                    ));
+                }
+            };
+
+            if sc_consensus_grandpa::find_scheduled_change::<Block>(&header).is_none() {
+                log::debug!(
+                    target: LOG_TARGET,
+                    "Stopping testnet warp proof generation at block #{last_block} because authority_set_changes pointed to a header without a scheduled GRANDPA change digest."
+                );
+                break;
+            }
+
+            let justification = blockchain
+                .justifications(header.hash())?
+                .and_then(|just| just.into_justification(sp_consensus_grandpa::GRANDPA_ENGINE_ID))
+                .ok_or(sc_consensus_grandpa::warp_proof::Error::MissingData)?;
+
+            let justification = sc_consensus_grandpa::GrandpaJustification::<Block>::decode_all(
+                &mut &justification[..],
+            )?;
+
+            let proof = sc_consensus_grandpa::warp_proof::WarpSyncFragment {
+                header: header.clone(),
+                justification,
+            };
+            let proof_size = proof.encoded_size();
+
+            if proofs_encoded_len + proof_size >= MAX_WARP_SYNC_PROOF_SIZE - 50 {
+                proof_limit_reached = true;
+                break;
+            }
+
+            proofs_encoded_len += proof_size;
+            proofs.push(proof);
+        }
+
+        let is_finished = if proof_limit_reached {
+            false
+        } else {
+            let latest_justification = sc_consensus_grandpa::best_justification(&*self.backend)?
+                .filter(|justification| {
+                    let limit = proofs
+                        .last()
+                        .map(|proof| proof.justification.target().0 + 1)
+                        .unwrap_or(begin_number);
+
+                    justification.target().0 >= limit
+                });
+
+            if let Some(latest_justification) = latest_justification {
+                let header = blockchain
+                    .header(latest_justification.target().1)?
+                    .expect("header hash corresponds to a justification in db; must exist in db as well; qed.");
+
+                let proof = sc_consensus_grandpa::warp_proof::WarpSyncFragment {
+                    header,
+                    justification: latest_justification,
+                };
+
+                if proofs_encoded_len + proof.encoded_size() >= MAX_WARP_SYNC_PROOF_SIZE - 50 {
+                    false
+                } else {
+                    proofs.push(proof);
+                    true
+                }
+            } else {
+                true
+            }
+        };
+
+        Ok((proofs, is_finished))
+    }
+}
+
+impl WarpSyncProvider<Block> for TestnetWarpSyncProvider {
+    fn generate(
+        &self,
+        start: H256,
+    ) -> Result<EncodedProof, Box<dyn std::error::Error + Send + Sync>> {
+        let proof = self.generate_proof(start).map_err(Box::new)?;
+        Ok(EncodedProof(proof.encode()))
+    }
+
+    fn verify(
+        &self,
+        proof: &EncodedProof,
+        set_id: sp_consensus_grandpa::SetId,
+        authorities: sp_consensus_grandpa::AuthorityList,
+    ) -> Result<VerificationResult<Block>, Box<dyn std::error::Error + Send + Sync>> {
+        self.inner.verify(proof, set_id, authorities)
+    }
+
+    fn current_authorities(&self) -> sp_consensus_grandpa::AuthorityList {
+        self.inner.current_authorities()
+    }
+}
+
+fn merge_testnet_warp_authority_changes(
+    canonical_changes: &[(sp_consensus_grandpa::SetId, u32)],
+    begin_number: NumberFor<Block>,
+    set_changes: &sc_consensus_grandpa::AuthoritySetChanges<NumberFor<Block>>,
+) -> Result<
+    Vec<(sp_consensus_grandpa::SetId, NumberFor<Block>)>,
+    sc_consensus_grandpa::warp_proof::Error,
+> {
+    let mut merged = canonical_changes
+        .iter()
+        .copied()
+        .filter(|(_, block_number)| *block_number > begin_number)
+        .collect::<Vec<_>>();
+
+    match set_changes.iter_from(begin_number) {
+        Some(iter) => {
+            for (set_id, block_number) in iter.cloned() {
+                if !merged
+                    .iter()
+                    .any(|(_, existing_block_number)| *existing_block_number == block_number)
+                {
+                    merged.push((set_id, block_number));
+                }
+            }
+        }
+        None if merged.is_empty() => {
+            return Err(sc_consensus_grandpa::warp_proof::Error::MissingData);
+        }
+        None => {}
+    }
+
+    merged.sort_by_key(|(_, block_number)| *block_number);
+    merged.dedup_by(|left, right| left.1 == right.1);
+    Ok(merged)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefixes_canonical_testnet_warp_transitions_before_poisoned_history() {
+        let canonical_changes = testnet_warp_fragment_overrides()
+            .into_iter()
+            .map(|fork| (fork.set_id, fork.block.1))
+            .collect::<Vec<_>>();
+        let poisoned_changes =
+            sc_consensus_grandpa::AuthoritySetChanges::from(vec![(0, 5_672_448u32)]);
+
+        let merged = merge_testnet_warp_authority_changes(&canonical_changes, 0, &poisoned_changes)
+            .expect("canonical overrides should cover genesis start");
+
+        assert_eq!(
+            merged,
+            vec![
+                (0, 4_589_660u32),
+                (1, 4_589_686u32),
+                (3, 5_534_451u32),
+                (0, 5_672_448u32),
+            ],
+        );
+    }
+}
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -132,18 +486,15 @@ pub fn new_partial(
 
         Some(HashSet::from([hash_5614869, hash_5614888]))
     } else {
-        // Testnet patch
-        let hash_4589660 =
-            H256::from_str("0x819a5e54ffa2d267d469c6da44de5e8819b1aad1717a1389c959eab4349722ca")
-                .expect("Invalid hash string.");
-
-        Some(HashSet::from([hash_4589660]))
+        None
     };
 
-    log::warn!(
-        "Grandpa block import patch enabled. Chain type = {:?}. Skip justifications for blocks = {skip_block_justifications:?}",
-        config.chain_spec.chain_type()
-    );
+    if skip_block_justifications.is_some() {
+        log::warn!(
+            "Grandpa block import patch enabled. Chain type = {:?}. Skip justifications for blocks = {skip_block_justifications:?}",
+            config.chain_spec.chain_type()
+        );
+    }
 
     let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
         client.clone(),
@@ -319,25 +670,35 @@ where
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
-        let set_id = match config.chain_spec.chain_type() {
-            // Finney patch
-            ChainType::Live => 3,
-            // Testnet patch
-            ChainType::Development => 2,
-            // All others (e.g. localnet)
-            _ => 0,
-        };
         log::warn!(
-            "Grandpa warp sync patch enabled. Chain type = {:?}. Set ID = {set_id}",
+            "Grandpa warp sync patch enabled. Chain type = {:?}.",
             config.chain_spec.chain_type()
         );
         net_config.add_notification_protocol(grandpa_protocol_config);
+        let shared_authority_set = grandpa_link.shared_authority_set().clone();
         let warp_sync: Arc<dyn WarpSyncProvider<Block>> =
-            Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
-                backend.clone(),
-                grandpa_link.shared_authority_set().clone(),
-                sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(set_id),
-            ));
+            if config.chain_spec.protocol_id() == Some(TESTNET_WARP_PROTOCOL_ID) {
+                Arc::new(TestnetWarpSyncProvider::new(
+                    backend.clone(),
+                    shared_authority_set,
+                    testnet_warp_fragment_overrides(),
+                ))
+            } else {
+                match config.chain_spec.chain_type() {
+                    ChainType::Live => {
+                        Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
+                            backend.clone(),
+                            shared_authority_set,
+                            sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(3),
+                        ))
+                    }
+                    _ => Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
+                        backend.clone(),
+                        shared_authority_set,
+                        sc_consensus_grandpa::warp_proof::HardForks::new_initial_set_id(0),
+                    )),
+                }
+            };
 
         Some(WarpSyncConfig::WithProvider(warp_sync))
     };
