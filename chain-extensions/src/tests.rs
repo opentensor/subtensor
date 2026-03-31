@@ -784,7 +784,7 @@ impl SubtensorExtensionEnv<mock::Test> for MockEnv {
     }
 
     fn origin(&mut self) -> pallet_contracts::Origin<mock::Test> {
-        pallet_contracts::Origin::Signed(self.caller.clone())
+        pallet_contracts::Origin::Signed(self.caller)
     }
 }
 
