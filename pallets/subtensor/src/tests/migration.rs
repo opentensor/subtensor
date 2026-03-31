@@ -19,15 +19,19 @@ use frame_support::{
     weights::Weight,
 };
 
+use crate::migrations::migrate_coldkey_swap_scheduled_to_announcements::deprecated as coldkey_swap_deprecated;
 use crate::migrations::migrate_storage;
+use frame_support::traits::Bounded;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
+use pallet_scheduler::ScheduledOf;
 use rate_limiting_interface::RateLimitingInterface;
 use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{traits::Hash, traits::Zero};
+use sp_std::marker::PhantomData;
 use substrate_fixed::types::extra::U2;
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance, rate_limiting};
@@ -2500,34 +2504,92 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
 #[test]
 fn test_migrate_coldkey_swap_scheduled_to_announcements() {
     new_test_ext(1000).execute_with(|| {
-        const MIGRATION_NAME: &[u8] = b"migrate_coldkey_swap_scheduled_to_announcements";
         use crate::migrations::migrate_coldkey_swap_scheduled_to_announcements::*;
+        use coldkey_swap_deprecated as deprecated;
+
+        const MIGRATION_NAME: &[u8] = b"migrate_coldkey_swap_scheduled_to_announcements";
         let now = frame_system::Pallet::<Test>::block_number();
 
         // Set the schedule duration and reschedule duration
         deprecated::ColdkeySwapScheduleDuration::<Test>::set(Some(now + 100));
         deprecated::ColdkeySwapRescheduleDuration::<Test>::set(Some(now + 200));
 
-        // Set some scheduled coldkey swaps
+        let make_swap_task = |who: U256, new_coldkey: U256| -> ScheduledOf<Test> {
+            let call_bytes = deprecated::RuntimeCall::<Test>::SubtensorCall(
+                deprecated::SubtensorCall::SwapColdkey {
+                    old_coldkey: who,
+                    new_coldkey,
+                    swap_cost: 1000.into(),
+                },
+            )
+            .encode();
+            pallet_scheduler::Scheduled {
+                maybe_id: None,
+                priority: 63,
+                call: Bounded::Inline(BoundedVec::truncate_from(call_bytes)),
+                maybe_periodic: None,
+                origin: OriginCaller::system(frame_system::RawOrigin::Root),
+                _phantom: PhantomData,
+            }
+        };
+
+        let make_other_task = || -> ScheduledOf<Test> {
+            let call_bytes = RuntimeCall::SubtensorModule(crate::Call::burned_register {
+                netuid: 1u16.into(),
+                hotkey: U256::from(999),
+            })
+            .encode();
+            pallet_scheduler::Scheduled {
+                maybe_id: None,
+                priority: 63,
+                call: Bounded::Inline(BoundedVec::truncate_from(call_bytes)),
+                maybe_periodic: None,
+                origin: OriginCaller::system(frame_system::RawOrigin::Root),
+                _phantom: PhantomData,
+            }
+        };
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(1),
             (now + 100, U256::from(10)),
         );
+        pallet_scheduler::Agenda::<Test>::insert(
+            now + 100,
+            BoundedVec::truncate_from(vec![
+                Some(make_swap_task(U256::from(1), U256::from(10))),
+                Some(make_other_task()),
+            ]),
+        );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(2),
             (now - 200, U256::from(20)),
         );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(3),
             (now + 200, U256::from(30)),
         );
+        pallet_scheduler::Agenda::<Test>::insert(
+            now + 200,
+            BoundedVec::truncate_from(vec![Some(make_swap_task(U256::from(3), U256::from(30)))]),
+        );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(4),
             (now - 400, U256::from(40)),
         );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(5),
             (now + 300, U256::from(50)),
+        );
+        pallet_scheduler::Agenda::<Test>::insert(
+            now + 300,
+            BoundedVec::truncate_from(vec![
+                Some(make_other_task()),
+                Some(make_swap_task(U256::from(5), U256::from(50))),
+            ]),
         );
 
         let w = migrate_coldkey_swap_scheduled_to_announcements::<Test>();
@@ -2540,11 +2602,32 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
         assert!(!deprecated::ColdkeySwapRescheduleDuration::<Test>::exists());
         assert_eq!(deprecated::ColdkeySwapScheduled::<Test>::iter().count(), 0);
 
-        // Ensure scheduled have been migrated to announcements if not executed yet
-        // The announcement should be at the scheduled time - delay to be able to call
-        // the swap_coldkey_announced call at the old scheduled time
+        assert_eq!(
+            pallet_scheduler::Agenda::<Test>::get(now + 100),
+            vec![None, Some(make_other_task())],
+            "swap task for who=1 should be cancelled"
+        );
+
+        assert_eq!(
+            pallet_scheduler::Agenda::<Test>::get(now + 200),
+            vec![None],
+            "swap task for who=3 should be cancelled"
+        );
+
+        assert_eq!(
+            pallet_scheduler::Agenda::<Test>::get(now + 300),
+            vec![Some(make_other_task()), None],
+            "swap task for who=5 should be cancelled"
+        );
+
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 3);
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(U256::from(
+            2
+        )));
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(U256::from(
+            4
+        )));
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::get(U256::from(1)),
             Some((

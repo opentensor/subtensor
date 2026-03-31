@@ -50,6 +50,7 @@ scripts/specs/local.json
 
 # Node modules
 node_modules
+e2e/.papi/
 
 # Claude Code configuration
 .claude

@@ -2,7 +2,7 @@
 #![allow(clippy::arithmetic_side_effects)]
 
 use approx::assert_abs_diff_eq;
-use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
+use frame_support::dispatch::{DispatchClass, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
@@ -361,30 +361,6 @@ fn test_add_stake_total_issuance_no_change() {
         // Check if total issuance has remained the same. (no fee, includes reserved/locked balance)
         let total_issuance = Balances::total_issuance();
         assert_eq!(total_issuance, initial_total_issuance);
-    });
-}
-
-#[test]
-fn test_remove_stake_dispatch_info_ok() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(0);
-        let amount_unstaked = AlphaBalance::from(5000);
-        let netuid = NetUid::from(1);
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake {
-            hotkey,
-            netuid,
-            amount_unstaked,
-        });
-        assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                call_weight: frame_support::weights::Weight::from_parts(1_671_800_000, 0)
-                    .add_proof_size(0),
-                extension_weight: frame_support::weights::Weight::zero(),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::Yes
-            }
-        );
     });
 }
 

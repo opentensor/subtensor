@@ -13,7 +13,7 @@ use subtensor_runtime_common::{
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
-        o: T::RuntimeOrigin,
+        o: OriginFor<T>,
         netuid: NetUid,
     ) -> Result<Option<T::AccountId>, DispatchError> {
         let coldkey = ensure_signed_or_root(o);
@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn ensure_subnet_owner(
-        o: T::RuntimeOrigin,
+        o: OriginFor<T>,
         netuid: NetUid,
     ) -> Result<T::AccountId, DispatchError> {
         let coldkey = ensure_signed(o);
@@ -39,7 +39,7 @@ impl<T: Config> Pallet<T> {
 
     /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
     pub fn ensure_sn_owner_or_root_with_limits(
-        o: T::RuntimeOrigin,
+        o: OriginFor<T>,
         netuid: NetUid,
         limits: &[crate::utils::rate_limiting::TransactionType],
     ) -> Result<Option<T::AccountId>, DispatchError> {

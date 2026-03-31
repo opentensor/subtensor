@@ -156,7 +156,7 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchGuard = crate::CheckColdkeySwap<Test>;
+    type DispatchExtension = crate::CheckColdkeySwap<Test>;
 }
 
 parameter_types! {
@@ -898,6 +898,7 @@ pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) 
 pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
     add_network(netuid, tempo, _modality);
     SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+    SubtensorModule::set_yuma3_enabled(netuid, false);
 }
 
 // Helper function to set up a neuron with stake

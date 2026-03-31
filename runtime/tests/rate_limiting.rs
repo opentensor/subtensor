@@ -2,8 +2,8 @@
 #![allow(clippy::expect_used)]
 
 use codec::{Compact, Encode};
-use frame_support::{assert_ok, traits::Get};
 use frame_support::traits::GetCallMetadata;
+use frame_support::{assert_ok, traits::Get};
 use node_subtensor_runtime::{
     Executive, HotkeySwapOnSubnetInterval, Runtime, RuntimeCall, SignedPayload,
     SubtensorInitialTxDelegateTakeRateLimit, System, TxExtension, UncheckedExtrinsic,

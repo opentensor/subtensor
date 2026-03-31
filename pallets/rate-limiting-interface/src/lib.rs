@@ -245,6 +245,10 @@ mod tests {
                 pallet_name: "unused",
             }
         }
+
+        fn get_module_indices() -> &'static [u8] {
+            &[0, 1]
+        }
     }
 
     #[test]

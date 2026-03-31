@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
     /// * 'InvalidIpAddress':
     ///     - The numerically encoded ip address does not resolve to a proper ip.
     pub fn do_serve_axon(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         version: u32,
         ip: u128,
@@ -152,7 +152,7 @@ impl<T: Config> Pallet<T> {
     /// * 'InvalidIpAddress':
     ///     - The numerically encoded ip address does not resolve to a proper ip.
     pub fn do_serve_prometheus(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         version: u32,
         ip: u128,
