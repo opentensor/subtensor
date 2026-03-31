@@ -189,18 +189,14 @@ pub mod pallet {
     }
 
     /// Storage map for encrypted extrinsics to be executed in on_initialize.
-    /// Uses u32 index for O(1) insertion and removal.
+    /// Uses u32 index for O(1) insertion and removal. Count is maintained automatically.
     #[pallet::storage]
     pub type PendingExtrinsics<T: Config> =
-        StorageMap<_, Identity, u32, PendingExtrinsic<T>, OptionQuery>;
+        CountedStorageMap<_, Identity, u32, PendingExtrinsic<T>, OptionQuery>;
 
     /// Next index to use when inserting a pending extrinsic (unique auto-increment).
     #[pallet::storage]
     pub type NextPendingExtrinsicIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
-
-    /// Number of pending extrinsics currently stored (for limit checking).
-    #[pallet::storage]
-    pub type PendingExtrinsicCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -374,10 +370,8 @@ pub mod pallet {
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
-            let count = PendingExtrinsicCount::<T>::get();
-
             ensure!(
-                count < MaxPendingExtrinsicsLimit::<T>::get(),
+                PendingExtrinsics::<T>::count() < MaxPendingExtrinsicsLimit::<T>::get(),
                 Error::<T>::TooManyPendingExtrinsics
             );
 
@@ -390,7 +384,6 @@ pub mod pallet {
             PendingExtrinsics::<T>::insert(index, pending);
 
             NextPendingExtrinsicIndex::<T>::put(index.saturating_add(1));
-            PendingExtrinsicCount::<T>::put(count.saturating_add(1));
 
             Self::deposit_event(Event::ExtrinsicStored { index, who });
             Ok(())
@@ -489,7 +482,7 @@ impl<T: Config> Pallet<T> {
     /// Returns the total weight consumed.
     pub fn process_pending_extrinsics() -> Weight {
         let next_index = NextPendingExtrinsicIndex::<T>::get();
-        let count = PendingExtrinsicCount::<T>::get();
+        let count = PendingExtrinsics::<T>::count();
 
         let mut weight = T::DbWeight::get().reads(2);
 
@@ -508,10 +501,13 @@ impl<T: Config> Pallet<T> {
                 continue;
             };
 
+            let remove_weight = T::DbWeight::get().reads_writes(1, 2);
+
             // Check if the extrinsic has expired
             let age = current_block.saturating_sub(pending.submitted_at);
             if age > ExtrinsicLifetime::<T>::get().into() {
-                remove_pending_extrinsic::<T>(index, &mut weight);
+                PendingExtrinsics::<T>::remove(index);
+                weight = weight.saturating_add(remove_weight);
 
                 Self::deposit_event(Event::ExtrinsicExpired { index });
 
@@ -519,7 +515,8 @@ impl<T: Config> Pallet<T> {
             }
 
             let Ok(call) = T::ExtrinsicDecryptor::decrypt(&pending.encrypted_call) else {
-                remove_pending_extrinsic::<T>(index, &mut weight);
+                PendingExtrinsics::<T>::remove(index);
+                weight = weight.saturating_add(remove_weight);
 
                 Self::deposit_event(Event::ExtrinsicDecodeFailed { index });
 
@@ -535,7 +532,8 @@ impl<T: Config> Pallet<T> {
             // Check per-extrinsic weight limit
             let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
             if info.call_weight.any_gt(max_extrinsic_weight) {
-                remove_pending_extrinsic::<T>(index, &mut weight);
+                PendingExtrinsics::<T>::remove(index);
+                weight = weight.saturating_add(remove_weight);
 
                 Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
 
@@ -550,7 +548,8 @@ impl<T: Config> Pallet<T> {
             }
 
             // We're going to execute it - remove the item from storage
-            remove_pending_extrinsic::<T>(index, &mut weight);
+            PendingExtrinsics::<T>::remove(index);
+            weight = weight.saturating_add(remove_weight);
 
             // Dispatch the extrinsic
             let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(pending.who).into();
@@ -572,13 +571,6 @@ impl<T: Config> Pallet<T> {
                     });
                 }
             }
-        }
-
-        /// Remove a pending extrinsic from storage and decrement count.
-        fn remove_pending_extrinsic<T: Config>(index: u32, weight: &mut Weight) {
-            PendingExtrinsics::<T>::remove(index);
-            PendingExtrinsicCount::<T>::mutate(|c| *c = c.saturating_sub(1));
-            *weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
         }
 
         weight

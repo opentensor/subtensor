@@ -2,8 +2,7 @@ use crate::mock::*;
 use crate::{
     AuthorKeys, CurrentKey, Error, ExtrinsicLifetime, HasMigrationRun, MaxExtrinsicWeight,
     MaxPendingExtrinsicsLimit, NextKey, NextKeyExpiresAt, NextPendingExtrinsicIndex,
-    OnInitializeWeight, PendingExtrinsic, PendingExtrinsicCount, PendingExtrinsics, PendingKey,
-    PendingKeyExpiresAt,
+    OnInitializeWeight, PendingExtrinsic, PendingExtrinsics, PendingKey, PendingKeyExpiresAt,
 };
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};
@@ -494,7 +493,7 @@ mod encrypted_extrinsics_tests {
             };
             assert_eq!(PendingExtrinsics::<Test>::get(0), Some(expected));
             assert_eq!(NextPendingExtrinsicIndex::<Test>::get(), 1);
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 1);
 
             // Verify event was emitted with index
             System::assert_last_event(
@@ -521,7 +520,7 @@ mod encrypted_extrinsics_tests {
 
             // Verify there's a pending extrinsic
             assert_eq!(NextPendingExtrinsicIndex::<Test>::get(), 1);
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 1);
             assert!(PendingExtrinsics::<Test>::get(0).is_some());
 
             // Run on_initialize
@@ -530,7 +529,7 @@ mod encrypted_extrinsics_tests {
             // Verify storage was cleared but NextPendingExtrinsicIndex stays (unique auto-increment)
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
             assert_eq!(NextPendingExtrinsicIndex::<Test>::get(), 1);
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 0);
 
             // Verify ExtrinsicDispatched event was emitted
             System::assert_has_event(crate::Event::<Test>::ExtrinsicDispatched { index: 0 }.into());
@@ -579,7 +578,7 @@ mod encrypted_extrinsics_tests {
 
             // Verify there is 1 pending extrinsic
             assert_eq!(NextPendingExtrinsicIndex::<Test>::get(), 1);
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 1);
             assert!(PendingExtrinsics::<Test>::get(0).is_some());
 
             // Run on_initialize
@@ -695,7 +694,7 @@ mod encrypted_extrinsics_tests {
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 0);
 
             // Verify ExtrinsicExpired event was emitted (not ExtrinsicDispatched)
             System::assert_has_event(crate::Event::<Test>::ExtrinsicExpired { index: 0 }.into());
@@ -746,7 +745,7 @@ mod encrypted_extrinsics_tests {
 
             // Verify storage was cleared
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 0);
 
             // Verify ExtrinsicDispatchFailed event was emitted
             System::assert_has_event(
@@ -777,14 +776,13 @@ mod encrypted_extrinsics_tests {
             // Insert at index 5, leaving 0-4 empty
             PendingExtrinsics::<Test>::insert(5, pending);
             NextPendingExtrinsicIndex::<Test>::put(6);
-            PendingExtrinsicCount::<Test>::put(1);
 
             // Run on_initialize - should handle the gap and process index 5
             MevShield::on_initialize(2);
 
             // Verify the extrinsic at index 5 was processed
             assert!(PendingExtrinsics::<Test>::get(5).is_none());
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 0);
 
             // Verify ExtrinsicDispatched event for index 5
             System::assert_has_event(crate::Event::<Test>::ExtrinsicDispatched { index: 5 }.into());
@@ -867,7 +865,7 @@ mod encrypted_extrinsics_tests {
             // Verify both were removed from storage
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
             assert!(PendingExtrinsics::<Test>::get(1).is_none());
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 0);
 
             // Verify first expired, second dispatched
             System::assert_has_event(crate::Event::<Test>::ExtrinsicExpired { index: 0 }.into());
@@ -1007,13 +1005,13 @@ mod encrypted_extrinsics_tests {
                 BoundedVec::truncate_from(call.encode()),
             ));
 
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 1);
 
             // Run on_initialize — should postpone due to weight limit
             MevShield::on_initialize(2);
 
             // Extrinsic should still be pending (postponed)
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 1);
             System::assert_has_event(crate::Event::<Test>::ExtrinsicPostponed { index: 0 }.into());
         });
     }
@@ -1074,7 +1072,7 @@ mod encrypted_extrinsics_tests {
             MevShield::on_initialize(4);
 
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 0);
             System::assert_has_event(crate::Event::<Test>::ExtrinsicExpired { index: 0 }.into());
         });
     }
@@ -1150,13 +1148,13 @@ mod encrypted_extrinsics_tests {
                 BoundedVec::truncate_from(call.encode()),
             ));
 
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 1);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 1);
 
             // Run on_initialize — should remove the extrinsic (weight exceeded)
             MevShield::on_initialize(2);
 
             // Extrinsic should be removed (not postponed)
-            assert_eq!(PendingExtrinsicCount::<Test>::get(), 0);
+            assert_eq!(PendingExtrinsics::<Test>::count(), 0);
             assert!(PendingExtrinsics::<Test>::get(0).is_none());
             System::assert_has_event(
                 crate::Event::<Test>::ExtrinsicWeightExceeded { index: 0 }.into(),

@@ -196,7 +196,14 @@ mod benches {
 
         // Fill queue to just under the limit for worst-case read path.
         let limit = MaxPendingExtrinsicsLimit::<T>::get();
-        PendingExtrinsicCount::<T>::put(limit.saturating_sub(1));
+        let dummy = PendingExtrinsic::<T> {
+            who: who.clone(),
+            encrypted_call: BoundedVec::truncate_from(vec![0x00; 1]),
+            submitted_at: 0u32.into(),
+        };
+        for i in 0..limit.saturating_sub(1) {
+            PendingExtrinsics::<T>::insert(i, dummy.clone());
+        }
         NextPendingExtrinsicIndex::<T>::put(limit.saturating_sub(1));
 
         let encrypted_call: BoundedVec<u8, MaxEncryptedCallSize> =
@@ -205,7 +212,7 @@ mod benches {
         #[extrinsic_call]
         store_encrypted(RawOrigin::Signed(who.clone()), encrypted_call);
 
-        assert_eq!(PendingExtrinsicCount::<T>::get(), limit);
+        assert_eq!(PendingExtrinsics::<T>::count(), limit);
     }
 
     /// Benchmark `set_max_pending_extrinsics_number`: root origin, single storage write.
