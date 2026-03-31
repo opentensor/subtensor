@@ -183,8 +183,8 @@ describeSuite({
                 expect(earlyResult.success, "early reannounce should fail").toBe(false);
                 log("Early reannounce rejected");
 
-                // Wait for reannouncement delay
-                await waitForBlocks(api, REANNOUNCEMENT_DELAY + 1);
+                // Wait for announcement delay + reannouncement delay
+                await waitForBlocks(api, ANNOUNCEMENT_DELAY + REANNOUNCEMENT_DELAY + 1);
 
                 // Reannounce (should succeed)
                 await announceColdkeySwap(api, oldColdkey, coldkeyHashBinary(newColdkey2));
