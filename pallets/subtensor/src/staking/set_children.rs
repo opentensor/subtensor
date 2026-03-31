@@ -600,65 +600,46 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
 
         // If the childkey cools down before the subnet start call + PendingChildKeyCooldown:
-        //   - If Start call happened: Postpone to start_block + PendingChildKeyCooldown
-        //   - If Start call didn't happen: Postpone to now + PendingChildKeyCooldown
-        let cooldown_period = PendingChildKeyCooldown::<T>::get();
-        let cooldown_allowed_block =
-            if let Some(first_emission_block) = FirstEmissionBlockNumber::<T>::get(netuid) {
-                let start_call_block = first_emission_block.saturating_sub(1);
-                start_call_block.saturating_add(cooldown_period)
-            } else {
-                current_block.saturating_add(cooldown_period)
-            };
+        //   - If Start call happened: Normal track
+        //   - If Start call didn't happen: Apply immediately
+        let start_call_occured = SubtokenEnabled::<T>::get(netuid) == true;
 
         // Iterate over all pending children of this subnet and set as needed
         let mut to_remove: Vec<T::AccountId> = Vec::new();
-        let mut to_reschedule: Vec<(T::AccountId, Vec<(u64, T::AccountId)>)> = Vec::new();
 
         PendingChildKeys::<T>::iter_prefix(netuid).for_each(
             |(hotkey, (children, cool_down_block))| {
-                if cool_down_block < current_block {
-                    if current_block >= cooldown_allowed_block {
-                        // If child-parent consistency is broken, we will fail setting new children silently
-                        let maybe_relations =
-                            Self::load_relations_from_pending(hotkey.clone(), &children, netuid);
-                        if let Ok(relations) = maybe_relations {
-                            let mut _weight: Weight = T::DbWeight::get().reads(0);
-                            if let Ok(()) = Self::persist_child_parent_relations(
-                                relations,
+                if (cool_down_block < current_block) || !start_call_occured {
+                    // If child-parent consistency is broken, we will fail setting new children silently
+                    let maybe_relations =
+                        Self::load_relations_from_pending(hotkey.clone(), &children, netuid);
+                    if let Ok(relations) = maybe_relations {
+                        let mut _weight: Weight = T::DbWeight::get().reads(0);
+                        if let Ok(()) =
+                            Self::persist_child_parent_relations(relations, netuid, &mut _weight)
+                        {
+                            // Log and emit event.
+                            log::trace!(
+                                "SetChildren( netuid:{:?}, hotkey:{:?}, children:{:?} )",
+                                hotkey,
                                 netuid,
-                                &mut _weight,
-                            ) {
-                                // Log and emit event.
-                                log::trace!(
-                                    "SetChildren( netuid:{:?}, hotkey:{:?}, children:{:?} )",
-                                    hotkey,
-                                    netuid,
-                                    children.clone()
-                                );
-                                Self::deposit_event(Event::SetChildren(
-                                    hotkey.clone(),
-                                    netuid,
-                                    children.clone(),
-                                ));
-                            }
+                                children.clone()
+                            );
+                            Self::deposit_event(Event::SetChildren(
+                                hotkey.clone(),
+                                netuid,
+                                children.clone(),
+                            ));
                         }
-
-                        to_remove.push(hotkey);
-                    } else {
-                        to_remove.push(hotkey.clone());
-                        to_reschedule.push((hotkey, children));
                     }
+
+                    to_remove.push(hotkey);
                 }
             },
         );
 
         for hotkey in to_remove {
             PendingChildKeys::<T>::remove(netuid, hotkey);
-        }
-
-        for (hotkey, children) in to_reschedule {
-            PendingChildKeys::<T>::insert(netuid, hotkey, (children, cooldown_allowed_block));
         }
     }
 

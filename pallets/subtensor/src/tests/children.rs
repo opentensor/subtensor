@@ -4220,3 +4220,50 @@ fn test_set_child_keys_empty_vector_clears_storage() {
         assert!(ParentKeys::<Test>::get(child, netuid).is_empty());
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_child_keys_no_start_call_sets_immediately --exact --show-output
+#[test]
+fn test_set_child_keys_no_start_call_sets_immediately() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid = NetUid::from(1);
+        let proportion1: u64 = 1000;
+        let proportion2: u64 = 2000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set multiple children
+        mock_schedule_children(
+            &coldkey,
+            &hotkey,
+            netuid,
+            &[(proportion1, child1), (proportion2, child2)],
+        );
+
+        // Normally happens on epoch
+        SubtensorModule::do_set_pending_children(netuid);
+
+        // Verify pending map contains our parent
+        assert!(PendingChildKeys::<Test>::contains_key(netuid, hotkey));
+
+        // Clear SubtokenEnabled
+        SubtokenEnabled::<Test>::remove(netuid);
+
+        // Normally happens on epoch
+        SubtensorModule::do_set_pending_children(netuid);
+
+        // Verify pending map is empty
+        assert!(!PendingChildKeys::<Test>::contains_key(netuid, hotkey));
+
+        // Verify that childkey is set
+        assert_eq!(
+            ChildKeys::<Test>::get(hotkey, netuid),
+            vec![(proportion1, child1), (proportion2, child2)]
+        );
+    });
+}
