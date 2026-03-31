@@ -1959,7 +1959,7 @@ fn test_sudo_set_bonds_reset_enabled() {
 fn test_sudo_set_yuma3_enabled() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
-        let to_be_set: bool = true;
+        let to_be_set: bool = false;
         let sn_owner = U256::from(1);
         add_network(netuid, 10);
         let init_value: bool = SubtensorModule::get_yuma3_enabled(netuid);

@@ -1,4 +1,0 @@
-name: E2E Tests
-
-on:
-  workflow_dispatch:
