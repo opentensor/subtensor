@@ -275,7 +275,7 @@ impl<T: Config> Pallet<T> {
         Self::set_min_allowed_weights(netuid, 1);
         Self::set_immunity_period(netuid, 5000);
         Self::set_yuma3_enabled(netuid, true);
-        Self::set_burn(netuid, TaoBalance::from(1_000_000_000));
+        Self::set_burn(netuid, DefaultNeuronBurnCost::<T>::get());
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {

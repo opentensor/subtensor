@@ -360,6 +360,12 @@ pub mod pallet {
         2
     }
 
+    /// Default Neuron Burn Cost
+    #[pallet::type_value]
+    pub fn DefaultNeuronBurnCost<T: Config>() -> TaoBalance {
+        TaoBalance::from(1_000_000_000u64)
+    }
+
     /// Default minimum root claim amount.
     /// This is the minimum amount of root claim that can be made.
     /// Any amount less than this will not be claimed.
