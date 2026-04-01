@@ -44,6 +44,7 @@ use crate::ethereum::{
 
 const LOG_TARGET: &str = "node-service";
 const MAX_WARP_SYNC_PROOF_SIZE: usize = 8 * 1024 * 1024;
+const MAX_WARP_SYNC_PROOF_SIZE_LIMIT: usize = MAX_WARP_SYNC_PROOF_SIZE - 50;
 const TESTNET_WARP_PROTOCOL_ID: &str = "bittensor-testnet";
 
 #[derive(Clone)]
@@ -69,14 +70,41 @@ fn authority_list_from_hex(authority_hex: &[&str]) -> sp_consensus_grandpa::Auth
         .map(|hex| {
             let bytes: Vec<u8> = (0..hex.len())
                 .step_by(2)
-                .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("Invalid authority hex"))
+                .map(|i| {
+                    let end = match i.checked_add(2) {
+                        Some(end) => end,
+                        None => panic!("Authority hex index overflow for {hex}"),
+                    };
+
+                    match u8::from_str_radix(&hex[i..end], 16) {
+                        Ok(byte) => byte,
+                        Err(_) => panic!("Invalid authority hex: {hex}"),
+                    }
+                })
                 .collect();
             (
-                AuthorityId::from_slice(&bytes).expect("Invalid authority key length"),
+                match AuthorityId::from_slice(&bytes) {
+                    Ok(authority_id) => authority_id,
+                    Err(_) => panic!("Invalid authority key length: {hex}"),
+                },
                 1,
             )
         })
         .collect()
+}
+
+fn testnet_authority_change_hash(hash: &str) -> H256 {
+    match H256::from_str(hash) {
+        Ok(hash) => hash,
+        Err(_) => panic!("Invalid testnet authority change hash: {hash}"),
+    }
+}
+
+fn warp_proof_limit_reached(proofs_encoded_len: usize, proof_size: usize) -> bool {
+    match proofs_encoded_len.checked_add(proof_size) {
+        Some(total_size) => total_size >= MAX_WARP_SYNC_PROOF_SIZE_LIMIT,
+        None => true,
+    }
 }
 
 fn testnet_genesis_grandpa_authorities() -> sp_consensus_grandpa::AuthorityList {
@@ -97,10 +125,9 @@ fn testnet_warp_fragment_overrides() -> Vec<TestnetWarpFragmentOverride> {
         TestnetWarpFragmentOverride {
             set_id: 0,
             block: (
-                H256::from_str(
+                testnet_authority_change_hash(
                     "0x819a5e54ffa2d267d469c6da44de5e8819b1aad1717a1389c959eab4349722ca",
-                )
-                .expect("Invalid testnet authority change hash"),
+                ),
                 4_589_660u32,
             ),
             authorities: authorities.clone(),
@@ -108,10 +135,9 @@ fn testnet_warp_fragment_overrides() -> Vec<TestnetWarpFragmentOverride> {
         TestnetWarpFragmentOverride {
             set_id: 1,
             block: (
-                H256::from_str(
+                testnet_authority_change_hash(
                     "0x2b001bfdec34d007ab2ac07f712e64d0cb1a6fb4b51f7d47bfb3c7d7336a689b",
-                )
-                .expect("Invalid testnet authority change hash"),
+                ),
                 4_589_686u32,
             ),
             authorities: authorities.clone(),
@@ -119,10 +145,9 @@ fn testnet_warp_fragment_overrides() -> Vec<TestnetWarpFragmentOverride> {
         TestnetWarpFragmentOverride {
             set_id: 3,
             block: (
-                H256::from_str(
+                testnet_authority_change_hash(
                     "0x4d643da5fd7cd2b9ceb795091643e7223819e2a01f942ac049c5b928f7e30dc4",
-                )
-                .expect("Invalid testnet authority change hash"),
+                ),
                 5_534_451u32,
             ),
             authorities,
@@ -203,9 +228,9 @@ impl TestnetWarpSyncProvider {
             ));
         }
 
-        let canon_hash = blockchain.hash(begin_number)?.expect(
-            "begin number is lower than finalized number; all blocks below finalized number must have been imported; qed.",
-        );
+        let canon_hash = blockchain
+            .hash(begin_number)?
+            .ok_or(sc_consensus_grandpa::warp_proof::Error::MissingData)?;
 
         if canon_hash != begin {
             return Err(sc_consensus_grandpa::warp_proof::Error::InvalidRequest(
@@ -259,12 +284,15 @@ impl TestnetWarpSyncProvider {
             };
             let proof_size = proof.encoded_size();
 
-            if proofs_encoded_len + proof_size >= MAX_WARP_SYNC_PROOF_SIZE - 50 {
+            if warp_proof_limit_reached(proofs_encoded_len, proof_size) {
                 proof_limit_reached = true;
                 break;
             }
 
-            proofs_encoded_len += proof_size;
+            proofs_encoded_len = match proofs_encoded_len.checked_add(proof_size) {
+                Some(total_size) => total_size,
+                None => return Err(sc_consensus_grandpa::warp_proof::Error::MissingData),
+            };
             proofs.push(proof);
         }
 
@@ -275,7 +303,7 @@ impl TestnetWarpSyncProvider {
                 .filter(|justification| {
                     let limit = proofs
                         .last()
-                        .map(|proof| proof.justification.target().0 + 1)
+                        .map(|proof| proof.justification.target().0.saturating_add(1))
                         .unwrap_or(begin_number);
 
                     justification.target().0 >= limit
@@ -284,14 +312,14 @@ impl TestnetWarpSyncProvider {
             if let Some(latest_justification) = latest_justification {
                 let header = blockchain
                     .header(latest_justification.target().1)?
-                    .expect("header hash corresponds to a justification in db; must exist in db as well; qed.");
+                    .ok_or(sc_consensus_grandpa::warp_proof::Error::MissingData)?;
 
                 let proof = sc_consensus_grandpa::warp_proof::WarpSyncFragment {
                     header,
                     justification: latest_justification,
                 };
 
-                if proofs_encoded_len + proof.encoded_size() >= MAX_WARP_SYNC_PROOF_SIZE - 50 {
+                if warp_proof_limit_reached(proofs_encoded_len, proof.encoded_size()) {
                     false
                 } else {
                     proofs.push(proof);
@@ -363,34 +391,6 @@ fn merge_testnet_warp_authority_changes(
     merged.sort_by_key(|(_, block_number)| *block_number);
     merged.dedup_by(|left, right| left.1 == right.1);
     Ok(merged)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn prefixes_canonical_testnet_warp_transitions_before_poisoned_history() {
-        let canonical_changes = testnet_warp_fragment_overrides()
-            .into_iter()
-            .map(|fork| (fork.set_id, fork.block.1))
-            .collect::<Vec<_>>();
-        let poisoned_changes =
-            sc_consensus_grandpa::AuthoritySetChanges::from(vec![(0, 5_672_448u32)]);
-
-        let merged = merge_testnet_warp_authority_changes(&canonical_changes, 0, &poisoned_changes)
-            .expect("canonical overrides should cover genesis start");
-
-        assert_eq!(
-            merged,
-            vec![
-                (0, 4_589_660u32),
-                (1, 4_589_686u32),
-                (3, 5_534_451u32),
-                (0, 5_672_448u32),
-            ],
-        );
-    }
 }
 
 /// The minimum period of blocks on which justifications will be
@@ -1216,4 +1216,38 @@ fn copy_keys(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefixes_canonical_testnet_warp_transitions_before_poisoned_history() {
+        let canonical_changes = testnet_warp_fragment_overrides()
+            .into_iter()
+            .map(|fork| (fork.set_id, fork.block.1))
+            .collect::<Vec<_>>();
+        let poisoned_changes =
+            sc_consensus_grandpa::AuthoritySetChanges::from(vec![(0, 5_672_448u32)]);
+
+        let merged = match merge_testnet_warp_authority_changes(
+            &canonical_changes,
+            0,
+            &poisoned_changes,
+        ) {
+            Ok(merged) => merged,
+            Err(error) => panic!("canonical overrides should cover genesis start: {error}"),
+        };
+
+        assert_eq!(
+            merged,
+            vec![
+                (0, 4_589_660u32),
+                (1, 4_589_686u32),
+                (3, 5_534_451u32),
+                (0, 5_672_448u32),
+            ],
+        );
+    }
 }
