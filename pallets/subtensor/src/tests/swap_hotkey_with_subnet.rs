@@ -12,7 +12,7 @@ use crate::*;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use std::collections::BTreeSet;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I96F32, U64F64};
 
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_owner --exact --nocapture
 #[test]
@@ -2397,21 +2397,17 @@ fn test_revert_claim_root_with_swap_hotkey() {
         ));
 
         assert_eq!(
-            RootClaimed::<Test>::get((netuid, &hk1, &coldkey)),
+            RootClaimed::<Test>::get((netuid, &hk2, &coldkey)),
             0u128,
-            "hk1 RootClaimed must be zero after swap"
+            "hk2 RootClaimed must be zero after swap"
         );
         assert_eq!(
-            RootClaimed::<Test>::get((netuid, &hk2, &coldkey)),
+            RootClaimed::<Test>::get((netuid, &hk1, &coldkey)),
             hk1_root_claimed,
             "hk2 must have hk1's RootClaimed after swap"
         );
-        assert!(!RootClaimable::<Test>::get(hk1).contains_key(&netuid));
-        assert_eq!(
-            *RootClaimable::<Test>::get(hk2).get(&netuid).unwrap(),
-            hk1_claimable,
-            "hk2 must have hk1's RootClaimable after swap"
-        );
+        assert!(RootClaimable::<Test>::get(hk1).contains_key(&netuid));
+        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&netuid));
 
         // Revert: hk2 -> hk1
         step_block(20);
@@ -2810,6 +2806,275 @@ fn test_revert_hotkey_swap_with_revert_stake_the_same() {
             old_hotkey_stake_after_revert_ck_3,
             new_hotkey_stake_before_revert_ck_3,
             epsilon = 1.into()
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_root_claims_unchanged_if_not_root --exact --nocapture
+#[test]
+fn test_swap_hotkey_root_claims_unchanged_if_not_root() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let neuron_hotkey = U256::from(1002);
+        let staker_coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
+        let new_hotkey = U256::from(10030);
+
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 2_000_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            netuid,
+        );
+        assert_eq!(validator_stake, initial_total_hotkey_alpha.into());
+
+        // Distribute pending root alpha
+        let pending_root_alpha = 1_000_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            pending_root_alpha.into(),
+            AlphaBalance::ZERO,
+        );
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(staker_coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        let claimable = RootClaimable::<Test>::get(neuron_hotkey)
+            .get(&netuid)
+            .copied();
+
+        assert!(claimable.is_some());
+        let claimable = claimable.unwrap_or_default();
+
+        assert!(claimable > 0);
+
+        assert!(RootClaimed::<Test>::get((netuid, &neuron_hotkey, &staker_coldkey,)) > 0u128);
+
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner_coldkey),
+            &neuron_hotkey,
+            &new_hotkey,
+            Some(netuid),
+            false
+        ));
+
+        // Claimable and claimed should stay on old hotkey
+        assert_eq!(
+            RootClaimable::<Test>::get(neuron_hotkey)
+                .get(&netuid)
+                .copied(),
+            Some(claimable)
+        );
+        assert!(RootClaimed::<Test>::get((netuid, &neuron_hotkey, &staker_coldkey,)) > 0u128);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_root_claims_changed_if_root --exact --nocapture
+#[test]
+fn test_swap_hotkey_root_claims_changed_if_root() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let owner_hotkey = U256::from(1002);
+
+        let neuron_coldkey = U256::from(1003);
+        let neuron_hotkey = U256::from(1004);
+        let neuron_hotkey_new = U256::from(1005);
+
+        let staker_coldkey = U256::from(1006);
+
+        let netuid_1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        register_ok_neuron(netuid_1, neuron_hotkey, neuron_coldkey, 1234);
+
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_coldkey, u64::MAX.into());
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 2_000_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            netuid_1,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            netuid_1,
+        );
+        assert_eq!(validator_stake, initial_total_hotkey_alpha.into());
+
+        // Distribute pending root alpha
+        let pending_root_alpha = 1_000_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid_1,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            pending_root_alpha.into(),
+            AlphaBalance::ZERO,
+        );
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(staker_coldkey),
+            BTreeSet::from([netuid_1])
+        ));
+
+        let claimable = RootClaimable::<Test>::get(neuron_hotkey)
+            .get(&netuid_1)
+            .copied();
+        assert!(claimable.is_some());
+        let claimable = claimable.unwrap_or_default();
+
+        assert!(claimable > 0);
+
+        let claimed = RootClaimed::<Test>::get((netuid_1, &neuron_hotkey, &staker_coldkey));
+        assert!(claimed > 0u128);
+
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(neuron_coldkey),
+            &neuron_hotkey,
+            &neuron_hotkey_new,
+            Some(NetUid::ROOT),
+            false
+        ));
+
+        // Claimable and claimed should be transferred to new hotkey
+        assert_eq!(
+            RootClaimable::<Test>::get(neuron_hotkey_new)
+                .get(&netuid_1)
+                .copied(),
+            Some(claimable)
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_1, &neuron_hotkey_new, &staker_coldkey,)),
+            claimed
+        );
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_root_claims_changed_if_all_subnets --exact --nocapture
+#[test]
+fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let owner_hotkey = U256::from(1002);
+
+        let neuron_coldkey = U256::from(1003);
+        let neuron_hotkey = U256::from(1004);
+        let neuron_hotkey_new = U256::from(1005);
+
+        let staker_coldkey = U256::from(1006);
+
+        // Create root network
+        SubtensorModule::set_tao_weight(0); // Start tao weight at 0
+        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+
+        let netuid_1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        register_ok_neuron(netuid_1, neuron_hotkey, neuron_coldkey, 1234);
+
+        SubtensorModule::add_balance_to_coldkey_account(&neuron_coldkey, u64::MAX.into());
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+
+        let root_stake = 2_000_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000_000u64;
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            netuid_1,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        let validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &neuron_hotkey,
+            &staker_coldkey,
+            netuid_1,
+        );
+        assert_eq!(validator_stake, initial_total_hotkey_alpha.into());
+
+        // Distribute pending root alpha
+        let pending_root_alpha = 1_000_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid_1,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            pending_root_alpha.into(),
+            AlphaBalance::ZERO,
+        );
+
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(staker_coldkey),
+            BTreeSet::from([netuid_1])
+        ));
+
+        let claimable = RootClaimable::<Test>::get(neuron_hotkey)
+            .get(&netuid_1)
+            .copied();
+        assert!(claimable.is_some());
+        let claimable = claimable.unwrap_or_default();
+
+        assert!(claimable > 0);
+
+        let claimed = RootClaimed::<Test>::get((netuid_1, &neuron_hotkey, &staker_coldkey));
+        assert!(claimed > 0u128);
+
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(neuron_coldkey),
+            &neuron_hotkey,
+            &neuron_hotkey_new,
+            None,
+            false
+        ));
+
+        // Claimable and claimed should be transferred to new hotkey
+        assert_eq!(
+            RootClaimable::<Test>::get(neuron_hotkey_new)
+                .get(&netuid_1)
+                .copied(),
+            Some(claimable)
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_1, &neuron_hotkey_new, &staker_coldkey,)),
+            claimed
         );
     });
 }
