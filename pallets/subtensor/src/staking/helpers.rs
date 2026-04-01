@@ -256,8 +256,15 @@ impl<T: Config> Pallet<T> {
                 );
 
                 if let Ok(cleared_stake) = maybe_cleared_stake {
-                    // Add the stake to the coldkey account.
-                    Self::add_balance_to_coldkey_account(coldkey, cleared_stake.into());
+                    // Move unstaked TAO from subnet account to coldkey.
+                    let maybe_subnet_account = Self::get_subnet_account_id(netuid);
+                    if let Some(subnet_account) = maybe_subnet_account {
+                        // This branch should always execute because subnet exists
+                        Self::transfer_tao(&subnet_account, coldkey, cleared_stake);
+                    } else {
+                        // This branch should never execute
+                        let _ = Self::burn_tao(coldkey, cleared_stake);
+                    }
                 } else {
                     // Just clear small alpha
                     let alpha =

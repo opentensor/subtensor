@@ -6,13 +6,13 @@
 /// 
 
 use frame_support::traits::{
-    dispatch::{DispatchError, DispatchResult},
     Imbalance, fungible::Mutate,
     tokens::{
         Fortitude, Precision, Preservation,
         fungible::{Balanced, Credit, Inspect},
     },
 };
+use sp_runtime::{DispatchError, DispatchResult};
 use sp_runtime::traits::AccountIdConversion;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 
@@ -37,6 +37,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Transfer TAO from one coldkey account to another.
+    ///
+    /// This is a plain transfer and may reap the origin account if `amount` reduces
+    /// its balance below the existential deposit (ED).    
     pub fn transfer_tao(
         origin_coldkey: &T::AccountId,
         destination_coldkey: &T::AccountId,
@@ -44,6 +48,57 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         <T as pallet::Config>::Currency::transfer(origin_coldkey, destination_coldkey, amount, Preservation::Expendable)?;
         Ok(())
+    }
+
+    /// Transfer TAO from a coldkey account for staking.
+    ///
+    /// If transferring the full `amount` would reap the origin account, this
+    /// function leaves the existential deposit (ED) in place and transfers less.
+    ///
+    /// # Parameters
+    /// - `netuid`: Subnet identifier.
+    /// - `origin_coldkey`: Account to transfer TAO from.
+    /// - `destination_coldkey`: Account to transfer TAO to.
+    /// - `amount`: Requested amount to transfer.
+    ///
+    /// # Returns
+    /// Returns the actual amount transferred.
+    ///
+    /// # Errors
+    /// Returns [`Error::<T>::InsufficientBalance`] if no positive amount can be
+    /// transferred while preserving the origin account.
+    ///
+    /// Propagates any other transfer error from the underlying currency.
+    pub fn transfer_tao_for_staking(
+        netuid: NetUid,
+        origin_coldkey: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
+        let subnet_account: T::AccountId =
+            Self::get_subnet_account_id(netuid).ok_or(Error::<T>::SubnetNotExists)?;
+
+        let max_preserving_amount =
+            <T as Config>::Currency::reducible_balance(
+                origin_coldkey,
+                Preservation::Preserve,
+                Fortitude::Polite,
+            );
+
+        let amount_to_transfer = amount.min(max_preserving_amount);
+
+        ensure!(
+            !amount_to_transfer.is_zero(),
+            Error::<T>::InsufficientBalance
+        );
+
+        <T as Config>::Currency::transfer(
+            origin_coldkey,
+            &subnet_account,
+            amount_to_transfer,
+            Preservation::Preserve,
+        )?;
+
+        Ok(amount_to_transfer)
     }
 
     /// Permanently remove TAO amount from existence by moving to the burn 
@@ -150,7 +205,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<CreditOf<T>, DispatchError> {
         let (to_spend, remainder) = credit.split(part);
 
-        T::Currency::resolve(who, to_spend)
+        <T as Config>::Currency::resolve(coldkey, to_spend)
             .map_err(|_credit| DispatchError::Other("Could not resolve partial credit"))?;
 
         Ok(remainder)
@@ -174,7 +229,7 @@ impl<T: Config> Pallet<T> {
             burn_address,
         );
 
-        T::Currency::resolve(&burn_address, credit).map_err(|unresolved_credit| {
+        <T as Config>::Currency::resolve(&burn_address, credit).map_err(|unresolved_credit| {
             log::error!(
                 "burn_credit failed: could not resolve credit {:?} into burn account {:?}",
                 unresolved_credit.peek(),

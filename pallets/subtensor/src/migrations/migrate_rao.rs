@@ -91,7 +91,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         //         .checked_div(I96F32::from_num(1_000_000_000))
         //         .unwrap_or(I96F32::from_num(0.0)),
         // );
-        Pallet::<T>::add_balance_to_coldkey_account(&owner, remaining_lock.into());
+        let credit = Pallet::<T>::mint_tao(remaining_lock.into());
+        Pallet::<T>::spend_tao(&owner, credit, remaining_lock.into());
         SubnetLocked::<T>::insert(netuid, TaoBalance::ZERO); // Clear lock amount.
         SubnetTAO::<T>::insert(netuid, pool_initial_tao);
         TotalStake::<T>::mutate(|total| {
