@@ -255,6 +255,7 @@ impl TestnetWarpSyncProvider {
 
             let proof = sc_consensus_grandpa::warp_proof::WarpSyncFragment {
                 header: header.clone(),
+                descendant_headers: Vec::new(),
                 justification,
             };
             let proof_size = proof.encoded_size();
@@ -288,6 +289,7 @@ impl TestnetWarpSyncProvider {
 
                 let proof = sc_consensus_grandpa::warp_proof::WarpSyncFragment {
                     header,
+                    descendant_headers: Vec::new(),
                     justification: latest_justification,
                 };
 

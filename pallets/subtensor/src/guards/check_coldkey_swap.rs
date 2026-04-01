@@ -1,6 +1,6 @@
 use crate::{Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config, Error};
 use frame_support::{
-    dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
+    dispatch::{DispatchGuard, DispatchInfo, PostDispatchInfo},
     pallet_prelude::*,
     traits::{IsSubType, OriginTrait},
 };
@@ -10,7 +10,7 @@ use sp_std::marker::PhantomData;
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 
-/// Dispatch extension that blocks most calls when a coldkey swap is active.
+/// Dispatch guard that blocks most calls when a coldkey swap is active.
 ///
 /// When a coldkey swap has been announced for the signing account:
 /// - If the swap is disputed, ALL calls are blocked.
@@ -20,13 +20,13 @@ type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 /// Root origin bypasses this extension entirely.
 /// Non-signed origins pass through.
 ///
-/// Because this is a `DispatchExtension` (not a `TransactionExtension`), it fires at every
+/// Because this is a `DispatchGuard`, it fires at every
 /// `call.dispatch(origin)` site — including inside the proxy pallet's `do_proxy()`.
 /// This means nested proxies of any depth are handled automatically with the real
 /// resolved origin.
 pub struct CheckColdkeySwap<T: Config>(PhantomData<T>);
 
-impl<T> DispatchExtension<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
+impl<T> DispatchGuard<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
 where
     T: Config + pallet_shield::Config,
     <T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -34,20 +34,14 @@ where
         + IsSubType<pallet_shield::Call<T>>,
     DispatchableOriginOf<T>: OriginTrait<AccountId = T::AccountId>,
 {
-    type Pre = ();
-
-    fn weight(_call: &CallOf<T>) -> Weight {
-        T::DbWeight::get().reads(2)
-    }
-
-    fn pre_dispatch(
+    fn check(
         origin: &DispatchableOriginOf<T>,
         call: &CallOf<T>,
-    ) -> Result<Self::Pre, DispatchErrorWithPostInfo> {
+    ) -> DispatchResultWithPostInfo {
         // Only care about signed origins.
         // Root is already bypassed by the extension before we get here.
         let Some(who) = origin.as_signer() else {
-            return Ok(());
+            return Ok(().into());
         };
 
         if ColdkeySwapAnnouncements::<T>::contains_key(who) {
@@ -75,7 +69,7 @@ where
             }
         }
 
-        Ok(())
+        Ok(().into())
     }
 }
 
