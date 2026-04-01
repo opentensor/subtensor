@@ -140,7 +140,11 @@ impl TransactionIdentifier {
     /// Resolves pallet/extrinsic names for this identifier using call metadata.
     pub fn names<Call: GetCallMetadata>(&self) -> Option<(&'static str, &'static str)> {
         let modules = Call::get_module_names();
-        let pallet_name = *modules.get(self.pallet_index as usize)?;
+        let module_indices = Call::get_module_indices();
+        let pallet_position = module_indices
+            .iter()
+            .position(|index| *index == self.pallet_index)?;
+        let pallet_name = *modules.get(pallet_position)?;
         let call_names = Call::get_call_names(pallet_name);
         let extrinsic_name = *call_names.get(self.extrinsic_index as usize)?;
         Some((pallet_name, extrinsic_name))
@@ -152,10 +156,11 @@ impl TransactionIdentifier {
         extrinsic_name: &str,
     ) -> Option<Self> {
         let modules = Call::get_module_names();
+        let module_indices = Call::get_module_indices();
         let pallet_pos = modules.iter().position(|name| *name == pallet_name)?;
         let call_names = Call::get_call_names(pallet_name);
         let extrinsic_pos = call_names.iter().position(|name| *name == extrinsic_name)?;
-        let pallet_index = u8::try_from(pallet_pos).ok()?;
+        let pallet_index = *module_indices.get(pallet_pos)?;
         let extrinsic_index = u8::try_from(extrinsic_pos).ok()?;
         Some(Self::new(pallet_index, extrinsic_index))
     }
@@ -226,6 +231,10 @@ mod tests {
     #[freeze_struct("43380fb4d208f4cf")]
     struct DummyCall(u8, u8);
 
+    #[derive(Clone, Copy, Debug, Encode)]
+    #[freeze_struct("1c68d24b937528db")]
+    struct SparseDummyCall(u8, u8);
+
     impl GetCallMetadata for DummyCall {
         fn get_module_names() -> &'static [&'static str] {
             &["P0", "P1"]
@@ -251,6 +260,31 @@ mod tests {
         }
     }
 
+    impl GetCallMetadata for SparseDummyCall {
+        fn get_module_names() -> &'static [&'static str] {
+            &["P0", "P1"]
+        }
+
+        fn get_call_names(module: &str) -> &'static [&'static str] {
+            match module {
+                "P0" => &["C0"],
+                "P1" => &["C0", "C1", "C2", "C3", "C4"],
+                _ => &[],
+            }
+        }
+
+        fn get_call_metadata(&self) -> CallMetadata {
+            CallMetadata {
+                function_name: "unused",
+                pallet_name: "unused",
+            }
+        }
+
+        fn get_module_indices() -> &'static [u8] {
+            &[0, 7]
+        }
+    }
+
     #[test]
     fn transaction_identifier_from_call_reads_first_two_bytes() {
         let id = TransactionIdentifier::from_call(&DummyCall(1, 4)).expect("identifier");
@@ -267,6 +301,19 @@ mod tests {
     fn transaction_identifier_for_call_names_resolves_indices() {
         let id = TransactionIdentifier::for_call_names::<DummyCall>("P1", "C4").expect("id");
         assert_eq!(id, TransactionIdentifier::new(1, 4));
+    }
+
+    #[test]
+    fn transaction_identifier_names_resolves_sparse_module_indices() {
+        let id = TransactionIdentifier::new(7, 4);
+        assert_eq!(id.names::<SparseDummyCall>(), Some(("P1", "C4")));
+    }
+
+    #[test]
+    fn transaction_identifier_for_call_names_resolves_sparse_module_indices() {
+        let id = TransactionIdentifier::for_call_names::<SparseDummyCall>("P1", "C4")
+            .expect("id");
+        assert_eq!(id, TransactionIdentifier::new(7, 4));
     }
 
     #[test]
