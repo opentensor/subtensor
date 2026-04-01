@@ -12,11 +12,11 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         netuid: NetUid,
         tao_amount: TaoBalance,
         limit_price: TaoBalance,
-        apply_limits: bool,
+        validate: bool,
     ) -> Result<AlphaBalance, DispatchError> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subtoken_enabled(netuid)?;
-        if apply_limits {
+        if validate {
             ensure!(
                 Self::coldkey_owns_hotkey(coldkey, hotkey),
                 Error::<T>::HotKeyAccountNotExists
@@ -43,7 +43,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             false,
             false,
         )?;
-        if apply_limits {
+        if validate {
             Self::set_stake_operation_limit(hotkey, coldkey, netuid);
         }
         Ok(alpha_out)
@@ -55,11 +55,11 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         netuid: NetUid,
         alpha_amount: AlphaBalance,
         limit_price: TaoBalance,
-        apply_limits: bool,
+        validate: bool,
     ) -> Result<TaoBalance, DispatchError> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subtoken_enabled(netuid)?;
-        if apply_limits {
+        if validate {
             ensure!(
                 Self::coldkey_owns_hotkey(coldkey, hotkey),
                 Error::<T>::HotKeyAccountNotExists

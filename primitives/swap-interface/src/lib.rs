@@ -60,7 +60,7 @@ pub trait OrderSwapInterface<AccountId> {
     /// Buy alpha with TAO: debit `tao_amount` from `coldkey`'s free balance,
     /// credit resulting alpha as stake at `hotkey` on `netuid`.
     ///
-    /// When `apply_limits` is `true` the implementation enforces subnet
+    /// When `validate` is `true` the implementation enforces subnet
     /// existence, hotkey registration, minimum stake amount, sufficient
     /// coldkey balance, and sets the staking rate-limit flag for `(hotkey,
     /// coldkey, netuid)` after a successful stake. Pass `false` for internal
@@ -71,13 +71,13 @@ pub trait OrderSwapInterface<AccountId> {
         netuid: NetUid,
         tao_amount: TaoBalance,
         limit_price: TaoBalance,
-        apply_limits: bool,
+        validate: bool,
     ) -> Result<AlphaBalance, DispatchError>;
 
     /// Sell alpha for TAO: remove `alpha_amount` from `coldkey`'s stake at
     /// `hotkey` on `netuid`, credit resulting TAO to `coldkey`'s free balance.
     ///
-    /// When `apply_limits` is `true` the implementation enforces subnet
+    /// When `validate` is `true` the implementation enforces subnet
     /// existence, hotkey registration, minimum stake amount, sufficient alpha
     /// balance, and checks that the staking rate-limit flag is not set for
     /// `(hotkey, coldkey, netuid)` (i.e. the account did not stake this
@@ -88,7 +88,7 @@ pub trait OrderSwapInterface<AccountId> {
         netuid: NetUid,
         alpha_amount: AlphaBalance,
         limit_price: TaoBalance,
-        apply_limits: bool,
+        validate: bool,
     ) -> Result<TaoBalance, DispatchError>;
 
     /// Current spot price: TAO per alpha, same scale as
@@ -116,17 +116,17 @@ pub trait OrderSwapInterface<AccountId> {
     /// netuid)` is checked — the transfer is rejected if `from_coldkey`
     /// already staked this block.
     ///
-    /// When `set_receiver_limit` is `true`, the staking rate-limit flag for
+    /// When `validate_receiver` is `true`, the staking rate-limit flag for
     /// `(to_hotkey, to_coldkey, netuid)` is set after the transfer, marking
     /// that `to_coldkey` has received stake this block.
     ///
     /// The two flags are intentionally separate so that each call site can
     /// opt into only the half it needs:
     /// - Collecting alpha from users into the pallet intermediary:
-    ///   `validate_sender: true, set_receiver_limit: false` — validates the
+    ///   `validate_sender: true, validate_receiver: false` — validates the
     ///   user but does not rate-limit the intermediary account.
     /// - Distributing alpha from the pallet intermediary to buyers:
-    ///   `validate_sender: false, set_receiver_limit: true` — skips checking
+    ///   `validate_sender: false, validate_receiver: true` — skips checking
     ///   the intermediary (which would fail) and rate-limits the buyer.
     fn transfer_staked_alpha(
         from_coldkey: &AccountId,
@@ -136,7 +136,7 @@ pub trait OrderSwapInterface<AccountId> {
         netuid: NetUid,
         amount: AlphaBalance,
         validate_sender: bool,
-        set_receiver_limit: bool,
+        validate_receiver: bool,
     ) -> DispatchResult;
 }
 
