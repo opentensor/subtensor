@@ -20,15 +20,17 @@ batch contents from the mempool until the block is proposed.
 User signs Order off-chain
         │
         ▼
-Relayer submits via execute_orders (one-by-one)
-        or execute_batched_orders (aggregated)
-        │
-        ├─ Invalid / expired / price-not-met → OrderSkipped (no state change)
-        │
-        └─ Valid → executed → OrderExecuted
-                                    │
-                                    └─ order_id written to Orders storage
-                                       (prevents replay)
+Relayer submits via execute_orders        Relayer submits via execute_batched_orders
+        (one-by-one, best-effort)                  (aggregated, atomic)
+        │                                           │
+        ├─ Invalid / expired /                      ├─ Any order invalid / expired /
+        │  price-not-met →                          │  price-not-met / root netuid →
+        │  silently skipped (no state change)       │  entire batch fails (DispatchError)
+        │                                           │
+        └─ Valid → executed                         └─ All orders valid → net pool swap
+                        │                                   → distribute pro-rata
+                        └─ order_id written to Orders as Fulfilled
+                           (prevents replay)
 
 User can cancel at any time via cancel_order
         └─ order_id written to Orders as Cancelled
@@ -130,11 +132,13 @@ impact.
 Aggregates all valid orders targeting `netuid` into a single net pool
 interaction:
 
-1. **Validate & classify** — orders with wrong netuid, invalid signature,
-   already-processed id, past expiry, or price condition not met emit
-   `OrderSkipped` and are dropped. The rest are split into buy-side
-   (`LimitBuy`) and sell-side (`TakeProfit`, `StopLoss`) groups. For buy
-   orders the net TAO (after fee) is pre-computed here.
+1. **Validate & classify** — if any order has the wrong netuid, an invalid
+   signature, an already-processed id, a past expiry, a price condition not met,
+   or targets the root netuid (0), the **entire call fails** with the
+   corresponding error. All orders must be valid for execution to proceed. Valid
+   orders are split into buy-side (`LimitBuy`) and sell-side (`TakeProfit`,
+   `StopLoss`) groups. For buy orders the net TAO (after fee) is pre-computed
+   here.
 
 2. **Collect assets** — gross TAO is pulled from each buyer's free balance into
    the pallet intermediary account. Gross alpha stake is moved from each seller's
@@ -186,7 +190,7 @@ payload is required so the pallet can derive the `OrderId`.
 | Event | Fields | Emitted when |
 |-------|--------|--------------|
 | `OrderExecuted` | `order_id`, `signer`, `netuid`, `side` | An individual order was successfully executed (by either extrinsic). |
-| `OrderSkipped` | `order_id` | An order was dropped during batch validation (bad signature, expired, wrong netuid, already processed, or price condition not met). |
+| `OrderSkipped` | `order_id` | An order was skipped by `execute_orders` (bad signature, expired, wrong netuid, already processed, price condition not met, or root netuid). Not emitted by `execute_batched_orders` — invalid orders there cause the whole call to fail. |
 | `OrderCancelled` | `order_id`, `signer` | The signer registered a cancellation via `cancel_order`. |
 | `GroupExecutionSummary` | `netuid`, `net_side`, `net_amount`, `actual_out`, `executed_count` | Emitted once per `execute_batched_orders` call summarising the net pool trade. `net_side` is `Buy` if TAO was sent to the pool, `Sell` if alpha was sent. `net_amount` and `actual_out` are zero when the two sides perfectly offset. |
 
@@ -198,8 +202,10 @@ payload is required so the pallet can derive the `OrderId`.
 |-------|-------|
 | `InvalidSignature` | Signature does not match the order payload and signer. Also used as a catch-all for failed validation in `execute_orders`. |
 | `OrderAlreadyProcessed` | The `OrderId` is already present in `Orders` (either `Fulfilled` or `Cancelled`). |
-| `OrderExpired` | `now > order.expiry`. |
-| `PriceConditionNotMet` | Current spot price is beyond the order's `limit_price`. |
+| `OrderExpired` | `now > order.expiry`. Only returned as a hard error by `execute_batched_orders`; silently skipped in `execute_orders`. |
+| `PriceConditionNotMet` | Current spot price is beyond the order's `limit_price`. Only returned as a hard error by `execute_batched_orders`; silently skipped in `execute_orders`. |
+| `OrderNetUidMismatch` | An order inside a `execute_batched_orders` call targets a different netuid than the batch parameter. |
+| `RootNetUidNotAllowed` | The order or batch targets netuid 0 (root). Root uses a fixed 1:1 stable mechanism with no AMM — limit orders are not meaningful there. |
 | `Unauthorized` | Caller of `cancel_order` is not the order's `signer`. |
 | `SwapReturnedZero` | The pool swap returned zero output for a non-zero residual input. |
 
