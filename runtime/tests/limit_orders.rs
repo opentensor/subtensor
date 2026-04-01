@@ -1168,3 +1168,341 @@ fn execute_orders_skips_order_for_nonexistent_subnet() {
         assert!(Orders::<Runtime>::get(id).is_none());
     });
 }
+
+// ── Fee-correctness tests ─────────────────────────────────────────────────────
+
+/// `execute_orders` (non-batched) correctly forwards the buy-order fee to the
+/// designated fee recipient and charges Alice exactly `amount` TAO in total.
+///
+/// Fee mechanics for a non-batched LimitBuy:
+///   fee_tao = fee_rate * tao_in  (computed from input BEFORE swap, exact integer arithmetic)
+///   tao_after_fee = tao_in - fee_tao  (goes to the pool)
+///   fee transferred directly from signer to fee_recipient via transfer_tao
+///
+/// We use amount = min_default_stake() * 2 so that tao_after_fee = 90% * 2 * min_default_stake()
+/// = 1.8 * min_default_stake() > min_default_stake(), satisfying the minimum-stake validation
+/// inside buy_alpha. With fee_rate = 10%:
+///   fee_tao = 10% * (min_default_stake() * 2) = min_default_stake() / 5 (exact integer result)
+///   Alice pays min_default_stake()*2 total and has min_default_stake()*8 remaining.
+///   Charlie (fee recipient) receives exactly fee_tao.
+#[test]
+fn execute_orders_fee_forwarded_to_recipient() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Fund Alice with 10× min_default_stake so she can cover the order amount and a margin.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Create the hotkey association Alice → Bob.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Charlie starts with zero balance — verify before submitting.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&charlie_id),
+            TaoBalance::from(0u64),
+            "charlie should start with zero balance"
+        );
+
+        // Use 2× min_default_stake so tao_after_fee (90%) stays above the minimum-stake threshold.
+        let order_amount = min_default_stake().to_u64() * 2u64;
+
+        // limit_price = u64::MAX → condition always met; fee_recipient = Charlie.
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            order_amount,
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::from_percent(10),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id.clone()),
+            orders,
+        ));
+
+        // Order must be marked as executed.
+        assert_eq!(Orders::<Runtime>::get(id), Some(OrderStatus::Fulfilled));
+
+        // Buy fee is computed from input: fee = 10% * order_amount. Exact integer arithmetic.
+        let expected_fee = Perbill::from_percent(10) * order_amount;
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&charlie_id),
+            TaoBalance::from(expected_fee),
+            "charlie (fee recipient) should receive exactly the buy fee"
+        );
+
+        // Alice spent exactly order_amount TAO (fee is deducted from the order amount,
+        // not charged on top), so she has min_default_stake()*10 - order_amount remaining.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&alice_id),
+            min_default_stake() * 8u64.into(),
+            "alice should have min_default_stake()*8 TAO remaining after the order"
+        );
+
+        // Alice must have received staked alpha through Bob. The pool received
+        // tao_after_fee = order_amount - fee; check within 1% of that expected alpha.
+        let tao_after_fee = order_amount - expected_fee;
+        let staked =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        assert!(
+            staked >= AlphaBalance::from(tao_after_fee * 99 / 100)
+                && staked <= AlphaBalance::from(tao_after_fee),
+            "alice should hold approximately tao_after_fee alpha after the LimitBuy with fee (got {staked:?})"
+        );
+    });
+}
+
+/// `execute_batched_orders` correctly forwards fees to a shared fee recipient (Eve)
+/// when both a buy and a sell order designate the same recipient.
+///
+/// Fee mechanics for batched orders:
+///   Buy: fee = gross - net = fee_rate * gross (withheld from pool input, transferred from pallet).
+///   Sell: fee = fee_rate * gross_share (withheld from TAO pool output, inherits slippage).
+///
+/// The buy fee is exact; the sell fee is approximate (pool slippage).
+#[test]
+fn batched_fee_forwarded_to_recipient() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob = Sr25519Keyring::Bob;
+        let bob_id = bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+        let dave_id = Sr25519Keyring::Dave.to_account_id();
+        let eve_id = Sr25519Keyring::Eve.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Alice (buyer) funded with free TAO.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Bob (seller) seeded with staked alpha through Dave.
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &dave_id,
+            &bob_id,
+            netuid,
+            initial_alpha,
+        );
+
+        // Create hotkey associations: Alice → Charlie, Bob → Dave.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
+        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
+
+        // Eve (shared fee recipient) starts with zero balance.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&eve_id),
+            TaoBalance::from(0u64),
+            "eve should start with zero balance"
+        );
+
+        let buy = make_signed_order(
+            alice,
+            charlie_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::from_percent(10),
+            eve_id.clone(), // fee goes to Eve
+        );
+        let sell = make_signed_order(
+            bob,
+            dave_id.clone(),
+            netuid,
+            OrderType::TakeProfit,
+            min_default_stake().into(),
+            0,        // price floor — always satisfied
+            u64::MAX, // no expiry
+            Perbill::from_percent(10),
+            eve_id.clone(), // fee goes to Eve
+        );
+        let buy_id = order_id(&buy.order);
+        let sell_id = order_id(&sell.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![buy, sell].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie_id.clone()),
+            netuid,
+            orders,
+        ));
+
+        // Both orders must be fulfilled.
+        assert_eq!(Orders::<Runtime>::get(buy_id), Some(OrderStatus::Fulfilled));
+        assert_eq!(
+            Orders::<Runtime>::get(sell_id),
+            Some(OrderStatus::Fulfilled)
+        );
+
+        // Buy fee is exact: fee = 10% * min_default_stake().
+        let buy_fee = Perbill::from_percent(10) * min_default_stake().to_u64();
+
+        // Sell fee is approximate (pool slippage). Lower bound: 10% of 99% of amount.
+        let sell_fee_lower_bound =
+            Perbill::from_percent(10) * (min_default_stake().to_u64() * 99 / 100);
+
+        // Eve must have received at least buy_fee + sell_fee_lower_bound,
+        // and at most buy_fee + 10% * amount (upper bound on sell fee with no slippage).
+        let sell_fee_upper_bound = Perbill::from_percent(10) * min_default_stake().to_u64();
+        let eve_balance = SubtensorModule::get_coldkey_balance(&eve_id);
+        assert!(
+            eve_balance >= TaoBalance::from(buy_fee + sell_fee_lower_bound)
+                && eve_balance <= TaoBalance::from(buy_fee + sell_fee_upper_bound),
+            "eve should receive combined buy+sell fee within tolerance (got {eve_balance:?})"
+        );
+    });
+}
+
+/// `execute_batched_orders` routes fees to the correct recipient when two orders
+/// in the same batch designate different fee recipients (Charlie for the buy,
+/// Dave for the sell).
+///
+/// Verifies that:
+///   - Charlie receives exactly the buy fee (no pool slippage on input).
+///   - Dave receives approximately the sell fee (within 1%, due to pool slippage).
+///   - Neither recipient received both fees.
+#[test]
+fn batched_multiple_fee_recipients_each_receive_correct_amount() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob = Sr25519Keyring::Bob;
+        let bob_id = bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+        let dave_id = Sr25519Keyring::Dave.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Alice (buyer) funded with free TAO.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Bob (seller) seeded with staked alpha through Dave.
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &dave_id,
+            &bob_id,
+            netuid,
+            initial_alpha,
+        );
+
+        // Create hotkey associations: Alice → Charlie, Bob → Dave.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
+        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
+
+        // Charlie and Dave start with zero free balance (they are hotkeys; no initial funding).
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&charlie_id),
+            TaoBalance::from(0u64),
+            "charlie should start with zero balance"
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&dave_id),
+            TaoBalance::from(0u64),
+            "dave should start with zero balance"
+        );
+
+        // Alice: LimitBuy, fee goes to Charlie.
+        let buy = make_signed_order(
+            alice,
+            charlie_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::from_percent(10),
+            charlie_id.clone(), // buy fee to Charlie
+        );
+        // Bob: TakeProfit, fee goes to Dave.
+        let sell = make_signed_order(
+            bob,
+            dave_id.clone(),
+            netuid,
+            OrderType::TakeProfit,
+            min_default_stake().into(),
+            0,        // price floor — always satisfied
+            u64::MAX, // no expiry
+            Perbill::from_percent(10),
+            dave_id.clone(), // sell fee to Dave
+        );
+        let buy_id = order_id(&buy.order);
+        let sell_id = order_id(&sell.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![buy, sell].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie_id.clone()),
+            netuid,
+            orders,
+        ));
+
+        // Both orders must be fulfilled.
+        assert_eq!(Orders::<Runtime>::get(buy_id), Some(OrderStatus::Fulfilled));
+        assert_eq!(
+            Orders::<Runtime>::get(sell_id),
+            Some(OrderStatus::Fulfilled)
+        );
+
+        // Charlie receives exactly the buy fee: 10% * min_default_stake().
+        let expected_buy_fee = Perbill::from_percent(10) * min_default_stake().to_u64();
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&charlie_id),
+            TaoBalance::from(expected_buy_fee),
+            "charlie (buy fee recipient) should receive exactly the buy fee"
+        );
+
+        // Dave receives approximately the sell fee (pool slippage ≤ 1%).
+        // Expected sell fee ≈ 10% of min_default_stake (the seller's gross TAO share).
+        let expected_sell_fee = Perbill::from_percent(10) * min_default_stake().to_u64();
+        let sell_fee_lower_bound =
+            Perbill::from_percent(10) * (min_default_stake().to_u64() * 99 / 100);
+        let dave_balance = SubtensorModule::get_coldkey_balance(&dave_id);
+        assert!(
+            dave_balance >= TaoBalance::from(sell_fee_lower_bound)
+                && dave_balance <= TaoBalance::from(expected_sell_fee),
+            "dave (sell fee recipient) should receive approximately the sell fee within 1% (got {dave_balance:?})"
+        );
+
+        // Verify fees are separate: neither recipient received both fees.
+        // Charlie's balance is exactly buy_fee (not buy_fee + sell_fee).
+        let charlie_balance = SubtensorModule::get_coldkey_balance(&charlie_id);
+        assert!(
+            charlie_balance <= TaoBalance::from(expected_buy_fee),
+            "charlie should not have received the sell fee (got {charlie_balance:?})"
+        );
+        // Dave's balance is ≤ sell_fee (not sell_fee + buy_fee).
+        assert!(
+            dave_balance <= TaoBalance::from(expected_sell_fee),
+            "dave should not have received the buy fee (got {dave_balance:?})"
+        );
+    });
+}
