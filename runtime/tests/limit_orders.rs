@@ -585,3 +585,222 @@ fn batched_fails_if_executing_without_hot_key_association() {
         );
     });
 }
+
+/// `execute_batched_orders` fails when the target subnet does not exist.
+/// The subnet is never initialised (no `setup_subnet`), so `buy_alpha`
+/// returns `SubnetNotExists` during the pool-swap step.
+#[test]
+fn batched_fails_for_nonexistent_subnet() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(2u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        // Fund Alice so that `transfer_tao` succeeds; the subnet check happens
+        // later inside `buy_alpha`.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        let buy = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![buy].try_into().unwrap();
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id),
+                netuid,
+                orders,
+            ),
+            pallet_subtensor::Error::<Runtime>::SubnetNotExists
+        );
+    });
+}
+
+/// `execute_batched_orders` fails when the subnet exists but its subtoken is
+/// not enabled. The order passes validation (price condition is met) and the
+/// TAO transfer succeeds, but `buy_alpha` then returns `SubtokenDisabled`.
+#[test]
+fn batched_fails_if_subtoken_not_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        // Initialise the network but deliberately skip setting SubtokenEnabled.
+        SubtensorModule::init_new_network(netuid, 0);
+
+        // Fund Alice so that the TAO transfer in `collect_assets` succeeds.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        let buy = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![buy].try_into().unwrap();
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id),
+                netuid,
+                orders,
+            ),
+            pallet_subtensor::Error::<Runtime>::SubtokenDisabled
+        );
+    });
+}
+
+/// An order whose `expiry` is in the past causes `execute_batched_orders` to
+/// fail with `OrderExpired`.
+#[test]
+fn batched_fails_for_expired_order() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Advance the runtime timestamp so that `now_ms` exceeds the order's expiry.
+        // `pallet_timestamp::Now` stores milliseconds; set it to 100_000 ms.
+        pallet_timestamp::Now::<Runtime>::put(100_000u64);
+
+        // Build an order that expired at 50_000 ms — already in the past.
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            50_000, // expiry in ms — before current timestamp of 100_000
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id),
+                netuid,
+                orders,
+            ),
+            pallet_limit_orders::Error::<Runtime>::OrderExpired
+        );
+    });
+}
+
+/// An order whose price condition is not met causes `execute_batched_orders` to
+/// fail with `PriceConditionNotMet`. A `LimitBuy` with `limit_price = 0`
+/// requires `current_price <= 0`; since the stable mechanism prices alpha at
+/// 1.0 TAO the condition is never met.
+#[test]
+fn batched_fails_if_price_condition_not_met() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // limit_price = 0 requires current_price <= 0, but current_price ~= 1.0 → fails.
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            0,        // price ceiling of 0 — never satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id),
+                netuid,
+                orders,
+            ),
+            pallet_limit_orders::Error::<Runtime>::PriceConditionNotMet
+        );
+    });
+}
+
+/// `execute_batched_orders` fails immediately with `RootNetUidNotAllowed` when
+/// called with `netuid = 0` (the root network).
+#[test]
+fn batched_fails_for_root_netuid() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(0u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        // Fund Alice so the call gets past any balance checks before hitting the root guard.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        let buy = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![buy].try_into().unwrap();
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id),
+                netuid,
+                orders,
+            ),
+            pallet_limit_orders::Error::<Runtime>::RootNetUidNotAllowed
+        );
+    });
+}

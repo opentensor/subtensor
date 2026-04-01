@@ -241,6 +241,10 @@ pub mod pallet {
         Unauthorized,
         /// The pool swap returned zero output for a non-zero input.
         SwapReturnedZero,
+        /// Root netuid (0) is not allowed for limit orders.
+        RootNetUidNotAllowed,
+        /// An order in the batch targets a different netuid than the batch netuid parameter.
+        OrderNetUidMismatch,
     }
 
     // ── Extrinsics ────────────────────────────────────────────────────────────
@@ -349,7 +353,9 @@ pub mod pallet {
         }
 
         /// Validates all execution preconditions for a signed order.
-        /// Netuid is intentionally not checked here; callers handle that separately.
+        /// Checks that the order's netuid is not root (0), that the signature is valid,
+        /// the order has not been processed, is not expired, and the price condition is met.
+        /// The batch netuid match (order.netuid == batch netuid) is checked separately by callers.
         pub(crate) fn is_order_valid(
             signed_order: &SignedOrder<T::AccountId>,
             order_id: H256,
@@ -357,6 +363,10 @@ pub mod pallet {
             current_price: U96F32,
         ) -> DispatchResult {
             let order = &signed_order.order;
+            ensure!(
+                !order.netuid.is_root(),
+                Error::<T>::RootNetUidNotAllowed
+            );
             ensure!(
                 matches!(signed_order.signature, MultiSignature::Sr25519(_))
                     && signed_order
@@ -452,12 +462,14 @@ pub mod pallet {
             netuid: NetUid,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
+            ensure!(!netuid.is_root(), Error::<T>::RootNetUidNotAllowed);
+
             let now_ms = T::TimeProvider::now().as_millis() as u64;
             let current_price = T::SwapInterface::current_alpha_price(netuid);
 
-            // Filter invalid/expired/price-missed orders; classify the rest into buys and sells.
+            // Validate all orders; any invalid order causes the entire batch to fail.
             let (valid_buys, valid_sells) =
-                Self::validate_and_classify(netuid, &orders, now_ms, current_price);
+                Self::validate_and_classify(netuid, &orders, now_ms, current_price)?;
 
             let executed_count = (valid_buys.len() + valid_sells.len()) as u32;
             if executed_count == 0 {
@@ -541,63 +553,63 @@ pub mod pallet {
         /// Validate every order against `netuid`, signature, expiry, and price.
         /// Valid orders are split into two BoundedVecs by side.
         /// Each entry is `(order_id, signer, hotkey, gross, net, fee)`.
+        ///
+        /// Returns an error immediately if any order fails validation (wrong netuid,
+        /// invalid signature, expired, already processed, or price condition not met).
         pub(crate) fn validate_and_classify(
             netuid: NetUid,
             orders: &BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
             now_ms: u64,
             current_price: U96F32,
-        ) -> (
-            BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
-            BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
-        ) {
+        ) -> Result<
+            (
+                BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
+                BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
+            ),
+            DispatchError,
+        > {
             let mut buys = BoundedVec::new();
             let mut sells = BoundedVec::new();
 
-            orders
-                .iter()
-                .filter_map(|signed_order| {
-                    let order = &signed_order.order;
-                    let order_id = Self::derive_order_id(order);
+            for signed_order in orders.iter() {
+                let order = &signed_order.order;
+                let order_id = Self::derive_order_id(order);
 
-                    let valid = order.netuid == netuid
-                        && Self::is_order_valid(signed_order, order_id, now_ms, current_price)
-                            .is_ok();
+                // Hard-fail if the order targets a different subnet than the batch netuid.
+                ensure!(order.netuid == netuid, Error::<T>::OrderNetUidMismatch);
 
-                    if !valid {
-                        Self::deposit_event(Event::OrderSkipped { order_id });
-                        return None;
-                    }
+                // Hard-fail on any per-order validation error (signature, expiry, price, root).
+                Self::is_order_valid(signed_order, order_id, now_ms, current_price)?;
 
-                    let net = if order.order_type.is_buy() {
-                        // Buy: fee on TAO input — net is the amount that reaches the pool.
-                        order.amount.saturating_sub(order.fee_rate * order.amount)
-                    } else {
-                        // Sell: fee on TAO output — full alpha enters the pool; the fee is
-                        // deducted from the TAO payout later in `distribute_tao_pro_rata`.
-                        order.amount
-                    };
+                let net = if order.order_type.is_buy() {
+                    // Buy: fee on TAO input — net is the amount that reaches the pool.
+                    order.amount.saturating_sub(order.fee_rate * order.amount)
+                } else {
+                    // Sell: fee on TAO output — full alpha enters the pool; the fee is
+                    // deducted from the TAO payout later in `distribute_tao_pro_rata`.
+                    order.amount
+                };
 
-                    Some(OrderEntry {
-                        order_id,
-                        signer: order.signer.clone(),
-                        hotkey: order.hotkey.clone(),
-                        side: order.order_type.clone(),
-                        gross: order.amount,
-                        net,
-                        fee_rate: order.fee_rate,
-                        fee_recipient: order.fee_recipient.clone(),
-                    })
-                })
-                .for_each(|entry| {
-                    // try_push cannot fail: both vecs share the same bound as `orders`.
-                    if entry.side.is_buy() {
-                        let _ = buys.try_push(entry);
-                    } else {
-                        let _ = sells.try_push(entry);
-                    }
-                });
+                let entry = OrderEntry {
+                    order_id,
+                    signer: order.signer.clone(),
+                    hotkey: order.hotkey.clone(),
+                    side: order.order_type.clone(),
+                    gross: order.amount,
+                    net,
+                    fee_rate: order.fee_rate,
+                    fee_recipient: order.fee_recipient.clone(),
+                };
 
-            (buys, sells)
+                // try_push cannot fail: both vecs share the same bound as `orders`.
+                if entry.side.is_buy() {
+                    let _ = buys.try_push(entry);
+                } else {
+                    let _ = sells.try_push(entry);
+                }
+            }
+
+            Ok((buys, sells))
         }
 
         /// Pull gross TAO from each buyer and gross staked alpha from each seller
