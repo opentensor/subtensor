@@ -1065,7 +1065,7 @@ mod dispatches {
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(263_300_000, 0)
         .saturating_add(T::DbWeight::get().reads(45_u64))
-        .saturating_add(T::DbWeight::get().writes(31_u64)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(31_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
