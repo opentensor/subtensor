@@ -486,7 +486,7 @@ impl<T: Config> Pallet<T> {
                     let mut new_burn_u64: u64 = Self::mul_by_q32(burn_u64, factor_q32);
 
                     // Prevent stuck-at-zero behavior.
-                    if new_burn_u64 == 0 {
+                    if new_burn_u64 < Self::MIN_REGISTRATION_COST {
                         new_burn_u64 = Self::MIN_REGISTRATION_COST; // 0.0001 Tao
                     }
 
@@ -516,7 +516,7 @@ impl<T: Config> Pallet<T> {
         let mut new_burn_u64: u64 = burn_u64.saturating_mul(mult);
 
         // Prevent stuck-at-zero behavior.
-        if new_burn_u64 == 0 {
+        if new_burn_u64 < Self::MIN_REGISTRATION_COST {
             new_burn_u64 = Self::MIN_REGISTRATION_COST; // 0.0001 Tao
         }
 
