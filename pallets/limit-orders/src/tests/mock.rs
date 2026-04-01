@@ -15,7 +15,7 @@ use frame_system as system;
 use sp_core::{H256, Pair};
 use sp_keyring::Sr25519Keyring as AccountKeyring;
 use sp_runtime::{
-    AccountId32, BuildStorage, MultiSignature, Perbill,
+    AccountId32, BuildStorage, MultiSignature,
     traits::{BlakeTwo256, IdentityLookup},
 };
 use substrate_fixed::types::U96F32;

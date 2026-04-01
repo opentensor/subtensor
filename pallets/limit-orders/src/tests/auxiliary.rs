@@ -6,7 +6,7 @@ use frame_support::{BoundedVec, assert_noop, assert_ok, traits::ConstU32};
 use sp_core::H256;
 use sp_keyring::Sr25519Keyring as AccountKeyring;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+use subtensor_runtime_common::NetUid;
 
 use sp_runtime::Perbill;
 
@@ -1121,7 +1121,7 @@ fn collect_fees_no_transfer_when_zero_fees() {
 use crate::Error;
 use codec::Encode;
 use sp_core::Pair;
-use sp_runtime::{MultiSignature, traits::Verify};
+use sp_runtime::MultiSignature;
 use subtensor_swap_interface::OrderSwapInterface;
 
 fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
