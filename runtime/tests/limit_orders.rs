@@ -193,11 +193,14 @@ fn limit_buy_order_executes_and_stakes_alpha() {
         assert_eq!(Orders::<Runtime>::get(id), Some(OrderStatus::Fulfilled));
 
         // Alice must now have staked alpha delegated through Bob on this subnet.
+        // AMM pool output has slight slippage even with the stable mechanism; check within 1%.
         let staked =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        let expected_alpha = min_default_stake().to_u64();
         assert!(
-            staked > AlphaBalance::ZERO,
-            "alice should hold staked alpha after a LimitBuy order executes"
+            staked >= AlphaBalance::from(expected_alpha * 99 / 100)
+                && staked <= AlphaBalance::from(expected_alpha),
+            "alice should hold approximately min_default_stake alpha after a LimitBuy order executes (got {staked:?})"
         );
     });
 }
@@ -252,12 +255,90 @@ fn take_profit_order_executes_and_unstakes_alpha() {
         // Order must be marked as executed.
         assert_eq!(Orders::<Runtime>::get(id), Some(OrderStatus::Fulfilled));
 
-        // Alice's staked alpha must have decreased after the sell executes.
+        // Alice's staked alpha must have decreased by exactly min_default_stake after the sell.
+        // Stable mechanism 1:1, zero fee: initial_alpha = min_default_stake * 10,
+        // sold min_default_stake alpha, so remaining = min_default_stake * 9.
         let remaining =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        assert_eq!(
+            remaining,
+            AlphaBalance::from(min_default_stake().to_u64() * 9u64),
+            "alice's staked alpha should be min_default_stake*9 after a TakeProfit order executes"
+        );
+    });
+}
+
+/// A StopLoss order whose price condition is satisfied (price ≤ limit_price) executes
+/// against the pool, marks the order as Fulfilled, decreases the seller's staked alpha,
+/// and credits free TAO to the seller.
+#[test]
+fn stop_loss_order_executes_and_unstakes_alpha() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Create the hot-key association.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Seed Alice with staked alpha through Bob so she has something to sell.
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id,
+            &alice_id,
+            netuid,
+            initial_alpha,
+        );
+
+        // limit_price = 1 → current_price (1.0) ≤ 1.0 → StopLoss condition always met.
+        // Using 1 (not u64::MAX) because limit_price also acts as the minimum TAO output
+        // in sell_alpha — u64::MAX would make the swap always fail.
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::StopLoss,
+            min_default_stake().into(), // sell min_default_stake alpha units
+            1,                          // price floor — current price 1.0 ≤ 1.0, always met
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order must be marked as executed.
+        assert_eq!(Orders::<Runtime>::get(id), Some(OrderStatus::Fulfilled));
+
+        // Alice's staked alpha must have decreased by exactly min_default_stake.
+        // Stable mechanism 1:1, zero fee: initial_alpha = min_default_stake * 10,
+        // sold min_default_stake alpha, so remaining = min_default_stake * 9.
+        let remaining =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        assert_eq!(
+            remaining,
+            AlphaBalance::from(min_default_stake().to_u64() * 9u64),
+            "alice's staked alpha should be min_default_stake*9 after a StopLoss order executes"
+        );
+
+        // Alice must have received TAO from the sale. Pool output has slight slippage; check within 1%.
+        let alice_tao = SubtensorModule::get_coldkey_balance(&alice_id);
+        let expected_tao = min_default_stake().to_u64();
         assert!(
-            remaining < initial_alpha.into(),
-            "alice's staked alpha should decrease after a TakeProfit order executes"
+            alice_tao >= TaoBalance::from(expected_tao * 99 / 100)
+                && alice_tao <= TaoBalance::from(expected_tao),
+            "alice should receive approximately min_default_stake TAO after a StopLoss order executes (got {alice_tao:?})"
         );
     });
 }
@@ -339,21 +420,32 @@ fn batched_buy_dominant_executes_correctly() {
         ));
 
         // Alice spent TAO and must hold the resulting staked alpha.
+        // Buy-dominant: Alice buys min_default_stake*2 TAO, Bob sells min_default_stake alpha.
+        // total_sell_tao_equiv = min_default_stake (at 1:1). residual_buy = min_default_stake.
+        // pool returns min_default_stake alpha; plus Bob's passthrough = min_default_stake.
+        // Alice receives Bob's passthrough alpha + pool alpha for the residual TAO.
+        // Pool output has slight slippage; check within 1% of expected min_default_stake*2.
         let alice_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &charlie_id,
             &alice_id,
             netuid,
         );
+        let expected_alice_alpha = min_default_stake().to_u64() * 2u64;
         assert!(
-            alice_alpha > AlphaBalance::ZERO,
-            "alice should hold staked alpha after buy-dominant batch"
+            alice_alpha >= AlphaBalance::from(expected_alice_alpha * 99 / 100)
+                && alice_alpha <= AlphaBalance::from(expected_alice_alpha),
+            "alice should hold approximately min_default_stake*2 alpha after buy-dominant batch (got {alice_alpha:?})"
         );
 
         // Bob sold alpha and must hold the resulting free TAO.
+        // In buy-dominant, total_tao = total_sell_tao_equiv = min_default_stake.
+        // Bob's gross_share = (min_default_stake * min_default_stake) / min_default_stake
+        //                   = min_default_stake (exact). Zero fee => net_share = min_default_stake.
         let bob_tao = SubtensorModule::get_coldkey_balance(&bob_id);
-        assert!(
-            bob_tao > TaoBalance::ZERO,
-            "bob should hold free TAO after buy-dominant batch"
+        assert_eq!(
+            bob_tao,
+            TaoBalance::from(min_default_stake().to_u64()),
+            "bob should hold exactly min_default_stake TAO after buy-dominant batch"
         );
     });
 }
@@ -431,21 +523,29 @@ fn batched_sell_dominant_executes_correctly() {
         ));
 
         // Alice spent TAO and must hold the resulting staked alpha.
+        // Sell-dominant: Alice buys min_default_stake TAO, Bob sells min_default_stake*2 alpha.
+        // total_buy_alpha_equiv = tao_to_alpha(min_default_stake, 1.0) = min_default_stake (exact).
+        // Alice's pro-rata share = (min_default_stake * min_default_stake) / min_default_stake
+        //                        = min_default_stake (exact, no floor rounding).
         let alice_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &charlie_id,
             &alice_id,
             netuid,
         );
-        assert!(
-            alice_alpha > AlphaBalance::ZERO,
-            "alice should hold staked alpha after sell-dominant batch"
+        assert_eq!(
+            alice_alpha,
+            AlphaBalance::from(min_default_stake().to_u64()),
+            "alice should hold exactly min_default_stake alpha after sell-dominant batch"
         );
 
-        // Bob sold alpha and must hold the resulting free TAO.
+        // Bob receives Alice's passthrough TAO + pool TAO for the residual alpha.
+        // Pool output has slight slippage; check within 1% of expected min_default_stake*2.
         let bob_tao = SubtensorModule::get_coldkey_balance(&bob_id);
+        let expected_bob_tao = min_default_stake().to_u64() * 2u64;
         assert!(
-            bob_tao > TaoBalance::ZERO,
-            "bob should hold free TAO after sell-dominant batch"
+            bob_tao >= TaoBalance::from(expected_bob_tao * 99 / 100)
+                && bob_tao <= TaoBalance::from(expected_bob_tao),
+            "bob should hold approximately min_default_stake*2 TAO after sell-dominant batch (got {bob_tao:?})"
         );
     });
 }
