@@ -48,6 +48,7 @@ rand_chacha = { workspace = true, optional = true }
 [dev-dependencies]
 stc-shield.workspace = true
 pallet-subtensor-utility.workspace = true
+pallet-balances.workspace = true
 rand_chacha.workspace = true
 pallet-timestamp.workspace = true
 pallet-aura.workspace = true
@@ -77,6 +78,7 @@ std = [
 	"sp-consensus-aura?/std",
 	"rand_chacha?/std",
 	"pallet-subtensor-utility/std",
+	"pallet-balances/std",
 	"stc-shield/std",
 	"subtensor-runtime-common/std",
 	"sp-keystore/std",

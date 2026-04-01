@@ -147,11 +147,43 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
     }
 }
 
+pub struct ShieldWeightRefund;
+impl pallet_shield::EncryptedExtrinsicFees<Runtime> for ShieldWeightRefund {
+    fn refund_enabled() -> bool {
+        true
+    }
+
+    fn refund_on_expiration() -> bool {
+        true
+    }
+
+    fn refund(
+        who: &AccountId,
+        charged_weight: Weight,
+        actual_weight: Weight,
+        _reason: pallet_shield::RefundReason,
+    ) -> Option<u128> {
+        use frame_support::traits::{fungible::Balanced, tokens::Precision};
+        use frame_support::weights::WeightToFee;
+
+        let diff = charged_weight.saturating_sub(actual_weight);
+        let refund_fee =
+            <subtensor_transaction_fee::LinearWeightToFee as WeightToFee>::weight_to_fee(&diff);
+        if refund_fee > 0u128.into() {
+            let _ = <Balances as Balanced<_>>::deposit(who, refund_fee, Precision::BestEffort);
+            Some(refund_fee.into())
+        } else {
+            None
+        }
+    }
+}
+
 impl pallet_shield::Config for Runtime {
     type AuthorityId = AuraId;
     type FindAuthors = FindAuraAuthors;
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = ();
+    type EncryptedExtrinsicFees = ShieldWeightRefund;
     type WeightInfo = pallet_shield::weights::SubstrateWeight<Runtime>;
 }
 

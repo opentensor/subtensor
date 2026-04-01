@@ -10610,6 +10610,7 @@ dependencies = [
  "log",
  "ml-kem",
  "pallet-aura",
+ "pallet-balances",
  "pallet-subtensor-utility",
  "pallet-timestamp",
  "parity-scale-codec",
