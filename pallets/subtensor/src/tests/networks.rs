@@ -2233,7 +2233,10 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
 }
 
 fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
-    let alpha = (U96F32::from_num(lock_cost_u64) / price).floor();
+    let alpha = (U96F32::from_num(lock_cost_u64)
+        .checked_div(price)
+        .unwrap_or_default())
+    .floor();
 
     if alpha > U96F32::from_num(u64::MAX) {
         u64::MAX
