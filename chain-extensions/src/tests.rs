@@ -1146,7 +1146,8 @@ mod caller_dispatch_tests {
                 );
             assert!(remaining_alpha <= AlphaBalance::from(1_000));
 
-            let post_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+            let post_balance =
+                pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
             assert!(post_balance > pre_balance);
         });
     }
@@ -1187,9 +1188,12 @@ mod caller_dispatch_tests {
                 .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(36))
                 .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(21));
 
-            let mut env =
-                MockEnv::new(FunctionId::CallerUnstakeAllAlphaV1, coldkey, hotkey.encode())
-                    .with_expected_weight(expected_weight);
+            let mut env = MockEnv::new(
+                FunctionId::CallerUnstakeAllAlphaV1,
+                coldkey,
+                hotkey.encode(),
+            )
+            .with_expected_weight(expected_weight);
 
             let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
             assert_success(ret);
@@ -1486,7 +1490,8 @@ mod caller_dispatch_tests {
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid,
                 );
-            let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+            let balance_before =
+                pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
             let expected_weight = Weight::from_parts(402_900_000, 0)
                 .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(24))
@@ -1513,7 +1518,8 @@ mod caller_dispatch_tests {
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid,
                 );
-            let balance_after = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+            let balance_after =
+                pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
             assert!(stake_after > stake_before);
             assert!(stake_after > AlphaBalance::ZERO);
@@ -1571,7 +1577,8 @@ mod caller_dispatch_tests {
                 .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
                 .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(14));
 
-            let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+            let balance_before =
+                pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
             let mut env = MockEnv::new(
                 FunctionId::CallerRemoveStakeLimitV1,
@@ -1588,7 +1595,8 @@ mod caller_dispatch_tests {
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid,
                 );
-            let balance_after = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+            let balance_after =
+                pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
             assert!(alpha_after < alpha_before);
             assert!(balance_after > balance_before);
@@ -1709,7 +1717,8 @@ mod caller_dispatch_tests {
                 .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
                 .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(14));
 
-            let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+            let balance_before =
+                pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
             let mut env = MockEnv::new(
                 FunctionId::CallerRemoveStakeFullLimitV1,
@@ -1726,7 +1735,8 @@ mod caller_dispatch_tests {
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid,
                 );
-            let balance_after = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+            let balance_after =
+                pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
             assert!(alpha_after.is_zero());
             assert!(balance_after > balance_before);
@@ -1810,8 +1820,11 @@ mod caller_dispatch_tests {
                 MockEnv::new(FunctionId::CallerAddProxyV1, delegator, delegate.encode());
             assert_success(SubtensorChainExtension::<mock::Test>::dispatch(&mut add_env).unwrap());
 
-            let mut remove_env =
-                MockEnv::new(FunctionId::CallerRemoveProxyV1, delegator, delegate.encode());
+            let mut remove_env = MockEnv::new(
+                FunctionId::CallerRemoveProxyV1,
+                delegator,
+                delegate.encode(),
+            );
             let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut remove_env).unwrap();
             assert_success(ret);
 
