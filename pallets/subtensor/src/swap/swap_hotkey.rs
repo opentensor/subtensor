@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
+use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{MechId, NetUid, Token};
 
@@ -34,7 +35,7 @@ impl<T: Config> Pallet<T> {
         _keep_stake: bool,
     ) -> DispatchResultWithPostInfo {
         return Err(Error::<T>::DisabledTemporarily.into());
-        // 1. Ensure the origin is signed and get the coldkey
+        // // 1. Ensure the origin is signed and get the coldkey
         // let coldkey = ensure_signed(origin)?;
 
         // // 2. Ensure the coldkey owns the old hotkey
@@ -360,26 +361,6 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         keep_stake: bool,
     ) -> DispatchResult {
-        // 1. Swap total hotkey alpha for all subnets it exists on.
-        // TotalHotkeyAlpha( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
-        // Only transfer stake when keep_stake is false.
-        if !keep_stake {
-            let alpha = TotalHotkeyAlpha::<T>::take(old_hotkey, netuid);
-
-            TotalHotkeyAlpha::<T>::mutate(new_hotkey, netuid, |value| {
-                *value = value.saturating_add(alpha)
-            });
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-
-            // 2. Swap total hotkey shares on all subnets it exists on.
-            // TotalHotkeyShares( hotkey, netuid ) -> alpha -- the total alpha that the hotkey has on a specific subnet.
-            let share = TotalHotkeyShares::<T>::take(old_hotkey, netuid);
-            TotalHotkeyShares::<T>::mutate(new_hotkey, netuid, |value| {
-                *value = value.saturating_add(share)
-            });
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-        }
-
         // 3. Swap all subnet specific info.
 
         // 3.1 Remove the previous hotkey and insert the new hotkey from membership.
@@ -538,7 +519,10 @@ impl<T: Config> Pallet<T> {
             Self::swap_voting_power_for_hotkey(old_hotkey, new_hotkey, netuid);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
-            // 9. Swap Alpha
+            // Transfer root claimable
+            Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
+
+            // Swap Alpha
             // Alpha( hotkey, coldkey, netuid ) -> alpha
             let old_alpha_values: Vec<((T::AccountId, NetUid), U64F64)> =
                 Alpha::<T>::iter_prefix((old_hotkey,)).collect();
@@ -548,31 +532,38 @@ impl<T: Config> Pallet<T> {
             // 9.1. Transfer root claimable
             Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
 
-            // 9.2. Insert the new alpha values.
-            for ((coldkey, netuid_alpha), alpha) in old_alpha_values {
-                if netuid == netuid_alpha {
-                    Self::transfer_root_claimed_for_new_keys(
-                        netuid, old_hotkey, new_hotkey, &coldkey, &coldkey,
-                    );
+            // Insert the new alpha values.
+            // Deduplicate coldkeys staking to old_hotkey from alpha and alpha_v2
+            let unique_coldkeys: BTreeSet<T::AccountId> = old_alpha_values
+                .into_iter()
+                .map(|((coldkey, netuid_alpha), _)| (coldkey, netuid_alpha))
+                .filter(|(_, netuid_alpha)| *netuid_alpha == netuid)
+                .map(|(coldkey, _)| coldkey)
+                .collect();
 
-                    let new_alpha = Alpha::<T>::take((new_hotkey, &coldkey, netuid));
-                    Alpha::<T>::remove((old_hotkey, &coldkey, netuid));
-                    Alpha::<T>::insert(
-                        (new_hotkey, &coldkey, netuid),
-                        alpha.saturating_add(new_alpha),
-                    );
-                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+            // For each coldkey remove their stake from old_hotkey and add to new_hotkey
+            for coldkey in unique_coldkeys {
+                Self::transfer_root_claimed_for_new_keys(
+                    netuid, old_hotkey, new_hotkey, &coldkey, &coldkey,
+                );
 
-                    // Swap StakingHotkeys.
-                    // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
-                    let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
-                    weight.saturating_accrue(T::DbWeight::get().reads(1));
-                    if staking_hotkeys.contains(old_hotkey) && !staking_hotkeys.contains(new_hotkey)
-                    {
-                        staking_hotkeys.push(new_hotkey.clone());
-                        StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
-                        weight.saturating_accrue(T::DbWeight::get().writes(1));
-                    }
+                let alpha_old =
+                    Self::get_stake_for_hotkey_and_coldkey_on_subnet(old_hotkey, &coldkey, netuid);
+                Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    old_hotkey, &coldkey, netuid, alpha_old,
+                );
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    new_hotkey, &coldkey, netuid, alpha_old,
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
+                let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+                if staking_hotkeys.contains(old_hotkey) && !staking_hotkeys.contains(new_hotkey) {
+                    staking_hotkeys.push(new_hotkey.clone());
+                    StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+                    weight.saturating_accrue(T::DbWeight::get().writes(1));
                 }
             }
         }
