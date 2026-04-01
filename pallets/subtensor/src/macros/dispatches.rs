@@ -2146,7 +2146,7 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight((Weight::from_parts(29_930_000, 0)
+        #[pallet::weight((Weight::from_parts(55_590_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_coldkey_auto_stake_hotkey(
