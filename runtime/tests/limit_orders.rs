@@ -721,11 +721,7 @@ fn batched_fails_for_nonexistent_subnet() {
             vec![buy].try_into().unwrap();
 
         assert_noop!(
-            LimitOrders::execute_batched_orders(
-                RuntimeOrigin::signed(charlie_id),
-                netuid,
-                orders,
-            ),
+            LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
             pallet_subtensor::Error::<Runtime>::SubnetNotExists
         );
     });
@@ -768,11 +764,7 @@ fn batched_fails_if_subtoken_not_enabled() {
             vec![buy].try_into().unwrap();
 
         assert_noop!(
-            LimitOrders::execute_batched_orders(
-                RuntimeOrigin::signed(charlie_id),
-                netuid,
-                orders,
-            ),
+            LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
             pallet_subtensor::Error::<Runtime>::SubtokenDisabled
         );
     });
@@ -811,11 +803,7 @@ fn batched_fails_for_expired_order() {
             vec![signed].try_into().unwrap();
 
         assert_noop!(
-            LimitOrders::execute_batched_orders(
-                RuntimeOrigin::signed(charlie_id),
-                netuid,
-                orders,
-            ),
+            LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
             pallet_limit_orders::Error::<Runtime>::OrderExpired
         );
     });
@@ -852,11 +840,7 @@ fn batched_fails_if_price_condition_not_met() {
             vec![signed].try_into().unwrap();
 
         assert_noop!(
-            LimitOrders::execute_batched_orders(
-                RuntimeOrigin::signed(charlie_id),
-                netuid,
-                orders,
-            ),
+            LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
             pallet_limit_orders::Error::<Runtime>::PriceConditionNotMet
         );
     });
@@ -895,11 +879,7 @@ fn batched_fails_for_root_netuid() {
             vec![buy].try_into().unwrap();
 
         assert_noop!(
-            LimitOrders::execute_batched_orders(
-                RuntimeOrigin::signed(charlie_id),
-                netuid,
-                orders,
-            ),
+            LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
             pallet_limit_orders::Error::<Runtime>::RootNetUidNotAllowed
         );
     });
@@ -1013,7 +993,10 @@ fn execute_orders_valid_and_invalid_mixed() {
         ));
 
         // Valid order executed — stored as Fulfilled.
-        assert_eq!(Orders::<Runtime>::get(valid_id), Some(OrderStatus::Fulfilled));
+        assert_eq!(
+            Orders::<Runtime>::get(valid_id),
+            Some(OrderStatus::Fulfilled)
+        );
         // Expired order silently skipped — not written to storage.
         assert!(Orders::<Runtime>::get(expired_id).is_none());
     });

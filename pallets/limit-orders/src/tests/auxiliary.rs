@@ -110,7 +110,8 @@ fn validate_and_classify_separates_buys_and_sells() {
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
-        ).expect("validate_and_classify should succeed");
+        )
+        .expect("validate_and_classify should succeed");
 
         assert_eq!(buys.len(), 1, "expected 1 valid buy");
         assert_eq!(sells.len(), 1, "expected 1 valid sell");
@@ -283,7 +284,8 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
-        ).expect("validate_and_classify should succeed");
+        )
+        .expect("validate_and_classify should succeed");
 
         assert_eq!(buys.len(), 1);
         let entry = &buys[0];

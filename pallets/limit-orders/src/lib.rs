@@ -8,7 +8,10 @@ mod tests;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::{AccountId32, MultiSignature, Perbill, traits::Verify};
+use sp_runtime::{
+    AccountId32, MultiSignature, Perbill,
+    traits::{ConstBool, Verify},
+};
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
@@ -184,6 +187,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type Orders<T: Config> = StorageMap<_, Blake2_128Concat, H256, OrderStatus, OptionQuery>;
 
+    /// Switch to enable/disable the pallet. true by default
+    #[pallet::storage]
+    pub type LimitOrdersEnabled<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<true>>;
+
     // ── Events ────────────────────────────────────────────────────────────────
 
     #[pallet::event]
@@ -223,6 +230,8 @@ pub mod pallet {
             /// Number of orders that were successfully executed.
             executed_count: u32,
         },
+        /// Root has either enabled(true) or disabled(false) the pallet
+        LimitOrdersPalletStatusChanged { enabled: bool },
     }
 
     // ── Errors ────────────────────────────────────────────────────────────────
@@ -245,6 +254,8 @@ pub mod pallet {
         RootNetUidNotAllowed,
         /// An order in the batch targets a different netuid than the batch netuid parameter.
         OrderNetUidMismatch,
+        /// Limit orders are disabled
+        LimitOrdersDisabled,
     }
 
     // ── Extrinsics ────────────────────────────────────────────────────────────
@@ -266,6 +277,10 @@ pub mod pallet {
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
+            ensure!(
+                LimitOrdersEnabled::<T>::get(),
+                Error::<T>::LimitOrdersDisabled
+            );
 
             for signed_order in orders {
                 // Best-effort: individual order failures do not revert the batch.
@@ -297,7 +312,7 @@ pub mod pallet {
         ///
         /// All orders in the batch must target `netuid`. Orders for a different
         /// subnet are skipped.
-        #[pallet::call_index(4)]
+        #[pallet::call_index(1)]
         #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(
             T::DbWeight::get().reads_writes(3, 2).saturating_mul(orders.len() as u64)
         ))]
@@ -307,6 +322,10 @@ pub mod pallet {
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
+            ensure!(
+                LimitOrdersEnabled::<T>::get(),
+                Error::<T>::LimitOrdersDisabled
+            );
 
             Self::do_execute_batched_orders(netuid, orders)
         }
@@ -316,7 +335,7 @@ pub mod pallet {
         /// Must be called by the order's signer. The full `Order` payload is
         /// provided so the pallet can derive the `OrderId`. Once marked
         /// Cancelled, the order can never be executed.
-        #[pallet::call_index(1)]
+        #[pallet::call_index(2)]
         #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
         pub fn cancel_order(origin: OriginFor<T>, order: Order<T::AccountId>) -> DispatchResult {
             let who = ensure_signed(origin)?;
@@ -334,6 +353,23 @@ pub mod pallet {
                 order_id,
                 signer: who,
             });
+
+            Ok(())
+        }
+
+        /// Set a status for the limit orders pallet
+        ///
+        /// Must be called by root
+        /// It allows disabling or enabling the pallet
+        /// true means enabling, false means disabling
+        #[pallet::call_index(3)]
+        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
+        pub fn set_pallet_status(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+            ensure_root(origin)?;
+
+            LimitOrdersEnabled::<T>::set(enabled);
+
+            Self::deposit_event(Event::LimitOrdersPalletStatusChanged { enabled });
 
             Ok(())
         }
@@ -363,10 +399,7 @@ pub mod pallet {
             current_price: U96F32,
         ) -> DispatchResult {
             let order = &signed_order.order;
-            ensure!(
-                !order.netuid.is_root(),
-                Error::<T>::RootNetUidNotAllowed
-            );
+            ensure!(!order.netuid.is_root(), Error::<T>::RootNetUidNotAllowed);
             ensure!(
                 matches!(signed_order.signature, MultiSignature::Sr25519(_))
                     && signed_order
