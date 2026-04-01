@@ -6873,7 +6873,7 @@ fn test_subnet_owner_can_validate_without_stake_or_manual_permit() {
 
         // Add one non-owner neuron with deterministic subnet stake.
         register_ok_neuron(netuid, other_hotkey, other_coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&other_coldkey, 1.into());
+        add_balance_to_coldkey_account(&other_coldkey, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &other_hotkey,
             &other_coldkey,
