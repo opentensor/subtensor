@@ -547,10 +547,20 @@ mod events {
             /// Resulting swapped TAO amount
             tao_amount: TaoBalance,
         },
-        /// Burn Half Life Set for Neuron Registration.
-        BurnHalfLifeSet(NetUid, u16),
+        /// Burn half-life set for neuron registration.
+        BurnHalfLifeSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn half-life value for neuron registration.
+            burn_half_life: u16,
+        },
 
-        /// Burn Increase Multiplier Set for Neuron Registration.
-        BurnIncreaseMultSet(NetUid, u64),
+        /// Burn increase multiplier set for neuron registration.
+        BurnIncreaseMultSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn increase multiplier value for neuron registration.
+            burn_increase_mult: u64,
+        },
     }
 }
