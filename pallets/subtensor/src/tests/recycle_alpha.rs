@@ -646,6 +646,7 @@ fn test_add_stake_burn_success() {
         let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        remove_owner_registration_stake(netuid);
 
         mock::setup_reserves(
             netuid,
@@ -710,6 +711,7 @@ fn test_add_stake_burn_with_limit_success() {
 
         // Add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        remove_owner_registration_stake(netuid);
 
         // Setup reserves with large liquidity to minimize slippage
         let tao_reserve = TaoBalance::from(1_000_000_000_000_u64); // 1000 TAO

@@ -75,6 +75,7 @@ fn test_swap_total_hotkey_stake() {
 
         //add network
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
 
         let reserve = u64::from(amount) * 100;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
