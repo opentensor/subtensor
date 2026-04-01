@@ -112,7 +112,7 @@ pub enum OrderStatus {
 
 /// Classified, fee-adjusted entry produced by `validate_and_classify`.
 /// Used in every in-memory batch pipeline step; never stored on-chain.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct OrderEntry<AccountId> {
     pub(crate) order_id: H256,
     pub(crate) signer: AccountId,

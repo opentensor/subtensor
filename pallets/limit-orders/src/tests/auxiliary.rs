@@ -150,16 +150,14 @@ fn validate_and_classify_fails_for_wrong_netuid() {
         );
 
         let orders = bounded(vec![wrong_netuid_order]);
-        let result = LimitOrders::<Test>::validate_and_classify(
-            netuid(), // batch is for netuid 1
-            &orders,
-            1_000_000u64,
-            U96F32::from_num(1u32),
-        );
-
-        assert!(
-            matches!(result, Err(e) if e == crate::Error::<Test>::OrderNetUidMismatch.into()),
-            "expected OrderNetUidMismatch error"
+        assert_noop!(
+            LimitOrders::<Test>::validate_and_classify(
+                netuid(), // batch is for netuid 1
+                &orders,
+                1_000_000u64,
+                U96F32::from_num(1u32),
+            ),
+            crate::Error::<Test>::OrderNetUidMismatch
         );
     });
 }
@@ -184,16 +182,14 @@ fn validate_and_classify_fails_for_expired_order() {
         );
 
         let orders = bounded(vec![expired]);
-        let result = LimitOrders::<Test>::validate_and_classify(
-            netuid(),
-            &orders,
-            2_000_001u64,
-            U96F32::from_num(1u32),
-        );
-
-        assert!(
-            matches!(result, Err(e) if e == crate::Error::<Test>::OrderExpired.into()),
-            "expected OrderExpired error"
+        assert_noop!(
+            LimitOrders::<Test>::validate_and_classify(
+                netuid(),
+                &orders,
+                2_000_001u64,
+                U96F32::from_num(1u32),
+            ),
+            crate::Error::<Test>::OrderExpired
         );
     });
 }
@@ -216,16 +212,14 @@ fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
         );
 
         let orders = bounded(vec![order]);
-        let result = LimitOrders::<Test>::validate_and_classify(
-            netuid(),
-            &orders,
-            1_000_000u64,
-            U96F32::from_num(3u32), // current price = 3 > limit 2 → fails
-        );
-
-        assert!(
-            matches!(result, Err(e) if e == crate::Error::<Test>::PriceConditionNotMet.into()),
-            "expected PriceConditionNotMet error"
+        assert_noop!(
+            LimitOrders::<Test>::validate_and_classify(
+                netuid(),
+                &orders,
+                1_000_000u64,
+                U96F32::from_num(3u32), // current price = 3 > limit 2 → fails
+            ),
+            crate::Error::<Test>::PriceConditionNotMet
         );
     });
 }
@@ -252,16 +246,14 @@ fn validate_and_classify_fails_for_already_processed_order() {
         Orders::<Test>::insert(oid, OrderStatus::Fulfilled);
 
         let orders = bounded(vec![order]);
-        let result = LimitOrders::<Test>::validate_and_classify(
-            netuid(),
-            &orders,
-            1_000_000u64,
-            U96F32::from_num(1u32),
-        );
-
-        assert!(
-            matches!(result, Err(e) if e == crate::Error::<Test>::OrderAlreadyProcessed.into()),
-            "expected OrderAlreadyProcessed error"
+        assert_noop!(
+            LimitOrders::<Test>::validate_and_classify(
+                netuid(),
+                &orders,
+                1_000_000u64,
+                U96F32::from_num(1u32),
+            ),
+            crate::Error::<Test>::OrderAlreadyProcessed
         );
     });
 }
