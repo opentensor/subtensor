@@ -511,6 +511,123 @@ fn execute_orders_sell_with_fee_charges_fee() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// execute_orders — silent-skip behaviour
+// ─────────────────────────────────────────────────────────────────────────────
+
+mod execute_orders_skip_invalid {
+    use super::*;
+
+    /// A single expired order is silently skipped: the call returns `Ok` and
+    /// nothing is written to the `Orders` storage map.
+    #[test]
+    fn execute_orders_skips_expired_order() {
+        new_test_ext().execute_with(|| {
+            MockTime::set(2_000_001); // now > expiry
+            MockSwap::set_price(1.0);
+
+            let signed = make_signed_order(
+                AccountKeyring::Alice,
+                bob(),
+                netuid(),
+                OrderType::LimitBuy,
+                1_000,
+                u64::MAX,
+                2_000_000, // expiry in the past
+                Perbill::zero(),
+                fee_recipient(),
+            );
+            let id = order_id(&signed.order);
+
+            assert_ok!(LimitOrders::execute_orders(
+                RuntimeOrigin::signed(charlie()),
+                bounded(vec![signed])
+            ));
+
+            // Skipped — storage untouched.
+            assert!(Orders::<Test>::get(id).is_none());
+        });
+    }
+
+    /// A LimitBuy with `limit_price = 0` (price ceiling below current price)
+    /// is silently skipped: the call returns `Ok` and nothing is written to
+    /// the `Orders` storage map.
+    #[test]
+    fn execute_orders_skips_price_condition_not_met() {
+        new_test_ext().execute_with(|| {
+            MockTime::set(1_000_000);
+            MockSwap::set_price(5.0); // price 5.0 > limit 0 → buy condition not met
+
+            let signed = make_signed_order(
+                AccountKeyring::Alice,
+                bob(),
+                netuid(),
+                OrderType::LimitBuy,
+                1_000,
+                0, // price ceiling of 0 — never satisfied at price 5.0
+                FAR_FUTURE,
+                Perbill::zero(),
+                fee_recipient(),
+            );
+            let id = order_id(&signed.order);
+
+            assert_ok!(LimitOrders::execute_orders(
+                RuntimeOrigin::signed(charlie()),
+                bounded(vec![signed])
+            ));
+
+            // Skipped — storage untouched.
+            assert!(Orders::<Test>::get(id).is_none());
+        });
+    }
+
+    /// A batch containing one valid order and one expired order: the call
+    /// returns `Ok`, the valid order is stored as `Fulfilled`, and the expired
+    /// order is NOT written to storage.
+    #[test]
+    fn execute_orders_valid_and_invalid_mixed() {
+        new_test_ext().execute_with(|| {
+            MockTime::set(1_000_000);
+            MockSwap::set_price(1.0);
+
+            let valid = make_signed_order(
+                AccountKeyring::Alice,
+                bob(),
+                netuid(),
+                OrderType::LimitBuy,
+                1_000,
+                u64::MAX,
+                FAR_FUTURE,
+                Perbill::zero(),
+                fee_recipient(),
+            );
+            let expired = make_signed_order(
+                AccountKeyring::Bob,
+                alice(),
+                netuid(),
+                OrderType::LimitBuy,
+                500,
+                u64::MAX,
+                500_000, // already expired
+                Perbill::zero(),
+                fee_recipient(),
+            );
+            let valid_id = order_id(&valid.order);
+            let expired_id = order_id(&expired.order);
+
+            assert_ok!(LimitOrders::execute_orders(
+                RuntimeOrigin::signed(charlie()),
+                bounded(vec![valid, expired]),
+            ));
+
+            // Valid order executed successfully.
+            assert_eq!(Orders::<Test>::get(valid_id), Some(OrderStatus::Fulfilled));
+            // Expired order silently skipped — not written to storage.
+            assert!(Orders::<Test>::get(expired_id).is_none());
+        });
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // execute_batched_orders
 // ─────────────────────────────────────────────────────────────────────────────
 

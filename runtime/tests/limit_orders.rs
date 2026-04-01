@@ -804,3 +804,267 @@ fn batched_fails_for_root_netuid() {
         );
     });
 }
+
+// ── execute_orders — silent-skip behaviour ────────────────────────────────────
+
+/// `execute_orders` silently skips an expired order: the call returns `Ok`
+/// and the order is NOT written to the `Orders` storage map.
+#[test]
+fn execute_orders_skips_expired_order() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Advance the runtime timestamp so that `now_ms` exceeds the order's expiry.
+        pallet_timestamp::Now::<Runtime>::put(100_000u64);
+
+        // Build an order that expired at 50_000 ms — already in the past.
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            50_000, // expiry in ms — before current timestamp of 100_000
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        // The call must succeed even though the order is expired.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Expired order silently skipped — nothing written to storage.
+        assert!(Orders::<Runtime>::get(id).is_none());
+    });
+}
+
+/// `execute_orders` processes a mixed batch: the valid order executes and is
+/// stored as `Fulfilled`; the expired order is silently skipped and is NOT
+/// written to storage.  The call always returns `Ok`.
+#[test]
+fn execute_orders_valid_and_invalid_mixed() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob = Sr25519Keyring::Bob;
+        let bob_id = bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Fund Alice so that her LimitBuy order can execute.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Create the hotkey association for Alice so buy_alpha succeeds.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Timestamp at 100_000 ms — Bob's order (expiry 50_000) will be expired.
+        pallet_timestamp::Now::<Runtime>::put(100_000u64);
+
+        // Valid order: LimitBuy with price ceiling always satisfied and no expiry.
+        let valid = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        // Invalid order: already expired.
+        let expired = make_signed_order(
+            bob,
+            alice_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            50_000, // expiry in ms — before current timestamp of 100_000
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let valid_id = order_id(&valid.order);
+        let expired_id = order_id(&expired.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![valid, expired].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Valid order executed — stored as Fulfilled.
+        assert_eq!(Orders::<Runtime>::get(valid_id), Some(OrderStatus::Fulfilled));
+        // Expired order silently skipped — not written to storage.
+        assert!(Orders::<Runtime>::get(expired_id).is_none());
+    });
+}
+
+/// `execute_orders` silently skips an order whose signer has no hotkey
+/// association: the call returns `Ok` and the order is NOT written to the
+/// `Orders` storage map.
+#[test]
+fn execute_orders_skips_order_with_unassociated_hotkey() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Fund Alice so that any balance check is not the reason for skipping.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Deliberately do NOT call create_account_if_non_existent — Alice has no
+        // hotkey association, so the order should be silently skipped.
+
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        // The call must succeed even though the hotkey association is missing.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order was silently skipped — nothing written to storage.
+        assert!(Orders::<Runtime>::get(id).is_none());
+    });
+}
+
+/// `execute_orders` silently skips an order whose amount is below the minimum
+/// stake threshold: the call returns `Ok` and the order is NOT written to the
+/// `Orders` storage map.
+#[test]
+fn execute_orders_skips_order_below_minimum_stake() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Fund Alice so that any balance check is not the reason for skipping.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Create the hotkey association so that is not the reason for skipping.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // amount = 1 is well below min_default_stake(), triggering AmountTooLow.
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            1u64,
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        // The call must succeed even though the amount is below the minimum.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order was silently skipped — nothing written to storage.
+        assert!(Orders::<Runtime>::get(id).is_none());
+    });
+}
+
+/// `execute_orders` silently skips an order targeting a subnet that does not
+/// exist: the call returns `Ok` and the order is NOT written to the `Orders`
+/// storage map.
+#[test]
+fn execute_orders_skips_order_for_nonexistent_subnet() {
+    new_test_ext().execute_with(|| {
+        // netuid 2 is not initialised — no setup_subnet call.
+        let netuid = NetUid::from(2u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        // Fund Alice so that any balance check is not the reason for skipping.
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            min_default_stake() * 10u64.into(),
+        );
+
+        // Create the hotkey association so that is not the reason for skipping.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        // The call must succeed even though the subnet does not exist.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order was silently skipped — nothing written to storage.
+        assert!(Orders::<Runtime>::get(id).is_none());
+    });
+}
