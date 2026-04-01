@@ -547,6 +547,22 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         TransactionType::SetChildren.set_last_block_on_subnet::<T>(&hotkey, netuid, current_block);
 
+        // Schedule or immediately apply CK
+        Self::schedule_or_apply_ck(netuid, hotkey, children)
+    }
+
+    /// If the start call occured, schedule children, otherwise,
+    /// apply immediately
+    fn schedule_or_apply_ck(
+        netuid: NetUid,
+        hotkey: T::AccountId,
+        children: Vec<(u64, T::AccountId)>,
+    ) -> DispatchResult {
+        if !SubtokenEnabled::<T>::get(netuid) {
+            Self::persist_pending_chidren_ok(netuid, &hotkey, &children);
+            return Ok(());
+        }
+
         // Calculate cool-down block
         let cooldown_block =
             Self::get_current_block_as_u64().saturating_add(PendingChildKeyCooldown::<T>::get());
@@ -554,7 +570,7 @@ impl<T: Config> Pallet<T> {
         // Insert or update PendingChildKeys
         PendingChildKeys::<T>::insert(netuid, hotkey.clone(), (children.clone(), cooldown_block));
 
-        // --- 8. Log and return.
+        // Log and return.
         log::trace!(
             "SetChildrenScheduled( netuid:{:?}, cooldown_block:{:?}, hotkey:{:?}, children:{:?} )",
             cooldown_block,
@@ -563,10 +579,10 @@ impl<T: Config> Pallet<T> {
             children.clone()
         );
         Self::deposit_event(Event::SetChildrenScheduled(
-            hotkey.clone(),
+            hotkey,
             netuid,
             cooldown_block,
-            children.clone(),
+            children,
         ));
 
         // Ok and return.
@@ -602,6 +618,7 @@ impl<T: Config> Pallet<T> {
         // If the childkey cools down before the subnet start call + PendingChildKeyCooldown:
         //   - If Start call happened: Normal track
         //   - If Start call didn't happen: Apply immediately
+        // TODO: This check may be removed after all ck are applied after the runtime upgrade
         let start_call_occured = SubtokenEnabled::<T>::get(netuid);
 
         // Iterate over all pending children of this subnet and set as needed
@@ -610,29 +627,7 @@ impl<T: Config> Pallet<T> {
         PendingChildKeys::<T>::iter_prefix(netuid).for_each(
             |(hotkey, (children, cool_down_block))| {
                 if (cool_down_block < current_block) || !start_call_occured {
-                    // If child-parent consistency is broken, we will fail setting new children silently
-                    let maybe_relations =
-                        Self::load_relations_from_pending(hotkey.clone(), &children, netuid);
-                    if let Ok(relations) = maybe_relations {
-                        let mut _weight: Weight = T::DbWeight::get().reads(0);
-                        if let Ok(()) =
-                            Self::persist_child_parent_relations(relations, netuid, &mut _weight)
-                        {
-                            // Log and emit event.
-                            log::trace!(
-                                "SetChildren( netuid:{:?}, hotkey:{:?}, children:{:?} )",
-                                hotkey,
-                                netuid,
-                                children.clone()
-                            );
-                            Self::deposit_event(Event::SetChildren(
-                                hotkey.clone(),
-                                netuid,
-                                children.clone(),
-                            ));
-                        }
-                    }
-
+                    Self::persist_pending_chidren_ok(netuid, &hotkey, &children);
                     to_remove.push(hotkey);
                 }
             },
@@ -640,6 +635,28 @@ impl<T: Config> Pallet<T> {
 
         for hotkey in to_remove {
             PendingChildKeys::<T>::remove(netuid, hotkey);
+        }
+    }
+
+    // If child-parent consistency is broken, fail setting new children silently
+    fn persist_pending_chidren_ok(
+        netuid: NetUid,
+        hotkey: &T::AccountId,
+        children: &Vec<(u64, T::AccountId)>,
+    ) {
+        let maybe_relations = Self::load_relations_from_pending(hotkey.clone(), children, netuid);
+        if let Ok(relations) = maybe_relations {
+            let mut _weight: Weight = T::DbWeight::get().reads(0);
+            if let Ok(()) = Self::persist_child_parent_relations(relations, netuid, &mut _weight) {
+                // Log and emit event.
+                log::trace!(
+                    "SetChildren( netuid:{:?}, hotkey:{:?}, children:{:?} )",
+                    hotkey,
+                    netuid,
+                    children.clone()
+                );
+                Self::deposit_event(Event::SetChildren(hotkey.clone(), netuid, children.clone()));
+            }
         }
     }
 

@@ -2234,6 +2234,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000_u64.into());
+        SubtokenEnabled::<Test>::insert(netuid, true);
 
         let reserve = 1_000_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -4237,6 +4238,9 @@ fn test_set_child_keys_no_start_call_sets_immediately() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
+        // Clear SubtokenEnabled
+        SubtokenEnabled::<Test>::remove(netuid);
+
         // Set multiple children
         mock_schedule_children(
             &coldkey,
@@ -4244,15 +4248,6 @@ fn test_set_child_keys_no_start_call_sets_immediately() {
             netuid,
             &[(proportion1, child1), (proportion2, child2)],
         );
-
-        // Normally happens on epoch
-        SubtensorModule::do_set_pending_children(netuid);
-
-        // Verify pending map contains our parent
-        assert!(PendingChildKeys::<Test>::contains_key(netuid, hotkey));
-
-        // Clear SubtokenEnabled
-        SubtokenEnabled::<Test>::remove(netuid);
 
         // Normally happens on epoch
         SubtensorModule::do_set_pending_children(netuid);
