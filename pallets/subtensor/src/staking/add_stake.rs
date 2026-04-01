@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_add_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: TaoBalance,
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_add_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: TaoBalance,

@@ -56,6 +56,8 @@ pub(crate) mod tests;
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 
+pub type OriginFor<T> = <T as frame_system::Config>::RuntimeOrigin;
+
 pub const MAX_CRV3_COMMIT_SIZE_BYTES: u32 = 5000;
 
 pub const ALPHA_MAP_BATCH_SIZE: usize = 30;
@@ -2475,11 +2477,17 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: NetUid) -> bool {
+            // Allow the subnet owner hotkey to set weights regardless of stake.
+            if let Some(owner_uid) = Self::get_owner_uid(netuid)
+                && Uids::<T>::get(netuid, hotkey) == Some(owner_uid)
+            {
+                return true;
+            }
+
             // Blacklist weights transactions for low stake peers.
             let (total_stake, _, _) = Self::get_stake_weights_for_hotkey_on_subnet(hotkey, netuid);
             total_stake >= Self::get_stake_threshold()
         }
-
         /// Helper function to check if register is allowed
         pub fn checked_allowed_register(netuid: NetUid) -> bool {
             if netuid.is_root() {

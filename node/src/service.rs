@@ -758,7 +758,7 @@ fn run_manual_seal_authorship(
             TIMESTAMP.with(|x| {
                 let mut x_ref = x.borrow_mut();
                 *x_ref = x_ref.saturating_add(subtensor_runtime_common::time::SLOT_DURATION);
-                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x.borrow())
+                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x_ref)
             })
         }
 
@@ -775,6 +775,9 @@ fn run_manual_seal_authorship(
     let create_inherent_data_providers =
         move |_, ()| async move { Ok(MockTimestampInherentDataProvider) };
 
+    let aura_data_provider =
+        sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider::new(client.clone());
+
     let manual_seal = match sealing {
         Sealing::Manual => future::Either::Left(sc_consensus_manual_seal::run_manual_seal(
             sc_consensus_manual_seal::ManualSealParams {
@@ -784,7 +787,7 @@ fn run_manual_seal_authorship(
                 pool: transaction_pool,
                 commands_stream,
                 select_chain,
-                consensus_data_provider: None,
+                consensus_data_provider: Some(Box::new(aura_data_provider)),
                 create_inherent_data_providers,
             },
         )),

@@ -28,7 +28,7 @@ impl<T: Config> Pallet<T> {
     ///     - The delegate is setting a take which is not lower than the previous.
     ///
     pub fn do_decrease_take(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         take: u16,
     ) -> dispatch::DispatchResult {

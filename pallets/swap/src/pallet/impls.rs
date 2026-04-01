@@ -1,7 +1,8 @@
 use core::ops::Neg;
 
+use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::storage::{TransactionOutcome, transactional};
-use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get};
+use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get, weights::Weight};
 use safe_math::*;
 use sp_arithmetic::{helpers_128bit, traits::Zero};
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
@@ -10,16 +11,15 @@ use subtensor_runtime_common::{
     AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
 };
 
-use subtensor_swap_interface::{
-    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
-};
-
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep, SwapStepAction};
 use crate::{
     SqrtPrice,
     position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
+};
+use subtensor_swap_interface::{
+    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
 };
 
 const MAX_SWAP_ITERATIONS: u16 = 1000;
@@ -1151,7 +1151,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         EnabledUserLiquidity::<T>::get(netuid)
     }
-    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult {
+    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResultWithPostInfo {
         Self::do_dissolve_all_liquidity_providers(netuid)
     }
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {

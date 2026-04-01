@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'DispatchResult': A result type indicating success or failure of the registration.
     ///
-    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+    pub fn do_root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -213,7 +213,8 @@ impl<T: Config> Pallet<T> {
         Self::finalize_all_subnet_root_dividends(netuid);
 
         // --- Perform the cleanup before removing the network.
-        T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
+        // Will handle it in dissolve network PR.
+        T::SwapInterface::dissolve_all_liquidity_providers(netuid).map_err(|e| e.error)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);

@@ -111,7 +111,7 @@ impl<T: Config> Pallet<T> {
     /// * `InvalidIdentity`                 – supplied `identity` failed validation.
     ///
     pub fn do_register_network(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: &T::AccountId,
         mechid: u16,
         identity: Option<SubnetIdentityOfV3>,
@@ -255,7 +255,16 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 18. Emit the NetworkAdded event.
+        // --- 18. Schedule root validators as parents of the subnet owner hotkey.
+        if let Err(e) = Self::do_set_root_validators_for_subnet(netuid_to_register) {
+            log::warn!(
+                "Failed to set root validators for netuid {:?}: {:?}",
+                netuid_to_register,
+                e
+            );
+        }
+
+        // --- 19. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
@@ -288,6 +297,7 @@ impl<T: Config> Pallet<T> {
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_difficulty(netuid, u64::MAX);
         Self::set_max_difficulty(netuid, u64::MAX);
+        Self::set_yuma3_enabled(netuid, true);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
@@ -352,7 +362,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `DispatchResult`: A result indicating the success or failure of the operation.
-    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
+    pub fn do_start_call(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subnet_owner(origin, netuid)?;
         ensure!(
@@ -410,7 +420,7 @@ impl<T: Config> Pallet<T> {
     /// # Rate Limiting
     /// This function is rate-limited to one call per subnet per interval (e.g., one week).
     pub fn do_set_sn_owner_hotkey(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         hotkey: &T::AccountId,
     ) -> DispatchResult {
