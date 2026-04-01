@@ -111,3 +111,37 @@ impl From<DispatchError> for Output {
         }
     }
 }
+
+#[cfg(test)]
+mod function_id_tests {
+    use super::FunctionId;
+    use num_enum::TryFromPrimitive;
+
+    #[test]
+    fn caller_variants_have_stable_discriminants() {
+        assert_eq!(FunctionId::GetAlphaPriceV1 as u16, 15);
+        assert_eq!(FunctionId::CallerAddStakeV1 as u16, 16);
+        assert_eq!(FunctionId::CallerRemoveStakeV1 as u16, 17);
+        assert_eq!(FunctionId::CallerUnstakeAllV1 as u16, 18);
+        assert_eq!(FunctionId::CallerUnstakeAllAlphaV1 as u16, 19);
+        assert_eq!(FunctionId::CallerMoveStakeV1 as u16, 20);
+        assert_eq!(FunctionId::CallerTransferStakeV1 as u16, 21);
+        assert_eq!(FunctionId::CallerSwapStakeV1 as u16, 22);
+        assert_eq!(FunctionId::CallerAddStakeLimitV1 as u16, 23);
+        assert_eq!(FunctionId::CallerRemoveStakeLimitV1 as u16, 24);
+        assert_eq!(FunctionId::CallerSwapStakeLimitV1 as u16, 25);
+        assert_eq!(FunctionId::CallerRemoveStakeFullLimitV1 as u16, 26);
+        assert_eq!(FunctionId::CallerSetColdkeyAutoStakeHotkeyV1 as u16, 27);
+        assert_eq!(FunctionId::CallerAddProxyV1 as u16, 28);
+        assert_eq!(FunctionId::CallerRemoveProxyV1 as u16, 29);
+    }
+
+    #[test]
+    fn caller_ids_roundtrip_try_from_primitive() {
+        for id in 16u16..=29u16 {
+            let v = FunctionId::try_from_primitive(id)
+                .unwrap_or_else(|_| panic!("try_from_primitive failed for {id}"));
+            assert_eq!(v as u16, id);
+        }
+    }
+}
