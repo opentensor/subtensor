@@ -34,7 +34,7 @@ if [ "$GENERATE_TYPES" = true ]; then
   echo "==> Starting dev node (logs at $NODE_LOG)..."
   "$BINARY" --one --dev &>"$NODE_LOG" &
   NODE_PID=$!
-  trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null; exit 0" EXIT
+  trap 'set +e; kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null; exit 0' EXIT
 
   TIMEOUT=60
   ELAPSED=0
@@ -53,6 +53,11 @@ if [ "$GENERATE_TYPES" = true ]; then
 
   echo "==> Generating papi types..."
   pnpm generate-types
+  PNPM_EXIT=$?
+  if [ $PNPM_EXIT -ne 0 ]; then
+    echo "ERROR: pnpm generate-types failed with code $PNPM_EXIT"
+    exit $PNPM_EXIT
+  fi
 
   echo "==> Done generating types."
   exit 0
