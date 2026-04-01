@@ -394,7 +394,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid, remaining_weight: Weight) -> Weight {
+    pub fn finalize_all_subnet_root_dividends(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
         // Iterate directly without collecting to avoid unnecessary allocation
@@ -416,6 +419,6 @@ impl<T: Config> Pallet<T> {
             BATCH_SIZE,
             RootClaimed::<T>::clear_prefix((netuid,), BATCH_SIZE, None)
         );
-        weight_meter.consumed()
+        (weight_meter.consumed(), true)
     }
 }

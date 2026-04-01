@@ -57,6 +57,7 @@ pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
 pallet-shield.workspace = true
 pallet-scheduler.workspace = true
+sp-debug-derive = {workspace = true, features = ["force-debug"]}
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }

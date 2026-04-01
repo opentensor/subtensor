@@ -431,7 +431,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn destroy_alpha_in_out_stakes(netuid: NetUid, remaining_weight: Weight) -> Weight {
+    pub fn destroy_alpha_in_out_stakes(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
         // 1) Initialize the weight meter from the remaining weight.
         let mut meter_weight = WeightMeter::with_limit(remaining_weight);
 
@@ -627,6 +627,6 @@ impl<T: Config> Pallet<T> {
             Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
         }
 
-        meter_weight.consumed()
+        (meter_weight.consumed(), true)
     }
 }

@@ -950,7 +950,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
-    pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight {
+    pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
@@ -1057,7 +1057,7 @@ impl<T: Config> Pallet<T> {
             "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
         );
 
-        weight_meter.consumed()
+        (weight_meter.consumed(), true)
     }
 }
 
@@ -1182,7 +1182,7 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::max_price_inner()
     }
 
-    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight {
+    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
         Self::do_clear_protocol_liquidity(netuid, remaining_weight)
     }
     fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance) {

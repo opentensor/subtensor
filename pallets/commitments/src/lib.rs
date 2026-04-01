@@ -566,7 +566,7 @@ impl<T: Config> Pallet<T> {
         commitments
     }
 
-    pub fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> Weight {
+    pub fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
@@ -608,7 +608,7 @@ impl<T: Config> Pallet<T> {
         TimelockedIndex::<T>::mutate(|index| {
             index.retain(|(n, _)| *n != netuid);
         });
-        weight_meter.consumed()
+        (weight_meter.consumed(), true)
     }
 }
 

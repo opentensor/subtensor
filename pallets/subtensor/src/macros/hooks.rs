@@ -180,7 +180,10 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-            limit.saturating_sub(Self::remove_data_for_dissolved_networks(limit))
+            log::error!("+++ on_idle, weight: {:?}", limit);
+            let used = limit.saturating_sub(Self::remove_data_for_dissolved_networks(limit));
+            log::error!("=== on_idle, used weight: {:?}", used);
+            used
         }
     }
 
@@ -235,23 +238,43 @@ mod hooks {
             let mut remaining_weight = remaining_weight;
             let dissolved_networks = DissolvedNetworks::<T>::get();
 
+            log::error!("=== dissolved_networks: {:?}", dissolved_networks);
+
             for netuid in dissolved_networks.iter() {
-                let weight_used =
+                let (weight_used, done) =
                     Self::finalize_all_subnet_root_dividends(*netuid, remaining_weight);
-                remaining_weight = remaining_weight.saturating_sub(weight_used);
 
-                let weight_used = Self::destroy_alpha_in_out_stakes(*netuid, remaining_weight);
                 remaining_weight = remaining_weight.saturating_sub(weight_used);
+                if !done {
+                    break;
+                }
 
-                let weight_used =
+                let (weight_used, done) =
+                    Self::destroy_alpha_in_out_stakes(*netuid, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(weight_used);
+                if !done {
+                    break;
+                }
+
+                let (weight_used, done) =
                     T::SwapInterface::clear_protocol_liquidity(*netuid, remaining_weight);
                 remaining_weight = remaining_weight.saturating_sub(weight_used);
+                if !done {
+                    break;
+                }
 
-                let weight_used = T::CommitmentsInterface::purge_netuid(*netuid, remaining_weight);
+                let (weight_used, done) =
+                    T::CommitmentsInterface::purge_netuid(*netuid, remaining_weight);
                 remaining_weight = remaining_weight.saturating_sub(weight_used);
+                if !done {
+                    break;
+                }
 
-                let weight_used = Self::remove_network(*netuid, remaining_weight);
+                let (weight_used, done) = Self::remove_network(*netuid, remaining_weight);
                 remaining_weight = remaining_weight.saturating_sub(weight_used);
+                if !done {
+                    break;
+                }
 
                 DissolvedNetworks::<T>::mutate(|networks| networks.retain(|n| *n != *netuid));
 

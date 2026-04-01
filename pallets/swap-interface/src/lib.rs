@@ -39,7 +39,7 @@ pub trait SwapHandler {
 
     fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
-    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> Weight;
+    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool);
     fn get_protocol_tao(netuid: NetUid) -> TaoBalance;
     fn max_price<C: Token>() -> C;
     fn min_price<C: Token>() -> C;

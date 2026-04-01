@@ -233,7 +233,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn remove_network(netuid: NetUid, remaining_weight: Weight) -> Weight {
+    pub fn remove_network(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -702,7 +702,7 @@ impl<T: Config> Pallet<T> {
 
         // --- Final removal logging.
         log::debug!("remove_network: netuid={netuid} removed successfully");
-        weight_meter.consumed()
+        (weight_meter.consumed(), true)
     }
 
     #[allow(clippy::arithmetic_side_effects)]

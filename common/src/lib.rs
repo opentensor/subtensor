@@ -449,7 +449,7 @@ impl TypeInfo for NetUidStorageIndex {
 macro_rules! WeightMeterWrapper {
     ( $meter:expr, $weight:expr ) => {{
         if !$meter.can_consume($weight) {
-            return $meter.consumed();
+            return ($meter.consumed(), false);
         }
         $meter.consume($weight);
     }};
@@ -462,7 +462,7 @@ macro_rules! LoopRemovePrefixWithWeightMeter {
     ( $meter:expr, $weight:expr, $batch_size:expr, $body:expr ) => {{
         loop {
             if !$meter.can_consume($weight.saturating_mul($batch_size as u64)) {
-                return $meter.consumed();
+                return ($meter.consumed(), false);
             }
             let result = $body;
 
@@ -520,10 +520,10 @@ mod tests {
         assert_eq!(NetUid(5).encode(), 5u16.encode());
     }
 
-    fn test_weight(remaining_weight: Weight, weight: Weight) -> Weight {
+    fn test_weight(remaining_weight: Weight, weight: Weight) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         WeightMeterWrapper!(weight_meter, weight);
-        weight_meter.consumed()
+        (weight_meter.consumed(), true)
     }
 
     fn test_loop(
@@ -531,85 +531,60 @@ mod tests {
         weight: Weight,
         body: &mut TestBody,
         number: u64,
-    ) -> Weight {
+    ) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         LoopRemovePrefixWithWeightMeter!(weight_meter, weight, BATCH_SIZE, body.execute(number));
-        weight_meter.consumed()
+        (weight_meter.consumed(), true)
     }
 
     #[test]
     fn test_weight_meter_wrapper() {
-        // enough to consume one ref and one proof
+        // Enough budget for one (ref, proof) unit of `weight`.
         let remaining_weight = Weight::from_parts(REF_TIME_WEIGHT * 2, PROOF_SIZE_WEIGHT * 2);
-        let used_weight = test_weight(
-            remaining_weight,
-            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
-        );
-        assert_eq!(used_weight, Weight::from_parts(100, 100));
+        let weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
+        let used = test_weight(remaining_weight, weight);
+        assert_eq!(used, (weight, true));
 
-        // not enough to consume three ref and three proof
-        let used_weight = test_weight(
+        // Not enough to consume 3x ref and 3x proof in one step.
+        let used = test_weight(
             remaining_weight,
             Weight::from_parts(REF_TIME_WEIGHT * 3, PROOF_SIZE_WEIGHT * 3),
         );
-        assert_eq!(used_weight, Weight::from_parts(0, 0));
+        assert_eq!(used, (Weight::zero(), false));
     }
 
     #[test]
     fn test_loop_remove_prefix_with_weight_meter() {
-        // remaining weight matches the body count
+        let per_unit = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
+        let batch_reserve = per_unit.saturating_mul(BATCH_SIZE as u64);
+
+        // Needs two loop heads: first batch drains `count`; second sees `backend == 0` and exits.
+        // Each head reserves `weight * BATCH_SIZE` via `can_consume`.
         let mut body = TestBody::new(BATCH_SIZE as u64);
-        let remaining_weight = Weight::from_parts(
-            REF_TIME_WEIGHT * BATCH_SIZE as u64,
-            PROOF_SIZE_WEIGHT * BATCH_SIZE as u64,
-        );
-        let used_weight = test_loop(
-            remaining_weight,
-            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
-            &mut body,
-            BATCH_SIZE as u64,
-        );
-        assert_eq!(
-            used_weight,
-            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * BATCH_SIZE as u64
-        );
+        let remaining_weight = batch_reserve.saturating_mul(2);
+        let (consumed, completed) =
+            test_loop(remaining_weight, per_unit, &mut body, BATCH_SIZE as u64);
+        assert!(completed);
+        assert_eq!(consumed, batch_reserve);
         assert_eq!(body.count, 0);
 
-        // remaining weight is less than the body count
+        // Exactly one batch of budget: first iteration drains 1024 items; second head cannot reserve.
         let count = BATCH_SIZE_U64 + 1;
         let mut body = TestBody::new(count);
-        let remaining_weight = Weight::from_parts(
-            REF_TIME_WEIGHT * BATCH_SIZE_U64,
-            PROOF_SIZE_WEIGHT * BATCH_SIZE_U64,
-        );
-        let used_weight = test_loop(
-            remaining_weight,
-            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
-            &mut body,
-            BATCH_SIZE_U64,
-        );
-        assert_eq!(
-            used_weight,
-            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * BATCH_SIZE_U64
-        );
+        let remaining_weight = batch_reserve;
+        let (consumed, completed) =
+            test_loop(remaining_weight, per_unit, &mut body, BATCH_SIZE_U64);
+        assert!(!completed);
+        assert_eq!(consumed, batch_reserve);
         assert_eq!(body.count, 1);
 
-        // remaining weight is more than the body count
+        // Enough budget for two full batch heads plus tail consume (one `per_unit`).
         let mut body = TestBody::new(count);
-        let remaining_weight = Weight::from_parts(
-            REF_TIME_WEIGHT * BATCH_SIZE_U64 * 2,
-            PROOF_SIZE_WEIGHT * BATCH_SIZE_U64 * 2,
-        );
-        let used_weight = test_loop(
-            remaining_weight,
-            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT),
-            &mut body,
-            BATCH_SIZE_U64,
-        );
-        assert_eq!(
-            used_weight,
-            Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT) * count
-        );
+        let remaining_weight = batch_reserve.saturating_mul(2);
+        let (consumed, completed) =
+            test_loop(remaining_weight, per_unit, &mut body, BATCH_SIZE_U64);
+        assert!(completed);
+        assert_eq!(consumed, per_unit.saturating_mul(count));
         assert_eq!(body.count, 0);
     }
 }
