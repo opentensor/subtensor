@@ -460,6 +460,8 @@ impl<T: Config> Pallet<T> {
         (nonce, vec_work)
     }
 
+    pub const MIN_REGISTRATION_COST: u64 = 100_000; // 0.0001 Tao
+
     /// Updates neuron burn price.
     ///
     /// Behavior:
@@ -485,7 +487,7 @@ impl<T: Config> Pallet<T> {
 
                     // Prevent stuck-at-zero behavior.
                     if new_burn_u64 == 0 {
-                        new_burn_u64 = 100_000; // 0.0001 Tao
+                        new_burn_u64 = Self::MIN_REGISTRATION_COST; // 0.0001 Tao
                     }
 
                     Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
@@ -515,7 +517,7 @@ impl<T: Config> Pallet<T> {
 
         // Prevent stuck-at-zero behavior.
         if new_burn_u64 == 0 {
-            new_burn_u64 = 1;
+            new_burn_u64 = Self::MIN_REGISTRATION_COST; // 0.0001 Tao
         }
 
         Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
