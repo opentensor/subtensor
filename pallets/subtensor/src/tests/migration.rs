@@ -4090,14 +4090,12 @@ fn test_migrate_fix_bad_hk_swap_mainnet_some_entries() {
             .expect("float conv fail");
             if diff > 0 {
                 assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
+            } else if coldkey == lost_ck {
+                total_returned += stake_float
+                    - num_traits::ToPrimitive::to_f64(&extra_balance.to_u64())
+                        .expect("float conv fail");
             } else {
-                if coldkey == lost_ck {
-                    total_returned += stake_float
-                        - num_traits::ToPrimitive::to_f64(&extra_balance.to_u64())
-                            .expect("float conv fail");
-                } else {
-                    total_returned += stake_float;
-                }
+                total_returned += stake_float;
             }
         }
 
