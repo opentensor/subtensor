@@ -267,7 +267,16 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 18. Emit the NetworkAdded event.
+        // --- 18. Schedule root validators as parents of the subnet owner hotkey.
+        if let Err(e) = Self::do_set_root_validators_for_subnet(netuid_to_register) {
+            log::warn!(
+                "Failed to set root validators for netuid {:?}: {:?}",
+                netuid_to_register,
+                e
+            );
+        }
+
+        // --- 19. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 

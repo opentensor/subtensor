@@ -1247,8 +1247,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(47_u64))
-		.saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(37_u64))
+		.saturating_add(T::DbWeight::get().writes(53_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1456,8 +1456,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(396_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(46_u64))
-            .saturating_add(T::DbWeight::get().writes(55_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(36_u64))
+            .saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2146,7 +2146,7 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight((Weight::from_parts(29_930_000, 0)
+        #[pallet::weight((Weight::from_parts(55_590_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_coldkey_auto_stake_hotkey(
