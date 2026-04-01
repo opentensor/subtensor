@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Ensure the remove operation from the coldkey is a success.
-        let tao_staked = Self::transfer_tao_for_staking(netuid, &coldkey, stake_to_be_added)?;
+        let tao_staked = Self::transfer_tao_to_subnet(netuid, &coldkey, stake_to_be_added)?;
 
         // 4. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
@@ -151,7 +151,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked = Self::transfer_tao_for_staking(netuid, &coldkey, possible_stake)?;
+        let tao_staked = Self::transfer_tao_to_subnet(netuid, &coldkey, possible_stake)?;
 
         // 6. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.

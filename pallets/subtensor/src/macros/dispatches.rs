@@ -1115,7 +1115,7 @@ mod dispatches {
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            if swap_cost.to_u64() > 0 {
+            if !swap_cost.is_zero() {
                 Self::charge_swap_cost(&old_coldkey, swap_cost)?;
             }
             Self::do_swap_coldkey(&old_coldkey, &new_coldkey)?;

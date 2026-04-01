@@ -2605,7 +2605,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         let coldkey_account_id = U256::from(1111);
         let hotkey_account_id = U256::from(1111);
         let burn_cost = SubtensorModule::get_burn(*netuid);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
         TotalIssuance::<Test>::mutate(|total_issuance| {
             let updated_total = u64::from(*total_issuance)
                 .checked_add(u64::from(burn_cost))

@@ -703,10 +703,11 @@ impl<T: Config> Pallet<T> {
                 T::SwapInterface::min_price::<TaoBalance>(),
                 true,
             )?;
-            Self::add_balance_to_coldkey_account(
+            Self::transfer_tao_from_subnet(
+                netuid,
                 &block_author_coldkey,
                 bb_swap_result.amount_paid_out.into(),
-            );
+            )?;
             fee_outflow = bb_swap_result.amount_paid_out.into();
         } else {
             // block author is not found, burn this alpha
@@ -807,10 +808,15 @@ impl<T: Config> Pallet<T> {
         // Increase the balance of the block author
         let maybe_block_author_coldkey = T::AuthorshipProvider::author();
         if let Some(block_author_coldkey) = maybe_block_author_coldkey {
-            Self::add_balance_to_coldkey_account(
+            // TAO was transferred to subnet account in the upper layer (add_stake)
+            // swap_tao_for_alpha guarantees that input amount of TAO was split into
+            // reserve delta + fee_to_block_author.
+            // Now transfer the fee from subnet account to block builder.
+            Self::transfer_tao_from_subnet(
+                netuid,
                 &block_author_coldkey,
                 swap_result.fee_to_block_author.into(),
-            );
+            )?;
         } else {
             // Block author is not found - burn this TAO
             // Pallet balances total issuance was taken care of when balance was withdrawn for this swap

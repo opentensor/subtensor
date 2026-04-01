@@ -76,8 +76,8 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
+        // 4. Transfer TAO from subnet account to the coldkey. If the above fails we will not credit this coldkey.
+        Self::transfer_tao_from_subnet(netuid, &coldkey, tao_unstaked)?;
 
         // 5. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -172,7 +172,7 @@ impl<T: Config> Pallet<T> {
                 )?;
 
                 // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
-                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
+                Self::transfer_tao_from_subnet(netuid, &coldkey, tao_unstaked)?;
 
                 // If the stake is below the minimum, we clear the nomination from storage.
                 Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -371,7 +371,7 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
+        Self::transfer_tao_from_subnet(netuid, &coldkey, tao_unstaked)?;
 
         // 6. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -564,7 +564,7 @@ impl<T: Config> Pallet<T> {
             // Credit each share directly to coldkey free balance.
             for p in portions {
                 if p.share > 0 {
-                    Self::add_balance_to_coldkey_account(&p.cold, p.share.into());
+                    Self::transfer_tao_from_subnet(netuid, &p.cold, p.share.into())?;
                 }
             }
         }
@@ -600,7 +600,9 @@ impl<T: Config> Pallet<T> {
         };
 
         if !refund.is_zero() {
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
+            if let Some(subnet_account) = Self::get_subnet_account_id(netuid) {
+                let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund);
+            }
         }
 
         Ok(())

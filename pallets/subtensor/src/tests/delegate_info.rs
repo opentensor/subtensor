@@ -119,7 +119,7 @@ fn test_get_delegated() {
                 let Some(delegate) = delegate else {
                     continue;
                 };
-                SubtensorModule::add_balance_to_coldkey_account(
+                add_balance_to_coldkey_account(
                     delegatee,
                     (*amount + 500_000).into(),
                 );

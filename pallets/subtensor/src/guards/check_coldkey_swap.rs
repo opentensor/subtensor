@@ -77,7 +77,7 @@ mod tests {
     use pallet_subtensor_proxy::Call as ProxyCall;
     use sp_core::U256;
     use sp_runtime::traits::{Dispatchable, Hash};
-    use subtensor_runtime_common::ProxyType;
+    use subtensor_runtime_common::{ProxyType, TaoBalance};
 
     type HashingOf<T> = <T as frame_system::Config>::Hashing;
 
@@ -136,6 +136,11 @@ mod tests {
 
     fn remark_call() -> RuntimeCall {
         RuntimeCall::System(SystemCall::remark { remark: vec![] })
+    }
+
+    fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+        let credit = SubtensorModule::mint_tao(tao);
+        let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
     }
 
     #[test]
@@ -230,8 +235,8 @@ mod tests {
             ColdkeySwapAnnouncements::<Test>::insert(real, (now, hash));
 
             // Give delegate enough balance for proxy deposit
-            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000.into());
-            SubtensorModule::add_balance_to_coldkey_account(&delegate, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&real, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&delegate, 1_000_000_000.into());
 
             // Register proxy: delegate can act on behalf of real
             assert_ok!(Proxy::add_proxy(
@@ -269,9 +274,9 @@ mod tests {
             let hash = HashingOf::<Test>::hash_of(&U256::from(42));
             ColdkeySwapAnnouncements::<Test>::insert(real, (now, hash));
 
-            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000.into());
-            SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1_000_000_000.into());
-            SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&real, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&delegate1, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&delegate2, 1_000_000_000.into());
 
             // delegate1 can proxy for real, delegate2 can proxy for delegate1
             assert_ok!(Proxy::add_proxy(

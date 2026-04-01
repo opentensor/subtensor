@@ -1074,7 +1074,7 @@ fn setup_crowdloan(
         pallet_crowdloan::Contributions::<Test>::insert(id, contributor, amount);
     }
 
-    SubtensorModule::add_balance_to_coldkey_account(&funds_account, cap);
+    add_balance_to_coldkey_account(&funds_account, cap);
 
     // Mark the crowdloan as finalizing
     pallet_crowdloan::CurrentCrowdloanId::<Test>::set(Some(0));
@@ -1099,7 +1099,7 @@ fn setup_leased_network(
     SubtokenEnabled::<Test>::insert(netuid, true);
 
     if let Some(tao_to_stake) = tao_to_stake {
-        SubtensorModule::add_balance_to_coldkey_account(&lease.coldkey, tao_to_stake.into());
+        add_balance_to_coldkey_account(&lease.coldkey, tao_to_stake.into());
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(lease.coldkey),
             lease.hotkey,

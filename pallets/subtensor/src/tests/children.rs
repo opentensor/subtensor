@@ -2233,7 +2233,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         // Add network and register hotkey
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000_u64.into());
 
         let reserve = 1_000_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -2643,12 +2643,12 @@ fn test_childkey_set_weights_single_parent() {
         let stake_to_give_child = AlphaBalance::from(109_999);
 
         // Register parent with minimal stake and child with high stake
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 1.into());
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(&coldkey_parent, 1.into());
+        add_balance_to_coldkey_account(
             &coldkey_child,
             balance_to_give_child + 10.into(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_weight_setter, 1_000_000.into());
+        add_balance_to_coldkey_account(&coldkey_weight_setter, 1_000_000.into());
 
         // Add neurons for parent, child and weight_setter
         register_ok_neuron(netuid, parent, coldkey_parent, 1);
@@ -2751,7 +2751,7 @@ fn test_set_weights_no_parent() {
         let balance_to_give_child = TaoBalance::from(109_999);
         let stake_to_give_child = AlphaBalance::from(109_999);
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             balance_to_give_child + 10.into(),
         );
@@ -2863,11 +2863,11 @@ fn test_childkey_take_drain() {
             register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
             register_ok_neuron(netuid, parent_hotkey, parent_coldkey, 1);
             register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &parent_coldkey,
                 TaoBalance::from(stake) + ExistentialDeposit::get(),
             );
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &nominator,
                 TaoBalance::from(stake) + ExistentialDeposit::get(),
             );
@@ -3002,9 +3002,9 @@ fn test_parent_child_chain_emission() {
         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
 
         // Swap to alpha
         let stake_a = 300_000_000_000_u64;
@@ -3210,9 +3210,9 @@ fn test_parent_child_chain_epoch() {
         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
 
         mock::setup_reserves(
             netuid,
@@ -3364,9 +3364,9 @@ fn test_dividend_distribution_with_children() {
         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
 
         // Swap to alpha
         let total_tao = I96F32::from_num(300_000 + 100_000 + 50_000);
@@ -3598,9 +3598,9 @@ fn test_dynamic_parent_child_relationships() {
         log::info!("child take 2: {chk_take_2:?}");
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, (500_000 + 1_000).into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, (50_000 + 1_000).into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, (30_000 + 1_000).into());
+        add_balance_to_coldkey_account(&coldkey_parent, (500_000 + 1_000).into());
+        add_balance_to_coldkey_account(&coldkey_child1, (50_000 + 1_000).into());
+        add_balance_to_coldkey_account(&coldkey_child2, (30_000 + 1_000).into());
 
         let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -3895,8 +3895,8 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         register_ok_neuron(netuid, hotkey_b, coldkey_a, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
 
         // Swap to alpha
         let total_tao = 300_000 + 100_000;

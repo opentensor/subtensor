@@ -45,7 +45,7 @@ mod pallet_benchmarks {
 
     fn add_balance_to_coldkey_account<T: Config>(coldkey: &T::AccountId, tao: TaoBalance) {
         let credit = Subtensor::<T>::mint_tao(tao);
-        Subtensor::<T>::spend_tao(coldkey, credit, tao).unwrap();
+        let _ = Subtensor::<T>::spend_tao(coldkey, credit, tao).unwrap();
     }
 
     #[benchmark]
@@ -1660,10 +1660,7 @@ mod pallet_benchmarks {
         SubtokenEnabled::<T>::insert(netuid, true);
 
         let reg_fee = Subtensor::<T>::get_burn(netuid);
-        add_balance_to_coldkey_account::<T>(
-            &hotkey,
-            reg_fee.saturating_mul(2.into()).into(),
-        );
+        add_balance_to_coldkey_account::<T>(&hotkey, reg_fee.saturating_mul(2.into()).into());
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(hotkey.clone()).into(),

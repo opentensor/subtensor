@@ -48,7 +48,7 @@ fn test_announce_coldkey_swap_works() {
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost + ed);
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), swap_cost + ed);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
@@ -85,7 +85,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_past_delay_works() {
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 0);
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost * 2.into());
+        add_balance_to_coldkey_account(&who, swap_cost * 2.into());
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -126,7 +126,7 @@ fn test_announce_coldkey_swap_only_pays_swap_cost_if_no_announcement_exists() {
         let ed = ExistentialDeposit::get();
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost + ed);
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
         assert_eq!(SubtensorModule::get_coldkey_balance(&who), swap_cost + ed);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
@@ -179,7 +179,7 @@ fn test_announce_coldkey_swap_with_existing_announcement_not_past_delay_fails() 
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
         let ed = ExistentialDeposit::get();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost + ed);
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -222,7 +222,7 @@ fn test_swap_coldkey_announced_works() {
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get() + 1;
         run_to_block(now + delay);
 
-        SubtensorModule::add_balance_to_coldkey_account(&who, stake1 + stake2 + stake3 + ed);
+        add_balance_to_coldkey_account(&who, stake1 + stake2 + stake3 + ed);
 
         let (
             netuid1,
@@ -365,7 +365,7 @@ fn test_swap_coldkey_announced_with_already_associated_coldkey_fails() {
 
         let swap_cost = SubtensorModule::get_key_swap_cost();
         let ed = ExistentialDeposit::get();
-        SubtensorModule::add_balance_to_coldkey_account(&who, swap_cost + ed);
+        add_balance_to_coldkey_account(&who, swap_cost + ed);
 
         assert_ok!(SubtensorModule::announce_coldkey_swap(
             RuntimeOrigin::signed(who),
@@ -431,7 +431,7 @@ fn test_swap_coldkey_works() {
         let stake2 = min_stake * 20.into();
         let stake3 = min_stake * 30.into();
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &old_coldkey,
             swap_cost + stake1 + stake2 + stake3 + ed,
         );
@@ -512,7 +512,7 @@ fn test_swap_coldkey_works_with_zero_cost() {
         let stake2 = min_stake * 20.into();
         let stake3 = min_stake * 30.into();
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &old_coldkey,
             stake1 + stake2 + stake3 + ed,
         );
@@ -598,6 +598,7 @@ fn test_swap_coldkey_with_bad_origin_fails() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails --exact --nocapture 
 #[test]
 fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
     new_test_ext(1).execute_with(|| {
@@ -618,7 +619,10 @@ fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
 
         // Needs to preserve ED
         let balance = SubtensorModule::get_key_swap_cost() + ExistentialDeposit::get() - 1.into();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, balance);
+        add_balance_to_coldkey_account(&old_coldkey, balance);
+
+        println!("======== before swap");
+
         assert_noop!(
             SubtensorModule::swap_coldkey(
                 RuntimeOrigin::root(),
@@ -672,7 +676,7 @@ fn test_announce_coldkey_swap_with_not_enough_balance_to_pay_swap_cost_fails() {
 
         // Needs to preserve ED
         let balance = SubtensorModule::get_key_swap_cost() + ExistentialDeposit::get() - 1.into();
-        SubtensorModule::add_balance_to_coldkey_account(&who, balance);
+        add_balance_to_coldkey_account(&who, balance);
         assert_noop!(
             SubtensorModule::announce_coldkey_swap(RuntimeOrigin::signed(who), new_coldkey_hash),
             Error::<Test>::NotEnoughBalanceToPaySwapColdKey
@@ -723,8 +727,8 @@ fn test_do_swap_coldkey_with_max_values() {
         register_ok_neuron(netuid2, hotkey2, other_coldkey, 1001000);
 
         // Give balance to old_coldkey and old_coldkey2.
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, max_stake + 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey2, max_stake + 1_000.into());
+        add_balance_to_coldkey_account(&old_coldkey, max_stake + 1_000.into());
+        add_balance_to_coldkey_account(&old_coldkey2, max_stake + 1_000.into());
 
         let reserve = u64::from(max_stake) * 10;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -798,8 +802,8 @@ fn test_do_swap_coldkey_effect_on_delegated_stake() {
         StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey]);
         StakingHotkeys::<Test>::insert(delegator, vec![hotkey]);
         SubtensorModule::create_account_if_non_existent(&old_coldkey, &hotkey);
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake);
-        SubtensorModule::add_balance_to_coldkey_account(&delegator, stake);
+        add_balance_to_coldkey_account(&old_coldkey, stake);
+        add_balance_to_coldkey_account(&delegator, stake);
 
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(old_coldkey),
@@ -859,7 +863,7 @@ fn test_swap_delegated_stake_for_coldkey() {
         // Notice hotkey1 and hotkey2 are Owned by other_coldkey
         // old_coldkey and new_coldkey therefore delegates stake to them
         // === Give old_coldkey some balance ===
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &old_coldkey,
             stake_amount1 + stake_amount2 + 1_000_000.into(),
         );
@@ -996,13 +1000,13 @@ fn test_coldkey_swap_total() {
         let netuid2 = NetUid::from(2);
         let netuid3 = NetUid::from(3);
         let stake = DefaultMinStake::<Test>::get() * 10.into();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake * 6.into());
-        SubtensorModule::add_balance_to_coldkey_account(&delegate1, stake * 2.into());
-        SubtensorModule::add_balance_to_coldkey_account(&delegate2, stake * 2.into());
-        SubtensorModule::add_balance_to_coldkey_account(&delegate3, stake * 2.into());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator1, stake * 2.into());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator2, stake * 2.into());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator3, stake * 2.into());
+        add_balance_to_coldkey_account(&coldkey, stake * 6.into());
+        add_balance_to_coldkey_account(&delegate1, stake * 2.into());
+        add_balance_to_coldkey_account(&delegate2, stake * 2.into());
+        add_balance_to_coldkey_account(&delegate3, stake * 2.into());
+        add_balance_to_coldkey_account(&nominator1, stake * 2.into());
+        add_balance_to_coldkey_account(&nominator2, stake * 2.into());
+        add_balance_to_coldkey_account(&nominator3, stake * 2.into());
 
         let reserve = u64::from(stake) * 10;
         mock::setup_reserves(netuid1, reserve.into(), reserve.into());
@@ -1315,7 +1319,7 @@ fn test_do_swap_coldkey_effect_on_delegations() {
             delegate
         )); // register on root
         register_ok_neuron(netuid2, delegate, owner, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake * 10.into());
+        add_balance_to_coldkey_account(&coldkey, stake * 10.into());
 
         // since the reserves are equal and we stake the same amount to both networks, we can reuse
         // this values for different networks. but you should take it into account in case of tests

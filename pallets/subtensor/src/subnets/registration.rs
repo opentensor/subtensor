@@ -136,8 +136,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 11. Ensure the remove operation from the coldkey is a success.
-        let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
+        let actual_burn_amount = Self::transfer_tao_to_subnet(netuid, &coldkey, registration_cost.into())?;
 
         // Tokens are swapped and then burned.
         let burned_alpha = Self::swap_tao_for_alpha(
@@ -376,7 +375,9 @@ impl<T: Config> Pallet<T> {
         let balance_to_add: u64 = 1_000_000_000_000;
         Self::increase_issuance(100_000_000_000_u64.into()); // We are creating tokens here from the coinbase.
 
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add.into());
+        // Mint free TAO
+        let credit = Self::mint_tao(balance_to_add.into());
+        let _ = Self::spend_tao(&coldkey, credit, balance_to_add.into());
 
         // --- 6. Deposit successful event.
         log::debug!("Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) ");

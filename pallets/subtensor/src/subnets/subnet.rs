@@ -171,30 +171,29 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CannotAffordLockCost
         );
 
-        // --- 7. Perform the lock operation.
-        let actual_tao_lock_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_amount.into())?;
-        log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
-
-        // --- 8. Set the lock amount for use to determine pricing.
-        Self::set_network_last_lock(actual_tao_lock_amount);
-        Self::set_network_last_lock_block(current_block);
-
-        // --- 9. If we identified a subnet to prune, do it now.
+        // --- 7. If we identified a subnet to prune, do it now.
         if let Some(prune_netuid) = recycle_netuid {
             Self::do_dissolve_network(prune_netuid)?;
         }
 
-        // --- 10. Determine netuid to register. If we pruned a subnet, reuse that netuid.
+        // --- 8. Determine netuid to register. If we pruned a subnet, reuse that netuid.
         let netuid_to_register: NetUid = match recycle_netuid {
             Some(prune_netuid) => prune_netuid,
             None => Self::get_next_netuid(),
         };
 
-        // --- 11. Set initial and custom parameters for the network.
+        // --- 9. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {netuid_to_register:?}");
+
+        // --- 10. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
+        let actual_tao_lock_amount = Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
+        log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
+
+        // --- 11. Set the lock amount for use to determine pricing.
+        Self::set_network_last_lock(actual_tao_lock_amount);
+        Self::set_network_last_lock_block(current_block);
 
         // --- 12. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey)?;
@@ -235,7 +234,9 @@ impl<T: Config> Pallet<T> {
         );
 
         if actual_tao_lock_amount_less_pool_tao > TaoBalance::ZERO {
-            Self::recycle_tao(actual_tao_lock_amount_less_pool_tao);
+            // TAO paid for registration is already on the subnet account. Recycle from it if needed.
+            let subnet_account = Self::get_subnet_account_id(netuid_to_register).ok_or(Error::<T>::SubnetNotExists)?;
+            Self::recycle_tao(&subnet_account, actual_tao_lock_amount_less_pool_tao)?;
         }
 
         if actual_tao_lock_amount > TaoBalance::ZERO && pool_initial_tao > TaoBalance::ZERO {

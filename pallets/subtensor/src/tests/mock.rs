@@ -786,7 +786,7 @@ pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) 
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.into());
     TotalIssuance::<Test>::mutate(|total_issuance| {
         *total_issuance = total_issuance.saturating_add(lock_cost);
     });
@@ -806,7 +806,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
 pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.into());
     TotalIssuance::<Test>::mutate(|total_issuance| {
         *total_issuance = total_issuance.saturating_add(lock_cost);
     });
@@ -1038,4 +1038,15 @@ pub fn sf_to_u128(sf: &SafeFloat) -> u128 {
 #[allow(dead_code)]
 pub fn sf_from_u64(val: u64) -> SafeFloat {
     SafeFloat::from(val)
+}
+
+#[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let _ = SubtensorModule::burn_tao(coldkey, tao);
 }

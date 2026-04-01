@@ -2980,15 +2980,15 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
         register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
@@ -3030,7 +3030,7 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         step_block(subnet_tempo);
 
         // Add stake to validator so it has root stake
-        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
         // init root
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(validator_coldkey),
@@ -3175,15 +3175,15 @@ fn test_mining_emission_distribution_with_root_sell() {
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
         register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
@@ -3225,7 +3225,7 @@ fn test_mining_emission_distribution_with_root_sell() {
         step_block(subnet_tempo);
 
         // Add stake to validator so it has root stake
-        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
         // init root
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(validator_coldkey),
@@ -3835,7 +3835,7 @@ fn test_pending_emission_start_call_not_done() {
         Tempo::<Test>::insert(netuid, subnet_tempo);
 
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
@@ -3847,7 +3847,7 @@ fn test_pending_emission_start_call_not_done() {
         SubtensorModule::set_max_allowed_validators(netuid, 2);
 
         // Add stake to validator so it has root stake
-        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
         // init root
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(validator_coldkey),

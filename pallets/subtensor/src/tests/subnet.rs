@@ -71,7 +71,7 @@ fn test_do_start_call_fail_not_owner() {
         add_network_without_emission_block(netuid, tempo, 0);
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
 
         add_network_without_emission_block(netuid, tempo, 0);
 
@@ -101,7 +101,7 @@ fn test_do_start_call_can_start_now() {
         add_network_without_emission_block(netuid, tempo, 0);
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
 
         add_network_without_emission_block(netuid, tempo, 0);
 
@@ -130,7 +130,7 @@ fn test_do_start_call_fail_for_set_again() {
         mock::setup_reserves(netuid, 1_000_000_000.into(), 1_000_000_000.into());
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
@@ -203,7 +203,7 @@ fn test_register_network_min_burn_at_default() {
         let cost = SubtensorModule::get_network_lock_cost();
 
         // Give coldkey enough for lock
-        SubtensorModule::add_balance_to_coldkey_account(&sn_owner_coldkey, cost.into());
+        add_balance_to_coldkey_account(&sn_owner_coldkey, cost.into());
 
         // Register network
         assert_ok!(SubtensorModule::register_network(
@@ -234,7 +234,7 @@ fn test_register_network_use_symbol_for_subnet_if_available() {
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
             let cost = SubtensorModule::get_network_lock_cost();
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
+            add_balance_to_coldkey_account(&coldkey, cost.into());
 
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -265,7 +265,7 @@ fn test_register_network_use_next_available_symbol_if_symbol_for_subnet_is_taken
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
             let cost = SubtensorModule::get_network_lock_cost();
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
+            add_balance_to_coldkey_account(&coldkey, cost.into());
 
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -293,7 +293,7 @@ fn test_register_network_use_next_available_symbol_if_symbol_for_subnet_is_taken
         let coldkey = U256::from(1_000_000 + 50);
         let hotkey = U256::from(2_000_000 + 50);
         let cost = SubtensorModule::get_network_lock_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
+        add_balance_to_coldkey_account(&coldkey, cost.into());
 
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -321,7 +321,7 @@ fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
             let coldkey = U256::from(1_000_000 + i);
             let hotkey = U256::from(2_000_000 + i);
             let cost = SubtensorModule::get_network_lock_cost();
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
+            add_balance_to_coldkey_account(&coldkey, cost.into());
 
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -333,7 +333,7 @@ fn test_register_network_use_default_symbol_if_all_symbols_are_taken() {
         let coldkey = U256::from(1_000_000 + 50);
         let hotkey = U256::from(2_000_000 + 50);
         let cost = SubtensorModule::get_network_lock_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, cost.into());
+        add_balance_to_coldkey_account(&coldkey, cost.into());
 
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -412,7 +412,7 @@ fn test_subtoken_enable_reject_trading_before_enable() {
         register_ok_neuron(netuid, hotkey_account_2_id, coldkey_account_id, 0);
         register_ok_neuron(netuid2, hotkey_account_2_id, coldkey_account_id, 100);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 10_000.into());
 
         // Give some stake
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -585,7 +585,7 @@ fn test_subtoken_enable_trading_ok_with_enable() {
         register_ok_neuron(netuid, hotkey_account_2_id, coldkey_account_id, 0);
         register_ok_neuron(netuid2, hotkey_account_2_id, coldkey_account_id, 100);
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             stake_amount * 10.into(),
         );
@@ -695,7 +695,7 @@ fn test_subtoken_enable_ok_for_burn_register_before_enable() {
         add_network_disable_subtoken(netuid, 10, 0);
         add_network_disable_subtoken(netuid2, 10, 0);
         // Give enough to burned register
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             burn_cost * 2.into() + 5_000.into(),
         );

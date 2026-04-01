@@ -860,7 +860,7 @@ fn test_moving_too_little_unstakes() {
 
         let (_, fee) = mock::swap_tao_to_alpha(netuid, amount);
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             amount + (fee * 2).into(),
         );
@@ -1053,7 +1053,7 @@ fn test_do_transfer_wrong_origin() {
         let fee: u64 = 0; // FIXME: DefaultStakingFee is deprecated
 
         let _ = SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &origin_coldkey,
             (stake_amount + fee).into(),
         );
@@ -1140,7 +1140,7 @@ fn test_do_transfer_different_subnets() {
         let _ = SubtensorModule::create_account_if_non_existent(&destination_coldkey, &hotkey);
 
         // 4. Deposit free balance so transaction fees do not reduce staked funds.
-        SubtensorModule::add_balance_to_coldkey_account(&origin_coldkey, 1_000_000_000.into());
+        add_balance_to_coldkey_account(&origin_coldkey, 1_000_000_000.into());
 
         // 5. Stake into the origin subnet.
         SubtensorModule::stake_into_subnet(
@@ -1731,7 +1731,7 @@ fn test_move_stake_specific_stake_into_subnet_fail() {
         SubnetTAO::<Test>::insert(netuid, tao_in);
 
         // Give TAO balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             (tao_staked + 1_000_000_000).into(),
         );

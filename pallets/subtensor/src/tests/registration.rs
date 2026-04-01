@@ -298,7 +298,7 @@ fn test_burned_registration_under_limit() {
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             (burn_cost + 10_000).into(),
         );
@@ -401,7 +401,7 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             (burn_cost + 10_000).into(),
         );
@@ -460,7 +460,7 @@ fn test_burned_registration_ok() {
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -507,7 +507,7 @@ fn test_burn_registration_without_neuron_slot() {
         SubtensorModule::set_burn(netuid, burn_cost.into());
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
         SubtensorModule::set_max_allowed_uids(netuid, 0);
 
         assert_noop!(
@@ -535,7 +535,7 @@ fn test_burn_registration_doesnt_write_on_failure() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost.into());
         // Give coldkey balance to pay for registration
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             initial_balance.into(),
         );
@@ -587,7 +587,7 @@ fn test_burn_adjustment() {
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
         let coldkey_account_id_1 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id_1,
             init_burn_cost.into(),
         );
@@ -600,7 +600,7 @@ fn test_burn_adjustment() {
         // Register key 2.
         let hotkey_account_id_2 = U256::from(2);
         let coldkey_account_id_2 = U256::from(2);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id_2,
             init_burn_cost.into(),
         );
@@ -653,7 +653,7 @@ fn test_burn_registration_pruning_scenarios() {
         add_network(netuid, tempo, 0);
 
         let mint_balance = burn_cost * max_allowed_uids as u64 + 1_000_000_000;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, mint_balance.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, mint_balance.into());
 
         // Register first half of neurons (uids: 0,1,2); all will be immune initially.
         for i in 0..3 {
@@ -2163,7 +2163,7 @@ fn test_last_update_correctness() {
         LastUpdate::<Test>::remove(NetUidStorageIndex::from(netuid));
 
         // Give some $$$ to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 10000.into());
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -2317,7 +2317,7 @@ fn test_registration_pruning() {
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
+//         add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
 
 //         // Subscribe and check extrinsic output
 //         assert_ok!(SubtensorModule::burned_register(
@@ -2358,7 +2358,7 @@ fn test_registration_pruning() {
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+//         add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
 //         // Subscribe and check extrinsic output
 //         assert_ok!(SubtensorModule::burned_register(
@@ -2393,7 +2393,7 @@ fn test_registration_pruning() {
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+//         add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
 //         // Subscribe and check extrinsic output
 //         assert_ok!(SubtensorModule::burned_register(
@@ -2427,7 +2427,7 @@ fn test_registration_pruning() {
 //         add_network(netuid, tempo, 0);
 
 //         // Give it some $$$ in his coldkey balance
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
+//         add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
 
 //         // Subscribe and check extrinsic output
 //         assert_ok!(SubtensorModule::burned_register(

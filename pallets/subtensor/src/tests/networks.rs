@@ -731,8 +731,8 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         let s1: u64 = 3u64 * min_total_u64;
         let s2: u64 = 7u64 * min_total_u64;
 
-        SubtensorModule::add_balance_to_coldkey_account(&c1, (s1 + 50_000).into());
-        SubtensorModule::add_balance_to_coldkey_account(&c2, (s2 + 50_000).into());
+        add_balance_to_coldkey_account(&c1, (s1 + 50_000).into());
+        add_balance_to_coldkey_account(&c2, (s2 + 50_000).into());
 
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(c1),
@@ -842,7 +842,7 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
             stake[i] = (i as u64 + 1u64) * min_amount_u64; // multiples of min_amount
 
             register_ok_neuron(netuid, hot[i], cold[i], 0);
-            SubtensorModule::add_balance_to_coldkey_account(&cold[i], (stake[i] + 100_000).into());
+            add_balance_to_coldkey_account(&cold[i], (stake[i] + 100_000).into());
 
             assert_ok!(SubtensorModule::do_add_stake(
                 RuntimeOrigin::signed(cold[i]),
@@ -1385,7 +1385,7 @@ fn register_network_prunes_and_recycles_netuid() {
         let new_cold = U256::from(30);
         let new_hot = U256::from(31);
         let needed: u64 = SubtensorModule::get_network_lock_cost().into();
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &new_cold,
             needed.saturating_mul(10).into(),
         );
@@ -1644,7 +1644,7 @@ fn test_migrate_network_immunity_period() {
 //         let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
 //         let new_network_owner_account_id = U256::from(2); //
 
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1000000000000000);
+//         add_balance_to_coldkey_account(&coldkey_account_id, 1000000000000000);
 
 //         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
 //             netuid,
@@ -1851,7 +1851,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // 3) LPs per net: register each (hot, cold), massive τ prefund, and stake
         // ────────────────────────────────────────────────────────────────────
         for &cold in cold_lps.iter() {
-            SubtensorModule::add_balance_to_coldkey_account(&cold, u64::MAX.into());
+            add_balance_to_coldkey_account(&cold, u64::MAX.into());
         }
 
         // τ balances before LP adds (after staking):

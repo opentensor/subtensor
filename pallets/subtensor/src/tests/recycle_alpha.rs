@@ -653,7 +653,7 @@ fn test_add_stake_burn_success() {
             (amount * 10_000_000).into(),
         );
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
         // Check we have zero staked before transfer
         assert_eq!(
@@ -722,7 +722,7 @@ fn test_add_stake_burn_with_limit_success() {
         assert_eq!(current_price, U96F32::from_num(1.0));
 
         // Give coldkey sufficient balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
         let initial_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
 
@@ -789,7 +789,7 @@ fn test_add_stake_burn_non_owner_fails() {
         );
 
         // Give non-owner some balance
-        SubtensorModule::add_balance_to_coldkey_account(&non_owner_coldkey, amount.into());
+        add_balance_to_coldkey_account(&non_owner_coldkey, amount.into());
 
         // Non-owner trying to call add_stake_burn should fail with BadOrigin
         assert_noop!(
@@ -813,7 +813,7 @@ fn test_add_stake_burn_nonexistent_subnet_fails() {
         let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
 
         // Give some balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
         // Try to call add_stake_burn on non-existent subnet
         let nonexistent_netuid = NetUid::from(999);
@@ -876,7 +876,7 @@ fn test_add_stake_burn_rate_limit_exceeded() {
         mock::setup_reserves(netuid, tao_reserve, alpha_in);
 
         // Give coldkey sufficient balance for multiple "add stake and burn" operations.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, (amount * 10).into());
+        add_balance_to_coldkey_account(&coldkey_account_id, (amount * 10).into());
 
         assert_eq!(
             SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid)),

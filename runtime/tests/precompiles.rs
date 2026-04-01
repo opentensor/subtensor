@@ -103,6 +103,7 @@ mod address_mapping {
 
 mod balance_transfer {
     use super::*;
+    use subtensor_runtime_common::TaoBalance;
 
     fn balance_transfer_call_data(target: H256) -> Vec<u8> {
         // Solidity selector for transfer(bytes32).
@@ -112,6 +113,11 @@ mod balance_transfer {
         input.extend_from_slice(target.as_bytes());
         input
     }
+
+    fn add_balance_to_coldkey_account(coldkey: &AccountId, tao: TaoBalance) {
+        let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(tao);
+        let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(coldkey, credit, tao).unwrap();
+    }    
 
     #[test]
     fn balance_transfer_precompile_transfers_balance() {
@@ -123,7 +129,7 @@ mod balance_transfer {
             let destination_account: AccountId = destination_raw.0.into();
 
             let amount = 123_456;
-            pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &dispatch_account,
                 (amount * 2).into(),
             );
@@ -167,7 +173,7 @@ mod balance_transfer {
             let destination_account: AccountId = destination_raw.0.into();
 
             let amount = 100;
-            pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &dispatch_account,
                 1_000_000_u64.into(),
             );
