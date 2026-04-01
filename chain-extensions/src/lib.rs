@@ -66,10 +66,7 @@ where
         Env: SubtensorExtensionEnv<T::AccountId>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let raw_func_id = env.func_id();
-        log::info!("chain_ext: dispatch called with raw func_id={raw_func_id}");
-        let func_id: FunctionId = raw_func_id.try_into().map_err(|_| {
-            log::error!("chain_ext: invalid func_id={raw_func_id}, not in FunctionId enum");
+        let func_id: FunctionId = env.func_id().try_into().map_err(|_| {
             DispatchError::Other(
                 "Invalid function id - does not correspond to any registered function",
             )
@@ -601,30 +598,16 @@ where
                 }
             }
             FunctionId::AddStakeRecycleV1 => {
-                log::info!("chain_ext: AddStakeRecycleV1 called");
-
                 let weight = Weight::from_parts(454_200_000, 0)
                     .saturating_add(T::DbWeight::get().reads(33))
                     .saturating_add(T::DbWeight::get().writes(19));
 
-                if let Err(e) = env.charge_weight(weight) {
-                    log::error!("chain_ext: AddStakeRecycleV1 charge_weight failed: {e:?}");
-                    return Err(e);
-                }
+                env.charge_weight(weight)?;
 
-                let input: Result<(T::AccountId, NetUid, TaoBalance), _> = env.read_as();
-                let (hotkey, netuid, tao_amount) = match input {
-                    Ok(v) => v,
-                    Err(e) => {
-                        log::error!("chain_ext: AddStakeRecycleV1 read_as failed: {e:?}");
-                        return Err(e);
-                    }
-                };
+                let (hotkey, netuid, tao_amount): (T::AccountId, NetUid, TaoBalance) =
+                    env.read_as()?;
 
                 let caller = env.caller();
-                log::info!(
-                    "chain_ext: AddStakeRecycleV1 caller={caller:?} hotkey={hotkey:?} netuid={netuid:?} tao={tao_amount:?}"
-                );
 
                 let alpha = pallet_subtensor::Pallet::<T>::do_add_stake(
                     RawOrigin::Signed(caller.clone()).into(),
@@ -635,9 +618,6 @@ where
 
                 match alpha {
                     Ok(alpha) => {
-                        log::info!(
-                            "chain_ext: AddStakeRecycleV1 do_add_stake ok, alpha={alpha:?}"
-                        );
                         let recycle_result = pallet_subtensor::Pallet::<T>::recycle_alpha(
                             RawOrigin::Signed(caller).into(),
                             hotkey,
@@ -647,22 +627,17 @@ where
 
                         match recycle_result {
                             Ok(_) => {
-                                log::info!("chain_ext: AddStakeRecycleV1 recycle ok");
                                 env.write_output(&alpha.encode())
                                     .map_err(|_| DispatchError::Other("Failed to write output"))?;
                                 Ok(RetVal::Converging(Output::Success as u32))
                             }
                             Err(e) => {
-                                log::error!(
-                                    "chain_ext: AddStakeRecycleV1 recycle failed: {e:?}"
-                                );
                                 let error_code = Output::from(e) as u32;
                                 Ok(RetVal::Converging(error_code))
                             }
                         }
                     }
                     Err(e) => {
-                        log::error!("chain_ext: AddStakeRecycleV1 do_add_stake failed: {e:?}");
                         let error_code = Output::from(e) as u32;
                         Ok(RetVal::Converging(error_code))
                     }
