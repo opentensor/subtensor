@@ -627,11 +627,15 @@ impl<T: Config> Pallet<T> {
         // Get the minimum stake required.
         let min_stake = Self::get_stake_threshold();
 
+        // Get owner uid.
+        let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
+
         // Set stake of validators that doesn't meet the staking threshold to 0 as filter.
         let mut filtered_stake: Vec<I64F64> = total_stake
             .iter()
-            .map(|&s| {
-                if fixed64_to_u64(s) < min_stake {
+            .enumerate()
+            .map(|(uid, &s)| {
+                if owner_uid != Some(uid as u16) && fixed64_to_u64(s) < min_stake {
                     return I64F64::from(0);
                 }
                 s
@@ -648,7 +652,12 @@ impl<T: Config> Pallet<T> {
         // =======================
 
         // Get current validator permits.
-        let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
+        let mut validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
+        if let Some(owner_uid) = owner_uid
+            && let Some(owner_permit) = validator_permits.get_mut(owner_uid as usize)
+        {
+            *owner_permit = true;
+        }
         log::trace!("validator_permits: {validator_permits:?}");
 
         // Logical negation of validator_permits.
@@ -659,8 +668,13 @@ impl<T: Config> Pallet<T> {
         log::trace!("max_allowed_validators: {max_allowed_validators:?}");
 
         // Get new validator permits.
-        let new_validator_permits: Vec<bool> =
+        let mut new_validator_permits: Vec<bool> =
             is_topk_nonzero(&stake, max_allowed_validators as usize);
+        if let Some(owner_uid) = owner_uid
+            && let Some(owner_permit) = new_validator_permits.get_mut(owner_uid as usize)
+        {
+            *owner_permit = true;
+        }
         log::trace!("new_validator_permits: {new_validator_permits:?}");
 
         // ==================
@@ -682,8 +696,6 @@ impl<T: Config> Pallet<T> {
         // =============
         // == Weights ==
         // =============
-
-        let owner_uid: Option<u16> = Self::get_owner_uid(netuid);
 
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse(netuid_index);

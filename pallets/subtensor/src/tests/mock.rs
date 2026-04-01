@@ -149,7 +149,7 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchGuard = crate::CheckColdkeySwap<Test>;
+    type DispatchExtension = crate::CheckColdkeySwap<Test>;
 }
 
 parameter_types! {
@@ -837,6 +837,7 @@ pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) 
 pub fn add_network_disable_commit_reveal(netuid: NetUid, tempo: u16, _modality: u16) {
     add_network(netuid, tempo, _modality);
     SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+    SubtensorModule::set_yuma3_enabled(netuid, false);
 }
 
 // Helper function to set up a neuron with stake
@@ -890,7 +891,9 @@ pub fn mock_set_children(coldkey: &U256, parent: &U256, netuid: NetUid, child_ve
 pub fn mock_set_children_no_epochs(netuid: NetUid, parent: &U256, child_vec: &[(u64, U256)]) {
     let backup_block = SubtensorModule::get_current_block_as_u64();
     PendingChildKeys::<Test>::insert(netuid, parent, (child_vec, 0));
-    System::set_block_number(1);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+    let cooldown = PendingChildKeyCooldown::<Test>::get();
+    System::set_block_number(cooldown + 1);
     SubtensorModule::do_set_pending_children(netuid);
     System::set_block_number(backup_block);
 }

@@ -1871,4 +1871,14 @@ mod pallet_benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Root, coldkey.clone(), netuid);
     }
+
+    #[benchmark]
+    fn set_pending_childkey_cooldown() {
+        let cooldown: u64 = 7200;
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, cooldown);
+
+        assert_eq!(PendingChildKeyCooldown::<T>::get(), cooldown);
+    }
 }

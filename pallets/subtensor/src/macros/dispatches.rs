@@ -6,6 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod dispatches {
     use crate::subnets::leasing::SubnetLeasingWeightInfo;
+    use frame_support::pallet_prelude::DispatchResultWithPostInfo;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::ecdsa::Signature;
@@ -83,7 +84,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4111_u64))
+        .saturating_add(T::DbWeight::get().reads(4112_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
@@ -206,7 +207,7 @@ mod dispatches {
         ///
         #[pallet::call_index(80)]
         #[pallet::weight((Weight::from_parts(95_460_000, 0)
-        .saturating_add(T::DbWeight::get().reads(15_u64))
+        .saturating_add(T::DbWeight::get().reads(16_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
@@ -356,7 +357,7 @@ mod dispatches {
         ///
         #[pallet::call_index(97)]
         #[pallet::weight((Weight::from_parts(122_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(17_u64))
+		.saturating_add(T::DbWeight::get().reads(18_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: OriginFor<T>,
@@ -569,7 +570,7 @@ mod dispatches {
         ///   - The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
         #[pallet::weight((Weight::from_parts(412_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(17_u64))
+		.saturating_add(T::DbWeight::get().reads(18_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: OriginFor<T>,
@@ -1190,7 +1191,7 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(69)]
-        #[pallet::weight(Weight::from_parts(5_660_000, 0)
+        #[pallet::weight(Weight::from_parts(10_190_000, 0)
         .saturating_add(T::DbWeight::get().reads(0))
         .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
@@ -1247,8 +1248,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(37_u64))
-		.saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(36_u64))
+		.saturating_add(T::DbWeight::get().writes(53_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1456,8 +1457,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(396_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(36_u64))
-            .saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(35_u64))
+            .saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1973,7 +1974,8 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight(Weight::from_parts(1_970_000_000_000, 0))]
+        #[pallet::weight(Weight::from_parts(3_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
@@ -2323,7 +2325,7 @@ mod dispatches {
 
         /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
-        #[pallet::weight(Weight::from_parts(2_283_000, 0)
+        #[pallet::weight(Weight::from_parts(3_346_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
