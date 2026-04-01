@@ -1000,9 +1000,4 @@ impl<T: Config> Pallet<T> {
 
         lo
     }
-
-    /// Checked division helper.
-    pub fn checked_div_or_zero_u64(numerator: u64, denominator: u64) -> u64 {
-        numerator.checked_div(denominator).unwrap_or_default()
-    }
 }
