@@ -912,27 +912,6 @@ impl<T: Config> Pallet<T> {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
 
-    /// Saturating exponentiation by squaring.
-    pub fn saturating_pow_u64(base: u64, exp: u16) -> u64 {
-        let mut result: u64 = 1;
-        let mut factor: u64 = base;
-        let mut power: u32 = u32::from(exp);
-
-        while power > 0 {
-            if (power & 1) == 1 {
-                result = result.saturating_mul(factor);
-            }
-
-            power >>= 1;
-
-            if power > 0 {
-                factor = factor.saturating_mul(factor);
-            }
-        }
-
-        result
-    }
-
     /// Multiply an integer `value` by a Q32 fixed-point factor.
     ///
     /// Q32 means:

@@ -142,7 +142,9 @@ where
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(coldkey))
     }
 
-    fn call_register_limit(
+    #[precompile::public("registerLimit(uint16,bytes32,uint64)")]
+    #[precompile::payable]
+    fn register_limit(
         handle: &mut impl PrecompileHandle,
         netuid: u16,
         hotkey: H256,
@@ -157,17 +159,6 @@ where
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(coldkey))
-    }
-
-    #[precompile::public("registerLimit(uint16,bytes32,uint64)")]
-    #[precompile::payable]
-    fn register_limit(
-        handle: &mut impl PrecompileHandle,
-        netuid: u16,
-        hotkey: H256,
-        limit_price: u64,
-    ) -> EvmResult<()> {
-        Self::call_register_limit(handle, netuid, hotkey, limit_price)
     }
 
     #[precompile::public("serveAxon(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8)")]

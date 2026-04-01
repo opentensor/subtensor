@@ -1258,7 +1258,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
 
         // Match pallet behavior exactly.
         if next == 0 {
-            next = 1;
+            next = SubtensorModule::MIN_REGISTRATION_COST;
         }
 
         next
@@ -1534,8 +1534,8 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
                 if expected_burn == 0 {
                     assert_eq!(
                         expected_after_burn,
-                        1,
-                        "zero burn should recover to 1 after a successful registration for netuid={} reg_idx={}",
+                        SubtensorModule::MIN_REGISTRATION_COST,
+                        "zero burn should recover to MIN_REGISTRATION_COST after a successful registration for netuid={} reg_idx={}",
                         case.netuid,
                         reg_idx
                     );
@@ -1642,10 +1642,13 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
         }
 
         // Exact long-run spot checks after all real burned_register calls.
-        assert_eq!(SubtensorModule::get_burn(NetUid::from(1u16)), 1u64.into());
+        assert_eq!(
+            SubtensorModule::get_burn(NetUid::from(1u16)),
+            SubtensorModule::MIN_REGISTRATION_COST.into()
+        );
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(1u16)),
-            6u64.into()
+            600_000u64.into()
         );
 
         assert_eq!(SubtensorModule::get_burn(NetUid::from(2u16)), 5u64.into());
@@ -1654,10 +1657,13 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
             35u64.into()
         );
 
-        assert_eq!(SubtensorModule::get_burn(NetUid::from(3u16)), 1u64.into());
+        assert_eq!(
+            SubtensorModule::get_burn(NetUid::from(3u16)),
+            SubtensorModule::MIN_REGISTRATION_COST.into()
+        );
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(3u16)),
-            6u64.into()
+            600_000u64.into()
         );
 
         assert_eq!(SubtensorModule::get_burn(NetUid::from(4u16)), 7u64.into());
