@@ -726,6 +726,365 @@ fn remove_proxy_success_removes_proxy_relationship() {
     });
 }
 
+#[test]
+fn recycle_alpha_success_reduces_stake_and_returns_actual_amount() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9001);
+        let owner_coldkey = U256::from(9002);
+        let coldkey = U256::from(9101);
+        let hotkey = U256::from(9102);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let stake_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
+            RawOrigin::Signed(coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount_raw.into(),
+        ));
+
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_before > AlphaBalance::ZERO);
+
+        let alpha_out_before = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+
+        let recycle_amount: AlphaBalance = (alpha_before.to_u64() / 2).into();
+
+        let expected_weight = Weight::from_parts(113_400_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(4));
+
+        let mut env = MockEnv::new(
+            FunctionId::RecycleAlphaV1,
+            coldkey,
+            (hotkey, recycle_amount, netuid).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert_eq!(env.charged_weight(), Some(expected_weight));
+
+        let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
+        assert_eq!(returned_amount, recycle_amount);
+
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_after < alpha_before);
+
+        let alpha_out_after = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+        assert!(alpha_out_after < alpha_out_before);
+    });
+}
+
+#[test]
+fn recycle_alpha_on_root_subnet_returns_error() {
+    mock::new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(9201);
+        let hotkey = U256::from(9202);
+
+        pallet_subtensor::Owner::<mock::Test>::insert(hotkey, coldkey);
+
+        let expected_weight = Weight::from_parts(113_400_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(4));
+
+        let mut env = MockEnv::new(
+            FunctionId::RecycleAlphaV1,
+            coldkey,
+            (hotkey, AlphaBalance::from(1_000u64), NetUid::ROOT).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        match ret {
+            RetVal::Converging(code) => {
+                assert_ne!(
+                    code,
+                    Output::Success as u32,
+                    "should not succeed on root subnet"
+                )
+            }
+            _ => panic!("unexpected return value"),
+        }
+    });
+}
+
+#[test]
+fn burn_alpha_success_reduces_stake_and_returns_actual_amount() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9301);
+        let owner_coldkey = U256::from(9302);
+        let coldkey = U256::from(9401);
+        let hotkey = U256::from(9402);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let stake_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
+            RawOrigin::Signed(coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount_raw.into(),
+        ));
+
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_before > AlphaBalance::ZERO);
+
+        let alpha_out_before = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+
+        let burn_amount: AlphaBalance = (alpha_before.to_u64() / 2).into();
+
+        let expected_weight = Weight::from_parts(112_200_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+
+        let mut env = MockEnv::new(
+            FunctionId::BurnAlphaV1,
+            coldkey,
+            (hotkey, burn_amount, netuid).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert_eq!(env.charged_weight(), Some(expected_weight));
+
+        let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
+        assert_eq!(returned_amount, burn_amount);
+
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_after < alpha_before);
+
+        // Burn should NOT decrease SubnetAlphaOut (unlike recycle)
+        let alpha_out_after = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+        assert_eq!(alpha_out_after, alpha_out_before);
+    });
+}
+
+#[test]
+fn burn_alpha_on_nonexistent_subnet_returns_error() {
+    mock::new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(9501);
+        let hotkey = U256::from(9502);
+
+        let expected_weight = Weight::from_parts(112_200_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+
+        let mut env = MockEnv::new(
+            FunctionId::BurnAlphaV1,
+            coldkey,
+            (hotkey, AlphaBalance::from(1_000u64), NetUid::from(999u16)).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        match ret {
+            RetVal::Converging(code) => {
+                assert_eq!(
+                    code,
+                    Output::SubnetNotExists as u32,
+                    "expected subnet not exists error"
+                )
+            }
+            _ => panic!("unexpected return value"),
+        }
+    });
+}
+
+#[test]
+fn add_stake_recycle_success_atomically_stakes_and_recycles() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9601);
+        let owner_coldkey = U256::from(9602);
+        let coldkey = U256::from(9701);
+        let hotkey = U256::from(9702);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let tao_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        let alpha_out_before = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+
+        let expected_weight = Weight::from_parts(454_200_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(19));
+
+        let mut env = MockEnv::new(
+            FunctionId::AddStakeRecycleV1,
+            coldkey,
+            (hotkey, netuid, TaoBalance::from(tao_amount_raw)).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert_eq!(env.charged_weight(), Some(expected_weight));
+
+        let returned_alpha = AlphaBalance::decode(&mut env.output()).unwrap();
+        assert!(returned_alpha > AlphaBalance::ZERO);
+
+        // After atomic add+recycle, the stake should be zero (we recycled everything we added)
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_after.is_zero());
+
+        // SubnetAlphaOut should not have increased (recycle cancels out the add)
+        let alpha_out_after = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+        assert!(alpha_out_after <= alpha_out_before);
+    });
+}
+
+#[test]
+fn add_stake_burn_success_atomically_stakes_and_burns() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(9801);
+        let owner_coldkey = U256::from(9802);
+        let coldkey = U256::from(9901);
+        let hotkey = U256::from(9902);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let tao_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        let alpha_out_before = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+
+        let expected_weight = Weight::from_parts(453_000_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(18));
+
+        let mut env = MockEnv::new(
+            FunctionId::AddStakeBurnV1,
+            coldkey,
+            (hotkey, netuid, TaoBalance::from(tao_amount_raw)).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+        assert_eq!(env.charged_weight(), Some(expected_weight));
+
+        let returned_alpha = AlphaBalance::decode(&mut env.output()).unwrap();
+        assert!(returned_alpha > AlphaBalance::ZERO);
+
+        // After atomic add+burn, the stake should be zero
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_after.is_zero());
+
+        // SubnetAlphaOut should have increased (burn does NOT reduce AlphaOut)
+        let alpha_out_after = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
+        assert!(alpha_out_after > alpha_out_before);
+    });
+}
+
+#[test]
+fn add_stake_recycle_with_insufficient_balance_returns_error() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(10001);
+        let owner_coldkey = U256::from(10002);
+        let coldkey = U256::from(10101);
+        let hotkey = U256::from(10102);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Don't fund the coldkey - should fail with balance error
+
+        let expected_weight = Weight::from_parts(454_200_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(19));
+
+        let mut env = MockEnv::new(
+            FunctionId::AddStakeRecycleV1,
+            coldkey,
+            (hotkey, netuid, TaoBalance::from(100_000_000_000_u64)).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        match ret {
+            RetVal::Converging(code) => {
+                assert_ne!(code, Output::Success as u32, "should not succeed")
+            }
+            _ => panic!("unexpected return value"),
+        }
+    });
+}
+
 impl MockEnv {
     fn new(func_id: FunctionId, caller: AccountId, input: Vec<u8>) -> Self {
         Self {
