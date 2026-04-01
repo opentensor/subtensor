@@ -525,8 +525,9 @@ fn execute_batched_orders_unsigned_rejected() {
 }
 
 #[test]
-fn execute_batched_orders_all_invalid_returns_ok() {
+fn execute_batched_orders_all_invalid_fails() {
     new_test_ext().execute_with(|| {
+        // An expired order causes the whole batch to fail.
         MockTime::set(2_000_001); // all expired
         let expired = make_signed_order(
             AccountKeyring::Alice,
@@ -539,26 +540,21 @@ fn execute_batched_orders_all_invalid_returns_ok() {
             Perbill::zero(),
             fee_recipient(),
         );
-        // Returns Ok even when nothing executes.
-        assert_ok!(LimitOrders::execute_batched_orders(
-            RuntimeOrigin::signed(charlie()),
-            netuid(),
-            bounded(vec![expired]),
-        ));
-        // No summary event — early return when executed_count == 0.
-        let has_summary = System::events().iter().any(|r| {
-            matches!(
-                &r.event,
-                RuntimeEvent::LimitOrders(Event::GroupExecutionSummary { .. })
-            )
-        });
-        assert!(!has_summary);
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie()),
+                netuid(),
+                bounded(vec![expired]),
+            ),
+            Error::<Test>::OrderExpired
+        );
     });
 }
 
 #[test]
-fn execute_batched_orders_skips_wrong_netuid() {
+fn execute_batched_orders_fails_for_wrong_netuid() {
     new_test_ext().execute_with(|| {
+        // An order whose netuid does not match the batch netuid must cause the batch to fail.
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         MockSwap::set_buy_alpha_return(100);
@@ -574,17 +570,14 @@ fn execute_batched_orders_skips_wrong_netuid() {
             Perbill::zero(),
             fee_recipient(),
         );
-        let id = order_id(&wrong_net.order);
 
-        assert_ok!(LimitOrders::execute_batched_orders(
-            RuntimeOrigin::signed(charlie()),
-            netuid(), // batch targets netuid 1
-            bounded(vec![wrong_net]),
-        ));
-
-        assert!(
-            Orders::<Test>::get(id).is_none(),
-            "wrong-netuid order must not be fulfilled"
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie()),
+                netuid(), // batch targets netuid 1
+                bounded(vec![wrong_net]),
+            ),
+            Error::<Test>::OrderNetUidMismatch
         );
     });
 }
@@ -903,8 +896,9 @@ fn execute_batched_orders_fee_forwarded_to_collector() {
 }
 
 #[test]
-fn execute_batched_orders_cancelled_order_skipped() {
+fn execute_batched_orders_fails_for_cancelled_order() {
     new_test_ext().execute_with(|| {
+        // A cancelled order is already processed; including it in the batch must cause a hard failure.
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         MockSwap::set_buy_alpha_return(100);
@@ -923,11 +917,14 @@ fn execute_batched_orders_cancelled_order_skipped() {
         let id = order_id(&signed.order);
         Orders::<Test>::insert(id, OrderStatus::Cancelled);
 
-        assert_ok!(LimitOrders::execute_batched_orders(
-            RuntimeOrigin::signed(charlie()),
-            netuid(),
-            bounded(vec![signed]),
-        ));
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie()),
+                netuid(),
+                bounded(vec![signed]),
+            ),
+            Error::<Test>::OrderAlreadyProcessed
+        );
 
         // Still cancelled, not changed to Fulfilled.
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Cancelled));

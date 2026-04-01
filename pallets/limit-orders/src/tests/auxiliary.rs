@@ -110,7 +110,7 @@ fn validate_and_classify_separates_buys_and_sells() {
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
-        );
+        ).expect("validate_and_classify should succeed");
 
         assert_eq!(buys.len(), 1, "expected 1 valid buy");
         assert_eq!(sells.len(), 1, "expected 1 valid sell");
@@ -131,8 +131,9 @@ fn validate_and_classify_separates_buys_and_sells() {
 }
 
 #[test]
-fn validate_and_classify_skips_wrong_netuid() {
+fn validate_and_classify_fails_for_wrong_netuid() {
     new_test_ext().execute_with(|| {
+        // An order whose netuid does not match the batch netuid must cause a hard failure.
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
 
@@ -149,22 +150,24 @@ fn validate_and_classify_skips_wrong_netuid() {
         );
 
         let orders = bounded(vec![wrong_netuid_order]);
-        let (buys, sells) = LimitOrders::<Test>::validate_and_classify(
+        let result = LimitOrders::<Test>::validate_and_classify(
             netuid(), // batch is for netuid 1
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
         );
 
-        assert_eq!(buys.len(), 0);
-        assert_eq!(sells.len(), 0);
+        assert!(
+            matches!(result, Err(e) if e == crate::Error::<Test>::OrderNetUidMismatch.into()),
+            "expected OrderNetUidMismatch error"
+        );
     });
 }
 
 #[test]
-fn validate_and_classify_skips_expired_order() {
+fn validate_and_classify_fails_for_expired_order() {
     new_test_ext().execute_with(|| {
-        // now_ms = 2_000_001, expiry = 2_000_000 → expired
+        // now_ms = 2_000_001, expiry = 2_000_000 → expired → hard failure.
         MockTime::set(2_000_001);
         MockSwap::set_price(1.0);
 
@@ -181,23 +184,25 @@ fn validate_and_classify_skips_expired_order() {
         );
 
         let orders = bounded(vec![expired]);
-        let (buys, sells) = LimitOrders::<Test>::validate_and_classify(
+        let result = LimitOrders::<Test>::validate_and_classify(
             netuid(),
             &orders,
             2_000_001u64,
             U96F32::from_num(1u32),
         );
 
-        assert_eq!(buys.len(), 0);
-        assert_eq!(sells.len(), 0);
+        assert!(
+            matches!(result, Err(e) if e == crate::Error::<Test>::OrderExpired.into()),
+            "expected OrderExpired error"
+        );
     });
 }
 
 #[test]
-fn validate_and_classify_skips_price_condition_not_met_for_buy() {
+fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
     new_test_ext().execute_with(|| {
+        // Price = 3.0 TAO/alpha, buyer's limit = 2.0 → price > limit → hard failure.
         MockTime::set(1_000_000);
-        // Price = 3.0 TAO/alpha, buyer's limit = 2.0 → price > limit → skip
         let order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
@@ -211,20 +216,24 @@ fn validate_and_classify_skips_price_condition_not_met_for_buy() {
         );
 
         let orders = bounded(vec![order]);
-        let (buys, _) = LimitOrders::<Test>::validate_and_classify(
+        let result = LimitOrders::<Test>::validate_and_classify(
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(3u32), // current price = 3 > limit 2 → skip
+            U96F32::from_num(3u32), // current price = 3 > limit 2 → fails
         );
 
-        assert_eq!(buys.len(), 0);
+        assert!(
+            matches!(result, Err(e) if e == crate::Error::<Test>::PriceConditionNotMet.into()),
+            "expected PriceConditionNotMet error"
+        );
     });
 }
 
 #[test]
-fn validate_and_classify_skips_already_processed_order() {
+fn validate_and_classify_fails_for_already_processed_order() {
     new_test_ext().execute_with(|| {
+        // An order already marked Fulfilled must cause a hard failure.
         MockTime::set(1_000_000);
         let order = make_signed_order(
             AccountKeyring::Alice,
@@ -243,14 +252,17 @@ fn validate_and_classify_skips_already_processed_order() {
         Orders::<Test>::insert(oid, OrderStatus::Fulfilled);
 
         let orders = bounded(vec![order]);
-        let (buys, _) = LimitOrders::<Test>::validate_and_classify(
+        let result = LimitOrders::<Test>::validate_and_classify(
             netuid(),
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
         );
 
-        assert_eq!(buys.len(), 0);
+        assert!(
+            matches!(result, Err(e) if e == crate::Error::<Test>::OrderAlreadyProcessed.into()),
+            "expected OrderAlreadyProcessed error"
+        );
     });
 }
 
@@ -279,7 +291,7 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
-        );
+        ).expect("validate_and_classify should succeed");
 
         assert_eq!(buys.len(), 1);
         let entry = &buys[0];
@@ -1206,7 +1218,7 @@ fn is_order_valid_already_processed_returns_error() {
 fn is_order_valid_expired_order_returns_error() {
     new_test_ext().execute_with(|| {
         MockSwap::set_price(1.0);
-        let (signed, id) = make_valid_signed_order();
+        let (signed, _id) = make_valid_signed_order();
         // now_ms (2_000_001) > expiry (u64::MAX is fine, so use a low expiry order).
         // Re-build a signed order with a past expiry.
         let keyring = AccountKeyring::Alice;
