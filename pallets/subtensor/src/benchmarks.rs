@@ -1225,7 +1225,7 @@ mod pallet_benchmarks {
     fn register_network_with_identity() {
         let coldkey: T::AccountId = whitelisted_caller();
         let hotkey: T::AccountId = account("Alice", 0, 1);
-        let identity: Option<SubnetIdentityOfV3> = None;
+        let identity: Option<SubnetIdentityOf> = None;
 
         Subtensor::<T>::set_network_registration_allowed(1.into(), true);
         Subtensor::<T>::set_network_rate_limit(1);
@@ -1331,6 +1331,7 @@ mod pallet_benchmarks {
         let descr = vec![];
         let logo_url = vec![];
         let add = vec![];
+        let agent_docs_url = vec![];
 
         SubnetOwner::<T>::insert(netuid, coldkey.clone());
         SubtokenEnabled::<T>::insert(netuid, true);
@@ -1347,6 +1348,7 @@ mod pallet_benchmarks {
             descr.clone(),
             logo_url.clone(),
             add.clone(),
+            agent_docs_url.clone(),
         );
     }
 

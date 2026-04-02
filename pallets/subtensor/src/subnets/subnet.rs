@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
     /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.
     /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.
     /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.
-    /// * **`identity`** – `Option<SubnetIdentityOfV3>` &nbsp;Optional metadata for the subnet.
+    /// * **`identity`** – `Option<SubnetIdentityOf>` &nbsp;Optional metadata for the subnet.
     ///
     /// ### Events
     /// * `NetworkAdded(netuid, mechid)` – always.
@@ -112,7 +112,7 @@ impl<T: Config> Pallet<T> {
         origin: OriginFor<T>,
         hotkey: &T::AccountId,
         mechid: u16,
-        identity: Option<SubnetIdentityOfV3>,
+        identity: Option<SubnetIdentityOf>,
     ) -> DispatchResult {
         // --- 1. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;

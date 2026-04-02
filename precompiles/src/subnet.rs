@@ -99,7 +99,7 @@ where
         additional: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
         let hotkey = R::AccountId::from(hotkey.0);
-        let identity = pallet_subtensor::SubnetIdentityOfV3 {
+        let identity = pallet_subtensor::SubnetIdentityOf {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),
             subnet_contact: subnet_contact.into(),
@@ -108,6 +108,7 @@ where
             description: description.into(),
             logo_url: vec![],
             additional: additional.into(),
+            agent_docs_url: vec![],
         };
 
         let call = pallet_subtensor::Call::<R>::register_network_with_identity {
@@ -139,7 +140,7 @@ where
         logo_url: BoundedString<ConstU32<1024>>,
     ) -> EvmResult<()> {
         let hotkey = R::AccountId::from(hotkey.0);
-        let identity = pallet_subtensor::SubnetIdentityOfV3 {
+        let identity = pallet_subtensor::SubnetIdentityOf {
             subnet_name: subnet_name.into(),
             github_repo: github_repo.into(),
             subnet_contact: subnet_contact.into(),
@@ -148,6 +149,7 @@ where
             description: description.into(),
             logo_url: logo_url.into(),
             additional: additional.into(),
+            agent_docs_url: vec![],
         };
 
         let call = pallet_subtensor::Call::<R>::register_network_with_identity {

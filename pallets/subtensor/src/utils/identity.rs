@@ -106,6 +106,7 @@ impl<T: Config> Pallet<T> {
         description: Vec<u8>,
         logo_url: Vec<u8>,
         additional: Vec<u8>,
+        agent_docs_url: Vec<u8>,
     ) -> dispatch::DispatchResult {
         // Ensure the call is signed and get the signer's (coldkey) account
         let coldkey = ensure_signed(origin)?;
@@ -117,7 +118,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Create the identity struct with the provided information
-        let identity: SubnetIdentityOfV3 = SubnetIdentityOfV3 {
+        let identity: SubnetIdentityOf = SubnetIdentityOf {
             subnet_name,
             github_repo,
             subnet_contact,
@@ -126,6 +127,7 @@ impl<T: Config> Pallet<T> {
             description,
             logo_url,
             additional,
+            agent_docs_url,
         };
 
         // Validate the created identity
@@ -188,20 +190,20 @@ impl<T: Config> Pallet<T> {
             && identity.additional.len() <= 1024
     }
 
-    /// Validates the given SubnetIdentityOfV3 struct.
+    /// Validates the given SubnetIdentityOf struct.
     ///
-    /// This function checks if the total length of all fields in the SubnetIdentityOfV3 struct
-    /// is less than or equal to 2304 bytes, and if each individual field is also
-    /// within its respective maximum byte limit.
+    /// This function checks if the total length of all fields in the SubnetIdentityOf struct
+    /// is within limits, and if each individual field is also within its respective maximum
+    /// byte limit.
     ///
     /// # Arguments
     ///
-    /// * `identity` - A reference to the SubnetIdentityOfV3 struct to be validated.
+    /// * `identity` - A reference to the SubnetIdentityOf struct to be validated.
     ///
     /// # Returns
     ///
-    /// * `bool` - Returns true if the SubnetIdentityV3 is valid, false otherwise.
-    pub fn is_valid_subnet_identity(identity: &SubnetIdentityOfV3) -> bool {
+    /// * `bool` - Returns true if the SubnetIdentityOf is valid, false otherwise.
+    pub fn is_valid_subnet_identity(identity: &SubnetIdentityOf) -> bool {
         let total_length = identity
             .subnet_name
             .len()
@@ -215,6 +217,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(256)
             .saturating_add(1024)
             .saturating_add(1024)
+            .saturating_add(1024)
             .saturating_add(1024);
 
         total_length <= max_length
@@ -226,5 +229,6 @@ impl<T: Config> Pallet<T> {
             && identity.description.len() <= 1024
             && identity.logo_url.len() <= 1024
             && identity.additional.len() <= 1024
+            && identity.agent_docs_url.len() <= 1024
     }
 }

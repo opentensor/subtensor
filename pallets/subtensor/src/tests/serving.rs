@@ -945,6 +945,7 @@ fn test_do_set_subnet_identity() {
             description.clone(),
             logo_url.clone(),
             additional.clone(),
+            vec![],
         ));
 
         // Check if subnet identity is set correctly
@@ -969,6 +970,7 @@ fn test_do_set_subnet_identity() {
                 description.clone(),
                 logo_url.clone(),
                 additional.clone(),
+                vec![],
             ),
             Error::<Test>::NotSubnetOwner
         );
@@ -987,6 +989,7 @@ fn test_do_set_subnet_identity() {
             description.clone(),
             logo_url.clone(),
             additional.clone(),
+            vec![],
         ));
 
         let updated_identity =
@@ -1009,6 +1012,7 @@ fn test_do_set_subnet_identity() {
                 long_data.clone(),
                 long_data.clone(),
                 long_data.clone(),
+                long_data.clone(),
             ),
             Error::<Test>::InvalidIdentity
         );
@@ -1020,7 +1024,7 @@ fn test_do_set_subnet_identity() {
 fn test_is_valid_subnet_identity() {
     new_test_ext(1).execute_with(|| {
         // Test valid subnet identity
-        let valid_identity = SubnetIdentityV3 {
+        let valid_identity = SubnetIdentityOf {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1029,11 +1033,12 @@ fn test_is_valid_subnet_identity() {
             description: vec![0; 1024],
             logo_url: vec![0; 1024],
             additional: vec![0; 1024],
+            agent_docs_url: vec![0; 1024],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&valid_identity));
 
         // Test subnet identity with total length exactly at the maximum
-        let max_length_identity = SubnetIdentityV3 {
+        let max_length_identity = SubnetIdentityOf {
             subnet_name: vec![0; 256],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1042,13 +1047,14 @@ fn test_is_valid_subnet_identity() {
             description: vec![0; 1024],
             logo_url: vec![0; 1024],
             additional: vec![0; 1024],
+            agent_docs_url: vec![0; 1024],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(
             &max_length_identity
         ));
 
         // Test subnet identity with total length exceeding the maximum
-        let invalid_length_identity = SubnetIdentityV3 {
+        let invalid_length_identity = SubnetIdentityOf {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1057,13 +1063,14 @@ fn test_is_valid_subnet_identity() {
             description: vec![0; 1024],
             logo_url: vec![0; 1024],
             additional: vec![0; 1024],
+            agent_docs_url: vec![0; 1024],
         };
         assert!(!SubtensorModule::is_valid_subnet_identity(
             &invalid_length_identity
         ));
 
         // Test subnet identity with one field exceeding its maximum
-        let invalid_field_identity = SubnetIdentityV3 {
+        let invalid_field_identity = SubnetIdentityOf {
             subnet_name: vec![0; 257],
             github_repo: vec![0; 1024],
             subnet_contact: vec![0; 1024],
@@ -1072,13 +1079,14 @@ fn test_is_valid_subnet_identity() {
             description: vec![0; 1024],
             logo_url: vec![0; 1024],
             additional: vec![0; 1024],
+            agent_docs_url: vec![0; 1024],
         };
         assert!(!SubtensorModule::is_valid_subnet_identity(
             &invalid_field_identity
         ));
 
         // Test subnet identity with empty fields
-        let empty_identity = SubnetIdentityV3 {
+        let empty_identity = SubnetIdentityOf {
             subnet_name: vec![],
             github_repo: vec![],
             subnet_contact: vec![],
@@ -1087,11 +1095,12 @@ fn test_is_valid_subnet_identity() {
             description: vec![],
             logo_url: vec![],
             additional: vec![],
+            agent_docs_url: vec![],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&empty_identity));
 
         // Test subnet identity with some empty and some filled fields
-        let mixed_identity = SubnetIdentityV3 {
+        let mixed_identity = SubnetIdentityOf {
             subnet_name: b"Test Subnet".to_vec(),
             github_repo: vec![],
             subnet_contact: b"contact@testsubnet.com".to_vec(),
@@ -1100,8 +1109,25 @@ fn test_is_valid_subnet_identity() {
             description: b"A description".to_vec(),
             logo_url: vec![],
             additional: vec![],
+            agent_docs_url: vec![],
         };
         assert!(SubtensorModule::is_valid_subnet_identity(&mixed_identity));
+
+        // Test subnet identity with agent_docs_url exceeding max
+        let invalid_agent_docs = SubnetIdentityOf {
+            subnet_name: vec![],
+            github_repo: vec![],
+            subnet_contact: vec![],
+            subnet_url: vec![],
+            discord: vec![],
+            description: vec![],
+            logo_url: vec![],
+            additional: vec![],
+            agent_docs_url: vec![0; 1025],
+        };
+        assert!(!SubtensorModule::is_valid_subnet_identity(
+            &invalid_agent_docs
+        ));
     });
 }
 
@@ -1134,6 +1160,7 @@ fn test_set_identity_for_non_existent_subnet() {
                 description.clone(),
                 logo_url.clone(),
                 additional.clone(),
+                vec![],
             ),
             Error::<Test>::NotSubnetOwner // Since there's no owner, it should fail
         );
@@ -1163,6 +1190,7 @@ fn test_set_subnet_identity_dispatch_info_ok() {
             description,
             logo_url,
             additional,
+            agent_docs_url: vec![],
         });
 
         let dispatch_info: DispatchInfo = call.get_dispatch_info();

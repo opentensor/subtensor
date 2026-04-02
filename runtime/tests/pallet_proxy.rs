@@ -82,6 +82,7 @@ fn call_set_subnet_identity() -> RuntimeCall {
         description: vec![],
         logo_url: vec![],
         additional: vec![],
+        agent_docs_url: vec![],
     })
 }
 

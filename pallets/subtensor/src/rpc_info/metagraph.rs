@@ -10,7 +10,7 @@ use substrate_fixed::types::I96F32;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex, TaoBalance};
 
-#[freeze_struct("fbab6d1e7f3c69ae")]
+#[freeze_struct("1db9a42935e6a1a8")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Subnet index
@@ -19,7 +19,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     // Name and symbol
     name: Vec<Compact<u8>>,              // name
     symbol: Vec<Compact<u8>>,            // token symbol
-    identity: Option<SubnetIdentityV3>,  // identity information.
+    identity: Option<SubnetIdentityOf>,  // identity information.
     network_registered_at: Compact<u64>, // block at registration
 
     // Keys for owner.
@@ -110,7 +110,7 @@ pub struct Metagraph<AccountId: TypeInfo + Encode + Decode> {
     alpha_dividends_per_hotkey: Vec<(AccountId, Compact<AlphaBalance>)>, // List of dividend payout in alpha via subnet.
 }
 
-#[freeze_struct("3ff2befdb7b393ea")]
+#[freeze_struct("cb7d1187d7035b79")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Subnet index
@@ -119,7 +119,7 @@ pub struct SelectiveMetagraph<AccountId: TypeInfo + Encode + Decode + Clone> {
     // Name and symbol
     name: Option<Vec<Compact<u8>>>,              // name
     symbol: Option<Vec<Compact<u8>>>,            // token symbol
-    identity: Option<Option<SubnetIdentityV3>>,  // identity information
+    identity: Option<Option<SubnetIdentityOf>>,  // identity information
     network_registered_at: Option<Compact<u64>>, // block at registration
 
     // Keys for owner.

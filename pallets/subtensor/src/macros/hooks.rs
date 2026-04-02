@@ -166,7 +166,9 @@ mod hooks {
                 // Fix staking hot keys
                 .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>())
                 // Migrate coldkey swap scheduled to announcements
-                .saturating_add(migrations::migrate_coldkey_swap_scheduled_to_announcements::migrate_coldkey_swap_scheduled_to_announcements::<T>());
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled_to_announcements::migrate_coldkey_swap_scheduled_to_announcements::<T>())
+                // Migrate SubnetIdentitiesV3 entries from V3 to V4 encoding
+                .saturating_add(migrations::migrate_subnet_identity_v3_to_v4::migrate_subnet_identity_v3_to_v4::<T>());
             weight
         }
 

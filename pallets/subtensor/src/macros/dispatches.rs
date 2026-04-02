@@ -1438,6 +1438,7 @@ mod dispatches {
             description: Vec<u8>,
             logo_url: Vec<u8>,
             additional: Vec<u8>,
+            agent_docs_url: Vec<u8>,
         ) -> DispatchResult {
             Self::do_set_subnet_identity(
                 origin,
@@ -1450,6 +1451,7 @@ mod dispatches {
                 description,
                 logo_url,
                 additional,
+                agent_docs_url,
             )
         }
 
@@ -1461,7 +1463,7 @@ mod dispatches {
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            identity: Option<SubnetIdentityOfV3>,
+            identity: Option<SubnetIdentityOf>,
         ) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, identity)
         }
