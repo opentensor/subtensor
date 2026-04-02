@@ -529,9 +529,8 @@ impl<T: Config> Pallet<T> {
             // Deduplicate coldkeys staking to old_hotkey from alpha and alpha_v2
             let unique_coldkeys: BTreeSet<T::AccountId> = old_alpha_values
                 .into_iter()
-                .map(|((coldkey, netuid_alpha), _)| (coldkey, netuid_alpha))
-                .filter(|(_, netuid_alpha)| *netuid_alpha == netuid)
-                .map(|(coldkey, _)| coldkey)
+                .filter(|((_, netuid_alpha), _)| *netuid_alpha == netuid)
+                .map(|((coldkey, _), _)| coldkey)
                 .collect();
 
             // For each coldkey remove their stake from old_hotkey and add to new_hotkey
@@ -544,7 +543,7 @@ impl<T: Config> Pallet<T> {
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     new_hotkey, &coldkey, netuid, alpha_old,
                 );
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(7, 7));
 
                 let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
                 weight.saturating_accrue(T::DbWeight::get().reads(1));
@@ -569,17 +568,21 @@ impl<T: Config> Pallet<T> {
                     .keys()
                     .copied()
                     .collect();
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
 
                 for subnet in subnets {
                     let claimed_coldkeys: Vec<T::AccountId> =
                         RootClaimed::<T>::iter_prefix((subnet, old_hotkey))
                             .map(|(coldkey, _)| coldkey)
                             .collect();
+                    weight
+                        .saturating_accrue(T::DbWeight::get().reads(claimed_coldkeys.len() as u64));
 
                     for coldkey in claimed_coldkeys {
                         Self::transfer_root_claimed_for_new_keys(
                             subnet, old_hotkey, new_hotkey, &coldkey, &coldkey,
                         );
+                        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
                     }
                 }
             }
