@@ -528,10 +528,39 @@ mod events {
             /// Alpha burned
             alpha: AlphaBalance,
         },
+
         /// A coldkey swap announcement has been cleared.
         ColdkeySwapCleared {
             /// The account ID of the coldkey that cleared the announcement.
             who: T::AccountId,
+        },
+
+        /// Transaction fee was paid in Alpha.
+        ///
+        /// Emitted in addition to `TransactionFeePaid` when the fee payment path is Alpha.
+        /// `alpha_fee` is the exact Alpha amount deducted.
+        TransactionFeePaidWithAlpha {
+            /// Account that paid the transaction fee.
+            who: T::AccountId,
+            /// Exact fee deducted in Alpha units.
+            alpha_fee: AlphaBalance,
+            /// Resulting swapped TAO amount
+            tao_amount: TaoBalance,
+        },
+        /// Burn half-life set for neuron registration.
+        BurnHalfLifeSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn half-life value for neuron registration.
+            burn_half_life: u16,
+        },
+
+        /// Burn increase multiplier set for neuron registration.
+        BurnIncreaseMultSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn increase multiplier value for neuron registration.
+            burn_increase_mult: u64,
         },
     }
 }

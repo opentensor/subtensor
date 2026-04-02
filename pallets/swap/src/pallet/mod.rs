@@ -533,12 +533,7 @@ mod pallet {
                 let tao_provided = T::BalanceOps::decrease_balance(&coldkey, result.tao)?;
                 ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
 
-                let alpha_provided =
-                    T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
-                ensure!(
-                    alpha_provided == result.alpha,
-                    Error::<T>::InsufficientBalance
-                );
+                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityModified {
@@ -611,7 +606,7 @@ mod pallet {
         ///
         /// Emits `Event::UserLiquidityToggled` on success
         #[pallet::call_index(5)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::modify_position())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::disable_lp())]
         pub fn disable_lp(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
 

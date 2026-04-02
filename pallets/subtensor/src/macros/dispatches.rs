@@ -83,7 +83,7 @@ mod dispatches {
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4111_u64))
+        .saturating_add(T::DbWeight::get().reads(4112_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
@@ -206,7 +206,7 @@ mod dispatches {
         ///
         #[pallet::call_index(80)]
         #[pallet::weight((Weight::from_parts(95_460_000, 0)
-        .saturating_add(T::DbWeight::get().reads(15_u64))
+        .saturating_add(T::DbWeight::get().reads(16_u64))
         .saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_set_weights(
             origin: OriginFor<T>,
@@ -306,7 +306,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(100_500_000, 0)
+        #[pallet::weight((Weight::from_parts(143_700_000, 0)
         .saturating_add(T::DbWeight::get().reads(11_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -356,7 +356,7 @@ mod dispatches {
         ///
         #[pallet::call_index(97)]
         #[pallet::weight((Weight::from_parts(122_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(17_u64))
+		.saturating_add(T::DbWeight::get().reads(18_u64))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: OriginFor<T>,
@@ -569,7 +569,7 @@ mod dispatches {
         ///   - The input vectors are of mismatched lengths.
         #[pallet::call_index(98)]
         #[pallet::weight((Weight::from_parts(412_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(17_u64))
+		.saturating_add(T::DbWeight::get().reads(18_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::No))]
         pub fn batch_reveal_weights(
             origin: OriginFor<T>,
@@ -711,7 +711,7 @@ mod dispatches {
         ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(340_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(25_u64))
+		.saturating_add(T::DbWeight::get().reads(27_u64))
 		.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake(
             origin: OriginFor<T>,
@@ -1014,19 +1014,19 @@ mod dispatches {
         /// 	- The seal is incorrect.
         ///
         #[pallet::call_index(6)]
-        #[pallet::weight((Weight::from_parts(197_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(24_u64))
-		.saturating_add(T::DbWeight::get().writes(20_u64)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(361_200_000, 0)
+		.saturating_add(T::DbWeight::get().reads(46_u64))
+		.saturating_add(T::DbWeight::get().writes(38_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register(
             origin: OriginFor<T>,
             netuid: NetUid,
-            block_number: u64,
-            nonce: u64,
-            work: Vec<u8>,
+            _block_number: u64,
+            _nonce: u64,
+            _work: Vec<u8>,
             hotkey: T::AccountId,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// Register the hotkey to root network
@@ -1041,14 +1041,14 @@ mod dispatches {
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(354_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(47_u64))
-		.saturating_add(T::DbWeight::get().writes(39_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(46_u64))
+		.saturating_add(T::DbWeight::get().writes(38_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_burned_registration(origin, netuid, hotkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// ---- The extrinsic for user to change its hotkey in subnet or all subnets.
@@ -1064,8 +1064,8 @@ mod dispatches {
         )]
         #[pallet::call_index(70)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(52_u64))
-        .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().reads(57_u64))
+        .saturating_add(T::DbWeight::get().writes(39_u64)), DispatchClass::Normal, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1104,9 +1104,9 @@ mod dispatches {
         ///
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
-        #[pallet::weight(Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(17_u64))
-        .saturating_add(T::DbWeight::get().writes(10_u64)))]
+        #[pallet::weight(Weight::from_parts(238_900_000, 0)
+        .saturating_add(T::DbWeight::get().reads(25_u64))
+        .saturating_add(T::DbWeight::get().writes(19_u64)))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -1190,7 +1190,7 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(69)]
-        #[pallet::weight(Weight::from_parts(5_660_000, 0)
+        #[pallet::weight(Weight::from_parts(5_841_000, 0)
         .saturating_add(T::DbWeight::get().reads(0))
         .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
@@ -1246,9 +1246,9 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(36_u64))
-		.saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(352_700_000, 0)
+		.saturating_add(T::DbWeight::get().reads(45_u64))
+		.saturating_add(T::DbWeight::get().writes(49_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1456,8 +1456,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(396_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(35_u64))
-            .saturating_add(T::DbWeight::get().writes(51_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(44_u64))
+            .saturating_add(T::DbWeight::get().writes(48_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1526,7 +1526,7 @@ mod dispatches {
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
         #[pallet::weight((Weight::from_parts(358_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(40_u64))
+        .saturating_add(T::DbWeight::get().reads(44_u64))
         .saturating_add(T::DbWeight::get().writes(24_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
@@ -1554,8 +1554,8 @@ mod dispatches {
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
-        #[pallet::weight((Weight::from_parts(164_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(15_u64))
+        #[pallet::weight((Weight::from_parts(240_400_000, 0)
+        .saturating_add(T::DbWeight::get().reads(19_u64))
         .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn move_stake(
             origin: OriginFor<T>,
@@ -1597,8 +1597,8 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
-        #[pallet::weight((Weight::from_parts(160_300_000, 0)
-        .saturating_add(T::DbWeight::get().reads(13_u64))
+        #[pallet::weight((Weight::from_parts(233_600_000, 0)
+        .saturating_add(T::DbWeight::get().reads(16_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn transfer_stake(
             origin: OriginFor<T>,
@@ -1640,7 +1640,7 @@ mod dispatches {
         #[pallet::call_index(87)]
         #[pallet::weight((
             Weight::from_parts(351_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(36_u64))
+            .saturating_add(T::DbWeight::get().reads(40_u64))
             .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1705,7 +1705,7 @@ mod dispatches {
         ///
         #[pallet::call_index(88)]
         #[pallet::weight((Weight::from_parts(402_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(25_u64))
+		.saturating_add(T::DbWeight::get().reads(27_u64))
 		.saturating_add(T::DbWeight::get().writes(15_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
@@ -1770,7 +1770,7 @@ mod dispatches {
         ///
         #[pallet::call_index(89)]
         #[pallet::weight((Weight::from_parts(377_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(28_u64))
+		.saturating_add(T::DbWeight::get().reads(30_u64))
 		.saturating_add(T::DbWeight::get().writes(13_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
@@ -1814,7 +1814,7 @@ mod dispatches {
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(411_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(36_u64))
+            .saturating_add(T::DbWeight::get().reads(40_u64))
             .saturating_add(T::DbWeight::get().writes(22_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -1849,7 +1849,7 @@ mod dispatches {
         /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
         #[pallet::call_index(91)]
         #[pallet::weight((
-            Weight::from_parts(27_150_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
+            Weight::from_parts(26_850_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1933,7 +1933,7 @@ mod dispatches {
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
         #[pallet::weight((
-            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 4)),
+            Weight::from_parts(113_400_000, 0).saturating_add(T::DbWeight::get().reads_writes(9, 4)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1958,7 +1958,7 @@ mod dispatches {
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight((
-            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(7, 3)),
+            Weight::from_parts(112_200_000, 0).saturating_add(T::DbWeight::get().reads_writes(9, 3)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -1973,7 +1973,8 @@ mod dispatches {
 
         /// Sets the pending childkey cooldown (in blocks). Root only.
         #[pallet::call_index(109)]
-        #[pallet::weight(Weight::from_parts(1_970_000_000_000, 0))]
+        #[pallet::weight(Weight::from_parts(3_000_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn set_pending_childkey_cooldown(
             origin: OriginFor<T>,
             cooldown: u64,
@@ -1989,7 +1990,7 @@ mod dispatches {
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
         #[pallet::weight((Weight::from_parts(395_300_000, 10142)
-			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().reads(30_u64))
 			.saturating_add(T::DbWeight::get().writes(13_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn remove_stake_full_limit(
             origin: OriginFor<T>,
@@ -2145,7 +2146,7 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight((Weight::from_parts(29_930_000, 0)
+        #[pallet::weight((Weight::from_parts(55_590_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4_u64))
 		.saturating_add(T::DbWeight::get().writes(2_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn set_coldkey_auto_stake_hotkey(
@@ -2265,7 +2266,7 @@ mod dispatches {
         #[pallet::call_index(121)]
         #[pallet::weight((
             Weight::from_parts(117_000_000, 7767)
-                .saturating_add(T::DbWeight::get().reads(12_u64))
+                .saturating_add(T::DbWeight::get().reads(16_u64))
                 .saturating_add(T::DbWeight::get().writes(4_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -2323,7 +2324,7 @@ mod dispatches {
 
         /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
-        #[pallet::weight(Weight::from_parts(2_283_000, 0)
+        #[pallet::weight(Weight::from_parts(3_346_000, 0)
         .saturating_add(T::DbWeight::get().reads(0_u64))
         .saturating_add(T::DbWeight::get().writes(1_u64)))]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
@@ -2423,9 +2424,9 @@ mod dispatches {
         /// The `ColdkeySwapped` event is emitted on successful swap.
         #[pallet::call_index(126)]
         #[pallet::weight(
-            Weight::from_parts(110_700_000, 0)
-            .saturating_add(T::DbWeight::get().reads(16_u64))
-            .saturating_add(T::DbWeight::get().writes(6_u64))
+            Weight::from_parts(185_600_000, 0)
+            .saturating_add(T::DbWeight::get().reads(25_u64))
+            .saturating_add(T::DbWeight::get().writes(15_u64))
         )]
         pub fn swap_coldkey_announced(
             origin: OriginFor<T>,
@@ -2458,7 +2459,7 @@ mod dispatches {
         ///
         #[pallet::call_index(127)]
         #[pallet::weight(
-            Weight::from_parts(20_750_000, 0)
+            Weight::from_parts(30_810_000, 0)
             .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
         )]
@@ -2587,7 +2588,7 @@ mod dispatches {
         #[pallet::call_index(132)]
         #[pallet::weight((
 		    Weight::from_parts(368_000_000, 8556)
-			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().reads(30_u64))
 			.saturating_add(T::DbWeight::get().writes(16_u64)),
             DispatchClass::Normal,
             Pays::Yes
@@ -2625,6 +2626,27 @@ mod dispatches {
 
             Self::deposit_event(Event::ColdkeySwapCleared { who });
             Ok(())
+        }
+
+        /// User register a new subnetwork via burning token, but only if the
+        /// on-chain burn price for this block is <= `limit_price`.
+        ///
+        /// `limit_price` is expressed in the same TaoCurrency/u64 units as `Burn`.
+        #[pallet::call_index(134)]
+        #[pallet::weight((
+            Weight::from_parts(354_200_000, 0)
+                .saturating_add(T::DbWeight::get().reads(47_u64))
+                .saturating_add(T::DbWeight::get().writes(40_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn register_limit(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            hotkey: T::AccountId,
+            limit_price: u64,
+        ) -> DispatchResult {
+            Self::do_register_limit(origin, netuid, hotkey, limit_price)
         }
     }
 }

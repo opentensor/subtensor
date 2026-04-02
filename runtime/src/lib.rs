@@ -268,7 +268,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 392,
+    spec_version: 395,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -381,7 +381,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
-    type DispatchGuard = pallet_subtensor::CheckColdkeySwap<Runtime>;
+    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -724,6 +724,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register_limit { .. })
             ),
             ProxyType::RootWeights => false, // deprecated
             ProxyType::ChildKeys => matches!(
@@ -1210,8 +1211,8 @@ impl pallet_subtensor_swap::Config for Runtime {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
-    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
+    type TaoReserve = pallet_subtensor::TaoBalanceReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
     type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;

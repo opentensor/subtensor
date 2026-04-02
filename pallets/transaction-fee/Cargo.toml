@@ -25,6 +25,7 @@ pallet-preimage = { workspace = true, default-features = false, optional = true 
 pallet-scheduler = { workspace = true, default-features = false, optional = true }
 
 [dev-dependencies]
+approx.workspace = true
 frame-executive.workspace = true
 pallet-evm-chain-id.workspace = true
 scale-info.workspace = true

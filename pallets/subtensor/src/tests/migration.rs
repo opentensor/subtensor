@@ -1321,15 +1321,11 @@ fn test_migrate_set_registration_enable() {
             add_network(*netuid, 1, 0);
             // Set registration to false to simulate the need for migration
             SubtensorModule::set_network_registration_allowed(*netuid, false);
-            SubtensorModule::set_network_pow_registration_allowed(*netuid, false);
         }
 
         // Sanity check: registration is disabled before migration
         for netuid in netuids.iter() {
             assert!(!SubtensorModule::get_network_registration_allowed(*netuid));
-            assert!(!SubtensorModule::get_network_pow_registration_allowed(
-                *netuid
-            ));
         }
 
         // Run the migration
@@ -1341,9 +1337,6 @@ fn test_migrate_set_registration_enable() {
         // After migration, regular registration should be enabled for all subnets except root
         for netuid in netuids.iter() {
             assert!(SubtensorModule::get_network_registration_allowed(*netuid));
-            assert!(!SubtensorModule::get_network_pow_registration_allowed(
-                *netuid
-            ));
         }
 
         // Migration should be marked as run
@@ -2697,10 +2690,20 @@ fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
 #[test]
 fn test_migrate_reset_unactive_sn() {
     new_test_ext(1).execute_with(|| {
+        use sp_std::collections::btree_map::BTreeMap;
+
         let (active_netuids, inactive_netuids) = do_setup_unactive_sn();
 
         let initial_tao = Pallet::<Test>::get_network_min_lock();
         let initial_alpha: AlphaBalance = initial_tao.to_u64().into();
+
+        let mut locked_before: BTreeMap<NetUid, TaoBalance> = BTreeMap::new();
+        let mut rao_recycled_before: BTreeMap<NetUid, TaoBalance> = BTreeMap::new();
+
+        for netuid in active_netuids.iter().chain(inactive_netuids.iter()) {
+            locked_before.insert(*netuid, SubnetLocked::<Test>::get(*netuid));
+            rao_recycled_before.insert(*netuid, RAORecycledForRegistration::<Test>::get(netuid));
+        }
 
         // Run the migration
         let w = crate::migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<Test>();
@@ -2708,12 +2711,19 @@ fn test_migrate_reset_unactive_sn() {
 
         // Verify the results
         for netuid in &inactive_netuids {
-            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao = if (actual_tao_lock_amount < initial_tao) {
-                TaoBalance::ZERO
-            } else {
-                actual_tao_lock_amount - initial_tao
-            };
+            let netuid = *netuid;
+
+            assert_eq!(
+                SubnetLocked::<Test>::get(netuid),
+                *locked_before.get(&netuid).unwrap(),
+                "SubnetLocked unexpectedly changed for inactive subnet {netuid:?}"
+            );
+            assert_eq!(
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap(),
+                "RAORecycledForRegistration unexpectedly changed for inactive subnet {netuid:?}"
+            );
+
             assert_eq!(
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaBalance::ZERO
@@ -2726,13 +2736,8 @@ fn test_migrate_reset_unactive_sn() {
                 PendingRootAlphaDivs::<Test>::get(netuid),
                 AlphaBalance::ZERO
             );
-            assert_eq!(
-                // not modified
-                RAORecycledForRegistration::<Test>::get(netuid),
-                actual_tao_lock_amount_less_pool_tao
-            );
             assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                *netuid
+                netuid
             ));
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
@@ -2762,7 +2767,7 @@ fn test_migrate_reset_unactive_sn() {
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
                     AlphaBalance::ZERO
                 );
-                assert_ne!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                assert_ne!(RootClaimable::<Test>::get(hk).get(&netuid), None);
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
@@ -2776,8 +2781,19 @@ fn test_migrate_reset_unactive_sn() {
 
         // !!! Make sure the active subnets were not reset
         for netuid in &active_netuids {
-            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount - initial_tao;
+            let netuid = *netuid;
+
+            assert_eq!(
+                SubnetLocked::<Test>::get(netuid),
+                *locked_before.get(&netuid).unwrap(),
+                "SubnetLocked unexpectedly changed for active subnet {netuid:?}"
+            );
+            assert_eq!(
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap(),
+                "RAORecycledForRegistration unexpectedly changed for active subnet {netuid:?}"
+            );
+
             assert_ne!(
                 PendingServerEmission::<Test>::get(netuid),
                 AlphaBalance::ZERO
@@ -2791,9 +2807,9 @@ fn test_migrate_reset_unactive_sn() {
                 AlphaBalance::ZERO
             );
             assert_eq!(
-                // not modified
+                // unchanged (already asserted above via snapshot)
                 RAORecycledForRegistration::<Test>::get(netuid),
-                actual_tao_lock_amount_less_pool_tao
+                *rao_recycled_before.get(&netuid).unwrap()
             );
             assert_ne!(SubnetTaoInEmission::<Test>::get(netuid), TaoBalance::ZERO);
             assert_ne!(
@@ -2805,7 +2821,7 @@ fn test_migrate_reset_unactive_sn() {
                 AlphaBalance::ZERO
             );
             assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
-                *netuid
+                netuid
             ));
             assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
@@ -2826,7 +2842,7 @@ fn test_migrate_reset_unactive_sn() {
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
                     AlphaBalance::ZERO
                 );
-                assert!(RootClaimable::<Test>::get(hk).contains_key(netuid));
+                assert!(RootClaimable::<Test>::get(hk).contains_key(&netuid));
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
@@ -3120,5 +3136,155 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
                 <Test as frame_system::Config>::Hashing::hash_of(&U256::from(50))
             ))
         );
+    });
+}
+
+#[test]
+fn test_migrate_clear_deprecated_registration_maps() {
+    new_test_ext(1).execute_with(|| {
+        const MIG_NAME: &[u8] = b"migrate_clear_deprecated_registration_maps_v1";
+
+        let netuid0: NetUid = 0u16.into();
+        let netuid1: NetUid = 1u16.into();
+
+        // --------------------------------------------------------------------
+        // 0) Pre-state
+        // --------------------------------------------------------------------
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // New-model storage must remain untouched by this migration.
+        crate::BurnHalfLife::<Test>::insert(netuid0, 777u16);
+        crate::BurnIncreaseMult::<Test>::insert(netuid0, U64F64::from_num(9));
+
+        crate::BurnHalfLife::<Test>::insert(netuid1, 888u16);
+        crate::BurnIncreaseMult::<Test>::insert(netuid1, U64F64::from_num(11));
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid0), 777u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid0), 9u64);
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid1), 888u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid1), 11u64);
+
+        // Seed deprecated storage items that the migration is expected to clear.
+        crate::Difficulty::<Test>::insert(netuid0, 123u64);
+        crate::MinDifficulty::<Test>::insert(netuid0, 10u64);
+        crate::MaxDifficulty::<Test>::insert(netuid0, 999u64);
+        crate::NetworkPowRegistrationAllowed::<Test>::insert(netuid0, true);
+
+        crate::POWRegistrationsThisInterval::<Test>::insert(netuid0, 7u16);
+        crate::BurnRegistrationsThisInterval::<Test>::insert(netuid0, 8u16);
+
+        crate::AdjustmentAlpha::<Test>::insert(netuid0, 55u64);
+        crate::AdjustmentInterval::<Test>::insert(netuid0, 11u16);
+        crate::LastAdjustmentBlock::<Test>::insert(netuid0, 88u64);
+
+        crate::MinBurn::<Test>::insert(netuid0, TaoBalance::from(1_000_000_000u64));
+        crate::MaxBurn::<Test>::insert(netuid0, TaoBalance::from(2_000_000_000u64));
+
+        crate::Difficulty::<Test>::insert(netuid1, 321u64);
+        crate::MinDifficulty::<Test>::insert(netuid1, 20u64);
+        crate::MaxDifficulty::<Test>::insert(netuid1, 777u64);
+        crate::NetworkPowRegistrationAllowed::<Test>::insert(netuid1, false);
+
+        crate::POWRegistrationsThisInterval::<Test>::insert(netuid1, 17u16);
+        crate::BurnRegistrationsThisInterval::<Test>::insert(netuid1, 18u16);
+
+        crate::AdjustmentAlpha::<Test>::insert(netuid1, 155u64);
+        crate::AdjustmentInterval::<Test>::insert(netuid1, 21u16);
+        crate::LastAdjustmentBlock::<Test>::insert(netuid1, 188u64);
+
+        crate::MinBurn::<Test>::insert(netuid1, TaoBalance::from(3_000_000_000u64));
+        crate::MaxBurn::<Test>::insert(netuid1, TaoBalance::from(4_000_000_000u64));
+
+        assert!(crate::Difficulty::<Test>::contains_key(netuid0));
+        assert!(crate::MinDifficulty::<Test>::contains_key(netuid0));
+        assert!(crate::MaxDifficulty::<Test>::contains_key(netuid0));
+        assert!(crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid0));
+        assert!(crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid0));
+        assert!(crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid0));
+        assert!(crate::AdjustmentAlpha::<Test>::contains_key(netuid0));
+        assert!(crate::AdjustmentInterval::<Test>::contains_key(netuid0));
+        assert!(crate::LastAdjustmentBlock::<Test>::contains_key(netuid0));
+        assert!(crate::MinBurn::<Test>::contains_key(netuid0));
+        assert!(crate::MaxBurn::<Test>::contains_key(netuid0));
+
+        assert!(crate::Difficulty::<Test>::contains_key(netuid1));
+        assert!(crate::MinDifficulty::<Test>::contains_key(netuid1));
+        assert!(crate::MaxDifficulty::<Test>::contains_key(netuid1));
+        assert!(crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid1));
+        assert!(crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid1));
+        assert!(crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid1));
+        assert!(crate::AdjustmentAlpha::<Test>::contains_key(netuid1));
+        assert!(crate::AdjustmentInterval::<Test>::contains_key(netuid1));
+        assert!(crate::LastAdjustmentBlock::<Test>::contains_key(netuid1));
+        assert!(crate::MinBurn::<Test>::contains_key(netuid1));
+        assert!(crate::MaxBurn::<Test>::contains_key(netuid1));
+
+        // --------------------------------------------------------------------
+        // 1) Run migration
+        // --------------------------------------------------------------------
+        let w = crate::migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // --------------------------------------------------------------------
+        // 2) Post-state: deprecated storage cleared
+        // --------------------------------------------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be true after run"
+        );
+
+        assert!(!crate::Difficulty::<Test>::contains_key(netuid0));
+        assert!(!crate::MinDifficulty::<Test>::contains_key(netuid0));
+        assert!(!crate::MaxDifficulty::<Test>::contains_key(netuid0));
+        assert!(!crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid0));
+        assert!(!crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid0));
+        assert!(!crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid0));
+        assert!(!crate::AdjustmentAlpha::<Test>::contains_key(netuid0));
+        assert!(!crate::AdjustmentInterval::<Test>::contains_key(netuid0));
+        assert!(!crate::LastAdjustmentBlock::<Test>::contains_key(netuid0));
+        assert!(!crate::MinBurn::<Test>::contains_key(netuid0));
+        assert!(!crate::MaxBurn::<Test>::contains_key(netuid0));
+
+        assert!(!crate::Difficulty::<Test>::contains_key(netuid1));
+        assert!(!crate::MinDifficulty::<Test>::contains_key(netuid1));
+        assert!(!crate::MaxDifficulty::<Test>::contains_key(netuid1));
+        assert!(!crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid1));
+        assert!(!crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid1));
+        assert!(!crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid1));
+        assert!(!crate::AdjustmentAlpha::<Test>::contains_key(netuid1));
+        assert!(!crate::AdjustmentInterval::<Test>::contains_key(netuid1));
+        assert!(!crate::LastAdjustmentBlock::<Test>::contains_key(netuid1));
+        assert!(!crate::MinBurn::<Test>::contains_key(netuid1));
+        assert!(!crate::MaxBurn::<Test>::contains_key(netuid1));
+
+        // --------------------------------------------------------------------
+        // 3) Post-state: new-model storage unchanged
+        // --------------------------------------------------------------------
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid0), 777u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid0), 9u64);
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid1), 888u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid1), 11u64);
+
+        // --------------------------------------------------------------------
+        // 4) Idempotency
+        // --------------------------------------------------------------------
+        let w2 = crate::migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<Test>();
+        assert!(!w2.is_zero(), "second call should still return non-zero read weight");
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should remain true after second run"
+        );
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid0), 777u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid0), 9u64);
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid1), 888u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid1), 11u64);
     });
 }
