@@ -4391,8 +4391,9 @@ fn test_root_children_enable_subnet_owner_set_weights() {
     });
 }
 
-// Test that register_network automatically schedules root validators as parents of the
-// subnet owner, enabling the owner to set weights after cooldown.
+// Test that register_network automatically sets root validators as parents of the
+// subnet owner, enabling the owner to set weights. Since SubtokenEnabled is false
+// for a new subnet (start_call hasn't executed yet), child keys are applied immediately.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_register_network_schedules_root_validators --exact --show-output --nocapture
 #[test]
 fn test_register_network_schedules_root_validators() {
@@ -4481,21 +4482,7 @@ fn test_register_network_schedules_root_validators() {
             root_stake,
         );
 
-        // --- Verify pending children were scheduled during registration ---
-        assert!(
-            PendingChildKeys::<Test>::contains_key(netuid, root_val_hotkey_1),
-            "Root validator 1 should have pending children on the new subnet"
-        );
-        assert!(
-            PendingChildKeys::<Test>::contains_key(netuid, root_val_hotkey_2),
-            "Root validator 2 should have pending children on the new subnet"
-        );
-
-        // --- Activate pending children ---
-        step_block(1);
-        SubtensorModule::do_set_pending_children(netuid);
-
-        // --- Verify child-parent relationships ---
+        // --- Verify child keys were applied immediately (SubtokenEnabled is false for new subnets) ---
         let children_1 = SubtensorModule::get_children(&root_val_hotkey_1, netuid);
         assert_eq!(
             children_1,
