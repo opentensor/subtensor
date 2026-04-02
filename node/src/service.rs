@@ -1231,14 +1231,11 @@ mod tests {
         let poisoned_changes =
             sc_consensus_grandpa::AuthoritySetChanges::from(vec![(0, 5_672_448u32)]);
 
-        let merged = match merge_testnet_warp_authority_changes(
-            &canonical_changes,
-            0,
-            &poisoned_changes,
-        ) {
-            Ok(merged) => merged,
-            Err(error) => panic!("canonical overrides should cover genesis start: {error}"),
-        };
+        let merged =
+            match merge_testnet_warp_authority_changes(&canonical_changes, 0, &poisoned_changes) {
+                Ok(merged) => merged,
+                Err(error) => panic!("canonical overrides should cover genesis start: {error}"),
+            };
 
         assert_eq!(
             merged,
