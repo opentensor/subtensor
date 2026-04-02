@@ -4274,8 +4274,6 @@ fn test_root_children_enable_subnet_owner_set_weights() {
             root_stake,
         );
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
         let version_key = SubtensorModule::get_weights_version_key(netuid);
         let uids: Vec<u16> = vec![0];
         let values: Vec<u16> = vec![u16::MAX];
@@ -4458,7 +4456,6 @@ fn test_register_network_schedules_root_validators() {
         );
 
         // --- Verify subnet owner can now set weights ---
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
