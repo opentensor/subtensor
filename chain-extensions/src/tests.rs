@@ -1011,8 +1011,8 @@ fn get_alpha_price_returns_encoded_price() {
 }
 
 /// `Caller*` dispatch uses `env.origin()` via `convert_origin`; with [`MockEnv`] both match
-/// `Signed(caller)`, so outcomes align with non-`Caller` arms while charging Caller weights where
-/// they differ.
+/// `Signed(caller)`, so outcomes align with non-`Caller` arms. Weight expectations match the shared
+/// `dispatch_*_v1` helpers used by each pair.
 mod caller_dispatch_tests {
     use super::*;
 
@@ -1040,9 +1040,9 @@ mod caller_dispatch_tests {
                 amount_raw.into(),
             );
 
-            let expected_weight = Weight::from_parts(394_300_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(18))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(9));
+            let expected_weight = Weight::from_parts(340_800_000, 0)
+                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(24))
+                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(15));
 
             let mut env = MockEnv::new(
                 FunctionId::CallerAddStakeV1,
