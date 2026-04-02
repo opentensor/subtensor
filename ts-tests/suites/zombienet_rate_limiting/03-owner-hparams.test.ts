@@ -2,21 +2,23 @@ import { beforeAll, describeSuite } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
 import {
-    addNewSubnetwork,
-    createRateLimitGroup,
-    expectTransactionFailure,
-    forceSetBalances,
     generateKeyringPair,
     getSignerFromKeypair,
-    groupSharingConfigOnly,
-    registerCallsInGroup,
-    setGlobalGroupRateLimit,
-    startCall,
     sudoSetAdminFreezeWindow,
     sudoSetTempo,
     waitForFinalizedBlocks,
-    waitForTransactionWithRetry,
 } from "../../utils";
+import {
+    addNewSubnetworkForRateLimit,
+    createRateLimitGroup,
+    expectTransactionFailure,
+    forceSetBalancesForRateLimit,
+    groupSharingConfigOnly,
+    registerCallsInGroup,
+    setGlobalGroupRateLimit,
+    startCallForRateLimit,
+    waitForRateLimitTransactionWithRetry,
+} from "../../utils/rate-limiting";
 
 describeSuite({
     id: "03_owner_hparams",
@@ -38,12 +40,12 @@ describeSuite({
                 const hotkeyB = generateKeyringPair("sr25519");
                 const ownerSigner = getSignerFromKeypair(coldkey);
 
-                await forceSetBalances(api, [coldkey.address, hotkeyA.address, hotkeyB.address]);
+                await forceSetBalancesForRateLimit(api, [coldkey.address, hotkeyA.address, hotkeyB.address]);
 
-                const netuidA = await addNewSubnetwork(api, hotkeyA, coldkey);
-                await startCall(api, netuidA, coldkey);
-                const netuidB = await addNewSubnetwork(api, hotkeyB, coldkey);
-                await startCall(api, netuidB, coldkey);
+                const netuidA = await addNewSubnetworkForRateLimit(api, hotkeyA, coldkey);
+                await startCallForRateLimit(api, netuidA, coldkey);
+                const netuidB = await addNewSubnetworkForRateLimit(api, hotkeyB, coldkey);
+                await startCallForRateLimit(api, netuidB, coldkey);
 
                 await sudoSetAdminFreezeWindow(api, 0);
                 await sudoSetTempo(api, netuidA, 1);
@@ -87,14 +89,14 @@ describeSuite({
                     activity_cutoff: currentCutoffB + 1,
                 });
 
-                await waitForTransactionWithRetry(api, cutoffAFirst, coldkey, "owner_cutoff_a_initial");
+                await waitForRateLimitTransactionWithRetry(api, cutoffAFirst, coldkey, "owner_cutoff_a_initial");
                 await waitForFinalizedBlocks(api, 1);
-                await waitForTransactionWithRetry(api, rhoA, coldkey, "owner_rho_a_initial");
-                await waitForTransactionWithRetry(api, cutoffB, coldkey, "owner_cutoff_b_allowed");
+                await waitForRateLimitTransactionWithRetry(api, rhoA, coldkey, "owner_rho_a_initial");
+                await waitForRateLimitTransactionWithRetry(api, cutoffB, coldkey, "owner_cutoff_b_allowed");
                 await expectTransactionFailure(cutoffASecond, ownerSigner, "owner_cutoff_a_rate_limited");
 
                 await waitForFinalizedBlocks(api, 1);
-                await waitForTransactionWithRetry(api, cutoffASecond, coldkey, "owner_cutoff_a_after");
+                await waitForRateLimitTransactionWithRetry(api, cutoffASecond, coldkey, "owner_cutoff_a_after");
             },
         });
     },

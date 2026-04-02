@@ -2,8 +2,10 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
 import {
-    createRateLimitGroup,
     generateKeyringPair,
+} from "../../utils";
+import {
+    createRateLimitGroup,
     getCallRateLimit,
     getGroupedResponseGroupId,
     getRateLimitConfig,
@@ -11,7 +13,7 @@ import {
     isGlobalConfig,
     registerCallsInGroup,
     setGlobalGroupRateLimit,
-} from "../../utils";
+} from "../../utils/rate-limiting";
 
 describeSuite({
     id: "00_config",

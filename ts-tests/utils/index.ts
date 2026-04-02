@@ -4,4 +4,3 @@ export * from "./subnet.js";
 export * from "./staking.js";
 export * from "./shield_helpers.ts";
 export * from "./account.ts";
-export * from "./rate-limiting.ts";

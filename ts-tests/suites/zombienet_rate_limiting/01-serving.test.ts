@@ -2,16 +2,18 @@ import { beforeAll, describeSuite } from "@moonwall/cli";
 import { Binary, type TypedApi } from "polkadot-api";
 import { subtensor } from "@polkadot-api/descriptors";
 import {
+    getSignerFromKeypair,
+    waitForFinalizedBlocks,
+} from "../../utils";
+import {
     createRateLimitGroup,
     createRootHotkeyContext,
     expectTransactionFailure,
-    getSignerFromKeypair,
     groupSharingConfigAndUsage,
     registerCallsInGroup,
     setScopedGroupRateLimit,
-    waitForFinalizedBlocks,
-    waitForTransactionWithRetry,
-} from "../../utils";
+    waitForRateLimitTransactionWithRetry,
+} from "../../utils/rate-limiting";
 
 describeSuite({
     id: "01_serving",
@@ -69,16 +71,16 @@ describeSuite({
                 );
                 await setScopedGroupRateLimit(api, groupId, 0, 2);
 
-                await waitForTransactionWithRetry(api, serveAxon, ctx.hotkey, "serve_axon_initial");
+                await waitForRateLimitTransactionWithRetry(api, serveAxon, ctx.hotkey, "serve_axon_initial");
                 await waitForFinalizedBlocks(api, 1);
                 await expectTransactionFailure(serveAxonTls, signer, "serve_axon_tls_rate_limited");
 
-                await waitForTransactionWithRetry(api, servePrometheus, ctx.hotkey, "serve_prometheus_initial");
+                await waitForRateLimitTransactionWithRetry(api, servePrometheus, ctx.hotkey, "serve_prometheus_initial");
                 await waitForFinalizedBlocks(api, 1);
                 await expectTransactionFailure(servePrometheus, signer, "serve_prometheus_rate_limited");
 
                 await waitForFinalizedBlocks(api, 1);
-                await waitForTransactionWithRetry(api, serveAxonTls, ctx.hotkey, "serve_axon_tls_after_window");
+                await waitForRateLimitTransactionWithRetry(api, serveAxonTls, ctx.hotkey, "serve_axon_tls_after_window");
             },
         });
     },

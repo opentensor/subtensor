@@ -1,4 +1,4 @@
-import { waitForSudoTransactionWithRetry, waitForTransactionWithRetry } from "./transactions.js";
+import { waitForTransactionWithRetry } from "./transactions.js";
 import type { KeyringPair } from "@moonwall/util";
 import type { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
@@ -303,7 +303,7 @@ export async function sudoSetTempo(api: TypedApi<typeof subtensor>, netuid: numb
         tempo: tempo,
     });
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-    await waitForSudoTransactionWithRetry(api, tx, alice, "sudo_set_tempo");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_tempo");
 }
 
 export async function waitForBlocks(api: TypedApi<typeof subtensor>, numBlocks: number): Promise<void> {
@@ -371,7 +371,7 @@ export async function sudoSetAdminFreezeWindow(api: TypedApi<typeof subtensor>, 
         window: window,
     });
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-    await waitForSudoTransactionWithRetry(api, tx, alice, "sudo_set_admin_freeze_window");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_admin_freeze_window");
 }
 
 export async function sudoSetEmaPriceHalvingPeriod(
@@ -396,7 +396,7 @@ export async function sudoSetLockReductionInterval(api: TypedApi<typeof subtenso
         interval: BigInt(interval),
     });
     const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-    await waitForSudoTransactionWithRetry(api, tx, alice, "sudo_set_lock_reduction_interval");
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_lock_reduction_interval");
 }
 
 export async function sudoSetSubnetMovingAlpha(api: TypedApi<typeof subtensor>, alpha: bigint): Promise<void> {

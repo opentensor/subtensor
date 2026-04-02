@@ -1,11 +1,11 @@
 import { Binary, Enum, type TypedApi } from "polkadot-api";
 import type { PolkadotSigner } from "polkadot-api/signer";
-import type { subtensor } from "@polkadot-api/descriptors";
+import { getPolkadotSigner } from "polkadot-api/signer";
+import { MultiAddress, type subtensor } from "@polkadot-api/descriptors";
 import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
-import { forceSetBalances } from "./balance.js";
-import { addNewSubnetwork, startCall } from "./subnet.js";
-import { waitForFinalizedBlockAdvance, waitForSudoTransactionWithRetry, waitForTransactionWithRetry } from "./transactions.js";
+import { waitForBlocks } from "./staking.js";
+import { waitForFinalizedBlocks } from "./transactions.js";
 import { generateKeyringPair } from "./account.ts";
 
 export const groupSharingConfigAndUsage = () => Enum("ConfigAndUsage");
@@ -19,6 +19,264 @@ export const rateLimitTargetGroup = (groupId: number) => Enum("Group", groupId);
 
 export const rateLimitKindExact = (limit: bigint | number) =>
     Enum("Exact", typeof limit === "bigint" ? Number(limit) : limit);
+
+const TX_TIMEOUT = 30_000;
+
+async function waitForFinalizedBlockAdvance(api: TypedApi<typeof subtensor>, count = 1): Promise<void> {
+    await waitForFinalizedBlocks(api, count);
+}
+
+async function waitForSudoTransactionWithRetry(
+    api: TypedApi<typeof subtensor>,
+    tx: any,
+    signer: KeyringPair,
+    label: string,
+    maxRetries = 1
+): Promise<void> {
+    let retries = 0;
+
+    while (retries < maxRetries) {
+        try {
+            await waitForSudoTransactionCompletion(api, tx, signer, label);
+            return;
+        } catch (error) {
+            retries += 1;
+            if (retries >= maxRetries) {
+                throw new Error(`[${label}] failed after ${maxRetries} retries`);
+            }
+            await waitForBlocks(api, 1);
+        }
+    }
+}
+
+async function waitForSudoTransactionCompletion(
+    api: TypedApi<typeof subtensor>,
+    tx: any,
+    keypair: KeyringPair,
+    label: string
+): Promise<void> {
+    const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
+    const account = await api.query.System.Account.getValue(keypair.address, { at: "best" });
+
+    return new Promise((resolve, reject) => {
+        let timeoutId: ReturnType<typeof setTimeout>;
+        const subscription = tx
+            .signSubmitAndWatch(signer, {
+                at: "best",
+                nonce: account.nonce,
+            })
+            .subscribe({
+                next: async (event: any) => {
+                    if (event.type === "txBestBlocksState" && event.found) {
+                        subscription.unsubscribe();
+
+                        if (!event.ok) {
+                            reject(new Error(`[${label}] dispatch error: ${JSON.stringify(event.dispatchError)}`));
+                            return;
+                        }
+
+                        try {
+                            const events = await api.query.System.Events.getValue({ at: event.block.hash });
+                            const sudoEvent = events.find(
+                                (record: any) =>
+                                    record.phase?.type === "ApplyExtrinsic" &&
+                                    record.phase.value === event.block.index &&
+                                    record.event?.type === "Sudo" &&
+                                    record.event?.value?.type === "Sudid"
+                            ) as any;
+
+                            const sudoResult = sudoEvent?.event?.value?.value?.sudo_result;
+                            if (sudoResult?.success === false) {
+                                reject(new Error(`[${label}] sudo error: ${JSON.stringify(sudoResult.value)}`));
+                                return;
+                            }
+
+                            clearTimeout(timeoutId);
+                            resolve();
+                        } catch (error) {
+                            clearTimeout(timeoutId);
+                            reject(error instanceof Error ? error : new Error(String(error)));
+                        }
+
+                        return;
+                    }
+
+                    if (event.type === "txBestBlocksState" && event.isValid === false) {
+                        subscription.unsubscribe();
+                        clearTimeout(timeoutId);
+                        reject(new Error(`[${label}] transaction rejected before inclusion`));
+                    }
+                },
+                error: (error: unknown) => {
+                    subscription.unsubscribe();
+                    clearTimeout(timeoutId);
+                    reject(error instanceof Error ? error : new Error(String(error)));
+                },
+            });
+
+        timeoutId = setTimeout(() => {
+            subscription.unsubscribe();
+            reject(new Error(`[${label}] timeout`));
+        }, TX_TIMEOUT);
+    });
+}
+
+export async function waitForRateLimitTransactionWithRetry(
+    api: TypedApi<typeof subtensor>,
+    tx: any,
+    signer: KeyringPair,
+    label: string,
+    maxRetries = 1
+): Promise<void> {
+    let retries = 0;
+
+    while (retries < maxRetries) {
+        try {
+            await waitForRateLimitTransactionCompletion(tx, signer);
+            return;
+        } catch (error) {
+            retries += 1;
+            if (retries >= maxRetries) {
+                throw new Error(`[${label}] failed after ${maxRetries} retries`);
+            }
+            await waitForBlocks(api, 1);
+        }
+    }
+}
+
+async function waitForRateLimitTransactionCompletion(
+    tx: any,
+    keypair: KeyringPair,
+    timeout: number | null = TX_TIMEOUT
+): Promise<{ txHash: string; blockHash: string }> {
+    const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
+
+    const signSubmitAndWatchInner = (): Promise<{ txHash: string; blockHash: string }> =>
+        new Promise((resolve, reject) => {
+            const subscription = tx.signSubmitAndWatch(signer).subscribe({
+                next(event: any) {
+                    if (event.type === "txBestBlocksState" && event.found) {
+                        subscription.unsubscribe();
+                        if (event.dispatchError) {
+                            reject(new Error(`ExtrinsicFailed: ${JSON.stringify(event.dispatchError)}`));
+                        } else {
+                            resolve({
+                                txHash: event.txHash,
+                                blockHash: event.block.hash,
+                            });
+                        }
+                    } else if (event.type === "txBestBlocksState" && event.isValid === false) {
+                        subscription.unsubscribe();
+                        reject(new Error("Transaction rejected before inclusion"));
+                    }
+                },
+                error(err: unknown) {
+                    reject(err instanceof Error ? err : new Error(String(err)));
+                },
+            });
+        });
+
+    if (timeout === null) {
+        return signSubmitAndWatchInner();
+    }
+
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Transaction timed out")), timeout);
+        signSubmitAndWatchInner()
+            .then((result) => {
+                clearTimeout(timer);
+                resolve(result);
+            })
+            .catch((error) => {
+                clearTimeout(timer);
+                reject(error instanceof Error ? error : new Error(String(error)));
+            });
+    });
+}
+
+export async function forceSetBalancesForRateLimit(
+    api: TypedApi<typeof subtensor>,
+    ss58Addresses: string[],
+    amount: bigint = 10000000000000000000n
+): Promise<void> {
+    const keyring = new Keyring({ type: "sr25519" });
+    const alice = keyring.addFromUri("//Alice");
+    const calls = ss58Addresses.map((ss58Address) =>
+        api.tx.Balances.force_set_balance({
+            who: MultiAddress.Id(ss58Address),
+            new_free: amount,
+        }).decodedCall
+    );
+    const batch = api.tx.Utility.force_batch({ calls });
+    const tx = api.tx.Sudo.sudo({ call: batch.decodedCall });
+    await waitForSudoTransactionWithRetry(api, tx, alice, "force_set_balance");
+}
+
+export async function addNewSubnetworkForRateLimit(
+    api: TypedApi<typeof subtensor>,
+    hotkey: KeyringPair,
+    coldkey: KeyringPair
+): Promise<number> {
+    const keyring = new Keyring({ type: "sr25519" });
+    const alice = keyring.addFromUri("//Alice");
+    const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue();
+
+    const target = Enum("Group", 3);
+    const limits = (await api.query.RateLimiting.Limits.getValue(target as never)) as any;
+    const rateLimit =
+        limits?.type === "Global" && limits.value?.type === "Exact" ? BigInt(limits.value.value) : BigInt(0);
+
+    if (rateLimit !== BigInt(0)) {
+        const internalCall = api.tx.RateLimiting.set_rate_limit({
+            target: target as never,
+            scope: undefined,
+            limit: Enum("Exact", 0) as never,
+        });
+        const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+        await waitForSudoTransactionWithRetry(api, tx, alice, "set_network_rate_limit");
+    }
+
+    const registerNetworkTx = api.tx.SubtensorModule.register_network({
+        hotkey: hotkey.address,
+    });
+    await waitForRateLimitTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network");
+
+    return totalNetworks;
+}
+
+export async function startCallForRateLimit(
+    api: TypedApi<typeof subtensor>,
+    netuid: number,
+    coldkey: KeyringPair
+): Promise<void> {
+    const existingFirstEmission = await api.query.SubtensorModule.FirstEmissionBlockNumber.getValue(netuid);
+    if (existingFirstEmission !== undefined) {
+        return;
+    }
+
+    const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid));
+    let currentBlock = await api.query.System.Number.getValue();
+    const duration = Number(await api.constants.SubtensorModule.InitialStartCallDelay);
+
+    while (currentBlock - registerBlock <= duration) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        currentBlock = await api.query.System.Number.getValue();
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const tx = api.tx.SubtensorModule.start_call({ netuid });
+    try {
+        await waitForRateLimitTransactionWithRetry(api, tx, coldkey, "start_call");
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("FirstEmissionBlockNumberAlreadySet")) {
+            return;
+        }
+        throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+}
 
 async function waitForGroupAtFinalized(api: TypedApi<typeof subtensor>, groupId: number, timeoutMs = 30_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
@@ -194,7 +452,7 @@ export async function rootRegister(
     hotkeyAddress: string
 ): Promise<void> {
     const tx = api.tx.SubtensorModule.root_register({ hotkey: hotkeyAddress });
-    await waitForTransactionWithRetry(api, tx, coldkey, "root_register");
+    await waitForRateLimitTransactionWithRetry(api, tx, coldkey, "root_register");
 }
 
 export type RootHotkeyContext = {
@@ -210,7 +468,7 @@ export async function createRootHotkeyContext(api: TypedApi<typeof subtensor>): 
     const coldkeyAddress = coldkey.address;
     const hotkeyAddress = hotkey.address;
 
-    await forceSetBalances(api, [coldkeyAddress, hotkeyAddress]);
+    await forceSetBalancesForRateLimit(api, [coldkeyAddress, hotkeyAddress]);
     await rootRegister(api, coldkey, hotkeyAddress);
 
     return { coldkey, hotkey, coldkeyAddress, hotkeyAddress };
@@ -230,10 +488,10 @@ export async function createOwnedSubnetContext(api: TypedApi<typeof subtensor>):
     const coldkeyAddress = coldkey.address;
     const hotkeyAddress = hotkey.address;
 
-    await forceSetBalances(api, [coldkeyAddress, hotkeyAddress]);
+    await forceSetBalancesForRateLimit(api, [coldkeyAddress, hotkeyAddress]);
 
-    const netuid = await addNewSubnetwork(api, hotkey, coldkey);
-    await startCall(api, netuid, coldkey);
+    const netuid = await addNewSubnetworkForRateLimit(api, hotkey, coldkey);
+    await startCallForRateLimit(api, netuid, coldkey);
 
     return { coldkey, hotkey, coldkeyAddress, hotkeyAddress, netuid };
 }

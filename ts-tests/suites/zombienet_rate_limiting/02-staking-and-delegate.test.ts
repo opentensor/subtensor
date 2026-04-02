@@ -2,18 +2,20 @@ import { beforeAll, describeSuite } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
 import {
+    getSignerFromKeypair,
+    getStakeRaw,
+    tao,
+    waitForFinalizedBlocks,
+} from "../../utils";
+import {
     createOwnedSubnetContext,
     createRateLimitGroup,
     expectTransactionFailure,
-    getSignerFromKeypair,
-    getStakeRaw,
     groupSharingConfigAndUsage,
     registerCallsInGroup,
     setGlobalGroupRateLimit,
-    tao,
-    waitForFinalizedBlocks,
-    waitForTransactionWithRetry,
-} from "../../utils";
+    waitForRateLimitTransactionWithRetry,
+} from "../../utils/rate-limiting";
 
 describeSuite({
     id: "02_staking_and_delegate",
@@ -53,7 +55,7 @@ describeSuite({
                 );
                 await setGlobalGroupRateLimit(api, groupId, 2);
 
-                await waitForTransactionWithRetry(api, addStake, ctx.coldkey, "add_stake_initial");
+                await waitForRateLimitTransactionWithRetry(api, addStake, ctx.coldkey, "add_stake_initial");
                 await waitForFinalizedBlocks(api, 1);
 
                 const alpha = await getStakeRaw(api, ctx.hotkeyAddress, ctx.coldkeyAddress, ctx.netuid);
@@ -65,7 +67,7 @@ describeSuite({
 
                 await expectTransactionFailure(removeStake, signer, "remove_stake_rate_limited");
                 await waitForFinalizedBlocks(api, 1);
-                await waitForTransactionWithRetry(api, removeStake, ctx.coldkey, "remove_stake_after_window");
+                await waitForRateLimitTransactionWithRetry(api, removeStake, ctx.coldkey, "remove_stake_after_window");
             },
         });
     },
