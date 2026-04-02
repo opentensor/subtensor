@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
         _netuid: Option<NetUid>,
         _keep_stake: bool,
     ) -> DispatchResultWithPostInfo {
-        return Err(Error::<T>::DisabledTemporarily.into());
+        Err(Error::<T>::DisabledTemporarily.into())
         // 1. Ensure the origin is signed and get the coldkey
         // let coldkey = ensure_signed(origin)?;
 
