@@ -421,6 +421,8 @@ fn test_remove_stake_completely_fees_alpha() {
 
         // Remove stake
         let balance_before = Balances::free_balance(sn.coldkey);
+        println!("========== debug balance_before: {:?}", balance_before);
+
         let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
             hotkey: sn.hotkeys[0],
             netuid: sn.subnets[0].netuid,
@@ -444,6 +446,12 @@ fn test_remove_stake_completely_fees_alpha() {
             &sn.coldkey,
             sn.subnets[0].netuid,
         );
+
+        println!(
+            "========== debug expected_unstaked_tao: {:?}",
+            expected_unstaked_tao
+        );
+        println!("========== debug final_balance: {:?}", final_balance);
 
         // Effectively, the fee is paid in TAO in this case because user receives less TAO,
         // and all Alpha is gone, and it is not measurable in Alpha

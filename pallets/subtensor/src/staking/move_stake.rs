@@ -358,11 +358,17 @@ impl<T: Config> Pallet<T> {
             let tao_unstaked = Self::unstake_from_subnet(
                 origin_hotkey,
                 origin_coldkey,
+                origin_coldkey,
                 origin_netuid,
                 move_amount,
                 T::SwapInterface::min_price(),
                 drop_fee_origin,
             )?;
+
+            // Transfer unstaked TAO from origin_coldkey to destination_coldkey
+            if origin_coldkey != destination_coldkey {
+                Self::transfer_tao(&origin_coldkey, &destination_coldkey, tao_unstaked)?;
+            }
 
             // Stake the unstaked amount into the destination.
             // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,

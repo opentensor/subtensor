@@ -911,6 +911,10 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: TaoBalance,
     netuid: NetUid,
 ) {
+    // Add TAO balance to coldkey account
+    add_balance_to_coldkey_account(&coldkey, tao_staked.into());
+
+    // Stake
     SubtensorModule::stake_into_subnet(
         hotkey,
         coldkey,
@@ -1045,11 +1049,36 @@ pub fn sf_from_u64(val: u64) -> SafeFloat {
 
 #[allow(dead_code)]
 pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
-    let credit = SubtensorModule::mint_tao(tao);
-    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+    let ed = ExistentialDeposit::get();
+    if tao >= ed {
+        let credit = SubtensorModule::mint_tao(tao);
+        let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+    }
 }
 
 #[allow(dead_code)]
 pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
     let _ = SubtensorModule::burn_tao(coldkey, tao);
+}
+
+#[allow(dead_code)]
+pub fn mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+    hotkey: &U256,
+    coldkey: &U256,
+    netuid: NetUid,
+    alpha: AlphaBalance,
+) {
+    // Record stake in alpha pool
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        &hotkey, &coldkey, netuid, alpha,
+    );
+
+    // Make sure subnet exists, so does it's account
+    NetworksAdded::<Test>::insert(netuid, true);
+
+    // Add TAO balance to subnet account
+    // For simplicity make it equal to alpha * 100, which is more than needed
+    let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+    let tao_bal = u64::from(alpha) * 100;
+    add_balance_to_coldkey_account(&subnet_account, tao_bal.into());
 }

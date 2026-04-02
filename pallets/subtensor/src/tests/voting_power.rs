@@ -401,10 +401,7 @@ fn test_only_validators_get_voting_power() {
             (DEFAULT_STAKE_AMOUNT * 100).into(),
             (DEFAULT_STAKE_AMOUNT * 100).into(),
         );
-        add_balance_to_coldkey_account(
-            &coldkey,
-            (DEFAULT_STAKE_AMOUNT * 20).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, (DEFAULT_STAKE_AMOUNT * 20).into());
 
         // Register miner
         register_ok_neuron(netuid, miner_hotkey, coldkey, 0);

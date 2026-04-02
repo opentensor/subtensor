@@ -23,14 +23,14 @@ pub type BalanceOf<T> =
 
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
+pub const MAX_TAO_ISSUANCE: u64 = 21_000_000_000_000_000_u64;
+
 impl<T: Config> Pallet<T> {
+    /// Returns Subnet TAO reserve using SubnetTAO map.
+    /// Do not use subnet account balance because it may also contain
+    /// locked TAO.
     pub fn get_subnet_tao(netuid: NetUid) -> TaoBalance {
-        let maybe_subnet_account = Self::get_subnet_account_id(netuid);
-        if let Some(subnet_account) = maybe_subnet_account {
-            Self::get_coldkey_balance(&subnet_account)
-        } else {
-            0.into()
-        }
+        SubnetTAO::<T>::get(netuid)
     }
 
     /// Transfer TAO from one coldkey account to another.
@@ -42,6 +42,14 @@ impl<T: Config> Pallet<T> {
         destination_coldkey: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> DispatchResult {
+        let max_transferrable = <T as pallet::Config>::Currency::reducible_balance(
+            origin_coldkey,
+            Preservation::Expendable,
+            Fortitude::Polite,
+        );
+
+        ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);
+
         <T as pallet::Config>::Currency::transfer(
             origin_coldkey,
             destination_coldkey,
@@ -68,24 +76,20 @@ impl<T: Config> Pallet<T> {
         origin_coldkey: &T::AccountId,
         destination_coldkey: &T::AccountId,
     ) -> DispatchResult {
-        let amount_to_transfer =
-            <T as pallet::Config>::Currency::reducible_balance(
-                origin_coldkey,
-                Preservation::Expendable,
-                Fortitude::Polite,
-            );
-
-        ensure!(
-            !amount_to_transfer.is_zero(),
-            Error::<T>::InsufficientBalance
+        let amount_to_transfer = <T as pallet::Config>::Currency::reducible_balance(
+            origin_coldkey,
+            Preservation::Expendable,
+            Fortitude::Polite,
         );
 
-        <T as pallet::Config>::Currency::transfer(
-            origin_coldkey,
-            destination_coldkey,
-            amount_to_transfer,
-            Preservation::Expendable,
-        )?;
+        if !amount_to_transfer.is_zero() {
+            <T as pallet::Config>::Currency::transfer(
+                origin_coldkey,
+                destination_coldkey,
+                amount_to_transfer,
+                Preservation::Expendable,
+            )?;
+        }
 
         Ok(())
     }
@@ -114,6 +118,10 @@ impl<T: Config> Pallet<T> {
         origin_coldkey: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> Result<BalanceOf<T>, DispatchError> {
+        if amount.is_zero() {
+            return Ok(0.into());
+        }
+
         let subnet_account: T::AccountId =
             Self::get_subnet_account_id(netuid).ok_or(Error::<T>::SubnetNotExists)?;
 
@@ -192,16 +200,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> bool {
-        let current_balance = Self::get_coldkey_balance(coldkey);
-        if amount > current_balance {
-            return false;
-        }
-
-        // This bit is currently untested. @todo
-
-        <T as Config>::Currency::can_withdraw(coldkey, amount)
-            .into_result(false)
-            .is_ok()
+        amount <= Self::get_coldkey_balance(coldkey)
     }
 
     pub fn get_coldkey_balance(coldkey: &T::AccountId) -> BalanceOf<T> {
@@ -219,7 +218,14 @@ impl<T: Config> Pallet<T> {
     ///   2. spend_tao in run_coinbase (distribute to subnets)
     ///   3. None should be left, so burn the remainder using burn_credit for records
     pub fn mint_tao(amount: BalanceOf<T>) -> CreditOf<T> {
-        <T as Config>::Currency::issue(amount)
+        // Hard-limit maximum issuance to 21M TAO. Never issue more.
+        let current_issuance = <T as Config>::Currency::total_issuance();
+
+        let remaining_issuance =
+            TaoBalance::from(MAX_TAO_ISSUANCE).saturating_sub(current_issuance);
+        let amount_to_issue = amount.min(remaining_issuance);
+
+        <T as Config>::Currency::issue(amount_to_issue)
     }
 
     /// Spend part of the imbalance

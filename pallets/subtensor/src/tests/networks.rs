@@ -220,7 +220,7 @@ fn dissolve_owner_cut_refund_logic() {
         // One staker and a TAO pot (not relevant to refund amount).
         let sh = U256::from(77);
         let sc = U256::from(88);
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &sh,
             &sc,
             net,
@@ -968,7 +968,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // give some stake to other key
         let other_cold = U256::from(1_234);
         let other_hot = U256::from(2_345);
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &other_hot,
             &other_cold,
             netuid,
@@ -1033,7 +1033,7 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // give some stake to other key
         let other_cold = U256::from(1_234);
         let other_hot = U256::from(2_345);
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &other_hot,
             &other_cold,
             netuid,
@@ -1385,10 +1385,7 @@ fn register_network_prunes_and_recycles_netuid() {
         let new_cold = U256::from(30);
         let new_hot = U256::from(31);
         let needed: u64 = SubtensorModule::get_network_lock_cost().into();
-        add_balance_to_coldkey_account(
-            &new_cold,
-            needed.saturating_mul(10).into(),
-        );
+        add_balance_to_coldkey_account(&new_cold, needed.saturating_mul(10).into());
 
         assert_ok!(SubtensorModule::do_register_network(
             RuntimeOrigin::signed(new_cold),
@@ -1851,7 +1848,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // 3) LPs per net: register each (hot, cold), massive τ prefund, and stake
         // ────────────────────────────────────────────────────────────────────
         for &cold in cold_lps.iter() {
-            add_balance_to_coldkey_account(&cold, u64::MAX.into());
+            add_balance_to_coldkey_account(&cold, 1_000_000_000_000_u64.into());
         }
 
         // τ balances before LP adds (after staking):

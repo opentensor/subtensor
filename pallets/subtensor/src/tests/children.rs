@@ -2644,10 +2644,7 @@ fn test_childkey_set_weights_single_parent() {
 
         // Register parent with minimal stake and child with high stake
         add_balance_to_coldkey_account(&coldkey_parent, 1.into());
-        add_balance_to_coldkey_account(
-            &coldkey_child,
-            balance_to_give_child + 10.into(),
-        );
+        add_balance_to_coldkey_account(&coldkey_child, balance_to_give_child + 10.into());
         add_balance_to_coldkey_account(&coldkey_weight_setter, 1_000_000.into());
 
         // Add neurons for parent, child and weight_setter
@@ -2751,10 +2748,7 @@ fn test_set_weights_no_parent() {
         let balance_to_give_child = TaoBalance::from(109_999);
         let stake_to_give_child = AlphaBalance::from(109_999);
 
-        add_balance_to_coldkey_account(
-            &coldkey,
-            balance_to_give_child + 10.into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, balance_to_give_child + 10.into());
 
         // Is registered
         register_ok_neuron(netuid, hotkey, coldkey, 1);

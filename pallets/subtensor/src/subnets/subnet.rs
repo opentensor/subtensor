@@ -188,7 +188,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("init_new_network: {netuid_to_register:?}");
 
         // --- 10. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
-        let actual_tao_lock_amount = Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
+        let actual_tao_lock_amount =
+            Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
         log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
         // --- 11. Set the lock amount for use to determine pricing.
@@ -235,7 +236,8 @@ impl<T: Config> Pallet<T> {
 
         if actual_tao_lock_amount_less_pool_tao > TaoBalance::ZERO {
             // TAO paid for registration is already on the subnet account. Recycle from it if needed.
-            let subnet_account = Self::get_subnet_account_id(netuid_to_register).ok_or(Error::<T>::SubnetNotExists)?;
+            let subnet_account = Self::get_subnet_account_id(netuid_to_register)
+                .ok_or(Error::<T>::SubnetNotExists)?;
             Self::recycle_tao(&subnet_account, actual_tao_lock_amount_less_pool_tao)?;
         }
 
@@ -459,7 +461,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
-        if NetworksAdded::<T>::contains_key(netuid) {
+        if NetworksAdded::<T>::contains_key(netuid) || netuid == NetUid::ROOT {
             Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
         } else {
             None

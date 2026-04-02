@@ -668,9 +668,11 @@ impl<T: Config> Pallet<T> {
     /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
+    /// Credits the unstaked TAO to the benefitiary account
     pub fn unstake_from_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
+        benefitiary: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaBalance,
         price_limit: TaoBalance,
@@ -692,6 +694,9 @@ impl<T: Config> Pallet<T> {
         if !refund.is_zero() {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
+
+        // Transfer unstaked TAO from subnet account to the coldkey.
+        Self::transfer_tao_from_subnet(netuid, benefitiary, swap_result.amount_paid_out.into())?;
 
         // Swap (in a fee-less way) the block builder alpha fee
         let mut fee_outflow = 0_u64;
@@ -773,8 +778,12 @@ impl<T: Config> Pallet<T> {
         set_limit: bool,
         drop_fees: bool,
     ) -> Result<AlphaBalance, DispatchError> {
+        // Transfer TAO from coldkey to the subnet account.
+        // Actual transfered may be different within ED amount.
+        let tao_staked = Self::transfer_tao_to_subnet(netuid, &coldkey, tao)?;
+
         // Swap the tao to alpha.
-        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit, drop_fees)?;
+        let swap_result = Self::swap_tao_for_alpha(netuid, tao_staked, price_limit, drop_fees)?;
 
         ensure!(
             !swap_result.amount_paid_out.is_zero(),
@@ -808,7 +817,7 @@ impl<T: Config> Pallet<T> {
         // Increase the balance of the block author
         let maybe_block_author_coldkey = T::AuthorshipProvider::author();
         if let Some(block_author_coldkey) = maybe_block_author_coldkey {
-            // TAO was transferred to subnet account in the upper layer (add_stake)
+            // TAO was transferred to subnet account in the beginning of this fn
             // swap_tao_for_alpha guarantees that input amount of TAO was split into
             // reserve delta + fee_to_block_author.
             // Now transfer the fee from subnet account to block builder.
@@ -846,7 +855,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_staked,
             swap_result.amount_paid_out.into(),
             netuid,
             swap_result.fee_paid.to_u64(),
@@ -856,7 +865,7 @@ impl<T: Config> Pallet<T> {
             "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_staked,
             swap_result.amount_paid_out,
             netuid,
             swap_result.fee_paid,

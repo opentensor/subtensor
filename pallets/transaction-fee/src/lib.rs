@@ -111,6 +111,7 @@ where
 /// Handle Alpha fees
 impl<T> AlphaFeeHandler<T> for TransactionFeeHandler<T>
 where
+    T: AuthorshipInfo<AccountIdOf<T>>,
     T: frame_system::Config,
     T: pallet_subtensor::Config,
     T: pallet_subtensor_swap::Config,
@@ -174,18 +175,23 @@ where
             let alpha_fee = alpha_equivalent.min(alpha_balance);
 
             // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return).
-            let swap_result = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
-                hotkey,
-                coldkey,
-                *netuid,
-                alpha_fee,
-                0.into(),
-                true,
-            );
-
-            if let Ok(tao_amount) = swap_result {
-                (alpha_fee, tao_amount)
+            if let Some(author) = T::author() {
+                let swap_result = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
+                    hotkey,
+                    coldkey,
+                    &author,
+                    *netuid,
+                    alpha_fee,
+                    0.into(),
+                    true,
+                );
+                if let Ok(tao_amount) = swap_result {
+                    (alpha_fee, tao_amount)
+                } else {
+                    (0.into(), 0.into())
+                }
             } else {
+                // Fallback: no author => no fees (do nothing)
                 (0.into(), 0.into())
             }
         } else {
@@ -406,13 +412,7 @@ where
                     OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
                 }
                 WithdrawnFee::Alpha((alpha_fee, tao_amount)) => {
-                    if let Some(author) = T::author() {
-                        // Pay block author
-                        let _ = F::deposit(&author, tao_amount.into(), Precision::BestEffort)
-                            .unwrap_or_else(|_| Debt::<T::AccountId, F>::zero());
-                    } else {
-                        // Fallback: no author => do nothing
-                    }
+                    // Block author already received the fee in withdraw_in_alpha, nothing to do here.
                     frame_system::Pallet::<T>::deposit_event(
                         pallet_subtensor::Event::<T>::TransactionFeePaidWithAlpha {
                             who: who.clone(),

@@ -58,16 +58,13 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 3. Ensure the remove operation from the coldkey is a success.
-        let tao_staked = Self::transfer_tao_to_subnet(netuid, &coldkey, stake_to_be_added)?;
-
-        // 4. Swap the stake into alpha on the subnet and increase counters.
+        // 3. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
-            tao_staked,
+            stake_to_be_added,
             T::SwapInterface::max_price(),
             true,
             false,
@@ -150,16 +147,13 @@ impl<T: Config> Pallet<T> {
             Self::maybe_become_delegate(&hotkey);
         }
 
-        // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked = Self::transfer_tao_to_subnet(netuid, &coldkey, possible_stake)?;
-
-        // 6. Swap the stake into alpha on the subnet and increase counters.
+        // 5. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
-            tao_staked,
+            possible_stake,
             limit_price,
             true,
             false,

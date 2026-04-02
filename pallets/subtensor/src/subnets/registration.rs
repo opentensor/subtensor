@@ -136,7 +136,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 11. Ensure the remove operation from the coldkey is a success.
-        let actual_burn_amount = Self::transfer_tao_to_subnet(netuid, &coldkey, registration_cost.into())?;
+        let actual_burn_amount =
+            Self::transfer_tao_to_subnet(netuid, &coldkey, registration_cost.into())?;
 
         // Tokens are swapped and then burned.
         let burned_alpha = Self::swap_tao_for_alpha(

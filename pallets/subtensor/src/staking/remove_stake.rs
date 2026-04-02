@@ -67,17 +67,15 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Swap the alpba to tao and update counters for this subnet.
-        let tao_unstaked = Self::unstake_from_subnet(
+        Self::unstake_from_subnet(
             &hotkey,
+            &coldkey,
             &coldkey,
             netuid,
             alpha_unstaked,
             T::SwapInterface::min_price(),
             false,
         )?;
-
-        // 4. Transfer TAO from subnet account to the coldkey. If the above fails we will not credit this coldkey.
-        Self::transfer_tao_from_subnet(netuid, &coldkey, tao_unstaked)?;
 
         // 5. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -159,17 +157,15 @@ impl<T: Config> Pallet<T> {
 
             if !alpha_unstaked.is_zero() {
                 // Swap the alpha to tao and update counters for this subnet.
-                let tao_unstaked = Self::unstake_from_subnet(
+                Self::unstake_from_subnet(
                     &hotkey,
+                    &coldkey,
                     &coldkey,
                     netuid,
                     alpha_unstaked,
                     T::SwapInterface::min_price(),
                     false,
                 )?;
-
-                // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
-                Self::transfer_tao_from_subnet(netuid, &coldkey, tao_unstaked)?;
 
                 // If the stake is below the minimum, we clear the nomination from storage.
                 Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -254,6 +250,7 @@ impl<T: Config> Pallet<T> {
                     // Swap the alpha to tao and update counters for this subnet.
                     let tao_unstaked = Self::unstake_from_subnet(
                         &hotkey,
+                        &coldkey,
                         &coldkey,
                         netuid,
                         alpha_unstaked,
@@ -358,8 +355,9 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 4. Swap the alpha to tao and update counters for this subnet.
-        let tao_unstaked = Self::unstake_from_subnet(
+        Self::unstake_from_subnet(
             &hotkey,
+            &coldkey,
             &coldkey,
             netuid,
             possible_alpha,
@@ -367,13 +365,10 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::transfer_tao_from_subnet(netuid, &coldkey, tao_unstaked)?;
-
-        // 6. If the stake is below the minimum, we clear the nomination from storage.
+        // 5. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
-        // 7. Check if stake lowered below MinStake and remove Pending children if it did
+        // 6. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get().into() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);

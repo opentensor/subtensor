@@ -298,10 +298,7 @@ fn test_burned_registration_under_limit() {
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
-        add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            (burn_cost + 10_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey_account_id, (burn_cost + 10_000).into());
 
         let target_registrants = 2;
         let max_registrants = target_registrants * 3; // Maximum is 3 times the target
@@ -401,10 +398,7 @@ fn test_burned_registration_rate_allows_burn_adjustment() {
 
         add_network(netuid, 13, 0); // Add the network
         // Give it some TAO to the coldkey balance; more than the burn cost
-        add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            (burn_cost + 10_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey_account_id, (burn_cost + 10_000).into());
 
         let target_registrants = 1; // Target is 1, but we can register more than that, up to some maximum.
         SubtensorModule::set_target_registrations_per_interval(netuid, target_registrants);
@@ -535,10 +529,7 @@ fn test_burn_registration_doesnt_write_on_failure() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost.into());
         // Give coldkey balance to pay for registration
-        add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            initial_balance.into(),
-        );
+        add_balance_to_coldkey_account(&coldkey_account_id, initial_balance.into());
         // Set max allowed uids to 0 so registration will fail, but only on last check.
         SubtensorModule::set_max_allowed_uids(netuid, 0);
 
@@ -587,10 +578,7 @@ fn test_burn_adjustment() {
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
         let coldkey_account_id_1 = U256::from(1);
-        add_balance_to_coldkey_account(
-            &coldkey_account_id_1,
-            init_burn_cost.into(),
-        );
+        add_balance_to_coldkey_account(&coldkey_account_id_1, init_burn_cost.into());
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
             netuid,
@@ -600,10 +588,7 @@ fn test_burn_adjustment() {
         // Register key 2.
         let hotkey_account_id_2 = U256::from(2);
         let coldkey_account_id_2 = U256::from(2);
-        add_balance_to_coldkey_account(
-            &coldkey_account_id_2,
-            init_burn_cost.into(),
-        );
+        add_balance_to_coldkey_account(&coldkey_account_id_2, init_burn_cost.into());
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2),
             netuid,

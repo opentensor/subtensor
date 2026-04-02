@@ -246,19 +246,18 @@ impl<T: Config> Pallet<T> {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 // Do not apply any fees
-                let maybe_cleared_stake = Self::unstake_from_subnet(
+                if Self::unstake_from_subnet(
                     hotkey,
+                    coldkey,
                     coldkey,
                     netuid,
                     alpha_stake,
                     T::SwapInterface::min_price(),
                     false,
-                );
-
-                if let Ok(cleared_stake) = maybe_cleared_stake {
-                    // Ignore errors if transfer fails
-                    let _ = Self::transfer_tao_from_subnet(netuid, coldkey, cleared_stake);
-                } else {
+                )
+                .is_err()
+                {
+                    // Ignore errors if unstaking fails
                     // Just clear small alpha
                     let alpha =
                         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);

@@ -431,10 +431,7 @@ fn test_swap_coldkey_works() {
         let stake2 = min_stake * 20.into();
         let stake3 = min_stake * 30.into();
 
-        add_balance_to_coldkey_account(
-            &old_coldkey,
-            swap_cost + stake1 + stake2 + stake3 + ed,
-        );
+        add_balance_to_coldkey_account(&old_coldkey, swap_cost + stake1 + stake2 + stake3 + ed);
 
         // Some old announcement and dispute that will be cleared
         let now = System::block_number() - 100;
@@ -512,10 +509,7 @@ fn test_swap_coldkey_works_with_zero_cost() {
         let stake2 = min_stake * 20.into();
         let stake3 = min_stake * 30.into();
 
-        add_balance_to_coldkey_account(
-            &old_coldkey,
-            stake1 + stake2 + stake3 + ed,
-        );
+        add_balance_to_coldkey_account(&old_coldkey, stake1 + stake2 + stake3 + ed);
 
         let (
             netuid1,
@@ -598,7 +592,7 @@ fn test_swap_coldkey_with_bad_origin_fails() {
     });
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails --exact --nocapture 
+// cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails --exact --nocapture
 #[test]
 fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
     new_test_ext(1).execute_with(|| {
@@ -620,8 +614,6 @@ fn test_swap_coldkey_with_not_enough_balance_to_pay_swap_cost_fails() {
         // Needs to preserve ED
         let balance = SubtensorModule::get_key_swap_cost() + ExistentialDeposit::get() - 1.into();
         add_balance_to_coldkey_account(&old_coldkey, balance);
-
-        println!("======== before swap");
 
         assert_noop!(
             SubtensorModule::swap_coldkey(
@@ -715,7 +707,9 @@ fn test_do_swap_coldkey_with_max_values() {
         let other_coldkey = U256::from(7);
         let netuid = NetUid::from(1);
         let netuid2 = NetUid::from(2);
-        let max_stake = TaoBalance::from(21_000_000_000_000_000_u64); // 21 Million TAO; max possible balance.
+        // Max possible balance: (21M - EDs) / 2
+        let ed = u64::from(ExistentialDeposit::get());
+        let max_stake = (21_000_000_000_000_000_u64 - 2 * ed) / 2;
 
         // Add a network
         add_network(netuid, 1, 0);
@@ -727,19 +721,18 @@ fn test_do_swap_coldkey_with_max_values() {
         register_ok_neuron(netuid2, hotkey2, other_coldkey, 1001000);
 
         // Give balance to old_coldkey and old_coldkey2.
-        add_balance_to_coldkey_account(&old_coldkey, max_stake + 1_000.into());
-        add_balance_to_coldkey_account(&old_coldkey2, max_stake + 1_000.into());
+        add_balance_to_coldkey_account(&old_coldkey, max_stake.into());
+        add_balance_to_coldkey_account(&old_coldkey2, max_stake.into());
 
-        let reserve = u64::from(max_stake) * 10;
-        mock::setup_reserves(netuid, reserve.into(), reserve.into());
-        mock::setup_reserves(netuid2, reserve.into(), reserve.into());
+        mock::setup_reserves(netuid, max_stake.into(), max_stake.into());
+        mock::setup_reserves(netuid2, max_stake.into(), max_stake.into());
 
         // Stake to hotkey on each subnet.
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
             hotkey,
             netuid,
-            max_stake
+            max_stake.into()
         ));
         let expected_stake1 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
@@ -751,7 +744,7 @@ fn test_do_swap_coldkey_with_max_values() {
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey2),
             hotkey2,
             netuid2,
-            max_stake
+            max_stake.into()
         ));
         let expected_stake2 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey2,

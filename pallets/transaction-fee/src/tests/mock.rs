@@ -776,10 +776,7 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 #[allow(dead_code)]
 pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
     // Stake to hotkey account, and check if the result is ok
-    add_balance_to_coldkey_account(
-        coldkey,
-        ExistentialDeposit::get() + amount.into(),
-    );
+    add_balance_to_coldkey_account(coldkey, ExistentialDeposit::get() + amount.into());
     remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
     assert_ok!(SubtensorModule::add_stake(
         RuntimeOrigin::signed(*coldkey),
