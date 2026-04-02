@@ -62,7 +62,7 @@ describe("Test wasm contract", () => {
     async function addStakeWhenWithoutStakeCaller() {
         const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
 
@@ -82,7 +82,7 @@ describe("Test wasm contract", () => {
 
         const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
 
@@ -617,15 +617,15 @@ describe("Test wasm contract", () => {
         assert.ok(result !== undefined)
     })
 
-    it("Caller chain extension: add stake (fn 16)", async () => {
+    it("Can caller add stake (fn 16)", async () => {
         await addStakeWhenWithoutStakeCaller()
     })
 
-    it("Caller chain extension: remove stake (fn 17)", async () => {
+    it("Can caller remove stake (fn 17)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stake !== undefined)
@@ -639,50 +639,50 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeAfter !== undefined && stakeAfter < stake!)
     })
 
-    it("Caller chain extension: unstake_all (fn 18)", async () => {
+    it("Can caller unstake_all (fn 18)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const message = inkClient.message("caller_unstake_all")
         const data = message.encode({ hotkey: Binary.fromBytes(hotkey.publicKey) })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeAfter !== undefined)
         assert.equal(stakeAfter, BigInt(0))
     })
 
-    it("Caller chain extension: unstake_all_alpha (fn 19)", async () => {
+    it("Can caller unstake_all_alpha (fn 19)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const message = inkClient.message("caller_unstake_all_alpha")
         const data = message.encode({ hotkey: Binary.fromBytes(hotkey.publicKey) })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeAfter !== undefined)
         assert.equal(stakeAfter, BigInt(0))
     })
 
-    it("Caller chain extension: move_stake (fn 20)", async () => {
+    it("Can caller move_stake (fn 20)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const originStakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const destStakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey2.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake || BigInt(0)
         assert.ok(originStakeBefore !== undefined && originStakeBefore > BigInt(0))
@@ -698,12 +698,12 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const originStakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const destStakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey2.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(originStakeAfter !== undefined && destStakeAfter !== undefined)
@@ -711,11 +711,11 @@ describe("Test wasm contract", () => {
         assert.ok(destStakeAfter > destStakeBefore)
     })
 
-    it("Caller chain extension: transfer_stake (fn 21)", async () => {
+    it("Can caller transfer_stake (fn 21)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const stakeBeforeOrigin = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const stakeBeforeDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
@@ -737,7 +737,7 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfterOrigin = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const stakeAfterDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
@@ -750,16 +750,16 @@ describe("Test wasm contract", () => {
         assert.ok(stakeAfterDest > stakeBeforeDest!)
     })
 
-    it("Caller chain extension: swap_stake (fn 22)", async () => {
+    it("Can caller swap_stake (fn 22)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid + 1,
         ))?.stake || BigInt(0)
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
@@ -774,12 +774,12 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid + 1,
         ))?.stake
         assert.ok(stakeAfter !== undefined && stakeAfter2 !== undefined)
@@ -787,11 +787,11 @@ describe("Test wasm contract", () => {
         assert.ok(stakeAfter2 > stakeBefore2)
     })
 
-    it("Caller chain extension: add_stake_limit (fn 23)", async () => {
+    it("Can caller add_stake_limit (fn 23)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeBefore !== undefined)
@@ -806,17 +806,17 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeAfter !== undefined && stakeAfter > stakeBefore!)
     })
 
-    it("Caller chain extension: remove_stake_limit (fn 24)", async () => {
+    it("Can caller remove_stake_limit (fn 24)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
@@ -831,22 +831,22 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeAfter !== undefined && stakeAfter < stakeBefore!)
     })
 
-    it("Caller chain extension: swap_stake_limit (fn 25)", async () => {
+    it("Can caller swap_stake_limit (fn 25)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid + 1,
         ))?.stake
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
@@ -863,12 +863,12 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid + 1,
         ))?.stake
         assert.ok(stakeAfter !== undefined && stakeAfter2 !== undefined)
@@ -876,11 +876,11 @@ describe("Test wasm contract", () => {
         assert.ok(stakeAfter2 > stakeBefore2!)
     })
 
-    it("Caller chain extension: remove_stake_full_limit (fn 26)", async () => {
+    it("Can caller remove_stake_full_limit (fn 26)", async () => {
         await addStakeWhenWithoutStakeCaller()
         const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
@@ -893,13 +893,13 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
+            convertPublicKeyToSs58(coldkey.publicKey),
             netuid,
         ))?.stake
         assert.ok(stakeAfter !== undefined && stakeAfter < stakeBefore!)
     })
 
-    it("Caller chain extension: set_coldkey_auto_stake_hotkey (fn 27)", async () => {
+    it("Can caller set_coldkey_auto_stake_hotkey (fn 27)", async () => {
         const message = inkClient.message("caller_set_coldkey_auto_stake_hotkey")
         const data = message.encode({
             netuid,
@@ -913,7 +913,7 @@ describe("Test wasm contract", () => {
         assert.ok(autoStakeHotkey === convertPublicKeyToSs58(hotkey2.publicKey))
     })
 
-    it("Caller chain extension: add_proxy and remove_proxy (fn 28-29)", async () => {
+    it("Can caller add_proxy and remove_proxy (fn 28-29)", async () => {
         const addMessage = inkClient.message("caller_add_proxy")
         const addData = addMessage.encode({
             delegate: Binary.fromBytes(hotkey2.publicKey),
