@@ -18,7 +18,28 @@ fn test_registration_ok() {
         let netuid = NetUid::from(2);
         let tempo: u16 = 13;
         let hotkey_account_id: U256 = U256::from(1);
-        let coldkey_account_id = U256::from(0); // Neighbour of the beast, har har
+        let coldkey_account_id: U256 = U256::from(0); // Neighbour of the beast, har har
+
+        add_network(netuid, tempo, 0);
+
+        // Ensure reserves exist for any registration path that might touch swap/burn logic.
+        let reserve: u64 = 1_000_000_000_000;
+        setup_reserves(
+            netuid,
+            TaoBalance::from(reserve),
+            AlphaBalance::from(reserve),
+        );
+
+        // registration economics changed. Ensure the coldkey has enough spendable balance
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_account_id,
+            TaoBalance::from(reserve),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &hotkey_account_id,
+            TaoBalance::from(reserve),
+        );
+
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
             block_number,
@@ -26,9 +47,7 @@ fn test_registration_ok() {
             &hotkey_account_id,
         );
 
-        //add network
-        add_network(netuid, tempo, 0);
-
+        // PoW register should succeed.
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
@@ -40,8 +59,7 @@ fn test_registration_ok() {
         ));
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
-
-        assert!(!SubtensorModule::if_subnet_exist(netuid))
+        assert!(!SubtensorModule::if_subnet_exist(netuid));
     })
 }
 
@@ -559,7 +577,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Weights/versioning/targets/limits
         assert!(!WeightsVersionKey::<Test>::contains_key(net));
         assert!(!MaxAllowedValidators::<Test>::contains_key(net));
-        assert!(!AdjustmentInterval::<Test>::contains_key(net));
         assert!(!BondsMovingAverage::<Test>::contains_key(net));
         assert!(!BondsPenalty::<Test>::contains_key(net));
         assert!(!BondsResetOn::<Test>::contains_key(net));
@@ -567,7 +584,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!ValidatorPruneLen::<Test>::contains_key(net));
         assert!(!ScalingLawPower::<Test>::contains_key(net));
         assert!(!TargetRegistrationsPerInterval::<Test>::contains_key(net));
-        assert!(!AdjustmentAlpha::<Test>::contains_key(net));
         assert!(!CommitRevealWeightsEnabled::<Test>::contains_key(net));
 
         // Burn/difficulty/adjustment

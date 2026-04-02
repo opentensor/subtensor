@@ -13,6 +13,7 @@ use alloc::collections::BTreeMap;
 use approx::assert_abs_diff_eq;
 use frame_support::assert_ok;
 use pallet_subtensor_swap::position::PositionId;
+use safe_math::FixedExt;
 use sp_core::U256;
 use substrate_fixed::{
     transcendental::sqrt,
@@ -2396,6 +2397,7 @@ fn test_distribute_emission_no_miners_all_drained() {
         let hotkey = U256::from(3);
         let coldkey = U256::from(4);
         let init_stake = 1;
+        SubtensorModule::set_burn(netuid, TaoBalance::from(0));
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         // Give non-zero stake
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(

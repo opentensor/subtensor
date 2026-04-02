@@ -303,13 +303,9 @@ impl<T: Config> Pallet<T> {
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 64);
         Self::set_min_allowed_weights(netuid, 1);
-        Self::set_adjustment_interval(netuid, 360);
-        Self::set_target_registrations_per_interval(netuid, 1);
-        Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
         Self::set_immunity_period(netuid, 5000);
-        Self::set_min_difficulty(netuid, u64::MAX);
-        Self::set_max_difficulty(netuid, u64::MAX);
         Self::set_yuma3_enabled(netuid, true);
+        Self::set_burn(netuid, DefaultNeuronBurnCost::<T>::get());
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
@@ -317,9 +313,6 @@ impl<T: Config> Pallet<T> {
         }
         if !Kappa::<T>::contains_key(netuid) {
             Kappa::<T>::insert(netuid, Kappa::<T>::get(netuid));
-        }
-        if !Difficulty::<T>::contains_key(netuid) {
-            Difficulty::<T>::insert(netuid, Difficulty::<T>::get(netuid));
         }
         if !MaxAllowedUids::<T>::contains_key(netuid) {
             MaxAllowedUids::<T>::insert(netuid, MaxAllowedUids::<T>::get(netuid));
@@ -337,18 +330,6 @@ impl<T: Config> Pallet<T> {
             RegistrationsThisInterval::<T>::insert(
                 netuid,
                 RegistrationsThisInterval::<T>::get(netuid),
-            );
-        }
-        if !POWRegistrationsThisInterval::<T>::contains_key(netuid) {
-            POWRegistrationsThisInterval::<T>::insert(
-                netuid,
-                POWRegistrationsThisInterval::<T>::get(netuid),
-            );
-        }
-        if !BurnRegistrationsThisInterval::<T>::contains_key(netuid) {
-            BurnRegistrationsThisInterval::<T>::insert(
-                netuid,
-                BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
     }
