@@ -365,6 +365,9 @@ export async function setTargetRegistrationsPerInterval(
         call: internal_tx.decodedCall,
     });
     await waitForTransactionWithRetry(api, tx, alice);
+
+    const value = await api.query.SubtensorModule.TargetRegistrationsPerInterval.getValue(netuid)
+    assert.equal(1000, value)
 }
 
 // Disable admin freeze window and owner hyperparam rate limiting for tests
@@ -437,4 +440,13 @@ export async function getStake(api: TypedApi<typeof devnet>, hotkey: string, col
     }
 
     return result;
+}
+
+export async function setAdminFreezeWindow(api: TypedApi<typeof devnet>) {
+    const alice = getAliceSigner()
+    const window = 0;
+    const internalCall = api.tx.AdminUtils.sudo_set_admin_freeze_window({ window: window })
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall })
+    await waitForTransactionWithRetry(api, tx, alice)
+    assert.equal(window, await api.query.SubtensorModule.AdminFreezeWindow.getValue())
 }
