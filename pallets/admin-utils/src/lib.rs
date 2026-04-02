@@ -2162,7 +2162,8 @@ pub mod pallet {
             );
             ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
             ensure!(
-                burn_half_life > 0 && burn_half_life <= 36_100,
+                burn_half_life > 0
+                    && burn_half_life <= pallet_subtensor::MaxBurnHalfLife::<T>::get(),
                 Error::<T>::InvalidValue
             );
 

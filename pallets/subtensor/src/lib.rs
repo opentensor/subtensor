@@ -348,6 +348,12 @@ pub mod pallet {
         },
     }
 
+    /// The max burn halflife settable
+    #[pallet::type_value]
+    pub fn MaxBurnHalfLife<T: Config>() -> u16 {
+        36_100
+    }
+
     /// Default burn half-life (in blocks) for subnet registration price decay.
     #[pallet::type_value]
     pub fn DefaultBurnHalfLife<T: Config>() -> u16 {
