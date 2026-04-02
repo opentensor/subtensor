@@ -357,7 +357,7 @@ pub mod pallet {
     /// Default multiplier applied to the burn price after a successful registration.
     #[pallet::type_value]
     pub fn DefaultBurnIncreaseMult<T: Config>() -> U64F64 {
-        U64F64::from_num(2)
+        U64F64::from_num(1.26)
     }
 
     /// Default Neuron Burn Cost

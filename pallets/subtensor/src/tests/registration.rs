@@ -24,7 +24,10 @@ fn test_init_new_network_registration_defaults() {
         SubtensorModule::init_new_network(netuid, tempo);
 
         assert_eq!(BurnHalfLife::<Test>::get(netuid), 360);
-        assert_eq!(BurnIncreaseMult::<Test>::get(netuid), 2);
+        assert_eq!(
+            BurnIncreaseMult::<Test>::get(netuid),
+            U64F64::from_num(1.26)
+        );
 
         assert_eq!(
             SubtensorModule::get_burn(netuid),
