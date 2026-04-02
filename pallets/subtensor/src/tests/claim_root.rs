@@ -2,7 +2,8 @@
 
 use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::{
-    RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext, run_to_block,
+    RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext,
+    remove_owner_registration_stake, run_to_block,
 };
 use crate::{
     DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
@@ -44,6 +45,7 @@ fn test_claim_root_with_drain_emissions() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
@@ -765,6 +767,7 @@ fn test_claim_root_with_run_coinbase() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         Tempo::<Test>::insert(netuid, 1);
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
@@ -883,6 +886,7 @@ fn test_claim_root_with_block_emissions() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         Tempo::<Test>::insert(netuid, 1);
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
@@ -942,6 +946,7 @@ fn test_claim_root_with_block_emissions() {
         assert!(new_stake > 0);
     });
 }
+
 #[test]
 fn test_populate_staking_maps() {
     new_test_ext(1).execute_with(|| {
@@ -1117,6 +1122,7 @@ fn test_claim_root_with_swap_coldkey() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
@@ -1195,6 +1201,7 @@ fn test_claim_root_with_swap_coldkey() {
         );
     });
 }
+
 #[test]
 fn test_claim_root_with_swap_hotkey() {
     new_test_ext(1).execute_with(|| {
@@ -1202,6 +1209,7 @@ fn test_claim_root_with_swap_hotkey() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
@@ -1461,6 +1469,7 @@ fn test_claim_root_with_unrelated_subnets() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
@@ -1639,6 +1648,7 @@ fn test_claim_root_with_keep_subnets() {
         let hotkey = U256::from(1002);
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 

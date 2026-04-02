@@ -49,6 +49,7 @@ fn test_add_stake_ok_no_emission() {
 
         //add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        remove_owner_registration_stake(netuid);
 
         mock::setup_reserves(
             netuid,
@@ -648,6 +649,7 @@ fn test_remove_stake_no_enough_stake() {
         let hotkey_id = U256::from(54544);
         let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
         let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
+        remove_owner_registration_stake(netuid);
 
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
@@ -1071,6 +1073,7 @@ fn test_staking_sets_div_variables() {
         let coldkey_account_id = U256::from(81337);
         let amount = 100_000_000_000_u64;
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        remove_owner_registration_stake(netuid);
         let tempo = 10;
         Tempo::<Test>::insert(netuid, tempo);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
@@ -1283,7 +1286,9 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
         let coldkey_id = U256::from(5443433);
         let amount: u64 = 10_000;
         let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
+        remove_owner_registration_stake(netuid);
         let netuid_ex = add_dynamic_network(&hotkey_id, &coldkey_id);
+        remove_owner_registration_stake(netuid_ex);
 
         let neuron_uid = match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
             Ok(k) => k,
@@ -1480,6 +1485,7 @@ fn test_has_enough_stake_yes() {
         let coldkey_id = U256::from(87989);
         let intial_amount = 10_000;
         let netuid = NetUid::from(add_dynamic_network(&hotkey_id, &coldkey_id));
+        remove_owner_registration_stake(netuid);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
@@ -1516,6 +1522,7 @@ fn test_has_enough_stake_no() {
         let coldkey_id = U256::from(87989);
         let intial_amount = 10_000;
         let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
+        remove_owner_registration_stake(netuid);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_id,
             &coldkey_id,
@@ -1555,6 +1562,7 @@ fn test_has_enough_stake_no_for_zero() {
         let coldkey_id = U256::from(87989);
         let intial_amount = 0;
         let netuid = add_dynamic_network(&hotkey_id, &coldkey_id);
+        remove_owner_registration_stake(netuid);
 
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
@@ -2385,6 +2393,7 @@ fn test_get_total_delegated_stake_exclude_owner_stake() {
         let delegator_stake = DefaultMinStake::<Test>::get().to_u64() * 10 - 1;
 
         let netuid = add_dynamic_network(&delegate_hotkey, &delegate_coldkey);
+        remove_owner_registration_stake(netuid);
 
         // Add owner stake
         SubtensorModule::add_balance_to_coldkey_account(&delegate_coldkey, owner_stake.into());
@@ -3766,6 +3775,7 @@ fn test_add_stake_limit_ok() {
 
         // add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        remove_owner_registration_stake(netuid);
 
         // Forse-set alpha in and tao reserve to make price equal 1.5
         let tao_reserve = TaoBalance::from(150_000_000_000_u64);
@@ -5115,6 +5125,7 @@ fn test_remove_stake_full_limit_ok() {
 
         // add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        remove_owner_registration_stake(netuid);
 
         // Give the neuron some stake to remove
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -5205,6 +5216,7 @@ fn test_remove_stake_full_limit_ok_with_no_limit_price() {
 
         // add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
+        remove_owner_registration_stake(netuid);
 
         // Give the neuron some stake to remove
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -6056,6 +6068,7 @@ fn test_sharepool_dataops_get_value_returns_zero_on_non_existing_v1() {
         let hotkey = U256::from(2);
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         let stake = 200_000_u64;
 
         // add to deprecated THS map, but no value in Alpha map
@@ -6076,6 +6089,7 @@ fn test_sharepool_dataops_get_value_returns_zero_on_non_existing_v2() {
         let hotkey = U256::from(2);
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         let stake = 200_000_u64;
 
         // add to THSV2 map, but no value in AlphaV2 map
@@ -6097,6 +6111,7 @@ fn test_sharepool_dataops_try_get_value_returns_err_on_non_existing_v1() {
         let hotkey = U256::from(2);
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         let stake = 200_000_u64;
 
         // add to deprecated THS map, but no value in Alpha map
@@ -6117,6 +6132,7 @@ fn test_sharepool_dataops_try_get_value_returns_err_on_non_existing_v2() {
         let hotkey = U256::from(2);
 
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         let stake = 200_000_u64;
 
         // add to THSV2 map, but no value in AlphaV2 map

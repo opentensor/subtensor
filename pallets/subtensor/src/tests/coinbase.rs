@@ -663,6 +663,7 @@ fn test_pending_emission() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         Tempo::<Test>::insert(netuid, 1);
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
@@ -1826,6 +1827,7 @@ fn test_incentive_to_subnet_owner_is_burned() {
         Owner::<Test>::insert(other_hk, other_ck);
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        remove_owner_registration_stake(netuid);
 
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha = AlphaBalance::ZERO; // None to valis
@@ -1876,6 +1878,7 @@ fn test_incentive_to_subnet_owners_hotkey_is_burned() {
         OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_hk]);
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        remove_owner_registration_stake(netuid);
         Uids::<Test>::insert(netuid, other_hk, 1);
 
         // Set the burn key limit to 2
@@ -1939,6 +1942,7 @@ fn test_burn_key_sorting() {
         );
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        remove_owner_registration_stake(netuid);
 
         // Set block of registration and UIDs for other hotkeys
         // HK1 has block of registration 2
@@ -2389,6 +2393,7 @@ fn test_calculate_dividends_and_incentives_only_miners() {
 fn test_distribute_emission_no_miners_all_drained() {
     new_test_ext(1).execute_with(|| {
         let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        remove_owner_registration_stake(netuid);
         let hotkey = U256::from(3);
         let coldkey = U256::from(4);
         let init_stake = 1;

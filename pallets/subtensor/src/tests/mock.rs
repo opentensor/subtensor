@@ -1098,3 +1098,43 @@ pub fn sf_to_u128(sf: &SafeFloat) -> u128 {
 pub fn sf_from_u64(val: u64) -> SafeFloat {
     SafeFloat::from(val)
 }
+
+#[allow(dead_code)]
+pub fn remove_owner_registration_stake(netuid: NetUid) {
+    let owner_hotkey = SubnetOwnerHotkey::<Test>::get(netuid);
+    let owner_coldkey = SubnetOwner::<Test>::get(netuid);
+
+    let owner_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+        &owner_hotkey,
+        &owner_coldkey,
+        netuid,
+    );
+
+    if owner_stake.is_zero() {
+        return;
+    }
+
+    let alpha_out_before = SubnetAlphaOut::<Test>::get(netuid);
+
+    SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        &owner_hotkey,
+        &owner_coldkey,
+        netuid,
+        owner_stake,
+    );
+
+    SubnetAlphaOut::<Test>::insert(netuid, alpha_out_before.saturating_sub(owner_stake));
+
+    assert_eq!(
+        SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &owner_hotkey,
+            &owner_coldkey,
+            netuid,
+        ),
+        AlphaBalance::ZERO
+    );
+    assert_eq!(
+        TotalHotkeyAlpha::<Test>::get(owner_hotkey, netuid),
+        AlphaBalance::ZERO
+    );
+}
