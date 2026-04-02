@@ -56,55 +56,68 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
     let mainnet_genesis =
         hex_literal::hex!("a1fba751d7e4059a3d298aac93054692c8ef12a04e82b66df4fe021d656a7336");
     if genesis_bytes == mainnet_genesis {
-        let fixes: &[HotkeySwapFix] = &[HotkeySwapFix {
-            old_hotkey_ss58: "5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA",
-            new_hotkey_ss58: "5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw",
-            netuid: 27,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5CmKE9k1z1DDQBh81nfwRtbLq22mgS8wMPS9h36LVe4oGJTK",
-            new_hotkey_ss58: "5EnpBz2DoMTzMztFSVPSpi8jP2yfGadU6kgZgsjqnfvonMgu",
-            netuid: 9,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5C4s95N2JJbWwPPAr8JYwQBZQwxbZTYGjYbm6XtH2LgYV8Zx",
-            new_hotkey_ss58: "5ChzWkapDYgVxT88ZmBQS8QM63V9VWSA3eFpSipsX2xbTNZN",
-            netuid: 13,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5GHrTeuFnJYjNJx773URbYb9Pk3bRRDiJHJFBNECZpjGqZPY",
-            new_hotkey_ss58: "5DAmVrUgpTX9xmRyZ7R3UUFNSzh7ZNY6qYxv9N4VeCq6mHHL",
-            netuid: 65,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5EtM9iXMAYRsmt6aoQAoWNDX6yaBnjhmnEQhWKv8HpwkVtML",
-            new_hotkey_ss58: "5ECzcM7sixWNEeD6RbpeEHW1YcYMFejwHuvDBgQxVSjGyrMS",
-            netuid: 11,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
-            new_hotkey_ss58: "5DF3nhgzpr4EZas8dXZYa4mYZBxRCU7AuiCV7Qs2JWAGA6sY",
-            netuid: 41,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
-            new_hotkey_ss58: "5E4pFBKCyk2RxQqifEBu37jb5vgoj9ZrVS7iQdQy4PNr33Ge",
-            netuid: 44,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
-            new_hotkey_ss58: "5DhQbRT3ZfHcVumNtAm5BbzeGHrFRHHi7nofgu76VWipnGSb",
-            netuid: 50,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
-            new_hotkey_ss58: "5Gj37iVQG5hMSxU3AE89x5p3aEEfPZk6Rtmtbwepght4tbri",
-            netuid: 51,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
-            new_hotkey_ss58: "5DyM1rxnDu8QSjbbh5bPV2GMK6UTPRXdUM6mNViBBut9Ma6w",
-            netuid: 54,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
-            new_hotkey_ss58: "5Ci5t4vPK3eCGhFWneB58fodg3x9oS2m8seKoDApFKUqyw4e",
-            netuid: 64,
-        }, HotkeySwapFix {
-            old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
-            new_hotkey_ss58: "5Et5VQUMX7VqGyvZycjv5FBBC5FQbLGUJiRMWMnEVnMLXKm9",
-            netuid: 93,
-        }];
+        let fixes: &[HotkeySwapFix] = &[
+            HotkeySwapFix {
+                old_hotkey_ss58: "5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA",
+                new_hotkey_ss58: "5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw",
+                netuid: 27,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5CmKE9k1z1DDQBh81nfwRtbLq22mgS8wMPS9h36LVe4oGJTK",
+                new_hotkey_ss58: "5EnpBz2DoMTzMztFSVPSpi8jP2yfGadU6kgZgsjqnfvonMgu",
+                netuid: 9,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5C4s95N2JJbWwPPAr8JYwQBZQwxbZTYGjYbm6XtH2LgYV8Zx",
+                new_hotkey_ss58: "5ChzWkapDYgVxT88ZmBQS8QM63V9VWSA3eFpSipsX2xbTNZN",
+                netuid: 13,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5GHrTeuFnJYjNJx773URbYb9Pk3bRRDiJHJFBNECZpjGqZPY",
+                new_hotkey_ss58: "5DAmVrUgpTX9xmRyZ7R3UUFNSzh7ZNY6qYxv9N4VeCq6mHHL",
+                netuid: 65,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5EtM9iXMAYRsmt6aoQAoWNDX6yaBnjhmnEQhWKv8HpwkVtML",
+                new_hotkey_ss58: "5ECzcM7sixWNEeD6RbpeEHW1YcYMFejwHuvDBgQxVSjGyrMS",
+                netuid: 11,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
+                new_hotkey_ss58: "5DF3nhgzpr4EZas8dXZYa4mYZBxRCU7AuiCV7Qs2JWAGA6sY",
+                netuid: 41,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
+                new_hotkey_ss58: "5E4pFBKCyk2RxQqifEBu37jb5vgoj9ZrVS7iQdQy4PNr33Ge",
+                netuid: 44,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
+                new_hotkey_ss58: "5DhQbRT3ZfHcVumNtAm5BbzeGHrFRHHi7nofgu76VWipnGSb",
+                netuid: 50,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
+                new_hotkey_ss58: "5Gj37iVQG5hMSxU3AE89x5p3aEEfPZk6Rtmtbwepght4tbri",
+                netuid: 51,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
+                new_hotkey_ss58: "5DyM1rxnDu8QSjbbh5bPV2GMK6UTPRXdUM6mNViBBut9Ma6w",
+                netuid: 54,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
+                new_hotkey_ss58: "5Ci5t4vPK3eCGhFWneB58fodg3x9oS2m8seKoDApFKUqyw4e",
+                netuid: 64,
+            },
+            HotkeySwapFix {
+                old_hotkey_ss58: "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN",
+                new_hotkey_ss58: "5Et5VQUMX7VqGyvZycjv5FBBC5FQbLGUJiRMWMnEVnMLXKm9",
+                netuid: 93,
+            },
+        ];
 
         let root_netuid = NetUid::from(0);
 
@@ -147,7 +160,7 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
                     .collect();
 
             weight.saturating_accrue(
-                T::DbWeight::get().reads(alpha_on_swapped_subnet.len() as u64 * 2),
+                T::DbWeight::get().reads((alpha_on_swapped_subnet.len() as u64).saturating_mul(2)),
             );
 
             // Revert RootClaimed for each qualifying coldkey
@@ -169,7 +182,9 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
     HasMigrationRun::<T>::insert(&migration_name, true);
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-    log::info!("Migration 'migrate_fix_root_claimed_overclaim' completed. Claimed restored: {claimed_restored}");
+    log::info!(
+        "Migration 'migrate_fix_root_claimed_overclaim' completed. Claimed restored: {claimed_restored}"
+    );
 
     weight
 }
