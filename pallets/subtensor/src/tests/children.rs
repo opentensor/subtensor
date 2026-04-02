@@ -2972,6 +2972,7 @@ fn test_parent_child_chain_emission() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        remove_owner_registration_stake(netuid);
         SubtensorModule::set_ck_burn(0);
         Tempo::<Test>::insert(netuid, 1);
 
@@ -3825,6 +3826,7 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
         let proportion: u64 = 1000;
 
         let netuid = add_dynamic_network(&sn_owner_hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
 
         // Verify stake of sn_owner_hotkey is NOT enough

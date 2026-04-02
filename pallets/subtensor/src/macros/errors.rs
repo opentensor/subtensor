@@ -286,5 +286,7 @@ mod errors {
         ColdkeySwapDisputed,
         /// Coldkey swap clear too early.
         ColdkeySwapClearTooEarly,
+        /// Registration Price Limit Exceeded
+        RegistrationPriceLimitExceeded,
     }
 }

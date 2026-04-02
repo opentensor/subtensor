@@ -306,7 +306,7 @@ mod dispatches {
         /// 	- On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
-        #[pallet::weight((Weight::from_parts(100_500_000, 0)
+        #[pallet::weight((Weight::from_parts(143_700_000, 0)
         .saturating_add(T::DbWeight::get().reads(11_u64))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn batch_commit_weights(
@@ -1014,19 +1014,19 @@ mod dispatches {
         /// 	- The seal is incorrect.
         ///
         #[pallet::call_index(6)]
-        #[pallet::weight((Weight::from_parts(197_900_000, 0)
-		.saturating_add(T::DbWeight::get().reads(24_u64))
-		.saturating_add(T::DbWeight::get().writes(20_u64)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(361_200_000, 0)
+		.saturating_add(T::DbWeight::get().reads(46_u64))
+		.saturating_add(T::DbWeight::get().writes(38_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register(
             origin: OriginFor<T>,
             netuid: NetUid,
-            block_number: u64,
-            nonce: u64,
-            work: Vec<u8>,
+            _block_number: u64,
+            _nonce: u64,
+            _work: Vec<u8>,
             hotkey: T::AccountId,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// Register the hotkey to root network
@@ -1041,14 +1041,14 @@ mod dispatches {
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(354_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(47_u64))
-		.saturating_add(T::DbWeight::get().writes(39_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(46_u64))
+		.saturating_add(T::DbWeight::get().writes(38_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_burned_registration(origin, netuid, hotkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// ---- The extrinsic for user to change its hotkey in subnet or all subnets.
@@ -1104,9 +1104,9 @@ mod dispatches {
         ///
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
-        #[pallet::weight(Weight::from_parts(161_700_000, 0)
-        .saturating_add(T::DbWeight::get().reads(17_u64))
-        .saturating_add(T::DbWeight::get().writes(10_u64)))]
+        #[pallet::weight(Weight::from_parts(238_900_000, 0)
+        .saturating_add(T::DbWeight::get().reads(25_u64))
+        .saturating_add(T::DbWeight::get().writes(19_u64)))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -1190,7 +1190,7 @@ mod dispatches {
         /// * `BadOrigin` - If the origin is not root.
         ///
         #[pallet::call_index(69)]
-        #[pallet::weight(Weight::from_parts(10_190_000, 0)
+        #[pallet::weight(Weight::from_parts(5_841_000, 0)
         .saturating_add(T::DbWeight::get().reads(0))
         .saturating_add(T::DbWeight::get().writes(1)))]
         pub fn sudo_set_tx_childkey_take_rate_limit(
@@ -1246,9 +1246,9 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_parts(235_400_000, 0)
-		.saturating_add(T::DbWeight::get().reads(37_u64))
-		.saturating_add(T::DbWeight::get().writes(53_u64)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight((Weight::from_parts(352_700_000, 0)
+		.saturating_add(T::DbWeight::get().reads(45_u64))
+		.saturating_add(T::DbWeight::get().writes(49_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1456,8 +1456,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(396_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(36_u64))
-            .saturating_add(T::DbWeight::get().writes(52_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(44_u64))
+            .saturating_add(T::DbWeight::get().writes(48_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1554,7 +1554,7 @@ mod dispatches {
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
-        #[pallet::weight((Weight::from_parts(164_300_000, 0)
+        #[pallet::weight((Weight::from_parts(240_400_000, 0)
         .saturating_add(T::DbWeight::get().reads(19_u64))
         .saturating_add(T::DbWeight::get().writes(7_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn move_stake(
@@ -1597,7 +1597,7 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
-        #[pallet::weight((Weight::from_parts(160_300_000, 0)
+        #[pallet::weight((Weight::from_parts(233_600_000, 0)
         .saturating_add(T::DbWeight::get().reads(16_u64))
         .saturating_add(T::DbWeight::get().writes(6_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn transfer_stake(
@@ -1849,7 +1849,7 @@ mod dispatches {
         /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
         #[pallet::call_index(91)]
         #[pallet::weight((
-            Weight::from_parts(27_150_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
+            Weight::from_parts(26_850_000, 0).saturating_add(T::DbWeight::get().reads_writes(3, 3)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
@@ -2424,9 +2424,9 @@ mod dispatches {
         /// The `ColdkeySwapped` event is emitted on successful swap.
         #[pallet::call_index(126)]
         #[pallet::weight(
-            Weight::from_parts(110_700_000, 0)
-            .saturating_add(T::DbWeight::get().reads(16_u64))
-            .saturating_add(T::DbWeight::get().writes(6_u64))
+            Weight::from_parts(185_600_000, 0)
+            .saturating_add(T::DbWeight::get().reads(25_u64))
+            .saturating_add(T::DbWeight::get().writes(15_u64))
         )]
         pub fn swap_coldkey_announced(
             origin: OriginFor<T>,
@@ -2626,6 +2626,27 @@ mod dispatches {
 
             Self::deposit_event(Event::ColdkeySwapCleared { who });
             Ok(())
+        }
+
+        /// User register a new subnetwork via burning token, but only if the
+        /// on-chain burn price for this block is <= `limit_price`.
+        ///
+        /// `limit_price` is expressed in the same TaoCurrency/u64 units as `Burn`.
+        #[pallet::call_index(134)]
+        #[pallet::weight((
+            Weight::from_parts(354_200_000, 0)
+                .saturating_add(T::DbWeight::get().reads(47_u64))
+                .saturating_add(T::DbWeight::get().writes(40_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn register_limit(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            hotkey: T::AccountId,
+            limit_price: u64,
+        ) -> DispatchResult {
+            Self::do_register_limit(origin, netuid, hotkey, limit_price)
         }
     }
 }
