@@ -1298,10 +1298,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
 
     fn ref_bump(prev: u64, mult: u64, min_burn: u64, max_burn: u64) -> u64 {
         let mult = U64F64::from_num(mult.max(1));
-        let next = U64F64::from_num(prev)
-            .saturating_mul(mult)
-            .saturating_to_num::<u64>();
-
+        let next = (U64F64::from_num(prev) * mult).floor().to_num::<u64>();
         next.clamp(min_burn, max_burn)
     }
 
@@ -1311,7 +1308,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
         // remain valid and never underflow.
         let min_remaining: u64 = 1;
         let buffer: u64 = 10;
-        let needed: u64 = burn.saturating_add(min_remaining).saturating_add(buffer);
+        let needed: u64 = burn + min_remaining + buffer;
 
         let current: u64 = SubtensorModule::get_coldkey_balance(&coldkey).into();
         if current < needed {
