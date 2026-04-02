@@ -69,6 +69,7 @@ impl<T: Config> Pallet<T> {
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
     }
 
+    /// Gets the Median Subnet Alpha Price
     pub fn get_median_subnet_alpha_price() -> U96F32 {
         let default_price = U96F32::saturating_from_num(1_u64);
         let zero_price = U96F32::saturating_from_num(0_u64);
