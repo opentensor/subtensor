@@ -2234,6 +2234,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000_u64.into());
+        SubtokenEnabled::<Test>::insert(netuid, true);
 
         let reserve = 1_000_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
@@ -4223,6 +4224,47 @@ fn test_set_child_keys_empty_vector_clears_storage() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_child_keys_no_start_call_sets_immediately --exact --show-output
+#[test]
+fn test_set_child_keys_no_start_call_sets_immediately() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid = NetUid::from(1);
+        let proportion1: u64 = 1000;
+        let proportion2: u64 = 2000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Clear SubtokenEnabled
+        SubtokenEnabled::<Test>::remove(netuid);
+
+        // Set multiple children
+        mock_schedule_children(
+            &coldkey,
+            &hotkey,
+            netuid,
+            &[(proportion1, child1), (proportion2, child2)],
+        );
+
+        // Normally happens on epoch
+        SubtensorModule::do_set_pending_children(netuid);
+
+        // Verify pending map is empty
+        assert!(!PendingChildKeys::<Test>::contains_key(netuid, hotkey));
+
+        // Verify that childkey is set
+        assert_eq!(
+            ChildKeys::<Test>::get(hotkey, netuid),
+            vec![(proportion1, child1), (proportion2, child2)]
+        );
+    });
+}
+
 // Test that the subnet owner can always set weights (owner bypass in check_weights_min_stake)
 // and that do_set_root_validators_for_subnet correctly creates parent-child relationships.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_root_children_enable_subnet_owner_set_weights --exact --show-output --nocapture
@@ -4349,8 +4391,9 @@ fn test_root_children_enable_subnet_owner_set_weights() {
     });
 }
 
-// Test that register_network automatically schedules root validators as parents of the
-// subnet owner, enabling the owner to set weights after cooldown.
+// Test that register_network automatically sets root validators as parents of the
+// subnet owner, enabling the owner to set weights. Since SubtokenEnabled is false
+// for a new subnet (start_call hasn't executed yet), child keys are applied immediately.
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_register_network_schedules_root_validators --exact --show-output --nocapture
 #[test]
 fn test_register_network_schedules_root_validators() {
@@ -4439,21 +4482,7 @@ fn test_register_network_schedules_root_validators() {
             root_stake,
         );
 
-        // --- Verify pending children were scheduled during registration ---
-        assert!(
-            PendingChildKeys::<Test>::contains_key(netuid, root_val_hotkey_1),
-            "Root validator 1 should have pending children on the new subnet"
-        );
-        assert!(
-            PendingChildKeys::<Test>::contains_key(netuid, root_val_hotkey_2),
-            "Root validator 2 should have pending children on the new subnet"
-        );
-
-        // --- Activate pending children ---
-        step_block(1);
-        SubtensorModule::do_set_pending_children(netuid);
-
-        // --- Verify child-parent relationships ---
+        // --- Verify child keys were applied immediately (SubtokenEnabled is false for new subnets) ---
         let children_1 = SubtensorModule::get_children(&root_val_hotkey_1, netuid);
         assert_eq!(
             children_1,
