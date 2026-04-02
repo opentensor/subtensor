@@ -102,7 +102,7 @@ pub mod pallet {
             /// The network identifier.
             netuid: NetUid,
             /// The new burn increase multiplier.
-            burn_increase_mult: u64,
+            burn_increase_mult: U64F64,
         },
     }
 
@@ -2161,7 +2161,10 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
-            ensure!(burn_half_life > 0, Error::<T>::InvalidValue);
+            ensure!(
+                burn_half_life > 0 && burn_half_life <= 36_100,
+                Error::<T>::InvalidValue
+            );
 
             pallet_subtensor::BurnHalfLife::<T>::insert(netuid, burn_half_life);
             Self::deposit_event(Event::BurnHalfLifeSet {
@@ -2191,7 +2194,7 @@ pub mod pallet {
         pub fn sudo_set_burn_increase_mult(
             origin: OriginFor<T>,
             netuid: NetUid,
-            burn_increase_mult: u64,
+            burn_increase_mult: U64F64,
         ) -> DispatchResult {
             let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
                 origin,
@@ -2205,9 +2208,15 @@ pub mod pallet {
                 Error::<T>::SubnetDoesNotExist
             );
             ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
-            ensure!(burn_increase_mult >= 1, Error::<T>::InvalidValue);
+            ensure!(
+                (1..=3).contains(&burn_increase_mult),
+                Error::<T>::InvalidValue
+            );
 
-            pallet_subtensor::BurnIncreaseMult::<T>::insert(netuid, burn_increase_mult);
+            pallet_subtensor::BurnIncreaseMult::<T>::insert(
+                netuid,
+                U64F64::from_num(burn_increase_mult),
+            );
             Self::deposit_event(Event::BurnIncreaseMultSet {
                 netuid,
                 burn_increase_mult,

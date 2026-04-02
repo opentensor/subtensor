@@ -3157,10 +3157,10 @@ fn test_migrate_clear_deprecated_registration_maps() {
 
         // New-model storage must remain untouched by this migration.
         crate::BurnHalfLife::<Test>::insert(netuid0, 777u16);
-        crate::BurnIncreaseMult::<Test>::insert(netuid0, 9u64);
+        crate::BurnIncreaseMult::<Test>::insert(netuid0, U64F64::from_num(9));
 
         crate::BurnHalfLife::<Test>::insert(netuid1, 888u16);
-        crate::BurnIncreaseMult::<Test>::insert(netuid1, 11u64);
+        crate::BurnIncreaseMult::<Test>::insert(netuid1, U64F64::from_num(11));
 
         assert_eq!(crate::BurnHalfLife::<Test>::get(netuid0), 777u16);
         assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid0), 9u64);

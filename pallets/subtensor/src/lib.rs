@@ -356,8 +356,8 @@ pub mod pallet {
 
     /// Default multiplier applied to the burn price after a successful registration.
     #[pallet::type_value]
-    pub fn DefaultBurnIncreaseMult<T: Config>() -> u64 {
-        2
+    pub fn DefaultBurnIncreaseMult<T: Config>() -> U64F64 {
+        U64F64::from_num(2)
     }
 
     /// Default Neuron Burn Cost
@@ -2460,7 +2460,7 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> BurnIncreaseMult
     #[pallet::storage]
     pub type BurnIncreaseMult<T> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultBurnIncreaseMult<T>>;
+        StorageMap<_, Identity, NetUid, U64F64, ValueQuery, DefaultBurnIncreaseMult<T>>;
 
     /// ==================
     /// ==== Genesis =====

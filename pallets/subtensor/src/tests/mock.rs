@@ -29,6 +29,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -807,7 +808,7 @@ pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
 
     // make interval 1 block so tests can register by stepping 1 block.
     BurnHalfLife::<Test>::insert(netuid, 1);
-    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
 }
 
 #[allow(dead_code)]
@@ -816,7 +817,7 @@ pub fn add_network_without_emission_block(netuid: NetUid, tempo: u16, _modality:
     SubtensorModule::set_network_registration_allowed(netuid, true);
 
     BurnHalfLife::<Test>::insert(netuid, 1);
-    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
 }
 
 #[allow(dead_code)]
@@ -827,7 +828,7 @@ pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) 
     SubtokenEnabled::<Test>::insert(netuid, false);
 
     BurnHalfLife::<Test>::insert(netuid, 1);
-    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
 }
 
 #[allow(dead_code)]
@@ -849,7 +850,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
 
     // make interval 1 block so tests can register by stepping 1 block.
     BurnHalfLife::<Test>::insert(netuid, 1);
-    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
 
     netuid
 }
@@ -870,7 +871,7 @@ pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256)
 
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     BurnHalfLife::<Test>::insert(netuid, 1);
-    BurnIncreaseMult::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
 
     netuid
 }

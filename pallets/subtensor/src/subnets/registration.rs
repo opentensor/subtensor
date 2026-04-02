@@ -2,6 +2,7 @@ use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{NetUid, Token};
 use subtensor_swap_interface::SwapHandler;
 use system::pallet_prelude::BlockNumberFor;
@@ -460,38 +461,45 @@ impl<T: Config> Pallet<T> {
         (nonce, vec_work)
     }
 
-    pub const MIN_REGISTRATION_COST: u64 = 100_000; // 0.0001 Tao
-
     /// Updates neuron burn price.
     ///
     /// Behavior:
     /// - Each non-genesis block: burn decays continuously by a per-block factor `f`,
     ///   where `f ^ BurnHalfLife = 1/2`.
+    /// - Burn is clamped to the configured [`MinBurn`, `MaxBurn`] range.
     ///
     pub fn update_registration_prices_for_networks() {
         let current_block: u64 = Self::get_current_block_as_u64();
 
         for (netuid, _) in NetworksAdded::<T>::iter() {
             // --- 1) Apply continuous per-block decay.
+            let burn_u64: u64 = Self::get_burn(netuid).into();
+            let min_burn_u64: u64 = Self::get_min_burn(netuid).into();
+            let max_burn_u64: u64 = Self::get_max_burn(netuid).into();
             let half_life: u16 = BurnHalfLife::<T>::get(netuid);
+
+            let mut new_burn_u64: u64 = burn_u64;
 
             if half_life > 0 {
                 // Since this function runs every block in `on_initialize`,
                 // applying the per-block factor once here gives continuous
                 // exponential decay.
                 if current_block > 1 {
-                    let burn_u64: u64 = Self::get_burn(netuid).into();
                     let factor_q32: u64 = Self::decay_factor_q32(half_life);
-
-                    let mut new_burn_u64: u64 = Self::mul_by_q32(burn_u64, factor_q32);
-
-                    // Prevent stuck-at-zero behavior.
-                    if new_burn_u64 < Self::MIN_REGISTRATION_COST {
-                        new_burn_u64 = Self::MIN_REGISTRATION_COST; // 0.0001 Tao
-                    }
-
-                    Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
+                    new_burn_u64 = Self::mul_by_q32(burn_u64, factor_q32);
                 }
+            }
+
+            // Enforce configured burn bounds.
+            if new_burn_u64 < min_burn_u64 {
+                new_burn_u64 = min_burn_u64;
+            }
+            if new_burn_u64 > max_burn_u64 {
+                new_burn_u64 = max_burn_u64;
+            }
+
+            if new_burn_u64 != burn_u64 {
+                Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
             }
 
             // --- 2) Reset per-block registrations counter for the new block.
@@ -510,14 +518,21 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        let mult: u64 = BurnIncreaseMult::<T>::get(netuid).max(1);
+        let mult: U64F64 = BurnIncreaseMult::<T>::get(netuid).max(U64F64::saturating_from_num(1));
         let burn_u64: u64 = Self::get_burn(netuid).into();
+        let min_burn_u64: u64 = Self::get_min_burn(netuid).into();
+        let max_burn_u64: u64 = Self::get_max_burn(netuid).into();
 
-        let mut new_burn_u64: u64 = burn_u64.saturating_mul(mult);
+        let mut new_burn_u64: u64 = U64F64::saturating_from_num(burn_u64)
+            .saturating_mul(mult)
+            .saturating_to_num::<u64>();
 
-        // Prevent stuck-at-zero behavior.
-        if new_burn_u64 < Self::MIN_REGISTRATION_COST {
-            new_burn_u64 = Self::MIN_REGISTRATION_COST; // 0.0001 Tao
+        // Enforce configured burn bounds.
+        if new_burn_u64 < min_burn_u64 {
+            new_burn_u64 = min_burn_u64;
+        }
+        if new_burn_u64 > max_burn_u64 {
+            new_burn_u64 = max_burn_u64;
         }
 
         Self::set_burn(netuid, TaoBalance::from(new_burn_u64));

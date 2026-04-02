@@ -4,6 +4,7 @@ use crate::*;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, Token};
 
 use super::mock;
@@ -278,8 +279,11 @@ fn test_burn_decay() {
         // Make behavior deterministic for this test:
         // - very slow decay
         // - x2 bump on successful registration
+        // - neutral min/max clamps so this test isolates bump + decay behavior
         BurnHalfLife::<Test>::insert(netuid, 1_000);
-        BurnIncreaseMult::<Test>::insert(netuid, 2);
+        BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(2));
+        SubtensorModule::set_min_burn(netuid, TaoBalance::from(0u64));
+        SubtensorModule::set_max_burn(netuid, TaoBalance::from(u64::MAX));
 
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
@@ -309,7 +313,9 @@ fn test_burn_halves_every_half_life() {
         mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
         BurnHalfLife::<Test>::insert(netuid, 2);
-        BurnIncreaseMult::<Test>::insert(netuid, 1);
+        BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
+        SubtensorModule::set_min_burn(netuid, TaoBalance::from(0u64));
+        SubtensorModule::set_max_burn(netuid, TaoBalance::from(u64::MAX));
 
         SubtensorModule::set_burn(netuid, 1_024u64.into());
 
@@ -322,7 +328,7 @@ fn test_burn_halves_every_half_life() {
 }
 
 #[test]
-fn test_burn_floor_prevents_zero_stuck_and_allows_bump() {
+fn test_burn_min_and_max_clamps_prevent_zero_stuck_and_cap_bump() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         add_network(netuid, 13, 0);
@@ -330,16 +336,22 @@ fn test_burn_floor_prevents_zero_stuck_and_allows_bump() {
 
         // Half-life every block; multiplier 2.
         BurnHalfLife::<Test>::insert(netuid, 1);
-        BurnIncreaseMult::<Test>::insert(netuid, 2);
+        BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(2));
 
-        // Start at 1 => halving would go to 0, but floor keeps it at 1.
+        // Explicitly test the new clamp behavior:
+        // - min burn prevents decay from getting stuck at zero
+        // - max burn caps the immediate post-registration bump
+        SubtensorModule::set_min_burn(netuid, TaoBalance::from(100_000u64));
+        SubtensorModule::set_max_burn(netuid, TaoBalance::from(150_000u64));
+
+        // Start at 1 => halving would go to 0, but the min-burn clamp keeps it at 100_000.
         SubtensorModule::set_burn(netuid, 1u64.into());
 
-        // Step one block => halving applies, but floor => burn stays 1.
+        // Step one block => halving applies, but min clamp => burn becomes 100_000.
         step_block(1);
-        assert_eq!(SubtensorModule::get_burn(netuid), 100000u64.into());
+        assert_eq!(SubtensorModule::get_burn(netuid), 100_000u64.into());
 
-        // Register now; bump should apply immediately and not be stuck at 0.
+        // Register now; bump should apply immediately but be capped by max burn.
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000u64.into());
@@ -350,12 +362,16 @@ fn test_burn_floor_prevents_zero_stuck_and_allows_bump() {
             hotkey
         ));
 
-        // Immediate bump on successful registration.
-        assert_eq!(SubtensorModule::get_burn(netuid), 200000u64.into());
+        // Immediate bump would be 200_000, but max burn caps it at 150_000.
+        assert_eq!(SubtensorModule::get_burn(netuid), 150_000u64.into());
 
-        // Next block decays 2 -> 1, and the floor prevents it getting stuck at 0.
+        // Next block decays 150_000 -> 75_000, but min clamp raises it back to 100_000.
         step_block(1);
-        assert_eq!(SubtensorModule::get_burn(netuid), 100000u64.into());
+        assert_eq!(SubtensorModule::get_burn(netuid), 100_000u64.into());
+
+        // One more block proves it does not get stuck below the configured minimum.
+        step_block(1);
+        assert_eq!(SubtensorModule::get_burn(netuid), 100_000u64.into());
     });
 }
 
@@ -367,7 +383,7 @@ fn test_registration_increases_recycled_rao_per_subnet() {
         mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
         BurnHalfLife::<Test>::insert(netuid, 1); // allow 1 reg / block
-        BurnIncreaseMult::<Test>::insert(netuid, 1); // keep burn stable aside from halving
+        BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1)); // keep burn stable aside from halving
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
         let coldkey = U256::from(667);
@@ -715,7 +731,9 @@ fn test_bump_registration_price_after_registration_applies_multiplier_immediatel
         add_network(netuid, 13, 0);
         mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
-        BurnIncreaseMult::<Test>::insert(netuid, 3);
+        BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(3));
+        SubtensorModule::set_min_burn(netuid, TaoBalance::from(0u64));
+        SubtensorModule::set_max_burn(netuid, TaoBalance::from(u64::MAX));
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
         SubtensorModule::bump_registration_price_after_registration(netuid);
@@ -732,8 +750,11 @@ fn test_update_registration_prices_for_networks_runs_on_next_block_step() {
         mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
         // Gentle decay so the one-block result is deterministic.
+        // Use neutral min/max clamps so this test isolates decay + counter reset.
         BurnHalfLife::<Test>::insert(netuid, 1_000);
-        BurnIncreaseMult::<Test>::insert(netuid, 2);
+        BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(2));
+        SubtensorModule::set_min_burn(netuid, TaoBalance::from(0u64));
+        SubtensorModule::set_max_burn(netuid, TaoBalance::from(u64::MAX));
         SubtensorModule::set_burn(netuid, 1_000u64.into());
 
         // Seed the per-block counter to prove that stepping one block only
@@ -970,22 +991,29 @@ fn test_update_registration_prices_for_networks_many_half_lives_over_thousands_o
         lo
     }
 
-    fn ref_next_burn(prev: u64, factor_q32: u64, half_life: u16, current_block: u64) -> u64 {
-        if half_life == 0 || current_block <= 1 {
-            return prev;
-        }
+    fn ref_next_burn(
+        prev: u64,
+        factor_q32: u64,
+        half_life: u16,
+        current_block: u64,
+        min_burn: u64,
+        max_burn: u64,
+    ) -> u64 {
+        let next = if half_life == 0 || current_block <= 1 {
+            prev
+        } else {
+            ref_mul_by_q32(prev, factor_q32)
+        };
 
-        let mut next = ref_mul_by_q32(prev, factor_q32);
-
-        // Match pallet behavior exactly.
-        if next == 0 {
-            next = 100_000;
-        }
-
-        next
+        next.clamp(min_burn, max_burn)
     }
 
     new_test_ext(1).execute_with(|| {
+        // Use neutral burn bounds so this test stays focused on the
+        // registration-price decay/reset path triggered from on_initialize.
+        let test_min_burn: u64 = 0;
+        let test_max_burn: u64 = u64::MAX;
+
         // Non-root subnets: many half-lives and many different burn shapes.
         // Use high tempo + no emission block so the test stays focused on the
         // registration-price update path triggered from on_initialize.
@@ -1087,7 +1115,12 @@ fn test_update_registration_prices_for_networks_many_half_lives_over_thousands_o
             BurnHalfLife::<Test>::insert(netuid, case.half_life);
 
             // Vary this on purpose to prove this path is pure decay + reset.
-            BurnIncreaseMult::<Test>::insert(netuid, (idx as u64).saturating_add(2));
+            BurnIncreaseMult::<Test>::insert(
+                netuid,
+                U64F64::from_num(idx).saturating_add(U64F64::from_num(2)),
+            );
+            SubtensorModule::set_min_burn(netuid, TaoBalance::from(test_min_burn));
+            SubtensorModule::set_max_burn(netuid, TaoBalance::from(test_max_burn));
             SubtensorModule::set_burn(netuid, case.initial_burn.into());
 
             expected_burns.push(case.initial_burn);
@@ -1106,7 +1139,9 @@ fn test_update_registration_prices_for_networks_many_half_lives_over_thousands_o
         let mut root_expected_burn = root_initial_burn;
 
         BurnHalfLife::<Test>::insert(root, root_half_life);
-        BurnIncreaseMult::<Test>::insert(root, 97);
+        BurnIncreaseMult::<Test>::insert(root, U64F64::from_num(97));
+        SubtensorModule::set_min_burn(root, TaoBalance::from(test_min_burn));
+        SubtensorModule::set_max_burn(root, TaoBalance::from(test_max_burn));
         SubtensorModule::set_burn(root, root_initial_burn.into());
 
         let total_blocks: u16 = 5_000;
@@ -1131,8 +1166,7 @@ fn test_update_registration_prices_for_networks_many_half_lives_over_thousands_o
             RegistrationsThisInterval::<Test>::insert(root, root_interval_seed);
 
             let next_block: u64 = System::block_number() + 1;
-            let root_should_reset_interval =
-                SubtensorModule::should_run_epoch(root, next_block);
+            let root_should_reset_interval = SubtensorModule::should_run_epoch(root, next_block);
 
             step_block(1);
 
@@ -1146,6 +1180,8 @@ fn test_update_registration_prices_for_networks_many_half_lives_over_thousands_o
                     factors_q32[idx],
                     case.half_life,
                     next_block,
+                    test_min_burn,
+                    test_max_burn,
                 );
 
                 let actual_burn: u64 = SubtensorModule::get_burn(netuid).into();
@@ -1174,6 +1210,8 @@ fn test_update_registration_prices_for_networks_many_half_lives_over_thousands_o
                 root_factor_q32,
                 root_half_life,
                 next_block,
+                test_min_burn,
+                test_max_burn,
             );
 
             let actual_root_burn: u64 = SubtensorModule::get_burn(root).into();
@@ -1250,18 +1288,18 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
         netuid: u16,
         initial_burn: u64,
         mult: u64,
+        min_burn: u64,
+        max_burn: u64,
         registrations: u16,
     }
 
-    fn ref_bump(prev: u64, mult: u64) -> u64 {
-        let mut next = prev * mult.max(1);
+    fn ref_bump(prev: u64, mult: u64, min_burn: u64, max_burn: u64) -> u64 {
+        let mult = U64F64::from_num(mult.max(1));
+        let next = U64F64::from_num(prev)
+            .saturating_mul(mult)
+            .saturating_to_num::<u64>();
 
-        // Match pallet behavior exactly.
-        if next == 0 {
-            next = SubtensorModule::MIN_REGISTRATION_COST;
-        }
-
-        next
+        next.clamp(min_burn, max_burn)
     }
 
     fn ensure_spendable_balance(coldkey: U256, burn: u64) {
@@ -1270,7 +1308,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
         // remain valid and never underflow.
         let min_remaining: u64 = 1;
         let buffer: u64 = 10;
-        let needed: u64 = burn + min_remaining + buffer;
+        let needed: u64 = burn.saturating_add(min_remaining).saturating_add(buffer);
 
         let current: u64 = SubtensorModule::get_coldkey_balance(&coldkey).into();
         if current < needed {
@@ -1288,72 +1326,96 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
                 netuid: 1,
                 initial_burn: 0,
                 mult: 0,
+                min_burn: 100_000,
+                max_burn: u64::MAX,
                 registrations: 7,
             },
             Case {
                 netuid: 2,
                 initial_burn: 5,
                 mult: 0,
+                min_burn: 1,
+                max_burn: u64::MAX,
                 registrations: 7,
             },
             Case {
                 netuid: 3,
                 initial_burn: 0,
                 mult: 1,
+                min_burn: 100_000,
+                max_burn: u64::MAX,
                 registrations: 7,
             },
             Case {
                 netuid: 4,
                 initial_burn: 7,
                 mult: 1,
+                min_burn: 1,
+                max_burn: u64::MAX,
                 registrations: 7,
             },
             Case {
                 netuid: 5,
                 initial_burn: 2,
                 mult: 2,
+                min_burn: 1,
+                max_burn: 400,
                 registrations: 8,
             },
             Case {
                 netuid: 6,
                 initial_burn: 3,
                 mult: 3,
+                min_burn: 1,
+                max_burn: u64::MAX,
                 registrations: 6,
             },
             Case {
                 netuid: 7,
                 initial_burn: 4,
                 mult: 4,
+                min_burn: 1,
+                max_burn: u64::MAX,
                 registrations: 6,
             },
             Case {
                 netuid: 8,
                 initial_burn: 7,
                 mult: 10,
+                min_burn: 1,
+                max_burn: 500_000,
                 registrations: 5,
             },
             Case {
                 netuid: 9,
                 initial_burn: 1,
                 mult: 100,
+                min_burn: 1,
+                max_burn: 5_000_000_000,
                 registrations: 5,
             },
             Case {
                 netuid: 10,
                 initial_burn: 1,
                 mult: 1_000,
+                min_burn: 1,
+                max_burn: 50_000_000_000,
                 registrations: 4,
             },
             Case {
                 netuid: 11,
                 initial_burn: 5,
                 mult: 1,
+                min_burn: 1,
+                max_burn: u64::MAX,
                 registrations: 32,
             },
             Case {
                 netuid: 12,
                 initial_burn: 1,
                 mult: 2,
+                min_burn: 1,
+                max_burn: u64::MAX,
                 registrations: 20,
             },
         ];
@@ -1369,7 +1431,9 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
             // Disable decay entirely so this test isolates the immediate
             // per-registration bump path.
             BurnHalfLife::<Test>::insert(netuid, 0);
-            BurnIncreaseMult::<Test>::insert(netuid, case.mult);
+            BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(case.mult));
+            SubtensorModule::set_min_burn(netuid, TaoBalance::from(case.min_burn));
+            SubtensorModule::set_max_burn(netuid, TaoBalance::from(case.max_burn));
             SubtensorModule::set_burn(netuid, case.initial_burn.into());
 
             // Seed this to prove burned_register does not mutate it for non-root.
@@ -1395,6 +1459,18 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
                 SubtensorModule::get_burn(netuid),
                 case.initial_burn.into(),
                 "initial burn mismatch for netuid={}",
+                case.netuid
+            );
+            assert_eq!(
+                SubtensorModule::get_min_burn(netuid),
+                case.min_burn.into(),
+                "min burn mismatch for netuid={}",
+                case.netuid
+            );
+            assert_eq!(
+                SubtensorModule::get_max_burn(netuid),
+                case.max_burn.into(),
+                "max burn mismatch for netuid={}",
                 case.netuid
             );
 
@@ -1426,7 +1502,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
                 );
                 assert_eq!(
                     BurnIncreaseMult::<Test>::get(netuid),
-                    case.mult,
+                    U64F64::from_num(case.mult),
                     "multiplier changed unexpectedly for netuid={}",
                     case.netuid
                 );
@@ -1450,7 +1526,8 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
                     hotkey
                 ));
 
-                let expected_after_burn = ref_bump(expected_burn, case.mult);
+                let expected_after_burn =
+                    ref_bump(expected_burn, case.mult, case.min_burn, case.max_burn);
                 let balance_after: u64 = SubtensorModule::get_coldkey_balance(&coldkey).into();
 
                 expected_recycled = expected_recycled.saturating_add(expected_burn);
@@ -1534,8 +1611,8 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
                 if expected_burn == 0 {
                     assert_eq!(
                         expected_after_burn,
-                        SubtensorModule::MIN_REGISTRATION_COST,
-                        "zero burn should recover to MIN_REGISTRATION_COST after a successful registration for netuid={} reg_idx={}",
+                        case.min_burn,
+                        "zero burn should recover to min burn after a successful registration for netuid={} reg_idx={}",
                         case.netuid,
                         reg_idx
                     );
@@ -1549,29 +1626,49 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
                 }
 
                 if case.mult == 0 && expected_burn != 0 {
+                    let clamped_expected = expected_burn.clamp(case.min_burn, case.max_burn);
                     assert_eq!(
                         expected_after_burn,
-                        expected_burn,
-                        "multiplier=0 should behave like multiplier=1 for non-zero burn on netuid={} reg_idx={}",
+                        clamped_expected,
+                        "multiplier=0 should behave like multiplier=1, subject to min/max clamp, on netuid={} reg_idx={}",
                         case.netuid,
                         reg_idx
                     );
                 }
 
                 if case.mult == 1 && expected_burn != 0 {
+                    let clamped_expected = expected_burn.clamp(case.min_burn, case.max_burn);
                     assert_eq!(
                         expected_after_burn,
-                        expected_burn,
-                        "multiplier=1 should preserve non-zero burn on netuid={} reg_idx={}",
+                        clamped_expected,
+                        "multiplier=1 should preserve burn subject to min/max clamp on netuid={} reg_idx={}",
                         case.netuid,
                         reg_idx
                     );
                 }
 
-                if case.mult > 1 && expected_burn != 0 {
+                if expected_after_burn == case.min_burn {
                     assert!(
-                        expected_after_burn >= expected_burn,
-                        "multiplier>1 should not decrease burn on netuid={} reg_idx={}",
+                        expected_after_burn >= case.min_burn,
+                        "burn fell below min burn on netuid={} reg_idx={}",
+                        case.netuid,
+                        reg_idx
+                    );
+                }
+
+                if expected_after_burn == case.max_burn {
+                    assert!(
+                        expected_after_burn <= case.max_burn,
+                        "burn exceeded max burn on netuid={} reg_idx={}",
+                        case.netuid,
+                        reg_idx
+                    );
+                }
+
+                if case.mult > 1 && expected_burn != 0 && expected_burn < case.max_burn {
+                    assert!(
+                        expected_after_burn >= expected_burn || expected_after_burn == case.max_burn,
+                        "multiplier>1 should not decrease burn before max clamp on netuid={} reg_idx={}",
                         case.netuid,
                         reg_idx
                     );
@@ -1629,7 +1726,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
             );
             assert_eq!(
                 BurnIncreaseMult::<Test>::get(netuid),
-                case.mult,
+                U64F64::from_num(case.mult),
                 "final multiplier mismatch for netuid={}",
                 case.netuid
             );
@@ -1642,10 +1739,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
         }
 
         // Exact long-run spot checks after all real burned_register calls.
-        assert_eq!(
-            SubtensorModule::get_burn(NetUid::from(1u16)),
-            SubtensorModule::MIN_REGISTRATION_COST.into()
-        );
+        assert_eq!(SubtensorModule::get_burn(NetUid::from(1u16)), 100_000u64.into());
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(1u16)),
             600_000u64.into()
@@ -1657,10 +1751,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
             35u64.into()
         );
 
-        assert_eq!(
-            SubtensorModule::get_burn(NetUid::from(3u16)),
-            SubtensorModule::MIN_REGISTRATION_COST.into()
-        );
+        assert_eq!(SubtensorModule::get_burn(NetUid::from(3u16)), 100_000u64.into());
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(3u16)),
             600_000u64.into()
@@ -1672,7 +1763,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
             49u64.into()
         );
 
-        assert_eq!(SubtensorModule::get_burn(NetUid::from(5u16)), 512u64.into());
+        assert_eq!(SubtensorModule::get_burn(NetUid::from(5u16)), 400u64.into());
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(5u16)),
             510u64.into()
@@ -1684,19 +1775,13 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
             1_092u64.into()
         );
 
-        assert_eq!(
-            SubtensorModule::get_burn(NetUid::from(7u16)),
-            16_384u64.into()
-        );
+        assert_eq!(SubtensorModule::get_burn(NetUid::from(7u16)), 16_384u64.into());
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(7u16)),
             5_460u64.into()
         );
 
-        assert_eq!(
-            SubtensorModule::get_burn(NetUid::from(8u16)),
-            700_000u64.into()
-        );
+        assert_eq!(SubtensorModule::get_burn(NetUid::from(8u16)), 500_000u64.into());
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(8u16)),
             77_777u64.into()
@@ -1704,7 +1789,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
 
         assert_eq!(
             SubtensorModule::get_burn(NetUid::from(9u16)),
-            10_000_000_000u64.into()
+            5_000_000_000u64.into()
         );
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(9u16)),
@@ -1713,7 +1798,7 @@ fn test_burned_register_immediately_bumps_price_many_multipliers_and_same_block_
 
         assert_eq!(
             SubtensorModule::get_burn(NetUid::from(10u16)),
-            1_000_000_000_000u64.into()
+            50_000_000_000u64.into()
         );
         assert_eq!(
             SubtensorModule::get_rao_recycled(NetUid::from(10u16)),
