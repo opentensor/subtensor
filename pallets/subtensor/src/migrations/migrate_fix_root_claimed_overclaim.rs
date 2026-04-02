@@ -49,12 +49,12 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
     );
 
     // Only run on mainnet.
-    // Mainnet genesis: 0xa1fba751d7e4059a3d298aac93054692c8ef12a04e82b66df4fe021d656a7336
+    // Mainnet genesis: 0x2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03
     let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
     let genesis_bytes = genesis_hash.as_ref();
     let mut claimed_restored: u64 = 0;
     let mainnet_genesis =
-        hex_literal::hex!("a1fba751d7e4059a3d298aac93054692c8ef12a04e82b66df4fe021d656a7336");
+        hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
     if genesis_bytes == mainnet_genesis {
         let fixes: &[HotkeySwapFix] = &[
             HotkeySwapFix {

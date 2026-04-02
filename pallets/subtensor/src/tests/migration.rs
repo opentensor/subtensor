@@ -4182,6 +4182,11 @@ fn test_migrate_fix_root_claimed_overclaim() {
             (new_hotkey, coldkey, netuid_target),
             U64F64::from_num(1_000_u64),
         );
+
+        Alpha::<Test>::insert(
+            (old_hotkey, coldkey, NetUid::from(0)),
+            U64F64::from_num(1_000_u64),
+        );
         // No Alpha entry for netuid_other — loop should not touch it
 
         assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
