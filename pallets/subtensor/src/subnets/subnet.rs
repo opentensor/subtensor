@@ -1,5 +1,7 @@
 use super::*;
+use safe_math::FixedExt;
 use sp_core::Get;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
@@ -183,31 +185,41 @@ impl<T: Config> Pallet<T> {
             None => Self::get_next_netuid(),
         };
 
-        // --- 11. Set initial and custom parameters for the network.
+        // --- 11. Snapshot the current median subnet alpha price before creating the new subnet.
+        let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
+
+        // --- 12. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {netuid_to_register:?}");
 
-        // --- 12. Add the caller to the neuron set.
+        // --- 13. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
-        // --- 13. Set the mechanism.
+        // --- 14. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
-        // --- 14. Set the creation terms.
+        // --- 15. Set the creation terms.
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
 
-        // --- 15. Set the symbol.
+        // --- 16. Set the symbol.
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // The initial TAO is the locked amount
-        // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha.
+        // Seed the new subnet pool at a 1:1 reserve ratio.
+        // Separately, grant the subnet owner outstanding alpha based on the TAO they actually spent
+        // on registration converted by the current median subnet alpha price.
         let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
         let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
+        let owner_alpha_stake: AlphaBalance =
+            U96F32::saturating_from_num(actual_tao_lock_amount.to_u64())
+                .safe_div(median_subnet_alpha_price)
+                .saturating_floor()
+                .saturating_to_num::<u64>()
+                .into();
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
 
@@ -219,12 +231,21 @@ impl<T: Config> Pallet<T> {
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
         SubnetTaoProvided::<T>::insert(netuid_to_register, TaoBalance::ZERO);
         SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
-        SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
+        SubnetAlphaOut::<T>::insert(netuid_to_register, owner_alpha_stake);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
         RAORecycledForRegistration::<T>::insert(
             netuid_to_register,
             actual_tao_lock_amount_less_pool_tao,
         );
+
+        if owner_alpha_stake > AlphaBalance::ZERO {
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                &coldkey,
+                netuid_to_register,
+                owner_alpha_stake,
+            );
+        }
 
         if actual_tao_lock_amount_less_pool_tao > TaoBalance::ZERO {
             Self::recycle_tao(actual_tao_lock_amount_less_pool_tao);
@@ -246,7 +267,16 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 18. Emit the NetworkAdded event.
+        // --- 18. Schedule root validators as parents of the subnet owner hotkey.
+        if let Err(e) = Self::do_set_root_validators_for_subnet(netuid_to_register) {
+            log::warn!(
+                "Failed to set root validators for netuid {:?}: {:?}",
+                netuid_to_register,
+                e
+            );
+        }
+
+        // --- 19. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
@@ -279,6 +309,7 @@ impl<T: Config> Pallet<T> {
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_difficulty(netuid, u64::MAX);
         Self::set_max_difficulty(netuid, u64::MAX);
+        Self::set_yuma3_enabled(netuid, true);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {

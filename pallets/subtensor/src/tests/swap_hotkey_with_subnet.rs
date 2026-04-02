@@ -80,6 +80,7 @@ fn test_swap_total_hotkey_stake() {
 
         //add network
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
@@ -944,6 +945,7 @@ fn test_swap_stake_success() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
         let amount = 10_000;
         let shares = U64F64::from_num(123456);
@@ -2254,7 +2256,9 @@ fn test_revert_hotkey_swap_dividends() {
         let coldkey = U256::from(3);
 
         let netuid = add_dynamic_network(&hk1, &coldkey);
+        remove_owner_registration_stake(netuid);
         let netuid2 = add_dynamic_network(&hk1, &coldkey);
+        remove_owner_registration_stake(netuid2);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
 
         let amount = 10_000;

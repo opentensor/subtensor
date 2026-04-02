@@ -31,7 +31,6 @@ pub use address_mapping::AddressMappingPrecompile;
 pub use alpha::AlphaPrecompile;
 pub use balance_transfer::BalanceTransferPrecompile;
 pub use crowdloan::CrowdloanPrecompile;
-pub use drand::DrandPrecompile;
 pub use ed25519::Ed25519Verify;
 pub use extensions::PrecompileExt;
 pub use leasing::LeasingPrecompile;
@@ -49,7 +48,6 @@ mod address_mapping;
 mod alpha;
 mod balance_transfer;
 mod crowdloan;
-mod drand;
 mod ed25519;
 mod extensions;
 mod leasing;
@@ -77,7 +75,6 @@ where
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + pallet_drand::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -115,7 +112,6 @@ where
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + pallet_drand::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -140,7 +136,7 @@ where
         Self(Default::default())
     }
 
-    pub fn used_addresses() -> [H160; 28] {
+    pub fn used_addresses() -> [H160; 27] {
         [
             hash(1),
             hash(2),
@@ -169,7 +165,6 @@ where
             hash(VotingPowerPrecompile::<R>::INDEX),
             hash(ProxyPrecompile::<R>::INDEX),
             hash(AddressMappingPrecompile::<R>::INDEX),
-            hash(DrandPrecompile::<R>::INDEX),
         ]
     }
 }
@@ -185,7 +180,6 @@ where
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + pallet_drand::Config
         + Send
         + Sync
         + scale_info::TypeInfo,
@@ -278,9 +272,6 @@ where
                     handle,
                     PrecompileEnum::AddressMapping,
                 )
-            }
-            a if a == hash(DrandPrecompile::<R>::INDEX) => {
-                DrandPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::Drand)
             }
             _ => None,
         }

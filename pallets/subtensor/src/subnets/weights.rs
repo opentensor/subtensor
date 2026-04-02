@@ -1161,10 +1161,17 @@ impl<T: Config> Pallet<T> {
         if Self::is_self_weight(uid, uids, weights) {
             return true;
         }
+
+        // Allow the subnet owner hotkey to act as a validator regardless of permit state.
+        if let Some(owner_uid) = Self::get_owner_uid(netuid)
+            && owner_uid == uid
+        {
+            return true;
+        }
+
         // Check if uid has validator permit.
         Self::get_validator_permit_for_uid(netuid, uid)
     }
-
     /// Returns True if the uids and weights are have a valid length for uid on network.
     pub fn check_length(netuid: NetUid, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         let subnet_n: usize = Self::get_subnetwork_n(netuid) as usize;

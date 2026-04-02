@@ -44,7 +44,7 @@ pub trait SwapHandler {
     fn min_price<C: Token>() -> C;
     fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance);
     fn is_user_liquidity_enabled(netuid: NetUid) -> bool;
-    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResult;
+    fn dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResultWithPostInfo;
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool);
     fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult;
     fn get_alpha_amount_for_tao(netuid: NetUid, tao_amount: TaoBalance) -> AlphaBalance;
