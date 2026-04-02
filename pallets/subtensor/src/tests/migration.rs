@@ -4090,14 +4090,12 @@ fn test_migrate_fix_bad_hk_swap_mainnet_some_entries() {
             .expect("float conv fail");
             if diff > 0 {
                 assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
+            } else if coldkey == lost_ck {
+                total_returned += stake_float
+                    - num_traits::ToPrimitive::to_f64(&extra_balance.to_u64())
+                        .expect("float conv fail");
             } else {
-                if coldkey == lost_ck {
-                    total_returned += stake_float
-                        - num_traits::ToPrimitive::to_f64(&extra_balance.to_u64())
-                            .expect("float conv fail");
-                } else {
-                    total_returned += stake_float;
-                }
+                total_returned += stake_float;
             }
         }
 
@@ -4131,5 +4129,182 @@ fn test_migrate_fix_bad_hk_swap_mainnet_some_entries() {
                 assert_relative_eq!(stake_float, expected_stake, max_relative = 0.001_f64);
             }
         }
+    });
+}
+
+fn decode_account_id32_test(ss58_string: &str) -> U256 {
+    let account_id32: AccountId32 = AccountId32::from_ss58check(ss58_string).unwrap();
+    let mut account_id32_slice: &[u8] = account_id32.as_ref();
+    U256::decode(&mut account_id32_slice).unwrap()
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_claimed_overclaim --exact --nocapture
+#[test]
+fn test_migrate_fix_root_claimed_overclaim() {
+    use crate::migrations::migrate_fix_root_claimed_overclaim::*;
+
+    let old_hotkey = decode_account_id32_test("5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA");
+    let new_hotkey = decode_account_id32_test("5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw");
+    let coldkey = U256::from(42_u64);
+
+    let netuid_target = NetUid::from(27_u16);
+    let netuid_other = NetUid::from(1_u16);
+
+    let mainnet_genesis =
+        hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+    const MIGRATION_NAME: &[u8] = b"migrate_fix_root_claimed_overclaim";
+
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
+
+        // Simulate post-bug state:
+        // transfer_root_claimable_for_new_hotkey wiped ALL subnets from old_hotkey
+        // and moved them to new_hotkey
+        let claimable_value_27 = I96F32::from_num(500_000_u64);
+        let claimable_value_other = I96F32::from_num(300_000_u64);
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_target, claimable_value_27);
+            map.insert(netuid_other, claimable_value_other);
+        });
+        // old_hotkey RootClaimable is empty (wiped by bug)
+
+        // RootClaimed watermark lives on new_hotkey for netuid=27
+        let claimed_val: u128 = 999_999;
+        RootClaimed::<Test>::insert((netuid_target, new_hotkey, coldkey), claimed_val);
+
+        // RootClaimed for netuid_other should not be touched (no Alpha entry)
+        let other_claimed_val: u128 = 111_111;
+        RootClaimed::<Test>::insert((netuid_other, new_hotkey, coldkey), other_claimed_val);
+
+        // Alpha entry for new_hotkey on netuid=27 triggers transfer_root_claimed in the loop
+        Alpha::<Test>::insert(
+            (new_hotkey, coldkey, netuid_target),
+            U64F64::from_num(1_000_u64),
+        );
+
+        Alpha::<Test>::insert(
+            (old_hotkey, coldkey, NetUid::from(0)),
+            U64F64::from_num(1_000_u64),
+        );
+        // No Alpha entry for netuid_other — loop should not touch it
+
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        // old_hotkey should have gotten back RootClaimable for both subnets
+        // (transfer_root_claimable_for_new_hotkey moves the entire map)
+        let old_claimable = RootClaimable::<Test>::get(old_hotkey);
+        assert!(
+            old_claimable.contains_key(&netuid_target),
+            "old_hotkey should have claimable restored for netuid=27"
+        );
+        assert!(
+            old_claimable.contains_key(&netuid_other),
+            "old_hotkey should have claimable restored for netuid_other"
+        );
+        assert_eq!(
+            old_claimable.get(&netuid_target).copied(),
+            Some(claimable_value_27),
+        );
+        assert_eq!(
+            old_claimable.get(&netuid_other).copied(),
+            Some(claimable_value_other),
+        );
+
+        // new_hotkey should have lost its RootClaimable entirely
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).is_empty(),
+            "new_hotkey should have no claimable after migration"
+        );
+
+        // RootClaimed for netuid=27: watermark transferred from new_hotkey to old_hotkey
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, old_hotkey, coldkey)),
+            claimed_val,
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, new_hotkey, coldkey)),
+            0u128,
+            "RootClaimed for (netuid=27, new_hotkey, coldkey) should be cleared"
+        );
+
+        // RootClaimed for netuid_other on new_hotkey must be untouched (no Alpha entry)
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_other, new_hotkey, coldkey)),
+            other_claimed_val,
+        );
+    });
+
+    // Check idempotency, already run -> no-op
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
+        HasMigrationRun::<Test>::insert(MIGRATION_NAME.to_vec(), true);
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_target, I96F32::from_num(777_u64));
+        });
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert_eq!(
+            w,
+            <Test as frame_system::Config>::DbWeight::get().reads(1),
+            "second run should only read the migration flag"
+        );
+
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
+            "second run must not modify new_hotkey data"
+        );
+        assert!(RootClaimable::<Test>::get(old_hotkey).is_empty(),);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_claimed_incorrect_genesis --exact --nocapture
+#[test]
+fn test_migrate_fix_root_claimed_incorrect_genesis() {
+    use crate::migrations::migrate_fix_root_claimed_overclaim::*;
+
+    let old_hotkey = decode_account_id32_test("5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA");
+    let new_hotkey = decode_account_id32_test("5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw");
+    let coldkey = U256::from(42_u64);
+
+    let netuid_target = NetUid::from(27_u16);
+    let netuid_other = NetUid::from(1_u16);
+
+    let mainnet_genesis =
+        hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+    const MIGRATION_NAME: &[u8] = b"migrate_fix_root_claimed_overclaim";
+
+    // CASE 2: non-mainnet genesis — full no-op
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_low_u64_be(0xdeadbeef));
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_target, I96F32::from_num(123_u64));
+        });
+        Alpha::<Test>::insert(
+            (new_hotkey, coldkey, netuid_target),
+            U64F64::from_num(1_000_u64),
+        );
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert!(
+            !w.is_zero(),
+            "weight must be non-zero (writes migration flag)"
+        );
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        assert!(
+            RootClaimable::<Test>::get(old_hotkey).is_empty(),
+            "migration must not touch storage on non-mainnet"
+        );
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
+            "new_hotkey data must remain untouched on non-mainnet"
+        );
     });
 }
