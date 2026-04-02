@@ -919,7 +919,7 @@ describe("Test wasm contract", () => {
             delegate: Binary.fromBytes(hotkey2.publicKey),
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, addData)
-        let proxies = await api.query.Proxy.Proxies.getValue(contractAddress)
+        let proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey))
         assert.ok(proxies !== undefined && proxies[0].length > 0)
         assert.ok(proxies[0][0].delegate === convertPublicKeyToSs58(hotkey2.publicKey))
 
@@ -928,7 +928,7 @@ describe("Test wasm contract", () => {
             delegate: Binary.fromBytes(hotkey2.publicKey),
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData)
-        proxies = await api.query.Proxy.Proxies.getValue(contractAddress)
+        proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey))
         assert.ok(proxies !== undefined && proxies[0].length === 0)
     })
 });
