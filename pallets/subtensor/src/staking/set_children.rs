@@ -599,38 +599,67 @@ impl<T: Config> Pallet<T> {
     pub fn do_set_pending_children(netuid: NetUid) {
         let current_block = Self::get_current_block_as_u64();
 
+        // If the childkey cools down before the subnet start call + PendingChildKeyCooldown:
+        //   - If Start call happened: Postpone to start_block + PendingChildKeyCooldown
+        //   - If Start call didn't happen: Postpone to now + PendingChildKeyCooldown
+        let cooldown_period = PendingChildKeyCooldown::<T>::get();
+        let cooldown_allowed_block =
+            if let Some(first_emission_block) = FirstEmissionBlockNumber::<T>::get(netuid) {
+                let start_call_block = first_emission_block.saturating_sub(1);
+                start_call_block.saturating_add(cooldown_period)
+            } else {
+                current_block.saturating_add(cooldown_period)
+            };
+
         // Iterate over all pending children of this subnet and set as needed
+        let mut to_remove: Vec<T::AccountId> = Vec::new();
+        let mut to_reschedule: Vec<(T::AccountId, Vec<(u64, T::AccountId)>)> = Vec::new();
+
         PendingChildKeys::<T>::iter_prefix(netuid).for_each(
             |(hotkey, (children, cool_down_block))| {
                 if cool_down_block < current_block {
-                    // If child-parent consistency is broken, we will fail setting new children silently
-                    let maybe_relations =
-                        Self::load_relations_from_pending(hotkey.clone(), &children, netuid);
-                    if let Ok(relations) = maybe_relations {
-                        let mut _weight: Weight = T::DbWeight::get().reads(0);
-                        if let Ok(()) =
-                            Self::persist_child_parent_relations(relations, netuid, &mut _weight)
-                        {
-                            // Log and emit event.
-                            log::trace!(
-                                "SetChildren( netuid:{:?}, hotkey:{:?}, children:{:?} )",
-                                hotkey,
+                    if current_block >= cooldown_allowed_block {
+                        // If child-parent consistency is broken, we will fail setting new children silently
+                        let maybe_relations =
+                            Self::load_relations_from_pending(hotkey.clone(), &children, netuid);
+                        if let Ok(relations) = maybe_relations {
+                            let mut _weight: Weight = T::DbWeight::get().reads(0);
+                            if let Ok(()) = Self::persist_child_parent_relations(
+                                relations,
                                 netuid,
-                                children.clone()
-                            );
-                            Self::deposit_event(Event::SetChildren(
-                                hotkey.clone(),
-                                netuid,
-                                children.clone(),
-                            ));
+                                &mut _weight,
+                            ) {
+                                // Log and emit event.
+                                log::trace!(
+                                    "SetChildren( netuid:{:?}, hotkey:{:?}, children:{:?} )",
+                                    hotkey,
+                                    netuid,
+                                    children.clone()
+                                );
+                                Self::deposit_event(Event::SetChildren(
+                                    hotkey.clone(),
+                                    netuid,
+                                    children.clone(),
+                                ));
+                            }
                         }
-                    }
 
-                    // Remove pending children
-                    PendingChildKeys::<T>::remove(netuid, hotkey);
+                        to_remove.push(hotkey);
+                    } else {
+                        to_remove.push(hotkey.clone());
+                        to_reschedule.push((hotkey, children));
+                    }
                 }
             },
         );
+
+        for hotkey in to_remove {
+            PendingChildKeys::<T>::remove(netuid, hotkey);
+        }
+
+        for (hotkey, children) in to_reschedule {
+            PendingChildKeys::<T>::insert(netuid, hotkey, (children, cooldown_allowed_block));
+        }
     }
 
     /* Retrieves the list of children for a given hotkey and network.
@@ -768,6 +797,67 @@ impl<T: Config> Pallet<T> {
     ////////////////////////////////////////////////////////////
     // State cleaners (for use in migration)
     // TODO: Deprecate when the state is clean for a while
+
+    /// Establishes parent-child relationships between all root validators and
+    /// a subnet owner's hotkey on the specified subnet.
+    ///
+    /// For each validator on the root network (netuid 0), this function calls
+    /// `do_schedule_children` to schedule the subnet owner hotkey as a child
+    /// of that root validator on the given subnet, with full proportion (u64::MAX).
+    ///
+    /// # Arguments
+    /// * `netuid` - The subnet on which to establish relationships.
+    ///
+    /// # Returns
+    /// * `DispatchResult` - Ok if at least the setup completes; individual
+    ///   scheduling failures per validator are logged but do not abort the loop.
+    pub fn do_set_root_validators_for_subnet(netuid: NetUid) -> DispatchResult {
+        // Cannot set children on root network itself.
+        ensure!(
+            !netuid.is_root(),
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
+        );
+
+        // Subnet must exist.
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
+        // Get the subnet owner hotkey.
+        let subnet_owner_hotkey =
+            SubnetOwnerHotkey::<T>::try_get(netuid).map_err(|_| Error::<T>::SubnetNotExists)?;
+
+        // Iterate over all root validators and schedule each one as a parent
+        // of the subnet owner hotkey.
+        for (_uid, root_validator_hotkey) in Keys::<T>::iter_prefix(NetUid::ROOT) {
+            // Skip if the root validator is the subnet owner hotkey itself
+            // (cannot be both parent and child).
+            if root_validator_hotkey == subnet_owner_hotkey {
+                continue;
+            }
+
+            // Look up the coldkey that owns this root validator hotkey.
+            let coldkey = Self::get_owning_coldkey_for_hotkey(&root_validator_hotkey);
+
+            // Build a signed origin from the coldkey.
+            let origin: <T as frame_system::Config>::RuntimeOrigin =
+                frame_system::RawOrigin::Signed(coldkey).into();
+
+            // Schedule the subnet owner hotkey as a child with full proportion.
+            let children = vec![(u64::MAX, subnet_owner_hotkey.clone())];
+
+            if let Err(e) =
+                Self::do_schedule_children(origin, root_validator_hotkey.clone(), netuid, children)
+            {
+                log::warn!(
+                    "Failed to schedule children for root validator {:?} on netuid {:?}: {:?}",
+                    root_validator_hotkey,
+                    netuid,
+                    e
+                );
+            }
+        }
+
+        Ok(())
+    }
 
     pub fn clean_zero_childkey_vectors(weight: &mut Weight) {
         // Collect keys to delete first to avoid mutating while iterating.
