@@ -1015,7 +1015,7 @@ mod dispatches {
         ///
         #[pallet::call_index(6)]
         #[pallet::weight((Weight::from_parts(361_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(44_u64))
+		.saturating_add(T::DbWeight::get().reads(46_u64))
 		.saturating_add(T::DbWeight::get().writes(38_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register(
             origin: OriginFor<T>,
@@ -1041,7 +1041,7 @@ mod dispatches {
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(354_200_000, 0)
-		.saturating_add(T::DbWeight::get().reads(44_u64))
+		.saturating_add(T::DbWeight::get().reads(46_u64))
 		.saturating_add(T::DbWeight::get().writes(38_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn burned_register(
             origin: OriginFor<T>,
@@ -1247,8 +1247,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(352_700_000, 0)
-		.saturating_add(T::DbWeight::get().reads(48_u64))
-		.saturating_add(T::DbWeight::get().writes(56_u64)), DispatchClass::Normal, Pays::Yes))]
+		.saturating_add(T::DbWeight::get().reads(45_u64))
+		.saturating_add(T::DbWeight::get().writes(49_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1456,8 +1456,8 @@ mod dispatches {
         /// User register a new subnetwork
         #[pallet::call_index(79)]
         #[pallet::weight((Weight::from_parts(396_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(47_u64))
-            .saturating_add(T::DbWeight::get().writes(55_u64)), DispatchClass::Normal, Pays::Yes))]
+            .saturating_add(T::DbWeight::get().reads(44_u64))
+            .saturating_add(T::DbWeight::get().writes(48_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
