@@ -2133,11 +2133,13 @@ pub mod pallet {
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
             Ok(())
         }
+
         /// Set BurnHalfLife for a subnet.
+        /// It is only callable by root and subnet owner.
         #[pallet::call_index(89)]
         #[pallet::weight((
             Weight::from_parts(25_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(3))
+                .saturating_add(T::DbWeight::get().reads(4))
                 .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::Yes,
@@ -2147,7 +2149,12 @@ pub mod pallet {
             netuid: NetUid,
             burn_half_life: u16,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::BurnHalfLife.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -2161,14 +2168,22 @@ pub mod pallet {
                 netuid,
                 burn_half_life,
             });
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::BurnHalfLife.into()],
+            );
+
             Ok(())
         }
 
         /// Set BurnIncreaseMult for a subnet.
+        /// It is only callable by root and subnet owner.
         #[pallet::call_index(90)]
         #[pallet::weight((
             Weight::from_parts(25_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(3))
+                .saturating_add(T::DbWeight::get().reads(4))
                 .saturating_add(T::DbWeight::get().writes(1)),
             DispatchClass::Operational,
             Pays::Yes,
@@ -2178,7 +2193,12 @@ pub mod pallet {
             netuid: NetUid,
             burn_increase_mult: u64,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::BurnIncreaseMult.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -2192,6 +2212,13 @@ pub mod pallet {
                 netuid,
                 burn_increase_mult,
             });
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::BurnIncreaseMult.into()],
+            );
+
             Ok(())
         }
     }
