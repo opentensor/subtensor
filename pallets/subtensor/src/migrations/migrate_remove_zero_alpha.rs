@@ -39,9 +39,11 @@ pub fn migrate_remove_zero_alpha<T: Config>() -> Weight {
 /// Phases:
 ///   0 = inactive/complete
 ///   1 = cleaning Alpha
-///   2 = cleaning TotalHotkeyShares
-///   3 = cleaning TotalHotkeyAlphaLastEpoch
-///   4 = cleaning AlphaDividendsPerSubnet
+///   2 = cleaning AlphaV2
+///   3 = cleaning TotalHotkeyShares
+///   4 = cleaning TotalHotkeySharesV2
+///   5 = cleaning TotalHotkeyAlphaLastEpoch
+///   6 = cleaning AlphaDividendsPerSubnet
 pub fn on_idle_remove_zero_alpha<T: Config>(remaining_weight: Weight) -> Weight {
     let phase = ZeroAlphaCleanupPhase::<T>::get();
 
@@ -75,10 +77,10 @@ pub fn on_idle_remove_zero_alpha<T: Config>(remaining_weight: Weight) -> Weight 
             }
         }
         2 => {
-            let (consumed, removed, done) = clean_total_hotkey_shares_batch::<T>(budget);
+            let (consumed, removed, done) = clean_alpha_v2_batch::<T>(budget);
             weight = weight.saturating_add(consumed);
             log::info!(
-                "Zero-alpha cleanup phase 2 (TotalHotkeyShares): removed {removed} zero entries this batch. Done: {done}"
+                "Zero-alpha cleanup phase 2 (AlphaV2): removed {removed} zero entries this batch. Done: {done}"
             );
             if done {
                 ZeroAlphaCleanupPhase::<T>::put(3u8);
@@ -86,10 +88,10 @@ pub fn on_idle_remove_zero_alpha<T: Config>(remaining_weight: Weight) -> Weight 
             }
         }
         3 => {
-            let (consumed, removed, done) = clean_total_hotkey_alpha_last_epoch_batch::<T>(budget);
+            let (consumed, removed, done) = clean_total_hotkey_shares_batch::<T>(budget);
             weight = weight.saturating_add(consumed);
             log::info!(
-                "Zero-alpha cleanup phase 3 (TotalHotkeyAlphaLastEpoch): removed {removed} zero entries this batch. Done: {done}"
+                "Zero-alpha cleanup phase 3 (TotalHotkeyShares): removed {removed} zero entries this batch. Done: {done}"
             );
             if done {
                 ZeroAlphaCleanupPhase::<T>::put(4u8);
@@ -97,10 +99,32 @@ pub fn on_idle_remove_zero_alpha<T: Config>(remaining_weight: Weight) -> Weight 
             }
         }
         4 => {
+            let (consumed, removed, done) = clean_total_hotkey_shares_v2_batch::<T>(budget);
+            weight = weight.saturating_add(consumed);
+            log::info!(
+                "Zero-alpha cleanup phase 4 (TotalHotkeySharesV2): removed {removed} zero entries this batch. Done: {done}"
+            );
+            if done {
+                ZeroAlphaCleanupPhase::<T>::put(5u8);
+                weight = weight.saturating_add(T::DbWeight::get().writes(1));
+            }
+        }
+        5 => {
+            let (consumed, removed, done) = clean_total_hotkey_alpha_last_epoch_batch::<T>(budget);
+            weight = weight.saturating_add(consumed);
+            log::info!(
+                "Zero-alpha cleanup phase 5 (TotalHotkeyAlphaLastEpoch): removed {removed} zero entries this batch. Done: {done}"
+            );
+            if done {
+                ZeroAlphaCleanupPhase::<T>::put(6u8);
+                weight = weight.saturating_add(T::DbWeight::get().writes(1));
+            }
+        }
+        6 => {
             let (consumed, removed, done) = clean_alpha_dividends_per_subnet_batch::<T>(budget);
             weight = weight.saturating_add(consumed);
             log::info!(
-                "Zero-alpha cleanup phase 4 (AlphaDividendsPerSubnet): removed {removed} zero entries this batch. Done: {done}"
+                "Zero-alpha cleanup phase 6 (AlphaDividendsPerSubnet): removed {removed} zero entries this batch. Done: {done}"
             );
             if done {
                 // All phases complete — mark migration as done
@@ -130,7 +154,6 @@ fn clean_alpha_batch<T: Config>(budget: Weight) -> (Weight, u64, bool) {
     let mut removed = 0u64;
 
     for ((hotkey, coldkey, netuid), value) in Alpha::<T>::iter() {
-        // Stop if not enough budget for one more entry (read + potential write)
         if weight.saturating_add(per_entry_max).any_gt(budget) {
             return (weight, removed, false);
         }
@@ -142,7 +165,29 @@ fn clean_alpha_batch<T: Config>(budget: Weight) -> (Weight, u64, bool) {
         }
     }
 
-    // Iterator exhausted — phase is done
+    (weight, removed, true)
+}
+
+/// Remove zero-valued entries from AlphaV2, bounded by weight budget.
+fn clean_alpha_v2_batch<T: Config>(budget: Weight) -> (Weight, u64, bool) {
+    let read_cost = T::DbWeight::get().reads(1);
+    let write_cost = T::DbWeight::get().writes(1);
+    let per_entry_max = read_cost.saturating_add(write_cost);
+    let mut weight = Weight::zero();
+    let mut removed = 0u64;
+
+    for ((hotkey, coldkey, netuid), value) in AlphaV2::<T>::iter() {
+        if weight.saturating_add(per_entry_max).any_gt(budget) {
+            return (weight, removed, false);
+        }
+        weight = weight.saturating_add(read_cost);
+        if value.is_zero() {
+            AlphaV2::<T>::remove((hotkey, coldkey, netuid));
+            weight = weight.saturating_add(write_cost);
+            removed = removed.saturating_add(1);
+        }
+    }
+
     (weight, removed, true)
 }
 
@@ -161,6 +206,29 @@ fn clean_total_hotkey_shares_batch<T: Config>(budget: Weight) -> (Weight, u64, b
         weight = weight.saturating_add(read_cost);
         if value == 0 {
             TotalHotkeyShares::<T>::remove(hotkey, netuid);
+            weight = weight.saturating_add(write_cost);
+            removed = removed.saturating_add(1);
+        }
+    }
+
+    (weight, removed, true)
+}
+
+/// Remove zero-valued entries from TotalHotkeySharesV2, bounded by weight budget.
+fn clean_total_hotkey_shares_v2_batch<T: Config>(budget: Weight) -> (Weight, u64, bool) {
+    let read_cost = T::DbWeight::get().reads(1);
+    let write_cost = T::DbWeight::get().writes(1);
+    let per_entry_max = read_cost.saturating_add(write_cost);
+    let mut weight = Weight::zero();
+    let mut removed = 0u64;
+
+    for (hotkey, netuid, value) in TotalHotkeySharesV2::<T>::iter() {
+        if weight.saturating_add(per_entry_max).any_gt(budget) {
+            return (weight, removed, false);
+        }
+        weight = weight.saturating_add(read_cost);
+        if value.is_zero() {
+            TotalHotkeySharesV2::<T>::remove(hotkey, netuid);
             weight = weight.saturating_add(write_cost);
             removed = removed.saturating_add(1);
         }

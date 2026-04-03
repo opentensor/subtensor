@@ -3156,16 +3156,26 @@ fn test_migrate_remove_zero_alpha_multi_block() {
 
         let zero = U64F64::from_num(0);
         let nonzero = U64F64::from_num(5000);
+        let sf_zero = sf_from_u64(0);
+        let sf_nonzero = sf_from_u64(5000);
 
-        // --- Setup: insert zero and non-zero entries across all four maps ---
+        // --- Setup: insert zero and non-zero entries across all six maps ---
 
         // Alpha (StorageNMap)
         Alpha::<Test>::insert((&hotkey_zero, &coldkey_zero, netuid), zero);
         Alpha::<Test>::insert((&hotkey_nonzero, &coldkey_nonzero, netuid), nonzero);
 
+        // AlphaV2 (StorageNMap, SafeFloat)
+        AlphaV2::<Test>::insert((&hotkey_zero, &coldkey_zero, netuid), sf_zero.clone());
+        AlphaV2::<Test>::insert((&hotkey_nonzero, &coldkey_nonzero, netuid), sf_nonzero.clone());
+
         // TotalHotkeyShares
         TotalHotkeyShares::<Test>::insert(hotkey_zero, netuid, zero);
         TotalHotkeyShares::<Test>::insert(hotkey_nonzero, netuid, nonzero);
+
+        // TotalHotkeySharesV2 (SafeFloat)
+        TotalHotkeySharesV2::<Test>::insert(hotkey_zero, netuid, sf_zero.clone());
+        TotalHotkeySharesV2::<Test>::insert(hotkey_nonzero, netuid, sf_nonzero.clone());
 
         // TotalHotkeyAlphaLastEpoch
         TotalHotkeyAlphaLastEpoch::<Test>::insert(hotkey_zero, netuid, AlphaBalance::ZERO);
@@ -3192,7 +3202,7 @@ fn test_migrate_remove_zero_alpha_multi_block() {
             "Migration should NOT be marked as done yet."
         );
 
-        // Step 2: Simulate on_idle calls to process all 4 phases
+        // Step 2: Simulate on_idle calls to process all 6 phases
         let large_weight = Weight::from_parts(u64::MAX, u64::MAX);
 
         // Phase 1: Alpha cleanup
@@ -3201,19 +3211,31 @@ fn test_migrate_remove_zero_alpha_multi_block() {
         );
         assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 2u8);
 
-        // Phase 2: TotalHotkeyShares cleanup
+        // Phase 2: AlphaV2 cleanup
         crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
             large_weight,
         );
         assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 3u8);
 
-        // Phase 3: TotalHotkeyAlphaLastEpoch cleanup
+        // Phase 3: TotalHotkeyShares cleanup
         crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
             large_weight,
         );
         assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 4u8);
 
-        // Phase 4: AlphaDividendsPerSubnet cleanup — completes and marks migration done
+        // Phase 4: TotalHotkeySharesV2 cleanup
+        crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
+            large_weight,
+        );
+        assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 5u8);
+
+        // Phase 5: TotalHotkeyAlphaLastEpoch cleanup
+        crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
+            large_weight,
+        );
+        assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 6u8);
+
+        // Phase 6: AlphaDividendsPerSubnet cleanup — completes and marks migration done
         crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
             large_weight,
         );
@@ -3229,8 +3251,16 @@ fn test_migrate_remove_zero_alpha_multi_block() {
             "Zero Alpha entry should have been removed."
         );
         assert!(
+            !AlphaV2::<Test>::contains_key((&hotkey_zero, &coldkey_zero, netuid)),
+            "Zero AlphaV2 entry should have been removed."
+        );
+        assert!(
             !TotalHotkeyShares::<Test>::contains_key(hotkey_zero, netuid),
             "Zero TotalHotkeyShares entry should have been removed."
+        );
+        assert!(
+            !TotalHotkeySharesV2::<Test>::contains_key(hotkey_zero, netuid),
+            "Zero TotalHotkeySharesV2 entry should have been removed."
         );
         assert!(
             !TotalHotkeyAlphaLastEpoch::<Test>::contains_key(hotkey_zero, netuid),
@@ -3247,8 +3277,16 @@ fn test_migrate_remove_zero_alpha_multi_block() {
             nonzero
         );
         assert_eq!(
+            AlphaV2::<Test>::get((&hotkey_nonzero, &coldkey_nonzero, netuid)),
+            sf_nonzero.clone()
+        );
+        assert_eq!(
             TotalHotkeyShares::<Test>::get(hotkey_nonzero, netuid),
             nonzero
+        );
+        assert_eq!(
+            TotalHotkeySharesV2::<Test>::get(hotkey_nonzero, netuid),
+            sf_nonzero.clone()
         );
         assert_eq!(
             TotalHotkeyAlphaLastEpoch::<Test>::get(hotkey_nonzero, netuid),
