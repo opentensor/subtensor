@@ -1085,6 +1085,169 @@ fn add_stake_recycle_with_insufficient_balance_returns_error() {
     });
 }
 
+#[test]
+fn recycle_alpha_clamps_to_available_when_amount_exceeds_stake() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(11001);
+        let owner_coldkey = U256::from(11002);
+        let coldkey = U256::from(11101);
+        let hotkey = U256::from(11102);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let stake_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
+            RawOrigin::Signed(coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount_raw.into(),
+        ));
+
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_before > AlphaBalance::ZERO);
+
+        // Request way more than available — should clamp to alpha_before
+        let huge_amount = AlphaBalance::from(u64::MAX);
+
+        let expected_weight = Weight::from_parts(113_400_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(4));
+
+        let mut env = MockEnv::new(
+            FunctionId::RecycleAlphaV1,
+            coldkey,
+            (hotkey, huge_amount, netuid).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+
+        let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
+        assert_eq!(returned_amount, alpha_before, "should clamp to available alpha");
+
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_after.is_zero(), "all alpha should be recycled");
+    });
+}
+
+#[test]
+fn burn_alpha_on_root_subnet_returns_error() {
+    mock::new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(11201);
+        let hotkey = U256::from(11202);
+
+        pallet_subtensor::Owner::<mock::Test>::insert(hotkey, coldkey);
+
+        let expected_weight = Weight::from_parts(112_200_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+
+        let mut env = MockEnv::new(
+            FunctionId::BurnAlphaV1,
+            coldkey,
+            (hotkey, AlphaBalance::from(1_000u64), NetUid::ROOT).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        match ret {
+            RetVal::Converging(code) => {
+                assert_ne!(
+                    code,
+                    Output::Success as u32,
+                    "should not succeed on root subnet"
+                )
+            }
+            _ => panic!("unexpected return value"),
+        }
+    });
+}
+
+#[test]
+fn burn_alpha_clamps_to_available_when_amount_exceeds_stake() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(11301);
+        let owner_coldkey = U256::from(11302);
+        let coldkey = U256::from(11401);
+        let hotkey = U256::from(11402);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let stake_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(130_000_000_000_u64),
+            AlphaBalance::from(110_000_000_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
+            RawOrigin::Signed(coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount_raw.into(),
+        ));
+
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_before > AlphaBalance::ZERO);
+
+        // Request way more than available — should clamp to alpha_before
+        let huge_amount = AlphaBalance::from(u64::MAX);
+
+        let expected_weight = Weight::from_parts(112_200_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+
+        let mut env = MockEnv::new(
+            FunctionId::BurnAlphaV1,
+            coldkey,
+            (hotkey, huge_amount, netuid).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        assert_success(ret);
+
+        let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
+        assert_eq!(returned_amount, alpha_before, "should clamp to available alpha");
+
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        assert!(alpha_after.is_zero(), "all alpha should be burned");
+    });
+}
+
 impl MockEnv {
     fn new(func_id: FunctionId, caller: AccountId, input: Vec<u8>) -> Self {
         Self {
