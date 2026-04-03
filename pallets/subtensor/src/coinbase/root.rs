@@ -213,7 +213,8 @@ impl<T: Config> Pallet<T> {
         Self::finalize_all_subnet_root_dividends(netuid);
 
         // --- Perform the cleanup before removing the network.
-        T::SwapInterface::dissolve_all_liquidity_providers(netuid)?;
+        // Will handle it in dissolve network PR.
+        T::SwapInterface::dissolve_all_liquidity_providers(netuid).map_err(|e| e.error)?;
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
@@ -330,7 +331,6 @@ impl<T: Config> Pallet<T> {
         AlphaSigmoidSteepness::<T>::remove(netuid);
 
         MaxAllowedValidators::<T>::remove(netuid);
-        AdjustmentInterval::<T>::remove(netuid);
         BondsMovingAverage::<T>::remove(netuid);
         BondsPenalty::<T>::remove(netuid);
         BondsResetOn::<T>::remove(netuid);
@@ -338,8 +338,10 @@ impl<T: Config> Pallet<T> {
         ValidatorPruneLen::<T>::remove(netuid);
         ScalingLawPower::<T>::remove(netuid);
         TargetRegistrationsPerInterval::<T>::remove(netuid);
-        AdjustmentAlpha::<T>::remove(netuid);
         CommitRevealWeightsEnabled::<T>::remove(netuid);
+
+        BurnHalfLife::<T>::remove(netuid);
+        BurnIncreaseMult::<T>::remove(netuid);
 
         Burn::<T>::remove(netuid);
         MinBurn::<T>::remove(netuid);

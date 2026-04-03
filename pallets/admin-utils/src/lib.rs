@@ -96,6 +96,20 @@ pub mod pallet {
             /// Indicates if the Bonds Reset was enabled or disabled.
             enabled: bool,
         },
+        /// Event emitted when the burn half-life parameter is set for a subnet.
+        BurnHalfLifeSet {
+            /// The network identifier.
+            netuid: NetUid,
+            /// The new burn half-life value.
+            burn_half_life: u16,
+        },
+        /// Event emitted when the burn increase multiplier is set for a subnet.
+        BurnIncreaseMultSet {
+            /// The network identifier.
+            netuid: NetUid,
+            /// The new burn increase multiplier.
+            burn_increase_mult: U64F64,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -123,6 +137,10 @@ pub mod pallet {
         MaxAllowedUidsGreaterThanDefaultMaxAllowedUids,
         /// Bad parameter value
         InvalidValue,
+        /// Operation is not permitted on the root network.
+        NotPermittedOnRootSubnet,
+        /// POW Registration has been deprecated
+        POWRegistrationDisabled,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -649,30 +667,11 @@ pub mod pallet {
 				.saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1))
 		)]
         pub fn sudo_set_network_pow_registration_allowed(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            registration_allowed: bool,
+            _origin: OriginFor<T>,
+            _netuid: NetUid,
+            _registration_allowed: bool,
         ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::PowRegistrationAllowed.into()],
-            )?;
-            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
-
-            pallet_subtensor::Pallet::<T>::set_network_pow_registration_allowed(
-                netuid,
-                registration_allowed,
-            );
-            log::debug!(
-                "NetworkPowRegistrationAllowed( registration_allowed: {registration_allowed:?} ) "
-            );
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::PowRegistrationAllowed.into()],
-            );
-            Ok(())
+            Err(Error::<T>::POWRegistrationDisabled.into())
         }
 
         /// The extrinsic sets the target registrations per interval for a subnet.
@@ -2029,6 +2028,104 @@ pub mod pallet {
             ensure_root(origin)?;
             pallet_subtensor::Pallet::<T>::set_coldkey_swap_reannouncement_delay(duration);
             log::trace!("ColdkeySwapReannouncementDelaySet( duration: {duration:?} )");
+            Ok(())
+        }
+
+        /// Set BurnHalfLife for a subnet.
+        /// It is only callable by root and subnet owner.
+        #[pallet::call_index(89)]
+        #[pallet::weight((
+            Weight::from_parts(25_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(4))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes,
+        ))]
+        pub fn sudo_set_burn_half_life(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            burn_half_life: u16,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::BurnHalfLife.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+            ensure!(
+                burn_half_life > 0
+                    && burn_half_life <= pallet_subtensor::MaxBurnHalfLife::<T>::get(),
+                Error::<T>::InvalidValue
+            );
+
+            pallet_subtensor::BurnHalfLife::<T>::insert(netuid, burn_half_life);
+            Self::deposit_event(Event::BurnHalfLifeSet {
+                netuid,
+                burn_half_life,
+            });
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::BurnHalfLife.into()],
+            );
+
+            Ok(())
+        }
+
+        /// Set BurnIncreaseMult for a subnet.
+        /// It is only callable by root and subnet owner.
+        #[pallet::call_index(90)]
+        #[pallet::weight((
+            Weight::from_parts(25_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(4))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes,
+        ))]
+        pub fn sudo_set_burn_increase_mult(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            burn_increase_mult: U64F64,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::BurnIncreaseMult.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+            ensure!(
+                (1..=3).contains(&burn_increase_mult),
+                Error::<T>::InvalidValue
+            );
+
+            pallet_subtensor::BurnIncreaseMult::<T>::insert(
+                netuid,
+                U64F64::from_num(burn_increase_mult),
+            );
+            Self::deposit_event(Event::BurnIncreaseMultSet {
+                netuid,
+                burn_increase_mult,
+            });
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::BurnIncreaseMult.into()],
+            );
+
             Ok(())
         }
     }

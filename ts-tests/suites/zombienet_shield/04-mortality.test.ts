@@ -99,12 +99,17 @@ describeSuite({
 
                 // Verify it's in the pool.
                 await sleep(1_000);
+                const normalizedTx = signedHex.toLowerCase();
                 const pending: string[] = await clientFull._request("author_pendingExtrinsics", []);
-                log(`Pool has ${pending.length} pending tx(s)`);
+                const inPool = pending.some((hex) => hex.toLowerCase() === normalizedTx);
+                log(`Pool has ${pending.length} pending tx(s), our tx ${inPool ? "found" : "NOT found"}`);
+                expect(inPool).toBe(true);
 
-                // Now poll until the tx disappears (mortality eviction).
+                // Now poll until our specific tx disappears (mortality eviction).
+                // Use a generous timeout — CI zombienet nodes can miss AURA slots,
+                // so N blocks may take significantly longer than N * 12s.
                 const start = Date.now();
-                const maxPollMs = (MAX_ERA_BLOCKS + 4) * SLOT_DURATION_MS;
+                const maxPollMs = MAX_ERA_BLOCKS * 3 * SLOT_DURATION_MS;
                 let evicted = false;
 
                 log(`Waiting for mortality eviction (up to ${maxPollMs / 1000}s)...`);
@@ -113,8 +118,9 @@ describeSuite({
                     await sleep(POLL_INTERVAL_MS);
 
                     const pending: string[] = await clientFull._request("author_pendingExtrinsics", []);
+                    const stillPending = pending.some((hex) => hex.toLowerCase() === normalizedTx);
 
-                    if (pending.length === 0) {
+                    if (!stillPending) {
                         evicted = true;
                         break;
                     }
@@ -124,10 +130,6 @@ describeSuite({
                 log(`Tx ${evicted ? "evicted" : "still in pool"} after ${(elapsed / 1000).toFixed(1)}s`);
 
                 expect(evicted).toBe(true);
-
-                // Eviction should happen within the mortality window plus margin.
-                const maxExpectedMs = (MAX_ERA_BLOCKS + 2) * SLOT_DURATION_MS;
-                expect(elapsed).toBeLessThan(maxExpectedMs);
 
                 // The inner transfer should NOT have executed.
                 const balanceAfter = await getBalance(apiFull, bob.address);

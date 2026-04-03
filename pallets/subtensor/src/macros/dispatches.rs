@@ -990,17 +990,17 @@ mod dispatches {
         /// 	- The seal is incorrect.
         ///
         #[pallet::call_index(6)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::register(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::register())]
         pub fn register(
             origin: OriginFor<T>,
             netuid: NetUid,
-            block_number: u64,
-            nonce: u64,
-            work: Vec<u8>,
+            _block_number: u64,
+            _nonce: u64,
+            _work: Vec<u8>,
             hotkey: T::AccountId,
-            coldkey: T::AccountId,
+            _coldkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// Register the hotkey to root network
@@ -1012,13 +1012,13 @@ mod dispatches {
 
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::burned_register(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::burned_register())]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: NetUid,
             hotkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_burned_registration(origin, netuid, hotkey)
+            Self::do_register(origin, netuid, hotkey)
         }
 
         /// ---- The extrinsic for user to change its hotkey in subnet or all subnets.
@@ -1033,7 +1033,7 @@ mod dispatches {
             note = "Please use swap_hotkey_v2 instead. This extrinsic will be removed some time after June 2026."
         )]
         #[pallet::call_index(70)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::swap_hotkey(), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::swap_hotkey(), DispatchClass::Normal, Pays::Yes))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1204,7 +1204,7 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(59)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::register_network(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::register_network())]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
@@ -1407,7 +1407,7 @@ mod dispatches {
 
         /// User register a new subnetwork
         #[pallet::call_index(79)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::register_network_with_identity(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::register_network_with_identity())]
         pub fn register_network_with_identity(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1500,7 +1500,7 @@ mod dispatches {
         ///     - The alpha stake amount to move.
         ///
         #[pallet::call_index(85)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::move_stake(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::move_stake())]
         pub fn move_stake(
             origin: OriginFor<T>,
             origin_hotkey: T::AccountId,
@@ -1541,7 +1541,7 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeTransferred` event on success.
         #[pallet::call_index(86)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::transfer_stake(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::transfer_stake())]
         pub fn transfer_stake(
             origin: OriginFor<T>,
             destination_coldkey: T::AccountId,
@@ -1774,7 +1774,7 @@ mod dispatches {
         /// # Note
         /// Will charge based on the weight even if the hotkey is already associated with a coldkey.
         #[pallet::call_index(91)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::try_associate_hotkey(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::try_associate_hotkey())]
         pub fn try_associate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
@@ -2048,7 +2048,7 @@ mod dispatches {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey account to designate as the autostake destination.
         #[pallet::call_index(114)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_coldkey_auto_stake_hotkey(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_coldkey_auto_stake_hotkey())]
         pub fn set_coldkey_auto_stake_hotkey(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2484,6 +2484,27 @@ mod dispatches {
 
             Self::deposit_event(Event::ColdkeySwapCleared { who });
             Ok(())
+        }
+
+        /// User register a new subnetwork via burning token, but only if the
+        /// on-chain burn price for this block is <= `limit_price`.
+        ///
+        /// `limit_price` is expressed in the same TaoCurrency/u64 units as `Burn`.
+        #[pallet::call_index(134)]
+        #[pallet::weight((
+            Weight::from_parts(354_200_000, 0)
+                .saturating_add(T::DbWeight::get().reads(47_u64))
+                .saturating_add(T::DbWeight::get().writes(40_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn register_limit(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            hotkey: T::AccountId,
+            limit_price: u64,
+        ) -> DispatchResult {
+            Self::do_register_limit(origin, netuid, hotkey, limit_price)
         }
     }
 }
