@@ -4422,3 +4422,40 @@ fn test_migrate_fix_root_claimed_incorrect_genesis() {
         );
     });
 }
+
+#[test]
+fn test_migrate_subnet_balances() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Add network locks
+        let lock1 = TaoBalance::from(123_000_000_000_u64);
+        let lock2 = TaoBalance::from(321_000_000_000_u64);
+        SubnetLocked::<Test>::insert(netuid1, lock1);
+        SubnetLocked::<Test>::insert(netuid2, lock2);
+
+        // Add SubnetTAO
+        let reserve1 = TaoBalance::from(456_000_000_000_u64);
+        let reserve2 = TaoBalance::from(654_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid1, reserve1);
+        SubnetTAO::<Test>::insert(netuid2, reserve2);
+
+        // Run migration
+        crate::migrations::migrate_subnet_balances::migrate_subnet_balances::<Test>();
+
+        // Test that subnet balances got updated
+        let subnet_account_1 = SubtensorModule::get_subnet_account_id(netuid1).unwrap();
+        let subnet_account_2 = SubtensorModule::get_subnet_account_id(netuid2).unwrap();
+        let balance1 = SubtensorModule::get_coldkey_balance(&subnet_account_1);
+        let balance2 = SubtensorModule::get_coldkey_balance(&subnet_account_2);
+        assert_eq!(balance1, lock1 + reserve1);
+        assert_eq!(balance2, lock2 + reserve2);
+
+        // Check migration has been marked as run
+        const MIGRATION_NAME: &[u8] = b"migrate_subnet_balances";
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+    });
+}
