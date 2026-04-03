@@ -589,7 +589,11 @@ impl<T: Config> Pallet<T> {
         LastRateLimitedBlock::<T>::get(rate_limit_key)
     }
     pub fn set_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>, block: u64) {
-        LastRateLimitedBlock::<T>::insert(rate_limit_key, block);
+        if block == 0 {
+            LastRateLimitedBlock::<T>::remove(rate_limit_key);
+        } else {
+            LastRateLimitedBlock::<T>::insert(rate_limit_key, block);
+        }
     }
     pub fn remove_rate_limited_last_block(rate_limit_key: &RateLimitKey<T::AccountId>) {
         LastRateLimitedBlock::<T>::remove(rate_limit_key);

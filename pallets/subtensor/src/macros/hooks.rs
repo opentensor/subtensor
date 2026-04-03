@@ -38,6 +38,11 @@ mod hooks {
             }
         }
 
+        // ---- Called when the block has leftover weight. Used for multi-block migrations.
+        fn on_idle(_block_number: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+            migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<T>(remaining_weight)
+        }
+
         // ---- Called on the finalization of this pallet. The code weight must be taken into account prior to the execution of this macro.
         //
         // # Args:
@@ -167,6 +172,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>())
                 // Migrate coldkey swap scheduled to announcements
                 .saturating_add(migrations::migrate_coldkey_swap_scheduled_to_announcements::migrate_coldkey_swap_scheduled_to_announcements::<T>())
+                // Remove zero-valued entries from Alpha and related storage maps
+                .saturating_add(migrations::migrate_remove_zero_alpha::migrate_remove_zero_alpha::<T>())
                 // Migration for new Neuron Registration
                 .saturating_add(migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<T>())
                 // Migrate fix bad hk swap

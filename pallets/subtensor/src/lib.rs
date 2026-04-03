@@ -2475,6 +2475,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
+    /// --- Tracks the current phase of the zero-alpha multi-block cleanup.
+    /// 0 = inactive/complete, 1-4 = active phases (Alpha, TotalHotkeyShares, etc.)
+    #[pallet::storage]
+    pub type ZeroAlphaCleanupPhase<T: Config> = StorageValue<_, u8, ValueQuery>;
+
     /// Default value for pending childkey cooldown (settable by root).
     /// Uses the same value as DefaultPendingCooldown for consistency.
     #[pallet::type_value]

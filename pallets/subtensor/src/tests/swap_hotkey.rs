@@ -1639,3 +1639,66 @@ fn test_swap_auto_stake_destination_coldkeys() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey -- test_hotkey_swap_does_not_insert_zero_alpha --exact --nocapture
+#[test]
+fn test_hotkey_swap_does_not_insert_zero_alpha() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let mut weight = Weight::zero();
+
+        // Insert zero values for all alpha-related maps
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaBalance::ZERO);
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(old_hotkey, netuid, AlphaBalance::ZERO);
+        TotalHotkeyShares::<Test>::insert(old_hotkey, netuid, U64F64::from_num(0));
+        Alpha::<Test>::insert((old_hotkey, coldkey, netuid), U64F64::from_num(0));
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaBalance::ZERO);
+
+        // Perform the swap
+        SubtensorModule::perform_hotkey_swap_on_all_subnets(
+            &old_hotkey,
+            &new_hotkey,
+            &coldkey,
+            &mut weight,
+            false,
+        );
+
+        // Verify no zero entries were inserted for the new hotkey
+        assert!(
+            !TotalHotkeyAlpha::<Test>::contains_key(new_hotkey, netuid),
+            "TotalHotkeyAlpha should not contain a zero entry for new_hotkey"
+        );
+        assert!(
+            !TotalHotkeyAlphaLastEpoch::<Test>::contains_key(new_hotkey, netuid),
+            "TotalHotkeyAlphaLastEpoch should not contain a zero entry for new_hotkey"
+        );
+        assert!(
+            !TotalHotkeyShares::<Test>::contains_key(new_hotkey, netuid),
+            "TotalHotkeyShares should not contain a zero entry for new_hotkey"
+        );
+        assert!(
+            !Alpha::<Test>::contains_key((new_hotkey, coldkey, netuid)),
+            "Alpha should not contain a zero entry for new_hotkey"
+        );
+        assert!(
+            !AlphaDividendsPerSubnet::<Test>::contains_key(netuid, new_hotkey),
+            "AlphaDividendsPerSubnet should not contain a zero entry for new_hotkey"
+        );
+
+        // Verify old entries were removed
+        assert!(!TotalHotkeyAlpha::<Test>::contains_key(old_hotkey, netuid));
+        assert!(!TotalHotkeyAlphaLastEpoch::<Test>::contains_key(
+            old_hotkey, netuid
+        ));
+        assert!(!TotalHotkeyShares::<Test>::contains_key(old_hotkey, netuid));
+        assert!(!Alpha::<Test>::contains_key((old_hotkey, coldkey, netuid)));
+        assert!(!AlphaDividendsPerSubnet::<Test>::contains_key(
+            netuid, old_hotkey
+        ));
+    });
+}

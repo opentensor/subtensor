@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
         netuid: Option<NetUid>,
         keep_stake: bool,
     ) -> DispatchResultWithPostInfo {
-        // // 1. Ensure the origin is signed and get the coldkey
+        // 1. Ensure the origin is signed and get the coldkey
         let coldkey = ensure_signed(origin)?;
 
         // 2. Ensure the coldkey owns the old hotkey
@@ -368,8 +368,11 @@ impl<T: Config> Pallet<T> {
         // IsNetworkMember( hotkey, netuid ) -> bool -- is the hotkey a subnet member.
         let is_network_member: bool = IsNetworkMember::<T>::get(old_hotkey, netuid);
         IsNetworkMember::<T>::remove(old_hotkey, netuid);
-        IsNetworkMember::<T>::insert(new_hotkey, netuid, is_network_member);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        if is_network_member {
+            IsNetworkMember::<T>::insert(new_hotkey, netuid, is_network_member);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        }
 
         // 3.2 Swap Uids + Keys.
         // Keys( netuid, hotkey ) -> uid -- the uid the hotkey has in the network if it is a member.
@@ -494,23 +497,28 @@ impl<T: Config> Pallet<T> {
             // 8.1 Swap TotalHotkeyAlphaLastEpoch
             let old_alpha = TotalHotkeyAlphaLastEpoch::<T>::take(old_hotkey, netuid);
             let new_total_hotkey_alpha = TotalHotkeyAlphaLastEpoch::<T>::get(new_hotkey, netuid);
-            TotalHotkeyAlphaLastEpoch::<T>::insert(
-                new_hotkey,
-                netuid,
-                old_alpha.saturating_add(new_total_hotkey_alpha),
-            );
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+            let combined_alpha_last_epoch = old_alpha.saturating_add(new_total_hotkey_alpha);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+            if !combined_alpha_last_epoch.is_zero() {
+                TotalHotkeyAlphaLastEpoch::<T>::insert(
+                    new_hotkey,
+                    netuid,
+                    combined_alpha_last_epoch,
+                );
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
 
             // 8.2 Swap AlphaDividendsPerSubnet
             let old_hotkey_alpha_dividends = AlphaDividendsPerSubnet::<T>::get(netuid, old_hotkey);
             let new_hotkey_alpha_dividends = AlphaDividendsPerSubnet::<T>::get(netuid, new_hotkey);
             AlphaDividendsPerSubnet::<T>::remove(netuid, old_hotkey);
-            AlphaDividendsPerSubnet::<T>::insert(
-                netuid,
-                new_hotkey,
-                old_hotkey_alpha_dividends.saturating_add(new_hotkey_alpha_dividends),
-            );
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+            let combined_dividends =
+                old_hotkey_alpha_dividends.saturating_add(new_hotkey_alpha_dividends);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+            if !combined_dividends.is_zero() {
+                AlphaDividendsPerSubnet::<T>::insert(netuid, new_hotkey, combined_dividends);
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
 
             // 8.3 Swap TaoDividendsPerSubnet
             // Tao dividends were removed

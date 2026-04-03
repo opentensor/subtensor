@@ -3144,6 +3144,138 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
 }
 
 #[test]
+fn test_migrate_remove_zero_alpha_multi_block() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_remove_zero_alpha_v2";
+        let netuid = NetUid::from(1u16);
+
+        let hotkey_zero = U256::from(100u64);
+        let hotkey_nonzero = U256::from(101u64);
+        let coldkey_zero = U256::from(200u64);
+        let coldkey_nonzero = U256::from(201u64);
+
+        let zero = U64F64::from_num(0);
+        let nonzero = U64F64::from_num(5000);
+
+        // --- Setup: insert zero and non-zero entries across all four maps ---
+
+        // Alpha (StorageNMap)
+        Alpha::<Test>::insert((&hotkey_zero, &coldkey_zero, netuid), zero);
+        Alpha::<Test>::insert((&hotkey_nonzero, &coldkey_nonzero, netuid), nonzero);
+
+        // TotalHotkeyShares
+        TotalHotkeyShares::<Test>::insert(hotkey_zero, netuid, zero);
+        TotalHotkeyShares::<Test>::insert(hotkey_nonzero, netuid, nonzero);
+
+        // TotalHotkeyAlphaLastEpoch
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(hotkey_zero, netuid, AlphaBalance::ZERO);
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(hotkey_nonzero, netuid, AlphaBalance::from(5000));
+
+        // AlphaDividendsPerSubnet
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey_zero, AlphaBalance::ZERO);
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, hotkey_nonzero, AlphaBalance::from(5000));
+
+        // Verify cleanup phase is inactive
+        assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 0u8);
+
+        // Step 1: on_runtime_upgrade schedules the cleanup (sets phase to 1)
+        let weight =
+            crate::migrations::migrate_remove_zero_alpha::migrate_remove_zero_alpha::<Test>();
+        assert!(!weight.is_zero(), "Scheduling weight should be non-zero.");
+        assert_eq!(
+            ZeroAlphaCleanupPhase::<Test>::get(),
+            1u8,
+            "Phase should be 1 after scheduling."
+        );
+        assert!(
+            !HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should NOT be marked as done yet."
+        );
+
+        // Step 2: Simulate on_idle calls to process all 4 phases
+        let large_weight = Weight::from_parts(u64::MAX, u64::MAX);
+
+        // Phase 1: Alpha cleanup
+        crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
+            large_weight,
+        );
+        assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 2u8);
+
+        // Phase 2: TotalHotkeyShares cleanup
+        crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
+            large_weight,
+        );
+        assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 3u8);
+
+        // Phase 3: TotalHotkeyAlphaLastEpoch cleanup
+        crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
+            large_weight,
+        );
+        assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 4u8);
+
+        // Phase 4: AlphaDividendsPerSubnet cleanup — completes and marks migration done
+        crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
+            large_weight,
+        );
+        assert_eq!(ZeroAlphaCleanupPhase::<Test>::get(), 0u8);
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should be marked as done."
+        );
+
+        // Verify zero entries were removed
+        assert!(
+            !Alpha::<Test>::contains_key((&hotkey_zero, &coldkey_zero, netuid)),
+            "Zero Alpha entry should have been removed."
+        );
+        assert!(
+            !TotalHotkeyShares::<Test>::contains_key(hotkey_zero, netuid),
+            "Zero TotalHotkeyShares entry should have been removed."
+        );
+        assert!(
+            !TotalHotkeyAlphaLastEpoch::<Test>::contains_key(hotkey_zero, netuid),
+            "Zero TotalHotkeyAlphaLastEpoch entry should have been removed."
+        );
+        assert!(
+            !AlphaDividendsPerSubnet::<Test>::contains_key(netuid, hotkey_zero),
+            "Zero AlphaDividendsPerSubnet entry should have been removed."
+        );
+
+        // Verify non-zero entries were preserved
+        assert_eq!(
+            Alpha::<Test>::get((&hotkey_nonzero, &coldkey_nonzero, netuid)),
+            nonzero
+        );
+        assert_eq!(
+            TotalHotkeyShares::<Test>::get(hotkey_nonzero, netuid),
+            nonzero
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(hotkey_nonzero, netuid),
+            AlphaBalance::from(5000)
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, hotkey_nonzero),
+            AlphaBalance::from(5000)
+        );
+
+        // Verify idempotency: on_idle should be a no-op when phase is 0
+        let w_noop =
+            crate::migrations::migrate_remove_zero_alpha::on_idle_remove_zero_alpha::<Test>(
+                large_weight,
+            );
+        assert!(w_noop.is_zero(), "on_idle should be a no-op when phase is 0.");
+
+        // Verify idempotency: on_runtime_upgrade again should skip
+        let weight2 =
+            crate::migrations::migrate_remove_zero_alpha::migrate_remove_zero_alpha::<Test>();
+        assert_eq!(
+            weight2,
+            Weight::from_parts(0, 0)
+                .saturating_add(<Test as frame_system::Config>::DbWeight::get().reads(1)),
+            "Second run should only cost a single read (HasMigrationRun check)."
+        );
+        
 fn test_migrate_clear_deprecated_registration_maps() {
     new_test_ext(1).execute_with(|| {
         const MIG_NAME: &[u8] = b"migrate_clear_deprecated_registration_maps_v1";
