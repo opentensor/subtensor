@@ -3275,7 +3275,10 @@ fn test_migrate_remove_zero_alpha_multi_block() {
                 .saturating_add(<Test as frame_system::Config>::DbWeight::get().reads(1)),
             "Second run should only cost a single read (HasMigrationRun check)."
         );
-        
+    });
+}
+
+#[test]
 fn test_migrate_clear_deprecated_registration_maps() {
     new_test_ext(1).execute_with(|| {
         const MIG_NAME: &[u8] = b"migrate_clear_deprecated_registration_maps_v1";
