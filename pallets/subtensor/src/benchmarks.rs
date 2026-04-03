@@ -1397,6 +1397,35 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = whitelisted_caller();
         let old: T::AccountId = account("A", 0, 7);
         let new: T::AccountId = account("B", 0, 8);
+
+        let num_subnets: u16 = 4;
+        for i in 1..=num_subnets {
+            let netuid = NetUid::from(i);
+            Subtensor::<T>::init_new_network(netuid, 1);
+            SubtokenEnabled::<T>::insert(netuid, true);
+            Subtensor::<T>::set_network_registration_allowed(netuid, true);
+            Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+
+            let reg_balance = TaoBalance::from(1_000_000_u64);
+            seed_swap_reserves::<T>(netuid);
+            Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, reg_balance.into());
+
+            assert_ok!(Subtensor::<T>::burned_register(
+                RawOrigin::Signed(coldkey.clone()).into(),
+                netuid,
+                old.clone()
+            ));
+
+            let alpha_amount = AlphaBalance::from(1_000_000_u64);
+            SubnetAlphaOut::<T>::insert(netuid, alpha_amount * 2.into());
+            Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &old,
+                &coldkey,
+                netuid,
+                alpha_amount,
+            );
+        }
+
         Owner::<T>::insert(&old, &coldkey);
         let cost = Subtensor::<T>::get_key_swap_cost();
         add_balance_to_coldkey_account::<T>(&coldkey, cost.into());

@@ -1,5 +1,4 @@
 use super::*;
-use share_pool::SafeFloat;
 
 impl<T: Config> Pallet<T> {
     /// Transfer all assets, stakes, subnet ownerships, and hotkey associations from `old_coldkey` to
@@ -87,38 +86,23 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
     ) {
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-            // Swap and lazy-migrate Alpha to AlphaV2
-            // TotalHotkeyShares does not have to be migrated here, these migrations can be independent
-
-            // Get the v1 alpha shares on the old (hot,coldkey) account.
-            let orig_alpha_v1: SafeFloat =
-                SafeFloat::from(Alpha::<T>::get((&hotkey, old_coldkey, netuid)));
-            // Get the v1 alpha shares on the new (hot,coldkey) account.
-            let dest_alpha_v1: SafeFloat =
-                SafeFloat::from(Alpha::<T>::get((&hotkey, new_coldkey, netuid)));
-            // Get the v2 alpha shares on the old (hot,coldkey) account.
-            let orig_alpha_v2: SafeFloat = AlphaV2::<T>::get((&hotkey, old_coldkey, netuid));
-            // Get the v2 alpha shares on the new (hot,coldkey) account.
-            let dest_alpha_v2: SafeFloat = AlphaV2::<T>::get((&hotkey, new_coldkey, netuid));
-
-            // Calculate and save new alpha shares on the destination new_coldkey
-            let new_dest_alpha = orig_alpha_v1
-                .add(&dest_alpha_v1)
-                .unwrap_or_default()
-                .add(&orig_alpha_v2)
-                .unwrap_or_default()
-                .add(&dest_alpha_v2)
-                .unwrap_or_default();
-            if !new_dest_alpha.is_zero() {
-                AlphaV2::<T>::insert((&hotkey, new_coldkey, netuid), new_dest_alpha.clone());
-            }
-
-            // Remove shares on the origin old_coldkey in both Alpha and AlphaV2 maps
-            Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
-            AlphaV2::<T>::remove((&hotkey, old_coldkey, netuid));
-
-            // Remove shares on the destination new_coldkey in Alpha map
-            Alpha::<T>::remove((&hotkey, new_coldkey, netuid));
+            // Swap
+            let alpha_old =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, old_coldkey, netuid);
+            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                old_coldkey,
+                netuid,
+                alpha_old,
+            );
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                new_coldkey,
+                netuid,
+                alpha_old,
+            );
+            let new_dest_alpha =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, new_coldkey, netuid);
 
             if !new_dest_alpha.is_zero() {
                 Self::transfer_root_claimed_for_new_keys(
