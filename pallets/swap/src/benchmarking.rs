@@ -193,16 +193,5 @@ mod benchmarks {
         _(RawOrigin::Root, netuid.into(), true);
     }
 
-    #[benchmark]
-    fn disable_lp() {
-        for netuid in 1..=128 {
-            let netuid = NetUid::from(netuid as u16);
-            EnabledUserLiquidity::<T>::insert(netuid, true);
-        }
-
-        #[extrinsic_call]
-        _(RawOrigin::Root);
-    }
-
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
