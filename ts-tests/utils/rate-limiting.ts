@@ -7,6 +7,8 @@ import { Keyring } from "@polkadot/keyring";
 import { waitForBlocks } from "./staking.js";
 import { waitForFinalizedBlocks } from "./transactions.js";
 import { generateKeyringPair } from "./account.ts";
+import { startCall } from "./subnet.js";
+import { waitForTransactionWithRetry } from "./transactions.js";
 
 export const groupSharingConfigAndUsage = () => Enum("ConfigAndUsage");
 export const groupSharingConfigOnly = () => Enum("ConfigOnly");
@@ -21,6 +23,49 @@ export const rateLimitKindExact = (limit: bigint | number) =>
     Enum("Exact", typeof limit === "bigint" ? Number(limit) : limit);
 
 const TX_TIMEOUT = 30_000;
+
+type SafeFloatLike = {
+    mantissa: bigint;
+    exponent: bigint;
+};
+
+function toRational(value: SafeFloatLike): { numerator: bigint; denominator: bigint } {
+    if (value.exponent >= 0n) {
+        return {
+            numerator: value.mantissa * 10n ** value.exponent,
+            denominator: 1n,
+        };
+    }
+
+    return {
+        numerator: value.mantissa,
+        denominator: 10n ** (-value.exponent),
+    };
+}
+
+export async function getStakeValueForRateLimit(
+    api: TypedApi<typeof subtensor>,
+    hotkey: string,
+    coldkey: string,
+    netuid: number
+): Promise<bigint> {
+    const totalHotkeyAlpha = await api.query.SubtensorModule.TotalHotkeyAlpha.getValue(hotkey, netuid);
+    if (totalHotkeyAlpha === 0n) {
+        return 0n;
+    }
+
+    const currentShare = (await api.query.SubtensorModule.AlphaV2.getValue(hotkey, coldkey, netuid)) as SafeFloatLike;
+    const denominator = (await api.query.SubtensorModule.TotalHotkeySharesV2.getValue(hotkey, netuid)) as SafeFloatLike;
+
+    const share = toRational(currentShare);
+    const total = toRational(denominator);
+
+    if (share.numerator === 0n || total.numerator === 0n) {
+        return 0n;
+    }
+
+    return (totalHotkeyAlpha * share.numerator * total.denominator) / (share.denominator * total.numerator);
+}
 
 async function waitForFinalizedBlockAdvance(api: TypedApi<typeof subtensor>, count = 1): Promise<void> {
     await waitForFinalizedBlocks(api, count);
@@ -129,32 +174,54 @@ export async function waitForRateLimitTransactionWithRetry(
     maxRetries = 1
 ): Promise<void> {
     let retries = 0;
+    let lastError: unknown;
 
     while (retries < maxRetries) {
         try {
-            await waitForRateLimitTransactionCompletion(tx, signer);
+            await waitForRateLimitTransactionCompletion(api, tx, signer, TX_TIMEOUT, label);
             return;
         } catch (error) {
+            lastError = error;
             retries += 1;
             if (retries >= maxRetries) {
-                throw new Error(`[${label}] failed after ${maxRetries} retries`);
+                const suffix = error instanceof Error ? `: ${error.message}` : `: ${String(error)}`;
+                throw new Error(`[${label}] failed after ${maxRetries} retries${suffix}`);
             }
             await waitForBlocks(api, 1);
         }
     }
+
+    if (lastError instanceof Error) {
+        throw lastError;
+    }
 }
 
 async function waitForRateLimitTransactionCompletion(
+    api: TypedApi<typeof subtensor>,
     tx: any,
     keypair: KeyringPair,
-    timeout: number | null = TX_TIMEOUT
+    timeout: number | null = TX_TIMEOUT,
+    label?: string
 ): Promise<{ txHash: string; blockHash: string }> {
     const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
+    const account = await api.query.System.Account.getValue(keypair.address, { at: "best" });
+    const seenEvents: string[] = [];
 
     const signSubmitAndWatchInner = (): Promise<{ txHash: string; blockHash: string }> =>
         new Promise((resolve, reject) => {
-            const subscription = tx.signSubmitAndWatch(signer).subscribe({
+            const subscription = tx
+                .signSubmitAndWatch(signer, {
+                    at: "best",
+                    nonce: account.nonce,
+                })
+                .subscribe({
                 next(event: any) {
+                    const eventSummary =
+                        event.type === "txBestBlocksState"
+                            ? `${event.type}:${event.found ? "found" : "nofound"}:${event.isValid === false ? "invalid" : "valid"}`
+                            : event.type;
+                    seenEvents.push(eventSummary);
+
                     if (event.type === "txBestBlocksState" && event.found) {
                         subscription.unsubscribe();
                         if (event.dispatchError) {
@@ -181,7 +248,10 @@ async function waitForRateLimitTransactionCompletion(
     }
 
     return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("Transaction timed out")), timeout);
+        const timer = setTimeout(() => {
+            const prefix = label ? `[${label}] ` : "";
+            reject(new Error(`${prefix}Transaction timed out; seen events: ${seenEvents.join(", ") || "none"}`));
+        }, timeout);
         signSubmitAndWatchInner()
             .then((result) => {
                 clearTimeout(timer);
@@ -233,13 +303,14 @@ export async function addNewSubnetworkForRateLimit(
             limit: Enum("Exact", 0) as never,
         });
         const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-        await waitForSudoTransactionWithRetry(api, tx, alice, "set_network_rate_limit");
+        await waitForSudoTransactionWithRetry(api, tx, alice, "set_register_network_rate_limit");
+        await waitForFinalizedBlockAdvance(api);
     }
 
     const registerNetworkTx = api.tx.SubtensorModule.register_network({
         hotkey: hotkey.address,
     });
-    await waitForRateLimitTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network");
+    await waitForTransactionWithRetry(api, registerNetworkTx, coldkey, "register_network");
 
     return totalNetworks;
 }
@@ -253,29 +324,14 @@ export async function startCallForRateLimit(
     if (existingFirstEmission !== undefined) {
         return;
     }
-
-    const registerBlock = Number(await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid));
-    let currentBlock = await api.query.System.Number.getValue();
-    const duration = Number(await api.constants.SubtensorModule.InitialStartCallDelay);
-
-    while (currentBlock - registerBlock <= duration) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        currentBlock = await api.query.System.Number.getValue();
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    const tx = api.tx.SubtensorModule.start_call({ netuid });
     try {
-        await waitForRateLimitTransactionWithRetry(api, tx, coldkey, "start_call");
+        await startCall(api, netuid, coldkey);
     } catch (error) {
         if (error instanceof Error && error.message.includes("FirstEmissionBlockNumberAlreadySet")) {
             return;
         }
         throw error;
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 1000));
 }
 
 async function waitForGroupAtFinalized(api: TypedApi<typeof subtensor>, groupId: number, timeoutMs = 30_000): Promise<void> {
@@ -497,14 +553,17 @@ export async function createOwnedSubnetContext(api: TypedApi<typeof subtensor>):
 }
 
 export async function expectTransactionFailure(
+    api: TypedApi<typeof subtensor>,
     tx: any,
-    signer: PolkadotSigner,
+    keypair: KeyringPair,
     label: string,
     timeoutMs = 20_000
 ): Promise<unknown> {
+    const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
     return new Promise((resolve, reject) => {
         let settled = false;
         let timeoutId: ReturnType<typeof setTimeout>;
+        const seenEvents: string[] = [];
 
         const finish = (cb: () => void) => {
             if (settled) return;
@@ -513,29 +572,99 @@ export async function expectTransactionFailure(
             cb();
         };
 
-        const subscription = tx.signSubmitAndWatch(signer).subscribe({
-            next(value: any) {
-                if (value.type === "txBestBlocksState" && value.found) {
-                    subscription.unsubscribe();
-                    if (value.ok) {
-                        finish(() => reject(new Error(`[${label}] succeeded unexpectedly with tx ${value.txHash}`)));
-                    } else {
-                        finish(() => resolve(value.dispatchError));
-                    }
-                } else if (value.type === "txBestBlocksState" && value.isValid === false) {
-                    subscription.unsubscribe();
-                    finish(() => resolve(new Error(`[${label}] transaction rejected before inclusion`)));
-                }
-            },
-            error(error: unknown) {
-                subscription.unsubscribe();
+        let subscription: { unsubscribe(): void } | undefined;
+
+        void api.query.System.Account
+            .getValue(keypair.address, { at: "best" })
+            .then((account) => {
+                subscription = tx
+                    .signSubmitAndWatch(signer, {
+                        at: "best",
+                        nonce: account.nonce,
+                    })
+                    .subscribe({
+                        next(value: any) {
+                            const eventSummary =
+                                value.type === "txBestBlocksState"
+                                    ? `${value.type}:${value.found ? "found" : "nofound"}:${value.isValid === false ? "invalid" : "valid"}`
+                                    : value.type;
+                            seenEvents.push(eventSummary);
+
+                            if (value.type === "txBestBlocksState" && value.found) {
+                                subscription?.unsubscribe();
+                                if (value.ok) {
+                                    finish(
+                                        () =>
+                                            reject(
+                                                new Error(`[${label}] succeeded unexpectedly with tx ${value.txHash}`)
+                                            )
+                                    );
+                                } else {
+                                    finish(() => resolve(value.dispatchError));
+                                }
+                            } else if (value.type === "txBestBlocksState" && value.isValid === false) {
+                                subscription?.unsubscribe();
+                                finish(() => resolve(new Error(`[${label}] transaction rejected before inclusion`)));
+                            }
+                        },
+                        error(error: unknown) {
+                            subscription?.unsubscribe();
+                            finish(() => resolve(error));
+                        },
+                    });
+            })
+            .catch((error: unknown) => {
                 finish(() => resolve(error));
-            },
-        });
+            });
 
         timeoutId = setTimeout(() => {
-            subscription.unsubscribe();
-            finish(() => reject(new Error(`[${label}] timed out waiting for failure`)));
+            subscription?.unsubscribe();
+            finish(() =>
+                reject(
+                    new Error(
+                        `[${label}] timed out waiting for failure; seen events: ${seenEvents.join(", ") || "none"}`
+                    )
+                )
+            );
         }, timeoutMs);
+    });
+}
+
+export async function submitTransactionBestEffort(
+    api: TypedApi<typeof subtensor>,
+    tx: any,
+    keypair: KeyringPair
+): Promise<void> {
+    const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
+    const account = await api.query.System.Account.getValue(keypair.address, { at: "best" });
+
+    await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        let subscription: { unsubscribe(): void } | undefined;
+
+        const finish = (cb: () => void) => {
+            if (settled) return;
+            settled = true;
+            subscription?.unsubscribe();
+            cb();
+        };
+
+        subscription = tx
+            .signSubmitAndWatch(signer, {
+                at: "best",
+                nonce: account.nonce,
+            })
+            .subscribe({
+                next(value: any) {
+                    if (value.type === "broadcasted" || value.type === "txBestBlocksState") {
+                        finish(resolve);
+                    } else if (value.type === "error") {
+                        finish(() => reject(value.error));
+                    }
+                },
+                error(error: unknown) {
+                    finish(() => reject(error instanceof Error ? error : new Error(String(error))));
+                },
+            });
     });
 }

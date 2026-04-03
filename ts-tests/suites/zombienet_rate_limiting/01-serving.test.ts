@@ -2,7 +2,6 @@ import { beforeAll, describeSuite } from "@moonwall/cli";
 import { Binary, type TypedApi } from "polkadot-api";
 import { subtensor } from "@polkadot-api/descriptors";
 import {
-    getSignerFromKeypair,
     waitForFinalizedBlocks,
 } from "../../utils";
 import {
@@ -31,7 +30,6 @@ describeSuite({
             title: "Shares usage between axon variants and keeps prometheus separate",
             test: async () => {
                 const ctx = await createRootHotkeyContext(api);
-                const signer = getSignerFromKeypair(ctx.hotkey);
 
                 const serveAxon = api.tx.SubtensorModule.serve_axon({
                     netuid: 0,
@@ -73,11 +71,11 @@ describeSuite({
 
                 await waitForRateLimitTransactionWithRetry(api, serveAxon, ctx.hotkey, "serve_axon_initial");
                 await waitForFinalizedBlocks(api, 1);
-                await expectTransactionFailure(serveAxonTls, signer, "serve_axon_tls_rate_limited");
+                await expectTransactionFailure(api, serveAxonTls, ctx.hotkey, "serve_axon_tls_rate_limited");
 
                 await waitForRateLimitTransactionWithRetry(api, servePrometheus, ctx.hotkey, "serve_prometheus_initial");
                 await waitForFinalizedBlocks(api, 1);
-                await expectTransactionFailure(servePrometheus, signer, "serve_prometheus_rate_limited");
+                await expectTransactionFailure(api, servePrometheus, ctx.hotkey, "serve_prometheus_rate_limited");
 
                 await waitForFinalizedBlocks(api, 1);
                 await waitForRateLimitTransactionWithRetry(api, serveAxonTls, ctx.hotkey, "serve_axon_tls_after_window");

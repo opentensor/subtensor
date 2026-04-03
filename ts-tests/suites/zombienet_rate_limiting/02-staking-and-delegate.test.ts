@@ -2,15 +2,16 @@ import { beforeAll, describeSuite } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
 import {
-    getSignerFromKeypair,
-    getStakeRaw,
+    addStake,
+    sudoSetLockReductionInterval,
     tao,
-    waitForFinalizedBlocks,
+    waitForBlocks,
 } from "../../utils";
 import {
-    createOwnedSubnetContext,
     createRateLimitGroup,
+    createOwnedSubnetContext,
     expectTransactionFailure,
+    getStakeValueForRateLimit,
     groupSharingConfigAndUsage,
     registerCallsInGroup,
     setGlobalGroupRateLimit,
@@ -32,17 +33,18 @@ describeSuite({
             id: "T01",
             title: "Blocks remove_stake immediately after add_stake via shared staking bucket",
             test: async () => {
-                const ctx = await createOwnedSubnetContext(api);
-                const signer = getSignerFromKeypair(ctx.coldkey);
+                const rateLimitWindow = 10;
+                await sudoSetLockReductionInterval(api, 1);
+                const { coldkey, coldkeyAddress, hotkeyAddress, netuid } = await createOwnedSubnetContext(api);
 
-                const addStake = api.tx.SubtensorModule.add_stake({
-                    hotkey: ctx.hotkeyAddress,
-                    netuid: ctx.netuid,
+                const addStakeTx = api.tx.SubtensorModule.add_stake({
+                    hotkey: hotkeyAddress,
+                    netuid,
                     amount_staked: tao(100),
                 });
                 const removeStakeTemplate = api.tx.SubtensorModule.remove_stake({
-                    hotkey: ctx.hotkeyAddress,
-                    netuid: ctx.netuid,
+                    hotkey: hotkeyAddress,
+                    netuid,
                     amount_unstaked: 1n,
                 });
 
@@ -50,24 +52,29 @@ describeSuite({
                 await registerCallsInGroup(
                     api,
                     groupId,
-                    [addStake, removeStakeTemplate],
+                    [addStakeTx, removeStakeTemplate],
                     "register_smoke_staking_calls"
                 );
-                await setGlobalGroupRateLimit(api, groupId, 2);
+                await setGlobalGroupRateLimit(api, groupId, rateLimitWindow);
 
-                await waitForRateLimitTransactionWithRetry(api, addStake, ctx.coldkey, "add_stake_initial");
-                await waitForFinalizedBlocks(api, 1);
+                await addStake(api, coldkey, hotkeyAddress, netuid, tao(200));
 
-                const alpha = await getStakeRaw(api, ctx.hotkeyAddress, ctx.coldkeyAddress, ctx.netuid);
+                const stakeBeforeRemove = await getStakeValueForRateLimit(api, hotkeyAddress, coldkeyAddress, netuid);
                 const removeStake = api.tx.SubtensorModule.remove_stake({
-                    hotkey: ctx.hotkeyAddress,
-                    netuid: ctx.netuid,
-                    amount_unstaked: alpha / 2n,
+                    hotkey: hotkeyAddress,
+                    netuid,
+                    amount_unstaked: stakeBeforeRemove,
                 });
 
-                await expectTransactionFailure(removeStake, signer, "remove_stake_rate_limited");
-                await waitForFinalizedBlocks(api, 1);
-                await waitForRateLimitTransactionWithRetry(api, removeStake, ctx.coldkey, "remove_stake_after_window");
+                await expectTransactionFailure(api, removeStake, coldkey, "remove_stake_rate_limited");
+                await waitForBlocks(api, rateLimitWindow);
+                const stakeAfterFailedAttempt = await getStakeValueForRateLimit(api, hotkeyAddress, coldkeyAddress, netuid);
+                const removeStakeAfterWindow = api.tx.SubtensorModule.remove_stake({
+                    hotkey: hotkeyAddress,
+                    netuid,
+                    amount_unstaked: stakeAfterFailedAttempt,
+                });
+                await waitForRateLimitTransactionWithRetry(api, removeStakeAfterWindow, coldkey, "remove_stake_after_window");
             },
         });
     },

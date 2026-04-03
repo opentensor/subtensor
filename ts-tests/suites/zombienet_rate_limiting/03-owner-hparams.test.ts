@@ -1,9 +1,8 @@
-import { beforeAll, describeSuite } from "@moonwall/cli";
+import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
 import {
     generateKeyringPair,
-    getSignerFromKeypair,
     sudoSetAdminFreezeWindow,
     sudoSetTempo,
     waitForFinalizedBlocks,
@@ -11,11 +10,11 @@ import {
 import {
     addNewSubnetworkForRateLimit,
     createRateLimitGroup,
-    expectTransactionFailure,
     forceSetBalancesForRateLimit,
     groupSharingConfigOnly,
     registerCallsInGroup,
     setGlobalGroupRateLimit,
+    submitTransactionBestEffort,
     startCallForRateLimit,
     waitForRateLimitTransactionWithRetry,
 } from "../../utils/rate-limiting";
@@ -38,7 +37,6 @@ describeSuite({
                 const coldkey = generateKeyringPair("sr25519");
                 const hotkeyA = generateKeyringPair("sr25519");
                 const hotkeyB = generateKeyringPair("sr25519");
-                const ownerSigner = getSignerFromKeypair(coldkey);
 
                 await forceSetBalancesForRateLimit(api, [coldkey.address, hotkeyA.address, hotkeyB.address]);
 
@@ -88,12 +86,16 @@ describeSuite({
                     netuid: netuidB,
                     activity_cutoff: currentCutoffB + 1,
                 });
+                const expectedCutoffAAfterFirst = currentCutoffA + 1;
 
                 await waitForRateLimitTransactionWithRetry(api, cutoffAFirst, coldkey, "owner_cutoff_a_initial");
                 await waitForFinalizedBlocks(api, 1);
                 await waitForRateLimitTransactionWithRetry(api, rhoA, coldkey, "owner_rho_a_initial");
+                await waitForFinalizedBlocks(api, 1);
                 await waitForRateLimitTransactionWithRetry(api, cutoffB, coldkey, "owner_cutoff_b_allowed");
-                await expectTransactionFailure(cutoffASecond, ownerSigner, "owner_cutoff_a_rate_limited");
+                await submitTransactionBestEffort(api, cutoffASecond, coldkey);
+                await waitForFinalizedBlocks(api, 2);
+                expect(await api.query.SubtensorModule.ActivityCutoff.getValue(netuidA)).toBe(expectedCutoffAAfterFirst);
 
                 await waitForFinalizedBlocks(api, 1);
                 await waitForRateLimitTransactionWithRetry(api, cutoffASecond, coldkey, "owner_cutoff_a_after");
