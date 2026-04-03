@@ -1408,7 +1408,7 @@ mod pallet_benchmarks {
 
             let reg_balance = TaoBalance::from(1_000_000_u64);
             seed_swap_reserves::<T>(netuid);
-            Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, reg_balance.into());
+            add_balance_to_coldkey_account::<T>(&coldkey, reg_balance.into());
 
             assert_ok!(Subtensor::<T>::burned_register(
                 RawOrigin::Signed(coldkey.clone()).into(),

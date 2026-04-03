@@ -2569,9 +2569,9 @@ fn test_swap_hotkey_with_existing_stake() {
         register_ok_neuron(netuid, new_hotkey, coldkey, 1234);
 
         // Add balance to coldkeys
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_u64.into());
-        SubtensorModule::add_balance_to_coldkey_account(&staker1, 10_000_000_000_u64.into());
-        SubtensorModule::add_balance_to_coldkey_account(&staker2, 10_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 10_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&staker1, 10_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&staker2, 10_000_000_000_u64.into());
 
         // Stake with staker1 coldkey on old_hotkey
         assert_ok!(SubtensorModule::add_stake(
@@ -2741,9 +2741,9 @@ fn test_revert_hotkey_swap_with_revert_stake_the_same() {
         register_ok_neuron(netuid_1, hk1, coldkey, 0);
         register_ok_neuron(netuid_2, hk1, coldkey, 0);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_4, initial_balance.into());
-        SubtensorModule::add_balance_to_coldkey_account(&random_coldkey, initial_balance.into());
+        add_balance_to_coldkey_account(&coldkey, initial_balance.into());
+        add_balance_to_coldkey_account(&coldkey_4, initial_balance.into());
+        add_balance_to_coldkey_account(&random_coldkey, initial_balance.into());
         step_block(20); // Waiting interval to be able to swap later
 
         // Checking stake for hk1 on both networks
@@ -2927,7 +2927,7 @@ fn test_swap_hotkey_root_claims_unchanged_if_not_root() {
         let netuid = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
         let new_hotkey = U256::from(10030);
 
-        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;
@@ -3013,7 +3013,7 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
         // Use neuron_hotkey as subnet creator so it receives root dividends
         let netuid_1 = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;
@@ -3102,7 +3102,7 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
         // Use neuron_hotkey as subnet creator so it receives root dividends
         let netuid_1 = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;

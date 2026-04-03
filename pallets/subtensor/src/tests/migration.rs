@@ -3269,7 +3269,7 @@ fn test_migrate_fix_bad_hk_swap_only_genesis() {
             <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -3330,7 +3330,7 @@ fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
             <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
