@@ -1293,21 +1293,18 @@ fn test_claim_root_with_swap_hotkey() {
         ));
 
         // Check swapped keys claimed values
-
         assert_eq!(
-            0u128,
+            u128::from(new_stake), // It shouldn't change, because we didn't swap the root hotkey
             RootClaimed::<Test>::get((netuid, &hotkey, &coldkey,))
         );
         assert_eq!(
-            u128::from(new_stake),
+            0u128,
             RootClaimed::<Test>::get((netuid, &new_hotkey, &coldkey,))
         );
 
-        assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+        assert!(RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
 
-        let _new_claimable = *RootClaimable::<Test>::get(new_hotkey)
-            .get(&netuid)
-            .expect("claimable must exist at this point");
+        assert!(!RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid));
     });
 }
 

@@ -1058,7 +1058,7 @@ fn test_swap_stake_old_hotkey_not_exist() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let alpha = AlphaBalance::from(1000);
-        let alpha_share = U64F64::from_num(1234);
+        let alpha_share = U64F64::from_num(1000);
         let mut weight = Weight::zero();
         let netuid = NetUid::from(1);
 
