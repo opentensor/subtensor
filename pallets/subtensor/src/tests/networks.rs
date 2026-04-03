@@ -1,4 +1,4 @@
-#![allow(clippy::expect_used, clippy::indexing_slicing)]
+#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use super::mock::*;
 use crate::migrations::migrate_network_immunity_period;
@@ -31,14 +31,8 @@ fn test_registration_ok() {
         );
 
         // registration economics changed. Ensure the coldkey has enough spendable balance
-        add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            TaoBalance::from(reserve),
-        );
-        add_balance_to_coldkey_account(
-            &hotkey_account_id,
-            TaoBalance::from(reserve),
-        );
+        add_balance_to_coldkey_account(&coldkey_account_id, TaoBalance::from(reserve));
+        add_balance_to_coldkey_account(&hotkey_account_id, TaoBalance::from(reserve));
 
         let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
             netuid,
@@ -680,6 +674,10 @@ fn dissolve_decrements_total_networks() {
         let hot = U256::from(42);
         let net = add_dynamic_network(&hot, &cold);
 
+        // Add 100 TAO to subnet account (lock)
+        let subnet_account = SubtensorModule::get_subnet_account_id(net).unwrap();
+        add_balance_to_coldkey_account(&subnet_account, 100_000_000_000_u64.into());
+
         // Sanity: adding network increments the counter.
         assert_eq!(TotalNetworks::<Test>::get(), total_before + 1);
 
@@ -1230,6 +1228,20 @@ fn prune_selection_complex_state_exhaustive() {
         System::set_block_number(imm + 6);
         let n6 = add_dynamic_network(&U256::from(106), &U256::from(206)); // immune at first
 
+        // Add 100 TAO to subnet accounts (lock)
+        let subnet_account1 = SubtensorModule::get_subnet_account_id(n1).unwrap();
+        let subnet_account2 = SubtensorModule::get_subnet_account_id(n2).unwrap();
+        let subnet_account3 = SubtensorModule::get_subnet_account_id(n3).unwrap();
+        let subnet_account4 = SubtensorModule::get_subnet_account_id(n4).unwrap();
+        let subnet_account5 = SubtensorModule::get_subnet_account_id(n5).unwrap();
+        let subnet_account6 = SubtensorModule::get_subnet_account_id(n6).unwrap();
+        add_balance_to_coldkey_account(&subnet_account1, 100_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&subnet_account2, 100_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&subnet_account3, 100_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&subnet_account4, 100_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&subnet_account5, 100_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&subnet_account6, 100_000_000_000_u64.into());
+
         // (Root is ignored by the selector.)
         let root = NetUid::ROOT;
 
@@ -1338,7 +1350,7 @@ fn prune_selection_complex_state_exhaustive() {
         // Remove n5; now n6 (price=0) should be selected.
         // This validates robustness to holes / non-contiguous netuids.
         // ---------------------------------------------------------------------
-        SubtensorModule::do_dissolve_network(n5).expect("Expected not to panic");
+        assert_ok!(SubtensorModule::do_dissolve_network(n5));
         assert_eq!(
             SubtensorModule::get_network_to_prune(),
             Some(n6),
@@ -1402,6 +1414,12 @@ fn register_network_prunes_and_recycles_netuid() {
         let n2_cold = U256::from(23);
         let n2_hot = U256::from(24);
         let n2 = add_dynamic_network(&n2_hot, &n2_cold);
+
+        // Add 100 TAO to subnet accounts (lock)
+        let subnet_account1 = SubtensorModule::get_subnet_account_id(n1).unwrap();
+        add_balance_to_coldkey_account(&subnet_account1, 100_000_000_000_u64.into());
+        let subnet_account2 = SubtensorModule::get_subnet_account_id(n2).unwrap();
+        add_balance_to_coldkey_account(&subnet_account2, 100_000_000_000_u64.into());
 
         let imm = SubtensorModule::get_network_immunity_period();
         System::set_block_number(imm + 100);
@@ -2151,6 +2169,10 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
         let owner_hot = U256::from(456);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
 
+        // Add 100 TAO to subnet account (lock)
+        let subnet_account = SubtensorModule::get_subnet_account_id(net).unwrap();
+        add_balance_to_coldkey_account(&subnet_account, 100_000_000_000_u64.into());
+
         // We'll use two mechanisms for this subnet.
         MechanismCountCurrent::<Test>::insert(net, MechId::from(2));
         let m0 = MechId::from(0u8);
@@ -2396,10 +2418,7 @@ fn register_network_credits_owner_alpha_using_fallback_price_one_on_first_subnet
         assert_eq!(pre_registration_median, U96F32::from_num(1u64));
         assert_eq!(expected_owner_alpha_u64, lock_cost_u64);
 
-        add_balance_to_coldkey_account(
-            &new_cold,
-            lock_cost_u64.saturating_mul(2).into(),
-        );
+        add_balance_to_coldkey_account(&new_cold, lock_cost_u64.saturating_mul(2).into());
 
         assert_ok!(SubtensorModule::do_register_network(
             RuntimeOrigin::signed(new_cold),
@@ -2471,10 +2490,7 @@ fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet
             owner_alpha_from_lock_and_price(lock_cost_u64, pre_registration_median);
         let expected_owner_alpha: AlphaBalance = expected_owner_alpha_u64.into();
 
-        add_balance_to_coldkey_account(
-            &new_cold,
-            lock_cost_u64.saturating_mul(2).into(),
-        );
+        add_balance_to_coldkey_account(&new_cold, lock_cost_u64.saturating_mul(2).into());
 
         assert_ok!(SubtensorModule::do_register_network(
             RuntimeOrigin::signed(new_cold),

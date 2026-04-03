@@ -972,7 +972,7 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     netuid: NetUid,
 ) {
     // Add TAO balance to coldkey account
-    add_balance_to_coldkey_account(&coldkey, tao_staked.into());
+    add_balance_to_coldkey_account(coldkey, tao_staked.into());
 
     // Stake
     SubtensorModule::stake_into_subnet(
@@ -1130,7 +1130,7 @@ pub fn mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
 ) {
     // Record stake in alpha pool
     SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-        &hotkey, &coldkey, netuid, alpha,
+        hotkey, coldkey, netuid, alpha,
     );
 
     // Make sure subnet exists, so does it's account

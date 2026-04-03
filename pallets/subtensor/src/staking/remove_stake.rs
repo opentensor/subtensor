@@ -591,10 +591,10 @@ impl<T: Config> Pallet<T> {
             TaoBalance::ZERO
         };
 
-        if !refund.is_zero() {
-            if let Some(subnet_account) = Self::get_subnet_account_id(netuid) {
-                let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund);
-            }
+        if !refund.is_zero()
+            && let Some(subnet_account) = Self::get_subnet_account_id(netuid)
+        {
+            let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund);
         }
 
         Ok(())

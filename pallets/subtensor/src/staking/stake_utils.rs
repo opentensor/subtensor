@@ -851,7 +851,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<AlphaBalance, DispatchError> {
         // Transfer TAO from coldkey to the subnet account.
         // Actual transfered may be different within ED amount.
-        let tao_staked = Self::transfer_tao_to_subnet(netuid, &coldkey, tao)?;
+        let tao_staked = Self::transfer_tao_to_subnet(netuid, coldkey, tao)?;
 
         // Swap the tao to alpha.
         let swap_result = Self::swap_tao_for_alpha(netuid, tao_staked, price_limit, drop_fees)?;

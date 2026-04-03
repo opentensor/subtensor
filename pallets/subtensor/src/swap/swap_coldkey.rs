@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
         Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey)?;
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
-        Self::transfer_all_tao_and_kill(&old_coldkey, &new_coldkey)?;
+        Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
 
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
 

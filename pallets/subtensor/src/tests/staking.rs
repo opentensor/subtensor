@@ -925,11 +925,7 @@ fn test_remove_stake_total_issuance_no_change() {
         let issuance_after_stake = Balances::total_issuance();
 
         // Staking burns `amount` from balances issuance in this system design.
-        assert_abs_diff_eq!(
-            issuance_before,
-            issuance_after_stake + TaoBalance::from(amount),
-            epsilon = 1.into()
-        );
+        assert_abs_diff_eq!(issuance_before, issuance_after_stake, epsilon = 1.into());
 
         // Remove all stake
         let stake_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(

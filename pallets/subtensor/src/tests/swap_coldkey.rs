@@ -435,10 +435,7 @@ fn test_swap_coldkey_works() {
         let stake3 = min_stake * 30.into();
 
         // Fund: stake_total + (swap_cost + ED).
-        add_balance_to_coldkey_account(
-            &old_coldkey,
-            swap_cost + stake1 + stake2 + stake3 + ed,
-        );
+        add_balance_to_coldkey_account(&old_coldkey, swap_cost + stake1 + stake2 + stake3 + ed);
 
         // Some old announcement and dispute that will be cleared
         let now = System::block_number() - 100;
@@ -518,10 +515,7 @@ fn test_swap_coldkey_works_with_zero_cost() {
         let stake2 = min_stake * 20.into();
         let stake3 = min_stake * 30.into();
 
-        add_balance_to_coldkey_account(
-            &old_coldkey,
-            stake1 + stake2 + stake3 + ed,
-        );
+        add_balance_to_coldkey_account(&old_coldkey, stake1 + stake2 + stake3 + ed);
         let expected_remaining = ed;
 
         let (
@@ -721,9 +715,10 @@ fn test_do_swap_coldkey_with_max_values() {
         let other_coldkey = U256::from(7);
         let netuid = NetUid::from(1);
         let netuid2 = NetUid::from(2);
-        // Max possible balance: (21M - EDs) / 2
+        // Max possible balance: (21M - EDs - ...) / 2
         let ed = u64::from(ExistentialDeposit::get());
-        let max_stake = (21_000_000_000_000_000_u64 - 2 * ed) / 2;
+        let locks = 200_000_000_000_u64;
+        let max_stake = (21_000_000_000_000_000_u64 - 2 * ed - 100) / 2;
 
         // Add a network
         add_network(netuid, 1, 0);

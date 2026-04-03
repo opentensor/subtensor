@@ -1,9 +1,9 @@
 use super::*;
+use frame_support::PalletId;
 use safe_math::FixedExt;
 use sp_core::Get;
-use substrate_fixed::types::U96F32;
-use frame_support::PalletId;
 use sp_runtime::traits::AccountIdConversion;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.

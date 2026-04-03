@@ -367,7 +367,7 @@ impl<T: Config> Pallet<T> {
 
             // Transfer unstaked TAO from origin_coldkey to destination_coldkey
             if origin_coldkey != destination_coldkey {
-                Self::transfer_tao(&origin_coldkey, &destination_coldkey, tao_unstaked)?;
+                Self::transfer_tao(origin_coldkey, destination_coldkey, tao_unstaked)?;
             }
 
             // Stake the unstaked amount into the destination.
