@@ -38,11 +38,6 @@ pub fn migrate_clear_deprecated_registration_maps<T: Config>() -> Weight {
             }
         }};
     }
-
-    // PoW path (deprecated)
-    clear_map_and_log!(Difficulty, "Difficulty");
-    clear_map_and_log!(MinDifficulty, "MinDifficulty");
-    clear_map_and_log!(MaxDifficulty, "MaxDifficulty");
     clear_map_and_log!(
         NetworkPowRegistrationAllowed,
         "NetworkPowRegistrationAllowed"
@@ -54,15 +49,6 @@ pub fn migrate_clear_deprecated_registration_maps<T: Config>() -> Weight {
         BurnRegistrationsThisInterval,
         "BurnRegistrationsThisInterval"
     );
-
-    // Old adjustment mechanism (deprecated)
-    clear_map_and_log!(AdjustmentAlpha, "AdjustmentAlpha");
-    clear_map_and_log!(AdjustmentInterval, "AdjustmentInterval");
-    clear_map_and_log!(LastAdjustmentBlock, "LastAdjustmentBlock");
-
-    // Burn bounds (deprecated, not part of the new model)
-    clear_map_and_log!(MinBurn, "MinBurn");
-    clear_map_and_log!(MaxBurn, "MaxBurn");
 
     // --- 2) Mark migration done
     HasMigrationRun::<T>::insert(&migration_name, true);

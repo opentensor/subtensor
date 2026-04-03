@@ -3169,59 +3169,23 @@ fn test_migrate_clear_deprecated_registration_maps() {
         assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid1), 11u64);
 
         // Seed deprecated storage items that the migration is expected to clear.
-        crate::Difficulty::<Test>::insert(netuid0, 123u64);
-        crate::MinDifficulty::<Test>::insert(netuid0, 10u64);
-        crate::MaxDifficulty::<Test>::insert(netuid0, 999u64);
         crate::NetworkPowRegistrationAllowed::<Test>::insert(netuid0, true);
 
         crate::POWRegistrationsThisInterval::<Test>::insert(netuid0, 7u16);
         crate::BurnRegistrationsThisInterval::<Test>::insert(netuid0, 8u16);
 
-        crate::AdjustmentAlpha::<Test>::insert(netuid0, 55u64);
-        crate::AdjustmentInterval::<Test>::insert(netuid0, 11u16);
-        crate::LastAdjustmentBlock::<Test>::insert(netuid0, 88u64);
-
-        crate::MinBurn::<Test>::insert(netuid0, TaoBalance::from(1_000_000_000u64));
-        crate::MaxBurn::<Test>::insert(netuid0, TaoBalance::from(2_000_000_000u64));
-
-        crate::Difficulty::<Test>::insert(netuid1, 321u64);
-        crate::MinDifficulty::<Test>::insert(netuid1, 20u64);
-        crate::MaxDifficulty::<Test>::insert(netuid1, 777u64);
         crate::NetworkPowRegistrationAllowed::<Test>::insert(netuid1, false);
 
         crate::POWRegistrationsThisInterval::<Test>::insert(netuid1, 17u16);
         crate::BurnRegistrationsThisInterval::<Test>::insert(netuid1, 18u16);
 
-        crate::AdjustmentAlpha::<Test>::insert(netuid1, 155u64);
-        crate::AdjustmentInterval::<Test>::insert(netuid1, 21u16);
-        crate::LastAdjustmentBlock::<Test>::insert(netuid1, 188u64);
-
-        crate::MinBurn::<Test>::insert(netuid1, TaoBalance::from(3_000_000_000u64));
-        crate::MaxBurn::<Test>::insert(netuid1, TaoBalance::from(4_000_000_000u64));
-
-        assert!(crate::Difficulty::<Test>::contains_key(netuid0));
-        assert!(crate::MinDifficulty::<Test>::contains_key(netuid0));
-        assert!(crate::MaxDifficulty::<Test>::contains_key(netuid0));
         assert!(crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid0));
         assert!(crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid0));
         assert!(crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid0));
-        assert!(crate::AdjustmentAlpha::<Test>::contains_key(netuid0));
-        assert!(crate::AdjustmentInterval::<Test>::contains_key(netuid0));
-        assert!(crate::LastAdjustmentBlock::<Test>::contains_key(netuid0));
-        assert!(crate::MinBurn::<Test>::contains_key(netuid0));
-        assert!(crate::MaxBurn::<Test>::contains_key(netuid0));
 
-        assert!(crate::Difficulty::<Test>::contains_key(netuid1));
-        assert!(crate::MinDifficulty::<Test>::contains_key(netuid1));
-        assert!(crate::MaxDifficulty::<Test>::contains_key(netuid1));
         assert!(crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid1));
         assert!(crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid1));
         assert!(crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid1));
-        assert!(crate::AdjustmentAlpha::<Test>::contains_key(netuid1));
-        assert!(crate::AdjustmentInterval::<Test>::contains_key(netuid1));
-        assert!(crate::LastAdjustmentBlock::<Test>::contains_key(netuid1));
-        assert!(crate::MinBurn::<Test>::contains_key(netuid1));
-        assert!(crate::MaxBurn::<Test>::contains_key(netuid1));
 
         // --------------------------------------------------------------------
         // 1) Run migration
@@ -3237,29 +3201,13 @@ fn test_migrate_clear_deprecated_registration_maps() {
             "migration flag should be true after run"
         );
 
-        assert!(!crate::Difficulty::<Test>::contains_key(netuid0));
-        assert!(!crate::MinDifficulty::<Test>::contains_key(netuid0));
-        assert!(!crate::MaxDifficulty::<Test>::contains_key(netuid0));
         assert!(!crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid0));
         assert!(!crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid0));
         assert!(!crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid0));
-        assert!(!crate::AdjustmentAlpha::<Test>::contains_key(netuid0));
-        assert!(!crate::AdjustmentInterval::<Test>::contains_key(netuid0));
-        assert!(!crate::LastAdjustmentBlock::<Test>::contains_key(netuid0));
-        assert!(!crate::MinBurn::<Test>::contains_key(netuid0));
-        assert!(!crate::MaxBurn::<Test>::contains_key(netuid0));
 
-        assert!(!crate::Difficulty::<Test>::contains_key(netuid1));
-        assert!(!crate::MinDifficulty::<Test>::contains_key(netuid1));
-        assert!(!crate::MaxDifficulty::<Test>::contains_key(netuid1));
         assert!(!crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid1));
         assert!(!crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid1));
         assert!(!crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid1));
-        assert!(!crate::AdjustmentAlpha::<Test>::contains_key(netuid1));
-        assert!(!crate::AdjustmentInterval::<Test>::contains_key(netuid1));
-        assert!(!crate::LastAdjustmentBlock::<Test>::contains_key(netuid1));
-        assert!(!crate::MinBurn::<Test>::contains_key(netuid1));
-        assert!(!crate::MaxBurn::<Test>::contains_key(netuid1));
 
         // --------------------------------------------------------------------
         // 3) Post-state: new-model storage unchanged
