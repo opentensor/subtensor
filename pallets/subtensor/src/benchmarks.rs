@@ -1405,7 +1405,7 @@ mod pallet_benchmarks {
             seed_swap_reserves::<T>(netuid);
             Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, reg_balance.into());
 
-            assert_ok!(Subtensor::<T>::do_burned_registration(
+            assert_ok!(Subtensor::<T>::burned_register(
                 RawOrigin::Signed(coldkey.clone()).into(),
                 netuid,
                 old.clone()
