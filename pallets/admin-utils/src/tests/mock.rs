@@ -528,7 +528,7 @@ pub fn register_ok_neuron(
     let bal = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
 
     if bal < burn_u64 {
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             burn_u64 - bal + 10.into(),
         );

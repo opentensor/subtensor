@@ -554,7 +554,7 @@ mod pallet_benchmarks {
             hotkey1.clone(),
         ));
 
-        Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey, free_balance_old);
+        add_balance_to_coldkey_account::<T>(&old_coldkey, free_balance_old);
         let name: Vec<u8> = b"The fourth Coolest Identity".to_vec();
         let identity = ChainIdentityV2 {
             name,
@@ -1332,7 +1332,7 @@ mod pallet_benchmarks {
         let descr = vec![];
         let add = vec![];
 
-        Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &hotkey);
         Subtensor::<T>::init_new_network(netuid, 1);
         Subtensor::<T>::set_network_registration_allowed(netuid, true);
         SubtokenEnabled::<T>::insert(netuid, true);
@@ -1646,7 +1646,7 @@ mod pallet_benchmarks {
         let lease_id = 0;
         let lease = SubnetLeases::<T>::get(0).unwrap();
         let hotkey = account::<T::AccountId>("beneficiary_hotkey", 0, 0);
-        Subtensor::<T>::create_account_if_non_existent(&beneficiary, &hotkey);
+        let _ = Subtensor::<T>::create_account_if_non_existent(&beneficiary, &hotkey);
 
         #[extrinsic_call]
         _(

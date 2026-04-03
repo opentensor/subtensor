@@ -1046,7 +1046,7 @@ fn test_coldkey_swap_total() {
         let ensure_min_balance = |account: &U256, required: TaoBalance| {
             let bal = SubtensorModule::get_coldkey_balance(account);
             if bal < required {
-                SubtensorModule::add_balance_to_coldkey_account(account, required - bal);
+                add_balance_to_coldkey_account(account, required - bal);
             }
         };
 
@@ -1699,7 +1699,7 @@ macro_rules! comprehensive_setup {
 
         let current_free = SubtensorModule::get_coldkey_balance(&$who);
         if current_free < required_free {
-            SubtensorModule::add_balance_to_coldkey_account(&$who, required_free - current_free);
+            add_balance_to_coldkey_account(&$who, required_free - current_free);
         }
 
         // Now staking will succeed and leave exactly expected_remaining behind.

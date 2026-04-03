@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 6) ensure pairing exists and is correct
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = Self::create_account_if_non_existent(&coldkey, &hotkey);
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey

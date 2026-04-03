@@ -1683,7 +1683,7 @@ fn test_outdated_weights() {
 
         // === Dereg server2 at uid3 (least emission) + register new key over uid3
         let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &U256::from(new_key),
             stake
                 + ExistentialDeposit::get()
@@ -1788,7 +1788,7 @@ fn test_zero_weights() {
 
         // === Register [validator, server]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &U256::from(key),
                 ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
@@ -1901,7 +1901,7 @@ fn test_zero_weights() {
         // === Outdate weights by reregistering servers
         for new_key in n..n + (n / 2) {
             // register a new key while at max capacity, which means the least emission uid will be deregistered
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &U256::from(new_key),
                 ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
@@ -2085,7 +2085,7 @@ fn test_deregistered_miner_bonds() {
         // === Dereg server2 at uid3 (least emission) + register new key over uid3
         let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
         let block_number = System::block_number();
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &U256::from(new_key),
             stake
                 + ExistentialDeposit::get()

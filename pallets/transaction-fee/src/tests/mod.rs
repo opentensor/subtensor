@@ -53,8 +53,8 @@ fn test_remove_stake_fees_tao() {
         let register_prefund = stake_amount
             .saturating_mul(10_000.into()) // generous buffer
             .saturating_add(ExistentialDeposit::get());
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(10000), register_prefund);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(20001), register_prefund);
+        add_balance_to_coldkey_account(&U256::from(10000), register_prefund);
+        add_balance_to_coldkey_account(&U256::from(20001), register_prefund);
 
         let sn = setup_subnets(1, 1);
 
@@ -516,7 +516,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
         let stake_amount = TaoBalance::from(TAO);
         let sn = setup_subnets(1, 1);
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &sn.coldkey,
             stake_amount
                 .saturating_mul(2.into()) // buffer so staking doesn't attempt to drain the account

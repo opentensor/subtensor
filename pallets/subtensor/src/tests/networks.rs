@@ -31,11 +31,11 @@ fn test_registration_ok() {
         );
 
         // registration economics changed. Ensure the coldkey has enough spendable balance
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey_account_id,
             TaoBalance::from(reserve),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &hotkey_account_id,
             TaoBalance::from(reserve),
         );
@@ -2396,7 +2396,7 @@ fn register_network_credits_owner_alpha_using_fallback_price_one_on_first_subnet
         assert_eq!(pre_registration_median, U96F32::from_num(1u64));
         assert_eq!(expected_owner_alpha_u64, lock_cost_u64);
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &new_cold,
             lock_cost_u64.saturating_mul(2).into(),
         );
@@ -2471,7 +2471,7 @@ fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet
             owner_alpha_from_lock_and_price(lock_cost_u64, pre_registration_median);
         let expected_owner_alpha: AlphaBalance = expected_owner_alpha_u64.into();
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &new_cold,
             lock_cost_u64.saturating_mul(2).into(),
         );
@@ -2584,7 +2584,7 @@ fn register_network_non_associated_hotkey_does_not_withdraw_or_write_owner_alpha
         let would_be_netuid = SubtensorModule::get_next_netuid();
         let lock_cost_u64: u64 = SubtensorModule::get_network_lock_cost().into();
 
-        SubtensorModule::add_balance_to_coldkey_account(&attacker_cold, lock_cost_u64.into());
+        add_balance_to_coldkey_account(&attacker_cold, lock_cost_u64.into());
         let attacker_balance_before = SubtensorModule::get_coldkey_balance(&attacker_cold);
 
         assert_err!(

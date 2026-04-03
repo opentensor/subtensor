@@ -605,7 +605,7 @@ pub fn register_ok_neuron(
 
         let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {
-            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+            add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
         }
     };
 
@@ -878,6 +878,7 @@ pub(crate) fn quote_remove_stake_after_alpha_fee(
             if !alpha_fee.is_zero() {
                 assert_ok!(SubtensorModule::unstake_from_subnet(
                     hotkey,
+                    coldkey,
                     coldkey,
                     netuid,
                     alpha_fee,
