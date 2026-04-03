@@ -33,58 +33,81 @@ export async function waitForTransactionWithRetry(
 export async function waitForTransactionCompletion(
     tx: Transaction<Record<string, unknown>, string, string, void>,
     keypair: KeyringPair,
-    timeout: number | null = 3 * 60 * 1000
+    timeout: number = 3 * 60 * 1000
 ): Promise<{ txHash: string; blockHash: string }> {
-    const callerStack = new Error().stack;
-
-    const signer = getPolkadotSigner(keypair.publicKey, "Sr25519", keypair.sign);
-
-    const signSubmitAndWatchInner = (): Promise<{ txHash: string; blockHash: string }> => {
-        return new Promise((resolve, reject) => {
-            const subscription = tx.signSubmitAndWatch(signer).subscribe({
-                next(event) {
-                    if (event.type === "finalized") {
-                        subscription.unsubscribe();
-
-                        const failed = event.dispatchError;
-                        if (failed) {
-                            reject(new Error(`ExtrinsicFailed: ${JSON.stringify(failed)}`));
-                        } else {
-                            resolve({
-                                txHash: event.txHash,
-                                blockHash: event.block.hash,
-                            });
-                        }
-                    }
-                },
-                error(err) {
-                    console.error("callerStack", callerStack);
-                    reject(err instanceof Error ? err : new Error(String(err)));
-                },
-            });
-        });
-    };
-
-    if (timeout === null) {
-        return signSubmitAndWatchInner();
+    const result = await sendTransaction(tx, keypair, timeout);
+    if (!result.success) {
+        throw new Error(result.errorMessage || "Transaction failed");
     }
+    if (!result.txHash || !result.blockHash) {
+        throw new Error("Missing txHash or blockHash in successful transaction");
+    }
+    return {
+        txHash: result.txHash,
+        blockHash: result.blockHash,
+    };
+}
 
-    return new Promise((resolve, reject) => {
+export type TransactionResult = {
+    success: boolean;
+    events: any[];
+    txHash?: string;
+    blockHash?: string;
+    errorMessage?: string;
+};
+
+/**
+ * Send a transaction and return a result object instead of throwing on ExtrinsicFailed.
+ * Use this for tests that expect failure.
+ */
+export async function sendTransaction(
+    tx: Transaction<Record<string, unknown>, string, string, void>,
+    signer: KeyringPair,
+    timeout: number = 3 * 60 * 1000
+): Promise<TransactionResult> {
+    const callerStack = new Error().stack;
+    const polkadotSigner = getPolkadotSigner(signer.publicKey, "Sr25519", signer.sign);
+
+    return new Promise((resolve) => {
         const timer = setTimeout(() => {
+            subscription.unsubscribe();
             console.log("Transaction timed out");
             console.error("callerStack", callerStack);
-            reject(new Error("Transaction timed out"));
+            resolve({ success: false, events: [], errorMessage: "Transaction timed out" });
         }, timeout);
 
-        signSubmitAndWatchInner()
-            .then((result) => {
+        const subscription = tx.signSubmitAndWatch(polkadotSigner).subscribe({
+            next(event) {
+                if (event.type === "finalized") {
+                    clearTimeout(timer);
+                    subscription.unsubscribe();
+
+                    if (event.dispatchError) {
+                        resolve({
+                            success: false,
+                            events: event.events,
+                            txHash: event.txHash,
+                            blockHash: event.block.hash,
+                            errorMessage: JSON.stringify(event.dispatchError),
+                        });
+                    } else {
+                        resolve({
+                            success: true,
+                            events: event.events,
+                            txHash: event.txHash,
+                            blockHash: event.block.hash,
+                        });
+                    }
+                }
+            },
+            error(err) {
                 clearTimeout(timer);
-                resolve(result);
-            })
-            .catch((error) => {
-                clearTimeout(timer);
-                reject(error instanceof Error ? error : new Error(String(error)));
-            });
+                subscription.unsubscribe();
+                console.error("callerStack", callerStack);
+                const message = err instanceof Error ? err.message : String(err);
+                resolve({ success: false, events: [], errorMessage: message });
+            },
+        });
     });
 }
 

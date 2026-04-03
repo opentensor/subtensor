@@ -19,6 +19,7 @@ pub trait WeightInfo {
     fn remove_liquidity() -> Weight;
     fn modify_position() -> Weight;
     fn toggle_user_liquidity() -> Weight;
+    fn disable_lp() -> Weight;
 }
 
 /// Default weights for pallet_subtensor_swap.
@@ -58,6 +59,12 @@ impl<T: frame_system::Config> WeightInfo for DefaultWeight<T> {
             .saturating_add(T::DbWeight::get().reads(1))
             .saturating_add(T::DbWeight::get().writes(1))
     }
+    fn disable_lp() -> Weight {
+        // Conservative weight estimate: 1920 read and 896 write
+        Weight::from_parts(5_174_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(1920))
+            .saturating_add(T::DbWeight::get().writes(896))
+    }
 }
 
 // For backwards compatibility and tests
@@ -90,5 +97,10 @@ impl WeightInfo for () {
         Weight::from_parts(10_000_000, 0)
             .saturating_add(RocksDbWeight::get().reads(1))
             .saturating_add(RocksDbWeight::get().writes(1))
+    }
+    fn disable_lp() -> Weight {
+        Weight::from_parts(5_174_000_000, 0)
+            .saturating_add(RocksDbWeight::get().reads(1920))
+            .saturating_add(RocksDbWeight::get().writes(896))
     }
 }
