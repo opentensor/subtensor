@@ -694,7 +694,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::add_stake(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake())]
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1005,7 +1005,7 @@ mod dispatches {
 
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::root_register(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::root_register())]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
@@ -1033,7 +1033,7 @@ mod dispatches {
             note = "Please use swap_hotkey_v2 instead. This extrinsic will be removed some time after June 2026."
         )]
         #[pallet::call_index(70)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::swap_hotkey(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::swap_hotkey())]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1123,7 +1123,7 @@ mod dispatches {
         ///     - The rate limit for changing childkey take has been exceeded.
         ///
         #[pallet::call_index(75)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_childkey_take(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_childkey_take())]
         pub fn set_childkey_take(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1338,7 +1338,7 @@ mod dispatches {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(68)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_identity(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_identity())]
         pub fn set_identity(
             origin: OriginFor<T>,
             name: Vec<u8>,
@@ -1378,7 +1378,7 @@ mod dispatches {
         /// * `subnet_contact` (Vec<u8>):
         ///     - The contact information for the subnet.
         #[pallet::call_index(78)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_subnet_identity(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_subnet_identity())]
         pub fn set_subnet_identity(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -1442,7 +1442,7 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(83)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::unstake_all(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::unstake_all())]
         pub fn unstake_all(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all(origin, hotkey)
         }
@@ -1473,7 +1473,7 @@ mod dispatches {
         /// * `TxRateLimitExceeded`:
         ///     - Thrown if key has hit transaction rate limit
         #[pallet::call_index(84)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::unstake_all_alpha(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::unstake_all_alpha())]
         pub fn unstake_all_alpha(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
@@ -1580,7 +1580,7 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(87)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::swap_stake(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::swap_stake())]
         pub fn swap_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1640,7 +1640,7 @@ mod dispatches {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(88)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::add_stake_limit(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake_limit())]
         pub fn add_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1703,7 +1703,7 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(89)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::remove_stake_limit(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::remove_stake_limit())]
         pub fn remove_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1744,7 +1744,7 @@ mod dispatches {
         /// # Events
         /// May emit a `StakeSwapped` event on success.
         #[pallet::call_index(90)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::swap_stake_limit(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::swap_stake_limit())]
         pub fn swap_stake_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1792,7 +1792,7 @@ mod dispatches {
         /// # Events
         /// Emits a `FirstEmissionBlockNumberSet` event on success.
         #[pallet::call_index(92)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::start_call(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::start_call())]
         pub fn start_call(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             Self::do_start_call(origin, netuid)?;
             Ok(())
@@ -1850,7 +1850,7 @@ mod dispatches {
         /// # Events
         /// Emits a `TokensRecycled` event on success.
         #[pallet::call_index(101)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::recycle_alpha(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::recycle_alpha())]
         pub fn recycle_alpha(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1871,7 +1871,7 @@ mod dispatches {
         /// # Events
         /// Emits a `TokensBurned` event on success.
         #[pallet::call_index(102)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::burn_alpha(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::burn_alpha())]
         pub fn burn_alpha(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1899,7 +1899,7 @@ mod dispatches {
         /// at which or better (higher) the staking should execute.
         /// Without limit_price it remove all the stake similar to `remove_stake` extrinsic
         #[pallet::call_index(103)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::remove_stake_full_limit(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::remove_stake_full_limit())]
         pub fn remove_stake_full_limit(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1977,7 +1977,7 @@ mod dispatches {
         /// # Events
         /// Emits a `SymbolUpdated` event on success.
         #[pallet::call_index(112)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::update_symbol(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::update_symbol())]
         pub fn update_symbol(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2164,7 +2164,7 @@ mod dispatches {
         /// # Raises:
         ///
         #[pallet::call_index(121)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::claim_root(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::claim_root())]
         pub fn claim_root(
             origin: OriginFor<T>,
             subnets: BTreeSet<NetUid>,
@@ -2193,7 +2193,7 @@ mod dispatches {
         /// 	- On the successfully setting the root claim type for the coldkey.
         ///
         #[pallet::call_index(122)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_root_claim_type(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_root_claim_type())]
         pub fn set_root_claim_type(
             origin: OriginFor<T>,
             new_root_claim_type: RootClaimTypeEnum,
@@ -2228,7 +2228,7 @@ mod dispatches {
 
         /// --- Sets root claim threshold for subnet (sudo or owner origin).
         #[pallet::call_index(124)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::sudo_set_root_claim_threshold(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::sudo_set_root_claim_threshold())]
         pub fn sudo_set_root_claim_threshold(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -2450,7 +2450,7 @@ mod dispatches {
         /// --- The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
         /// alpha token first and immediately burn the acquired amount of alpha (aka Subnet buyback).
         #[pallet::call_index(132)]
-        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::add_stake_burn(), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake_burn())]
         pub fn add_stake_burn(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
