@@ -502,6 +502,7 @@ fn test_swap_coldkey_works() {
     });
 }
 
+// cargo test --package pallet-subtensor --lib -- tests::swap_coldkey::test_swap_coldkey_works_with_zero_cost --exact --nocapture
 #[test]
 fn test_swap_coldkey_works_with_zero_cost() {
     new_test_ext(1).execute_with(|| {
@@ -1852,9 +1853,13 @@ macro_rules! comprehensive_checks {
             $total_ck_stake,
         );
 
-        // Ensure the staking hotkeys are correctly swapped
+        // Ensure the staking hotkeys are correctly swapped (order-incensitive)
         assert!(StakingHotkeys::<Test>::get($who).is_empty());
-        assert_eq!(StakingHotkeys::<Test>::get($new_coldkey), $hotkeys);
+        let mut actual_st_hots = StakingHotkeys::<Test>::get($new_coldkey);
+        let mut expected_st_hots = $hotkeys.clone();
+        actual_st_hots.sort();
+        expected_st_hots.sort();
+        assert_eq!(actual_st_hots, expected_st_hots);
 
         // Ensure the hotkey ownership is correctly swapped
         assert!(OwnedHotkeys::<Test>::get($who).is_empty());
