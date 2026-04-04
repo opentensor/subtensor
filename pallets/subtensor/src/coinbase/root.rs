@@ -264,14 +264,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 9. Remove various network-related parameters.
-        Rank::<T>::remove(netuid);
-        Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
 
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
-        PruningScores::<T>::remove(netuid);
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 

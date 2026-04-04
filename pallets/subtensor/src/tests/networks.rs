@@ -317,14 +317,11 @@ fn dissolve_clears_all_per_subnet_storages() {
         NetworkRegisteredAt::<Test>::insert(net, 0u64);
 
         // Consensus vectors
-        Rank::<Test>::insert(net, vec![1u16]);
-        Trust::<Test>::insert(net, vec![1u16]);
         Active::<Test>::insert(net, vec![true]);
         Emission::<Test>::insert(net, vec![AlphaBalance::from(1)]);
         Incentive::<Test>::insert(NetUidStorageIndex::from(net), vec![1u16]);
         Consensus::<Test>::insert(net, vec![1u16]);
         Dividends::<Test>::insert(net, vec![1u16]);
-        PruningScores::<Test>::insert(net, vec![1u16]);
         LastUpdate::<Test>::insert(NetUidStorageIndex::from(net), vec![0u64]);
         ValidatorPermit::<Test>::insert(net, vec![true]);
         ValidatorTrust::<Test>::insert(net, vec![1u16]);
@@ -466,8 +463,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
 
         // Consensus vectors removed
-        assert!(!Rank::<Test>::contains_key(net));
-        assert!(!Trust::<Test>::contains_key(net));
         assert!(!Active::<Test>::contains_key(net));
         assert!(!Emission::<Test>::contains_key(net));
         assert!(!Incentive::<Test>::contains_key(NetUidStorageIndex::from(
@@ -475,7 +470,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         )));
         assert!(!Consensus::<Test>::contains_key(net));
         assert!(!Dividends::<Test>::contains_key(net));
-        assert!(!PruningScores::<Test>::contains_key(net));
         assert!(!LastUpdate::<Test>::contains_key(NetUidStorageIndex::from(
             net
         )));
