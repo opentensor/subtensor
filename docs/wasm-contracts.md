@@ -43,6 +43,18 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 | 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |
+| 16 | `proxy_add_stake` | Delegate stake on behalf of a proxied account | `(AccountId, AccountId, NetUid, TaoBalance)` | Error code |
+| 17 | `proxy_remove_stake` | Withdraw stake on behalf of a proxied account | `(AccountId, AccountId, NetUid, AlphaBalance)` | Error code |
+| 18 | `proxy_unstake_all` | Unstake all on behalf of a proxied account | `(AccountId, AccountId)` | Error code |
+| 19 | `proxy_unstake_all_alpha` | Unstake all alpha on behalf of a proxied account | `(AccountId, AccountId)` | Error code |
+| 20 | `proxy_move_stake` | Move stake between hotkeys on behalf of a proxied account | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaBalance)` | Error code |
+| 21 | `proxy_transfer_stake` | Transfer stake between coldkeys on behalf of a proxied account | `(AccountId, AccountId, AccountId, NetUid, NetUid, AlphaBalance)` | Error code |
+| 22 | `proxy_swap_stake` | Swap stake between subnets on behalf of a proxied account | `(AccountId, AccountId, NetUid, NetUid, AlphaBalance)` | Error code |
+| 23 | `proxy_add_stake_limit` | Delegate stake with price limit on behalf of a proxied account | `(AccountId, AccountId, NetUid, TaoBalance, TaoBalance, bool)` | Error code |
+| 24 | `proxy_remove_stake_limit` | Withdraw stake with price limit on behalf of a proxied account | `(AccountId, AccountId, NetUid, AlphaBalance, TaoBalance, bool)` | Error code |
+| 25 | `proxy_swap_stake_limit` | Swap stake with price limit on behalf of a proxied account | `(AccountId, AccountId, NetUid, NetUid, AlphaBalance, TaoBalance, bool)` | Error code |
+| 26 | `proxy_remove_stake_full_limit` | Fully withdraw stake on behalf of a proxied account | `(AccountId, AccountId, NetUid, Option<TaoBalance>)` | Error code |
+| 27 | `proxy_set_coldkey_auto_stake_hotkey` | Configure auto-stake on behalf of a proxied account | `(AccountId, NetUid, AccountId)` | Error code |
 
 Example usage in your ink! contract:
 ```rust
@@ -85,6 +97,18 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 17 | `ProxyDuplicate` | Proxy already exists |
 | 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
 | 19 | `ProxyNotFound` | Proxy relationship not found |
+| 20 | `NotAuthorizedProxy` | Caller is not an authorized proxy for the account |
+
+#### Proxy-Delegated Extensions (IDs 16–27)
+
+Functions 16–27 are proxy-delegated variants of the base staking operations (IDs 1–12). They allow a smart contract that holds a `Staking` (or `Any`) proxy over a coldkey to manage stake on that coldkey's behalf.
+
+Each proxy function prepends an `on_behalf_of: AccountId` parameter. The chain extension verifies:
+1. The contract (caller) is registered as a zero-delay proxy for `on_behalf_of`
+2. The proxy type is sufficient for the operation (`Staking` for most, `Transfer` for `proxy_transfer_stake`)
+3. `ProxyType::Any` is accepted as a superset of all types
+
+If proxy authorization fails, the extension returns `NotAuthorizedProxy` (error code 20).
 
 ### Call Filter
 
