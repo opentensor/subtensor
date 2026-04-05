@@ -2642,7 +2642,7 @@ mod dispatches {
         ///
         /// # Errors:
         /// * `BadOrigin` - If the origin is not the subnet owner or root.
-        #[pallet::call_index(133)]
+        #[pallet::call_index(134)]
         #[pallet::weight((
             Weight::from_parts(10_000, 0)
             .saturating_add(T::DbWeight::get().reads(2))

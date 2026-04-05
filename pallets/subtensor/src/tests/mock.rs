@@ -29,6 +29,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
+use substrate_fixed::types::I32F32;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -821,6 +822,57 @@ pub fn add_dynamic_network_disable_commit_reveal(hotkey: &U256, coldkey: &U256) 
     let netuid = add_dynamic_network(hotkey, coldkey);
     SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
     netuid
+}
+
+#[allow(dead_code)]
+pub fn setup_network_with_owner() -> (NetUid, U256, U256, RuntimeOrigin) {
+    let hotkey = U256::from(1);
+    let coldkey = U256::from(457);
+    let netuid = add_dynamic_network(&hotkey, &coldkey);
+    let signer = RuntimeOrigin::signed(coldkey);
+
+    migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+    SubtensorModule::add_balance_to_coldkey_account(
+        &coldkey,
+        TaoBalance::from(1_000_000_000_000_000u64),
+    );
+    assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey));
+    assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
+
+    (netuid, hotkey, coldkey, signer)
+}
+
+#[allow(dead_code)]
+pub fn setup_consensus_test_environment(netuid: NetUid) {
+    add_network(netuid, 0, 0);
+    SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+}
+
+#[allow(dead_code)]
+pub fn create_test_consensus_data(netuid: NetUid) -> (Vec<I32F32>, Vec<I32F32>) {
+    let current_consensus = vec![
+        I32F32::from_num(0.2),
+        I32F32::from_num(0.3),
+        I32F32::from_num(0.4),
+        I32F32::from_num(0.1),
+    ];
+    let previous_consensus = vec![
+        I32F32::from_num(0.1),
+        I32F32::from_num(0.2),
+        I32F32::from_num(0.3),
+        I32F32::from_num(0.4),
+    ];
+    let previous_consensus_u16: Vec<u16> = previous_consensus
+        .iter()
+        .map(|value| {
+            value
+                .saturating_mul(I32F32::saturating_from_num(u16::MAX))
+                .saturating_to_num::<u16>()
+        })
+        .collect();
+    Consensus::<Test>::insert(netuid, previous_consensus_u16);
+
+    (current_consensus, previous_consensus)
 }
 
 #[allow(dead_code)]

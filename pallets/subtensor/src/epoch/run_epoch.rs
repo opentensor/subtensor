@@ -1368,7 +1368,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         current_consensus: &[I32F32],
     ) -> Vec<I32F32> {
-        let mode = Self::get_liquid_alpha_consensus_mode(netuid);
+        let mode = LiquidAlphaConsensusMode::<T>::get(netuid);
 
         match mode {
             ConsensusMode::Current => {
@@ -1611,13 +1611,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_set_liquid_alpha_consensus_mode(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         mode: ConsensusMode,
     ) -> Result<(), DispatchError> {
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-        Self::set_liquid_alpha_consensus_mode_storage(netuid, mode.clone());
+        LiquidAlphaConsensusMode::<T>::insert(netuid, mode.clone());
 
         log::debug!("LiquidAlphaConsensusModeSet( netuid: {netuid:?}, mode: {mode:?} )",);
         Ok(())
