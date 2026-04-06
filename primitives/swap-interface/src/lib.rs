@@ -138,6 +138,15 @@ pub trait OrderSwapInterface<AccountId> {
         validate_sender: bool,
         validate_receiver: bool,
     ) -> DispatchResult;
+
+    /// Set up accounts for benchmark execution.
+    ///
+    /// Called once per order before the benchmarked extrinsic runs. Implementations
+    /// should fund `coldkey` with sufficient TAO (and alpha for sell orders) and
+    /// register `hotkey` on the relevant subnet so that swap operations succeed.
+    /// The default is a no-op; override in runtime implementations.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_up_acc_for_benchmark(_hotkey: &AccountId, _coldkey: &AccountId) {}
 }
 
 pub trait DefaultPriceLimit<PaidIn, PaidOut>

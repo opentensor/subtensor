@@ -45,5 +45,6 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
     "sp-keyring",
-    "subtensor-runtime-common/runtime-benchmarks"
+    "subtensor-runtime-common/runtime-benchmarks",
+    "subtensor-swap-interface/runtime-benchmarks",
 ]

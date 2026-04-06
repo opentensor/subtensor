@@ -313,6 +313,17 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         Ok(())
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_up_acc_for_benchmark(hotkey: &AccountId, coldkey: &AccountId) {
+        // Provide non-zero swap returns so batched-order benchmarks don't hit
+        // `SwapReturnedZero`.  Also seed TAO and alpha balances so transfers
+        // succeed in the mock ledgers.
+        MockSwap::set_buy_alpha_return(1_000_000);
+        MockSwap::set_sell_tao_return(1_000_000);
+        MockSwap::set_tao_balance(coldkey.clone(), u64::MAX / 2);
+        MockSwap::set_alpha_balance(coldkey.clone(), hotkey.clone(), NetUid::from(1u16), u64::MAX / 2);
+    }
+
     fn transfer_staked_alpha(
         from_coldkey: &AccountId,
         from_hotkey: &AccountId,
