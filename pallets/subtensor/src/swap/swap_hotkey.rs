@@ -535,6 +535,10 @@ impl<T: Config> Pallet<T> {
 
             // For each coldkey remove their stake from old_hotkey and add to new_hotkey
             for coldkey in unique_coldkeys {
+                Self::transfer_root_claimed_for_new_keys(
+                    netuid, old_hotkey, new_hotkey, &coldkey, &coldkey,
+                );
+
                 let alpha_old =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(old_hotkey, &coldkey, netuid);
                 Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
@@ -561,30 +565,6 @@ impl<T: Config> Pallet<T> {
             if netuid == NetUid::ROOT {
                 Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-
-                // After transfer, new_hotkey has the full RootClaimable map.
-                // We use it to know which subnets have outstanding claims.
-                let subnets: Vec<NetUid> = RootClaimable::<T>::get(new_hotkey)
-                    .keys()
-                    .copied()
-                    .collect();
-                weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-                for subnet in subnets {
-                    let claimed_coldkeys: Vec<T::AccountId> =
-                        RootClaimed::<T>::iter_prefix((subnet, old_hotkey))
-                            .map(|(coldkey, _)| coldkey)
-                            .collect();
-                    weight
-                        .saturating_accrue(T::DbWeight::get().reads(claimed_coldkeys.len() as u64));
-
-                    for coldkey in claimed_coldkeys {
-                        Self::transfer_root_claimed_for_new_keys(
-                            subnet, old_hotkey, new_hotkey, &coldkey, &coldkey,
-                        );
-                        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-                    }
-                }
             }
         }
 

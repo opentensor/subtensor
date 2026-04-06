@@ -4,7 +4,6 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::string::String;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::AccountId32;
-use substrate_fixed::types::U64F64;
 
 pub fn decode_account_id32<T: Config>(ss58_string: &str) -> Option<T::AccountId> {
     let account_id32: AccountId32 = AccountId32::from_ss58check(ss58_string).ok()?;
@@ -52,7 +51,6 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
     // Mainnet genesis: 0x2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03
     let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
     let genesis_bytes = genesis_hash.as_ref();
-    let mut claimed_restored: u64 = 0;
     let mainnet_genesis =
         hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
     if genesis_bytes == mainnet_genesis {
@@ -119,11 +117,7 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
             },
         ];
 
-        let root_netuid = NetUid::from(0);
-
         for fix in fixes {
-            let netuid = NetUid::from(fix.netuid);
-
             let (old_hotkey, new_hotkey) = match (
                 decode_account_id32::<T>(fix.old_hotkey_ss58),
                 decode_account_id32::<T>(fix.new_hotkey_ss58),
@@ -141,40 +135,6 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
             // Reverting the Root Claimable because it only should happen for root subnet
             Pallet::<T>::transfer_root_claimable_for_new_hotkey(&new_hotkey, &old_hotkey);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-
-            // Collect all coldkeys that have non-zero alpha on root subnet
-            // (meaning they had root stake at swap time)
-            let alpha_on_swapped_subnet: Vec<T::AccountId> =
-                Alpha::<T>::iter_prefix((&new_hotkey,))
-                    .filter(|((coldkey, netuid_alpha), _)| {
-                        // Must be on the subnet that was swapped
-                        if *netuid_alpha != netuid {
-                            return false;
-                        }
-                        // Must have non-zero alpha on root subnet for old hotkey
-                        // (guards against reverting claims for keys with no root stake)
-                        let root_alpha = Alpha::<T>::get((&old_hotkey, coldkey, root_netuid));
-                        root_alpha != U64F64::from_num(0u64)
-                    })
-                    .map(|((coldkey, _), _)| coldkey)
-                    .collect();
-
-            weight.saturating_accrue(
-                T::DbWeight::get().reads((alpha_on_swapped_subnet.len() as u64).saturating_mul(2)),
-            );
-
-            // Revert RootClaimed for each qualifying coldkey
-            for coldkey in alpha_on_swapped_subnet {
-                claimed_restored = claimed_restored.saturating_add(1);
-                Pallet::<T>::transfer_root_claimed_for_new_keys(
-                    netuid,
-                    &new_hotkey,
-                    &old_hotkey,
-                    &coldkey,
-                    &coldkey,
-                );
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-            }
         }
     }
 
@@ -183,7 +143,7 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
     weight.saturating_accrue(T::DbWeight::get().writes(1));
 
     log::info!(
-        "Migration 'migrate_fix_root_claimed_overclaim' completed. Claimed restored: {claimed_restored}"
+        "Migration 'migrate_fix_root_claimed_overclaim' completed"
     );
 
     weight
