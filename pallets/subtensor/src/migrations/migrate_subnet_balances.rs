@@ -33,10 +33,12 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
     // Actual migration
 
     // Mint SubnetTAO into subnet accounts
+    let mut total_minted = TaoBalance::ZERO;
     SubnetTAO::<T>::iter().for_each(|(netuid, tao)| {
         if let Some(subnet_account) = Pallet::<T>::get_subnet_account_id(netuid) {
             let credit = Pallet::<T>::mint_tao(tao);
             let _ = Pallet::<T>::spend_tao(&subnet_account, credit, tao);
+            total_minted = total_minted.saturating_add(tao);
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
         }
     });
@@ -46,8 +48,15 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
         if let Some(subnet_account) = Pallet::<T>::get_subnet_account_id(netuid) {
             let credit = Pallet::<T>::mint_tao(tao);
             let _ = Pallet::<T>::spend_tao(&subnet_account, credit, tao);
+            total_minted = total_minted.saturating_add(tao);
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
         }
+    });
+
+    // mint_tao increases subtensor TotalIssuance, but this is not the intention here because 
+    // SubnetTAO and SubnetLocked are already accounted in it. Reduce it back.
+    TotalIssuance::<T>::mutate(|total| {
+        *total = total.saturating_sub(total_minted);
     });
 
     // Update the total issuance in storage
