@@ -50,6 +50,16 @@ impl<T: Config> Pallet<T> {
 
         ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);
 
+        // If remainder drops below ED, then account is killed, balance is lost, and we
+        // need to reduce total issuance
+        let remainder = max_transferrable.saturating_sub(amount);
+        if remainder < <T as Config>::Currency::minimum_balance() {
+            // Decrease subtensor pallet total issuance
+            TotalIssuance::<T>::mutate(|total| {
+                *total = total.saturating_sub(remainder);
+            });
+        }
+
         <T as pallet::Config>::Currency::transfer(
             origin_coldkey,
             destination_coldkey,
@@ -181,7 +191,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientBalance
         );
 
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
+        // Decrease subtensor pallet total issuance
+        TotalIssuance::<T>::mutate(|total| {
+            *total = total.saturating_sub(amount);
+        });
 
         let _ = <T as Config>::Currency::withdraw(
             coldkey,
@@ -224,6 +237,11 @@ impl<T: Config> Pallet<T> {
         let remaining_issuance =
             TaoBalance::from(MAX_TAO_ISSUANCE).saturating_sub(current_issuance);
         let amount_to_issue = amount.min(remaining_issuance);
+
+        // Increase subtensor pallet total issuance
+        TotalIssuance::<T>::mutate(|total| {
+            *total = total.saturating_add(amount_to_issue);
+        });
 
         <T as Config>::Currency::issue(amount_to_issue)
     }
