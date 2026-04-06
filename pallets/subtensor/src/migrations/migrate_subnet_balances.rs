@@ -1,5 +1,8 @@
 use super::*;
-use frame_support::{traits::Get, weights::Weight};
+use frame_support::{
+    traits::{Get, fungible::Inspect},
+    weights::Weight,
+};
 
 /// Performs migration to mint SubnetTAO and subnet locked funds into subnet accounts.
 ///
@@ -52,7 +55,11 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
     let subtensor_total_issuance = TotalIssuance::<T>::get();
     weight = weight.saturating_add(T::DbWeight::get().reads(2));
     if balances_total_issuance != subtensor_total_issuance {
-        log::warn!("Balances and Subtensor total issuance still do not match: {} vs {}. Making them match now.", balances_total_issuance, subtensor_total_issuance);
+        log::warn!(
+            "Balances and Subtensor total issuance still do not match: {} vs {}. Making them match now.",
+            balances_total_issuance,
+            subtensor_total_issuance
+        );
         TotalIssuance::<T>::put(balances_total_issuance);
         weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
