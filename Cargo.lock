@@ -10369,6 +10369,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -10376,6 +10377,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "subtensor-macros",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -18329,6 +18331,15 @@ dependencies = [
  "substrate-fixed",
  "subtensor-runtime-common",
  "subtensor-swap-interface",
+]
+
+[[package]]
+name = "subtensor-weight-tools"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "syn 2.0.106",
 ]
 
 [[package]]
