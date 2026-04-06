@@ -314,6 +314,11 @@ impl OrderSwapInterface<AccountId> for MockSwap {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
+    fn set_up_netuid_for_benchmark(_netuid: NetUid) {
+        // Mock price is already set; no subnet state to initialise.
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
     fn set_up_acc_for_benchmark(hotkey: &AccountId, coldkey: &AccountId) {
         // Provide non-zero swap returns so batched-order benchmarks don't hit
         // `SwapReturnedZero`.  Also seed TAO and alpha balances so transfers
@@ -486,6 +491,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage()
         .unwrap();
     let mut ext = sp_io::TestExternalities::new(storage);
+    // Register a keystore so `sp_io::crypto` functions work in benchmark tests.
+    let keystore = sp_keystore::testing::MemoryKeystore::new();
+    ext.register_extension(sp_keystore::KeystoreExt::new(keystore));
     ext.execute_with(|| {
         System::set_block_number(1);
         MockSwap::clear_log();

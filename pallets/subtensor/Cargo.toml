@@ -158,6 +158,7 @@ runtime-benchmarks = [
 	"pallet-subtensor-utility/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
+	"subtensor-swap-interface/runtime-benchmarks",
 ]
 pow-faucet = []
 fast-runtime = ["subtensor-runtime-common/fast-runtime"]

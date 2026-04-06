@@ -332,6 +332,8 @@ runtime-benchmarks = [
 	"pallet-shield/runtime-benchmarks",
 	
 	"subtensor-runtime-common/runtime-benchmarks",
+	"pallet-limit-orders/runtime-benchmarks",
+	"subtensor-swap-interface/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

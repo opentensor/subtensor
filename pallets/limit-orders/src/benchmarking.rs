@@ -8,41 +8,40 @@
 use crate::{NetUid, OrderType, Orders};
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
-use sp_core::{H256, Pair};
-use sp_keyring::Sr25519Keyring as AccountKeyring;
+use sp_core::H256;
 use sp_runtime::{AccountId32, MultiSignature, Perbill, traits::AccountIdConversion};
 extern crate alloc;
 use crate::{Call, Config, Pallet};
 use codec::Encode;
 
-pub fn make_signed_order<T: crate::Config>(
-    keyring: AccountKeyring,
-    hotkey: T::AccountId,
-    netuid: NetUid,
-    order_type: crate::OrderType,
-    amount: u64,
-    limit_price: u64,
-    expiry: u64,
-    fee_rate: sp_runtime::Perbill,
-    fee_recipient: T::AccountId,
+/// Sign an order using the runtime keystore (no `full_crypto` required).
+///
+/// The key identified by `public` must already be registered in the keystore
+/// (e.g. via `sp_io::crypto::sr25519_generate`) before calling this.
+fn sign_order<T: crate::Config>(
+    public: sp_core::sr25519::Public,
+    order: &crate::Order<T::AccountId>,
 ) -> crate::SignedOrder<T::AccountId> {
-    let signer = keyring.to_account_id();
-    let order = crate::Order {
-        signer,
-        hotkey: hotkey.into(),
-        netuid,
-        order_type,
-        amount,
-        limit_price,
-        expiry,
-        fee_rate,
-        fee_recipient: fee_recipient.into(),
-    };
-    let sig = keyring.pair().sign(&order.encode());
+    let sig = sp_io::crypto::sr25519_sign(
+        sp_core::crypto::key_types::ACCOUNT,
+        &public,
+        &order.encode(),
+    )
+    .unwrap();
     crate::SignedOrder {
-        order,
+        order: order.clone(),
         signature: MultiSignature::Sr25519(sig),
     }
+}
+
+/// Generate a deterministic sr25519 key for benchmark index `i` and return its
+/// public key. The key is inserted into the runtime keystore so it can sign.
+fn benchmark_key(i: u32) -> (sp_core::sr25519::Public, AccountId32) {
+    let seed = alloc::format!("//BenchSigner{}", i).into_bytes();
+    let public =
+        sp_io::crypto::sr25519_generate(sp_core::crypto::key_types::ACCOUNT, Some(seed));
+    let account = AccountId32::from(public);
+    (public, account)
 }
 
 pub fn order_id<T: crate::Config>(order: &crate::Order<T::AccountId>) -> H256 {
@@ -57,25 +56,26 @@ mod benchmarks {
 
     #[benchmark]
     fn cancel_order() {
-        let signed = make_signed_order::<T>(
-            AccountKeyring::Alice,
-            AccountKeyring::Alice.to_account_id().into(),
-            NetUid::from(1u16),
-            OrderType::LimitBuy,
-            1_000,
-            2_000_000_000,
-            1_000_000_000,
-            Perbill::zero(),
-            AccountKeyring::Alice.to_account_id().into(),
-        );
+        let (public, account_id) = benchmark_key(0);
+        let account: T::AccountId = account_id.into();
+
+        let order = crate::Order {
+            signer: account.clone(),
+            hotkey: account.clone(),
+            netuid: NetUid::from(1u16),
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: 2_000_000_000,
+            expiry: 1_000_000_000,
+            fee_rate: Perbill::zero(),
+            fee_recipient: account.clone(),
+        };
+        let signed = sign_order::<T>(public, &order);
 
         #[extrinsic_call]
-        _(
-            RawOrigin::Signed(AccountKeyring::Alice.to_account_id()),
-            signed.order.clone(),
-        );
-        let id = order_id::<T>(&signed.order);
+        _(RawOrigin::Signed(account.clone()), signed.order.clone());
 
+        let id = order_id::<T>(&signed.order);
         assert_eq!(Orders::<T>::get(id), Some(crate::OrderStatus::Cancelled));
     }
 
@@ -92,18 +92,15 @@ mod benchmarks {
     #[benchmark]
     fn execute_orders(n: Linear<1, { T::MaxOrdersPerBatch::get() }>) {
         let netuid = NetUid::from(1u16);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
+
         let mut orders = alloc::vec::Vec::new();
 
         for i in 0..n {
-            // Derive a unique sr25519 keypair for each order so every order
-            // hits a different storage slot (different signer balance reads).
-            let pair =
-                sp_core::sr25519::Pair::from_string(&alloc::format!("//Signer{}", i), None)
-                    .unwrap();
-            let account: T::AccountId = AccountId32::from(pair.public()).into();
+            let (public, account_id) = benchmark_key(i);
+            let account: T::AccountId = account_id.into();
             let fee_recipient: T::AccountId = frame_benchmarking::account("fee_recipient", i, 0);
 
-            // Allow the swap implementation to fund/register this account.
             T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
 
             let order = crate::Order {
@@ -112,16 +109,12 @@ mod benchmarks {
                 netuid,
                 order_type: OrderType::LimitBuy,
                 amount: 1_000_000_000u64,
-                limit_price: u64::MAX, // always satisfied for a buy
+                limit_price: u64::MAX,
                 expiry: u64::MAX,
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
             };
-            let sig = pair.sign(&order.encode());
-            orders.push(crate::SignedOrder {
-                order,
-                signature: MultiSignature::Sr25519(sig),
-            });
+            orders.push(sign_order::<T>(public, &order));
         }
 
         let bounded_orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
@@ -138,6 +131,7 @@ mod benchmarks {
     #[benchmark]
     fn execute_batched_orders(n: Linear<1, { T::MaxOrdersPerBatch::get() }>) {
         let netuid = NetUid::from(1u16);
+        T::SwapInterface::set_up_netuid_for_benchmark(netuid);
 
         // Set up the pallet intermediary so the net pool swap and alpha
         // distribution transfers succeed.
@@ -148,10 +142,8 @@ mod benchmarks {
         let mut orders = alloc::vec::Vec::new();
 
         for i in 0..n {
-            let pair =
-                sp_core::sr25519::Pair::from_string(&alloc::format!("//Signer{}", i), None)
-                    .unwrap();
-            let account: T::AccountId = AccountId32::from(pair.public()).into();
+            let (public, account_id) = benchmark_key(i);
+            let account: T::AccountId = account_id.into();
             let fee_recipient: T::AccountId = frame_benchmarking::account("fee_recipient", i, 0);
 
             T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
@@ -167,11 +159,7 @@ mod benchmarks {
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
             };
-            let sig = pair.sign(&order.encode());
-            orders.push(crate::SignedOrder {
-                order,
-                signature: MultiSignature::Sr25519(sig),
-            });
+            orders.push(sign_order::<T>(public, &order));
         }
 
         let bounded_orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =

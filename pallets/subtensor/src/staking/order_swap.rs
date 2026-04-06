@@ -153,4 +153,21 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         }
         Ok(())
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_up_netuid_for_benchmark(netuid: NetUid) {
+        if !Self::if_subnet_exist(netuid) {
+            Self::init_new_network(netuid, 100);
+        }
+        SubtokenEnabled::<T>::insert(netuid, true);
+        // Seed pool reserves so the AMM price is well-defined and swaps return non-zero.
+        SubnetTAO::<T>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
+        SubnetAlphaIn::<T>::insert(netuid, AlphaBalance::from(1_000_000_000_000_u64));
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_up_acc_for_benchmark(hotkey: &T::AccountId, coldkey: &T::AccountId) {
+        Self::create_account_if_non_existent(coldkey, hotkey);
+        Self::add_balance_to_coldkey_account(coldkey, TaoBalance::from(1_000_000_000_000_u64));
+    }
 }

@@ -139,6 +139,15 @@ pub trait OrderSwapInterface<AccountId> {
         validate_receiver: bool,
     ) -> DispatchResult;
 
+    /// Set up a subnet for benchmark execution.
+    ///
+    /// Called once per benchmark before any orders are built. Implementations
+    /// should initialise the subnet (registers it, enables the subtoken, seeds
+    /// pool reserves) so that price queries and swaps succeed.
+    /// The default is a no-op; override in runtime implementations.
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_up_netuid_for_benchmark(_netuid: NetUid) {}
+
     /// Set up accounts for benchmark execution.
     ///
     /// Called once per order before the benchmarked extrinsic runs. Implementations
