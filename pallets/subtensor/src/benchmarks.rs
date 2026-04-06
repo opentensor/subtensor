@@ -1560,7 +1560,7 @@ mod pallet_benchmarks {
         );
     }
 
-    #[benchmark(extra)]
+    #[benchmark]
     fn register_leased_network(k: Linear<2, { T::MaxContributors::get() }>) {
         // Setup a crowdloan
         let crowdloan_id = 0;
@@ -1620,7 +1620,7 @@ mod pallet_benchmarks {
         assert!(SubnetMechanism::<T>::contains_key(lease.netuid));
     }
 
-    #[benchmark(extra)]
+    #[benchmark]
     fn terminate_lease(k: Linear<2, { T::MaxContributors::get() }>) {
         let crowdloan_id = 0;
         let beneficiary: T::AccountId = whitelisted_caller();
@@ -1734,6 +1734,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
 
         Subtensor::<T>::set_commit_reveal_weights_enabled(netuid, true);
+        WeightsSetRateLimit::<T>::set(netuid, 0);
 
         #[extrinsic_call]
         _(
@@ -1920,4 +1921,10 @@ mod pallet_benchmarks {
 
         assert_eq!(PendingChildKeyCooldown::<T>::get(), cooldown);
     }
+
+    impl_benchmark_test_suite!(
+        Subtensor,
+        crate::tests::mock::new_test_ext(1),
+        crate::tests::mock::Test
+    );
 }

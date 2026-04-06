@@ -28,6 +28,10 @@ cargo fmt --all
 commit_if_changes "cargo fmt"
 
 if command -v zepter >/dev/null 2>&1; then
-    echo "zepter detected, running 'zepter run check'..."
-    zepter run check
+    echo "running 'zepter run default'..."
+    zepter run default
+    commit_if_changes "zepter run default"
+else
+    echo "ERROR: zepter not found. Install with: cargo install zepter" >&2
+    exit 1
 fi

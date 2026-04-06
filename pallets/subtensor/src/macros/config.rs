@@ -67,6 +67,9 @@ mod config {
         /// Provider of current block author
         type AuthorshipProvider: AuthorshipInfo<Self::AccountId>;
 
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: crate::weights::WeightInfo;
+
         /// =================================
         /// ==== Initial Value Constants ====
         /// =================================
