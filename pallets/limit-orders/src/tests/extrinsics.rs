@@ -284,6 +284,10 @@ fn execute_orders_stop_loss_price_not_met_skipped() {
         ));
 
         assert!(Orders::<Test>::get(id).is_none());
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::PriceConditionNotMet.into(),
+        });
     });
 }
 
@@ -312,6 +316,10 @@ fn execute_orders_expired_order_skipped() {
 
         // Skipped — storage untouched.
         assert!(Orders::<Test>::get(id).is_none());
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::OrderExpired.into(),
+        });
     });
 }
 
@@ -339,6 +347,10 @@ fn execute_orders_price_not_met_skipped() {
         ));
 
         assert!(Orders::<Test>::get(id).is_none());
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::PriceConditionNotMet.into(),
+        });
     });
 }
 
@@ -368,6 +380,10 @@ fn execute_orders_already_processed_skipped() {
         ));
         // Still Fulfilled (not changed).
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::OrderAlreadyProcessed.into(),
+        });
     });
 }
 
@@ -400,6 +416,7 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
             fee_recipient(),
         );
         let valid_id = order_id(&valid.order);
+        let expired_id = order_id(&expired.order);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
@@ -407,6 +424,10 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
         ));
 
         assert_eq!(Orders::<Test>::get(valid_id), Some(OrderStatus::Fulfilled));
+        assert_event(Event::OrderSkipped {
+            order_id: expired_id,
+            reason: Error::<Test>::OrderExpired.into(),
+        });
     });
 }
 
@@ -545,6 +566,10 @@ mod execute_orders_skip_invalid {
 
             // Skipped — storage untouched.
             assert!(Orders::<Test>::get(id).is_none());
+            assert_event(Event::OrderSkipped {
+                order_id: id,
+                reason: Error::<Test>::OrderExpired.into(),
+            });
         });
     }
 
@@ -577,6 +602,10 @@ mod execute_orders_skip_invalid {
 
             // Skipped — storage untouched.
             assert!(Orders::<Test>::get(id).is_none());
+            assert_event(Event::OrderSkipped {
+                order_id: id,
+                reason: Error::<Test>::PriceConditionNotMet.into(),
+            });
         });
     }
 
@@ -623,6 +652,10 @@ mod execute_orders_skip_invalid {
             assert_eq!(Orders::<Test>::get(valid_id), Some(OrderStatus::Fulfilled));
             // Expired order silently skipped — not written to storage.
             assert!(Orders::<Test>::get(expired_id).is_none());
+            assert_event(Event::OrderSkipped {
+                order_id: expired_id,
+                reason: Error::<Test>::OrderExpired.into(),
+            });
         });
     }
 }

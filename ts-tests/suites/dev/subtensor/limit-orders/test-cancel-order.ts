@@ -114,7 +114,7 @@ describeSuite({
             },
         });
 
-        /*it({
+        it({
             id: "T04",
             title: "executing a cancelled order emits OrderSkipped",
             test: async () => {
@@ -142,6 +142,6 @@ describeSuite({
                 expect(filterEvents(events, "OrderSkipped").length).toBe(1);
                 expect(filterEvents(events, "OrderExecuted").length).toBe(0);
             },
-        });*/
+        });
     },
 });

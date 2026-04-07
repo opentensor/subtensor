@@ -214,9 +214,11 @@ pub mod pallet {
             /// Output amount: alpha (raw) received for Buy orders, TAO (raw) received for Sell orders (after fee).
             amount_out: u64,
         },
-        /// An order was skipped during batch execution (invalid signature,
-        /// expired, already processed, wrong netuid, or price not met).
-        OrderSkipped { order_id: H256 },
+        /// An order was skipped during execution.
+        OrderSkipped {
+            order_id: H256,
+            reason: sp_runtime::DispatchError,
+        },
         /// A user registered a cancellation intent for their order.
         OrderCancelled {
             order_id: H256,
@@ -289,7 +291,10 @@ pub mod pallet {
 
             for signed_order in orders {
                 // Best-effort: individual order failures do not revert the batch.
-                let _ = Self::try_execute_order(signed_order);
+                let order_id = Self::derive_order_id(&signed_order.order);
+                if let Err(reason) = Self::try_execute_order(signed_order) {
+                    Self::deposit_event(Event::OrderSkipped { order_id, reason });
+                }
             }
 
             Ok(())
