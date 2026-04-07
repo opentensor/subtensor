@@ -57,7 +57,8 @@ where
     }
 }
 
-impl<T: Config + pallet_proxy::Config + pallet_utility::Config> ChargeTransactionPaymentWrapper<T>
+impl<T: Config + pallet_proxy::Config + pallet_utility::Config + pallet_subtensor::Config>
+    ChargeTransactionPaymentWrapper<T>
 where
     RuntimeCallOf<T>: IsSubType<pallet_proxy::Call<T>> + IsSubType<pallet_utility::Call<T>>,
     RuntimeOriginOf<T>: AsSystemOriginSigner<AccountIdOf<T>> + Clone,
@@ -182,9 +183,15 @@ where
 
         common_real
     }
+
+    fn extract_coldkey_fee_payer(origin: &RuntimeOriginOf<T>) -> Option<AccountIdOf<T>> {
+        let signer = origin.as_system_origin_signer()?;
+
+        pallet_subtensor::Pallet::<T>::maybe_coldkey_for_hotkey(signer)
+    }
 }
 
-impl<T: Config + pallet_proxy::Config + pallet_utility::Config>
+impl<T: Config + pallet_proxy::Config + pallet_utility::Config + pallet_subtensor::Config>
     TransactionExtension<RuntimeCallOf<T>> for ChargeTransactionPaymentWrapper<T>
 where
     RuntimeCallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -230,6 +237,8 @@ where
         // Otherwise, the signer pays as usual.
         let fee_origin = if let Some(real) = Self::extract_real_fee_payer(call, &origin) {
             frame_system::RawOrigin::Signed(real).into()
+        } else if let Some(coldkey) = Self::extract_coldkey_fee_payer(&origin) {
+            frame_system::RawOrigin::Signed(coldkey).into()
         } else {
             origin.clone()
         };

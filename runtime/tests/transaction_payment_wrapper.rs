@@ -459,3 +459,23 @@ fn priority_override_applies_with_real_pays_fee() {
         assert_eq!(valid_tx.priority, NORMAL_DISPATCH_BASE_PRIORITY);
     });
 }
+
+// ============================================================
+// Coldkey pays for it's hotkey
+// ============================================================
+
+#[test]
+fn hotkey_origin_charges_coldkey_fee_payer() {
+    new_test_ext().execute_with(|| {
+        let hotkey = signer();
+        let coldkey = other();
+
+        pallet_subtensor::Owner::<Runtime>::insert(&hotkey, &coldkey);
+
+        let call = call_remark();
+
+        let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(hotkey), &call).unwrap();
+
+        assert_eq!(fee_payer(&val), coldkey);
+    });
+}
