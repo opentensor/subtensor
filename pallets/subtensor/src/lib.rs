@@ -117,7 +117,7 @@ pub mod pallet {
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
     /// Minimum balance required to perform a coldkey swap
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO in RAO
