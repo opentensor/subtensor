@@ -117,7 +117,7 @@ pub mod pallet {
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(8);
 
     /// Minimum balance required to perform a coldkey swap
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO in RAO
@@ -349,7 +349,19 @@ pub mod pallet {
     }
 
     /// Enum for consensus mode used in liquid alpha calculation
-    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Default,
+        TypeInfo,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        Debug,
+        MaxEncodedLen,
+    )]
     pub enum ConsensusMode {
         /// Use current in-memory consensus (current behavior)
         Current,

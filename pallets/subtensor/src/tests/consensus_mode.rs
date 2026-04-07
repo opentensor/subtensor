@@ -237,7 +237,7 @@ fn test_compute_consensus_auto_mode() {
         let (current_consensus, previous_values) = create_test_consensus_data(netuid);
 
         // Test 1: bond_penalty != 1, should use Current
-        SubtensorModule::set_bonds_penalty(netuid, u16::MAX.saturating_div(2)); // 0.5
+        SubtensorModule::set_bonds_penalty(netuid, u16::MAX.saturating_div(2)); // ~0.4999847 (any value != 1.0 triggers Current)
         let result =
             SubtensorModule::compute_consensus_for_liquid_alpha(netuid, &current_consensus);
 

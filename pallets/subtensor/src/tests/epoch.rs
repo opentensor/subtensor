@@ -3617,6 +3617,70 @@ fn test_liquid_alpha_equal_values_against_itself() {
     });
 }
 
+/// Integration test: compute_bonds routes through compute_consensus_for_liquid_alpha
+/// and picks up the stored previous consensus when mode is Previous or Auto (bond_penalty==MAX).
+#[test]
+fn test_compute_bonds_uses_previous_consensus_mode() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: NetUid = NetUid::from(2);
+        let weights: Vec<Vec<I32F32>> = vec_to_mat_fixed(
+            &[0., 0.1, 0., 0., 0.2, 0.4, 0., 0.3, 0.1, 0., 0.4, 0.5],
+            4,
+            false,
+        );
+        let bonds: Vec<Vec<I32F32>> = vec_to_mat_fixed(
+            &[0.1, 0.1, 0.5, 0., 0., 0.4, 0.5, 0.1, 0.1, 0., 0.4, 0.2],
+            4,
+            false,
+        );
+        let current_consensus: Vec<I32F32> = vec_to_fixed(&[0.3, 0.2, 0.1, 0.4]);
+        let previous_consensus_u16: Vec<u16> = vec![6553, 13107, 19660, 26214]; // ~0.1, 0.2, 0.3, 0.4
+
+        AlphaValues::<Test>::insert(netuid, (u16::MAX / 10, u16::MAX / 2));
+        SubtensorModule::set_liquid_alpha_enabled(netuid.into(), true);
+
+        // Seed storage-based previous consensus
+        Consensus::<Test>::insert(netuid, previous_consensus_u16);
+
+        // Current mode: should use current_consensus
+        SubtensorModule::set_liquid_alpha_consensus_mode(netuid.into(), ConsensusMode::Current);
+        let bonds_current_mode =
+            SubtensorModule::compute_bonds(netuid.into(), &weights, &bonds, &current_consensus);
+
+        // Previous mode: should use stored previous_consensus (different from current)
+        SubtensorModule::set_liquid_alpha_consensus_mode(netuid.into(), ConsensusMode::Previous);
+        let bonds_previous_mode =
+            SubtensorModule::compute_bonds(netuid.into(), &weights, &bonds, &current_consensus);
+
+        // The two results must differ since current != previous consensus
+        assert_ne!(
+            bonds_current_mode, bonds_previous_mode,
+            "Previous mode should produce different bonds than Current mode"
+        );
+
+        // Auto mode with bond_penalty == u16::MAX should behave like Previous
+        SubtensorModule::set_liquid_alpha_consensus_mode(netuid.into(), ConsensusMode::Auto);
+        SubtensorModule::set_bonds_penalty(netuid.into(), u16::MAX);
+        let bonds_auto_max_penalty =
+            SubtensorModule::compute_bonds(netuid.into(), &weights, &bonds, &current_consensus);
+
+        assert_eq!(
+            bonds_previous_mode, bonds_auto_max_penalty,
+            "Auto mode with bond_penalty==u16::MAX should equal Previous mode"
+        );
+
+        // Auto mode with bond_penalty < u16::MAX should behave like Current
+        SubtensorModule::set_bonds_penalty(netuid.into(), u16::MAX.saturating_div(2));
+        let bonds_auto_half_penalty =
+            SubtensorModule::compute_bonds(netuid.into(), &weights, &bonds, &current_consensus);
+
+        assert_eq!(
+            bonds_current_mode, bonds_auto_half_penalty,
+            "Auto mode with bond_penalty<u16::MAX should equal Current mode"
+        );
+    });
+}
+
 #[test]
 fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
     new_test_ext(1).execute_with(|| {

@@ -1376,7 +1376,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns:
     /// A vector of consensus values to use for liquid alpha calculation
-    pub fn compute_consensus_for_liquid_alpha(
+    pub(crate) fn compute_consensus_for_liquid_alpha(
         netuid: NetUid,
         current_consensus: &[I32F32],
     ) -> Vec<I32F32> {
@@ -1399,9 +1399,8 @@ impl<T: Config> Pallet<T> {
                     .collect()
             }
             ConsensusMode::Auto => {
-                // Auto mode: Previous if bond_penalty == 1, otherwise Current
-                let bonds_penalty = Self::get_float_bonds_penalty(netuid);
-                if bonds_penalty == I32F32::from_num(1) {
+                // Auto mode: Previous if bond_penalty == u16::MAX (i.e. 1.0), otherwise Current
+                if Self::get_bonds_penalty(netuid) == u16::MAX {
                     let previous_consensus_u16 = Consensus::<T>::get(netuid);
                     previous_consensus_u16
                         .iter()
@@ -1631,9 +1630,10 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), DispatchError> {
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
-        Self::set_liquid_alpha_consensus_mode(netuid, mode.clone());
+        Self::set_liquid_alpha_consensus_mode(netuid, mode);
+        Self::deposit_event(Event::LiquidAlphaConsensusModeSet { netuid, mode });
 
-        log::debug!("LiquidAlphaConsensusModeSet( netuid: {netuid:?}, mode: {mode:?} )",);
+        log::debug!("LiquidAlphaConsensusModeSet( netuid: {netuid:?}, mode: {mode:?} )");
         Ok(())
     }
 

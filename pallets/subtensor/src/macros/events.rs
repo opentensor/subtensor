@@ -562,5 +562,13 @@ mod events {
             /// The burn increase multiplier value for neuron registration.
             burn_increase_mult: u64,
         },
+
+        /// Liquid alpha consensus mode set for a subnet.
+        LiquidAlphaConsensusModeSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The new consensus mode.
+            mode: ConsensusMode,
+        },
     }
 }
