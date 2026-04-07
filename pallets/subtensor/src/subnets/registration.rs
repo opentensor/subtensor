@@ -159,36 +159,6 @@ impl<T: Config> Pallet<T> {
         Self::do_register(origin, netuid, hotkey)
     }
 
-    /// PoW / seal checks for [`Self::do_faucet`] (transaction extension; feature `pow-faucet`).
-    pub fn validate_faucet(
-        coldkey: &T::AccountId,
-        block_number: u64,
-        nonce: u64,
-        work: Vec<u8>,
-    ) -> Result<(), Error<T>> {
-        let current_block_number: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            block_number <= current_block_number,
-            Error::<T>::InvalidWorkBlock
-        );
-        ensure!(
-            current_block_number.saturating_sub(block_number) < 3,
-            Error::<T>::InvalidWorkBlock
-        );
-
-        let difficulty: U256 = U256::from(1_000_000);
-        let work_hash: H256 = Self::vec_to_hash(work.clone());
-        ensure!(
-            Self::hash_meets_difficulty(&work_hash, difficulty),
-            Error::<T>::InvalidDifficulty
-        );
-
-        let seal: H256 = Self::create_seal_hash(block_number, nonce, coldkey);
-        ensure!(seal == work_hash, Error::<T>::InvalidSeal);
-
-        Ok(())
-    }
-
     pub fn do_faucet(
         origin: OriginFor<T>,
         block_number: u64,

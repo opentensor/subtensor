@@ -75,31 +75,4 @@ impl<T: Config> Pallet<T> {
         // --- 8. Ok and return.
         Ok(())
     }
-
-    /// Preconditions for [`Self::do_increase_take`] (transaction extension).
-    pub fn validate_increase_take(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        take: u16,
-    ) -> Result<(), Error<T>> {
-        Self::do_take_checks(coldkey, hotkey)?;
-
-        if let Ok(current_take) = Delegates::<T>::try_get(hotkey) {
-            ensure!(take > current_take, Error::<T>::DelegateTakeTooLow);
-        }
-
-        let max_take = MaxDelegateTake::<T>::get();
-        ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
-
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_delegate_take_rate_limit(
-                Self::get_last_tx_block_delegate_take(hotkey),
-                block
-            ),
-            Error::<T>::DelegateTxRateLimitExceeded
-        );
-
-        Ok(())
-    }
 }
