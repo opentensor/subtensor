@@ -544,10 +544,10 @@ where
 
         let approval_key = (spender, netuid);
 
-        let current_amount = AllowancesStorage::get(&approver, &approval_key);
+        let current_amount = AllowancesStorage::get(approver, approval_key);
         let new_amount = current_amount.saturating_add(amount_alpha_increase);
 
-        AllowancesStorage::insert(approver, &approval_key, new_amount);
+        AllowancesStorage::insert(approver, approval_key, new_amount);
 
         Ok(())
     }
@@ -573,13 +573,13 @@ where
 
         let approval_key = (spender, netuid);
 
-        let current_amount = AllowancesStorage::get(&approver, &approval_key);
+        let current_amount = AllowancesStorage::get(approver, approval_key);
         let new_amount = current_amount.saturating_sub(amount_alpha_decrease);
 
         if new_amount.is_zero() {
-            AllowancesStorage::remove(approver, &approval_key);
+            AllowancesStorage::remove(approver, approval_key);
         } else {
-            AllowancesStorage::insert(approver, &approval_key, new_amount);
+            AllowancesStorage::insert(approver, approval_key, new_amount);
         }
 
         Ok(())
@@ -602,15 +602,15 @@ where
 
         let approval_key = (spender, netuid);
 
-        let current_amount = AllowancesStorage::get(&approver, &approval_key);
+        let current_amount = AllowancesStorage::get(approver, approval_key);
         let Some(new_amount) = current_amount.checked_sub(amount) else {
             return Err(revert("trying to spend more than allowed"));
         };
 
         if new_amount.is_zero() {
-            AllowancesStorage::remove(approver, &approval_key);
+            AllowancesStorage::remove(approver, approval_key);
         } else {
-            AllowancesStorage::insert(approver, &approval_key, new_amount);
+            AllowancesStorage::insert(approver, approval_key, new_amount);
         }
 
         Ok(())
@@ -636,7 +636,7 @@ where
 
         Self::try_consume_allowance(
             handle,
-            source_address.clone(),
+            source_address,
             spender,
             origin_netuid,
             amount_alpha,
