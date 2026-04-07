@@ -104,6 +104,9 @@ thread_local! {
     /// on residual balances after distribution.
     pub static TAO_BALANCES: RefCell<HashMap<AccountId, u64>> =
         RefCell::new(HashMap::new());
+    /// When set to `true`, `transfer_tao` returns `Err(CannotTransfer)` so
+    /// tests can exercise the `FeeTransferFailed` event path.
+    pub static FAIL_FEE_TRANSFER: RefCell<bool> = RefCell::new(false);
     /// When `true`, `buy_alpha` and `sell_alpha` return `DispatchError::Other("pool error")`.
     pub static MOCK_SWAP_FAIL: RefCell<bool> = RefCell::new(false);
     /// Rate-limit flags set by `transfer_staked_alpha` when `set_receiver_limit` is true.
@@ -295,6 +298,9 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         to: &AccountId,
         amount: TaoBalance,
     ) -> frame_support::pallet_prelude::DispatchResult {
+        if FAIL_FEE_TRANSFER.with(|f| *f.borrow()) {
+            return Err(frame_support::pallet_prelude::DispatchError::CannotLookup);
+        }
         let amt = amount.to_u64();
         TAO_BALANCES.with(|b| {
             let mut map = b.borrow_mut();

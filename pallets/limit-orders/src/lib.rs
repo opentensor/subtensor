@@ -260,6 +260,13 @@ pub mod pallet {
             /// Number of orders that were successfully executed.
             executed_count: u32,
         },
+        /// A fee transfer to a recipient failed. The fee remains with the
+        /// original sender. Emitted best-effort — does not revert the order.
+        FeeTransferFailed {
+            recipient: T::AccountId,
+            amount: u64,
+            reason: sp_runtime::DispatchError,
+        },
         /// Root has either enabled(true) or disabled(false) the pallet
         LimitOrdersPalletStatusChanged { enabled: bool },
     }
@@ -484,8 +491,13 @@ pub mod pallet {
 
                 // Forward the fee TAO to the order's fee recipient.
                 if !fee_tao.is_zero() {
-                    T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
-                        .ok();
+                    if let Err(reason) = T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao) {
+                        Self::deposit_event(Event::FeeTransferFailed {
+                            recipient: order.fee_recipient.clone(),
+                            amount: fee_tao.to_u64(),
+                            reason,
+                        });
+                    }
                 }
                 (order.amount, alpha_out.to_u64())
             } else {
@@ -502,8 +514,13 @@ pub mod pallet {
                 // Deduct fee from TAO output and forward to the order's fee recipient.
                 let fee_tao = TaoBalance::from(order.fee_rate * tao_out.to_u64());
                 if !fee_tao.is_zero() {
-                    T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
-                        .ok();
+                    if let Err(reason) = T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao) {
+                        Self::deposit_event(Event::FeeTransferFailed {
+                            recipient: order.fee_recipient.clone(),
+                            amount: fee_tao.to_u64(),
+                            reason,
+                        });
+                    }
                 }
                 (order.amount, tao_out.saturating_sub(fee_tao).to_u64())
             };
@@ -897,12 +914,17 @@ pub mod pallet {
             // One transfer per unique fee recipient.
             for (recipient, amount) in fees {
                 if amount > 0 {
-                    T::SwapInterface::transfer_tao(
+                    if let Err(reason) = T::SwapInterface::transfer_tao(
                         pallet_acct,
                         &recipient,
                         TaoBalance::from(amount),
-                    )
-                    .ok();
+                    ) {
+                        Self::deposit_event(Event::FeeTransferFailed {
+                            recipient,
+                            amount,
+                            reason,
+                        });
+                    }
                 }
             }
 

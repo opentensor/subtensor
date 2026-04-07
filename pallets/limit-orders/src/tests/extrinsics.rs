@@ -533,6 +533,61 @@ fn execute_orders_sell_with_fee_charges_fee() {
     });
 }
 
+#[test]
+fn execute_orders_empty_batch_returns_ok() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![])
+        ));
+    });
+}
+
+#[test]
+fn execute_orders_fee_transfer_failure_emits_event() {
+    new_test_ext().execute_with(|| {
+        // Order executes successfully, but the fee transfer to the recipient fails.
+        // The order should still be marked Fulfilled and FeeTransferFailed emitted.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_buy_alpha_return(500);
+        MockSwap::set_tao_balance(alice(), 10_000);
+
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::from_parts(10_000_000), // 1%
+            fee_recipient(),
+        );
+
+        FAIL_FEE_TRANSFER.with(|f| *f.borrow_mut() = true);
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed.clone()])
+        ));
+        FAIL_FEE_TRANSFER.with(|f| *f.borrow_mut() = false);
+
+        // Order was executed despite the failed fee transfer.
+        let id = crate::tests::mock::order_id(&signed.order);
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+
+        // FeeTransferFailed was emitted with the correct recipient and error.
+        assert_event(Event::FeeTransferFailed {
+            recipient: fee_recipient(),
+            amount: 10, // 1% of 1_000
+            reason: DispatchError::CannotLookup,
+        });
+
+        // fee_recipient received nothing.
+        assert_eq!(MockSwap::tao_balance(&fee_recipient()), 0);
+    });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // execute_orders — silent-skip behaviour
 // ─────────────────────────────────────────────────────────────────────────────
@@ -730,6 +785,38 @@ fn execute_batched_orders_fails_for_wrong_netuid() {
                 bounded(vec![wrong_net]),
             ),
             Error::<Test>::OrderNetUidMismatch
+        );
+    });
+}
+
+#[test]
+fn execute_batched_orders_price_condition_not_met_fails_entire_batch() {
+    new_test_ext().execute_with(|| {
+        // Price condition not met is a hard-fail in execute_batched_orders —
+        // unlike execute_orders where it silently skips the order.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(100.0); // current price = 100
+
+        // LimitBuy requires current_price <= limit_price; with limit_price=1 this fails.
+        let order = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            1, // limit_price = 1, far below current price of 100
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+        );
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie()),
+                netuid(),
+                bounded(vec![order])
+            ),
+            Error::<Test>::PriceConditionNotMet
         );
     });
 }
