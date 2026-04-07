@@ -2,7 +2,7 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { generateKeyringPair, tao } from "../../../../utils";
-import { devForceSetBalance, devAddStake, devGetAlphaStake, devAssociateHotKey, devEnableSubtoken, devRegisterSubnet, devSudoSetLockReductionInterval, devExecuteOrders } from "./helpers.js";
+import { devForceSetBalance, devAddStake, devGetAlphaStake, devAssociateHotKey, devEnableSubtoken, devRegisterSubnet, devSudoSetLockReductionInterval, devExecuteOrders } from "../../../../utils/dev-helpers.js";
 import {
     buildSignedOrder,
     FAR_FUTURE,

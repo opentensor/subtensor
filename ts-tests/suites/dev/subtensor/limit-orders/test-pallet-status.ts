@@ -2,7 +2,7 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { tao } from "../../../../utils";
-import { devForceSetBalance } from "./helpers.js";
+import { devForceSetBalance } from "../../../../utils/dev-helpers.js";
 import {
     buildSignedOrder,
     FAR_FUTURE,

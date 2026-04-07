@@ -1,11 +1,10 @@
 /**
- * Polkadot.js (ApiPromise) compatible helpers for limit-orders dev tests.
- * The utils/ directory uses PAPI TypedApi which is incompatible with the
- * moonwall `dev` foundation that exposes context.polkadotJs().
+ * Polkadot.js (ApiPromise) compatible helpers for dev tests.
+ * Uses ApiPromise, not PAPI TypedApi — keep them separate.
  */
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
-import { SignedOrder } from "utils";
+import { SignedOrder } from "./index.js";
 
 export async function devForceSetBalance(
     polkadotJs: ApiPromise,

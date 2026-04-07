@@ -10,7 +10,7 @@ import {
     devEnableSubtoken,
     devRegisterSubnet,
     devSudoSetLockReductionInterval,
-} from "./helpers.js";
+} from "../../../../utils/dev-helpers.js";
 import {
     buildSignedOrder,
     computeNetAmount,
