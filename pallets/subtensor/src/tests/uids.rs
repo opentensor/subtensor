@@ -40,10 +40,7 @@ fn test_replace_neuron() {
         assert_ok!(neuron_uid);
         let neuron_uid = neuron_uid.unwrap();
 
-        // Set non-default values.
-        Trust::<Test>::mutate(netuid, |v| {
-            SubtensorModule::set_element_at(v, neuron_uid as usize, 5u16)
-        });
+        // set non-default values
         Emission::<Test>::mutate(netuid, |v| {
             SubtensorModule::set_element_at(v, neuron_uid as usize, 5.into())
         });
