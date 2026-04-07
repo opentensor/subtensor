@@ -71,17 +71,17 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
     // increase the TotalIssuance back. Now, in order to restore the TotalIssuance correctly and 
     // account for TAO burned / unburned in locks, increase subtensor pallet TotalIssuance by 
     // total of SubnetLocked update in migrate_restore_subnet_locked.
-    //
-    // Use maximum value for adjustment: max(SUBNET_LOCKED total, total_subnet_locked)
     let total_locked_adjustment = SUBNET_LOCKED
         .iter()
-        .fold(0u64, |acc, (_, value)| acc.saturating_add(*value))
-        .max(total_subnet_locked);
+        .fold(0u64, |acc, (_, value)| acc.saturating_add(*value));
 
     // mint_tao increases subtensor TotalIssuance, but this is not the intention here because 
     // SubnetTAO and SubnetLocked are already accounted in it. Reduce it back.
     TotalIssuance::<T>::mutate(|total| {
-        *total = total.saturating_sub(total_subnet_tao.saturating_add(total_locked_adjustment));
+        *total = total.saturating_sub(total_subnet_tao)
+            .saturating_sub(total_locked_adjustment.into())
+            // Adjust for migrate_subnet_locked unburn
+            .saturating_add(total_subnet_locked);
     });
 
     // Update the total issuance in storage
