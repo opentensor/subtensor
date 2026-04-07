@@ -6,6 +6,7 @@ pub use pallet::*;
 mod benchmarking;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -139,6 +140,7 @@ pub(crate) struct OrderEntry<AccountId> {
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
+    use crate::weights::WeightInfo as _;
     use frame_support::{
         PalletId,
         pallet_prelude::*,
@@ -179,6 +181,9 @@ pub mod pallet {
         /// this in the runtime configuration.
         #[pallet::constant]
         type PalletHotkey: Get<Self::AccountId>;
+
+        /// Weight information for the pallet's extrinsics.
+        type WeightInfo: crate::weights::WeightInfo;
     }
 
     // ── Storage ───────────────────────────────────────────────────────────────
@@ -271,9 +276,7 @@ pub mod pallet {
         /// Orders that fail for any other reason (expired, bad signature, etc.)
         /// are also skipped; the admin is expected to filter these off-chain.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(
-            T::DbWeight::get().reads_writes(2, 1).saturating_mul(orders.len() as u64)
-        ))]
+        #[pallet::weight(T::WeightInfo::execute_orders(orders.len() as u32))]
         pub fn execute_orders(
             origin: OriginFor<T>,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
@@ -315,9 +318,7 @@ pub mod pallet {
         /// All orders in the batch must target `netuid`. Orders for a different
         /// subnet are skipped.
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(
-            T::DbWeight::get().reads_writes(3, 2).saturating_mul(orders.len() as u64)
-        ))]
+        #[pallet::weight(T::WeightInfo::execute_batched_orders(orders.len() as u32))]
         pub fn execute_batched_orders(
             origin: OriginFor<T>,
             netuid: NetUid,
@@ -338,7 +339,7 @@ pub mod pallet {
         /// provided so the pallet can derive the `OrderId`. Once marked
         /// Cancelled, the order can never be executed.
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
+        #[pallet::weight(T::WeightInfo::cancel_order())]
         pub fn cancel_order(origin: OriginFor<T>, order: Order<T::AccountId>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             ensure!(order.signer == who, Error::<T>::Unauthorized);
@@ -365,7 +366,7 @@ pub mod pallet {
         /// It allows disabling or enabling the pallet
         /// true means enabling, false means disabling
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::from_parts(10_000, 0).saturating_add(T::DbWeight::get().writes(1)))]
+        #[pallet::weight(T::WeightInfo::set_pallet_status())]
         pub fn set_pallet_status(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             ensure_root(origin)?;
 

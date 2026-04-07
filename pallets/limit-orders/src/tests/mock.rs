@@ -422,6 +422,7 @@ impl pallet_limit_orders::Config for Test {
     type MaxOrdersPerBatch = ConstU32<64>;
     type PalletId = LimitOrdersPalletId;
     type PalletHotkey = PalletHotkeyAccount;
+    type WeightInfo = ();
 }
 
 // ── Shared test helpers ───────────────────────────────────────────────────────

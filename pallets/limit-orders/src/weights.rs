@@ -32,9 +32,32 @@
 use frame_support::{traits::Get, weights::Weight};
 use core::marker::PhantomData;
 
-/// Weight functions for `pallet_limit_orders`.
-pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_limit_orders::WeightInfo for WeightInfo<T> {
+/// Weight functions needed for `pallet_limit_orders`.
+pub trait WeightInfo {
+    fn execute_orders(n: u32) -> Weight;
+    fn execute_batched_orders(n: u32) -> Weight;
+    fn cancel_order() -> Weight;
+    fn set_pallet_status() -> Weight;
+}
+
+impl WeightInfo for () {
+    fn execute_orders(_n: u32) -> Weight {
+        Weight::zero()
+    }
+    fn execute_batched_orders(_n: u32) -> Weight {
+        Weight::zero()
+    }
+    fn cancel_order() -> Weight {
+        Weight::zero()
+    }
+    fn set_pallet_status() -> Weight {
+        Weight::zero()
+    }
+}
+
+/// Benchmarked weight functions for `pallet_limit_orders`.
+pub struct SubstrateWeight<T>(PhantomData<T>);
+impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `LimitOrders::Orders` (r:1 w:1)
 	/// Proof: `LimitOrders::Orders` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
 	fn cancel_order() -> Weight {

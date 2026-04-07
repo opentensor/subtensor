@@ -1555,6 +1555,7 @@ impl pallet_limit_orders::Config for Runtime {
     type MaxOrdersPerBatch = LimitOrdersMaxOrdersPerBatch;
     type PalletId = LimitOrdersPalletId;
     type PalletHotkey = LimitOrdersPalletHotkey;
+    type WeightInfo = pallet_limit_orders::weights::SubstrateWeight<Runtime>;
 }
 
 fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedule<T> {
