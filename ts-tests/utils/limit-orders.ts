@@ -1,0 +1,221 @@
+import type { KeyringPair } from "@moonwall/util";
+import type { TypedApi } from "polkadot-api";
+import type { subtensor } from "@polkadot-api/descriptors";
+import { Keyring } from "@polkadot/keyring";
+import { u8aToHex } from "@polkadot/util";
+import { blake2AsHex } from "@polkadot/util-crypto";
+import { waitForTransactionWithRetry } from "./transactions.js";
+import { MultiAddress } from "@polkadot-api/descriptors";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type OrderType = "LimitBuy" | "TakeProfit" | "StopLoss";
+
+export interface OrderParams {
+    signer: KeyringPair;
+    hotkey: string;
+    netuid: number;
+    orderType: OrderType;
+    amount: bigint;
+    limitPrice: bigint;
+    expiry: bigint;
+    feeRate: number; // Perbill (parts per billion), e.g. 10_000_000 = 1%
+    feeRecipient: string;
+}
+
+export interface Order {
+    signer: string;
+    hotkey: string;
+    netuid: number;
+    order_type: OrderType;
+    amount: bigint;
+    limit_price: bigint;
+    expiry: bigint;
+    fee_rate: number;
+    fee_recipient: string;
+}
+
+export interface VersionedOrder {
+    V1: Order;
+}
+
+export interface SignedOrder {
+    order: VersionedOrder;
+    signature: { Sr25519: `0x${string}` } | { Ed25519: `0x${string}` } | { Ecdsa: `0x${string}` };
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+export const PERBILL_ONE_PERCENT = 10_000_000;
+export const FAR_FUTURE = BigInt("18446744073709551615"); // u64::MAX
+export const EXPIRED = BigInt(1); // 1ms — always in the past
+
+// ── Order building & signing ──────────────────────────────────────────────────
+
+/**
+ * Build a SignedOrder ready for submission to execute_orders /
+ * execute_batched_orders.  The Order struct is SCALE-encoded via the
+ * polkadot.js registry and then signed with the signer's sr25519 key.
+ */
+export function buildSignedOrder(api: any, params: OrderParams): SignedOrder {
+    const inner: Order = {
+        signer: params.signer.address,
+        hotkey: params.hotkey,
+        netuid: params.netuid,
+        order_type: params.orderType,
+        amount: params.amount,
+        limit_price: params.limitPrice,
+        expiry: params.expiry,
+        fee_rate: params.feeRate,
+        fee_recipient: params.feeRecipient,
+    };
+
+    const versionedOrder: VersionedOrder = { V1: inner };
+
+    // SCALE-encode the VersionedOrder so the signature covers the version tag.
+    const encoded = api.registry.createType("LimitVersionedOrder", versionedOrder);
+    const sig = params.signer.sign(encoded.toU8a());
+
+    return {
+        order: versionedOrder,
+        signature: { Sr25519: u8aToHex(sig) as `0x${string}` },
+    };
+}
+
+/**
+ * Compute the on-chain OrderId (blake2_256 of SCALE-encoded VersionedOrder).
+ * Mirrors `Pallet::derive_order_id` in Rust.
+ */
+export function orderId(api: any, order: VersionedOrder): `0x${string}` {
+    const encoded = api.registry.createType("LimitVersionedOrder", order);
+    return blake2AsHex(encoded.toU8a(), 256) as `0x${string}`;
+}
+
+// ── Registry ──────────────────────────────────────────────────────────────────
+
+/**
+ * Register the custom SCALE types used by pallet-limit-orders with the
+ * polkadot.js ApiPromise registry.  Call this once after obtaining the api.
+ */
+export function registerLimitOrderTypes(api: any): void {
+    api.registry.register({
+        LimitOrderType: {
+            _enum: ["LimitBuy", "TakeProfit", "StopLoss"],
+        },
+        LimitOrder: {
+            signer: "AccountId",
+            hotkey: "AccountId",
+            netuid: "u16",
+            order_type: "LimitOrderType",
+            amount: "u64",
+            limit_price: "u64",
+            expiry: "u64",
+            fee_rate: "u32", // Perbill
+            fee_recipient: "AccountId",
+        },
+        LimitVersionedOrder: {
+            _enum: {
+                V1: "LimitOrder",
+            },
+        },
+        LimitSignedOrder: {
+            order: "LimitVersionedOrder",
+            signature: "MultiSignature",
+        },
+        LimitOrderStatus: {
+            _enum: ["Fulfilled", "Cancelled"],
+        },
+    });
+}
+
+// ── Chain helpers ─────────────────────────────────────────────────────────────
+
+/** Read current SubnetTAO and SubnetAlphaIn to derive spot price (TAO per alpha). */
+export async function getAlphaPrice(api: TypedApi<typeof subtensor>, netuid: number): Promise<bigint> {
+    const taoReserve = await api.query.SubtensorModule.SubnetTAO.getValue(netuid);
+    const alphaIn = await api.query.SubtensorModule.SubnetAlphaIn.getValue(netuid);
+    if (alphaIn === 0n) return 0n;
+    return taoReserve / alphaIn; // integer approximation
+}
+
+/**
+ * Sudo-set pool reserves directly so benchmarks and tests have a
+ * well-defined, non-zero starting price.
+ */
+export async function seedPoolReserves(
+    api: TypedApi<typeof subtensor>,
+    polkadotJs: any,
+    netuid: number,
+    taoReserve: bigint,
+    alphaIn: bigint
+): Promise<void> {
+    const keyring = new Keyring({ type: "sr25519" });
+    const alice = keyring.addFromUri("//Alice");
+
+    const setTao = polkadotJs.tx.sudo.sudo(
+        polkadotJs.tx.adminUtils.sudoSetSubnetTao(netuid, taoReserve)
+    );
+    await setTao.signAndSend(alice, { nonce: -1 });
+
+    const setAlpha = polkadotJs.tx.sudo.sudo(
+        polkadotJs.tx.adminUtils.sudoSetSubnetAlphaIn(netuid, alphaIn)
+    );
+    await setAlpha.signAndSend(alice, { nonce: -1 });
+}
+
+/** Enable the subtoken for a subnet (required for swaps to work). */
+export async function enableSubtoken(
+    api: TypedApi<typeof subtensor>,
+    netuid: number
+): Promise<void> {
+    const keyring = new Keyring({ type: "sr25519" });
+    const alice = keyring.addFromUri("//Alice");
+    const internalCall = api.tx.AdminUtils.sudo_set_subtoken_enabled({
+        netuid,
+        subtoken_enabled: true,
+    });
+    const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
+    await waitForTransactionWithRetry(api, tx, alice, "sudo_set_subtoken_enabled");
+}
+
+/** Sudo-enable or disable the limit-orders pallet. */
+export async function setPalletStatus(
+    api: TypedApi<typeof subtensor>,
+    enabled: boolean
+): Promise<void> {
+    const keyring = new Keyring({ type: "sr25519" });
+    const alice = keyring.addFromUri("//Alice");
+    const tx = api.tx.Sudo.sudo({
+        call: api.tx.LimitOrders.set_pallet_status({ enabled }).decodedCall,
+    });
+    await waitForTransactionWithRetry(api, tx, alice, "set_pallet_status");
+}
+
+/** Read the on-chain OrderStatus for a given order id (hex). */
+export async function getOrderStatus(
+    polkadotJs: any,
+    id: `0x${string}`
+): Promise<"Fulfilled" | "Cancelled" | undefined> {
+    const result = await polkadotJs.query.limitOrders.orders(id);
+    if (result.isNone) return undefined;
+    return result.unwrap().type as "Fulfilled" | "Cancelled";
+}
+
+/** Filter system events by method name. */
+export function filterEvents(events: any, method: string): any[] {
+    return (events as any[]).filter((e: any) => e.event.method === method);
+}
+
+export async function executeBatchedOrders(
+    api: TypedApi<typeof subtensor>,
+    netuid: number,
+    orders: SignedOrder[]
+): Promise<void> {
+    const keyring = new Keyring({ type: "sr25519" });
+    const alice = keyring.addFromUri("//Alice");
+    const tx = api.tx.LimitOrders.execute_batched_orders({
+        netuid,
+        orders,
+    });
+    await waitForTransactionWithRetry(api, tx, alice, "execute_batched_orders");
+}
