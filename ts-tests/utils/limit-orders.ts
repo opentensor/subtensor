@@ -206,6 +206,45 @@ export function filterEvents(events: any, method: string): any[] {
     return (events as any[]).filter((e: any) => e.event.method === method);
 }
 
+/**
+ * Compute the expected `net_amount` field of `GroupExecutionSummary` for a
+ * mixed buy/sell batch, mirroring the pallet's netting logic.
+ *
+ * The runtime API returns `floor(price_actual * 1e9)` as a u64, so our
+ * bigint replication differs from the on-chain U96F32 result by at most a
+ * few RAO — use `toBeCloseTo` or a small tolerance window when asserting.
+ *
+ * @param polkadotJs  polkadot-js ApiPromise
+ * @param netuid      subnet id
+ * @param buySideTao  total net TAO from buy orders (after fees, in RAO)
+ * @param sellSideAlpha  total net alpha from sell orders (in RAO)
+ * @param side        which side dominates ("Buy" | "Sell")
+ */
+export async function computeNetAmount(
+    polkadotJs: any,
+    netuid: number,
+    buySideTao: bigint,
+    sellSideAlpha: bigint,
+    side: "Buy" | "Sell",
+): Promise<bigint> {
+    // price_scaled = floor(price_actual * 1e9)  [RAO per alpha * 1e9 / 1e9 = dimensionless]
+    const priceRaw = await polkadotJs.call.swapRuntimeApi.currentAlphaPrice(netuid);
+    const price = BigInt(priceRaw.toString());
+    const SCALE = 1_000_000_000n;
+
+    if (side === "Buy") {
+        // net_amount (TAO) = buy_tao - alpha_to_tao(sell_alpha, price)
+        //   alpha_to_tao ≈ floor(price * sell_alpha / 1e9)
+        const sellTaoEquiv = (price * sellSideAlpha) / SCALE;
+        return buySideTao - sellTaoEquiv;
+    } else {
+        // net_amount (alpha) = sell_alpha - tao_to_alpha(buy_tao, price)
+        //   tao_to_alpha ≈ floor(buy_tao * 1e9 / price)
+        const buyAlphaEquiv = (buySideTao * SCALE) / price;
+        return sellSideAlpha - buyAlphaEquiv;
+    }
+}
+
 export async function executeBatchedOrders(
     api: TypedApi<typeof subtensor>,
     netuid: number,

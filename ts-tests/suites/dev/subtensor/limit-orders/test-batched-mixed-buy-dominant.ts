@@ -13,6 +13,7 @@ import {
 } from "./helpers.js";
 import {
     buildSignedOrder,
+    computeNetAmount,
     FAR_FUTURE,
     filterEvents,
     registerLimitOrderTypes,
@@ -93,6 +94,11 @@ describeSuite({
                     feeRecipient: bob.address,
                 });
 
+                // Read price before the swap — pallet uses pre-swap price for netting
+                const expectedNetAmount = await computeNetAmount(
+                    polkadotJs, netuid, tao(200), tao(10), "Buy"
+                );
+
                 await context.createBlock([
                     await polkadotJs.tx.limitOrders
                         .executeBatchedOrders(netuid, [buyOrder, sellOrder])
@@ -107,10 +113,9 @@ describeSuite({
                 const summaryData = summary[0].event.data;
                 // net_side should be Buy (residual TAO sent to pool)
                 expect(summaryData[1].type).toBe("Buy");
-                // net_amount > 0 proves the pool was actually touched
-                expect(summaryData[2].toBigInt()).toBeGreaterThan(0n);
-                // net_amount < total buy proves internal netting happened (sell side was matched directly)
-                expect(summaryData[2].toBigInt()).toBeLessThan(tao(200));
+                // net_amount matches buy_tao - alpha_to_tao(sell_alpha, price)
+                const netAmountDiff = summaryData[2].toBigInt() - expectedNetAmount;
+                expect(netAmountDiff < 0n ? -netAmountDiff : netAmountDiff).toBeLessThanOrEqual(10n);
                 // actual_out > 0 proves the pool returned alpha
                 expect(summaryData[3].toBigInt()).toBeGreaterThan(0n);
 
