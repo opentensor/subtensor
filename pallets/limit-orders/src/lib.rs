@@ -85,24 +85,45 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub fee_recipient: AccountId,
 }
 
-/// The envelope the admin submits on-chain: the order payload plus the user's
-/// signature over the SCALE-encoded `Order`.
+/// Versioned wrapper around an order payload.
+///
+/// Adding a new variant in the future (e.g. `V2`) lets the pallet accept orders
+/// signed against either schema simultaneously, preventing old signed orders from
+/// being invalidated by a schema upgrade.
+#[derive(
+    Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
+)]
+pub enum VersionedOrder<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> {
+    V1(Order<AccountId>),
+}
+
+impl<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> VersionedOrder<AccountId> {
+    /// Returns a reference to the inner order regardless of version.
+    pub fn inner(&self) -> &Order<AccountId> {
+        match self {
+            VersionedOrder::V1(order) => order,
+        }
+    }
+}
+
+/// The envelope the admin submits on-chain: the versioned order payload plus
+/// the user's signature over the SCALE-encoded `VersionedOrder`.
 ///
 /// TODO: evaluate cross-chain replay protection. The signature covers only the
-/// SCALE-encoded `Order` with no chain-specific domain separator (genesis hash,
-/// chain ID, or pallet prefix). A signed order is therefore valid on any chain
+/// SCALE-encoded `VersionedOrder` with no chain-specific domain separator (genesis
+/// hash, chain ID, or pallet prefix). A signed order is therefore valid on any chain
 /// that shares the same runtime types (e.g. a testnet fork). Consider prepending
 /// a domain tag to the signed payload or adding the genesis hash as an `Order` field.
 ///
-/// Signature verification is performed against `order.signer` (the AccountId)
+/// Signature verification is performed against `order.inner().signer` (the AccountId)
 /// directly. Only sr25519 signatures are accepted; ed25519 and ecdsa variants
 /// of `MultiSignature` are rejected at validation time.
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
 pub struct SignedOrder<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> {
-    pub order: Order<AccountId>,
-    /// Sr25519 signature over `SCALE_ENCODE(order)`.
+    pub order: VersionedOrder<AccountId>,
+    /// Sr25519 signature over `SCALE_ENCODE(VersionedOrder)`.
     pub signature: MultiSignature,
 }
 
@@ -345,9 +366,12 @@ pub mod pallet {
         /// Cancelled, the order can never be executed.
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::cancel_order())]
-        pub fn cancel_order(origin: OriginFor<T>, order: Order<T::AccountId>) -> DispatchResult {
+        pub fn cancel_order(
+            origin: OriginFor<T>,
+            order: VersionedOrder<T::AccountId>,
+        ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(order.signer == who, Error::<T>::Unauthorized);
+            ensure!(order.inner().signer == who, Error::<T>::Unauthorized);
 
             let order_id = Self::derive_order_id(&order);
 
@@ -387,7 +411,7 @@ pub mod pallet {
 
     impl<T: Config> Pallet<T> {
         /// Derive the on-chain `OrderId` as blake2_256 over the SCALE-encoded order.
-        pub fn derive_order_id(order: &Order<T::AccountId>) -> H256 {
+        pub fn derive_order_id(order: &VersionedOrder<T::AccountId>) -> H256 {
             H256(sp_core::hashing::blake2_256(&order.encode()))
         }
 
@@ -406,13 +430,13 @@ pub mod pallet {
             now_ms: u64,
             current_price: U96F32,
         ) -> DispatchResult {
-            let order = &signed_order.order;
+            let order = signed_order.order.inner();
             ensure!(!order.netuid.is_root(), Error::<T>::RootNetUidNotAllowed);
             ensure!(
                 matches!(signed_order.signature, MultiSignature::Sr25519(_))
                     && signed_order
                         .signature
-                        .verify(order.encode().as_slice(), &order.signer),
+                        .verify(signed_order.order.encode().as_slice(), &order.signer),
                 Error::<T>::InvalidSignature
             );
             ensure!(
@@ -435,8 +459,8 @@ pub mod pallet {
         /// Attempt to execute one signed order. Returns an error on any
         /// validation or execution failure without panicking.
         fn try_execute_order(signed_order: SignedOrder<T::AccountId>) -> DispatchResult {
-            let order = &signed_order.order;
-            let order_id = Self::derive_order_id(order);
+            let order_id = Self::derive_order_id(&signed_order.order);
+            let order = signed_order.order.inner();
             let now_ms = T::TimeProvider::now().as_millis() as u64;
             let current_price = T::SwapInterface::current_alpha_price(order.netuid);
 
@@ -613,8 +637,8 @@ pub mod pallet {
             let mut sells = BoundedVec::new();
 
             for signed_order in orders.iter() {
-                let order = &signed_order.order;
-                let order_id = Self::derive_order_id(order);
+                let order_id = Self::derive_order_id(&signed_order.order);
+                let order = signed_order.order.inner();
 
                 // Hard-fail if the order targets a different subnet than the batch netuid.
                 ensure!(order.netuid == netuid, Error::<T>::OrderNetUidMismatch);

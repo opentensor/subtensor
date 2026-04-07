@@ -326,7 +326,12 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         MockSwap::set_buy_alpha_return(1_000_000);
         MockSwap::set_sell_tao_return(1_000_000);
         MockSwap::set_tao_balance(coldkey.clone(), u64::MAX / 2);
-        MockSwap::set_alpha_balance(coldkey.clone(), hotkey.clone(), NetUid::from(1u16), u64::MAX / 2);
+        MockSwap::set_alpha_balance(
+            coldkey.clone(),
+            hotkey.clone(),
+            NetUid::from(1u16),
+            u64::MAX / 2,
+        );
     }
 
     fn transfer_staked_alpha(
@@ -457,7 +462,7 @@ pub fn make_signed_order(
     fee_recipient: AccountId,
 ) -> crate::SignedOrder<AccountId> {
     let signer = keyring.to_account_id();
-    let order = crate::Order {
+    let order = crate::VersionedOrder::V1(crate::Order {
         signer,
         hotkey,
         netuid,
@@ -467,7 +472,7 @@ pub fn make_signed_order(
         expiry,
         fee_rate,
         fee_recipient,
-    };
+    });
     let sig = keyring.pair().sign(&order.encode());
     crate::SignedOrder {
         order,
@@ -481,7 +486,7 @@ pub fn bounded(
     BoundedVec::try_from(v).unwrap()
 }
 
-pub fn order_id(order: &crate::Order<AccountId>) -> H256 {
+pub fn order_id(order: &crate::VersionedOrder<AccountId>) -> H256 {
     crate::pallet::Pallet::<Test>::derive_order_id(order)
 }
 

@@ -14,13 +14,13 @@ extern crate alloc;
 use crate::{Call, Config, Pallet};
 use codec::Encode;
 
-/// Sign an order using the runtime keystore (no `full_crypto` required).
+/// Sign a versioned order using the runtime keystore (no `full_crypto` required).
 ///
 /// The key identified by `public` must already be registered in the keystore
 /// (e.g. via `sp_io::crypto::sr25519_generate`) before calling this.
 fn sign_order<T: crate::Config>(
     public: sp_core::sr25519::Public,
-    order: &crate::Order<T::AccountId>,
+    order: &crate::VersionedOrder<T::AccountId>,
 ) -> crate::SignedOrder<T::AccountId> {
     let sig = sp_io::crypto::sr25519_sign(
         sp_core::crypto::key_types::ACCOUNT,
@@ -38,13 +38,12 @@ fn sign_order<T: crate::Config>(
 /// public key. The key is inserted into the runtime keystore so it can sign.
 fn benchmark_key(i: u32) -> (sp_core::sr25519::Public, AccountId32) {
     let seed = alloc::format!("//BenchSigner{}", i).into_bytes();
-    let public =
-        sp_io::crypto::sr25519_generate(sp_core::crypto::key_types::ACCOUNT, Some(seed));
+    let public = sp_io::crypto::sr25519_generate(sp_core::crypto::key_types::ACCOUNT, Some(seed));
     let account = AccountId32::from(public);
     (public, account)
 }
 
-pub fn order_id<T: crate::Config>(order: &crate::Order<T::AccountId>) -> H256 {
+pub fn order_id<T: crate::Config>(order: &crate::VersionedOrder<T::AccountId>) -> H256 {
     crate::pallet::Pallet::<T>::derive_order_id(order)
 }
 
@@ -59,7 +58,7 @@ mod benchmarks {
         let (public, account_id) = benchmark_key(0);
         let account: T::AccountId = account_id.into();
 
-        let order = crate::Order {
+        let order = crate::VersionedOrder::V1(crate::Order {
             signer: account.clone(),
             hotkey: account.clone(),
             netuid: NetUid::from(1u16),
@@ -69,7 +68,7 @@ mod benchmarks {
             expiry: 1_000_000_000,
             fee_rate: Perbill::zero(),
             fee_recipient: account.clone(),
-        };
+        });
         let signed = sign_order::<T>(public, &order);
 
         #[extrinsic_call]
@@ -103,7 +102,7 @@ mod benchmarks {
 
             T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
 
-            let order = crate::Order {
+            let order = crate::VersionedOrder::V1(crate::Order {
                 signer: account.clone(),
                 hotkey: account.clone(),
                 netuid,
@@ -113,7 +112,7 @@ mod benchmarks {
                 expiry: u64::MAX,
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
-            };
+            });
             orders.push(sign_order::<T>(public, &order));
         }
 
@@ -148,7 +147,7 @@ mod benchmarks {
 
             T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
 
-            let order = crate::Order {
+            let order = crate::VersionedOrder::V1(crate::Order {
                 signer: account.clone(),
                 hotkey: account.clone(),
                 netuid,
@@ -158,7 +157,7 @@ mod benchmarks {
                 expiry: u64::MAX,
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
-            };
+            });
             orders.push(sign_order::<T>(public, &order));
         }
 

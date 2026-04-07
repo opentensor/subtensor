@@ -17,7 +17,7 @@ batch contents from the mempool until the block is proposed.
 ## Order lifecycle
 
 ```
-User signs Order off-chain
+User signs VersionedOrder::V1(Order) off-chain
         │
         ▼
 Relayer submits via execute_orders        Relayer submits via execute_batched_orders
@@ -25,7 +25,8 @@ Relayer submits via execute_orders        Relayer submits via execute_batched_or
         │                                           │
         ├─ Invalid / expired /                      ├─ Any order invalid / expired /
         │  price-not-met →                          │  price-not-met / root netuid →
-        │  silently skipped (no state change)       │  entire batch fails (DispatchError)
+        │  skipped, emits OrderSkipped              │  entire batch fails (DispatchError)
+        │  with DispatchError reason                │
         │                                           │
         └─ Valid → executed                         └─ All orders valid → net pool swap
                         │                                   → distribute pro-rata
@@ -40,10 +41,24 @@ User can cancel at any time via cancel_order
 
 ## Data structures
 
+### `VersionedOrder<AccountId>`
+
+Versioned wrapper around an order payload. Currently has one variant:
+
+| Variant | Description |
+|---------|-------------|
+| `V1(Order<AccountId>)` | First version of the order schema. |
+
+Versioning lets the pallet accept orders signed against different schemas
+simultaneously. When a new variant is added (`V2`, etc.), old `V1` signed orders
+remain valid because the `OrderId` and signature both cover the full
+`VersionedOrder` encoding (including the version discriminant byte).
+
 ### `Order<AccountId>`
 
-The payload that a user signs off-chain. Never stored in full on-chain — only
-its `blake2_256` hash (`OrderId`) is persisted.
+The payload that a user signs off-chain, wrapped inside `VersionedOrder`. Never
+stored in full on-chain — only the `blake2_256` hash of the `VersionedOrder`
+encoding (`OrderId`) is persisted.
 
 | Field           | Type        | Description |
 |-----------------|-------------|-------------|
@@ -65,11 +80,12 @@ its `blake2_256` hash (`OrderId`) is persisted.
 | `TakeProfit` | Sell alpha     | price ≥ `limit_price`  | Exit a position once price rises to a profit target. |
 | `StopLoss`   | Sell alpha     | price ≤ `limit_price`  | Exit a position to limit downside if price falls to a floor. |
 
-### `SignedOrder<AccountId, Signature>`
+### `SignedOrder<AccountId>`
 
-Envelope submitted by the relayer: the `Order` payload plus the user's
-sr25519/ed25519 signature over its SCALE encoding. Signature verification
-uses `order.signer` as the expected public key.
+Envelope submitted by the relayer: the `VersionedOrder` payload plus the user's
+sr25519 signature over the SCALE encoding of the `VersionedOrder` (including the
+version discriminant). Only sr25519 signatures are accepted. Signature
+verification uses the inner `order.signer` as the expected public key.
 
 ### `OrderStatus`
 
@@ -86,8 +102,8 @@ Terminal state of a processed order, stored under its `OrderId`.
 
 ### `Orders: StorageMap<H256, OrderStatus>`
 
-Maps an `OrderId` (blake2_256 of the SCALE-encoded `Order`) to its terminal
-`OrderStatus`. Absence means the order has never been seen and is still
+Maps an `OrderId` (blake2_256 of the SCALE-encoded `VersionedOrder`) to its
+terminal `OrderStatus`. Absence means the order has never been seen and is still
 executable (provided it is valid). Presence means it is permanently closed —
 neither `Fulfilled` nor `Cancelled` orders can be re-executed.
 
@@ -97,12 +113,12 @@ neither `Fulfilled` nor `Cancelled` orders can be re-executed.
 
 | Item                  | Type                                              | Description |
 |-----------------------|---------------------------------------------------|-------------|
-| `Signature`           | `Verify + ...`                                    | Signature type for off-chain order authorisation. Set to `sp_runtime::MultiSignature` in the subtensor runtime. |
 | `SwapInterface`       | `OrderSwapInterface<Self::AccountId>`             | Full swap + balance execution interface. Implemented by `pallet_subtensor::Pallet<T>`. Provides `buy_alpha`, `sell_alpha`, `transfer_tao`, `transfer_staked_alpha`, and `current_alpha_price`. |
 | `TimeProvider`        | `UnixTime`                                        | Current wall-clock time for expiry checks. |
 | `MaxOrdersPerBatch`   | `Get<u32>` (constant)                             | Maximum number of orders accepted in a single `execute_orders` or `execute_batched_orders` call. Should equal `floor(max_block_weight / per_order_weight)`. |
 | `PalletId`            | `Get<PalletId>` (constant)                        | Used to derive the pallet intermediary account (`PalletId::into_account_truncating`). This account temporarily holds pooled TAO and staked alpha during `execute_batched_orders`. |
 | `PalletHotkey`        | `Get<Self::AccountId>` (constant)                 | Hotkey the pallet intermediary account stakes to/from during batch execution. Must be a dedicated hotkey registered on every subnet the pallet may operate on. Operators should register it as a non-validator neuron. |
+| `WeightInfo`          | `weights::WeightInfo`                             | Benchmarked weight functions for each extrinsic. Use `weights::SubstrateWeight<Runtime>` in production and `()` in tests. |
 
 ---
 
@@ -125,7 +141,7 @@ impact.
 
 ---
 
-### `execute_batched_orders(netuid, orders)` — call index 4
+### `execute_batched_orders(netuid, orders)` — call index 1
 
 **Origin:** any signed account (typically a relayer).
 
@@ -175,13 +191,13 @@ interaction:
 
 ---
 
-### `cancel_order(order)` — call index 1
+### `cancel_order(order)` — call index 2
 
 **Origin:** the order's `signer` (coldkey).
 
 Registers a cancellation intent by writing the `OrderId` into `Orders` as
-`Cancelled`. Once cancelled an order can never be executed. The full `Order`
-payload is required so the pallet can derive the `OrderId`.
+`Cancelled`. Once cancelled an order can never be executed. The full
+`VersionedOrder` payload is required so the pallet can derive the `OrderId`.
 
 ---
 
@@ -190,7 +206,7 @@ payload is required so the pallet can derive the `OrderId`.
 | Event | Fields | Emitted when |
 |-------|--------|--------------|
 | `OrderExecuted` | `order_id`, `signer`, `netuid`, `side` | An individual order was successfully executed (by either extrinsic). |
-| `OrderSkipped` | `order_id` | An order was skipped by `execute_orders` (bad signature, expired, wrong netuid, already processed, price condition not met, or root netuid). Not emitted by `execute_batched_orders` — invalid orders there cause the whole call to fail. |
+| `OrderSkipped` | `order_id`, `reason` | An order was skipped by `execute_orders` (bad signature, expired, wrong netuid, already processed, price condition not met, or root netuid). `reason` is the `DispatchError` that caused the skip. Not emitted by `execute_batched_orders` — invalid orders there cause the whole call to fail. |
 | `OrderCancelled` | `order_id`, `signer` | The signer registered a cancellation via `cancel_order`. |
 | `GroupExecutionSummary` | `netuid`, `net_side`, `net_amount`, `actual_out`, `executed_count` | Emitted once per `execute_batched_orders` call summarising the net pool trade. `net_side` is `Buy` if TAO was sent to the pool, `Sell` if alpha was sent. `net_amount` and `actual_out` are zero when the two sides perfectly offset. |
 

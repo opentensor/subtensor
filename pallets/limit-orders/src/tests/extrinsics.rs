@@ -9,7 +9,9 @@ use sp_keyring::Sr25519Keyring as AccountKeyring;
 use sp_runtime::{DispatchError, Perbill};
 use subtensor_runtime_common::NetUid;
 
-use crate::{Error, Order, OrderSide, OrderStatus, OrderType, Orders, pallet::Event};
+use crate::{
+    Error, Order, OrderSide, OrderStatus, OrderType, Orders, VersionedOrder, pallet::Event,
+};
 
 type LimitOrders = crate::pallet::Pallet<Test>;
 
@@ -32,7 +34,7 @@ fn assert_event(event: Event<Test>) {
 #[test]
 fn cancel_order_signer_can_cancel() {
     new_test_ext().execute_with(|| {
-        let order = Order {
+        let order = VersionedOrder::V1(Order {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
@@ -42,7 +44,7 @@ fn cancel_order_signer_can_cancel() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
-        };
+        });
         let id = order_id(&order);
 
         assert_ok!(LimitOrders::cancel_order(
@@ -60,7 +62,7 @@ fn cancel_order_signer_can_cancel() {
 #[test]
 fn cancel_order_non_signer_rejected() {
     new_test_ext().execute_with(|| {
-        let order = Order {
+        let order = VersionedOrder::V1(Order {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
@@ -70,7 +72,7 @@ fn cancel_order_non_signer_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
-        };
+        });
         // Bob tries to cancel Alice's order.
         assert_noop!(
             LimitOrders::cancel_order(RuntimeOrigin::signed(bob()), order),
@@ -82,7 +84,7 @@ fn cancel_order_non_signer_rejected() {
 #[test]
 fn cancel_order_already_cancelled_rejected() {
     new_test_ext().execute_with(|| {
-        let order = Order {
+        let order = VersionedOrder::V1(Order {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
@@ -92,7 +94,7 @@ fn cancel_order_already_cancelled_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
-        };
+        });
         let id = order_id(&order);
         Orders::<Test>::insert(id, OrderStatus::Cancelled);
 
@@ -106,7 +108,7 @@ fn cancel_order_already_cancelled_rejected() {
 #[test]
 fn cancel_order_already_fulfilled_rejected() {
     new_test_ext().execute_with(|| {
-        let order = Order {
+        let order = VersionedOrder::V1(Order {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
@@ -116,7 +118,7 @@ fn cancel_order_already_fulfilled_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
-        };
+        });
         let id = order_id(&order);
         Orders::<Test>::insert(id, OrderStatus::Fulfilled);
 
@@ -130,7 +132,7 @@ fn cancel_order_already_fulfilled_rejected() {
 #[test]
 fn cancel_order_unsigned_rejected() {
     new_test_ext().execute_with(|| {
-        let order = Order {
+        let order = VersionedOrder::V1(Order {
             signer: alice(),
             hotkey: bob(),
             netuid: netuid(),
@@ -140,7 +142,7 @@ fn cancel_order_unsigned_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
-        };
+        });
         assert_noop!(
             LimitOrders::cancel_order(RuntimeOrigin::none(), order),
             DispatchError::BadOrigin

@@ -6,7 +6,7 @@ use node_subtensor_runtime::{
     BuildStorage, LimitOrders, Runtime, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule,
     System, pallet_subtensor,
 };
-use pallet_limit_orders::{Order, OrderStatus, OrderType, Orders, SignedOrder};
+use pallet_limit_orders::{Order, OrderStatus, OrderType, Orders, SignedOrder, VersionedOrder};
 use sp_core::{Get, H256, Pair};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{MultiSignature, Perbill};
@@ -34,7 +34,7 @@ fn setup_subnet(netuid: NetUid) {
 fn min_default_stake() -> TaoBalance {
     pallet_subtensor::DefaultMinStake::<Runtime>::get()
 }
-fn order_id(order: &Order<AccountId>) -> H256 {
+fn order_id(order: &VersionedOrder<AccountId>) -> H256 {
     H256(sp_io::hashing::blake2_256(&order.encode()))
 }
 
@@ -49,7 +49,7 @@ fn make_signed_order(
     fee_rate: Perbill,
     fee_recipient: AccountId,
 ) -> SignedOrder<AccountId> {
-    let order = Order {
+    let order = VersionedOrder::V1(Order {
         signer: keyring.to_account_id(),
         hotkey,
         netuid,
@@ -59,7 +59,7 @@ fn make_signed_order(
         expiry,
         fee_rate,
         fee_recipient,
-    };
+    });
     let sig = keyring.pair().sign(&order.encode());
     SignedOrder {
         order,
@@ -79,7 +79,7 @@ fn cancel_order_works() {
         let bob_id = Sr25519Keyring::Bob.to_account_id();
         let fee_recipient = Sr25519Keyring::Charlie.to_account_id();
 
-        let order = Order {
+        let order = VersionedOrder::V1(Order {
             signer: alice_id.clone(),
             hotkey: bob_id,
             netuid: NetUid::from(1u16),
@@ -89,7 +89,7 @@ fn cancel_order_works() {
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient,
-        };
+        });
         let id = order_id(&order);
 
         assert_ok!(LimitOrders::cancel_order(
@@ -111,7 +111,7 @@ fn execute_orders_ed25519_signature_rejected() {
         let bob_id = Sr25519Keyring::Bob.to_account_id();
         let fee_recipient = Sr25519Keyring::Charlie.to_account_id();
 
-        let order = Order {
+        let order = VersionedOrder::V1(Order {
             signer: alice_id.clone(),
             hotkey: bob_id,
             netuid: NetUid::from(1u16),
@@ -121,7 +121,7 @@ fn execute_orders_ed25519_signature_rejected() {
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient,
-        };
+        });
         let id = order_id(&order);
 
         // Sign with ed25519 — valid signature, wrong scheme.

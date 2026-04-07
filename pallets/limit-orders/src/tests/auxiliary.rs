@@ -1126,7 +1126,7 @@ use subtensor_swap_interface::OrderSwapInterface;
 
 fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
     let keyring = AccountKeyring::Alice;
-    let order = crate::Order {
+    let order = crate::VersionedOrder::V1(crate::Order {
         signer: keyring.to_account_id(),
         hotkey: AccountKeyring::Bob.to_account_id(),
         netuid: netuid(),
@@ -1136,7 +1136,7 @@ fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
         expiry: u64::MAX,
         fee_rate: Perbill::zero(),
         fee_recipient: fee_recipient(),
-    };
+    });
     let id = H256(sp_io::hashing::blake2_256(&order.encode()));
     let sig = keyring.pair().sign(&order.encode());
     let signed = crate::SignedOrder {
@@ -1216,10 +1216,10 @@ fn is_order_valid_expired_order_returns_error() {
         // now_ms (2_000_001) > expiry (u64::MAX is fine, so use a low expiry order).
         // Re-build a signed order with a past expiry.
         let keyring = AccountKeyring::Alice;
-        let order = crate::Order {
+        let order = crate::VersionedOrder::V1(crate::Order {
             expiry: 500_000,
-            ..signed.order.clone()
-        };
+            ..signed.order.inner().clone()
+        });
         let id2 = H256(sp_io::hashing::blake2_256(&order.encode()));
         let sig = keyring.pair().sign(&order.encode());
         let signed2 = crate::SignedOrder {
@@ -1241,7 +1241,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
         // Price 5.0 > limit_price 2 → LimitBuy condition (price ≤ limit) not met.
         MockSwap::set_price(5.0);
         let keyring = AccountKeyring::Alice;
-        let order = crate::Order {
+        let order = crate::VersionedOrder::V1(crate::Order {
             signer: keyring.to_account_id(),
             hotkey: AccountKeyring::Bob.to_account_id(),
             netuid: netuid(),
@@ -1251,7 +1251,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
-        };
+        });
         let id = H256(sp_io::hashing::blake2_256(&order.encode()));
         let sig = keyring.pair().sign(&order.encode());
         let signed = crate::SignedOrder {
