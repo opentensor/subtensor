@@ -44,6 +44,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
+pub mod weights;
 use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
@@ -94,6 +95,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
     use runtime_common::prod_or_fast;
+    use share_pool::SafeFloat;
     use sp_core::{ConstU32, H160, H256};
     use sp_runtime::traits::{Dispatchable, TrailingZeroInput};
     use sp_std::collections::btree_map::BTreeMap;
@@ -345,6 +347,30 @@ pub mod pallet {
             /// Subnets to keep alpha emissions (swap everything else).
             subnets: BTreeSet<NetUid>,
         },
+    }
+
+    /// The Max Burn HalfLife Settable
+    #[pallet::type_value]
+    pub fn MaxBurnHalfLife<T: Config>() -> u16 {
+        36_100
+    }
+
+    /// Default burn half-life (in blocks) for subnet registration price decay.
+    #[pallet::type_value]
+    pub fn DefaultBurnHalfLife<T: Config>() -> u16 {
+        360
+    }
+
+    /// Default multiplier applied to the burn price after a successful registration.
+    #[pallet::type_value]
+    pub fn DefaultBurnIncreaseMult<T: Config>() -> U64F64 {
+        U64F64::from_num(1.26)
+    }
+
+    /// Default Neuron Burn Cost
+    #[pallet::type_value]
+    pub fn DefaultNeuronBurnCost<T: Config>() -> TaoBalance {
+        TaoBalance::from(1_000_000_000u64)
     }
 
     /// Default minimum root claim amount.
@@ -1435,9 +1461,39 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// DMAP ( hot, netuid ) --> total_alpha_shares | Returns the number of alpha shares for a hotkey on a subnet, stores SafeFloat.
+    #[pallet::storage]
+    pub type TotalHotkeySharesV2<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // hot
+        Identity,
+        NetUid,    // subnet
+        SafeFloat, // Hotkey shares in unlimited precision
+        ValueQuery,
+    >;
+
+    /// --- NMAP ( hot, cold, netuid ) --> alpha | Returns the alpha shares for a hotkey, coldkey, netuid triplet, stores SafeFloat.
+    #[pallet::storage]
+    pub type AlphaV2<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, NetUid>,               // subnet
+        ),
+        SafeFloat, // Shares in unlimited precision
+        ValueQuery,
+    >;
+
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
     pub type AlphaMapLastKey<T: Config> =
+        StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
+
+    /// Contains last AlphaV2 storage map key to iterate (check first)
+    #[pallet::storage]
+    pub type AlphaV2MapLastKey<T: Config> =
         StorageValue<_, Option<Vec<u8>>, ValueQuery, DefaultAlphaIterationLastKey<T>>;
 
     /// --- MAP ( netuid ) --> token_symbol | Returns the token symbol for a subnet.
@@ -2388,6 +2444,16 @@ pub mod pallet {
     pub type MechanismEmissionSplit<T: Config> =
         StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
 
+    /// --- MAP ( netuid ) --> BurnHalfLife (blocks)
+    #[pallet::storage]
+    pub type BurnHalfLife<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultBurnHalfLife<T>>;
+
+    /// --- MAP ( netuid ) --> BurnIncreaseMult
+    #[pallet::storage]
+    pub type BurnIncreaseMult<T> =
+        StorageMap<_, Identity, NetUid, U64F64, ValueQuery, DefaultBurnIncreaseMult<T>>;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
@@ -2431,11 +2497,17 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId, netuid: NetUid) -> bool {
+            // Allow the subnet owner hotkey to set weights regardless of stake.
+            if let Some(owner_uid) = Self::get_owner_uid(netuid)
+                && Uids::<T>::get(netuid, hotkey) == Some(owner_uid)
+            {
+                return true;
+            }
+
             // Blacklist weights transactions for low stake peers.
             let (total_stake, _, _) = Self::get_stake_weights_for_hotkey_on_subnet(hotkey, netuid);
             total_stake >= Self::get_stake_threshold()
         }
-
         /// Helper function to check if register is allowed
         pub fn checked_allowed_register(netuid: NetUid) -> bool {
             if netuid.is_root() {
@@ -2480,9 +2552,9 @@ use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 
 #[derive(Clone)]
-pub struct TaoCurrencyReserve<T: Config>(PhantomData<T>);
+pub struct TaoBalanceReserve<T: Config>(PhantomData<T>);
 
-impl<T: Config> TokenReserve<TaoBalance> for TaoCurrencyReserve<T> {
+impl<T: Config> TokenReserve<TaoBalance> for TaoBalanceReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> TaoBalance {
         SubnetTAO::<T>::get(netuid).saturating_add(SubnetTaoProvided::<T>::get(netuid))
@@ -2498,9 +2570,9 @@ impl<T: Config> TokenReserve<TaoBalance> for TaoCurrencyReserve<T> {
 }
 
 #[derive(Clone)]
-pub struct AlphaCurrencyReserve<T: Config>(PhantomData<T>);
+pub struct AlphaBalanceReserve<T: Config>(PhantomData<T>);
 
-impl<T: Config> TokenReserve<AlphaBalance> for AlphaCurrencyReserve<T> {
+impl<T: Config> TokenReserve<AlphaBalance> for AlphaBalanceReserve<T> {
     #![deny(clippy::expect_used)]
     fn reserve(netuid: NetUid) -> AlphaBalance {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaInProvided::<T>::get(netuid))
@@ -2516,9 +2588,9 @@ impl<T: Config> TokenReserve<AlphaBalance> for AlphaCurrencyReserve<T> {
 }
 
 pub type GetAlphaForTao<T> =
-    subtensor_swap_interface::GetAlphaForTao<TaoCurrencyReserve<T>, AlphaCurrencyReserve<T>>;
+    subtensor_swap_interface::GetAlphaForTao<TaoBalanceReserve<T>, AlphaBalanceReserve<T>>;
 pub type GetTaoForAlpha<T> =
-    subtensor_swap_interface::GetTaoForAlpha<AlphaCurrencyReserve<T>, TaoCurrencyReserve<T>>;
+    subtensor_swap_interface::GetTaoForAlpha<AlphaBalanceReserve<T>, TaoBalanceReserve<T>>;
 
 impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
     subtensor_runtime_common::SubnetInfo<T::AccountId> for Pallet<T>
@@ -2606,10 +2678,15 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
         hotkey: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaBalance,
-    ) -> Result<AlphaBalance, DispatchError> {
+    ) -> Result<(), DispatchError> {
         ensure!(
             Self::hotkey_account_exists(hotkey),
             Error::<T>::HotKeyAccountNotExists
+        );
+
+        ensure!(
+            Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid) >= alpha,
+            Error::<T>::InsufficientBalance
         );
 
         // Decrese alpha out counter
@@ -2617,9 +2694,9 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
             *total = total.saturating_sub(alpha);
         });
 
-        Ok(Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            hotkey, coldkey, netuid, alpha,
-        ))
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+
+        Ok(())
     }
 }
 

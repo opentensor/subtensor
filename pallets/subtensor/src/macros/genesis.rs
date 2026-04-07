@@ -91,20 +91,20 @@ mod genesis {
             SubnetOwner::<T>::insert(netuid, hotkey.clone());
             SubnetLocked::<T>::insert(netuid, TaoBalance::from(1));
             LargestLocked::<T>::insert(netuid, 1);
-            Alpha::<T>::insert(
+            AlphaV2::<T>::insert(
                 // Lock the initial funds making this key the owner.
                 (hotkey.clone(), hotkey.clone(), netuid),
-                U64F64::saturating_from_num(1_000_000_000),
+                SafeFloat::from(1_000_000_000),
             );
             TotalHotkeyAlpha::<T>::insert(
                 hotkey.clone(),
                 netuid,
                 AlphaBalance::from(1_000_000_000),
             );
-            TotalHotkeyShares::<T>::insert(
+            TotalHotkeySharesV2::<T>::insert(
                 hotkey.clone(),
                 netuid,
-                U64F64::saturating_from_num(1_000_000_000),
+                SafeFloat::from(1_000_000_000),
             );
             SubnetAlphaOut::<T>::insert(netuid, AlphaBalance::from(1_000_000_000));
             let mut staking_hotkeys = StakingHotkeys::<T>::get(hotkey.clone());

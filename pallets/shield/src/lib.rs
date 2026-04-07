@@ -24,6 +24,8 @@ use alloc::vec;
 
 pub use pallet::*;
 
+pub mod weights;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -48,6 +50,7 @@ const MAX_EXTRINSIC_DEPTH: u32 = 8;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
+    use crate::weights::WeightInfo;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -56,6 +59,9 @@ pub mod pallet {
 
         /// A way to find the current and next block author.
         type FindAuthors: FindAuthors<Self>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: crate::weights::WeightInfo;
     }
 
     #[pallet::pallet]
@@ -134,9 +140,7 @@ pub mod pallet {
         ///   3. NextKey     ← next-next author's key  (user-facing)
         ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(33_230_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4_u64))
-        .saturating_add(T::DbWeight::get().writes(6_u64)))]
+        #[pallet::weight(T::WeightInfo::announce_next_key())]
         pub fn announce_next_key(
             origin: OriginFor<T>,
             enc_key: Option<ShieldEncKey>,
@@ -216,9 +220,7 @@ pub mod pallet {
         ///        ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::from_parts(207_500_000, 0)
-        .saturating_add(T::DbWeight::get().reads(0_u64))
-        .saturating_add(T::DbWeight::get().writes(0_u64)))]
+        #[pallet::weight(T::WeightInfo::submit_encrypted())]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
             ciphertext: BoundedVec<u8, ConstU32<8192>>,

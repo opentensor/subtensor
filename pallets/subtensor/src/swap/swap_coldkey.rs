@@ -1,5 +1,4 @@
 use super::*;
-use substrate_fixed::types::U64F64;
 
 impl<T: Config> Pallet<T> {
     /// Transfer all assets, stakes, subnet ownerships, and hotkey associations from `old_coldkey` to
@@ -98,19 +97,25 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
     ) {
         for hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-            // Get the stake on the old (hot,coldkey) account.
-            let old_alpha: U64F64 = Alpha::<T>::get((&hotkey, old_coldkey, netuid));
-            // Get the stake on the new (hot,coldkey) account.
-            let new_alpha: U64F64 = Alpha::<T>::get((&hotkey, new_coldkey, netuid));
-            // Add the stake to new account.
-            Alpha::<T>::insert(
-                (&hotkey, new_coldkey, netuid),
-                new_alpha.saturating_add(old_alpha),
+            // Swap
+            let alpha_old =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, old_coldkey, netuid);
+            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                old_coldkey,
+                netuid,
+                alpha_old,
             );
-            // Remove the value from the old account.
-            Alpha::<T>::remove((&hotkey, old_coldkey, netuid));
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                new_coldkey,
+                netuid,
+                alpha_old,
+            );
+            let new_dest_alpha =
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, new_coldkey, netuid);
 
-            if new_alpha.saturating_add(old_alpha) > U64F64::from(0u64) {
+            if !new_dest_alpha.is_zero() {
                 Self::transfer_root_claimed_for_new_keys(
                     netuid,
                     &hotkey,

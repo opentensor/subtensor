@@ -144,34 +144,28 @@ pub fn try_restore_shares<T: Config>() -> Weight {
 		("5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo", 774889),
 	];
 
-    let curr_total_alpha =
-        U64F64::from_num(TotalHotkeyAlpha::<T>::get(&hk_as_acctid, effected_netuid));
-    let curr_total_hotkey_shares = TotalHotkeyShares::<T>::get(&hk_as_acctid, effected_netuid);
-    weight = weight.saturating_add(T::DbWeight::get().reads(2));
-
     let mut total_burned: AlphaBalance = 0.into();
     let mut total_given: U64F64 = U64F64::from_num(0);
     let mut total_lost: U64F64 = U64F64::from_num(0);
 
     for (ck, diff) in diffs {
         if let Some(ck_as_acctid) = decode_account_id32::<T>(ck) {
-            let curr_shares = U64F64::from_num(Alpha::<T>::get((
-                &hk_as_acctid,
-                &ck_as_acctid,
-                effected_netuid,
-            )));
-            let curr_bal = curr_shares
-                .safe_div(curr_total_hotkey_shares)
-                .saturating_mul(curr_total_alpha);
-            weight = weight.saturating_add(T::DbWeight::get().reads(1));
+            let curr_bal = U64F64::from_num(
+                Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hk_as_acctid,
+                    &ck_as_acctid,
+                    effected_netuid,
+                )
+                .to_u64(),
+            );
+            weight = weight.saturating_add(T::DbWeight::get().reads(3));
 
             if diff > 0 {
                 log::debug!(
                     target: "undohkswap",
-                    "Coldkey '{}' has balance {:?} of {:?} diff: {}",
+                    "Coldkey '{}' has balance {:?} diff: {}",
                     ck,
                     curr_bal,
-                    curr_total_alpha,
                     diff
                 );
 
@@ -190,45 +184,14 @@ pub fn try_restore_shares<T: Config>() -> Weight {
 
                 let as_alpha_balance: AlphaBalance =
                     able_to_remove.saturating_to_num::<u64>().into();
-                let actual_decrease: AlphaBalance =
-                    Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-                        &hk_as_acctid,
-                        &ck_as_acctid,
-                        effected_netuid,
-                        as_alpha_balance,
-                    );
+                Pallet::<T>::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hk_as_acctid,
+                    &ck_as_acctid,
+                    effected_netuid,
+                    as_alpha_balance,
+                );
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
-
-                if actual_decrease.to_u64() < diff_fixed.saturating_to_num::<u64>() {
-                    log::warn!(
-                        target: "undohkswap",
-                        "Coldkey '{}' failed to burn all {:?}, instead {:?}",
-                        ck,
-                        diff_fixed,
-                        actual_decrease
-                    )
-                } else if actual_decrease.to_u64() > diff_fixed.saturating_to_num::<u64>() {
-                    log::warn!(
-                        target: "undohkswap",
-                        "Coldkey '{}' burned more than expected {:?}, instead {:?}",
-                        ck,
-                        diff_fixed,
-                        actual_decrease
-                    );
-                    // Return excess removed
-                    let excess = actual_decrease
-                        .to_u64()
-                        .saturating_sub(diff_fixed.saturating_to_num::<u64>());
-                    let excess_as_alpha_balance: AlphaBalance = excess.into();
-                    Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                        &hk_as_acctid,
-                        &ck_as_acctid,
-                        effected_netuid,
-                        excess_as_alpha_balance,
-                    );
-                    weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
-                }
-                total_burned = total_burned.saturating_add(actual_decrease);
+                total_burned = total_burned.saturating_add(as_alpha_balance);
             } else {
                 total_lost = total_lost.saturating_add(U64F64::from_num(diff.abs()));
             }
@@ -263,22 +226,14 @@ pub fn try_restore_shares<T: Config>() -> Weight {
                 let diff_prop = diff_fixed.saturating_mul(value_per_lost);
 
                 let as_alpha_balance: AlphaBalance = diff_prop.saturating_to_num::<u64>().into();
-                let actual_increase = Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                Pallet::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     &hk_as_acctid,
                     &ck_as_acctid,
                     effected_netuid,
                     as_alpha_balance,
                 );
                 weight = weight.saturating_add(T::DbWeight::get().reads_writes(3, 3));
-
-                if actual_increase != as_alpha_balance {
-                    log::warn!(
-                        target: "undohkswap",
-                        "Increase did not match expected {} {} {}",
-                        ck, as_alpha_balance, actual_increase
-                    )
-                }
-                total_returned = total_returned.saturating_add(actual_increase);
+                total_returned = total_returned.saturating_add(as_alpha_balance);
             }
         } else {
             log::error!(

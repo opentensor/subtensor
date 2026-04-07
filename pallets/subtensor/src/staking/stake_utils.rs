@@ -1,8 +1,8 @@
 use super::*;
 use safe_math::*;
-use share_pool::{SharePool, SharePoolDataOperations};
-use sp_std::ops::Neg;
-use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
+use share_pool::{SafeFloat, SharePool, SharePoolDataOperations};
+use sp_std::{collections::btree_map::BTreeMap, ops::Neg};
+use substrate_fixed::types::{I64F64, I96F32, U96F32};
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
@@ -67,6 +67,77 @@ impl<T: Config> Pallet<T> {
         let new_moving: I96F32 =
             I96F32::saturating_from_num(current_price.saturating_add(current_moving));
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
+    }
+
+    /// Gets the Median Subnet Alpha Price
+    pub fn get_median_subnet_alpha_price() -> U96F32 {
+        let default_price = U96F32::saturating_from_num(1_u64);
+        let zero_price = U96F32::saturating_from_num(0_u64);
+        let two = U96F32::saturating_from_num(2_u64);
+
+        let mut price_counts: BTreeMap<U96F32, usize> = BTreeMap::new();
+        let mut total_prices: usize = 0;
+
+        for (netuid, added) in NetworksAdded::<T>::iter() {
+            if !added || netuid == NetUid::ROOT {
+                continue;
+            }
+
+            let price = T::SwapInterface::current_alpha_price(netuid);
+            if price <= zero_price {
+                continue;
+            }
+
+            total_prices = total_prices.saturating_add(1);
+
+            if let Some(count) = price_counts.get_mut(&price) {
+                *count = count.saturating_add(1);
+            } else {
+                price_counts.insert(price, 1usize);
+            }
+        }
+
+        if total_prices == 0 {
+            return default_price;
+        }
+
+        let Some(last_index) = total_prices.checked_sub(1) else {
+            return default_price;
+        };
+        let Some(lower_target) = last_index.checked_div(2) else {
+            return default_price;
+        };
+        let Some(upper_target) = total_prices.checked_div(2) else {
+            return default_price;
+        };
+
+        let mut cumulative: usize = 0;
+        let mut lower_price: Option<U96F32> = None;
+        let mut upper_price: Option<U96F32> = None;
+
+        for (price, count) in price_counts.into_iter() {
+            let next_cumulative = cumulative.saturating_add(count);
+
+            if lower_price.is_none() && lower_target < next_cumulative {
+                lower_price = Some(price);
+            }
+
+            if upper_price.is_none() && upper_target < next_cumulative {
+                upper_price = Some(price);
+            }
+
+            if lower_price.is_some() && upper_price.is_some() {
+                break;
+            }
+
+            cumulative = next_cumulative;
+        }
+
+        match (lower_price, upper_price) {
+            (Some(_), Some(upper)) if lower_target == upper_target => upper,
+            (Some(lower), Some(upper)) => lower.saturating_add(upper).safe_div(two),
+            _ => default_price,
+        }
     }
 
     /// Retrieves the global global weight as a normalized value between 0 and 1.
@@ -508,7 +579,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
-    ) -> AlphaBalance {
+    ) {
         if !amount.is_zero() {
             let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
             if !staking_hotkeys.contains(hotkey) {
@@ -520,11 +591,7 @@ impl<T: Config> Pallet<T> {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         // We expect to add a positive amount here.
         let amount = amount.to_u64() as i64;
-        let actual_alpha = alpha_share_pool.update_value_for_one(coldkey, amount);
-
-        // We should return a positive amount, or 0 if the operation failed.
-        // e.g. the stake was removed due to precision issues.
-        actual_alpha.max(0).unsigned_abs().into()
+        alpha_share_pool.update_value_for_one(coldkey, amount);
     }
 
     pub fn try_increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -552,22 +619,16 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
-    ) -> AlphaBalance {
+    ) {
         let mut alpha_share_pool = Self::get_alpha_share_pool(hotkey.clone(), netuid);
         let amount = amount.to_u64();
 
         // We expect a negative value here
-        let mut actual_alpha = 0;
         if let Ok(value) = alpha_share_pool.try_get_value(coldkey)
             && value >= amount
         {
-            actual_alpha = alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
+            alpha_share_pool.update_value_for_one(coldkey, (amount as i64).neg());
         }
-
-        // Get the negation of the removed alpha, and clamp at 0.
-        // This ensures we return a positive value, but only if
-        // `actual_alpha` was negative (i.e. a decrease in stake).
-        actual_alpha.neg().max(0).unsigned_abs().into()
     }
 
     /// Swaps TAO for the alpha token on the subnet.
@@ -687,15 +748,13 @@ impl<T: Config> Pallet<T> {
         drop_fees: bool,
     ) -> Result<TaoBalance, DispatchError> {
         //  Decrease alpha on subnet
-        let actual_alpha_decrease =
-            Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, alpha);
 
         // Swap the alpha for TAO.
-        let swap_result =
-            Self::swap_alpha_for_tao(netuid, actual_alpha_decrease, price_limit, drop_fees)?;
+        let swap_result = Self::swap_alpha_for_tao(netuid, alpha, price_limit, drop_fees)?;
 
         // Refund the unused alpha (in case if limit price is hit)
-        let refund = actual_alpha_decrease.saturating_sub(
+        let refund = alpha.saturating_sub(
             swap_result
                 .amount_paid_in
                 .saturating_add(swap_result.fee_paid)
@@ -754,7 +813,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             swap_result.amount_paid_out.into(),
-            actual_alpha_decrease,
+            swap_result.amount_paid_in.into(),
             netuid,
             swap_result.fee_paid.to_u64(),
         ));
@@ -764,7 +823,7 @@ impl<T: Config> Pallet<T> {
             coldkey.clone(),
             hotkey.clone(),
             swap_result.amount_paid_out,
-            actual_alpha_decrease,
+            swap_result.amount_paid_in,
             netuid,
             swap_result.fee_paid
         );
@@ -802,17 +861,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Increase the alpha on the hotkey account.
-        if Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             coldkey,
             netuid,
             swap_result.amount_paid_out.into(),
-        )
-        .is_zero()
-            || swap_result.amount_paid_out.is_zero()
-        {
-            return Ok(AlphaBalance::ZERO);
-        }
+        );
 
         // Step 4: Update the list of hotkeys staking for this coldkey
         let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
@@ -889,7 +943,7 @@ impl<T: Config> Pallet<T> {
         alpha: AlphaBalance,
     ) -> Result<TaoBalance, DispatchError> {
         // Decrease alpha on origin keys
-        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             origin_hotkey,
             origin_coldkey,
             netuid,
@@ -904,17 +958,17 @@ impl<T: Config> Pallet<T> {
         }
 
         // Increase alpha on destination keys
-        let actual_alpha_moved = Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
             destination_hotkey,
             destination_coldkey,
             netuid,
-            actual_alpha_decrease,
+            alpha,
         );
         if netuid == NetUid::ROOT {
             Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
                 destination_hotkey,
                 destination_coldkey,
-                actual_alpha_decrease.into(),
+                u64::from(alpha).into(),
             );
         }
 
@@ -923,7 +977,7 @@ impl<T: Config> Pallet<T> {
         let current_price =
             <T as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         let tao_equivalent: TaoBalance = current_price
-            .saturating_mul(U96F32::saturating_from_num(actual_alpha_moved))
+            .saturating_mul(U96F32::saturating_from_num(alpha))
             .saturating_to_num::<u64>()
             .into();
 
@@ -952,7 +1006,7 @@ impl<T: Config> Pallet<T> {
             origin_coldkey.clone(),
             origin_hotkey.clone(),
             tao_equivalent,
-            actual_alpha_decrease,
+            alpha,
             netuid,
             0_u64, // 0 fee
         ));
@@ -960,7 +1014,7 @@ impl<T: Config> Pallet<T> {
             destination_coldkey.clone(),
             destination_hotkey.clone(),
             tao_equivalent,
-            actual_alpha_moved,
+            alpha,
             netuid,
             0_u64, // 0 fee
         ));
@@ -1331,47 +1385,80 @@ type AlphaShareKey<T> = <T as frame_system::Config>::AccountId;
 impl<T: Config> SharePoolDataOperations<AlphaShareKey<T>>
     for HotkeyAlphaSharePoolDataOperations<T>
 {
-    fn get_shared_value(&self) -> U64F64 {
-        U64F64::saturating_from_num(crate::TotalHotkeyAlpha::<T>::get(&self.hotkey, self.netuid))
+    fn get_shared_value(&self) -> u64 {
+        u64::from(TotalHotkeyAlpha::<T>::get(&self.hotkey, self.netuid))
     }
 
-    fn get_share(&self, key: &AlphaShareKey<T>) -> U64F64 {
-        crate::Alpha::<T>::get((&(self.hotkey), key, self.netuid))
+    fn get_share(&self, key: &AlphaShareKey<T>) -> SafeFloat {
+        // Read the deprecated Alpha map first and, if value is not available, try new AlphaV2
+        let maybe_share_v1 = Alpha::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if let Ok(share_v1) = maybe_share_v1 {
+            return SafeFloat::from(share_v1);
+        }
+
+        AlphaV2::<T>::get((&(self.hotkey), key, self.netuid))
     }
 
-    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<U64F64, ()> {
-        crate::Alpha::<T>::try_get((&(self.hotkey), key, self.netuid))
+    fn try_get_share(&self, key: &AlphaShareKey<T>) -> Result<SafeFloat, ()> {
+        // Read the deprecated Alpha map first and, if value is not available, try new AlphaV2
+        let maybe_share_v1 = Alpha::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if let Ok(share_v1) = maybe_share_v1 {
+            return Ok(SafeFloat::from(share_v1));
+        }
+
+        let maybe_share = AlphaV2::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if let Ok(share) = maybe_share {
+            Ok(share)
+        } else {
+            Err(())
+        }
     }
 
-    fn get_denominator(&self) -> U64F64 {
-        crate::TotalHotkeyShares::<T>::get(&(self.hotkey), self.netuid)
+    fn get_denominator(&self) -> SafeFloat {
+        // Read the deprecated TotalHotkeyShares map first and, if value is not available, try new TotalHotkeySharesV2
+        let maybe_denomnator_v1 = TotalHotkeyShares::<T>::try_get(&(self.hotkey), self.netuid);
+        if let Ok(denomnator_v1) = maybe_denomnator_v1 {
+            return SafeFloat::from(denomnator_v1);
+        }
+
+        TotalHotkeySharesV2::<T>::get(&(self.hotkey), self.netuid)
     }
 
-    fn set_shared_value(&mut self, value: U64F64) {
+    fn set_shared_value(&mut self, value: u64) {
         if value != 0 {
-            crate::TotalHotkeyAlpha::<T>::insert(
-                &(self.hotkey),
-                self.netuid,
-                AlphaBalance::from(value.saturating_to_num::<u64>()),
-            );
+            TotalHotkeyAlpha::<T>::insert(&(self.hotkey), self.netuid, AlphaBalance::from(value));
         } else {
-            crate::TotalHotkeyAlpha::<T>::remove(&(self.hotkey), self.netuid);
+            TotalHotkeyAlpha::<T>::remove(&(self.hotkey), self.netuid);
         }
     }
 
-    fn set_share(&mut self, key: &AlphaShareKey<T>, share: U64F64) {
-        if share != 0 {
-            crate::Alpha::<T>::insert((&self.hotkey, key, self.netuid), share);
+    fn set_share(&mut self, key: &AlphaShareKey<T>, share: SafeFloat) {
+        // Lazy Alpha -> AlphaV2 migration happens right here
+        // Delete the Alpha entry, insert into AlphaV2
+        let maybe_share_v1 = Alpha::<T>::try_get((&(self.hotkey), key, self.netuid));
+        if maybe_share_v1.is_ok() {
+            Alpha::<T>::remove((&self.hotkey, key, self.netuid));
+        }
+
+        if !share.is_zero() {
+            AlphaV2::<T>::insert((&self.hotkey, key, self.netuid), share);
         } else {
-            crate::Alpha::<T>::remove((&self.hotkey, key, self.netuid));
+            AlphaV2::<T>::remove((&self.hotkey, key, self.netuid));
         }
     }
 
-    fn set_denominator(&mut self, update: U64F64) {
-        if update != 0 {
-            crate::TotalHotkeyShares::<T>::insert(&self.hotkey, self.netuid, update);
+    fn set_denominator(&mut self, update: SafeFloat) {
+        // Lazy TotalHotkeyShares -> TotalHotkeySharesV2 migration happens right here
+        // Delete the TotalHotkeyShares entry, insert into TotalHotkeySharesV2
+        let maybe_denominator_v1 = TotalHotkeyShares::<T>::try_get(&(self.hotkey), self.netuid);
+        if maybe_denominator_v1.is_ok() {
+            TotalHotkeyShares::<T>::remove(&self.hotkey, self.netuid);
+        }
+
+        if !update.is_zero() {
+            TotalHotkeySharesV2::<T>::insert(&self.hotkey, self.netuid, update);
         } else {
-            crate::TotalHotkeyShares::<T>::remove(&self.hotkey, self.netuid);
+            TotalHotkeySharesV2::<T>::remove(&self.hotkey, self.netuid);
         }
     }
 }

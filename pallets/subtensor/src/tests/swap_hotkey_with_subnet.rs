@@ -9,6 +9,7 @@ use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance, Tok
 
 use super::mock::*;
 use crate::*;
+use share_pool::SafeFloat;
 use sp_core::{Get, H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use std::collections::BTreeSet;
@@ -79,6 +80,7 @@ fn test_swap_total_hotkey_stake() {
 
         //add network
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
 
         // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
@@ -933,7 +935,7 @@ fn test_swap_owner_new_hotkey_already_exists() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test swap_hotkey_with_subnet -- test_swap_stake_success --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_stake_success --exact --nocapture
 #[test]
 fn test_swap_stake_success() {
     new_test_ext(1).execute_with(|| {
@@ -943,6 +945,7 @@ fn test_swap_stake_success() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
         let amount = 10_000;
         let shares = U64F64::from_num(10_000);
@@ -991,7 +994,12 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(new_hotkey, netuid),
-            U64F64::from_num(shares)
+            U64F64::from_num(0)
+        );
+        assert_abs_diff_eq!(
+            f64::from(TotalHotkeySharesV2::<Test>::get(new_hotkey, netuid)),
+            shares.to_num::<f64>(),
+            epsilon = 0.0000000001
         );
         assert_eq!(
             Alpha::<Test>::get((old_hotkey, coldkey, netuid)),
@@ -999,7 +1007,93 @@ fn test_swap_stake_success() {
         );
         assert_eq!(
             Alpha::<Test>::get((new_hotkey, coldkey, netuid)),
-            U64F64::from_num(amount)
+            U64F64::from_num(0)
+        );
+        assert_eq!(
+            f64::from(AlphaV2::<Test>::get((new_hotkey, coldkey, netuid))),
+            amount as f64
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            AlphaDividendsPerSubnet::<Test>::get(netuid, new_hotkey),
+            AlphaBalance::from(amount)
+        );
+    });
+}
+
+#[test]
+fn test_swap_stake_v2_success() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let coldkey = U256::from(3);
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&old_hotkey, &coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
+        let amount = 10_000;
+        let shares = U64F64::from_num(10_000);
+
+        // Initialize staking variables for old_hotkey
+        TotalHotkeyAlpha::<Test>::insert(old_hotkey, netuid, AlphaBalance::from(amount));
+        TotalHotkeyAlphaLastEpoch::<Test>::insert(
+            old_hotkey,
+            netuid,
+            AlphaBalance::from(amount * 2),
+        );
+        TotalHotkeySharesV2::<Test>::insert(old_hotkey, netuid, SafeFloat::from(shares));
+        AlphaV2::<Test>::insert(
+            (old_hotkey, coldkey, netuid),
+            SafeFloat::from(U64F64::from_num(amount)),
+        );
+        AlphaDividendsPerSubnet::<Test>::insert(netuid, old_hotkey, AlphaBalance::from(amount));
+
+        // Perform the swap
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid),
+            false,
+        ),);
+
+        // Verify the swap
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(old_hotkey, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            TotalHotkeyAlpha::<Test>::get(new_hotkey, netuid),
+            AlphaBalance::from(amount)
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(old_hotkey, netuid),
+            AlphaBalance::ZERO
+        );
+        assert_eq!(
+            TotalHotkeyAlphaLastEpoch::<Test>::get(new_hotkey, netuid),
+            AlphaBalance::from(amount * 2)
+        );
+        assert_eq!(
+            f64::from(TotalHotkeySharesV2::<Test>::get(old_hotkey, netuid)),
+            0_f64
+        );
+        assert_abs_diff_eq!(
+            f64::from(TotalHotkeySharesV2::<Test>::get(new_hotkey, netuid)),
+            shares.to_num::<f64>(),
+            epsilon = 0.0000000001
+        );
+        assert_eq!(
+            f64::from(AlphaV2::<Test>::get((old_hotkey, coldkey, netuid))),
+            0_f64
+        );
+        assert_eq!(
+            f64::from(AlphaV2::<Test>::get((new_hotkey, coldkey, netuid))),
+            amount as f64
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, old_hotkey),
@@ -2162,7 +2256,9 @@ fn test_revert_hotkey_swap_dividends() {
         let coldkey = U256::from(3);
 
         let netuid = add_dynamic_network(&hk1, &coldkey);
+        remove_owner_registration_stake(netuid);
         let netuid2 = add_dynamic_network(&hk1, &coldkey);
+        remove_owner_registration_stake(netuid2);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
 
         let amount = 10_000;
@@ -2205,16 +2301,18 @@ fn test_revert_hotkey_swap_dividends() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(hk2, netuid),
-            U64F64::from_num(shares)
+            U64F64::from_num(0)
         );
+        assert_eq!(TotalHotkeySharesV2::<Test>::get(hk2, netuid), shares.into());
         assert_eq!(
             Alpha::<Test>::get((hk1, coldkey, netuid)),
             U64F64::from_num(0)
         );
         assert_eq!(
             Alpha::<Test>::get((hk2, coldkey, netuid)),
-            U64F64::from_num(amount)
+            U64F64::from_num(0)
         );
+        assert_eq!(AlphaV2::<Test>::get((hk2, coldkey, netuid)), amount.into());
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, hk1),
             AlphaBalance::ZERO
@@ -2261,8 +2359,13 @@ fn test_revert_hotkey_swap_dividends() {
         );
         assert_eq!(
             TotalHotkeyShares::<Test>::get(hk1, netuid),
-            U64F64::from_num(shares),
-            "hk1 TotalHotkeyShares must be restored after revert"
+            U64F64::from_num(0),
+            "hk1 TotalHotkeyShares must be migrated to v2"
+        );
+        assert_eq!(
+            TotalHotkeySharesV2::<Test>::get(hk1, netuid),
+            shares.into(),
+            "hk1 TotalHotkeyShares must be restored to v2 after revert"
         );
         assert_eq!(
             Alpha::<Test>::get((hk2, coldkey, netuid)),
@@ -2271,8 +2374,13 @@ fn test_revert_hotkey_swap_dividends() {
         );
         assert_eq!(
             Alpha::<Test>::get((hk1, coldkey, netuid)),
-            U64F64::from_num(amount),
-            "hk1 Alpha must be restored after revert"
+            U64F64::from_num(0),
+            "hk1 Alpha must be migrated to v2"
+        );
+        assert_eq!(
+            AlphaV2::<Test>::get((hk1, coldkey, netuid)),
+            amount.into(),
+            "hk1 Alpha must be restored to v2 after revert"
         );
         assert_eq!(
             AlphaDividendsPerSubnet::<Test>::get(netuid, hk2),
@@ -2802,10 +2910,9 @@ fn test_revert_hotkey_swap_with_revert_stake_the_same() {
 
         let old_hotkey_stake_after_revert_ck_3 =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hk1, &coldkey_3, netuid_1);
-        assert_abs_diff_eq!(
+        assert_eq!(
             old_hotkey_stake_after_revert_ck_3,
-            new_hotkey_stake_before_revert_ck_3,
-            epsilon = 1.into()
+            new_hotkey_stake_before_revert_ck_3
         );
     });
 }
@@ -2897,18 +3004,16 @@ fn test_swap_hotkey_root_claims_unchanged_if_not_root() {
 fn test_swap_hotkey_root_claims_changed_if_root() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
-        let owner_hotkey = U256::from(1002);
 
-        let neuron_coldkey = U256::from(1003);
         let neuron_hotkey = U256::from(1004);
         let neuron_hotkey_new = U256::from(1005);
 
         let staker_coldkey = U256::from(1006);
 
-        let netuid_1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        register_ok_neuron(netuid_1, neuron_hotkey, neuron_coldkey, 1234);
+        // Use neuron_hotkey as subnet creator so it receives root dividends
+        let netuid_1 = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&neuron_coldkey, u64::MAX.into());
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;
@@ -2922,17 +3027,10 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
         let initial_total_hotkey_alpha = 10_000_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &neuron_hotkey,
-            &staker_coldkey,
+            &owner_coldkey,
             netuid_1,
             initial_total_hotkey_alpha.into(),
         );
-
-        let validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &neuron_hotkey,
-            &staker_coldkey,
-            netuid_1,
-        );
-        assert_eq!(validator_stake, initial_total_hotkey_alpha.into());
 
         // Distribute pending root alpha
         let pending_root_alpha = 1_000_000_000u64;
@@ -2944,6 +3042,10 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
             AlphaBalance::ZERO,
         );
 
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(staker_coldkey),
+            RootClaimTypeEnum::Keep
+        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(staker_coldkey),
             BTreeSet::from([netuid_1])
@@ -2962,7 +3064,7 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
 
         step_block(20);
         assert_ok!(SubtensorModule::do_swap_hotkey(
-            RuntimeOrigin::signed(neuron_coldkey),
+            RuntimeOrigin::signed(owner_coldkey),
             &neuron_hotkey,
             &neuron_hotkey_new,
             Some(NetUid::ROOT),
@@ -2988,23 +3090,19 @@ fn test_swap_hotkey_root_claims_changed_if_root() {
 fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
-        let owner_hotkey = U256::from(1002);
-
-        let neuron_coldkey = U256::from(1003);
         let neuron_hotkey = U256::from(1004);
         let neuron_hotkey_new = U256::from(1005);
 
         let staker_coldkey = U256::from(1006);
 
-        // Create root network
-        SubtensorModule::set_tao_weight(0); // Start tao weight at 0
+        // Ensure ROOT network is registered for all-subnets swap
         SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
         NetworksAdded::<Test>::insert(NetUid::ROOT, true);
 
-        let netuid_1 = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        register_ok_neuron(netuid_1, neuron_hotkey, neuron_coldkey, 1234);
+        // Use neuron_hotkey as subnet creator so it receives root dividends
+        let netuid_1 = add_dynamic_network(&neuron_hotkey, &owner_coldkey);
 
-        SubtensorModule::add_balance_to_coldkey_account(&neuron_coldkey, u64::MAX.into());
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000_000u64;
@@ -3018,17 +3116,10 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
         let initial_total_hotkey_alpha = 10_000_000_000u64;
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &neuron_hotkey,
-            &staker_coldkey,
+            &owner_coldkey,
             netuid_1,
             initial_total_hotkey_alpha.into(),
         );
-
-        let validator_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &neuron_hotkey,
-            &staker_coldkey,
-            netuid_1,
-        );
-        assert_eq!(validator_stake, initial_total_hotkey_alpha.into());
 
         // Distribute pending root alpha
         let pending_root_alpha = 1_000_000_000u64;
@@ -3040,6 +3131,10 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
             AlphaBalance::ZERO,
         );
 
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(staker_coldkey),
+            RootClaimTypeEnum::Keep
+        ));
         assert_ok!(SubtensorModule::claim_root(
             RuntimeOrigin::signed(staker_coldkey),
             BTreeSet::from([netuid_1])
@@ -3058,7 +3153,7 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
 
         step_block(20);
         assert_ok!(SubtensorModule::do_swap_hotkey(
-            RuntimeOrigin::signed(neuron_coldkey),
+            RuntimeOrigin::signed(owner_coldkey),
             &neuron_hotkey,
             &neuron_hotkey_new,
             None,
