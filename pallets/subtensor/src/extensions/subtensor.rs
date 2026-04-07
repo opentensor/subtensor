@@ -15,7 +15,7 @@ use sp_runtime::{
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{CustomTransactionError, MechId, NetUid};
+use subtensor_runtime_common::{CustomTransactionError, NetUid, NetUidStorageIndex};
 
 const ADD_STAKE_BURN_PRIORITY_BOOST: u64 = 100;
 
@@ -151,24 +151,13 @@ where
         };
 
         match call.is_sub_type() {
-            Some(Call::commit_weights { netuid, .. }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
+            Some(Call::commit_weights { netuid, .. })
+            | Some(Call::commit_mechanism_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who, *netuid) {
+                    Ok((Default::default(), (), origin))
+                } else {
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
-                let r = Pallet::<T>::validate_hash_commit_weights_prerequisites(
-                    who,
-                    *netuid,
-                    MechId::MAIN,
-                );
-                Self::result_to_validity(r, 0u64).map(|validity| (validity, (), origin.clone()))
-            }
-            Some(Call::commit_mechanism_weights { netuid, mecid, .. }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                let r =
-                    Pallet::<T>::validate_hash_commit_weights_prerequisites(who, *netuid, *mecid);
-                Self::result_to_validity(r, 0u64).map(|validity| (validity, (), origin.clone()))
             }
             Some(Call::batch_commit_weights {
                 netuids,
@@ -182,14 +171,6 @@ where
                     if !Self::check_weights_min_stake(who, netuid) {
                         return Err(CustomTransactionError::StakeAmountTooLow.into());
                     }
-                    let r = Pallet::<T>::validate_hash_commit_weights_prerequisites(
-                        who,
-                        netuid,
-                        MechId::MAIN,
-                    );
-                    if let Err(e) = r {
-                        return Err(Self::pallet_error_to_custom(e).into());
-                    }
                 }
                 Ok((Default::default(), (), origin))
             }
@@ -200,58 +181,59 @@ where
                 salt,
                 version_key,
             }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                let netuid_index = Pallet::<T>::get_mechanism_storage_index(*netuid, MechId::MAIN);
-                let provided_hash = Pallet::<T>::get_commit_hash(
-                    who,
-                    netuid_index,
-                    uids,
-                    values,
-                    salt,
-                    *version_key,
-                );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                            Ok((Default::default(), (), origin))
-                        } else {
-                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                if Self::check_weights_min_stake(who, *netuid) {
+                    let provided_hash = Pallet::<T>::get_commit_hash(
+                        who,
+                        NetUidStorageIndex::from(*netuid),
+                        uids,
+                        values,
+                        salt,
+                        *version_key,
+                    );
+                    match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
+                        Some(commit_block) => {
+                            if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                                Ok((Default::default(), (), origin))
+                            } else {
+                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                            }
                         }
+                        None => Err(CustomTransactionError::CommitNotFound.into()),
                     }
-                    None => Err(CustomTransactionError::CommitNotFound.into()),
+                } else {
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::reveal_mechanism_weights {
                 netuid,
-                mecid,
+                #[warn(unused_variables)]
+                    mecid: _,
                 uids,
                 values,
                 salt,
                 version_key,
             }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                let netuid_index = Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid);
-                let provided_hash = Pallet::<T>::get_commit_hash(
-                    who,
-                    netuid_index,
-                    uids,
-                    values,
-                    salt,
-                    *version_key,
-                );
-                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                    Some(commit_block) => {
-                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                            Ok((Default::default(), (), origin))
-                        } else {
-                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                if Self::check_weights_min_stake(who, *netuid) {
+                    let provided_hash = Pallet::<T>::get_commit_hash(
+                        who,
+                        NetUidStorageIndex::from(*netuid),
+                        uids,
+                        values,
+                        salt,
+                        *version_key,
+                    );
+                    match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
+                        Some(commit_block) => {
+                            if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                                Ok((Default::default(), (), origin))
+                            } else {
+                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                            }
                         }
+                        None => Err(CustomTransactionError::CommitNotFound.into()),
                     }
-                    None => Err(CustomTransactionError::CommitNotFound.into()),
+                } else {
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
             Some(Call::batch_reveal_weights {
@@ -264,55 +246,45 @@ where
                 if !Self::check_weights_min_stake(who, *netuid) {
                     return Err(CustomTransactionError::StakeAmountTooLow.into());
                 }
-                let netuid_index = Pallet::<T>::get_mechanism_storage_index(*netuid, MechId::MAIN);
+
                 let num_reveals = uids_list.len();
-                if num_reveals != values_list.len()
-                    || num_reveals != salts_list.len()
-                    || num_reveals != version_keys.len()
+                if num_reveals == values_list.len()
+                    && num_reveals == salts_list.len()
+                    && num_reveals == version_keys.len()
                 {
-                    return Err(CustomTransactionError::InputLengthsUnequal.into());
-                }
-                let provided_hashes = (0..num_reveals)
-                    .map(|i| {
-                        Pallet::<T>::get_commit_hash(
-                            who,
-                            netuid_index,
-                            uids_list.get(i).unwrap_or(&Vec::new()),
-                            values_list.get(i).unwrap_or(&Vec::new()),
-                            salts_list.get(i).unwrap_or(&Vec::new()),
-                            *version_keys.get(i).unwrap_or(&0_u64),
-                        )
-                    })
-                    .collect::<Vec<_>>();
+                    let provided_hashes = (0..num_reveals)
+                        .map(|i| {
+                            Pallet::<T>::get_commit_hash(
+                                who,
+                                NetUidStorageIndex::from(*netuid),
+                                uids_list.get(i).unwrap_or(&Vec::new()),
+                                values_list.get(i).unwrap_or(&Vec::new()),
+                                salts_list.get(i).unwrap_or(&Vec::new()),
+                                *version_keys.get(i).unwrap_or(&0_u64),
+                            )
+                        })
+                        .collect::<Vec<_>>();
 
-                let batch_reveal_block = provided_hashes
-                    .iter()
-                    .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
-                    .collect::<Vec<_>>();
+                    let batch_reveal_block = provided_hashes
+                        .iter()
+                        .filter_map(|hash| Pallet::<T>::find_commit_block_via_hash(*hash))
+                        .collect::<Vec<_>>();
 
-                if provided_hashes.len() != batch_reveal_block.len() {
-                    return Err(CustomTransactionError::CommitNotFound.into());
-                }
-                if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block) {
-                    Ok((Default::default(), (), origin))
+                    if provided_hashes.len() == batch_reveal_block.len() {
+                        if Pallet::<T>::is_batch_reveal_block_range(*netuid, batch_reveal_block) {
+                            Ok((Default::default(), (), origin))
+                        } else {
+                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                        }
+                    } else {
+                        Err(CustomTransactionError::CommitNotFound.into())
+                    }
                 } else {
-                    Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
+                    Err(CustomTransactionError::InputLengthsUnequal.into())
                 }
             }
-            Some(Call::set_weights { netuid, .. }) => {
-                if Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
-                    return Err(CustomTransactionError::CommitRevealEnabled.into());
-                }
-                if Self::check_weights_min_stake(who, *netuid) {
-                    Ok((Default::default(), (), origin))
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
-                }
-            }
-            Some(Call::set_mechanism_weights { netuid, .. }) => {
-                if Pallet::<T>::get_commit_reveal_weights_enabled(*netuid) {
-                    return Err(CustomTransactionError::CommitRevealEnabled.into());
-                }
+            Some(Call::set_weights { netuid, .. })
+            | Some(Call::set_mechanism_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who, *netuid) {
                     Ok((Default::default(), (), origin))
                 } else {
@@ -329,9 +301,6 @@ where
                 }
                 for netuid in netuids.iter() {
                     let netuid: NetUid = (*netuid).into();
-                    if Pallet::<T>::get_commit_reveal_weights_enabled(netuid) {
-                        return Err(CustomTransactionError::CommitRevealEnabled.into());
-                    }
                     if !Self::check_weights_min_stake(who, netuid) {
                         return Err(CustomTransactionError::StakeAmountTooLow.into());
                     }
@@ -341,95 +310,66 @@ where
             Some(Call::commit_timelocked_weights {
                 netuid,
                 reveal_round,
-                commit_reveal_version,
                 ..
             }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
+                if Self::check_weights_min_stake(who, *netuid) {
+                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
+                        return Err(CustomTransactionError::InvalidRevealRound.into());
+                    }
+                    Ok((Default::default(), (), origin))
+                } else {
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
-                if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                    return Err(CustomTransactionError::InvalidRevealRound.into());
-                }
-                let r = Pallet::<T>::validate_timelocked_commit_weights_prerequisites(
-                    who,
-                    *netuid,
-                    MechId::MAIN,
-                    *commit_reveal_version,
-                );
-                Self::result_to_validity(r, 0u64).map(|validity| (validity, (), origin.clone()))
             }
             Some(Call::commit_timelocked_mechanism_weights {
                 netuid,
-                mecid,
+                mecid: _,
                 reveal_round,
-                commit_reveal_version,
                 ..
-            }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
-                }
-                if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                    return Err(CustomTransactionError::InvalidRevealRound.into());
-                }
-                let r = Pallet::<T>::validate_timelocked_commit_weights_prerequisites(
-                    who,
-                    *netuid,
-                    *mecid,
-                    *commit_reveal_version,
-                );
-                Self::result_to_validity(r, 0u64).map(|validity| (validity, (), origin.clone()))
-            }
-            Some(Call::commit_crv3_mechanism_weights {
+            })
+            | Some(Call::commit_crv3_mechanism_weights {
                 netuid,
-                mecid,
+                mecid: _,
                 reveal_round,
                 ..
             }) => {
-                if !Self::check_weights_min_stake(who, *netuid) {
-                    return Err(CustomTransactionError::StakeAmountTooLow.into());
+                if Self::check_weights_min_stake(who, *netuid) {
+                    if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
+                        return Err(CustomTransactionError::InvalidRevealRound.into());
+                    }
+                    Ok((Default::default(), (), origin))
+                } else {
+                    Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
-                if *reveal_round < pallet_drand::LastStoredRound::<T>::get() {
-                    return Err(CustomTransactionError::InvalidRevealRound.into());
-                }
-                const CRV3_CALL_VERSION: u16 = 4;
-                let r = Pallet::<T>::validate_timelocked_commit_weights_prerequisites(
-                    who,
-                    *netuid,
-                    *mecid,
-                    CRV3_CALL_VERSION,
-                );
-                Self::result_to_validity(r, 0u64).map(|validity| (validity, (), origin.clone()))
             }
-            Some(Call::decrease_take { hotkey, take }) => Self::result_to_validity(
-                Pallet::<T>::validate_decrease_take(who, hotkey, *take),
-                0u64,
-            )
-            .map(|validity| (validity, (), origin.clone())),
-            Some(Call::increase_take { hotkey, take }) => Self::result_to_validity(
-                Pallet::<T>::validate_increase_take(who, hotkey, *take),
-                0u64,
-            )
-            .map(|validity| (validity, (), origin.clone())),
+            Some(Call::increase_take { hotkey, take: _ })
+            | Some(Call::decrease_take { hotkey, take: _ }) => {
+                match Pallet::<T>::do_take_checks(who, hotkey) {
+                    Ok(()) => Ok((Default::default(), (), origin)),
+                    Err(err) => Err(Self::pallet_error_to_custom(err).into()),
+                }
+            }
+
             Some(Call::swap_hotkey_v2 {
                 hotkey,
-                new_hotkey,
-                netuid,
+                new_hotkey: _,
+                netuid: _,
                 keep_stake: _,
-            }) => Self::result_to_validity(
-                Pallet::<T>::validate_swap_hotkey_v2_signed(who, hotkey, new_hotkey, *netuid),
-                0u64,
-            )
-            .map(|validity| (validity, (), origin.clone())),
-            #[cfg(feature = "pow-faucet")]
-            Some(Call::faucet {
-                block_number,
-                nonce,
-                work,
-            }) => Self::result_to_validity(
-                Pallet::<T>::validate_faucet(who, *block_number, *nonce, work.clone()),
-                0u64,
-            )
-            .map(|validity| (validity, (), origin.clone())),
+            }) => {
+                if !Pallet::<T>::coldkey_owns_hotkey(who, hotkey) {
+                    return Err(CustomTransactionError::NonAssociatedColdKey.into());
+                }
+
+                let block: u64 = Pallet::<T>::get_current_block_as_u64();
+
+                if !Pallet::<T>::exceeds_tx_rate_limit(Pallet::<T>::get_last_tx_block(&who), block)
+                {
+                    return Err(CustomTransactionError::RateLimitExceeded.into());
+                }
+
+                Ok((Default::default(), (), origin))
+            }
+
             Some(Call::serve_axon {
                 netuid,
                 version,
