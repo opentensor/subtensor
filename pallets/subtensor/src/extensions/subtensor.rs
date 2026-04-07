@@ -221,19 +221,6 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
-                let registrations_this_interval =
-                    Pallet::<T>::get_registrations_this_interval(*netuid);
-                let max_registrations_per_interval =
-                    Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
-                {
-                    // If the registration limit for the interval is exceeded, reject the transaction
-                    return Err(CustomTransactionError::RateLimitExceeded.into());
-                }
-
-                Ok((Default::default(), (), origin))
-            }
             Some(Call::serve_axon {
                 netuid,
                 version,

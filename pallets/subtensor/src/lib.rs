@@ -44,6 +44,7 @@ pub mod staking;
 pub mod subnets;
 pub mod swap;
 pub mod utils;
+pub mod weights;
 use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
@@ -346,6 +347,30 @@ pub mod pallet {
             /// Subnets to keep alpha emissions (swap everything else).
             subnets: BTreeSet<NetUid>,
         },
+    }
+
+    /// The Max Burn HalfLife Settable
+    #[pallet::type_value]
+    pub fn MaxBurnHalfLife<T: Config>() -> u16 {
+        36_100
+    }
+
+    /// Default burn half-life (in blocks) for subnet registration price decay.
+    #[pallet::type_value]
+    pub fn DefaultBurnHalfLife<T: Config>() -> u16 {
+        360
+    }
+
+    /// Default multiplier applied to the burn price after a successful registration.
+    #[pallet::type_value]
+    pub fn DefaultBurnIncreaseMult<T: Config>() -> U64F64 {
+        U64F64::from_num(1.26)
+    }
+
+    /// Default Neuron Burn Cost
+    #[pallet::type_value]
+    pub fn DefaultNeuronBurnCost<T: Config>() -> TaoBalance {
+        TaoBalance::from(1_000_000_000u64)
     }
 
     /// Default minimum root claim amount.
@@ -2026,16 +2051,6 @@ pub mod pallet {
     pub type Active<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
 
-    /// --- MAP ( netuid ) --> rank
-    #[pallet::storage]
-    pub type Rank<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
-    /// --- MAP ( netuid ) --> trust
-    #[pallet::storage]
-    pub type Trust<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
     /// --- MAP ( netuid ) --> consensus
     #[pallet::storage]
     pub type Consensus<T: Config> =
@@ -2063,11 +2078,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> validator_trust
     #[pallet::storage]
     pub type ValidatorTrust<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
-    /// --- MAP ( netuid ) --> pruning_scores
-    #[pallet::storage]
-    pub type PruningScores<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
 
     /// --- MAP ( netuid ) --> validator_permit
@@ -2433,6 +2443,16 @@ pub mod pallet {
     #[pallet::storage]
     pub type MechanismEmissionSplit<T: Config> =
         StorageMap<_, Twox64Concat, NetUid, Vec<u16>, OptionQuery>;
+
+    /// --- MAP ( netuid ) --> BurnHalfLife (blocks)
+    #[pallet::storage]
+    pub type BurnHalfLife<T> =
+        StorageMap<_, Identity, NetUid, u16, ValueQuery, DefaultBurnHalfLife<T>>;
+
+    /// --- MAP ( netuid ) --> BurnIncreaseMult
+    #[pallet::storage]
+    pub type BurnIncreaseMult<T> =
+        StorageMap<_, Identity, NetUid, U64F64, ValueQuery, DefaultBurnIncreaseMult<T>>;
 
     /// ==================
     /// ==== Genesis =====
