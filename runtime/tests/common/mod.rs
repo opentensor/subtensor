@@ -1,3 +1,5 @@
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+
 use {
     frame_support::assert_ok,
     node_subtensor_runtime::ExistentialDeposit,
