@@ -178,7 +178,7 @@ impl<T: Config> Pallet<T> {
                 //                          Apply weights
                 // ------------------------------------------------------------------
                 if let Err(e) = Self::do_set_mechanism_weights(
-                    T::RuntimeOrigin::signed(who.clone()),
+                    OriginFor::<T>::signed(who.clone()),
                     netuid,
                     MechId::from(mecid),
                     uids,

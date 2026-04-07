@@ -19,7 +19,7 @@ pub fn migrate_fix_root_subnet_tao<T: Config>() -> Weight {
         String::from_utf8_lossy(&migration_name)
     );
 
-    let mut total_stake = TaoCurrency::ZERO;
+    let mut total_stake = TaoBalance::ZERO;
     let mut hotkey_count: u64 = 0;
     // We accumulate the total stake for all hotkeys on the root subnet.
     for hotkey in Owner::<T>::iter_keys() {

@@ -2,7 +2,7 @@ use super::*;
 use safe_math::*;
 use sp_core::Get;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, Currency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 impl<T: Config> Pallet<T> {
@@ -28,12 +28,12 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
     pub fn do_move_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         origin_hotkey: T::AccountId,
         destination_hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
+        alpha_amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // Check that the origin is signed by the origin_hotkey.
         let coldkey = ensure_signed(origin)?;
@@ -119,12 +119,12 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
     pub fn do_transfer_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         destination_coldkey: T::AccountId,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
+        alpha_amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the origin_coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -185,11 +185,11 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
+        alpha_amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
         let coldkey = ensure_signed(origin)?;
@@ -251,12 +251,12 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
-        limit_price: TaoCurrency,
+        alpha_amount: AlphaBalance,
+        limit_price: TaoBalance,
         allow_partial: bool,
     ) -> dispatch::DispatchResult {
         // Ensure the extrinsic is signed by the coldkey.
@@ -302,12 +302,12 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        alpha_amount: AlphaCurrency,
-        maybe_limit_price: Option<TaoCurrency>,
+        alpha_amount: AlphaBalance,
+        maybe_limit_price: Option<TaoBalance>,
         maybe_allow_partial: Option<bool>,
         check_transfer_toggle: bool,
         set_limit: bool,
-    ) -> Result<TaoCurrency, DispatchError> {
+    ) -> Result<TaoBalance, DispatchError> {
         // Cap the alpha_amount at available Alpha because user might be paying transaxtion fees
         // in Alpha and their total is already reduced by now.
         let alpha_available = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -418,14 +418,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// In the corner case when SubnetTAO(2) == SubnetTAO(1), no slippage is going to occur.
     ///
-    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3 or balancers.
-    /// We need an updated one.
+    /// TODO: This formula only works for a single swap step, so it is not 100% correct for swap v3. We need an updated one.
     ///
     pub fn get_max_amount_move(
         origin_netuid: NetUid,
         destination_netuid: NetUid,
-        limit_price: TaoCurrency,
-    ) -> Result<AlphaCurrency, DispatchError> {
+        limit_price: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
         let tao = U64F64::saturating_from_num(1_000_000_000);
 
         // Corner case: both subnet IDs are root or stao
@@ -437,7 +436,7 @@ impl<T: Config> Pallet<T> {
             if limit_price > tao.saturating_to_num::<u64>().into() {
                 return Err(Error::<T>::ZeroMaxStakeAmount.into());
             } else {
-                return Ok(AlphaCurrency::MAX);
+                return Ok(AlphaBalance::MAX);
             }
         }
 
@@ -447,7 +446,7 @@ impl<T: Config> Pallet<T> {
             && (SubnetMechanism::<T>::get(destination_netuid) == 1)
         {
             if limit_price.is_zero() {
-                return Ok(AlphaCurrency::MAX);
+                return Ok(AlphaBalance::MAX);
             } else {
                 // The destination price is reverted because the limit_price is origin_price / destination_price
                 let destination_subnet_price = tao
@@ -472,8 +471,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
-        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid);
-        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid);
+        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(origin_netuid));
+        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
+            .saturating_add(SubnetTaoProvided::<T>::get(destination_netuid));
         if subnet_tao_1.is_zero() || subnet_tao_2.is_zero() {
             return Err(Error::<T>::ZeroMaxStakeAmount.into());
         }
@@ -481,8 +482,10 @@ impl<T: Config> Pallet<T> {
         let subnet_tao_2_float: U64F64 = U64F64::saturating_from_num(subnet_tao_2);
 
         // Corner case: SubnetAlphaIn for any of two subnets is zero
-        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid);
-        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid);
+        let alpha_in_1 = SubnetAlphaIn::<T>::get(origin_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(origin_netuid));
+        let alpha_in_2 = SubnetAlphaIn::<T>::get(destination_netuid)
+            .saturating_add(SubnetAlphaInProvided::<T>::get(destination_netuid));
         if alpha_in_1.is_zero() || alpha_in_2.is_zero() {
             return Err(Error::<T>::ZeroMaxStakeAmount.into());
         }
@@ -505,7 +508,7 @@ impl<T: Config> Pallet<T> {
 
         // Corner case: limit_price is zero
         if limit_price.is_zero() {
-            return Ok(AlphaCurrency::MAX);
+            return Ok(AlphaBalance::MAX);
         }
 
         // Main case

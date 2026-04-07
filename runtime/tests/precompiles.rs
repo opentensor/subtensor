@@ -149,16 +149,16 @@ mod balance_transfer {
             let destination_balance_after =
                 pallet_balances::Pallet::<Runtime>::free_balance(&destination_account);
 
-            assert_eq!(source_balance_after, source_balance_before - amount);
+            assert_eq!(source_balance_after, source_balance_before - amount.into());
             assert_eq!(
                 destination_balance_after,
-                destination_balance_before + amount
+                destination_balance_before + amount.into()
             );
         });
     }
 
     #[test]
-    fn balance_transfer_precompile_respects_subtensor_extension_policy() {
+    fn balance_transfer_precompile_respects_dispatch_guard_policy() {
         new_test_ext().execute_with(|| {
             let precompiles = Precompiles::<Runtime>::new();
             let precompile_addr = addr_from_index(BalanceTransferPrecompile::<Runtime>::INDEX);
@@ -204,7 +204,7 @@ mod balance_transfer {
                 other => panic!("unexpected precompile failure: {other:?}"),
             };
             assert!(
-                message.contains("transaction extension rejected"),
+                message.contains("dispatch execution failed: ColdkeySwapAnnounced"),
                 "unexpected precompile failure: {message}"
             );
 

@@ -6,11 +6,11 @@ use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::Saturating;
 use substrate_fixed::types::{I32F32, I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance};
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
-        o: T::RuntimeOrigin,
+        o: OriginFor<T>,
         netuid: NetUid,
     ) -> Result<Option<T::AccountId>, DispatchError> {
         let coldkey = ensure_signed_or_root(o);
@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn ensure_subnet_owner(
-        o: T::RuntimeOrigin,
+        o: OriginFor<T>,
         netuid: NetUid,
     ) -> Result<T::AccountId, DispatchError> {
         let coldkey = ensure_signed(o);
@@ -36,7 +36,7 @@ impl<T: Config> Pallet<T> {
 
     /// Ensure owner-or-root with a set of TransactionType rate checks (owner only).
     pub fn ensure_sn_owner_or_root_with_limits(
-        o: T::RuntimeOrigin,
+        o: OriginFor<T>,
         netuid: NetUid,
         limits: &[crate::utils::rate_limiting::TransactionType],
     ) -> Result<Option<T::AccountId>, DispatchError> {
@@ -137,7 +137,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Getters ====
     // ========================
-    pub fn get_total_issuance() -> TaoCurrency {
+    pub fn get_total_issuance() -> TaoBalance {
         TotalIssuance::<T>::get()
     }
     pub fn get_current_block_as_u64() -> u64 {
@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_active(netuid: NetUid) -> Vec<bool> {
         Active::<T>::get(netuid)
     }
-    pub fn get_emission(netuid: NetUid) -> Vec<AlphaCurrency> {
+    pub fn get_emission(netuid: NetUid) -> Vec<AlphaBalance> {
         Emission::<T>::get(netuid)
     }
     pub fn get_consensus(netuid: NetUid) -> Vec<u16> {
@@ -231,7 +231,7 @@ impl<T: Config> Pallet<T> {
         let vec = Trust::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaCurrency {
+    pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaBalance {
         let vec = Emission::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or_default()
     }
@@ -337,20 +337,20 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn recycle_tao(amount: TaoCurrency) {
+    pub fn recycle_tao(amount: TaoBalance) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn increase_issuance(amount: TaoCurrency) {
+    pub fn increase_issuance(amount: TaoBalance) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
 
-    pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoCurrency) {
+    pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoBalance) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
-    pub fn get_subnet_locked_balance(netuid: NetUid) -> TaoCurrency {
+    pub fn get_subnet_locked_balance(netuid: NetUid) -> TaoBalance {
         SubnetLocked::<T>::get(netuid)
     }
-    pub fn get_total_subnet_locked() -> TaoCurrency {
+    pub fn get_total_subnet_locked() -> TaoBalance {
         let mut total_subnet_locked: u64 = 0;
         for (_, locked) in SubnetLocked::<T>::iter() {
             total_subnet_locked.saturating_accrue(locked.into());
@@ -610,25 +610,25 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
-    pub fn get_burn(netuid: NetUid) -> TaoCurrency {
+    pub fn get_burn(netuid: NetUid) -> TaoBalance {
         Burn::<T>::get(netuid)
     }
-    pub fn set_burn(netuid: NetUid, burn: TaoCurrency) {
+    pub fn set_burn(netuid: NetUid, burn: TaoBalance) {
         Burn::<T>::insert(netuid, burn);
     }
 
-    pub fn get_min_burn(netuid: NetUid) -> TaoCurrency {
+    pub fn get_min_burn(netuid: NetUid) -> TaoBalance {
         MinBurn::<T>::get(netuid)
     }
-    pub fn set_min_burn(netuid: NetUid, min_burn: TaoCurrency) {
+    pub fn set_min_burn(netuid: NetUid, min_burn: TaoBalance) {
         MinBurn::<T>::insert(netuid, min_burn);
         Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
     }
 
-    pub fn get_max_burn(netuid: NetUid) -> TaoCurrency {
+    pub fn get_max_burn(netuid: NetUid) -> TaoBalance {
         MaxBurn::<T>::get(netuid)
     }
-    pub fn set_max_burn(netuid: NetUid, max_burn: TaoCurrency) {
+    pub fn set_max_burn(netuid: NetUid, max_burn: TaoBalance) {
         MaxBurn::<T>::insert(netuid, max_burn);
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
     }
@@ -709,18 +709,18 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::get(coldkey)
     }
 
-    pub fn set_total_issuance(total_issuance: TaoCurrency) {
+    pub fn set_total_issuance(total_issuance: TaoBalance) {
         TotalIssuance::<T>::put(total_issuance);
     }
 
-    pub fn get_rao_recycled(netuid: NetUid) -> TaoCurrency {
+    pub fn get_rao_recycled(netuid: NetUid) -> TaoBalance {
         RAORecycledForRegistration::<T>::get(netuid)
     }
-    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: TaoCurrency) {
+    pub fn set_rao_recycled(netuid: NetUid, rao_recycled: TaoBalance) {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
         Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
-    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: TaoCurrency) {
+    pub fn increase_rao_recycled(netuid: NetUid, inc_rao_recycled: TaoBalance) {
         let curr_rao_recycled = Self::get_rao_recycled(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
@@ -750,7 +750,7 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_key_swap_cost() -> TaoCurrency {
+    pub fn get_key_swap_cost() -> TaoBalance {
         T::KeySwapCost::get().into()
     }
 
@@ -910,5 +910,73 @@ impl<T: Config> Pallet<T> {
     /// Sets TAO flow smoothing factor (alpha)
     pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
+    }
+
+    /// Multiply an integer `value` by a Q32 fixed-point factor.
+    ///
+    /// Q32 means:
+    ///   1.0 == 1 << 32
+    ///   0.5 == 1 << 31
+    ///
+    /// Safe / non-panicking:
+    /// - uses saturating u128 multiplication
+    /// - clamps back into u64 range
+    pub fn mul_by_q32(value: u64, factor_q32: u64) -> u64 {
+        let product: u128 = (value as u128).saturating_mul(factor_q32 as u128);
+        let shifted: u128 = product >> 32;
+        core::cmp::min(shifted, u64::MAX as u128) as u64
+    }
+
+    /// Exponentiation-by-squaring for Q32 values.
+    ///
+    /// Returns `base_q32 ^ exp` in Q32.
+    ///
+    /// Safe / non-panicking:
+    /// - uses `mul_by_q32`, which is saturating/clamped
+    pub fn pow_q32(base_q32: u64, exp: u16) -> u64 {
+        let mut result: u64 = 1u64 << 32; // 1.0 in Q32
+        let mut factor: u64 = base_q32;
+        let mut power: u32 = u32::from(exp);
+
+        while power > 0 {
+            if (power & 1) == 1 {
+                result = Self::mul_by_q32(result, factor);
+            }
+
+            power >>= 1;
+
+            if power > 0 {
+                factor = Self::mul_by_q32(factor, factor);
+            }
+        }
+
+        result
+    }
+
+    /// Returns the per-block decay factor `f` in Q32
+    pub fn decay_factor_q32(half_life: u16) -> u64 {
+        if half_life == 0 {
+            return 1u64 << 32; // 1.0
+        }
+
+        let one_q32: u64 = 1u64 << 32;
+        let half_q32: u64 = 1u64 << 31; // 0.5
+
+        let mut lo: u64 = 0;
+        let mut hi: u64 = one_q32;
+
+        while lo.saturating_add(1) < hi {
+            let span: u64 = hi.saturating_sub(lo);
+            let mid: u64 = lo.saturating_add(span >> 1);
+            let mid_pow: u64 = Self::pow_q32(mid, half_life);
+
+            if mid_pow > half_q32 {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+
+        lo
     }
 }

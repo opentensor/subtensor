@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use core::num::NonZeroU64;
 
-mod base_call_filter;
+pub mod check_mortality;
 pub mod check_nonce;
 mod migrations;
 pub mod sudo_wrapper;
@@ -72,15 +72,13 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use substrate_fixed::types::U64F64;
+use stp_shield::ShieldedTransaction;
+use substrate_fixed::types::U96F32;
 use subtensor_precompiles::Precompiles;
-use subtensor_runtime_common::{AlphaCurrency, TaoCurrency, time::*, *};
+use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 // A few exports that help ease life for downstream crates.
-use crate::base_call_filter::NoNestingCallFilter;
-use crate::base_call_filter::SafeModeWhitelistedCalls;
-use core::marker::PhantomData;
 pub use frame_support::{
     StorageValue, construct_runtime, parameter_types,
     traits::{
@@ -100,11 +98,14 @@ pub use pallet_balances::Call as BalancesCall;
 use pallet_commitments::GetCommitments;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
-use scale_info::TypeInfo;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+
+use core::marker::PhantomData;
+
+use scale_info::TypeInfo;
 
 // Frontier
 use fp_rpc::TransactionStatus;
@@ -119,6 +120,7 @@ impl pallet_drand::Config for Runtime {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -126,9 +128,29 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Signature = Signature;
 }
 
+pub struct FindAuraAuthors;
+impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
+    fn find_current_author() -> Option<AuraId> {
+        let slot = Aura::current_slot_from_digests()?;
+        let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
+        let author_index = *slot % authorities.len() as u64;
+
+        authorities.get(author_index as usize).cloned()
+    }
+
+    fn find_next_next_author() -> Option<AuraId> {
+        let slot = Aura::current_slot_from_digests()?.checked_add(2)?;
+        let authorities = pallet_aura::Authorities::<Runtime>::get().into_inner();
+        let author_index = slot % authorities.len() as u64;
+
+        authorities.get(author_index as usize).cloned()
+    }
+}
+
 impl pallet_shield::Config for Runtime {
-    type RuntimeCall = RuntimeCall;
-    type AuthorityOrigin = pallet_shield::EnsureAuraAuthority<Self>;
+    type AuthorityId = AuraId;
+    type FindAuthors = FindAuraAuthors;
+    type WeightInfo = pallet_shield::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -168,20 +190,23 @@ impl frame_system::offchain::CreateSignedTransaction<pallet_drand::Call<Runtime>
         use sp_runtime::traits::StaticLookup;
 
         let address = <Runtime as frame_system::Config>::Lookup::unlookup(account.clone());
-        let extra: TransactionExtensions = (
-            frame_system::CheckNonZeroSender::<Runtime>::new(),
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(Era::Immortal),
-            check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
-            frame_system::CheckWeight::<Runtime>::new(),
-            ChargeTransactionPaymentWrapper::new(
-                pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+        let extra: TxExtension = (
+            (
+                frame_system::CheckNonZeroSender::<Runtime>::new(),
+                frame_system::CheckSpecVersion::<Runtime>::new(),
+                frame_system::CheckTxVersion::<Runtime>::new(),
+                frame_system::CheckGenesis::<Runtime>::new(),
+                check_mortality::CheckMortality::<Runtime>::from(Era::Immortal),
+                check_nonce::CheckNonce::<Runtime>::from(nonce).into(),
+                frame_system::CheckWeight::<Runtime>::new(),
             ),
-            SudoTransactionExtension::<Runtime>::new(),
-            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
-            pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+            (
+                ChargeTransactionPaymentWrapper::new(TaoBalance::new(0)),
+                SudoTransactionExtension::<Runtime>::new(),
+                pallet_shield::CheckShieldedTxValidity::<Runtime>::new(),
+                pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+                pallet_drand::drand_priority::DrandPriority::<Runtime>::new(),
+            ),
             frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
         );
 
@@ -200,11 +225,13 @@ pub use pallet_subtensor;
 
 // Method used to calculate the fee of an extrinsic
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
-    pub const ITEMS_FEE: Balance = 2_000 * 10_000;
-    pub const BYTES_FEE: Balance = 100 * 10_000;
-    (items as Balance)
-        .saturating_mul(ITEMS_FEE)
-        .saturating_add((bytes as Balance).saturating_mul(BYTES_FEE))
+    pub const ITEMS_FEE: u64 = 2_000 * 10_000;
+    pub const BYTES_FEE: u64 = 100 * 10_000;
+    TaoBalance::new(
+        (items as u64)
+            .saturating_mul(ITEMS_FEE)
+            .saturating_add((bytes as u64).saturating_mul(BYTES_FEE)),
+    )
 }
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -243,7 +270,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 379,
+    spec_version: 396,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -276,6 +303,28 @@ parameter_types! {
     pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
         ::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
     pub const SS58Prefix: u8 = 42;
+}
+
+pub struct NoNestingCallFilter;
+
+impl Contains<RuntimeCall> for NoNestingCallFilter {
+    fn contains(call: &RuntimeCall) -> bool {
+        match call {
+            RuntimeCall::Utility(inner) => {
+                let calls = match inner {
+                    pallet_utility::Call::force_batch { calls } => calls,
+                    pallet_utility::Call::batch { calls } => calls,
+                    pallet_utility::Call::batch_all { calls } => calls,
+                    _ => &Vec::new(),
+                };
+
+                !calls.iter().any(|call| {
+					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
+				})
+            }
+            _ => true,
+        }
+    }
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -334,6 +383,7 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
     type ExtensionsWeightInfo = frame_system::SubstrateExtensionsWeight<Runtime>;
+    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -411,6 +461,25 @@ parameter_types! {
     pub const DisallowPermissionlessRelease: Option<BlockNumber> = None;
 }
 
+pub struct SafeModeWhitelistedCalls;
+impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
+    fn contains(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::Sudo(_)
+                | RuntimeCall::Multisig(_)
+                | RuntimeCall::System(_)
+                | RuntimeCall::SafeMode(_)
+                | RuntimeCall::Timestamp(_)
+                | RuntimeCall::SubtensorModule(
+                    pallet_subtensor::Call::set_weights { .. }
+                        | pallet_subtensor::Call::serve_axon { .. }
+                )
+                | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
+        )
+    }
+}
+
 impl pallet_safe_mode::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -431,6 +500,9 @@ impl pallet_safe_mode::Config for Runtime {
 
 // Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: u64 = 500;
+parameter_types! {
+    pub const ExistentialDeposit: TaoBalance = TaoBalance::new(500);
+}
 
 impl pallet_balances::Config for Runtime {
     type MaxLocks = ConstU32<50>;
@@ -441,7 +513,7 @@ impl pallet_balances::Config for Runtime {
     // The ubiquitous event type.
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
+    type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 
@@ -450,6 +522,34 @@ impl pallet_balances::Config for Runtime {
     type FreezeIdentifier = RuntimeFreezeReason;
     type MaxFreezes = ConstU32<50>;
     type DoneSlashHandler = ();
+}
+
+// Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction
+// fee OnUnbalanced trait bounds
+pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
+
+impl<F: FindAuthor<u32>> BlockAuthorFromAura<F> {
+    pub fn get_block_author() -> Option<AccountId32> {
+        let binding = frame_system::Pallet::<Runtime>::digest();
+        let digest_logs = binding.logs();
+        let author_index = F::find_author(digest_logs.iter().filter_map(|d| d.as_pre_runtime()))?;
+        let authority_id = pallet_aura::Authorities::<Runtime>::get()
+            .get(author_index as usize)?
+            .clone();
+        Some(AccountId32::new(authority_id.to_raw_vec().try_into().ok()?))
+    }
+}
+
+impl AuthorshipInfo<AccountId32> for Runtime {
+    fn author() -> Option<AccountId32> {
+        BlockAuthorFromAura::<Aura>::get_block_author()
+    }
+}
+
+impl<F: FindAuthor<u32>> AuthorshipInfo<sp_runtime::AccountId32> for BlockAuthorFromAura<F> {
+    fn author() -> Option<sp_runtime::AccountId32> {
+        Self::get_block_author()
+    }
 }
 
 parameter_types! {
@@ -570,7 +670,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake {
                     alpha_amount,
                     ..
-                }) => *alpha_amount < SMALL_TRANSFER_LIMIT.into(),
+                }) => *alpha_amount < SMALL_ALPHA_TRANSFER_LIMIT,
                 _ => false,
             },
             ProxyType::Owner => {
@@ -626,6 +726,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register { .. })
+                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::register_limit { .. })
             ),
             ProxyType::RootWeights => false, // deprecated
             ProxyType::ChildKeys => matches!(
@@ -857,8 +958,8 @@ impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
 // Configure registry pallet.
 parameter_types! {
     pub const MaxAdditionalFields: u32 = 1;
-    pub const InitialDeposit: Balance = 100_000_000; // 0.1 TAO
-    pub const FieldDeposit: Balance = 100_000_000; // 0.1 TAO
+    pub const InitialDeposit: Balance = TaoBalance::new(100_000_000); // 0.1 TAO
+    pub const FieldDeposit: Balance = TaoBalance::new(100_000_000); // 0.1 TAO
 }
 
 impl pallet_registry::Config for Runtime {
@@ -874,8 +975,8 @@ impl pallet_registry::Config for Runtime {
 
 parameter_types! {
     pub const MaxCommitFieldsInner: u32 = 3;
-    pub const CommitmentInitialDeposit: Balance = 0; // Free
-    pub const CommitmentFieldDeposit: Balance = 0; // Free
+    pub const CommitmentInitialDeposit: Balance = TaoBalance::ZERO; // Free
+    pub const CommitmentFieldDeposit: Balance = TaoBalance::ZERO; // Free
 }
 
 #[subtensor_macros::freeze_struct("7c76bd954afbb54e")]
@@ -907,7 +1008,7 @@ impl OnMetadataCommitment<AccountId> for ResetBondsOnCommit {
     fn on_metadata_commitment(netuid: NetUid, address: &AccountId) {
         // Reset bonds for each mechanism of this subnet
         let mechanism_count = SubtensorModule::get_current_mechanism_count(netuid);
-        for mecid in 0..u8::from(mechanism_count) {
+        for mecid in 0..<u8 as From<MechId>>::from(mechanism_count) {
             let netuid_index = SubtensorModule::get_mechanism_storage_index(netuid, mecid.into());
             let _ = SubtensorModule::do_reset_bonds(netuid_index, address);
         }
@@ -963,7 +1064,7 @@ parameter_types! {
     pub const SubtensorInitialAlphaSigmoidSteepness: i16 = 1000;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
     pub const SubtensorInitialMaxAllowedUids: u16 = 256;
-    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialIssuance: TaoBalance = TaoBalance::ZERO;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
@@ -990,23 +1091,23 @@ parameter_types! {
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
-    pub const SubtensorInitialBurn: u64 = 100_000_000; // 0.1 tao
-    pub const SubtensorInitialMinBurn: u64 = 500_000; // 500k RAO
-    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
-    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
-    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
+    pub const SubtensorInitialBurn: TaoBalance = TaoBalance::new(100_000_000); // 0.1 tao
+    pub const SubtensorInitialMinBurn: TaoBalance = TaoBalance::new(500_000); // 500k RAO
+    pub const SubtensorInitialMaxBurn: TaoBalance = TaoBalance::new(100_000_000_000); // 100 tao
+    pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialTxChildKeyTakeRateLimit: u64 = INITIAL_CHILDKEY_TAKE_RATELIMIT;
-    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorInitialRAORecycledForRegistration: TaoBalance = TaoBalance::ZERO; // 0 rao
     pub const SubtensorInitialRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 1_296_000;
     pub const SubtensorInitialMinAllowedUids: u16 = 64;
-    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialMinLockCost: TaoBalance = TaoBalance::new(1_000_000_000_000_u64); // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
-    pub const SubtensorInitialKeySwapCost: u64 = 100_000_000; // 0.1 TAO
+    pub const SubtensorInitialKeySwapCost: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
@@ -1018,8 +1119,8 @@ parameter_types! {
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     // 0 days
     pub const InitialStartCallDelay: u64 = 0;
-    pub const SubtensorInitialKeySwapOnSubnetCost: u64 = 1_000_000; // 0.001 TAO
-    pub const HotkeySwapOnSubnetInterval : BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
+    pub const SubtensorInitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(1_000_000); // 0.001 TAO
+    pub const HotkeySwapOnSubnetInterval : BlockNumber = 24 * 60 * 60 / 12; // 1 day
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
@@ -1097,11 +1198,14 @@ impl pallet_subtensor::Config for Runtime {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = BlockAuthorFromAura<Aura>;
+    type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1_000_000) };
 }
@@ -1110,13 +1214,30 @@ impl pallet_subtensor_swap::Config for Runtime {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = pallet_subtensor::TaoCurrencyReserve<Self>;
-    type AlphaReserve = pallet_subtensor::AlphaCurrencyReserve<Self>;
+    type TaoReserve = pallet_subtensor::TaoBalanceReserve<Self>;
+    type AlphaReserve = pallet_subtensor::AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
-    type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
+    type WeightInfo = pallet_subtensor_swap::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = SwapBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct SwapBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_subtensor_swap::BenchmarkHelper<AccountId> for SwapBenchmarkHelper {
+    fn setup_subnet(netuid: subtensor_runtime_common::NetUid) {
+        pallet_subtensor::NetworksAdded::<Runtime>::insert(netuid, true);
+        pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+    }
+    fn register_hotkey(hotkey: &AccountId, coldkey: &AccountId) {
+        pallet_subtensor::Owner::<Runtime>::insert(hotkey, coldkey);
+    }
 }
 
 use crate::sudo_wrapper::SudoTransactionExtension;
@@ -1147,6 +1268,7 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
+    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 /// Define the ChainId
@@ -1210,7 +1332,7 @@ const EVM_TO_SUBSTRATE_DECIMALS: u64 = 1_000_000_000_u64;
 pub struct SubtensorEvmBalanceConverter;
 
 impl BalanceConverter for SubtensorEvmBalanceConverter {
-    /// Convert from Substrate balance (u64) to EVM balance (U256)
+    /// Convert from Substrate balance (TaoBalance) to EVM balance (U256)
     fn into_evm_balance(value: SubstrateBalance) -> Option<EvmBalance> {
         let value = value.into_u256();
         if let Some(evm_value) = value.checked_mul(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
@@ -1231,7 +1353,7 @@ impl BalanceConverter for SubtensorEvmBalanceConverter {
         }
     }
 
-    /// Convert from EVM balance (U256) to Substrate balance (u64)
+    /// Convert from EVM balance (U256) to Substrate balance (TaoBalance)
     fn into_substrate_balance(value: EvmBalance) -> Option<SubstrateBalance> {
         let value = value.into_u256();
         if let Some(substrate_value) = value.checked_div(U256::from(EVM_TO_SUBSTRATE_DECIMALS)) {
@@ -1410,8 +1532,8 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
 // Crowdloan
 parameter_types! {
     pub const CrowdloanPalletId: PalletId = PalletId(*b"bt/cloan");
-    pub const MinimumDeposit: Balance = 10_000_000_000; // 10 TAO
-    pub const AbsoluteMinimumContribution: Balance = 100_000_000; // 0.1 TAO
+    pub const MinimumDeposit: Balance = TaoBalance::new(10_000_000_000); // 10 TAO
+    pub const AbsoluteMinimumContribution: Balance = TaoBalance::new(100_000_000); // 0.1 TAO
     // 7 days minimum (7 * 24 * 60 * 60 / 12)
     pub const MinimumBlockDuration: BlockNumber = prod_or_fast!(50400, 50);
     // 60 days maximum (60 * 24 * 60 * 60 / 12)
@@ -1445,19 +1567,19 @@ fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedu
     }
 }
 
-const CONTRACT_STORAGE_KEY_PERCENT: Balance = 15;
-const CONTRACT_STORAGE_BYTE_PERCENT: Balance = 6;
+const CONTRACT_STORAGE_KEY_PERCENT: u64 = 15;
+const CONTRACT_STORAGE_BYTE_PERCENT: u64 = 6;
 
 /// Contracts deposits charged at 15% of the existential deposit per key, 6% per byte.
 pub const fn contract_deposit(items: u32, bytes: u32) -> Balance {
-    let key_fee =
-        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_KEY_PERCENT) / 100;
-    let byte_fee =
-        (EXISTENTIAL_DEPOSIT as Balance).saturating_mul(CONTRACT_STORAGE_BYTE_PERCENT) / 100;
+    let key_fee = EXISTENTIAL_DEPOSIT.saturating_mul(CONTRACT_STORAGE_KEY_PERCENT) / 100;
+    let byte_fee = EXISTENTIAL_DEPOSIT.saturating_mul(CONTRACT_STORAGE_BYTE_PERCENT) / 100;
 
-    (items as Balance)
-        .saturating_mul(key_fee)
-        .saturating_add((bytes as Balance).saturating_mul(byte_fee))
+    TaoBalance::new(
+        (items as u64)
+            .saturating_mul(key_fee)
+            .saturating_add((bytes as u64).saturating_mul(byte_fee)),
+    )
 }
 
 parameter_types! {
@@ -1565,18 +1687,25 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 // Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 // The extensions to the basic transaction logic.
-pub type TransactionExtensions = (
+pub type SystemTxExtension = (
     frame_system::CheckNonZeroSender<Runtime>,
     frame_system::CheckSpecVersion<Runtime>,
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
-    frame_system::CheckEra<Runtime>,
+    check_mortality::CheckMortality<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
+);
+pub type CustomTxExtension = (
     ChargeTransactionPaymentWrapper<Runtime>,
     SudoTransactionExtension<Runtime>,
+    pallet_shield::CheckShieldedTxValidity<Runtime>,
     pallet_subtensor::SubtensorTransactionExtension<Runtime>,
     pallet_drand::drand_priority::DrandPriority<Runtime>,
+);
+pub type TxExtension = (
+    SystemTxExtension,
+    CustomTxExtension,
     frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
@@ -1590,19 +1719,22 @@ type Migrations = (
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
-    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TransactionExtensions>;
+    fp_self_contained::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic =
-    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TransactionExtensions, H160>;
+    fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, TxExtension, H160>;
 
 // The payload being signed in transactions.
-pub type SignedPayload = generic::SignedPayload<RuntimeCall, TransactionExtensions>;
+pub type SignedPayload = generic::SignedPayload<RuntimeCall, TxExtension>;
+
+// Chain context for the executive.
+pub type ChainContext = frame_system::ChainContext<Runtime>;
 // Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
     Runtime,
     Block,
-    frame_system::ChainContext<Runtime>,
+    ChainContext,
     Runtime,
     AllPalletsWithSystem,
     Migrations,
@@ -1628,6 +1760,8 @@ mod benches {
         [pallet_crowdloan, Crowdloan]
         [pallet_subtensor_swap, Swap]
         [pallet_shield, MevShield]
+        [pallet_subtensor_proxy, Proxy]
+        [pallet_subtensor_utility, Utility]
     );
 }
 
@@ -2284,7 +2418,7 @@ impl_runtime_apis! {
             SubtensorModule::get_delegate(delegate_account)
         }
 
-        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<AlphaCurrency>))> {
+        fn get_delegated(delegatee_account: AccountId32) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<AlphaBalance>))> {
             SubtensorModule::get_delegated(delegatee_account)
         }
     }
@@ -2395,7 +2529,7 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
-        fn get_network_registration_cost() -> TaoCurrency {
+        fn get_network_registration_cost() -> TaoBalance {
             SubtensorModule::get_network_lock_cost()
         }
     }
@@ -2458,7 +2592,7 @@ impl_runtime_apis! {
     impl pallet_subtensor_swap_runtime_api::SwapRuntimeApi<Block> for Runtime {
         fn current_alpha_price(netuid: NetUid) -> u64 {
             pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into())
-                .saturating_mul(U64F64::from_num(1_000_000_000))
+                .saturating_mul(U96F32::from_num(1_000_000_000))
                 .saturating_to_num()
         }
 
@@ -2474,10 +2608,12 @@ impl_runtime_apis! {
                 .collect()
         }
 
-        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoCurrency) -> SimSwapResult {
+        fn sim_swap_tao_for_alpha(netuid: NetUid, tao: TaoBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
-            let no_slippage_alpha = U64F64::saturating_from_num(u64::from(tao)).safe_div(price).saturating_to_num::<u64>();
+            let tao_u64: u64 = tao.into();
+            let no_slippage_alpha = U96F32::saturating_from_num(tao_u64).safe_div(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetAlphaForTao::<Runtime>::with_amount(tao);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,
@@ -2502,10 +2638,12 @@ impl_runtime_apis! {
             )
         }
 
-        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaCurrency) -> SimSwapResult {
+        fn sim_swap_alpha_for_tao(netuid: NetUid, alpha: AlphaBalance) -> SimSwapResult {
             let price = pallet_subtensor_swap::Pallet::<Runtime>::current_price(netuid.into());
-            let no_slippage_tao = U64F64::saturating_from_num(u64::from(alpha)).saturating_mul(price).saturating_to_num::<u64>();
+            let alpha_u64: u64 = alpha.into();
+            let no_slippage_tao = U96F32::saturating_from_num(alpha_u64).saturating_mul(price).saturating_to_num::<u64>();
             let order = pallet_subtensor::GetTaoForAlpha::<Runtime>::with_amount(alpha);
+            // fee_to_block_author is included in sr.fee_paid, so it is absent in this calculation
             pallet_subtensor_swap::Pallet::<Runtime>::sim_swap(
                 netuid.into(),
                 order,
@@ -2528,6 +2666,20 @@ impl_runtime_apis! {
                     alpha_slippage: 0.into(),
                 },
             )
+        }
+    }
+
+    impl stp_shield::ShieldApi<Block> for Runtime {
+        fn try_decode_shielded_tx(uxt: <Block as BlockT>::Extrinsic) -> Option<ShieldedTransaction> {
+            MevShield::try_decode_shielded_tx::<Block, ChainContext>(uxt)
+        }
+
+        fn is_shielded_using_current_key(key_hash: &[u8; 16]) -> bool {
+            MevShield::is_shielded_using_current_key(key_hash)
+        }
+
+        fn try_unshield_tx(dec_key_bytes: Vec<u8>, shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
+            MevShield::try_unshield_tx::<Block>(dec_key_bytes, shielded_tx)
         }
     }
 }

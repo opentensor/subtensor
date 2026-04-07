@@ -86,12 +86,12 @@ where
 
         Ok(CrowdloanInfo {
             creator: H256::from_slice(crowdloan.creator.as_slice()),
-            deposit: crowdloan.deposit,
-            min_contribution: crowdloan.min_contribution,
+            deposit: u64::from(crowdloan.deposit),
+            min_contribution: u64::from(crowdloan.min_contribution),
             end: crowdloan.end.unique_saturated_into(),
-            cap: crowdloan.cap,
+            cap: u64::from(crowdloan.cap),
             funds_account: H256::from_slice(crowdloan.funds_account.as_slice()),
-            raised: crowdloan.raised,
+            raised: u64::from(crowdloan.raised),
             has_target_address: crowdloan.target_address.is_some(),
             target_address: crowdloan
                 .target_address
@@ -116,7 +116,7 @@ where
             },
         )?;
 
-        Ok(contribution)
+        Ok(u64::from(contribution))
     }
 
     #[precompile::public("create(uint64,uint64,uint64,uint32,address)")]
@@ -132,9 +132,9 @@ where
         let who = handle.caller_account_id::<R>();
         let target_address = R::AddressMapping::into_account_id(target_address.0);
         let call = pallet_crowdloan::Call::<R>::create {
-            deposit,
-            min_contribution,
-            cap,
+            deposit: deposit.into(),
+            min_contribution: min_contribution.into(),
+            cap: cap.into(),
             end: end.into(),
             call: None,
             target_address: Some(target_address),
@@ -153,7 +153,7 @@ where
         let account_id = handle.caller_account_id::<R>();
         let call = pallet_crowdloan::Call::<R>::contribute {
             crowdloan_id,
-            amount,
+            amount: amount.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -205,7 +205,7 @@ where
         let account_id = handle.caller_account_id::<R>();
         let call = pallet_crowdloan::Call::<R>::update_min_contribution {
             crowdloan_id,
-            new_min_contribution,
+            new_min_contribution: new_min_contribution.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))
@@ -237,7 +237,7 @@ where
         let account_id = handle.caller_account_id::<R>();
         let call = pallet_crowdloan::Call::<R>::update_cap {
             crowdloan_id,
-            new_cap,
+            new_cap: new_cap.into(),
         };
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(account_id))

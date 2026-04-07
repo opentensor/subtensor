@@ -6,7 +6,7 @@ use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
-use subtensor_runtime_common::{AlphaCurrency, NetUidStorageIndex, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 use crate::{utils::rate_limiting::TransactionType, *};
@@ -1468,7 +1468,7 @@ fn test_children_stake_values() {
             &hotkey,
             &coldkey,
             netuid,
-            100_000_000_000_000.into(),
+            100_000_000_000_000_u64.into(),
         );
 
         // Set multiple children with proportions.
@@ -1484,26 +1484,26 @@ fn test_children_stake_values() {
 
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
-            25_000_000_069_849.into()
+            25_000_000_069_849_u64.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid),
-            24_999_999_976_716.into()
+            24_999_999_976_716_u64.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid),
-            24_999_999_976_716.into()
+            24_999_999_976_716_u64.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child3, netuid),
-            24_999_999_976_716.into()
+            24_999_999_976_716_u64.into()
         );
         assert_eq!(
             SubtensorModule::get_inherited_for_hotkey_on_subnet(&child3, netuid)
                 + SubtensorModule::get_inherited_for_hotkey_on_subnet(&child2, netuid)
                 + SubtensorModule::get_inherited_for_hotkey_on_subnet(&child1, netuid)
                 + SubtensorModule::get_inherited_for_hotkey_on_subnet(&hotkey, netuid),
-            99999999999997.into()
+            99999999999997_u64.into()
         );
     });
 }
@@ -1895,7 +1895,7 @@ fn test_get_stake_for_hotkey_on_subnet_edge_cases() {
         register_ok_neuron(netuid, child2, coldkey, 0);
 
         // Set above old value of network max stake
-        let network_max_stake = 600_000_000_000_000.into();
+        let network_max_stake = 600_000_000_000_000_u64.into();
 
         // Increase stake to the network max
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2233,9 +2233,10 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         // Add network and register hotkey
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10_000_000_000_000_u64.into());
+        SubtokenEnabled::<Test>::insert(netuid, true);
 
-        let reserve = 1_000_000_000_000_000;
+        let reserve = 1_000_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Set non-default value for childkey stake threshold
@@ -2447,7 +2448,7 @@ fn test_revoke_child_no_min_stake_check() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
-        let reserve = 1_000_000_000_000_000;
+        let reserve = 1_000_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
         mock::setup_reserves(NetUid::ROOT, reserve.into(), reserve.into());
 
@@ -2520,7 +2521,7 @@ fn test_do_set_child_registration_disabled() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, parent, coldkey, 0);
 
-        let reserve = 1_000_000_000_000_000;
+        let reserve = 1_000_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Set minimum stake for setting children
@@ -2639,12 +2640,16 @@ fn test_childkey_set_weights_single_parent() {
         let coldkey_child: U256 = U256::from(101);
         let coldkey_weight_setter: U256 = U256::from(102);
 
-        let stake_to_give_child = 109_999;
+        let balance_to_give_child = TaoBalance::from(109_999);
+        let stake_to_give_child = AlphaBalance::from(109_999);
 
         // Register parent with minimal stake and child with high stake
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child, stake_to_give_child + 10);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_weight_setter, 1_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 1.into());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey_child,
+            balance_to_give_child + 10.into(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_weight_setter, 1_000_000.into());
 
         // Add neurons for parent, child and weight_setter
         register_ok_neuron(netuid, parent, coldkey_parent, 1);
@@ -2655,7 +2660,7 @@ fn test_childkey_set_weights_single_parent() {
             &parent,
             &coldkey_parent,
             netuid,
-            stake_to_give_child.into(),
+            stake_to_give_child,
         );
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &weight_setter,
@@ -2684,7 +2689,7 @@ fn test_childkey_set_weights_single_parent() {
         ));
 
         // Set the min stake very high
-        SubtensorModule::set_stake_threshold(stake_to_give_child * 5);
+        SubtensorModule::set_stake_threshold(u64::from(stake_to_give_child) * 5);
 
         // Check the child has less stake than required
         assert!(
@@ -2707,7 +2712,7 @@ fn test_childkey_set_weights_single_parent() {
         assert!(!SubtensorModule::check_weights_min_stake(&child, netuid));
 
         // Set a minimum stake to set weights
-        SubtensorModule::set_stake_threshold(stake_to_give_child - 5);
+        SubtensorModule::set_stake_threshold(u64::from(stake_to_give_child) - 5);
 
         // Check if the stake for the child is above
         assert!(
@@ -2744,9 +2749,13 @@ fn test_set_weights_no_parent() {
         let coldkey: U256 = U256::from(101);
         let spare_ck = U256::from(102);
 
-        let stake_to_give_child = 109_999;
+        let balance_to_give_child = TaoBalance::from(109_999);
+        let stake_to_give_child = AlphaBalance::from(109_999);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_to_give_child + 10);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            balance_to_give_child + 10.into(),
+        );
 
         // Is registered
         register_ok_neuron(netuid, hotkey, coldkey, 1);
@@ -2757,7 +2766,7 @@ fn test_set_weights_no_parent() {
             &hotkey,
             &coldkey,
             netuid,
-            stake_to_give_child.into(),
+            stake_to_give_child,
         );
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
@@ -2845,7 +2854,7 @@ fn test_childkey_take_drain() {
             let nominator = U256::from(7);
             let netuid = NetUid::from(1);
             let subnet_tempo = 10;
-            let stake = 100_000_000_000;
+            let stake = 100_000_000_000_u64;
             let proportion: u64 = u64::MAX / 2;
 
             // Add network, register hotkeys, and setup network parameters
@@ -2857,11 +2866,11 @@ fn test_childkey_take_drain() {
             register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
             SubtensorModule::add_balance_to_coldkey_account(
                 &parent_coldkey,
-                stake + ExistentialDeposit::get(),
+                TaoBalance::from(stake) + ExistentialDeposit::get(),
             );
             SubtensorModule::add_balance_to_coldkey_account(
                 &nominator,
-                stake + ExistentialDeposit::get(),
+                TaoBalance::from(stake) + ExistentialDeposit::get(),
             );
             SubtensorModule::set_weights_set_rate_limit(netuid, 0);
             SubtensorModule::set_max_allowed_validators(netuid, 2);
@@ -2940,7 +2949,7 @@ fn test_childkey_take_drain() {
                 SubtensorModule::get_total_stake_for_coldkey(&nominator) - nominator_stake_before;
             let total_emission = child_emission + parent_emission + nominator_emission;
 
-            assert_abs_diff_eq!(child_emission, TaoCurrency::ZERO, epsilon = 10.into());
+            assert_abs_diff_eq!(child_emission, TaoBalance::ZERO, epsilon = 10.into());
             assert_abs_diff_eq!(
                 parent_emission,
                 total_emission * 9.into() / 20.into(),
@@ -2970,12 +2979,13 @@ fn test_parent_child_chain_emission() {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        remove_owner_registration_stake(netuid);
         SubtensorModule::set_ck_burn(0);
         Tempo::<Test>::insert(netuid, 1);
 
         // Setup large LPs to prevent slippage
-        SubnetTAO::<Test>::insert(netuid, TaoCurrency::from(1_000_000_000_000_000));
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaCurrency::from(1_000_000_000_000_000));
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(1_000_000_000_000_000_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(1_000_000_000_000_000_u64));
 
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -2994,9 +3004,9 @@ fn test_parent_child_chain_emission() {
         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
 
         // Swap to alpha
         let stake_a = 300_000_000_000_u64;
@@ -3090,13 +3100,13 @@ fn test_parent_child_chain_emission() {
 
         let emission = U96F32::from_num(
             SubtensorModule::get_block_emission()
-                .unwrap_or(TaoCurrency::ZERO)
+                .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );
 
         // Set pending emission to 0
-        PendingValidatorEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
-        PendingServerEmission::<Test>::insert(netuid, AlphaCurrency::ZERO);
+        PendingValidatorEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
+        PendingServerEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
 
         // Run epoch with emission value
         SubtensorModule::run_coinbase(emission);
@@ -3153,7 +3163,7 @@ fn test_parent_child_chain_emission() {
         );
 
         let hotkeys = [hotkey_a, hotkey_b, hotkey_c];
-        let mut total_stake_now = AlphaCurrency::ZERO;
+        let mut total_stake_now = AlphaBalance::ZERO;
         for (hotkey, netuid, stake) in TotalHotkeyAlpha::<Test>::iter() {
             if hotkeys.contains(&hotkey) {
                 total_stake_now += stake;
@@ -3202,11 +3212,15 @@ fn test_parent_child_chain_epoch() {
         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
 
-        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+        mock::setup_reserves(
+            netuid,
+            1_000_000_000_000_u64.into(),
+            1_000_000_000_000_u64.into(),
+        );
 
         // Swap to alpha
         let total_tao = I96F32::from_num(300_000 + 100_000 + 50_000);
@@ -3332,8 +3346,8 @@ fn test_dividend_distribution_with_children() {
         SubtensorModule::set_ck_burn(0);
         mock::setup_reserves(
             netuid,
-            1_000_000_000_000_000.into(),
-            1_000_000_000_000_000.into(),
+            1_000_000_000_000_000_u64.into(),
+            1_000_000_000_000_000_u64.into(),
         );
         // Set owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
@@ -3352,9 +3366,9 @@ fn test_dividend_distribution_with_children() {
         register_ok_neuron(netuid, hotkey_c, coldkey_c, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_b, 1_000.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_c, 1_000.into());
 
         // Swap to alpha
         let total_tao = I96F32::from_num(300_000 + 100_000 + 50_000);
@@ -3586,11 +3600,11 @@ fn test_dynamic_parent_child_relationships() {
         log::info!("child take 2: {chk_take_2:?}");
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, 500_000 + 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, 50_000 + 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, 30_000 + 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_parent, (500_000 + 1_000).into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child1, (50_000 + 1_000).into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_child2, (30_000 + 1_000).into());
 
-        let reserve = 1_000_000_000_000;
+        let reserve = 1_000_000_000_000_u64;
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Swap to alpha
@@ -3819,6 +3833,7 @@ fn test_do_set_child_as_sn_owner_not_enough_stake() {
         let proportion: u64 = 1000;
 
         let netuid = add_dynamic_network(&sn_owner_hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         register_ok_neuron(netuid, child_hotkey, child_coldkey, 0);
 
         // Verify stake of sn_owner_hotkey is NOT enough
@@ -3867,7 +3882,11 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         add_network(netuid, 1, 0);
         // Set SN owner cut to 0
         SubtensorModule::set_subnet_owner_cut(0_u16);
-        mock::setup_reserves(netuid, 1_000_000_000_000.into(), 1_000_000_000_000.into());
+        mock::setup_reserves(
+            netuid,
+            1_000_000_000_000_u64.into(),
+            1_000_000_000_000_u64.into(),
+        );
 
         // Define hotkeys and coldkeys
         let hotkey_a: U256 = U256::from(1);
@@ -3879,8 +3898,8 @@ fn test_dividend_distribution_with_children_same_coldkey_owner() {
         register_ok_neuron(netuid, hotkey_b, coldkey_a, 0);
 
         // Add initial stakes
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_a, 1_000.into());
 
         // Swap to alpha
         let total_tao = 300_000 + 100_000;
@@ -4202,5 +4221,296 @@ fn test_set_child_keys_empty_vector_clears_storage() {
         // `get` returns empty due to ValueQuery default, but presence is false.
         assert!(ChildKeys::<Test>::get(parent, netuid).is_empty());
         assert!(ParentKeys::<Test>::get(child, netuid).is_empty());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_set_child_keys_no_start_call_sets_immediately --exact --show-output
+#[test]
+fn test_set_child_keys_no_start_call_sets_immediately() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid = NetUid::from(1);
+        let proportion1: u64 = 1000;
+        let proportion2: u64 = 2000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Clear SubtokenEnabled
+        SubtokenEnabled::<Test>::remove(netuid);
+
+        // Set multiple children
+        mock_schedule_children(
+            &coldkey,
+            &hotkey,
+            netuid,
+            &[(proportion1, child1), (proportion2, child2)],
+        );
+
+        // Normally happens on epoch
+        SubtensorModule::do_set_pending_children(netuid);
+
+        // Verify pending map is empty
+        assert!(!PendingChildKeys::<Test>::contains_key(netuid, hotkey));
+
+        // Verify that childkey is set
+        assert_eq!(
+            ChildKeys::<Test>::get(hotkey, netuid),
+            vec![(proportion1, child1), (proportion2, child2)]
+        );
+    });
+}
+
+// Test that the subnet owner can always set weights (owner bypass in check_weights_min_stake)
+// and that do_set_root_validators_for_subnet correctly creates parent-child relationships.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_root_children_enable_subnet_owner_set_weights --exact --show-output --nocapture
+#[test]
+fn test_root_children_enable_subnet_owner_set_weights() {
+    new_test_ext(1).execute_with(|| {
+        // --- Setup accounts ---
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+
+        let root_val_coldkey_1 = U256::from(100);
+        let root_val_hotkey_1 = U256::from(101);
+        let root_val_coldkey_2 = U256::from(200);
+        let root_val_hotkey_2 = U256::from(201);
+
+        // --- Create root network and subnet ---
+        add_network(NetUid::ROOT, 1, 0);
+        let netuid =
+            add_dynamic_network_disable_commit_reveal(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        // --- Register root validators on a subnet first (required before root_register) ---
+        register_ok_neuron(netuid, root_val_hotkey_1, root_val_coldkey_1, 0);
+        register_ok_neuron(netuid, root_val_hotkey_2, root_val_coldkey_2, 0);
+
+        // --- Register root validators on root network ---
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(root_val_coldkey_1),
+            root_val_hotkey_1,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(root_val_coldkey_2),
+            root_val_hotkey_2,
+        ));
+
+        // --- Add stake for root validators on root and the subnet ---
+        let root_stake = AlphaBalance::from(1_000_000_000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_1,
+            &root_val_coldkey_1,
+            NetUid::ROOT,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_1,
+            &root_val_coldkey_1,
+            netuid,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_2,
+            &root_val_coldkey_2,
+            NetUid::ROOT,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_2,
+            &root_val_coldkey_2,
+            netuid,
+            root_stake,
+        );
+
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+        let uids: Vec<u16> = vec![0];
+        let values: Vec<u16> = vec![u16::MAX];
+
+        // Subnet owner can set weights with default (zero) stake threshold.
+        assert!(
+            SubtensorModule::check_weights_min_stake(&subnet_owner_hotkey, netuid),
+            "Subnet owner should pass the min stake check with default threshold"
+        );
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(subnet_owner_hotkey),
+            netuid,
+            uids.clone(),
+            values.clone(),
+            version_key
+        ));
+
+        // Subnet owner can still set weights after raising the stake threshold (owner bypass).
+        SubtensorModule::set_stake_threshold(500_000_000u64);
+        assert!(
+            SubtensorModule::check_weights_min_stake(&subnet_owner_hotkey, netuid),
+            "Subnet owner should pass the min stake check even with high threshold"
+        );
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(subnet_owner_hotkey),
+            netuid,
+            uids.clone(),
+            values.clone(),
+            version_key
+        ));
+
+        // --- Verify do_set_root_validators_for_subnet creates parent-child relationships ---
+        assert_ok!(SubtensorModule::set_pending_childkey_cooldown(
+            RuntimeOrigin::root(),
+            0,
+        ));
+
+        assert_ok!(SubtensorModule::do_set_root_validators_for_subnet(netuid));
+
+        // Activate pending children (cooldown is 0, advance 1 block)
+        step_block(1);
+        SubtensorModule::do_set_pending_children(netuid);
+
+        // Each root validator should have the subnet owner hotkey as a child on netuid
+        let children_1 = SubtensorModule::get_children(&root_val_hotkey_1, netuid);
+        assert_eq!(
+            children_1,
+            vec![(u64::MAX, subnet_owner_hotkey)],
+            "Root validator 1 should have subnet owner as child"
+        );
+        let children_2 = SubtensorModule::get_children(&root_val_hotkey_2, netuid);
+        assert_eq!(
+            children_2,
+            vec![(u64::MAX, subnet_owner_hotkey)],
+            "Root validator 2 should have subnet owner as child"
+        );
+
+        // Subnet owner should have both root validators as parents
+        let parents = SubtensorModule::get_parents(&subnet_owner_hotkey, netuid);
+        assert_eq!(parents.len(), 2, "Subnet owner should have 2 parents");
+    });
+}
+
+// Test that register_network automatically sets root validators as parents of the
+// subnet owner, enabling the owner to set weights. Since SubtokenEnabled is false
+// for a new subnet (start_call hasn't executed yet), child keys are applied immediately.
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::children::test_register_network_schedules_root_validators --exact --show-output --nocapture
+#[test]
+fn test_register_network_schedules_root_validators() {
+    new_test_ext(1).execute_with(|| {
+        // --- Setup root network and root validators ---
+        let root_val_coldkey_1 = U256::from(100);
+        let root_val_hotkey_1 = U256::from(101);
+        let root_val_coldkey_2 = U256::from(200);
+        let root_val_hotkey_2 = U256::from(201);
+
+        add_network(NetUid::ROOT, 1, 0);
+
+        // Root validators need to be registered on some subnet before root_register.
+        // Create a bootstrap subnet for that purpose.
+        let bootstrap_netuid = NetUid::from(1);
+        add_network(bootstrap_netuid, 1, 0);
+        register_ok_neuron(bootstrap_netuid, root_val_hotkey_1, root_val_coldkey_1, 0);
+        register_ok_neuron(bootstrap_netuid, root_val_hotkey_2, root_val_coldkey_2, 0);
+
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(root_val_coldkey_1),
+            root_val_hotkey_1,
+        ));
+        assert_ok!(SubtensorModule::root_register(
+            RuntimeOrigin::signed(root_val_coldkey_2),
+            root_val_hotkey_2,
+        ));
+
+        // Give root validators significant stake on root and bootstrap subnet
+        let root_stake = AlphaBalance::from(1_000_000_000);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_1,
+            &root_val_coldkey_1,
+            NetUid::ROOT,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_2,
+            &root_val_coldkey_2,
+            NetUid::ROOT,
+            root_stake,
+        );
+
+        // --- Minimize cooldown so pending children activate quickly ---
+        assert_ok!(SubtensorModule::set_pending_childkey_cooldown(
+            RuntimeOrigin::root(),
+            0,
+        ));
+
+        // --- Set a high stake threshold ---
+        let high_threshold = 500_000_000u64;
+        SubtensorModule::set_stake_threshold(high_threshold);
+
+        // --- Register a new subnet (this should automatically call do_set_root_validators_for_subnet) ---
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let lock_cost = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&subnet_owner_coldkey, lock_cost.into());
+        TotalIssuance::<Test>::mutate(|total| {
+            *total = total.saturating_add(lock_cost);
+        });
+        assert_ok!(SubtensorModule::register_network(
+            RuntimeOrigin::signed(subnet_owner_coldkey),
+            subnet_owner_hotkey,
+        ));
+
+        // Determine the netuid that was just created
+        let netuid: NetUid = (TotalNetworks::<Test>::get().saturating_sub(1)).into();
+        assert_eq!(
+            SubnetOwnerHotkey::<Test>::get(netuid),
+            subnet_owner_hotkey,
+            "Subnet owner hotkey should be set"
+        );
+
+        // Root validators need stake on the new subnet for child stake inheritance to work
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_1,
+            &root_val_coldkey_1,
+            netuid,
+            root_stake,
+        );
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &root_val_hotkey_2,
+            &root_val_coldkey_2,
+            netuid,
+            root_stake,
+        );
+
+        // --- Verify child keys were applied immediately (SubtokenEnabled is false for new subnets) ---
+        let children_1 = SubtensorModule::get_children(&root_val_hotkey_1, netuid);
+        assert_eq!(
+            children_1,
+            vec![(u64::MAX, subnet_owner_hotkey)],
+            "Root validator 1 should have subnet owner as child"
+        );
+        let children_2 = SubtensorModule::get_children(&root_val_hotkey_2, netuid);
+        assert_eq!(
+            children_2,
+            vec![(u64::MAX, subnet_owner_hotkey)],
+            "Root validator 2 should have subnet owner as child"
+        );
+
+        // --- Verify subnet owner can now set weights ---
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+        let version_key = SubtensorModule::get_weights_version_key(netuid);
+
+        assert!(
+            SubtensorModule::check_weights_min_stake(&subnet_owner_hotkey, netuid),
+            "Subnet owner should have enough inherited stake to set weights"
+        );
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(subnet_owner_hotkey),
+            netuid,
+            vec![0],
+            vec![u16::MAX],
+            version_key
+        ));
     });
 }

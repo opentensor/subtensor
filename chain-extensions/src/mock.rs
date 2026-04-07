@@ -7,6 +7,7 @@
 use core::num::NonZeroU64;
 
 use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::Zero;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
@@ -25,7 +26,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{
+    AlphaBalance, AuthorshipInfo, NetUid, Saturating, TaoBalance, Token,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -57,7 +60,7 @@ pub type AccountId = U256;
 
 // Balance of an account.
 #[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = TaoBalance;
 
 // An index to a block.
 #[allow(dead_code)]
@@ -75,7 +78,7 @@ pub struct WeightToBalance;
 
 impl Convert<Weight, Balance> for WeightToBalance {
     fn convert(weight: Weight) -> Balance {
-        weight.ref_time()
+        weight.ref_time().into()
     }
 }
 
@@ -223,7 +226,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<TaoBalance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -241,9 +244,9 @@ parameter_types! {
 
 parameter_types! {
     pub ContractsSchedule: pallet_contracts::Schedule<Test> = Default::default();
-    pub const ContractsDepositPerByte: Balance = 1;
-    pub const ContractsDepositPerItem: Balance = 10;
-    pub const ContractsDefaultDepositLimit: Balance = 1_000_000_000;
+    pub const ContractsDepositPerByte: Balance = TaoBalance::new(1);
+    pub const ContractsDepositPerItem: Balance = TaoBalance::new(10);
+    pub const ContractsDefaultDepositLimit: Balance = TaoBalance::new(1_000_000_000);
     pub const ContractsCodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
     pub const ContractsMaxDelegateDependencies: u32 = 32;
     pub const ContractsMaxCodeLen: u32 = 120_000;
@@ -254,12 +257,20 @@ parameter_types! {
 }
 
 parameter_types! {
-    pub const ProxyDepositBase: Balance = 1;
-    pub const ProxyDepositFactor: Balance = 1;
+    pub const ProxyDepositBase: Balance = TaoBalance::new(1);
+    pub const ProxyDepositFactor: Balance = TaoBalance::new(1);
     pub const MaxProxies: u32 = 32;
     pub const MaxPending: u32 = 32;
-    pub const AnnouncementDepositBase: Balance = 1;
-    pub const AnnouncementDepositFactor: Balance = 1;
+    pub const AnnouncementDepositBase: Balance = TaoBalance::new(1);
+    pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
+}
+
+pub struct MockAuthorshipProvider;
+
+impl AuthorshipInfo<U256> for MockAuthorshipProvider {
+    fn author() -> Option<U256> {
+        Some(U256::from(12345u64))
+    }
 }
 
 parameter_types! {
@@ -269,8 +280,8 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = 1;
-    pub const TransactionByteFee: Balance = 100;
+    pub const ExistentialDeposit: Balance = TaoBalance::new(1);
+    pub const TransactionByteFee: Balance = TaoBalance::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialAlphaSigmoidSteepness: i16 = 1000;
@@ -298,8 +309,8 @@ parameter_types! {
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
-    pub const MinBurnUpperBound: TaoCurrency = TaoCurrency::new(1_000_000_000); // 1 TAO
-    pub const MaxBurnLowerBound: TaoCurrency = TaoCurrency::new(100_000_000); // 0.1 TAO
+    pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
+    pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
@@ -331,7 +342,7 @@ parameter_types! {
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
     pub const InitialStartCallDelay: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
-    pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
+    pub const InitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(10_000_000);
     pub const HotkeySwapOnSubnetInterval: u64 = 15; // 15 block, should be bigger than subnet number, then trigger clean up for all subnets
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
@@ -411,12 +422,15 @@ impl pallet_subtensor::Config for Test {
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
+    type AuthorshipProvider = MockAuthorshipProvider;
+    type WeightInfo = ();
 }
 
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
     pub const SwapMaxFeeRate: u16 = 10000; // 15.26%
+    pub const SwapMaxPositions: u32 = 100;
     pub const SwapMinimumLiquidity: u64 = 1_000;
     pub const SwapMinimumReserve: NonZeroU64 = NonZeroU64::new(100).unwrap();
 }
@@ -425,12 +439,15 @@ impl pallet_subtensor_swap::Config for Test {
     type SubnetInfo = SubtensorModule;
     type BalanceOps = SubtensorModule;
     type ProtocolId = SwapProtocolId;
-    type TaoReserve = TaoCurrencyReserve<Self>;
-    type AlphaReserve = AlphaCurrencyReserve<Self>;
+    type TaoReserve = TaoBalanceReserve<Self>;
+    type AlphaReserve = AlphaBalanceReserve<Self>;
     type MaxFeeRate = SwapMaxFeeRate;
+    type MaxPositions = SwapMaxPositions;
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -475,8 +492,8 @@ impl pallet_utility::Config for Test {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = 1;
-    pub const PreimageByteDeposit: Balance = 1;
+    pub const PreimageBaseDeposit: Balance = TaoBalance::new(1);
+    pub const PreimageByteDeposit: Balance = TaoBalance::new(1);
 }
 
 impl pallet_preimage::Config for Test {
@@ -575,6 +592,7 @@ impl pallet_drand::Config for Test {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = ();
 }
 
 impl frame_system::offchain::SigningTypes for Test {
@@ -643,27 +661,69 @@ pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
-    start_nonce: u64,
+    _start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
-    );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
-        hotkey_account_id,
-        coldkey_account_id,
-    );
-    assert_ok!(result);
+    // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
+    let reserve: u64 = 1_000_000_000_000;
+    let tao_reserve = SubnetTAO::<Test>::get(netuid);
+    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)
+        .saturating_add(SubnetAlphaInProvided::<Test>::get(netuid));
+
+    if tao_reserve.is_zero() && alpha_reserve.is_zero() {
+        setup_reserves(netuid, reserve.into(), reserve.into());
+    }
+
+    // Ensure coldkey has enough to pay the current burn AND is not fully drained to zero.
+    // This avoids ZeroBalanceAfterWithdrawn in burned_register.
+    let top_up_for_burn = |netuid: NetUid, cold: U256| {
+        let burn: TaoBalance = SubtensorModule::get_burn(netuid);
+
+        // Make sure something remains after withdrawal even if ED is 0 in tests.
+        let ed: TaoBalance = ExistentialDeposit::get();
+        let min_remaining: TaoBalance = ed.max(1.into());
+
+        // Small buffer for safety (fees / rounding / future changes).
+        let buffer: TaoBalance = 10.into();
+
+        let min_balance_needed: TaoBalance =
+            burn.saturating_add(min_remaining).saturating_add(buffer);
+
+        let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
+        if bal < min_balance_needed {
+            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+        }
+    };
+
+    top_up_for_burn(netuid, coldkey_account_id);
+
+    let origin = <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id);
+    let result = SubtensorModule::burned_register(origin.clone(), netuid, hotkey_account_id);
+
+    match result {
+        Ok(()) => {
+            // success
+        }
+        Err(e)
+            if e == Error::<Test>::TooManyRegistrationsThisInterval.into()
+                || e == Error::<Test>::NotEnoughBalanceToStake.into()
+                || e == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
+        {
+            // Re-top-up and retry once (burn can be state-dependent).
+            top_up_for_burn(netuid, coldkey_account_id);
+
+            assert_ok!(SubtensorModule::burned_register(
+                origin,
+                netuid,
+                hotkey_account_id
+            ));
+        }
+        Err(e) => {
+            panic!("Expected Ok(_). Got Err({e:?})");
+        }
+    }
+
     log::info!(
-        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
 }
 
@@ -690,7 +750,7 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 }
 
 #[allow(dead_code)]
-pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoCurrency, alpha: AlphaCurrency) {
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
 }

@@ -18,8 +18,8 @@ use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
 use sp_std::marker::PhantomData;
-use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, ProxyType, TaoCurrency};
+use substrate_fixed::types::U96F32;
+use subtensor_runtime_common::{AlphaBalance, NetUid, ProxyType, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 #[derive(DebugNoBound)]
@@ -97,7 +97,7 @@ where
 
                 env.charge_weight(weight)?;
 
-                let (hotkey, netuid, amount_staked): (T::AccountId, NetUid, TaoCurrency) = env
+                let (hotkey, netuid, amount_staked): (T::AccountId, NetUid, TaoBalance) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
@@ -123,7 +123,7 @@ where
 
                 env.charge_weight(weight)?;
 
-                let (hotkey, netuid, amount_unstaked): (T::AccountId, NetUid, AlphaCurrency) = env
+                let (hotkey, netuid, amount_unstaked): (T::AccountId, NetUid, AlphaBalance) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
@@ -203,7 +203,7 @@ where
                     origin_netuid,
                     destination_netuid,
                     alpha_amount,
-                ): (T::AccountId, T::AccountId, NetUid, NetUid, AlphaCurrency) = env
+                ): (T::AccountId, T::AccountId, NetUid, NetUid, AlphaBalance) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
@@ -236,7 +236,7 @@ where
                     T::AccountId,
                     NetUid,
                     NetUid,
-                    AlphaCurrency,
+                    AlphaBalance,
                 ) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
@@ -269,7 +269,7 @@ where
                     T::AccountId,
                     NetUid,
                     NetUid,
-                    AlphaCurrency,
+                    AlphaBalance,
                 ) = env
                     .read_as()
                     .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
@@ -300,8 +300,8 @@ where
                 let (hotkey, netuid, amount_staked, limit_price, allow_partial): (
                     T::AccountId,
                     NetUid,
-                    TaoCurrency,
-                    TaoCurrency,
+                    TaoBalance,
+                    TaoBalance,
                     bool,
                 ) = env
                     .read_as()
@@ -334,8 +334,8 @@ where
                 let (hotkey, netuid, amount_unstaked, limit_price, allow_partial): (
                     T::AccountId,
                     NetUid,
-                    AlphaCurrency,
-                    TaoCurrency,
+                    AlphaBalance,
+                    TaoBalance,
                     bool,
                 ) = env
                     .read_as()
@@ -372,16 +372,9 @@ where
                     alpha_amount,
                     limit_price,
                     allow_partial,
-                ): (
-                    T::AccountId,
-                    NetUid,
-                    NetUid,
-                    AlphaCurrency,
-                    TaoCurrency,
-                    bool,
-                ) = env
-                    .read_as()
-                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+                ): (T::AccountId, NetUid, NetUid, AlphaBalance, TaoBalance, bool) =
+                    env.read_as()
+                        .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let call_result = pallet_subtensor::Pallet::<T>::swap_stake_limit(
                     RawOrigin::Signed(env.caller()).into(),
@@ -408,9 +401,9 @@ where
 
                 env.charge_weight(weight)?;
 
-                let (hotkey, netuid, limit_price): (T::AccountId, NetUid, Option<TaoCurrency>) =
-                    env.read_as()
-                        .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+                let (hotkey, netuid, limit_price): (T::AccountId, NetUid, Option<TaoBalance>) = env
+                    .read_as()
+                    .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
                 let call_result = pallet_subtensor::Pallet::<T>::remove_stake_full_limit(
                     RawOrigin::Signed(env.caller()).into(),
@@ -520,7 +513,7 @@ where
                         netuid.into(),
                     );
 
-                let price = current_alpha_price.saturating_mul(U64F64::from_num(1_000_000_000));
+                let price = current_alpha_price.saturating_mul(U96F32::from_num(1_000_000_000));
                 let price: u64 = price.saturating_to_num();
 
                 let encoded_result = price.encode();

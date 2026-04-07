@@ -1,7 +1,4 @@
-use crate::{
-    BalancesCall, Call, CheckColdkeySwap, Config, CustomTransactionError, Error, Pallet,
-    TransactionType,
-};
+use crate::{BalancesCall, Call, Config, Error, Pallet, TransactionType};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::dispatch::{DispatchInfo, PostDispatchInfo};
 use frame_support::traits::IsSubType;
@@ -18,7 +15,7 @@ use sp_runtime::{
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
-use subtensor_runtime_common::{NetUid, NetUidStorageIndex};
+use subtensor_runtime_common::{CustomTransactionError, NetUid, NetUidStorageIndex};
 
 const ADD_STAKE_BURN_PRIORITY_BOOST: u64 = 100;
 
@@ -90,18 +87,10 @@ where
 
 impl<T> TransactionExtension<CallOf<T>> for SubtensorTransactionExtension<T>
 where
-    T: Config
-        + Send
-        + Sync
-        + TypeInfo
-        + pallet_balances::Config
-        + pallet_subtensor_proxy::Config
-        + pallet_shield::Config,
+    T: Config + Send + Sync + TypeInfo + pallet_balances::Config,
     CallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<Call<T>>
-        + IsSubType<BalancesCall<T>>
-        + IsSubType<pallet_subtensor_proxy::Call<T>>
-        + IsSubType<pallet_shield::Call<T>>,
+        + IsSubType<BalancesCall<T>>,
     OriginOf<T>: AsSystemOriginSigner<T::AccountId> + Clone,
 {
     const IDENTIFIER: &'static str = "SubtensorTransactionExtension";
@@ -124,17 +113,6 @@ where
         let Some(who) = origin.as_system_origin_signer() else {
             return Ok((Default::default(), (), origin));
         };
-
-        // TODO: move into tx extension pipeline but require node upgrade
-        CheckColdkeySwap::<T>::new().validate(
-            origin.clone(),
-            call,
-            _info,
-            _len,
-            _self_implicit,
-            _inherited_implication,
-            _source,
-        )?;
 
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
@@ -242,19 +220,6 @@ where
                 } else {
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
-            }
-            Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
-                let registrations_this_interval =
-                    Pallet::<T>::get_registrations_this_interval(*netuid);
-                let max_registrations_per_interval =
-                    Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
-                {
-                    // If the registration limit for the interval is exceeded, reject the transaction
-                    return Err(CustomTransactionError::RateLimitExceeded.into());
-                }
-
-                Ok((Default::default(), (), origin))
             }
             Some(Call::serve_axon {
                 netuid,

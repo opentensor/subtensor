@@ -6,7 +6,7 @@ use substrate_fixed::types::U64F64;
 extern crate alloc;
 use alloc::collections::BTreeMap;
 use codec::Compact;
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 #[freeze_struct("1fafc4fcf28cba7a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
@@ -65,8 +65,8 @@ impl<T: Config> Pallet<T> {
                 alpha_share_pools.push(alpha_share_pool);
             }
 
-            for ((nominator, netuid), alpha_stake) in Alpha::<T>::iter_prefix((delegate.clone(),)) {
-                if alpha_stake == 0 {
+            for (nominator, netuid, alpha_stake) in Self::alpha_iter_single_prefix(&delegate) {
+                if alpha_stake.is_zero() {
                     continue;
                 }
 
@@ -158,15 +158,15 @@ impl<T: Config> Pallet<T> {
         delegatee: T::AccountId,
     ) -> Vec<(
         DelegateInfo<T::AccountId>,
-        (Compact<NetUid>, Compact<AlphaCurrency>),
+        (Compact<NetUid>, Compact<AlphaBalance>),
     )> {
         let mut delegates: Vec<(
             DelegateInfo<T::AccountId>,
-            (Compact<NetUid>, Compact<AlphaCurrency>),
+            (Compact<NetUid>, Compact<AlphaBalance>),
         )> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
             // Staked to this delegate, so add to list
-            for (netuid, _) in Alpha::<T>::iter_prefix((delegate.clone(), delegatee.clone())) {
+            for (netuid, _) in Self::alpha_iter_prefix((&delegate, &delegatee)) {
                 let delegate_info = Self::get_delegate_by_existing_account(delegate.clone(), true);
                 delegates.push((
                     delegate_info,

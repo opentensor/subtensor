@@ -9,7 +9,7 @@
 use super::mock::*;
 use crate::*;
 use alloc::collections::BTreeMap;
-use approx::assert_abs_diff_eq;
+use approx::{assert_abs_diff_eq, assert_relative_eq};
 use codec::{Decode, Encode};
 use frame_support::{
     StorageHasher, Twox64Concat, assert_ok,
@@ -18,17 +18,25 @@ use frame_support::{
     traits::{StorageInstance, StoredMap},
     weights::Weight,
 };
+use safe_math::SafeDiv;
 
+use crate::migrations::migrate_coldkey_swap_scheduled_to_announcements::deprecated as coldkey_swap_deprecated;
 use crate::migrations::migrate_storage;
+use frame_support::traits::Bounded;
 use frame_system::Config;
 use pallet_drand::types::RoundNumber;
+use pallet_scheduler::ScheduledOf;
 use scale_info::prelude::collections::VecDeque;
 use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
-use sp_runtime::{traits::Hash, traits::Zero};
-use substrate_fixed::types::extra::U2;
+use sp_runtime::{
+    AccountId32,
+    traits::{Hash, Zero},
+};
+use sp_std::marker::PhantomData;
 use substrate_fixed::types::{I96F32, U64F64};
-use subtensor_runtime_common::{NetUidStorageIndex, TaoCurrency};
+use substrate_fixed::{traits::ToFixed, types::extra::U2};
+use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -43,9 +51,9 @@ fn test_initialise_ti() {
     use frame_support::traits::OnRuntimeUpgrade;
 
     new_test_ext(1).execute_with(|| {
-        pallet_balances::TotalIssuance::<Test>::put(1000);
-        crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoCurrency::from(100));
-        crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoCurrency::from(5));
+        pallet_balances::TotalIssuance::<Test>::put(TaoBalance::from(1000));
+        crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoBalance::from(100));
+        crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoBalance::from(5));
 
         // Ensure values are NOT initialized prior to running migration
         assert!(crate::TotalIssuance::<Test>::get().is_zero());
@@ -54,9 +62,9 @@ fn test_initialise_ti() {
         crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
 
         // Ensure values were initialized correctly
-		assert_eq!(crate::TotalStake::<Test>::get(), TaoCurrency::from(105));
+		assert_eq!(crate::TotalStake::<Test>::get(), TaoBalance::from(105));
         assert_eq!(
-            crate::TotalIssuance::<Test>::get(), TaoCurrency::from(105 + 1000)
+            crate::TotalIssuance::<Test>::get(), TaoBalance::from(105 + 1000)
         );
     });
 }
@@ -482,11 +490,11 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
         let hotkey_nonzero = U256::from(101u64);
 
         // Insert one zero-alpha entry and one non-zero entry
-        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, AlphaCurrency::ZERO);
-        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, AlphaCurrency::from(123));
+        TotalHotkeyAlpha::<Test>::insert(hotkey_zero, netuid, AlphaBalance::ZERO);
+        TotalHotkeyAlpha::<Test>::insert(hotkey_nonzero, netuid, AlphaBalance::from(123));
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), AlphaCurrency::ZERO);
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_zero, netuid), AlphaBalance::ZERO);
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaBalance::from(123));
 
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
@@ -505,7 +513,7 @@ fn test_migrate_remove_zero_total_hotkey_alpha() {
             "Zero-alpha entry should have been removed."
         );
 
-        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaCurrency::from(123));
+        assert_eq!(TotalHotkeyAlpha::<Test>::get(hotkey_nonzero, netuid), AlphaBalance::from(123));
 
         assert!(
             !weight.is_zero(),
@@ -1178,7 +1186,7 @@ fn test_migrate_fix_root_subnet_tao() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &str = "migrate_fix_root_subnet_tao";
 
-        let mut expected_total_stake = 0;
+        let mut expected_total_stake = 0_u64;
         // Seed some hotkeys with some fake stake.
         for i in 0..100_000 {
             Owner::<Test>::insert(U256::from(U256::from(i)), U256::from(i + 1_000_000));
@@ -1186,12 +1194,12 @@ fn test_migrate_fix_root_subnet_tao() {
             TotalHotkeyAlpha::<Test>::insert(
                 U256::from(U256::from(i)),
                 NetUid::ROOT,
-                AlphaCurrency::from(stake),
+                AlphaBalance::from(stake),
             );
             expected_total_stake += stake;
         }
 
-        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoCurrency::ZERO);
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), TaoBalance::ZERO);
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
             "Migration should not have run yet"
@@ -1221,12 +1229,12 @@ fn test_migrate_fix_root_tao_and_alpha_in() {
         const MIGRATION_NAME: &str = "migrate_fix_root_tao_and_alpha_in";
 
         // Set counters initially
-        let initial_value = 1_000_000_000_000;
-        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoCurrency::from(initial_value));
-        SubnetAlphaIn::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
-        SubnetAlphaOut::<Test>::insert(NetUid::ROOT, AlphaCurrency::from(initial_value));
+        let initial_value = 1_000_000_000_000_u64;
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(initial_value));
+        SubnetAlphaIn::<Test>::insert(NetUid::ROOT, AlphaBalance::from(initial_value));
+        SubnetAlphaOut::<Test>::insert(NetUid::ROOT, AlphaBalance::from(initial_value));
         SubnetVolume::<Test>::insert(NetUid::ROOT, initial_value as u128);
-        TotalStake::<Test>::set(TaoCurrency::from(initial_value));
+        TotalStake::<Test>::set(TaoBalance::from(initial_value));
 
         assert!(
             !HasMigrationRun::<Test>::get(MIGRATION_NAME.as_bytes().to_vec()),
@@ -1317,15 +1325,11 @@ fn test_migrate_set_registration_enable() {
             add_network(*netuid, 1, 0);
             // Set registration to false to simulate the need for migration
             SubtensorModule::set_network_registration_allowed(*netuid, false);
-            SubtensorModule::set_network_pow_registration_allowed(*netuid, false);
         }
 
         // Sanity check: registration is disabled before migration
         for netuid in netuids.iter() {
             assert!(!SubtensorModule::get_network_registration_allowed(*netuid));
-            assert!(!SubtensorModule::get_network_pow_registration_allowed(
-                *netuid
-            ));
         }
 
         // Run the migration
@@ -1337,9 +1341,6 @@ fn test_migrate_set_registration_enable() {
         // After migration, regular registration should be enabled for all subnets except root
         for netuid in netuids.iter() {
             assert!(SubtensorModule::get_network_registration_allowed(*netuid));
-            assert!(!SubtensorModule::get_network_pow_registration_allowed(
-                *netuid
-            ));
         }
 
         // Migration should be marked as run
@@ -2564,15 +2565,15 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         .collect();
 
     let initial_tao = Pallet::<Test>::get_network_min_lock();
-    let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
+    let initial_alpha: AlphaBalance = initial_tao.to_u64().into();
 
     const EXTRA_POOL_TAO: u64 = 123_123_u64;
     const EXTRA_POOL_ALPHA: u64 = 123_123_u64;
 
     // Add stake to the subnet pools
     for netuid in &netuids {
-        let extra_for_pool = TaoCurrency::from(EXTRA_POOL_TAO);
-        let stake_in_pool = TaoCurrency::from(
+        let extra_for_pool = TaoBalance::from(EXTRA_POOL_TAO);
+        let stake_in_pool = TaoBalance::from(
             u64::from(initial_tao)
                 .checked_add(EXTRA_POOL_TAO)
                 .expect("initial_tao + extra_for_pool overflow"),
@@ -2591,13 +2592,13 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
             *total_issuance = updated_total.into();
         });
 
-        let subnet_alpha_in = AlphaCurrency::from(
+        let subnet_alpha_in = AlphaBalance::from(
             u64::from(initial_alpha)
                 .checked_add(EXTRA_POOL_ALPHA)
                 .expect("initial alpha + extra alpha overflow"),
         );
         SubnetAlphaIn::<Test>::insert(netuid, subnet_alpha_in);
-        SubnetAlphaOut::<Test>::insert(netuid, AlphaCurrency::from(EXTRA_POOL_ALPHA));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(EXTRA_POOL_ALPHA));
         SubnetVolume::<Test>::insert(netuid, 123123_u128);
 
         // Try registering on the subnet to simulate a real network
@@ -2628,7 +2629,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         SubtokenEnabled::<Test>::insert(netuid, true);
     }
 
-    let alpha_amt = AlphaCurrency::from(123123_u64);
+    let alpha_amt = AlphaBalance::from(123123_u64);
     // Create some Stake entries
     for netuid in &netuids {
         for hotkey in 0..10 {
@@ -2648,16 +2649,16 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         }
     }
     // Add some pending emissions
-    let alpha_em_amt = AlphaCurrency::from(355555_u64);
+    let alpha_em_amt = AlphaBalance::from(355555_u64);
     for netuid in &netuids {
         PendingServerEmission::<Test>::insert(netuid, alpha_em_amt);
         PendingValidatorEmission::<Test>::insert(netuid, alpha_em_amt);
         PendingRootAlphaDivs::<Test>::insert(netuid, alpha_em_amt);
         PendingOwnerCut::<Test>::insert(netuid, alpha_em_amt);
 
-        SubnetTaoInEmission::<Test>::insert(netuid, TaoCurrency::from(12345678_u64));
-        SubnetAlphaInEmission::<Test>::insert(netuid, AlphaCurrency::from(12345678_u64));
-        SubnetAlphaOutEmission::<Test>::insert(netuid, AlphaCurrency::from(12345678_u64));
+        SubnetTaoInEmission::<Test>::insert(netuid, TaoBalance::from(12345678_u64));
+        SubnetAlphaInEmission::<Test>::insert(netuid, AlphaBalance::from(12345678_u64));
+        SubnetAlphaOutEmission::<Test>::insert(netuid, AlphaBalance::from(12345678_u64));
     }
 
     (active_netuids, inactive_netuids)
@@ -2669,7 +2670,7 @@ fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
         let (active_netuids, inactive_netuids) = do_setup_unactive_sn();
 
         let initial_tao = Pallet::<Test>::get_network_min_lock();
-        let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
+        let initial_alpha: AlphaBalance = initial_tao.to_u64().into();
 
         let (unactive_netuids, w) =
             crate::migrations::migrate_reset_unactive_sn::get_unactive_sn_netuids::<Test>(
@@ -2693,10 +2694,20 @@ fn test_migrate_reset_unactive_sn_get_unactive_netuids() {
 #[test]
 fn test_migrate_reset_unactive_sn() {
     new_test_ext(1).execute_with(|| {
+        use sp_std::collections::btree_map::BTreeMap;
+
         let (active_netuids, inactive_netuids) = do_setup_unactive_sn();
 
         let initial_tao = Pallet::<Test>::get_network_min_lock();
-        let initial_alpha: AlphaCurrency = initial_tao.to_u64().into();
+        let initial_alpha: AlphaBalance = initial_tao.to_u64().into();
+
+        let mut locked_before: BTreeMap<NetUid, TaoBalance> = BTreeMap::new();
+        let mut rao_recycled_before: BTreeMap<NetUid, TaoBalance> = BTreeMap::new();
+
+        for netuid in active_netuids.iter().chain(inactive_netuids.iter()) {
+            locked_before.insert(*netuid, SubnetLocked::<Test>::get(*netuid));
+            rao_recycled_before.insert(*netuid, RAORecycledForRegistration::<Test>::get(netuid));
+        }
 
         // Run the migration
         let w = crate::migrations::migrate_reset_unactive_sn::migrate_reset_unactive_sn::<Test>();
@@ -2704,48 +2715,53 @@ fn test_migrate_reset_unactive_sn() {
 
         // Verify the results
         for netuid in &inactive_netuids {
-            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao = if (actual_tao_lock_amount < initial_tao) {
-                TaoCurrency::ZERO
-            } else {
-                actual_tao_lock_amount - initial_tao
-            };
+            let netuid = *netuid;
+
+            assert_eq!(
+                SubnetLocked::<Test>::get(netuid),
+                *locked_before.get(&netuid).unwrap(),
+                "SubnetLocked unexpectedly changed for inactive subnet {netuid:?}"
+            );
+            assert_eq!(
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap(),
+                "RAORecycledForRegistration unexpectedly changed for inactive subnet {netuid:?}"
+            );
+
             assert_eq!(
                 PendingServerEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_eq!(
                 PendingValidatorEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_eq!(
                 PendingRootAlphaDivs::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
-            assert_eq!(
-                // not modified
-                RAORecycledForRegistration::<Test>::get(netuid),
-                actual_tao_lock_amount_less_pool_tao
-            );
-            assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
+                netuid
+            ));
+            assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
-            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
-            assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), TaoCurrency::ZERO);
+            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaBalance::ZERO);
+            assert_eq!(SubnetTaoInEmission::<Test>::get(netuid), TaoBalance::ZERO);
             assert_eq!(
                 SubnetAlphaInEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_eq!(
                 SubnetAlphaOutEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_ne!(SubnetVolume::<Test>::get(netuid), 0u128);
             for hotkey in 0..10 {
                 let hk = U256::from(hotkey);
                 assert_ne!(
                     TotalHotkeyAlpha::<Test>::get(hk, netuid),
-                    AlphaCurrency::ZERO
+                    AlphaBalance::ZERO
                 );
                 assert_ne!(
                     TotalHotkeyShares::<Test>::get(hk, netuid),
@@ -2753,9 +2769,9 @@ fn test_migrate_reset_unactive_sn() {
                 );
                 assert_ne!(
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
-                    AlphaCurrency::ZERO
+                    AlphaBalance::ZERO
                 );
-                assert_ne!(RootClaimable::<Test>::get(hk).get(netuid), None);
+                assert_ne!(RootClaimable::<Test>::get(hk).get(&netuid), None);
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
@@ -2764,49 +2780,63 @@ fn test_migrate_reset_unactive_sn() {
             }
 
             // Don't touch SubnetLocked
-            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoCurrency::ZERO);
+            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoBalance::ZERO);
         }
 
         // !!! Make sure the active subnets were not reset
         for netuid in &active_netuids {
-            let actual_tao_lock_amount = SubnetLocked::<Test>::get(*netuid);
-            let actual_tao_lock_amount_less_pool_tao = actual_tao_lock_amount - initial_tao;
+            let netuid = *netuid;
+
+            assert_eq!(
+                SubnetLocked::<Test>::get(netuid),
+                *locked_before.get(&netuid).unwrap(),
+                "SubnetLocked unexpectedly changed for active subnet {netuid:?}"
+            );
+            assert_eq!(
+                RAORecycledForRegistration::<Test>::get(netuid),
+                *rao_recycled_before.get(&netuid).unwrap(),
+                "RAORecycledForRegistration unexpectedly changed for active subnet {netuid:?}"
+            );
+
             assert_ne!(
                 PendingServerEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_ne!(
                 PendingValidatorEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_ne!(
                 PendingRootAlphaDivs::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_eq!(
-                // not modified
+                // unchanged (already asserted above via snapshot)
                 RAORecycledForRegistration::<Test>::get(netuid),
-                actual_tao_lock_amount_less_pool_tao
+                *rao_recycled_before.get(&netuid).unwrap()
             );
-            assert_ne!(SubnetTaoInEmission::<Test>::get(netuid), TaoCurrency::ZERO);
+            assert_ne!(SubnetTaoInEmission::<Test>::get(netuid), TaoBalance::ZERO);
             assert_ne!(
                 SubnetAlphaInEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
             assert_ne!(
                 SubnetAlphaOutEmission::<Test>::get(netuid),
-                AlphaCurrency::ZERO
+                AlphaBalance::ZERO
             );
-            assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert!(pallet_subtensor_swap::AlphaSqrtPrice::<Test>::contains_key(
+                netuid
+            ));
+            assert_ne!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);
             assert_ne!(SubnetAlphaIn::<Test>::get(netuid), initial_alpha);
-            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaCurrency::ZERO);
+            assert_ne!(SubnetAlphaOut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetVolume::<Test>::get(netuid), 0u128);
             for hotkey in 0..10 {
                 let hk = U256::from(hotkey);
                 assert_ne!(
                     TotalHotkeyAlpha::<Test>::get(hk, netuid),
-                    AlphaCurrency::ZERO
+                    AlphaBalance::ZERO
                 );
                 assert_ne!(
                     TotalHotkeyShares::<Test>::get(hk, netuid),
@@ -2814,9 +2844,9 @@ fn test_migrate_reset_unactive_sn() {
                 );
                 assert_ne!(
                     TotalHotkeyAlphaLastEpoch::<Test>::get(hk, netuid),
-                    AlphaCurrency::ZERO
+                    AlphaBalance::ZERO
                 );
-                assert!(RootClaimable::<Test>::get(hk).contains_key(netuid));
+                assert!(RootClaimable::<Test>::get(hk).contains_key(&netuid));
                 for coldkey in 0..10 {
                     let ck = U256::from(coldkey);
                     assert_ne!(Alpha::<Test>::get((hk, ck, netuid)), U64F64::from_num(0.0));
@@ -2824,7 +2854,7 @@ fn test_migrate_reset_unactive_sn() {
                 }
             }
             // Don't touch SubnetLocked
-            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoCurrency::ZERO);
+            assert_ne!(SubnetLocked::<Test>::get(netuid), TaoBalance::ZERO);
         }
     });
 }
@@ -2861,7 +2891,7 @@ fn test_migrate_reset_unactive_sn_idempotence() {
         for netuid in &netuids {
             assert_eq!(
                 SubnetTAO::<Test>::get(netuid),
-                *subnet_tao_before.get(netuid).unwrap_or(&TaoCurrency::ZERO)
+                *subnet_tao_before.get(netuid).unwrap_or(&TaoBalance::ZERO)
             );
         }
         assert_eq!(TotalStake::<Test>::get(), total_stake_before);
@@ -2962,85 +2992,95 @@ fn test_migrate_remove_unknown_neuron_axon_cert_prom() {
     }
 }
 
-// cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_cleanup_swap_v3 --exact --nocapture
-#[test]
-fn test_migrate_cleanup_swap_v3() {
-    use crate::migrations::migrate_cleanup_swap_v3::deprecated_swap_maps;
-    use substrate_fixed::types::U64F64;
-
-    new_test_ext(1).execute_with(|| {
-        let migration = crate::migrations::migrate_cleanup_swap_v3::migrate_cleanup_swap_v3::<Test>;
-
-        const MIGRATION_NAME: &str = "migrate_cleanup_swap_v3";
-
-        let provided: u64 = 9876;
-        let reserves: u64 = 1_000_000;
-
-        SubnetTAO::<Test>::insert(NetUid::from(1), TaoCurrency::from(reserves));
-        SubnetAlphaIn::<Test>::insert(NetUid::from(1), AlphaCurrency::from(reserves));
-
-        // Insert deprecated maps values
-        deprecated_swap_maps::SubnetTaoProvided::<Test>::insert(
-            NetUid::from(1),
-            TaoCurrency::from(provided),
-        );
-        deprecated_swap_maps::SubnetAlphaInProvided::<Test>::insert(
-            NetUid::from(1),
-            AlphaCurrency::from(provided),
-        );
-
-        // Run migration
-        let weight = migration();
-
-        // Test that values are removed from state
-        assert!(!deprecated_swap_maps::SubnetTaoProvided::<Test>::contains_key(NetUid::from(1)),);
-        assert!(
-            !deprecated_swap_maps::SubnetAlphaInProvided::<Test>::contains_key(NetUid::from(1)),
-        );
-
-        // Provided got added to reserves
-        assert_eq!(
-            u64::from(SubnetTAO::<Test>::get(NetUid::from(1))),
-            reserves + provided
-        );
-        assert_eq!(
-            u64::from(SubnetAlphaIn::<Test>::get(NetUid::from(1))),
-            reserves + provided
-        );
-    });
-}
-
 #[test]
 fn test_migrate_coldkey_swap_scheduled_to_announcements() {
     new_test_ext(1000).execute_with(|| {
-        const MIGRATION_NAME: &[u8] = b"migrate_coldkey_swap_scheduled_to_announcements";
         use crate::migrations::migrate_coldkey_swap_scheduled_to_announcements::*;
+        use coldkey_swap_deprecated as deprecated;
+
+        const MIGRATION_NAME: &[u8] = b"migrate_coldkey_swap_scheduled_to_announcements";
         let now = frame_system::Pallet::<Test>::block_number();
 
         // Set the schedule duration and reschedule duration
         deprecated::ColdkeySwapScheduleDuration::<Test>::set(Some(now + 100));
         deprecated::ColdkeySwapRescheduleDuration::<Test>::set(Some(now + 200));
 
-        // Set some scheduled coldkey swaps
+        let make_swap_task = |who: U256, new_coldkey: U256| -> ScheduledOf<Test> {
+            let call_bytes = deprecated::RuntimeCall::<Test>::SubtensorCall(
+                deprecated::SubtensorCall::SwapColdkey {
+                    old_coldkey: who,
+                    new_coldkey,
+                    swap_cost: 1000.into(),
+                },
+            )
+            .encode();
+            pallet_scheduler::Scheduled {
+                maybe_id: None,
+                priority: 63,
+                call: Bounded::Inline(BoundedVec::truncate_from(call_bytes)),
+                maybe_periodic: None,
+                origin: OriginCaller::system(frame_system::RawOrigin::Root),
+                _phantom: PhantomData,
+            }
+        };
+
+        let make_other_task = || -> ScheduledOf<Test> {
+            let call_bytes = RuntimeCall::SubtensorModule(crate::Call::burned_register {
+                netuid: 1u16.into(),
+                hotkey: U256::from(999),
+            })
+            .encode();
+            pallet_scheduler::Scheduled {
+                maybe_id: None,
+                priority: 63,
+                call: Bounded::Inline(BoundedVec::truncate_from(call_bytes)),
+                maybe_periodic: None,
+                origin: OriginCaller::system(frame_system::RawOrigin::Root),
+                _phantom: PhantomData,
+            }
+        };
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(1),
             (now + 100, U256::from(10)),
         );
+        pallet_scheduler::Agenda::<Test>::insert(
+            now + 100,
+            BoundedVec::truncate_from(vec![
+                Some(make_swap_task(U256::from(1), U256::from(10))),
+                Some(make_other_task()),
+            ]),
+        );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(2),
             (now - 200, U256::from(20)),
         );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(3),
             (now + 200, U256::from(30)),
         );
+        pallet_scheduler::Agenda::<Test>::insert(
+            now + 200,
+            BoundedVec::truncate_from(vec![Some(make_swap_task(U256::from(3), U256::from(30)))]),
+        );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(4),
             (now - 400, U256::from(40)),
         );
+
         deprecated::ColdkeySwapScheduled::<Test>::insert(
             U256::from(5),
             (now + 300, U256::from(50)),
+        );
+        pallet_scheduler::Agenda::<Test>::insert(
+            now + 300,
+            BoundedVec::truncate_from(vec![
+                Some(make_other_task()),
+                Some(make_swap_task(U256::from(5), U256::from(50))),
+            ]),
         );
 
         let w = migrate_coldkey_swap_scheduled_to_announcements::<Test>();
@@ -3053,11 +3093,32 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
         assert!(!deprecated::ColdkeySwapRescheduleDuration::<Test>::exists());
         assert_eq!(deprecated::ColdkeySwapScheduled::<Test>::iter().count(), 0);
 
-        // Ensure scheduled have been migrated to announcements if not executed yet
-        // The announcement should be at the scheduled time - delay to be able to call
-        // the swap_coldkey_announced call at the old scheduled time
+        assert_eq!(
+            pallet_scheduler::Agenda::<Test>::get(now + 100),
+            vec![None, Some(make_other_task())],
+            "swap task for who=1 should be cancelled"
+        );
+
+        assert_eq!(
+            pallet_scheduler::Agenda::<Test>::get(now + 200),
+            vec![None],
+            "swap task for who=3 should be cancelled"
+        );
+
+        assert_eq!(
+            pallet_scheduler::Agenda::<Test>::get(now + 300),
+            vec![Some(make_other_task()), None],
+            "swap task for who=5 should be cancelled"
+        );
+
         let delay = ColdkeySwapAnnouncementDelay::<Test>::get();
         assert_eq!(ColdkeySwapAnnouncements::<Test>::iter().count(), 3);
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(U256::from(
+            2
+        )));
+        assert!(!ColdkeySwapAnnouncements::<Test>::contains_key(U256::from(
+            4
+        )));
         assert_eq!(
             ColdkeySwapAnnouncements::<Test>::get(U256::from(1)),
             Some((
@@ -3078,6 +3139,1286 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
                 now + 300 - delay,
                 <Test as frame_system::Config>::Hashing::hash_of(&U256::from(50))
             ))
+        );
+    });
+}
+
+#[test]
+fn test_migrate_clear_deprecated_registration_maps() {
+    new_test_ext(1).execute_with(|| {
+        const MIG_NAME: &[u8] = b"migrate_clear_deprecated_registration_maps_v1";
+
+        let netuid0: NetUid = 0u16.into();
+        let netuid1: NetUid = 1u16.into();
+
+        // --------------------------------------------------------------------
+        // 0) Pre-state
+        // --------------------------------------------------------------------
+        assert!(
+            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be false before run"
+        );
+
+        // New-model storage must remain untouched by this migration.
+        crate::BurnHalfLife::<Test>::insert(netuid0, 777u16);
+        crate::BurnIncreaseMult::<Test>::insert(netuid0, U64F64::from_num(9));
+
+        crate::BurnHalfLife::<Test>::insert(netuid1, 888u16);
+        crate::BurnIncreaseMult::<Test>::insert(netuid1, U64F64::from_num(11));
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid0), 777u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid0), 9u64);
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid1), 888u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid1), 11u64);
+
+        // Seed deprecated storage items that the migration is expected to clear.
+        crate::NetworkPowRegistrationAllowed::<Test>::insert(netuid0, true);
+
+        crate::POWRegistrationsThisInterval::<Test>::insert(netuid0, 7u16);
+        crate::BurnRegistrationsThisInterval::<Test>::insert(netuid0, 8u16);
+
+        crate::NetworkPowRegistrationAllowed::<Test>::insert(netuid1, false);
+
+        crate::POWRegistrationsThisInterval::<Test>::insert(netuid1, 17u16);
+        crate::BurnRegistrationsThisInterval::<Test>::insert(netuid1, 18u16);
+
+        assert!(crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid0));
+        assert!(crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid0));
+        assert!(crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid0));
+
+        assert!(crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid1));
+        assert!(crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid1));
+        assert!(crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid1));
+
+        // --------------------------------------------------------------------
+        // 1) Run migration
+        // --------------------------------------------------------------------
+        let w = crate::migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // --------------------------------------------------------------------
+        // 2) Post-state: deprecated storage cleared
+        // --------------------------------------------------------------------
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should be true after run"
+        );
+
+        assert!(!crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid0));
+        assert!(!crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid0));
+        assert!(!crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid0));
+
+        assert!(!crate::NetworkPowRegistrationAllowed::<Test>::contains_key(netuid1));
+        assert!(!crate::POWRegistrationsThisInterval::<Test>::contains_key(netuid1));
+        assert!(!crate::BurnRegistrationsThisInterval::<Test>::contains_key(netuid1));
+
+        // --------------------------------------------------------------------
+        // 3) Post-state: new-model storage unchanged
+        // --------------------------------------------------------------------
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid0), 777u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid0), 9u64);
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid1), 888u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid1), 11u64);
+
+        // --------------------------------------------------------------------
+        // 4) Idempotency
+        // --------------------------------------------------------------------
+        let w2 = crate::migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<Test>();
+        assert!(!w2.is_zero(), "second call should still return non-zero read weight");
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
+            "migration flag should remain true after second run"
+        );
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid0), 777u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid0), 9u64);
+
+        assert_eq!(crate::BurnHalfLife::<Test>::get(netuid1), 888u16);
+        assert_eq!(crate::BurnIncreaseMult::<Test>::get(netuid1), 11u64);
+    });
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_only_genesis() {
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_fix_bad_hk_swap::*;
+        const MIGRATION_NAME: &[u8] = b"migrate_fix_bad_hk_swap";
+
+        let coldkey = "5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo";
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(coldkey).expect("Invalid coldkey");
+        let mut account_id32_slice: &[u8] = account_id32.as_ref();
+        let coldkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid coldkey");
+        let netuid = NetUid::from(59);
+        // Setup
+        // Add subnet 59
+        add_network(netuid, 10, 0);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        // Add stake to hotkey matching
+        let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(hotkey).expect("Invalid hotkey");
+        let mut account_id32_slice: &[u8] = account_id32.as_ref();
+        let hotkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
+
+        // Give balance to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        // Give stake to hotkey
+        let stake_added = 222222.into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_added,
+        );
+
+        // Check genesis hash
+        let genesis_hash = frame_system::Pallet::<Test>::block_hash(0);
+        let genesis_bytes = genesis_hash.as_ref();
+        let mainnet_genesis =
+            hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+        assert_ne!(genesis_bytes, mainnet_genesis);
+
+        // Run migration
+        let w = migrate_fix_bad_hk_swap::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Check stake did not change
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            stake_added
+        );
+    });
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_fix_bad_hk_swap::*;
+        const MIGRATION_NAME: &[u8] = b"migrate_fix_bad_hk_swap";
+
+        let coldkey = "5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo";
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(coldkey).expect("Invalid coldkey");
+        let mut account_id32_slice: &[u8] = account_id32.as_ref();
+        let coldkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid coldkey");
+        let netuid = NetUid::from(59);
+        // Setup
+        // Add subnet 59
+        add_network(netuid, 10, 0);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        // Add stake to hotkey matching
+        let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
+        let account_id32: AccountId32 =
+            AccountId32::from_ss58check(hotkey).expect("Invalid hotkey");
+        let mut account_id32_slice: &[u8] = account_id32.as_ref();
+        let hotkey_account_id: <Test as Config>::AccountId =
+            <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
+
+        // Give balance to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        // Give stake to hotkey
+        let stake_added = 222222.into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            stake_added,
+        );
+
+        // Set genesis hash to mainnet genesis
+        let mainnet_genesis =
+            hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+        frame_system::BlockHash::<Test>::insert(0, H256::from_slice(&mainnet_genesis));
+        // Check genesis hash
+        let genesis_hash = frame_system::Pallet::<Test>::block_hash(0);
+        let genesis_bytes = genesis_hash.as_ref();
+        assert_eq!(genesis_bytes, mainnet_genesis);
+
+        // Run migration
+        let w = migrate_fix_bad_hk_swap::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Check stake DID change
+        assert_ne!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &coldkey_account_id,
+                netuid
+            ),
+            stake_added
+        );
+    });
+}
+
+fn decode_account_id32<T: Config>(ss58_string: &str) -> Option<T::AccountId> {
+    let account_id32: AccountId32 = AccountId32::from_ss58check(ss58_string).ok()?;
+    let mut account_id32_slice: &[u8] = account_id32.as_ref();
+    T::AccountId::decode(&mut account_id32_slice).ok()
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_mainnet() {
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_fix_bad_hk_swap::*;
+
+        let netuid = NetUid::from(59);
+        // Add subnet 59
+        add_network(netuid, 10, 0);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
+        let hotkey_account_id = decode_account_id32::<Test>(hotkey).expect("Invalid hotkey");
+
+        #[rustfmt::skip]
+        let diffs: [(&str, i64); 112] = [
+            ("5Fn9SqQhx5bhDua7AGgkKxxk3gfZ75WWBGCMPeKH1WBgPaMQ", -2375685930981_i64),
+            ("5Fnhtm7cpxEbZaChnRZ8yWoF8MXVxmobkmLRehh5bkYtyZA9", -4090996138227),
+            ("5C7j3w2zz1SVejRuFrb2zFWHXT7UfG7eWA87KXL1WyV5KLVR", -607494031),
+            ("5DthZ1rvnXBb9oXVNtrMaMsDAnRxBPZCjD6fdRdeqC3fg1ca", -17022477949),
+            ("5F7BkPL3EVjKTYMbBkEmPAtTZQSGeyNzFPaf1DtebPFmJsJ7", -4016510),
+            ("5EefisctzgWdVGFQaL4LjFFacTE7dM4YJVNy3ogGBQoapTU1", -13106893093),
+            ("5CwkvpBxHCaRK9xBC2n6WdhpF5zg9t5WLkGorASaoErdynFQ", 439139249152),
+            ("5FU7ErUtmi22xuqeeCYVpNZp6WVSSL98hqDi5iyeZbkXtkbe", -35958768555),
+            ("5D7HL8T95qkHQTPFjgSFCjRoeM7oE3vQBYjiR1kAPbPxcMKu", -201914811997),
+            ("5HL3pPdDFY94Qdf8VnbfT4W6LXFkpd68Y5GSGzNJfntMdGZX", -235660917467),
+            ("5EcYAz8SBKWsogA6meJmVXcwVp4tjCvw3ZnJE6UXTyWNUdF2", -500070769668),
+            ("5EoE3c7XMf8TN3yudAaFjv4yvjtWYRviHcXi73EXkLHmWTCB", -86442928436),
+            ("5CMDjL7t2biHGREBwrmd8renD74FLEhjCVqfJG2MXckWBwDu", 1039317),
+            ("5CVGKimL4cLgyTqvYKQbPKYFZfiztsdczU7HrwNdSFKbbn5D", 4224201),
+            ("5HmZnEcW4eHbXmUEFWJbc4GHnBBYEK8ZPsFa25PuEmP5iuwM", -13156128),
+            ("5FNa4J4fTKh555CEyXHgR29RicSm8nTEHx36utTa4MJepJyX", -9519954),
+            ("5Gun93uQgffYpxqMKSmfG18AHiQW7Z2GR2dfPPR8W188vJYc", -1127662),
+            ("5HW1C4js4RyjQqNwALSUZC8NJ2WinD5Si2X2XkstXrMW2uYo", -34457336758),
+            ("5EqMhjdLY9h64ui2mizRZyBp1mEPJ7s4TsfAxQSQkAFmMfzE", -9346443829744),
+            ("5H3XwzydgE2XUGoJCR4dSj7tkd7uxZDJqik69hux2DBcruom", -1215347774),
+            ("5DjkmYpCUX6dBTvGoyN9j4QZhtMPhdcywDE8cJ8Qq1vg4X6e", -3603984447),
+            ("5E7Z7Btjz74XpZLH5fRzfZqiHCo4j9PXKfqi88kQ5MFrds34", -823907380854),
+            ("5DSBWN4hN9413C6o6A2hR9tYUbHjWsQqPRV74GrnCrMkCGJx", -309708781),
+            ("5FMLRmKPqsTsMbakpVUwoYro1P64QXVNTWyzNDugaNwSKRzF", -137525398263),
+            ("5EFZf5pnTqLegv6gxCrb6TKBQBGz9xLJNK8x9eR273cSons6", -1521760918),
+            ("5CGAGEuMLaidBDk8bDZKJb23dxRSP1wLenLALGLw8BTG1E3W", -544739696),
+            ("5HSzRtcQjD5KP6Nh2GVSS16aLDe6q9R33Wpu6s2eEeeo3AYS", -2309184790),
+            ("5DALvFDcfANQJcWz6AXMfDqabnoZhdDMoH6FxqYUibug1ja7", -369405632507),
+            ("5Fy8iWkpcbsskmEN1nYZDdS9zKh167Em9RRYisoss7jaYXxi", 15257429),
+            ("5CQCVTRyqJgZKBDmtHzpoF8su6BScLcNGbX8t3WMm5qYbbJH", -10721968),
+            ("5DXZByh2NS4MU61a1aaLrcLYpyzpJgHe95TEBdcEN2cF1SA5", -655946136),
+            ("5EX5yAYiABFzKDQJDe1kRVwFm3XRRY4HyLMe4Vu9A5U2VEVT", -325581360246),
+            ("5FvabwjtyW887gtc7vUnUc47KVhy17UeaNLRjzTg5nkVACMP", -77588524213),
+            ("5HTbYi5cmgWJxvyTy9JeYdtnjoDzjXnEXTGFsPEVx9iRPmVF", -53542953784),
+            ("5CWzmvA17MAMQ9mnAecLxFXS2N8846rz6T7m4QNHyVtJVq4j", 2672295922502),
+            ("5DSYntgHZY4krYUtkkQZyyoffVtu5e8rYWhXuhs832zY6YKy", -2680205688),
+            ("5EYyTFyLDqXscaa5VtXTvUc3x2ow2TeT8G12ZDMZwE6uFWPQ", -39165843935),
+            ("5CohfM1qdyNwdeJEex1Zyht3S2WS48rV993DmVbyKs2mEEd6", -4004685632),
+            ("5Gx6Y7UQD39Latgxigr6mHbnh1herpwNPau2PjvzwLWEjXL3", -559504),
+            ("5Hh4Efq5WDwe8URjjUqUNX8KxtMwLHLViwoRvXfEpXQCZakh", -32541090531),
+            ("5GWRHC7Nd8njqTPsdJkp6ngniCCBu9UjGhLfxp2jF1fPrfZ4", -5394093031),
+            ("5GNAB64UN32krzr3Xxu5LW6naeu2P3XULcdBCR9VZ5Libyit", -24884230),
+            ("5EEz25th1nYNM5xR1UsyFFAUaXMjdHqLxZ3wUjyHokYbXHku", -12525171),
+            ("5HKJq4JCS9xoKdYhcRnsRp1bodovba7ncd5KTYVwfReKaxHT", -408133990236),
+            ("5DXs7x664RL5NdSW77DTseLiu84unstuHGuqvmY61UtJwzRN", -3095078614148),
+            ("5CDfdDaA2p9sK1ia5yMVYfzgtFs2e1TrSAxuQqXoS28Lcrxf", -1032856892),
+            ("5Ecg4vD2zKXHDFhQqogWq1dZdijPsDty8rGsZu3raeoJSiXb", -995678),
+            ("5C5Yg63TNLb68Tu819qXd3Bt4giG8mAPzLmAFSqa2HC1R5Rm", -40818739830910),
+            ("5HHH25Wuf9rmVuk9cMKU1hCCPJ1qbHBd1SyHj91R3fMT36yb", -391416057906),
+            ("5GKGGE5YLHoDciYJ6Ec2YnUP3SykSQPA47hqmwBP63EtVrd9", -413944553000),
+            ("5CSi9ZLyiXfLeYtEFaZSBuTofNMRnXEJEJE9CS4gGaT6CkWt", -17811605275),
+            ("5CSoA7QVdFHHBZz53bbRV2mC5vhL64ehhWa8ibtLppmt2n3J", -65701320107),
+            ("5GpA5BtfMMX52rXztrha79YqfwR4YaSfTuAcb48Yt73U4h71", -2194562),
+            ("5Euz5wpb4xiDWfV1A6AKK6i6ca3WoZQD5hCVyf1fws8GXh4z", -6143407839874),
+            ("5DZzmhCG7SMK3LwrkmHZ8ZBwaAByMjfBpEid14nNQdxHipCE", -386645),
+            ("5Fc9Vo3hkbr6bPxJpjQo5sQ43L5Hc2G8R5BdqRYF8psvB5pw", 55668553),
+            ("5GuSHC3iowySHLDW4pEyEZE6PKxKP62YpJYJyBy5tijzAnYz", -159317636526),
+            ("5HVVZrUBPvjYHiwaSvtvaN9GZogoznM49m2AEmVW6RXnYCka", -1995572213),
+            ("5EcGpeV2wjkCVsBjsBifSWbdcqH98b6oEY8beDY59c4fXkhw", -177096614584),
+            ("5GnCjvWJEESwVNFZzy85zbBzw26etuEt87WiqsE3ee2Ws1wm", -1961445),
+            ("5GWuPUpTuChAqKxvU22TRLvRkBFiyWWZnq9cLpJN6SSvkho1", -94157569391),
+            ("5FXHf7q5rvBXnzQgmsa31Db9rjcRy6ZHKMiyDSb8Vs5p2msN", -688433531658),
+            ("5GbxkzytnvbRuNQ7qxPpfPuWMoeitS8V4KDY9jSshE5fDegD", -19085313),
+            ("5Gus1B7c9uWkky7Yawh2tKR1V6AMh5DbqUBPq881JHqeqVqY", -16101671818),
+            ("5DLhRdbvWkYYScDmwx4QgJfieSN4apBWbZ2yno3MfgbR8hBP", -21062025),
+            ("5Cg5kVyNEs7MWWRHU8X5MHwX5cN3aegvC4RBt2JK19w2GiR8", -2593737050),
+            ("5Dkushsxtc8AdCf287MtTYHQv9DoZeBRpttUpBtmyFhGy3uR", -48672832345630),
+            ("5EqNqVsHj9bQVyEujcm62zjMYUFhTLY7rTP854txSrJzyoco", -3828526),
+            ("5Dea6d6nKErEbRQ4MBGuCALn8NZ2xo4kaa51hB5KMriPBkEM", -1560192853875),
+            ("5DNt2XDWdeMd4H92FLnfUvkqyXzmavezHvzLboP3VgT1xLZV", -831964576998),
+            ("5FKtFoTeK8aaG6HZTrDgvoYHVQ5NY4S9VyV7W5K74cWcwLYA", -60823501166),
+            ("5GEBanZKUU7Hrf8K2VNi33HxyJRstgQ3WD3odHgvMj2nPbhi", -98946626902),
+            ("5CUtw7LYB2n2bzgXt6YnmKDHt6PsB3kKAyD9azYJNcRG8TNg", -9779588557490),
+            ("5EynbF72b12fbgMvEeL1vJSY342rCryNbuwxFivU1Xevtmv3", -17314385200455),
+            ("5CapiZRuULed8ConS1gbjMVgnwcT5JnQah7tx6sZnK7sJJuJ", -5810972),
+            ("5DnaxLaNduf41WM6WWZ4fkzcGzWNWx6eLJyQpSaMueUGCsaU", -12668760),
+            ("5Cqz9SChYPxTFZ2623rE2aQQ5ttQoLwZ8yfwYgiZyQDANqZn", -683549),
+            ("5C8ZcLzF23GrXKdH4Pg3ZXC3vKQsF5PM8VvhzzxzTQksgj8e", -44720570590),
+            ("5GuNsmoswrP6hTKZkKcpTpZftTMKrmnCHvTL2V3NHJy2fpen", -5042891812715),
+            ("5F1TYDkLnP36HHY5btigxyKUPzBraxdrU1aX1bqFfPfcfnzU", -1189104279832),
+            ("5Dc384z9HuTGF6oratZs1fLciCHtPZaLhrHfCVw82a5AikWZ", -616163196988),
+            ("5DhcaEUsRKhZQ31qRffJqjtLmFkbVaCebn8nVjYhvB4KJtX5", -17746006723),
+            ("5HYE7z3xTcrN1rqz54NyZRAkehFfRMcaEcdoMq5g5ATET5wQ", 212509751245),
+            ("5F97DdEVTy9gPCtN6jkJJENDJuQiRGiwbMVSL74qRq8FCq5W", 2225287736222),
+            ("5FUVN133rSvuKXgsXKMR2ZEaysxZjkRUFUWS1UMyNGre9xFV", -73216740161),
+            ("5CZeimtfpRqQgPxVwr1MzfG2Sok8E1AMERHo6vUmEdRS5JiU", -3937802),
+            ("5Eqq2JwGh7qbtnjPiFEPmmnHxs3S4J4Ahg8fr4sybZV1tPdY", -173406860562),
+            ("5ERfDw6K3GmQqwqsEG6foFtu7VsYGifPi556UJKQsBnfbHKN", 96022588728),
+            ("5Ek8RkU6KMv5Fx7yivRVoQkuJYAKhULWiLWDpbGG4hvR9HFD", 968139369093),
+            ("5HpCpGALzqgnDTP1HXFiuhzD5MFaDTRHjXBCvaMY9LNNRkT9", 104943979521),
+            ("5FYqS77gxW9gHG8id1YYPS7Cd4TQmNUMhF8h3S77Fq2VvvRQ", 729199757977),
+            ("5FtBqMg13pNf1N6TwfG6BmwyaDM77mkeQ16UTHsGasrVDedX", 131457064336),
+            ("5GbnWR2XhWrRMt123SdrLbR9G2a4N5dtzA3TSu3Czkzoeu7x", 2295599153),
+            ("5GgiowcCG4kLpwkCTGxxQJQv8WwKFyBQ6McPRmqKtWPy8EaK", 113838605389),
+            ("5FL5YtYozpUAGaiVWonpbwEYdEMij3obJHSH3ACY4vgWmDgy", 8689039),
+            ("5Egq58bxRv7boM2s3rnDxx1udnkzxPQ23HuoqohVxjh9RenC", 216373234348),
+            ("5FRGeeEgRNR8U33FDKvN7yUgts8zR3qRJH4yKKWoR9GswBRb", 2196574958718),
+            ("5FnhSy79BPYyrmmFsbckinQw1fLiLqqPkQL2vgZwPxbRfu3k", 42319631507),
+            ("5Hj8jMhqAv7cfyRh5STfbZefMhv17QxZ1RxWq9jNcLAEsRRo", 132216702183491),
+            ("5EXYTGMqumAH6RLQgHwkMEMnSvHcpHc89R6U8krfNJTYWm9J", 504320264499),
+            ("5EFh8ctzmytXURqrCTUBWHTs87f7TMWB6XKUzdqxKXVUtvS2", 2209599669432),
+            ("5CqVqEcRBkw7Gm2reJ33cj7puR9W2Tq7qsLxSruV1BgnMqKN", 1033387458788),
+            ("5D79enmLSGimsruoraGagofhaSeYJZvGUqFCCrr83ZfZs1HS", 7591184215233),
+            ("5HbpyjsvyXLWtf1QT1CyNUdyut6scM5dM7ytm8hoxFvRtU1i", 129833188275),
+            ("5CnxCi7CdEriWSdw4LcXdbtjodxA6uTat4gBm4wuT9QToMdo", 3132978),
+            ("5G48fiQjhAd8hc4rYc6GituCuAPKznL28jyyyq1auMyZiG4t", 514913328178),
+            ("5FFGjW2hJ7tQ41qghSsLP4cVmA8j9pZVSrr2CrLG7fQAsLHJ", 346794972723),
+            ("5FWjnxeRMtMFxRc9kvZKCG5iJAyyz2kmXV8u3kqyiXizZtiz", 225939835005),
+            ("5CUw3sB4oxd3dVSHUr3kxsB591VEjaPzr444KkfjwVFnLRfJ", 208250614494),
+            ("5EaBhxNUwMRyKsaeA2BEjDCrvwE5J8FDSpfCHK9gGmnmbhCa", 278083207003),
+            ("5GHJ5HxFxYQyVoNFUxR3JCqqCKRumaFCY7N5zMxwF4CpRUWr", 1381466224829),
+            ("5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo", 774889),
+        ];
+
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+            if diff > 0 {
+                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                    diff.unsigned_abs().into(),
+                );
+            }
+        }
+
+        let w = try_restore_shares::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Check stake is near 0 for all positive entires and near diff for all negative
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
+            if diff > 0 {
+                log::debug!("diff: {} for ck: {}", diff, coldkey);
+                assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
+            } else {
+                let diff_float: f64 =
+                    num_traits::ToPrimitive::to_f64(&diff.unsigned_abs()).expect("float conv fail");
+                assert_relative_eq!(stake_float, diff_float, max_relative = 0.001_f64);
+            }
+        }
+    });
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_mainnet_some_exits() {
+    // test with some of the gainers have exited fully or partially before the migration
+    // i.e. balance is less than they owe
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_fix_bad_hk_swap::*;
+
+        let netuid = NetUid::from(59);
+        // Add subnet 59
+        add_network(netuid, 10, 0);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
+        let hotkey_account_id = decode_account_id32::<Test>(hotkey).expect("Invalid hotkey");
+
+        #[rustfmt::skip]
+        let diffs: [(&str, i64); 112] = [
+            ("5Fn9SqQhx5bhDua7AGgkKxxk3gfZ75WWBGCMPeKH1WBgPaMQ", -2375685930981_i64),
+            ("5Fnhtm7cpxEbZaChnRZ8yWoF8MXVxmobkmLRehh5bkYtyZA9", -4090996138227),
+            ("5C7j3w2zz1SVejRuFrb2zFWHXT7UfG7eWA87KXL1WyV5KLVR", -607494031),
+            ("5DthZ1rvnXBb9oXVNtrMaMsDAnRxBPZCjD6fdRdeqC3fg1ca", -17022477949),
+            ("5F7BkPL3EVjKTYMbBkEmPAtTZQSGeyNzFPaf1DtebPFmJsJ7", -4016510),
+            ("5EefisctzgWdVGFQaL4LjFFacTE7dM4YJVNy3ogGBQoapTU1", -13106893093),
+            ("5CwkvpBxHCaRK9xBC2n6WdhpF5zg9t5WLkGorASaoErdynFQ", 439139249152),
+            ("5FU7ErUtmi22xuqeeCYVpNZp6WVSSL98hqDi5iyeZbkXtkbe", -35958768555),
+            ("5D7HL8T95qkHQTPFjgSFCjRoeM7oE3vQBYjiR1kAPbPxcMKu", -201914811997),
+            ("5HL3pPdDFY94Qdf8VnbfT4W6LXFkpd68Y5GSGzNJfntMdGZX", -235660917467),
+            ("5EcYAz8SBKWsogA6meJmVXcwVp4tjCvw3ZnJE6UXTyWNUdF2", -500070769668),
+            ("5EoE3c7XMf8TN3yudAaFjv4yvjtWYRviHcXi73EXkLHmWTCB", -86442928436),
+            ("5CMDjL7t2biHGREBwrmd8renD74FLEhjCVqfJG2MXckWBwDu", 1039317),
+            ("5CVGKimL4cLgyTqvYKQbPKYFZfiztsdczU7HrwNdSFKbbn5D", 4224201),
+            ("5HmZnEcW4eHbXmUEFWJbc4GHnBBYEK8ZPsFa25PuEmP5iuwM", -13156128),
+            ("5FNa4J4fTKh555CEyXHgR29RicSm8nTEHx36utTa4MJepJyX", -9519954),
+            ("5Gun93uQgffYpxqMKSmfG18AHiQW7Z2GR2dfPPR8W188vJYc", -1127662),
+            ("5HW1C4js4RyjQqNwALSUZC8NJ2WinD5Si2X2XkstXrMW2uYo", -34457336758),
+            ("5EqMhjdLY9h64ui2mizRZyBp1mEPJ7s4TsfAxQSQkAFmMfzE", -9346443829744),
+            ("5H3XwzydgE2XUGoJCR4dSj7tkd7uxZDJqik69hux2DBcruom", -1215347774),
+            ("5DjkmYpCUX6dBTvGoyN9j4QZhtMPhdcywDE8cJ8Qq1vg4X6e", -3603984447),
+            ("5E7Z7Btjz74XpZLH5fRzfZqiHCo4j9PXKfqi88kQ5MFrds34", -823907380854),
+            ("5DSBWN4hN9413C6o6A2hR9tYUbHjWsQqPRV74GrnCrMkCGJx", -309708781),
+            ("5FMLRmKPqsTsMbakpVUwoYro1P64QXVNTWyzNDugaNwSKRzF", -137525398263),
+            ("5EFZf5pnTqLegv6gxCrb6TKBQBGz9xLJNK8x9eR273cSons6", -1521760918),
+            ("5CGAGEuMLaidBDk8bDZKJb23dxRSP1wLenLALGLw8BTG1E3W", -544739696),
+            ("5HSzRtcQjD5KP6Nh2GVSS16aLDe6q9R33Wpu6s2eEeeo3AYS", -2309184790),
+            ("5DALvFDcfANQJcWz6AXMfDqabnoZhdDMoH6FxqYUibug1ja7", -369405632507),
+            ("5Fy8iWkpcbsskmEN1nYZDdS9zKh167Em9RRYisoss7jaYXxi", 15257429),
+            ("5CQCVTRyqJgZKBDmtHzpoF8su6BScLcNGbX8t3WMm5qYbbJH", -10721968),
+            ("5DXZByh2NS4MU61a1aaLrcLYpyzpJgHe95TEBdcEN2cF1SA5", -655946136),
+            ("5EX5yAYiABFzKDQJDe1kRVwFm3XRRY4HyLMe4Vu9A5U2VEVT", -325581360246),
+            ("5FvabwjtyW887gtc7vUnUc47KVhy17UeaNLRjzTg5nkVACMP", -77588524213),
+            ("5HTbYi5cmgWJxvyTy9JeYdtnjoDzjXnEXTGFsPEVx9iRPmVF", -53542953784),
+            ("5CWzmvA17MAMQ9mnAecLxFXS2N8846rz6T7m4QNHyVtJVq4j", 2672295922502),
+            ("5DSYntgHZY4krYUtkkQZyyoffVtu5e8rYWhXuhs832zY6YKy", -2680205688),
+            ("5EYyTFyLDqXscaa5VtXTvUc3x2ow2TeT8G12ZDMZwE6uFWPQ", -39165843935),
+            ("5CohfM1qdyNwdeJEex1Zyht3S2WS48rV993DmVbyKs2mEEd6", -4004685632),
+            ("5Gx6Y7UQD39Latgxigr6mHbnh1herpwNPau2PjvzwLWEjXL3", -559504),
+            ("5Hh4Efq5WDwe8URjjUqUNX8KxtMwLHLViwoRvXfEpXQCZakh", -32541090531),
+            ("5GWRHC7Nd8njqTPsdJkp6ngniCCBu9UjGhLfxp2jF1fPrfZ4", -5394093031),
+            ("5GNAB64UN32krzr3Xxu5LW6naeu2P3XULcdBCR9VZ5Libyit", -24884230),
+            ("5EEz25th1nYNM5xR1UsyFFAUaXMjdHqLxZ3wUjyHokYbXHku", -12525171),
+            ("5HKJq4JCS9xoKdYhcRnsRp1bodovba7ncd5KTYVwfReKaxHT", -408133990236),
+            ("5DXs7x664RL5NdSW77DTseLiu84unstuHGuqvmY61UtJwzRN", -3095078614148),
+            ("5CDfdDaA2p9sK1ia5yMVYfzgtFs2e1TrSAxuQqXoS28Lcrxf", -1032856892),
+            ("5Ecg4vD2zKXHDFhQqogWq1dZdijPsDty8rGsZu3raeoJSiXb", -995678),
+            ("5C5Yg63TNLb68Tu819qXd3Bt4giG8mAPzLmAFSqa2HC1R5Rm", -40818739830910),
+            ("5HHH25Wuf9rmVuk9cMKU1hCCPJ1qbHBd1SyHj91R3fMT36yb", -391416057906),
+            ("5GKGGE5YLHoDciYJ6Ec2YnUP3SykSQPA47hqmwBP63EtVrd9", -413944553000),
+            ("5CSi9ZLyiXfLeYtEFaZSBuTofNMRnXEJEJE9CS4gGaT6CkWt", -17811605275),
+            ("5CSoA7QVdFHHBZz53bbRV2mC5vhL64ehhWa8ibtLppmt2n3J", -65701320107),
+            ("5GpA5BtfMMX52rXztrha79YqfwR4YaSfTuAcb48Yt73U4h71", -2194562),
+            ("5Euz5wpb4xiDWfV1A6AKK6i6ca3WoZQD5hCVyf1fws8GXh4z", -6143407839874),
+            ("5DZzmhCG7SMK3LwrkmHZ8ZBwaAByMjfBpEid14nNQdxHipCE", -386645),
+            ("5Fc9Vo3hkbr6bPxJpjQo5sQ43L5Hc2G8R5BdqRYF8psvB5pw", 55668553),
+            ("5GuSHC3iowySHLDW4pEyEZE6PKxKP62YpJYJyBy5tijzAnYz", -159317636526),
+            ("5HVVZrUBPvjYHiwaSvtvaN9GZogoznM49m2AEmVW6RXnYCka", -1995572213),
+            ("5EcGpeV2wjkCVsBjsBifSWbdcqH98b6oEY8beDY59c4fXkhw", -177096614584),
+            ("5GnCjvWJEESwVNFZzy85zbBzw26etuEt87WiqsE3ee2Ws1wm", -1961445),
+            ("5GWuPUpTuChAqKxvU22TRLvRkBFiyWWZnq9cLpJN6SSvkho1", -94157569391),
+            ("5FXHf7q5rvBXnzQgmsa31Db9rjcRy6ZHKMiyDSb8Vs5p2msN", -688433531658),
+            ("5GbxkzytnvbRuNQ7qxPpfPuWMoeitS8V4KDY9jSshE5fDegD", -19085313),
+            ("5Gus1B7c9uWkky7Yawh2tKR1V6AMh5DbqUBPq881JHqeqVqY", -16101671818),
+            ("5DLhRdbvWkYYScDmwx4QgJfieSN4apBWbZ2yno3MfgbR8hBP", -21062025),
+            ("5Cg5kVyNEs7MWWRHU8X5MHwX5cN3aegvC4RBt2JK19w2GiR8", -2593737050),
+            ("5Dkushsxtc8AdCf287MtTYHQv9DoZeBRpttUpBtmyFhGy3uR", -48672832345630),
+            ("5EqNqVsHj9bQVyEujcm62zjMYUFhTLY7rTP854txSrJzyoco", -3828526),
+            ("5Dea6d6nKErEbRQ4MBGuCALn8NZ2xo4kaa51hB5KMriPBkEM", -1560192853875),
+            ("5DNt2XDWdeMd4H92FLnfUvkqyXzmavezHvzLboP3VgT1xLZV", -831964576998),
+            ("5FKtFoTeK8aaG6HZTrDgvoYHVQ5NY4S9VyV7W5K74cWcwLYA", -60823501166),
+            ("5GEBanZKUU7Hrf8K2VNi33HxyJRstgQ3WD3odHgvMj2nPbhi", -98946626902),
+            ("5CUtw7LYB2n2bzgXt6YnmKDHt6PsB3kKAyD9azYJNcRG8TNg", -9779588557490),
+            ("5EynbF72b12fbgMvEeL1vJSY342rCryNbuwxFivU1Xevtmv3", -17314385200455),
+            ("5CapiZRuULed8ConS1gbjMVgnwcT5JnQah7tx6sZnK7sJJuJ", -5810972),
+            ("5DnaxLaNduf41WM6WWZ4fkzcGzWNWx6eLJyQpSaMueUGCsaU", -12668760),
+            ("5Cqz9SChYPxTFZ2623rE2aQQ5ttQoLwZ8yfwYgiZyQDANqZn", -683549),
+            ("5C8ZcLzF23GrXKdH4Pg3ZXC3vKQsF5PM8VvhzzxzTQksgj8e", -44720570590),
+            ("5GuNsmoswrP6hTKZkKcpTpZftTMKrmnCHvTL2V3NHJy2fpen", -5042891812715),
+            ("5F1TYDkLnP36HHY5btigxyKUPzBraxdrU1aX1bqFfPfcfnzU", -1189104279832),
+            ("5Dc384z9HuTGF6oratZs1fLciCHtPZaLhrHfCVw82a5AikWZ", -616163196988),
+            ("5DhcaEUsRKhZQ31qRffJqjtLmFkbVaCebn8nVjYhvB4KJtX5", -17746006723),
+            ("5HYE7z3xTcrN1rqz54NyZRAkehFfRMcaEcdoMq5g5ATET5wQ", 212509751245),
+            ("5F97DdEVTy9gPCtN6jkJJENDJuQiRGiwbMVSL74qRq8FCq5W", 2225287736222),
+            ("5FUVN133rSvuKXgsXKMR2ZEaysxZjkRUFUWS1UMyNGre9xFV", -73216740161),
+            ("5CZeimtfpRqQgPxVwr1MzfG2Sok8E1AMERHo6vUmEdRS5JiU", -3937802),
+            ("5Eqq2JwGh7qbtnjPiFEPmmnHxs3S4J4Ahg8fr4sybZV1tPdY", -173406860562),
+            ("5ERfDw6K3GmQqwqsEG6foFtu7VsYGifPi556UJKQsBnfbHKN", 96022588728),
+            ("5Ek8RkU6KMv5Fx7yivRVoQkuJYAKhULWiLWDpbGG4hvR9HFD", 968139369093),
+            ("5HpCpGALzqgnDTP1HXFiuhzD5MFaDTRHjXBCvaMY9LNNRkT9", 104943979521),
+            ("5FYqS77gxW9gHG8id1YYPS7Cd4TQmNUMhF8h3S77Fq2VvvRQ", 729199757977),
+            ("5FtBqMg13pNf1N6TwfG6BmwyaDM77mkeQ16UTHsGasrVDedX", 131457064336),
+            ("5GbnWR2XhWrRMt123SdrLbR9G2a4N5dtzA3TSu3Czkzoeu7x", 2295599153),
+            ("5GgiowcCG4kLpwkCTGxxQJQv8WwKFyBQ6McPRmqKtWPy8EaK", 113838605389),
+            ("5FL5YtYozpUAGaiVWonpbwEYdEMij3obJHSH3ACY4vgWmDgy", 8689039),
+            ("5Egq58bxRv7boM2s3rnDxx1udnkzxPQ23HuoqohVxjh9RenC", 216373234348),
+            ("5FRGeeEgRNR8U33FDKvN7yUgts8zR3qRJH4yKKWoR9GswBRb", 2196574958718),
+            ("5FnhSy79BPYyrmmFsbckinQw1fLiLqqPkQL2vgZwPxbRfu3k", 42319631507),
+            ("5Hj8jMhqAv7cfyRh5STfbZefMhv17QxZ1RxWq9jNcLAEsRRo", 132216702183491),
+            ("5EXYTGMqumAH6RLQgHwkMEMnSvHcpHc89R6U8krfNJTYWm9J", 504320264499),
+            ("5EFh8ctzmytXURqrCTUBWHTs87f7TMWB6XKUzdqxKXVUtvS2", 2209599669432),
+            ("5CqVqEcRBkw7Gm2reJ33cj7puR9W2Tq7qsLxSruV1BgnMqKN", 1033387458788),
+            ("5D79enmLSGimsruoraGagofhaSeYJZvGUqFCCrr83ZfZs1HS", 7591184215233),
+            ("5HbpyjsvyXLWtf1QT1CyNUdyut6scM5dM7ytm8hoxFvRtU1i", 129833188275),
+            ("5CnxCi7CdEriWSdw4LcXdbtjodxA6uTat4gBm4wuT9QToMdo", 3132978),
+            ("5G48fiQjhAd8hc4rYc6GituCuAPKznL28jyyyq1auMyZiG4t", 514913328178),
+            ("5FFGjW2hJ7tQ41qghSsLP4cVmA8j9pZVSrr2CrLG7fQAsLHJ", 346794972723),
+            ("5FWjnxeRMtMFxRc9kvZKCG5iJAyyz2kmXV8u3kqyiXizZtiz", 225939835005),
+            ("5CUw3sB4oxd3dVSHUr3kxsB591VEjaPzr444KkfjwVFnLRfJ", 208250614494),
+            ("5EaBhxNUwMRyKsaeA2BEjDCrvwE5J8FDSpfCHK9gGmnmbhCa", 278083207003),
+            ("5GHJ5HxFxYQyVoNFUxR3JCqqCKRumaFCY7N5zMxwF4CpRUWr", 1381466224829),
+            ("5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo", 774889),
+        ];
+
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+            if diff > 0 {
+                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                    diff.unsigned_abs().into(),
+                );
+            }
+        }
+
+        // For one of the gainers, remove some of the stake
+        let idx = 6;
+        let gained_ck = diffs[idx].0;
+        let coldkey_account_id = decode_account_id32::<Test>(gained_ck).expect("Invalid coldkey");
+        SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            num_traits::ToPrimitive::to_u64(
+                &(num_traits::ToPrimitive::to_f64(&diffs[idx].1).expect("float conv fail")
+                    * 0.9_f64)
+                    .abs(),
+            )
+            .expect("u64 conv fail")
+            .into(),
+        );
+
+        let w = try_restore_shares::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Check stake is near 0 for all positive entires except the one we removed
+        // Check the stake for all negative entries is proportional to the amount they lost
+        let total_lost: f64 = diffs
+            .iter()
+            .map(|(_, diff)| {
+                if diff.is_negative() {
+                    num_traits::ToPrimitive::to_f64(&diff.saturating_abs())
+                        .expect("float conv fail")
+                } else {
+                    0_f64
+                }
+            })
+            .sum::<f64>();
+        let mut total_returned = 0_f64;
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
+            if diff > 0 {
+                log::debug!("diff: {} for ck: {}", diff, coldkey);
+                assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
+            } else {
+                total_returned += stake_float;
+            }
+        }
+
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
+            if diff < 0 {
+                // Should get a return proportional to the amount they lost
+                // versus the amount that was able to be recovered
+                let prop_returned: f64 = num_traits::ToPrimitive::to_f64(&diff.abs())
+                    .expect("float conv fail")
+                    / total_lost
+                    * total_returned;
+                assert_relative_eq!(stake_float, prop_returned, max_relative = 0.001_f64);
+            }
+        }
+    });
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_mainnet_has_more() {
+    // test with some of the gainers have a balance higher than the gain before the migration
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_fix_bad_hk_swap::*;
+
+        let netuid = NetUid::from(59);
+        // Add subnet 59
+        add_network(netuid, 10, 0);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
+        let hotkey_account_id = decode_account_id32::<Test>(hotkey).expect("Invalid hotkey");
+
+        #[rustfmt::skip]
+        let diffs: [(&str, i64); 112] = [
+            ("5Fn9SqQhx5bhDua7AGgkKxxk3gfZ75WWBGCMPeKH1WBgPaMQ", -2375685930981_i64),
+            ("5Fnhtm7cpxEbZaChnRZ8yWoF8MXVxmobkmLRehh5bkYtyZA9", -4090996138227),
+            ("5C7j3w2zz1SVejRuFrb2zFWHXT7UfG7eWA87KXL1WyV5KLVR", -607494031),
+            ("5DthZ1rvnXBb9oXVNtrMaMsDAnRxBPZCjD6fdRdeqC3fg1ca", -17022477949),
+            ("5F7BkPL3EVjKTYMbBkEmPAtTZQSGeyNzFPaf1DtebPFmJsJ7", -4016510),
+            ("5EefisctzgWdVGFQaL4LjFFacTE7dM4YJVNy3ogGBQoapTU1", -13106893093),
+            ("5CwkvpBxHCaRK9xBC2n6WdhpF5zg9t5WLkGorASaoErdynFQ", 439139249152),
+            ("5FU7ErUtmi22xuqeeCYVpNZp6WVSSL98hqDi5iyeZbkXtkbe", -35958768555),
+            ("5D7HL8T95qkHQTPFjgSFCjRoeM7oE3vQBYjiR1kAPbPxcMKu", -201914811997),
+            ("5HL3pPdDFY94Qdf8VnbfT4W6LXFkpd68Y5GSGzNJfntMdGZX", -235660917467),
+            ("5EcYAz8SBKWsogA6meJmVXcwVp4tjCvw3ZnJE6UXTyWNUdF2", -500070769668),
+            ("5EoE3c7XMf8TN3yudAaFjv4yvjtWYRviHcXi73EXkLHmWTCB", -86442928436),
+            ("5CMDjL7t2biHGREBwrmd8renD74FLEhjCVqfJG2MXckWBwDu", 1039317),
+            ("5CVGKimL4cLgyTqvYKQbPKYFZfiztsdczU7HrwNdSFKbbn5D", 4224201),
+            ("5HmZnEcW4eHbXmUEFWJbc4GHnBBYEK8ZPsFa25PuEmP5iuwM", -13156128),
+            ("5FNa4J4fTKh555CEyXHgR29RicSm8nTEHx36utTa4MJepJyX", -9519954),
+            ("5Gun93uQgffYpxqMKSmfG18AHiQW7Z2GR2dfPPR8W188vJYc", -1127662),
+            ("5HW1C4js4RyjQqNwALSUZC8NJ2WinD5Si2X2XkstXrMW2uYo", -34457336758),
+            ("5EqMhjdLY9h64ui2mizRZyBp1mEPJ7s4TsfAxQSQkAFmMfzE", -9346443829744),
+            ("5H3XwzydgE2XUGoJCR4dSj7tkd7uxZDJqik69hux2DBcruom", -1215347774),
+            ("5DjkmYpCUX6dBTvGoyN9j4QZhtMPhdcywDE8cJ8Qq1vg4X6e", -3603984447),
+            ("5E7Z7Btjz74XpZLH5fRzfZqiHCo4j9PXKfqi88kQ5MFrds34", -823907380854),
+            ("5DSBWN4hN9413C6o6A2hR9tYUbHjWsQqPRV74GrnCrMkCGJx", -309708781),
+            ("5FMLRmKPqsTsMbakpVUwoYro1P64QXVNTWyzNDugaNwSKRzF", -137525398263),
+            ("5EFZf5pnTqLegv6gxCrb6TKBQBGz9xLJNK8x9eR273cSons6", -1521760918),
+            ("5CGAGEuMLaidBDk8bDZKJb23dxRSP1wLenLALGLw8BTG1E3W", -544739696),
+            ("5HSzRtcQjD5KP6Nh2GVSS16aLDe6q9R33Wpu6s2eEeeo3AYS", -2309184790),
+            ("5DALvFDcfANQJcWz6AXMfDqabnoZhdDMoH6FxqYUibug1ja7", -369405632507),
+            ("5Fy8iWkpcbsskmEN1nYZDdS9zKh167Em9RRYisoss7jaYXxi", 15257429),
+            ("5CQCVTRyqJgZKBDmtHzpoF8su6BScLcNGbX8t3WMm5qYbbJH", -10721968),
+            ("5DXZByh2NS4MU61a1aaLrcLYpyzpJgHe95TEBdcEN2cF1SA5", -655946136),
+            ("5EX5yAYiABFzKDQJDe1kRVwFm3XRRY4HyLMe4Vu9A5U2VEVT", -325581360246),
+            ("5FvabwjtyW887gtc7vUnUc47KVhy17UeaNLRjzTg5nkVACMP", -77588524213),
+            ("5HTbYi5cmgWJxvyTy9JeYdtnjoDzjXnEXTGFsPEVx9iRPmVF", -53542953784),
+            ("5CWzmvA17MAMQ9mnAecLxFXS2N8846rz6T7m4QNHyVtJVq4j", 2672295922502),
+            ("5DSYntgHZY4krYUtkkQZyyoffVtu5e8rYWhXuhs832zY6YKy", -2680205688),
+            ("5EYyTFyLDqXscaa5VtXTvUc3x2ow2TeT8G12ZDMZwE6uFWPQ", -39165843935),
+            ("5CohfM1qdyNwdeJEex1Zyht3S2WS48rV993DmVbyKs2mEEd6", -4004685632),
+            ("5Gx6Y7UQD39Latgxigr6mHbnh1herpwNPau2PjvzwLWEjXL3", -559504),
+            ("5Hh4Efq5WDwe8URjjUqUNX8KxtMwLHLViwoRvXfEpXQCZakh", -32541090531),
+            ("5GWRHC7Nd8njqTPsdJkp6ngniCCBu9UjGhLfxp2jF1fPrfZ4", -5394093031),
+            ("5GNAB64UN32krzr3Xxu5LW6naeu2P3XULcdBCR9VZ5Libyit", -24884230),
+            ("5EEz25th1nYNM5xR1UsyFFAUaXMjdHqLxZ3wUjyHokYbXHku", -12525171),
+            ("5HKJq4JCS9xoKdYhcRnsRp1bodovba7ncd5KTYVwfReKaxHT", -408133990236),
+            ("5DXs7x664RL5NdSW77DTseLiu84unstuHGuqvmY61UtJwzRN", -3095078614148),
+            ("5CDfdDaA2p9sK1ia5yMVYfzgtFs2e1TrSAxuQqXoS28Lcrxf", -1032856892),
+            ("5Ecg4vD2zKXHDFhQqogWq1dZdijPsDty8rGsZu3raeoJSiXb", -995678),
+            ("5C5Yg63TNLb68Tu819qXd3Bt4giG8mAPzLmAFSqa2HC1R5Rm", -40818739830910),
+            ("5HHH25Wuf9rmVuk9cMKU1hCCPJ1qbHBd1SyHj91R3fMT36yb", -391416057906),
+            ("5GKGGE5YLHoDciYJ6Ec2YnUP3SykSQPA47hqmwBP63EtVrd9", -413944553000),
+            ("5CSi9ZLyiXfLeYtEFaZSBuTofNMRnXEJEJE9CS4gGaT6CkWt", -17811605275),
+            ("5CSoA7QVdFHHBZz53bbRV2mC5vhL64ehhWa8ibtLppmt2n3J", -65701320107),
+            ("5GpA5BtfMMX52rXztrha79YqfwR4YaSfTuAcb48Yt73U4h71", -2194562),
+            ("5Euz5wpb4xiDWfV1A6AKK6i6ca3WoZQD5hCVyf1fws8GXh4z", -6143407839874),
+            ("5DZzmhCG7SMK3LwrkmHZ8ZBwaAByMjfBpEid14nNQdxHipCE", -386645),
+            ("5Fc9Vo3hkbr6bPxJpjQo5sQ43L5Hc2G8R5BdqRYF8psvB5pw", 55668553),
+            ("5GuSHC3iowySHLDW4pEyEZE6PKxKP62YpJYJyBy5tijzAnYz", -159317636526),
+            ("5HVVZrUBPvjYHiwaSvtvaN9GZogoznM49m2AEmVW6RXnYCka", -1995572213),
+            ("5EcGpeV2wjkCVsBjsBifSWbdcqH98b6oEY8beDY59c4fXkhw", -177096614584),
+            ("5GnCjvWJEESwVNFZzy85zbBzw26etuEt87WiqsE3ee2Ws1wm", -1961445),
+            ("5GWuPUpTuChAqKxvU22TRLvRkBFiyWWZnq9cLpJN6SSvkho1", -94157569391),
+            ("5FXHf7q5rvBXnzQgmsa31Db9rjcRy6ZHKMiyDSb8Vs5p2msN", -688433531658),
+            ("5GbxkzytnvbRuNQ7qxPpfPuWMoeitS8V4KDY9jSshE5fDegD", -19085313),
+            ("5Gus1B7c9uWkky7Yawh2tKR1V6AMh5DbqUBPq881JHqeqVqY", -16101671818),
+            ("5DLhRdbvWkYYScDmwx4QgJfieSN4apBWbZ2yno3MfgbR8hBP", -21062025),
+            ("5Cg5kVyNEs7MWWRHU8X5MHwX5cN3aegvC4RBt2JK19w2GiR8", -2593737050),
+            ("5Dkushsxtc8AdCf287MtTYHQv9DoZeBRpttUpBtmyFhGy3uR", -48672832345630),
+            ("5EqNqVsHj9bQVyEujcm62zjMYUFhTLY7rTP854txSrJzyoco", -3828526),
+            ("5Dea6d6nKErEbRQ4MBGuCALn8NZ2xo4kaa51hB5KMriPBkEM", -1560192853875),
+            ("5DNt2XDWdeMd4H92FLnfUvkqyXzmavezHvzLboP3VgT1xLZV", -831964576998),
+            ("5FKtFoTeK8aaG6HZTrDgvoYHVQ5NY4S9VyV7W5K74cWcwLYA", -60823501166),
+            ("5GEBanZKUU7Hrf8K2VNi33HxyJRstgQ3WD3odHgvMj2nPbhi", -98946626902),
+            ("5CUtw7LYB2n2bzgXt6YnmKDHt6PsB3kKAyD9azYJNcRG8TNg", -9779588557490),
+            ("5EynbF72b12fbgMvEeL1vJSY342rCryNbuwxFivU1Xevtmv3", -17314385200455),
+            ("5CapiZRuULed8ConS1gbjMVgnwcT5JnQah7tx6sZnK7sJJuJ", -5810972),
+            ("5DnaxLaNduf41WM6WWZ4fkzcGzWNWx6eLJyQpSaMueUGCsaU", -12668760),
+            ("5Cqz9SChYPxTFZ2623rE2aQQ5ttQoLwZ8yfwYgiZyQDANqZn", -683549),
+            ("5C8ZcLzF23GrXKdH4Pg3ZXC3vKQsF5PM8VvhzzxzTQksgj8e", -44720570590),
+            ("5GuNsmoswrP6hTKZkKcpTpZftTMKrmnCHvTL2V3NHJy2fpen", -5042891812715),
+            ("5F1TYDkLnP36HHY5btigxyKUPzBraxdrU1aX1bqFfPfcfnzU", -1189104279832),
+            ("5Dc384z9HuTGF6oratZs1fLciCHtPZaLhrHfCVw82a5AikWZ", -616163196988),
+            ("5DhcaEUsRKhZQ31qRffJqjtLmFkbVaCebn8nVjYhvB4KJtX5", -17746006723),
+            ("5HYE7z3xTcrN1rqz54NyZRAkehFfRMcaEcdoMq5g5ATET5wQ", 212509751245),
+            ("5F97DdEVTy9gPCtN6jkJJENDJuQiRGiwbMVSL74qRq8FCq5W", 2225287736222),
+            ("5FUVN133rSvuKXgsXKMR2ZEaysxZjkRUFUWS1UMyNGre9xFV", -73216740161),
+            ("5CZeimtfpRqQgPxVwr1MzfG2Sok8E1AMERHo6vUmEdRS5JiU", -3937802),
+            ("5Eqq2JwGh7qbtnjPiFEPmmnHxs3S4J4Ahg8fr4sybZV1tPdY", -173406860562),
+            ("5ERfDw6K3GmQqwqsEG6foFtu7VsYGifPi556UJKQsBnfbHKN", 96022588728),
+            ("5Ek8RkU6KMv5Fx7yivRVoQkuJYAKhULWiLWDpbGG4hvR9HFD", 968139369093),
+            ("5HpCpGALzqgnDTP1HXFiuhzD5MFaDTRHjXBCvaMY9LNNRkT9", 104943979521),
+            ("5FYqS77gxW9gHG8id1YYPS7Cd4TQmNUMhF8h3S77Fq2VvvRQ", 729199757977),
+            ("5FtBqMg13pNf1N6TwfG6BmwyaDM77mkeQ16UTHsGasrVDedX", 131457064336),
+            ("5GbnWR2XhWrRMt123SdrLbR9G2a4N5dtzA3TSu3Czkzoeu7x", 2295599153),
+            ("5GgiowcCG4kLpwkCTGxxQJQv8WwKFyBQ6McPRmqKtWPy8EaK", 113838605389),
+            ("5FL5YtYozpUAGaiVWonpbwEYdEMij3obJHSH3ACY4vgWmDgy", 8689039),
+            ("5Egq58bxRv7boM2s3rnDxx1udnkzxPQ23HuoqohVxjh9RenC", 216373234348),
+            ("5FRGeeEgRNR8U33FDKvN7yUgts8zR3qRJH4yKKWoR9GswBRb", 2196574958718),
+            ("5FnhSy79BPYyrmmFsbckinQw1fLiLqqPkQL2vgZwPxbRfu3k", 42319631507),
+            ("5Hj8jMhqAv7cfyRh5STfbZefMhv17QxZ1RxWq9jNcLAEsRRo", 132216702183491),
+            ("5EXYTGMqumAH6RLQgHwkMEMnSvHcpHc89R6U8krfNJTYWm9J", 504320264499),
+            ("5EFh8ctzmytXURqrCTUBWHTs87f7TMWB6XKUzdqxKXVUtvS2", 2209599669432),
+            ("5CqVqEcRBkw7Gm2reJ33cj7puR9W2Tq7qsLxSruV1BgnMqKN", 1033387458788),
+            ("5D79enmLSGimsruoraGagofhaSeYJZvGUqFCCrr83ZfZs1HS", 7591184215233),
+            ("5HbpyjsvyXLWtf1QT1CyNUdyut6scM5dM7ytm8hoxFvRtU1i", 129833188275),
+            ("5CnxCi7CdEriWSdw4LcXdbtjodxA6uTat4gBm4wuT9QToMdo", 3132978),
+            ("5G48fiQjhAd8hc4rYc6GituCuAPKznL28jyyyq1auMyZiG4t", 514913328178),
+            ("5FFGjW2hJ7tQ41qghSsLP4cVmA8j9pZVSrr2CrLG7fQAsLHJ", 346794972723),
+            ("5FWjnxeRMtMFxRc9kvZKCG5iJAyyz2kmXV8u3kqyiXizZtiz", 225939835005),
+            ("5CUw3sB4oxd3dVSHUr3kxsB591VEjaPzr444KkfjwVFnLRfJ", 208250614494),
+            ("5EaBhxNUwMRyKsaeA2BEjDCrvwE5J8FDSpfCHK9gGmnmbhCa", 278083207003),
+            ("5GHJ5HxFxYQyVoNFUxR3JCqqCKRumaFCY7N5zMxwF4CpRUWr", 1381466224829),
+            ("5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo", 774889),
+        ];
+
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+            if diff > 0 {
+                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                    diff.unsigned_abs().into(),
+                );
+            }
+        }
+
+        // For one of the gainers, add some extra stake
+        let idx = 6;
+        let gained_ck = diffs[idx].0;
+        let coldkey_account_id = decode_account_id32::<Test>(gained_ck).expect("Invalid coldkey");
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            num_traits::ToPrimitive::to_u64(
+                &((num_traits::ToPrimitive::to_f64(&diffs[idx].1).expect("float conv fail")
+                    * 0.9_f64)
+                    .abs()),
+            )
+            .expect("u64 conv fail")
+            .into(),
+        );
+        let extra_balance = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        )
+        .saturating_sub(
+            num_traits::ToPrimitive::to_u64(&diffs[idx].1.abs())
+                .expect("float conv fail")
+                .into(),
+        );
+        assert!(
+            extra_balance.to_u64() > 0_u64,
+            "extra balance must be positive"
+        );
+
+        let w = try_restore_shares::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Check stake is near 0 for all positive entires except the one we removed
+        // Check the stake for all negative entries is proportional to the amount they lost
+        let total_lost: f64 = diffs
+            .iter()
+            .map(|(_, diff)| {
+                if diff.is_negative() {
+                    num_traits::ToPrimitive::to_f64(&diff.saturating_abs())
+                        .expect("float conv fail")
+                } else {
+                    0_f64
+                }
+            })
+            .sum::<f64>();
+        let mut total_returned = 0_f64;
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
+            if diff > 0 {
+                if coldkey == gained_ck {
+                    // this CK should retain the extra balance
+                    assert_relative_eq!(
+                        stake_float,
+                        num_traits::ToPrimitive::to_f64(&extra_balance.to_u64())
+                            .expect("float conv fail"),
+                        max_relative = 0.001_f64
+                    );
+                } else {
+                    assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
+                }
+            } else {
+                total_returned += stake_float;
+            }
+        }
+
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
+            if diff < 0 {
+                // Should get a return proportional to the amount they lost
+                // versus the amount that was able to be recovered
+                let prop_returned: f64 = num_traits::ToPrimitive::to_f64(&diff.abs())
+                    .expect("float conv fail")
+                    / total_lost
+                    * total_returned;
+                assert_relative_eq!(stake_float, prop_returned, max_relative = 0.001_f64);
+            }
+        }
+    });
+}
+
+#[test]
+fn test_migrate_fix_bad_hk_swap_mainnet_some_entries() {
+    // test with some of the losers have an existing balance before the migration
+    new_test_ext(1).execute_with(|| {
+        use crate::migrations::migrate_fix_bad_hk_swap::*;
+
+        let netuid = NetUid::from(59);
+        // Add subnet 59
+        add_network(netuid, 10, 0);
+        SubtokenEnabled::<Test>::insert(netuid, true);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        let hotkey = "5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN";
+        let hotkey_account_id = decode_account_id32::<Test>(hotkey).expect("Invalid hotkey");
+
+        #[rustfmt::skip]
+        let diffs: [(&str, i64); 112] = [
+            ("5Fn9SqQhx5bhDua7AGgkKxxk3gfZ75WWBGCMPeKH1WBgPaMQ", -2375685930981_i64),
+            ("5Fnhtm7cpxEbZaChnRZ8yWoF8MXVxmobkmLRehh5bkYtyZA9", -4090996138227),
+            ("5C7j3w2zz1SVejRuFrb2zFWHXT7UfG7eWA87KXL1WyV5KLVR", -607494031),
+            ("5DthZ1rvnXBb9oXVNtrMaMsDAnRxBPZCjD6fdRdeqC3fg1ca", -17022477949),
+            ("5F7BkPL3EVjKTYMbBkEmPAtTZQSGeyNzFPaf1DtebPFmJsJ7", -4016510),
+            ("5EefisctzgWdVGFQaL4LjFFacTE7dM4YJVNy3ogGBQoapTU1", -13106893093),
+            ("5CwkvpBxHCaRK9xBC2n6WdhpF5zg9t5WLkGorASaoErdynFQ", 439139249152),
+            ("5FU7ErUtmi22xuqeeCYVpNZp6WVSSL98hqDi5iyeZbkXtkbe", -35958768555),
+            ("5D7HL8T95qkHQTPFjgSFCjRoeM7oE3vQBYjiR1kAPbPxcMKu", -201914811997),
+            ("5HL3pPdDFY94Qdf8VnbfT4W6LXFkpd68Y5GSGzNJfntMdGZX", -235660917467),
+            ("5EcYAz8SBKWsogA6meJmVXcwVp4tjCvw3ZnJE6UXTyWNUdF2", -500070769668),
+            ("5EoE3c7XMf8TN3yudAaFjv4yvjtWYRviHcXi73EXkLHmWTCB", -86442928436),
+            ("5CMDjL7t2biHGREBwrmd8renD74FLEhjCVqfJG2MXckWBwDu", 1039317),
+            ("5CVGKimL4cLgyTqvYKQbPKYFZfiztsdczU7HrwNdSFKbbn5D", 4224201),
+            ("5HmZnEcW4eHbXmUEFWJbc4GHnBBYEK8ZPsFa25PuEmP5iuwM", -13156128),
+            ("5FNa4J4fTKh555CEyXHgR29RicSm8nTEHx36utTa4MJepJyX", -9519954),
+            ("5Gun93uQgffYpxqMKSmfG18AHiQW7Z2GR2dfPPR8W188vJYc", -1127662),
+            ("5HW1C4js4RyjQqNwALSUZC8NJ2WinD5Si2X2XkstXrMW2uYo", -34457336758),
+            ("5EqMhjdLY9h64ui2mizRZyBp1mEPJ7s4TsfAxQSQkAFmMfzE", -9346443829744),
+            ("5H3XwzydgE2XUGoJCR4dSj7tkd7uxZDJqik69hux2DBcruom", -1215347774),
+            ("5DjkmYpCUX6dBTvGoyN9j4QZhtMPhdcywDE8cJ8Qq1vg4X6e", -3603984447),
+            ("5E7Z7Btjz74XpZLH5fRzfZqiHCo4j9PXKfqi88kQ5MFrds34", -823907380854),
+            ("5DSBWN4hN9413C6o6A2hR9tYUbHjWsQqPRV74GrnCrMkCGJx", -309708781),
+            ("5FMLRmKPqsTsMbakpVUwoYro1P64QXVNTWyzNDugaNwSKRzF", -137525398263),
+            ("5EFZf5pnTqLegv6gxCrb6TKBQBGz9xLJNK8x9eR273cSons6", -1521760918),
+            ("5CGAGEuMLaidBDk8bDZKJb23dxRSP1wLenLALGLw8BTG1E3W", -544739696),
+            ("5HSzRtcQjD5KP6Nh2GVSS16aLDe6q9R33Wpu6s2eEeeo3AYS", -2309184790),
+            ("5DALvFDcfANQJcWz6AXMfDqabnoZhdDMoH6FxqYUibug1ja7", -369405632507),
+            ("5Fy8iWkpcbsskmEN1nYZDdS9zKh167Em9RRYisoss7jaYXxi", 15257429),
+            ("5CQCVTRyqJgZKBDmtHzpoF8su6BScLcNGbX8t3WMm5qYbbJH", -10721968),
+            ("5DXZByh2NS4MU61a1aaLrcLYpyzpJgHe95TEBdcEN2cF1SA5", -655946136),
+            ("5EX5yAYiABFzKDQJDe1kRVwFm3XRRY4HyLMe4Vu9A5U2VEVT", -325581360246),
+            ("5FvabwjtyW887gtc7vUnUc47KVhy17UeaNLRjzTg5nkVACMP", -77588524213),
+            ("5HTbYi5cmgWJxvyTy9JeYdtnjoDzjXnEXTGFsPEVx9iRPmVF", -53542953784),
+            ("5CWzmvA17MAMQ9mnAecLxFXS2N8846rz6T7m4QNHyVtJVq4j", 2672295922502),
+            ("5DSYntgHZY4krYUtkkQZyyoffVtu5e8rYWhXuhs832zY6YKy", -2680205688),
+            ("5EYyTFyLDqXscaa5VtXTvUc3x2ow2TeT8G12ZDMZwE6uFWPQ", -39165843935),
+            ("5CohfM1qdyNwdeJEex1Zyht3S2WS48rV993DmVbyKs2mEEd6", -4004685632),
+            ("5Gx6Y7UQD39Latgxigr6mHbnh1herpwNPau2PjvzwLWEjXL3", -559504),
+            ("5Hh4Efq5WDwe8URjjUqUNX8KxtMwLHLViwoRvXfEpXQCZakh", -32541090531),
+            ("5GWRHC7Nd8njqTPsdJkp6ngniCCBu9UjGhLfxp2jF1fPrfZ4", -5394093031),
+            ("5GNAB64UN32krzr3Xxu5LW6naeu2P3XULcdBCR9VZ5Libyit", -24884230),
+            ("5EEz25th1nYNM5xR1UsyFFAUaXMjdHqLxZ3wUjyHokYbXHku", -12525171),
+            ("5HKJq4JCS9xoKdYhcRnsRp1bodovba7ncd5KTYVwfReKaxHT", -408133990236),
+            ("5DXs7x664RL5NdSW77DTseLiu84unstuHGuqvmY61UtJwzRN", -3095078614148),
+            ("5CDfdDaA2p9sK1ia5yMVYfzgtFs2e1TrSAxuQqXoS28Lcrxf", -1032856892),
+            ("5Ecg4vD2zKXHDFhQqogWq1dZdijPsDty8rGsZu3raeoJSiXb", -995678),
+            ("5C5Yg63TNLb68Tu819qXd3Bt4giG8mAPzLmAFSqa2HC1R5Rm", -40818739830910),
+            ("5HHH25Wuf9rmVuk9cMKU1hCCPJ1qbHBd1SyHj91R3fMT36yb", -391416057906),
+            ("5GKGGE5YLHoDciYJ6Ec2YnUP3SykSQPA47hqmwBP63EtVrd9", -413944553000),
+            ("5CSi9ZLyiXfLeYtEFaZSBuTofNMRnXEJEJE9CS4gGaT6CkWt", -17811605275),
+            ("5CSoA7QVdFHHBZz53bbRV2mC5vhL64ehhWa8ibtLppmt2n3J", -65701320107),
+            ("5GpA5BtfMMX52rXztrha79YqfwR4YaSfTuAcb48Yt73U4h71", -2194562),
+            ("5Euz5wpb4xiDWfV1A6AKK6i6ca3WoZQD5hCVyf1fws8GXh4z", -6143407839874),
+            ("5DZzmhCG7SMK3LwrkmHZ8ZBwaAByMjfBpEid14nNQdxHipCE", -386645),
+            ("5Fc9Vo3hkbr6bPxJpjQo5sQ43L5Hc2G8R5BdqRYF8psvB5pw", 55668553),
+            ("5GuSHC3iowySHLDW4pEyEZE6PKxKP62YpJYJyBy5tijzAnYz", -159317636526),
+            ("5HVVZrUBPvjYHiwaSvtvaN9GZogoznM49m2AEmVW6RXnYCka", -1995572213),
+            ("5EcGpeV2wjkCVsBjsBifSWbdcqH98b6oEY8beDY59c4fXkhw", -177096614584),
+            ("5GnCjvWJEESwVNFZzy85zbBzw26etuEt87WiqsE3ee2Ws1wm", -1961445),
+            ("5GWuPUpTuChAqKxvU22TRLvRkBFiyWWZnq9cLpJN6SSvkho1", -94157569391),
+            ("5FXHf7q5rvBXnzQgmsa31Db9rjcRy6ZHKMiyDSb8Vs5p2msN", -688433531658),
+            ("5GbxkzytnvbRuNQ7qxPpfPuWMoeitS8V4KDY9jSshE5fDegD", -19085313),
+            ("5Gus1B7c9uWkky7Yawh2tKR1V6AMh5DbqUBPq881JHqeqVqY", -16101671818),
+            ("5DLhRdbvWkYYScDmwx4QgJfieSN4apBWbZ2yno3MfgbR8hBP", -21062025),
+            ("5Cg5kVyNEs7MWWRHU8X5MHwX5cN3aegvC4RBt2JK19w2GiR8", -2593737050),
+            ("5Dkushsxtc8AdCf287MtTYHQv9DoZeBRpttUpBtmyFhGy3uR", -48672832345630),
+            ("5EqNqVsHj9bQVyEujcm62zjMYUFhTLY7rTP854txSrJzyoco", -3828526),
+            ("5Dea6d6nKErEbRQ4MBGuCALn8NZ2xo4kaa51hB5KMriPBkEM", -1560192853875),
+            ("5DNt2XDWdeMd4H92FLnfUvkqyXzmavezHvzLboP3VgT1xLZV", -831964576998),
+            ("5FKtFoTeK8aaG6HZTrDgvoYHVQ5NY4S9VyV7W5K74cWcwLYA", -60823501166),
+            ("5GEBanZKUU7Hrf8K2VNi33HxyJRstgQ3WD3odHgvMj2nPbhi", -98946626902),
+            ("5CUtw7LYB2n2bzgXt6YnmKDHt6PsB3kKAyD9azYJNcRG8TNg", -9779588557490),
+            ("5EynbF72b12fbgMvEeL1vJSY342rCryNbuwxFivU1Xevtmv3", -17314385200455),
+            ("5CapiZRuULed8ConS1gbjMVgnwcT5JnQah7tx6sZnK7sJJuJ", -5810972),
+            ("5DnaxLaNduf41WM6WWZ4fkzcGzWNWx6eLJyQpSaMueUGCsaU", -12668760),
+            ("5Cqz9SChYPxTFZ2623rE2aQQ5ttQoLwZ8yfwYgiZyQDANqZn", -683549),
+            ("5C8ZcLzF23GrXKdH4Pg3ZXC3vKQsF5PM8VvhzzxzTQksgj8e", -44720570590),
+            ("5GuNsmoswrP6hTKZkKcpTpZftTMKrmnCHvTL2V3NHJy2fpen", -5042891812715),
+            ("5F1TYDkLnP36HHY5btigxyKUPzBraxdrU1aX1bqFfPfcfnzU", -1189104279832),
+            ("5Dc384z9HuTGF6oratZs1fLciCHtPZaLhrHfCVw82a5AikWZ", -616163196988),
+            ("5DhcaEUsRKhZQ31qRffJqjtLmFkbVaCebn8nVjYhvB4KJtX5", -17746006723),
+            ("5HYE7z3xTcrN1rqz54NyZRAkehFfRMcaEcdoMq5g5ATET5wQ", 212509751245),
+            ("5F97DdEVTy9gPCtN6jkJJENDJuQiRGiwbMVSL74qRq8FCq5W", 2225287736222),
+            ("5FUVN133rSvuKXgsXKMR2ZEaysxZjkRUFUWS1UMyNGre9xFV", -73216740161),
+            ("5CZeimtfpRqQgPxVwr1MzfG2Sok8E1AMERHo6vUmEdRS5JiU", -3937802),
+            ("5Eqq2JwGh7qbtnjPiFEPmmnHxs3S4J4Ahg8fr4sybZV1tPdY", -173406860562),
+            ("5ERfDw6K3GmQqwqsEG6foFtu7VsYGifPi556UJKQsBnfbHKN", 96022588728),
+            ("5Ek8RkU6KMv5Fx7yivRVoQkuJYAKhULWiLWDpbGG4hvR9HFD", 968139369093),
+            ("5HpCpGALzqgnDTP1HXFiuhzD5MFaDTRHjXBCvaMY9LNNRkT9", 104943979521),
+            ("5FYqS77gxW9gHG8id1YYPS7Cd4TQmNUMhF8h3S77Fq2VvvRQ", 729199757977),
+            ("5FtBqMg13pNf1N6TwfG6BmwyaDM77mkeQ16UTHsGasrVDedX", 131457064336),
+            ("5GbnWR2XhWrRMt123SdrLbR9G2a4N5dtzA3TSu3Czkzoeu7x", 2295599153),
+            ("5GgiowcCG4kLpwkCTGxxQJQv8WwKFyBQ6McPRmqKtWPy8EaK", 113838605389),
+            ("5FL5YtYozpUAGaiVWonpbwEYdEMij3obJHSH3ACY4vgWmDgy", 8689039),
+            ("5Egq58bxRv7boM2s3rnDxx1udnkzxPQ23HuoqohVxjh9RenC", 216373234348),
+            ("5FRGeeEgRNR8U33FDKvN7yUgts8zR3qRJH4yKKWoR9GswBRb", 2196574958718),
+            ("5FnhSy79BPYyrmmFsbckinQw1fLiLqqPkQL2vgZwPxbRfu3k", 42319631507),
+            ("5Hj8jMhqAv7cfyRh5STfbZefMhv17QxZ1RxWq9jNcLAEsRRo", 132216702183491),
+            ("5EXYTGMqumAH6RLQgHwkMEMnSvHcpHc89R6U8krfNJTYWm9J", 504320264499),
+            ("5EFh8ctzmytXURqrCTUBWHTs87f7TMWB6XKUzdqxKXVUtvS2", 2209599669432),
+            ("5CqVqEcRBkw7Gm2reJ33cj7puR9W2Tq7qsLxSruV1BgnMqKN", 1033387458788),
+            ("5D79enmLSGimsruoraGagofhaSeYJZvGUqFCCrr83ZfZs1HS", 7591184215233),
+            ("5HbpyjsvyXLWtf1QT1CyNUdyut6scM5dM7ytm8hoxFvRtU1i", 129833188275),
+            ("5CnxCi7CdEriWSdw4LcXdbtjodxA6uTat4gBm4wuT9QToMdo", 3132978),
+            ("5G48fiQjhAd8hc4rYc6GituCuAPKznL28jyyyq1auMyZiG4t", 514913328178),
+            ("5FFGjW2hJ7tQ41qghSsLP4cVmA8j9pZVSrr2CrLG7fQAsLHJ", 346794972723),
+            ("5FWjnxeRMtMFxRc9kvZKCG5iJAyyz2kmXV8u3kqyiXizZtiz", 225939835005),
+            ("5CUw3sB4oxd3dVSHUr3kxsB591VEjaPzr444KkfjwVFnLRfJ", 208250614494),
+            ("5EaBhxNUwMRyKsaeA2BEjDCrvwE5J8FDSpfCHK9gGmnmbhCa", 278083207003),
+            ("5GHJ5HxFxYQyVoNFUxR3JCqqCKRumaFCY7N5zMxwF4CpRUWr", 1381466224829),
+            ("5H1WgA7ET3FmEarJK6qc1vaTWbNd6g41mgvyLRkysrH4MDdo", 774889),
+        ];
+
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+            if diff > 0 {
+                SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                    diff.unsigned_abs().into(),
+                );
+            }
+        }
+
+        // For one of the losers, add some extra stake
+        let idx = 0;
+        let lost_ck = diffs[idx].0;
+        let coldkey_account_id = decode_account_id32::<Test>(lost_ck).expect("Invalid coldkey");
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+            num_traits::ToPrimitive::to_u64(
+                &((num_traits::ToPrimitive::to_f64(&diffs[idx].1).expect("float conv fail")
+                    * 0.9_f64)
+                    .abs()),
+            )
+            .expect("u64 conv fail")
+            .into(),
+        );
+        let extra_balance = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey_account_id,
+            &coldkey_account_id,
+            netuid,
+        );
+        assert!(!extra_balance.is_zero(), "extra balance must be non-zero");
+
+        let w = try_restore_shares::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+
+        // Check stake is near 0 for all positive entires except the one we removed
+        // Check the stake for all negative entries is proportional to the amount they lost
+        let total_lost: f64 = diffs
+            .iter()
+            .map(|(_, diff)| {
+                if diff.is_negative() {
+                    num_traits::ToPrimitive::to_f64(&diff.saturating_abs())
+                        .expect("float conv fail")
+                } else {
+                    0_f64
+                }
+            })
+            .sum::<f64>();
+        let mut total_returned = 0_f64;
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
+            if diff > 0 {
+                assert_relative_eq!(stake_float, 0_f64, max_relative = 0.001_f64);
+            } else if coldkey == lost_ck {
+                total_returned += stake_float
+                    - num_traits::ToPrimitive::to_f64(&extra_balance.to_u64())
+                        .expect("float conv fail");
+            } else {
+                total_returned += stake_float;
+            }
+        }
+
+        for (coldkey, diff) in diffs {
+            let coldkey_account_id = decode_account_id32::<Test>(coldkey).expect("Invalid coldkey");
+            let stake_float: f64 = num_traits::ToPrimitive::to_f64(
+                &SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey_account_id,
+                    &coldkey_account_id,
+                    netuid,
+                )
+                .to_u64(),
+            )
+            .expect("float conv fail");
+            if diff < 0 {
+                // Should get a return proportional to the amount they lost
+                // versus the amount that was able to be recovered
+                let prop_returned: f64 = num_traits::ToPrimitive::to_f64(&diff.abs())
+                    .expect("float conv fail")
+                    / total_lost
+                    * total_returned;
+
+                let mut expected_stake: f64 = prop_returned;
+                if coldkey == lost_ck {
+                    // this CK should retain the extra balance
+                    expected_stake = prop_returned
+                        + num_traits::ToPrimitive::to_f64(&extra_balance.to_u64())
+                            .expect("float conv fail");
+                }
+
+                assert_relative_eq!(stake_float, expected_stake, max_relative = 0.001_f64);
+            }
+        }
+    });
+}
+
+fn decode_account_id32_test(ss58_string: &str) -> U256 {
+    let account_id32: AccountId32 = AccountId32::from_ss58check(ss58_string).unwrap();
+    let mut account_id32_slice: &[u8] = account_id32.as_ref();
+    U256::decode(&mut account_id32_slice).unwrap()
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_claimed_overclaim --exact --nocapture
+#[test]
+fn test_migrate_fix_root_claimed_overclaim() {
+    use crate::migrations::migrate_fix_root_claimed_overclaim::*;
+
+    let old_hotkey = decode_account_id32_test("5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA");
+    let new_hotkey = decode_account_id32_test("5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw");
+    let coldkey = U256::from(42_u64);
+
+    let netuid_target = NetUid::from(27_u16);
+    let netuid_other = NetUid::from(1_u16);
+
+    let mainnet_genesis =
+        hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+    const MIGRATION_NAME: &[u8] = b"migrate_fix_root_claimed_overclaim";
+
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
+
+        // Simulate post-bug state:
+        // transfer_root_claimable_for_new_hotkey wiped ALL subnets from old_hotkey
+        // and moved them to new_hotkey
+        let claimable_value_27 = I96F32::from_num(500_000_u64);
+        let claimable_value_other = I96F32::from_num(300_000_u64);
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_target, claimable_value_27);
+            map.insert(netuid_other, claimable_value_other);
+        });
+        // old_hotkey RootClaimable is empty (wiped by bug)
+
+        // RootClaimed watermark lives on new_hotkey for netuid=27
+        let claimed_val: u128 = 999_999;
+        RootClaimed::<Test>::insert((netuid_target, new_hotkey, coldkey), claimed_val);
+
+        // RootClaimed for netuid_other should not be touched (no Alpha entry)
+        let other_claimed_val: u128 = 111_111;
+        RootClaimed::<Test>::insert((netuid_other, new_hotkey, coldkey), other_claimed_val);
+
+        // Alpha entry for new_hotkey on netuid=27 triggers transfer_root_claimed in the loop
+        Alpha::<Test>::insert(
+            (new_hotkey, coldkey, netuid_target),
+            U64F64::from_num(1_000_u64),
+        );
+
+        Alpha::<Test>::insert(
+            (old_hotkey, coldkey, NetUid::from(0)),
+            U64F64::from_num(1_000_u64),
+        );
+        // No Alpha entry for netuid_other — loop should not touch it
+
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert!(!w.is_zero(), "weight must be non-zero");
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        // old_hotkey should have gotten back RootClaimable for both subnets
+        // (transfer_root_claimable_for_new_hotkey moves the entire map)
+        let old_claimable = RootClaimable::<Test>::get(old_hotkey);
+        assert!(
+            old_claimable.contains_key(&netuid_target),
+            "old_hotkey should have claimable restored for netuid=27"
+        );
+        assert!(
+            old_claimable.contains_key(&netuid_other),
+            "old_hotkey should have claimable restored for netuid_other"
+        );
+        assert_eq!(
+            old_claimable.get(&netuid_target).copied(),
+            Some(claimable_value_27),
+        );
+        assert_eq!(
+            old_claimable.get(&netuid_other).copied(),
+            Some(claimable_value_other),
+        );
+
+        // new_hotkey should have lost its RootClaimable entirely
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).is_empty(),
+            "new_hotkey should have no claimable after migration"
+        );
+
+        // RootClaimed for netuid=27: watermark transferred from new_hotkey to old_hotkey
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, old_hotkey, coldkey)),
+            claimed_val,
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, new_hotkey, coldkey)),
+            0u128,
+            "RootClaimed for (netuid=27, new_hotkey, coldkey) should be cleared"
+        );
+
+        // RootClaimed for netuid_other on new_hotkey must be untouched (no Alpha entry)
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_other, new_hotkey, coldkey)),
+            other_claimed_val,
+        );
+    });
+
+    // Check idempotency, already run -> no-op
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
+        HasMigrationRun::<Test>::insert(MIGRATION_NAME.to_vec(), true);
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_target, I96F32::from_num(777_u64));
+        });
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert_eq!(
+            w,
+            <Test as frame_system::Config>::DbWeight::get().reads(1),
+            "second run should only read the migration flag"
+        );
+
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
+            "second run must not modify new_hotkey data"
+        );
+        assert!(RootClaimable::<Test>::get(old_hotkey).is_empty(),);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::migration::test_migrate_fix_root_claimed_incorrect_genesis --exact --nocapture
+#[test]
+fn test_migrate_fix_root_claimed_incorrect_genesis() {
+    use crate::migrations::migrate_fix_root_claimed_overclaim::*;
+
+    let old_hotkey = decode_account_id32_test("5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA");
+    let new_hotkey = decode_account_id32_test("5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw");
+    let coldkey = U256::from(42_u64);
+
+    let netuid_target = NetUid::from(27_u16);
+    let netuid_other = NetUid::from(1_u16);
+
+    let mainnet_genesis =
+        hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+    const MIGRATION_NAME: &[u8] = b"migrate_fix_root_claimed_overclaim";
+
+    // CASE 2: non-mainnet genesis — full no-op
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_low_u64_be(0xdeadbeef));
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_target, I96F32::from_num(123_u64));
+        });
+        Alpha::<Test>::insert(
+            (new_hotkey, coldkey, netuid_target),
+            U64F64::from_num(1_000_u64),
+        );
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert!(
+            !w.is_zero(),
+            "weight must be non-zero (writes migration flag)"
+        );
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        assert!(
+            RootClaimable::<Test>::get(old_hotkey).is_empty(),
+            "migration must not touch storage on non-mainnet"
+        );
+        assert!(
+            RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
+            "new_hotkey data must remain untouched on non-mainnet"
         );
     });
 }

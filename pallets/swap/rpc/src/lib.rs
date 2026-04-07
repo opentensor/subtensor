@@ -11,28 +11,26 @@ use jsonrpsee::{
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
-use subtensor_runtime_common::{AlphaCurrency, NetUid, TaoCurrency};
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 
-pub use pallet_subtensor_swap_runtime_api::{SubnetPrice, SwapRuntimeApi};
+pub use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
 
 #[rpc(client, server)]
 pub trait SwapRpcApi<BlockHash> {
     #[method(name = "swap_currentAlphaPrice")]
     fn current_alpha_price(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<u64>;
-    #[method(name = "swap_currentAlphaPriceAll")]
-    fn current_alpha_price_all(&self, at: Option<BlockHash>) -> RpcResult<Vec<SubnetPrice>>;
     #[method(name = "swap_simSwapTaoForAlpha")]
     fn sim_swap_tao_for_alpha(
         &self,
         netuid: NetUid,
-        tao: TaoCurrency,
+        tao: TaoBalance,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "swap_simSwapAlphaForTao")]
     fn sim_swap_alpha_for_tao(
         &self,
         netuid: NetUid,
-        alpha: AlphaCurrency,
+        alpha: AlphaBalance,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }
@@ -94,22 +92,10 @@ where
         })
     }
 
-    fn current_alpha_price_all(
-        &self,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<SubnetPrice>> {
-        let api = self.client.runtime_api();
-        let at = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        api.current_alpha_price_all(at).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get all current alpha prices: {e:?}")).into()
-        })
-    }
-
     fn sim_swap_tao_for_alpha(
         &self,
         netuid: NetUid,
-        tao: TaoCurrency,
+        tao: TaoBalance,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -127,7 +113,7 @@ where
     fn sim_swap_alpha_for_tao(
         &self,
         netuid: NetUid,
-        alpha: AlphaCurrency,
+        alpha: AlphaBalance,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
