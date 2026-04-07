@@ -1140,7 +1140,10 @@ fn recycle_alpha_clamps_to_available_when_amount_exceeds_stake() {
         assert_success(ret);
 
         let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
-        assert_eq!(returned_amount, alpha_before, "should clamp to available alpha");
+        assert_eq!(
+            returned_amount, alpha_before,
+            "should clamp to available alpha"
+        );
 
         let alpha_after =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1238,7 +1241,10 @@ fn burn_alpha_clamps_to_available_when_amount_exceeds_stake() {
         assert_success(ret);
 
         let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
-        assert_eq!(returned_amount, alpha_before, "should clamp to available alpha");
+        assert_eq!(
+            returned_amount, alpha_before,
+            "should clamp to available alpha"
+        );
 
         let alpha_after =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
