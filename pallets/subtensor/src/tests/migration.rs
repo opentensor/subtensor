@@ -3142,7 +3142,6 @@ fn test_migrate_coldkey_swap_scheduled_to_announcements() {
         );
     });
 }
-<<<<<<< HEAD
 
 #[test]
 fn test_migrate_clear_deprecated_registration_maps() {
