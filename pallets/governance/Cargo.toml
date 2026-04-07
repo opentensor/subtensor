@@ -26,12 +26,19 @@ sp-runtime.workspace = true
 sp-std.workspace = true
 sp-core.workspace = true
 log.workspace = true
+stp-crypto.workspace = true
+blake2 = { version = "0.10", default-features = false }
+digest = { version = "0.10", default-features = false }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
 pallet-preimage = { workspace = true, default-features = true }
 pallet-scheduler = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
+stp-crypto = { workspace = true, features = ["signing", "std"] }
+curve25519-dalek = { version = "4", features = ["alloc", "rand_core"] }
+rand = "0.8"
+rand_core = "0.6"
 
 [features]
 default = ["std"]
@@ -45,6 +52,9 @@ std = [
     "sp-std/std",
     "log/std",
     "sp-core/std",
+    "stp-crypto/std",
+    "blake2/std",
+    "digest/std",
     "pallet-balances/std",
     "pallet-preimage/std",
     "pallet-scheduler/std",

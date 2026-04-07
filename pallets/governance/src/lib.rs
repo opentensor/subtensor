@@ -20,6 +20,7 @@ pub use pallet::*;
 use sp_runtime::{
     FixedU128, Percent, Saturating,
     traits::{Hash, SaturatedConversion, UniqueSaturatedInto},
+    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
 };
 use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use subtensor_macros::freeze_struct;
@@ -70,36 +71,14 @@ pub struct TriumvirateVotes<AccountId, BlockNumber> {
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[freeze_struct("68b000ed325d45c4")]
-pub struct CollectiveVotes<AccountId, BlockNumber> {
+#[freeze_struct("dcafbe29ecb4ae80")]
+pub struct CollectiveVotes<BlockNumber> {
     /// The proposal's unique index.
     index: ProposalIndex,
-    /// The set of collective members that approved it.
-    ayes: BoundedVec<AccountId, ConstU32<TOTAL_COLLECTIVES_SIZE>>,
-    /// The set of collective members that rejected it.
-    nays: BoundedVec<AccountId, ConstU32<TOTAL_COLLECTIVES_SIZE>>,
     /// The initial dispatch time of the proposal.
     initial_dispatch_time: BlockNumber,
     /// The additional delay applied to the proposal on top of the initial delay.
     delay: BlockNumber,
-}
-
-/// The type of collective.
-#[derive(
-    PartialEq,
-    Eq,
-    Clone,
-    Encode,
-    Decode,
-    RuntimeDebug,
-    TypeInfo,
-    MaxEncodedLen,
-    Copy,
-    DecodeWithMemTracking,
-)]
-pub enum CollectiveType {
-    Economic,
-    Building,
 }
 
 pub trait CollectiveMembersProvider<T: Config> {
@@ -203,6 +182,10 @@ pub mod pallet {
         /// Percent threshold for a proposal to be fast-tracked by a collective vote.
         #[pallet::constant]
         type FastTrackThreshold: Get<Percent>;
+
+        /// PoW difficulty for anonymous vote submissions (number of leading zero bits required).
+        #[pallet::constant]
+        type AnonymousVotePowDifficulty: Get<u32>;
     }
 
     /// Accounts allowed to submit proposals.
@@ -259,9 +242,29 @@ pub mod pallet {
         _,
         Identity,
         T::Hash,
-        CollectiveVotes<T::AccountId, BlockNumberFor<T>>,
+        CollectiveVotes<BlockNumberFor<T>>,
         OptionQuery,
     >;
+
+    /// Frozen ring of collective AccountId bytes snapshotted when a proposal enters collective voting.
+    #[pallet::storage]
+    pub type ProposalRing<T: Config> =
+        StorageMap<_, Identity, T::Hash, BoundedVec<[u8; 32], ConstU32<TOTAL_COLLECTIVES_SIZE>>, OptionQuery>;
+
+    /// Anonymous votes keyed by (ProposalHash, KeyImage). Value is vote direction.
+    #[pallet::storage]
+    pub type AnonymousVotes<T: Config> =
+        StorageDoubleMap<_, Identity, T::Hash, Blake2_128Concat, [u8; 32], bool, OptionQuery>;
+
+    /// Count of anonymous aye votes per proposal.
+    #[pallet::storage]
+    pub type AnonymousAyeCount<T: Config> =
+        StorageMap<_, Identity, T::Hash, u32, ValueQuery>;
+
+    /// Count of anonymous nay votes per proposal.
+    #[pallet::storage]
+    pub type AnonymousNayCount<T: Config> =
+        StorageMap<_, Identity, T::Hash, u32, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -326,14 +329,6 @@ pub mod pallet {
             yes: u32,
             no: u32,
         },
-        /// A collective member has voted on a scheduled proposal.
-        VotedOnScheduled {
-            account: T::AccountId,
-            proposal_hash: T::Hash,
-            voted: bool,
-            yes: u32,
-            no: u32,
-        },
         /// A proposal has been scheduled for execution by triumvirate.
         ProposalScheduled { proposal_hash: T::Hash },
         /// A proposal has been cancelled by triumvirate.
@@ -346,6 +341,22 @@ pub mod pallet {
         ScheduledProposalDelayAdjusted {
             proposal_hash: T::Hash,
             dispatch_time: DispatchTime<BlockNumberFor<T>>,
+        },
+        /// An anonymous vote has been cast on a scheduled proposal.
+        AnonymousVoteCast {
+            proposal_hash: T::Hash,
+            key_image: [u8; 32],
+            approve: bool,
+            yes: u32,
+            no: u32,
+        },
+        /// An anonymous vote direction has been updated.
+        AnonymousVoteUpdated {
+            proposal_hash: T::Hash,
+            key_image: [u8; 32],
+            approve: bool,
+            yes: u32,
+            no: u32,
         },
     }
 
@@ -387,12 +398,20 @@ pub mod pallet {
         InvalidProposalHashLength,
         /// Proposal is already scheduled.
         AlreadyScheduled,
-        /// Origin is not a collective member.
-        NotCollectiveMember,
         /// Proposal is not scheduled.
         ProposalNotScheduled,
         /// Proposal voting period has ended.
         VotingPeriodEnded,
+        /// No frozen ring exists for this proposal.
+        NoRingForProposal,
+        /// Invalid ring signature.
+        InvalidRingSignature,
+        /// Ring signature verification failed.
+        RingSignatureVerificationFailed,
+        /// PoW proof is invalid (hash does not meet difficulty target).
+        InvalidPowProof,
+        /// Ring is too small for anonymous voting (need at least 2 registered keys).
+        RingTooSmall,
     }
 
     #[pallet::hooks]
@@ -716,15 +735,27 @@ pub mod pallet {
         /// Emits `VotedOnScheduled` event. If the vote results in fast-tracking or cancellation,
         /// `ScheduledProposalFastTracked` or `ScheduledProposalCancelled` events are also emitted.
         /// If the delay is adjusted, `ScheduledProposalDelayAdjusted` event is emitted.
-        #[pallet::call_index(4)]
-        #[pallet::weight(T::WeightInfo::vote_on_scheduled())]
-        pub fn vote_on_scheduled(
+        /// Cast an anonymous vote on a scheduled proposal using a bLSAG ring signature.
+        ///
+        /// This is an unsigned, feeless extrinsic guarded by proof-of-work.
+        /// The ring signature proves the voter is a member of the frozen collective
+        /// ring without revealing which member.
+        ///
+        /// The signed message is the proposal hash only (not vote direction), so voters
+        /// can change their vote by submitting again with the same key image.
+        #[pallet::call_index(6)]
+        #[pallet::weight(Weight::from_parts(500_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4))
+            .saturating_add(T::DbWeight::get().writes(3)))]
+        pub fn anonymous_vote_on_scheduled(
             origin: OriginFor<T>,
             proposal_hash: T::Hash,
             #[pallet::compact] proposal_index: ProposalIndex,
             approve: bool,
+            signature: stp_crypto::BlsagSignature,
+            pow_nonce: u64,
         ) -> DispatchResult {
-            let (who, _) = Self::ensure_collective_member(origin)?;
+            ensure_none(origin)?;
 
             let scheduled = Scheduled::<T>::get();
             ensure!(
@@ -732,33 +763,124 @@ pub mod pallet {
                 Error::<T>::ProposalNotScheduled
             );
 
-            let voting = Self::do_vote_on_scheduled(&who, proposal_hash, proposal_index, approve)?;
+            let voting = CollectiveVoting::<T>::get(proposal_hash)
+                .ok_or(Error::<T>::VotingPeriodEnded)?;
+            ensure!(voting.index == proposal_index, Error::<T>::WrongProposalIndex);
 
-            let yes_votes = voting.ayes.len() as u32;
-            let no_votes = voting.nays.len() as u32;
+            let ring = ProposalRing::<T>::get(proposal_hash)
+                .ok_or(Error::<T>::NoRingForProposal)?;
 
-            Self::deposit_event(Event::<T>::VotedOnScheduled {
-                account: who,
-                proposal_hash,
-                voted: approve,
-                yes: yes_votes,
-                no: no_votes,
-            });
+            // Message = proposal_hash only (not vote direction, so voters can change vote)
+            let message = proposal_hash.as_ref();
+            let ring_slice: Vec<[u8; 32]> = ring.to_vec();
+            let valid = stp_crypto::verify(&signature, &ring_slice, message)
+                .map_err(|_| Error::<T>::InvalidRingSignature)?;
+            ensure!(valid, Error::<T>::RingSignatureVerificationFailed);
 
-            let should_fast_track =
-                yes_votes >= T::FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
-            let should_cancel =
-                no_votes >= T::CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
+            Self::verify_pow(proposal_hash, approve, &signature, pow_nonce)?;
 
-            if should_fast_track {
-                Self::fast_track(proposal_hash)?;
-            } else if should_cancel {
-                Self::cancel_scheduled(proposal_hash)?;
-            } else {
-                Self::adjust_delay(proposal_hash, voting)?;
+            let key_image = signature.key_image;
+            let previous_vote = AnonymousVotes::<T>::get(proposal_hash, key_image);
+
+            AnonymousVotes::<T>::insert(proposal_hash, key_image, approve);
+
+            match previous_vote {
+                None => {
+                    if approve {
+                        AnonymousAyeCount::<T>::mutate(proposal_hash, |c| c.saturating_inc());
+                    } else {
+                        AnonymousNayCount::<T>::mutate(proposal_hash, |c| c.saturating_inc());
+                    }
+                }
+                Some(prev) if prev != approve => {
+                    if approve {
+                        AnonymousNayCount::<T>::mutate(proposal_hash, |c| c.saturating_dec());
+                        AnonymousAyeCount::<T>::mutate(proposal_hash, |c| c.saturating_inc());
+                    } else {
+                        AnonymousAyeCount::<T>::mutate(proposal_hash, |c| c.saturating_dec());
+                        AnonymousNayCount::<T>::mutate(proposal_hash, |c| c.saturating_inc());
+                    }
+                }
+                Some(_) => {}
             }
 
+            let anon_ayes = AnonymousAyeCount::<T>::get(proposal_hash);
+            let anon_nays = AnonymousNayCount::<T>::get(proposal_hash);
+
+            if previous_vote.is_some() {
+                Self::deposit_event(Event::<T>::AnonymousVoteUpdated {
+                    proposal_hash,
+                    key_image,
+                    approve,
+                    yes: anon_ayes,
+                    no: anon_nays,
+                });
+            } else {
+                Self::deposit_event(Event::<T>::AnonymousVoteCast {
+                    proposal_hash,
+                    key_image,
+                    approve,
+                    yes: anon_ayes,
+                    no: anon_nays,
+                });
+            }
+
+            Self::check_thresholds_and_adjust(proposal_hash, anon_ayes, anon_nays, voting)?;
+
             Ok(())
+        }
+    }
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+
+        fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            match call {
+                Call::anonymous_vote_on_scheduled {
+                    proposal_hash,
+                    proposal_index: _,
+                    approve,
+                    signature,
+                    pow_nonce,
+                } => {
+                    // PoW check first (cheapest filter)
+                    Self::verify_pow(*proposal_hash, *approve, signature, *pow_nonce)
+                        .map_err(|_| InvalidTransaction::Custom(0))?;
+
+                    // Proposal must be scheduled
+                    let scheduled = Scheduled::<T>::get();
+                    if !scheduled.contains(proposal_hash) {
+                        return Err(InvalidTransaction::Custom(1).into());
+                    }
+
+                    // Ring must exist
+                    let ring = ProposalRing::<T>::get(proposal_hash)
+                        .ok_or(InvalidTransaction::Custom(2))?;
+
+                    // Structural check
+                    if signature.responses.len() != ring.len() {
+                        return Err(InvalidTransaction::Custom(3).into());
+                    }
+
+                    // Full signature verification
+                    let message = proposal_hash.as_ref();
+                    let ring_slice: Vec<[u8; 32]> = ring.to_vec();
+                    let valid = stp_crypto::verify(signature, &ring_slice, message)
+                        .map_err(|_| InvalidTransaction::Custom(4))?;
+                    if !valid {
+                        return Err(InvalidTransaction::Custom(5).into());
+                    }
+
+                    ValidTransaction::with_tag_prefix("AnonymousVote")
+                        .and_provides((proposal_hash, signature.key_image))
+                        .priority(1)
+                        .longevity(64)
+                        .propagate(true)
+                        .build()
+                }
+                _ => InvalidTransaction::Call.into(),
+            }
         }
     }
 }
@@ -806,22 +928,6 @@ impl<T: Config> Pallet<T> {
             ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
             let now = frame_system::Pallet::<T>::block_number();
             ensure!(voting.end > now, Error::<T>::VotingPeriodEnded);
-            Self::vote_inner(who, approve, &mut voting.ayes, &mut voting.nays)?;
-            Ok(voting.clone())
-        })
-    }
-
-    fn do_vote_on_scheduled(
-        who: &T::AccountId,
-        proposal_hash: T::Hash,
-        index: ProposalIndex,
-        approve: bool,
-    ) -> Result<CollectiveVotes<T::AccountId, BlockNumberFor<T>>, DispatchError> {
-        CollectiveVoting::<T>::try_mutate(proposal_hash, |voting| {
-            // No voting here but we have proposal in scheduled, proposal
-            // has been fast-tracked.
-            let voting = voting.as_mut().ok_or(Error::<T>::VotingPeriodEnded)?;
-            ensure!(voting.index == index, Error::<T>::WrongProposalIndex);
             Self::vote_inner(who, approve, &mut voting.ayes, &mut voting.nays)?;
             Ok(voting.clone())
         })
@@ -886,12 +992,28 @@ impl<T: Config> Pallet<T> {
             proposal_hash,
             CollectiveVotes {
                 index: proposal_index,
-                ayes: BoundedVec::new(),
-                nays: BoundedVec::new(),
                 initial_dispatch_time: dispatch_time,
                 delay: Zero::zero(),
             },
         );
+
+        // Freeze the ring: snapshot collective AccountIds as Ristretto points.
+        // Sr25519 AccountIds are compressed Ristretto255 points, so we use
+        // the raw 32-byte AccountId directly as ring members.
+        let economic = EconomicCollective::<T>::get();
+        let building = BuildingCollective::<T>::get();
+        let mut ring_keys = BoundedVec::<[u8; 32], ConstU32<TOTAL_COLLECTIVES_SIZE>>::new();
+        for member in economic.iter().chain(building.iter()) {
+            let bytes: [u8; 32] = member.encode().try_into().unwrap_or([0u8; 32]);
+            // Only include valid Ristretto points (Sr25519 keys).
+            // Ed25519 or other key types will fail decompression and be excluded.
+            if stp_crypto::verify_point_valid(&bytes) {
+                let _ = ring_keys.try_push(bytes);
+            }
+        }
+        if ring_keys.len() >= 2 {
+            ProposalRing::<T>::insert(proposal_hash, ring_keys);
+        }
 
         Self::deposit_event(Event::<T>::ProposalScheduled { proposal_hash });
         Ok(())
@@ -911,6 +1033,7 @@ impl<T: Config> Pallet<T> {
             DispatchTime::After(Zero::zero()),
         )?;
         CollectiveVoting::<T>::remove(proposal_hash);
+        Self::clear_anonymous_votes(proposal_hash);
         Self::deposit_event(Event::<T>::ScheduledProposalFastTracked { proposal_hash });
         Ok(())
     }
@@ -920,45 +1043,8 @@ impl<T: Config> Pallet<T> {
         T::Scheduler::cancel_named(name)?;
         Scheduled::<T>::mutate(|scheduled| scheduled.retain(|h| h != &proposal_hash));
         CollectiveVoting::<T>::remove(proposal_hash);
+        Self::clear_anonymous_votes(proposal_hash);
         Self::deposit_event(Event::<T>::ScheduledProposalCancelled { proposal_hash });
-        Ok(())
-    }
-
-    fn adjust_delay(
-        proposal_hash: T::Hash,
-        mut voting: CollectiveVotes<T::AccountId, BlockNumberFor<T>>,
-    ) -> DispatchResult {
-        let net_score = (voting.nays.len() as i32).saturating_sub(voting.ayes.len() as i32);
-        let additional_delay = Self::compute_additional_delay(net_score);
-
-        // No change, no need to reschedule
-        if voting.delay == additional_delay {
-            return Ok(());
-        }
-
-        let now = frame_system::Pallet::<T>::block_number();
-        let elapsed_time = now.saturating_sub(voting.initial_dispatch_time);
-
-        // We are past new delay, fast track
-        if elapsed_time > additional_delay {
-            return Self::fast_track(proposal_hash);
-        }
-
-        let name = Self::task_name_from_hash(proposal_hash)?;
-        let dispatch_time = DispatchTime::At(
-            voting
-                .initial_dispatch_time
-                .saturating_add(additional_delay),
-        );
-        T::Scheduler::reschedule_named(name, dispatch_time)?;
-
-        voting.delay = additional_delay;
-        CollectiveVoting::<T>::insert(proposal_hash, voting);
-
-        Self::deposit_event(Event::<T>::ScheduledProposalDelayAdjusted {
-            proposal_hash,
-            dispatch_time,
-        });
         Ok(())
     }
 
@@ -1028,6 +1114,7 @@ impl<T: Config> Pallet<T> {
                 Ok(name) => {
                     let dispatch_time = T::Scheduler::next_dispatch_time(name);
                     CollectiveVoting::<T>::remove(proposal_hash);
+                    Self::clear_anonymous_votes(*proposal_hash);
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
                     dispatch_time.is_ok()
                 }
@@ -1059,24 +1146,6 @@ impl<T: Config> Pallet<T> {
         Ok(who)
     }
 
-    fn ensure_collective_member(
-        origin: OriginFor<T>,
-    ) -> Result<(T::AccountId, CollectiveType), DispatchError> {
-        let who = ensure_signed(origin)?;
-
-        let economic_collective = EconomicCollective::<T>::get();
-        if economic_collective.contains(&who) {
-            return Ok((who, CollectiveType::Economic));
-        }
-
-        let building_collective = BuildingCollective::<T>::get();
-        if building_collective.contains(&who) {
-            return Ok((who, CollectiveType::Building));
-        }
-
-        Err(Error::<T>::NotCollectiveMember.into())
-    }
-
     fn task_name_from_hash(proposal_hash: T::Hash) -> Result<TaskName, DispatchError> {
         Ok(proposal_hash
             .as_ref()
@@ -1097,5 +1166,109 @@ impl<T: Config> Pallet<T> {
         } else {
             Zero::zero()
         }
+    }
+
+    fn clear_anonymous_votes(proposal_hash: T::Hash) {
+        ProposalRing::<T>::remove(proposal_hash);
+        let _ = AnonymousVotes::<T>::clear_prefix(proposal_hash, u32::MAX, None);
+        AnonymousAyeCount::<T>::remove(proposal_hash);
+        AnonymousNayCount::<T>::remove(proposal_hash);
+    }
+
+    fn check_thresholds_and_adjust(
+        proposal_hash: T::Hash,
+        total_ayes: u32,
+        total_nays: u32,
+        voting: CollectiveVotes<BlockNumberFor<T>>,
+    ) -> DispatchResult {
+        let should_fast_track =
+            total_ayes >= T::FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
+        let should_cancel =
+            total_nays >= T::CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
+
+        if should_fast_track {
+            Self::fast_track(proposal_hash)?;
+        } else if should_cancel {
+            Self::cancel_scheduled(proposal_hash)?;
+        } else {
+            let net_score = (total_nays as i32).saturating_sub(total_ayes as i32);
+            Self::adjust_delay_with_score(proposal_hash, voting, net_score)?;
+        }
+
+        Ok(())
+    }
+
+    fn adjust_delay_with_score(
+        proposal_hash: T::Hash,
+        mut voting: CollectiveVotes<BlockNumberFor<T>>,
+        net_score: i32,
+    ) -> DispatchResult {
+        let additional_delay = Self::compute_additional_delay(net_score);
+
+        if voting.delay == additional_delay {
+            return Ok(());
+        }
+
+        let now = frame_system::Pallet::<T>::block_number();
+        let elapsed_time = now.saturating_sub(voting.initial_dispatch_time);
+
+        if elapsed_time > additional_delay {
+            return Self::fast_track(proposal_hash);
+        }
+
+        let name = Self::task_name_from_hash(proposal_hash)?;
+        let dispatch_time = DispatchTime::At(
+            voting
+                .initial_dispatch_time
+                .saturating_add(additional_delay),
+        );
+        T::Scheduler::reschedule_named(name, dispatch_time)?;
+
+        voting.delay = additional_delay;
+        CollectiveVoting::<T>::insert(proposal_hash, voting);
+
+        Self::deposit_event(Event::<T>::ScheduledProposalDelayAdjusted {
+            proposal_hash,
+            dispatch_time,
+        });
+        Ok(())
+    }
+
+    pub fn verify_pow(
+        proposal_hash: T::Hash,
+        approve: bool,
+        signature: &stp_crypto::BlsagSignature,
+        nonce: u64,
+    ) -> DispatchResult {
+        use blake2::Digest;
+
+        let mut hasher = blake2::Blake2b::<digest::typenum::U32>::new();
+        hasher.update(&nonce.to_le_bytes());
+        hasher.update(proposal_hash.as_ref());
+        hasher.update(&[approve as u8]);
+        hasher.update(&signature.challenge);
+        hasher.update(&signature.key_image);
+        for r in &signature.responses {
+            hasher.update(r);
+        }
+        let hash = hasher.finalize();
+
+        let difficulty = T::AnonymousVotePowDifficulty::get();
+        let leading_zeros = Self::count_leading_zero_bits(&hash);
+        ensure!(leading_zeros >= difficulty, Error::<T>::InvalidPowProof);
+        Ok(())
+    }
+
+    fn count_leading_zero_bits(hash: &[u8]) -> u32 {
+        let mut count = 0u32;
+        for byte in hash {
+            if *byte == 0 {
+                count = count.saturating_add(8);
+            } else {
+                count = count.saturating_add(byte.leading_zeros());
+                break;
+            }
+        }
+        count
     }
 }

@@ -794,8 +794,6 @@ fn two_triumvirate_aye_votes_schedule_proposal() {
             CollectiveVoting::<Test>::get(proposal_hash),
             Some(CollectiveVotes {
                 index: proposal_index,
-                ayes: BoundedVec::new(),
-                nays: BoundedVec::new(),
                 initial_dispatch_time: now + MotionDuration::get(),
                 delay: Zero::zero(),
             })
@@ -1035,521 +1033,8 @@ fn triumvirate_aye_vote_on_proposal_with_too_many_scheduled_fails() {
     });
 }
 
-#[test]
-fn collective_member_aye_vote_on_scheduled_proposal_works() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-
-        // Add an aye vote from an economic collective member.
-        let economic_member = U256::from(2001);
-        assert_ok!(Pallet::<Test>::vote_on_scheduled(
-            RuntimeOrigin::signed(economic_member),
-            proposal_hash,
-            proposal_index,
-            true
-        ));
-        let now = frame_system::Pallet::<Test>::block_number();
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                ayes: BoundedVec::truncate_from(vec![economic_member]),
-                nays: BoundedVec::new(),
-                initial_dispatch_time: now + MotionDuration::get(),
-                delay: Zero::zero(),
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: economic_member,
-                proposal_hash,
-                voted: true,
-                yes: 1,
-                no: 0,
-            })
-        );
-
-        // Add a second aye vote from a building collective member.
-        let building_member = U256::from(3001);
-        assert_ok!(Pallet::<Test>::vote_on_scheduled(
-            RuntimeOrigin::signed(building_member),
-            proposal_hash,
-            proposal_index,
-            true
-        ));
-
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                ayes: BoundedVec::truncate_from(vec![economic_member, building_member]),
-                nays: BoundedVec::new(),
-                initial_dispatch_time: now + MotionDuration::get(),
-                delay: Zero::zero(),
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: building_member,
-                proposal_hash,
-                voted: true,
-                yes: 2,
-                no: 0,
-            })
-        );
-    });
-}
-
-#[test]
-fn collective_member_votes_succession_on_scheduled_proposal_adjust_delay_and_can_fast_track() {
-    TestState::default().build_and_execute(|| {
-        let now = frame_system::Pallet::<Test>::block_number();
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let voting = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert_eq!(voting.delay, 0);
-
-        // Adding a nay vote increases the delay
-        vote_nay_on_scheduled!(U256::from(2001), proposal_hash, proposal_index);
-        let initial_delay = InitialSchedulingDelay::get() as f64;
-        let initial_dispatch_time = now + MotionDuration::get();
-        let delay = (initial_delay * 1.5_f64.powi(1)).ceil() as u64;
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                ayes: BoundedVec::new(),
-                nays: BoundedVec::truncate_from(vec![U256::from(2001)]),
-                initial_dispatch_time,
-                delay,
-            })
-        );
-        assert_eq!(
-            get_scheduler_proposal_task(proposal_hash).unwrap().0,
-            initial_dispatch_time + delay
-        );
-        assert_eq!(
-            nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: U256::from(2001),
-                proposal_hash,
-                voted: false,
-                yes: 0,
-                no: 1,
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalDelayAdjusted {
-                proposal_hash,
-                dispatch_time: DispatchTime::At(initial_dispatch_time + delay),
-            })
-        );
-
-        // Adding a second nay vote increases the delay
-        vote_nay_on_scheduled!(U256::from(2002), proposal_hash, proposal_index);
-        let delay = (initial_delay * 1.5_f64.powi(2)).ceil() as u64;
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                ayes: BoundedVec::new(),
-                nays: BoundedVec::truncate_from(vec![U256::from(2001), U256::from(2002)]),
-                initial_dispatch_time,
-                delay,
-            })
-        );
-        assert_eq!(
-            get_scheduler_proposal_task(proposal_hash).unwrap().0,
-            initial_dispatch_time + delay
-        );
-        assert_eq!(
-            nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: U256::from(2002),
-                proposal_hash,
-                voted: false,
-                yes: 0,
-                no: 2,
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalDelayAdjusted {
-                proposal_hash,
-                dispatch_time: DispatchTime::At(initial_dispatch_time + delay),
-            })
-        );
-
-        // Adding a third nay vote increases the delay
-        vote_nay_on_scheduled!(U256::from(2003), proposal_hash, proposal_index);
-        let delay = (initial_delay * 1.5_f64.powi(3)) as u64;
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                ayes: BoundedVec::new(),
-                nays: BoundedVec::truncate_from(vec![
-                    U256::from(2001),
-                    U256::from(2002),
-                    U256::from(2003)
-                ]),
-                initial_dispatch_time,
-                delay,
-            })
-        );
-        assert_eq!(
-            get_scheduler_proposal_task(proposal_hash).unwrap().0,
-            initial_dispatch_time + delay
-        );
-        assert_eq!(
-            nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: U256::from(2003),
-                proposal_hash,
-                voted: false,
-                yes: 0,
-                no: 3,
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalDelayAdjusted {
-                proposal_hash,
-                dispatch_time: DispatchTime::At(initial_dispatch_time + delay),
-            })
-        );
-
-        // Adding a aye vote decreases the delay because net score become lower
-        vote_aye_on_scheduled!(U256::from(2004), proposal_hash, proposal_index);
-        let delay = (initial_delay * 1.5_f64.powi(2)).ceil() as u64;
-        assert_eq!(
-            CollectiveVoting::<Test>::get(proposal_hash),
-            Some(CollectiveVotes {
-                index: proposal_index,
-                ayes: BoundedVec::truncate_from(vec![U256::from(2004)]),
-                nays: BoundedVec::truncate_from(vec![
-                    U256::from(2001),
-                    U256::from(2002),
-                    U256::from(2003)
-                ]),
-                initial_dispatch_time,
-                delay,
-            })
-        );
-        assert_eq!(
-            get_scheduler_proposal_task(proposal_hash).unwrap().0,
-            initial_dispatch_time + delay
-        );
-        assert_eq!(
-            nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: U256::from(2004),
-                proposal_hash,
-                voted: true,
-                yes: 1,
-                no: 3,
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalDelayAdjusted {
-                proposal_hash,
-                dispatch_time: DispatchTime::At(initial_dispatch_time + delay),
-            })
-        );
-
-        // Now let's run some blocks until before the sheduled time
-        run_to_block(initial_dispatch_time + delay - 5);
-        // Task hasn't been executed yet
-        assert!(get_scheduler_proposal_task(proposal_hash).is_some());
-
-        // Adding a new aye vote should fast track the proposal because the delay will
-        // fall below the elapsed time
-        vote_aye_on_scheduled!(U256::from(2005), proposal_hash, proposal_index);
-        assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
-        let now = frame_system::Pallet::<Test>::block_number();
-        assert_eq!(
-            get_scheduler_proposal_task(proposal_hash).unwrap().0,
-            // Fast track here means next block scheduling
-            now + 1
-        );
-        // The proposal is still scheduled, even if next block, we keep track of it
-        assert_eq!(Scheduled::<Test>::get(), vec![proposal_hash]);
-        assert_eq!(
-            nth_last_event(3),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: U256::from(2005),
-                proposal_hash,
-                voted: true,
-                yes: 2,
-                no: 3,
-            })
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalFastTracked { proposal_hash })
-        );
-
-        // Now let run one block to see the proposal executed
-        assert_eq!(sp_io::storage::get(b"Foobar"), None); // Not executed yet
-        run_to_block(now + delay + 1);
-        assert!(get_scheduler_proposal_task(proposal_hash).is_none());
-        let stored_value = 42u32.to_be_bytes().to_vec().into();
-        assert_eq!(sp_io::storage::get(b"Foobar"), Some(stored_value)); // Executed
-    });
-}
-
-#[test]
-fn collective_member_vote_on_scheduled_proposal_can_be_updated() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let economic_member = U256::from(2001);
-
-        // Vote aye initially as an economic collective member
-        vote_aye_on_scheduled!(economic_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert_eq!(votes.ayes.to_vec(), vec![economic_member]);
-        assert!(votes.nays.to_vec().is_empty());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: economic_member,
-                proposal_hash,
-                voted: true,
-                yes: 1,
-                no: 0,
-            })
-        );
-
-        // Then vote nay, replacing the aye vote
-        vote_nay_on_scheduled!(economic_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert!(votes.ayes.to_vec().is_empty());
-        assert_eq!(votes.nays.to_vec(), vec![economic_member]);
-        assert_eq!(
-            System::events().into_iter().rev().nth(3).unwrap().event,
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: economic_member,
-                proposal_hash,
-                voted: false,
-                yes: 0,
-                no: 1,
-            })
-        );
-
-        // Then vote aye again, replacing the nay vote
-        vote_aye_on_scheduled!(economic_member, proposal_hash, proposal_index);
-        let votes = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        assert_eq!(votes.ayes.to_vec(), vec![economic_member]);
-        assert!(votes.nays.to_vec().is_empty());
-        assert_eq!(
-            System::events().into_iter().rev().nth(3).unwrap().event,
-            RuntimeEvent::Governance(Event::<Test>::VotedOnScheduled {
-                account: economic_member,
-                proposal_hash,
-                voted: true,
-                yes: 1,
-                no: 0,
-            })
-        );
-    });
-}
-
-#[test]
-fn collective_member_aye_votes_above_threshold_on_scheduled_proposal_fast_tracks() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
-        let combined_collective = EconomicCollective::<Test>::get()
-            .into_iter()
-            .chain(BuildingCollective::<Test>::get().into_iter());
-
-        for member in combined_collective.into_iter().take(threshold as usize) {
-            vote_aye_on_scheduled!(member, proposal_hash, proposal_index);
-        }
-
-        assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
-        let now = frame_system::Pallet::<Test>::block_number();
-        assert_eq!(
-            get_scheduler_proposal_task(proposal_hash).unwrap().0,
-            now + 1
-        );
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalFastTracked { proposal_hash })
-        );
-
-        // Now let run one block to see the proposal executed
-        assert_eq!(sp_io::storage::get(b"Foobar"), None); // Not executed yet
-        run_to_block(now + 1);
-        assert!(get_scheduler_proposal_task(proposal_hash).is_none());
-        let stored_value = 42u32.to_be_bytes().to_vec().into();
-        assert_eq!(sp_io::storage::get(b"Foobar"), Some(stored_value)); // Executed
-    });
-}
-
-#[test]
-fn collective_member_nay_votes_above_threshold_on_scheduled_proposal_cancels() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let threshold = CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
-        let combined_collective = EconomicCollective::<Test>::get()
-            .into_iter()
-            .chain(BuildingCollective::<Test>::get().into_iter());
-
-        for member in combined_collective.into_iter().take(threshold as usize) {
-            vote_nay_on_scheduled!(member, proposal_hash, proposal_index);
-        }
-
-        assert!(Scheduled::<Test>::get().is_empty());
-        assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
-        assert!(get_scheduler_proposal_task(proposal_hash).is_none());
-        assert_eq!(
-            last_event(),
-            RuntimeEvent::Governance(Event::<Test>::ScheduledProposalCancelled { proposal_hash })
-        );
-    });
-}
-
-#[test]
-fn collective_member_aye_vote_triggering_fast_track_on_next_block_scheduled_proposal_fails() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
-        let combined_collective = EconomicCollective::<Test>::get()
-            .into_iter()
-            .chain(BuildingCollective::<Test>::get().into_iter());
-
-        let below_threshold = (threshold - 1) as usize;
-        for member in combined_collective.clone().take(below_threshold) {
-            vote_aye_on_scheduled!(member, proposal_hash, proposal_index);
-        }
-
-        let voting = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
-        run_to_block(voting.initial_dispatch_time - 1);
-
-        let voter = combined_collective.skip(below_threshold).next().unwrap();
-        assert_noop!(
-            Pallet::<Test>::vote_on_scheduled(
-                RuntimeOrigin::signed(voter),
-                proposal_hash,
-                proposal_index,
-                true
-            ),
-            pallet_scheduler::Error::<Test>::RescheduleNoChange
-        );
-    });
-}
-
-#[test]
-fn collective_member_vote_on_scheduled_proposal_from_non_collective_member_fails() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-
-        assert_noop!(
-            Pallet::<Test>::vote_on_scheduled(
-                RuntimeOrigin::signed(U256::from(42)),
-                proposal_hash,
-                proposal_index,
-                true
-            ),
-            Error::<Test>::NotCollectiveMember
-        );
-    });
-}
-
-#[test]
-fn collective_member_vote_on_non_scheduled_proposal_fails() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_proposal!();
-
-        assert_noop!(
-            Pallet::<Test>::vote_on_scheduled(
-                RuntimeOrigin::signed(U256::from(2001)),
-                proposal_hash,
-                proposal_index,
-                true
-            ),
-            Error::<Test>::ProposalNotScheduled
-        );
-    });
-}
-
-#[test]
-fn collective_member_vote_on_fast_tracked_scheduled_proposal_fails() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-        let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE);
-        let combined_collective = EconomicCollective::<Test>::get()
-            .into_iter()
-            .chain(BuildingCollective::<Test>::get().into_iter());
-
-        for member in combined_collective.clone().take(threshold as usize) {
-            vote_aye_on_scheduled!(member, proposal_hash, proposal_index);
-        }
-
-        let voter = combined_collective.skip(threshold as usize).next().unwrap();
-        assert_noop!(
-            Pallet::<Test>::vote_on_scheduled(
-                RuntimeOrigin::signed(voter),
-                proposal_hash,
-                proposal_index,
-                true
-            ),
-            Error::<Test>::VotingPeriodEnded
-        );
-    });
-}
-
-#[test]
-fn collective_member_vote_on_scheduled_proposal_with_wrong_index_fails() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, _proposal_index) = create_scheduled_proposal!();
-
-        assert_noop!(
-            Pallet::<Test>::vote_on_scheduled(
-                RuntimeOrigin::signed(U256::from(2001)),
-                proposal_hash,
-                42,
-                true
-            ),
-            Error::<Test>::WrongProposalIndex
-        );
-    });
-}
-
-#[test]
-fn duplicate_collective_member_vote_on_scheduled_proposal_already_voted_fails() {
-    TestState::default().build_and_execute(|| {
-        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
-
-        let aye_voter = U256::from(2001);
-        vote_aye_on_scheduled!(aye_voter, proposal_hash, proposal_index);
-        assert_noop!(
-            Pallet::<Test>::vote_on_scheduled(
-                RuntimeOrigin::signed(aye_voter),
-                proposal_hash,
-                proposal_index,
-                true
-            ),
-            Error::<Test>::DuplicateVote
-        );
-
-        let nay_voter = U256::from(2002);
-        vote_nay_on_scheduled!(nay_voter, proposal_hash, proposal_index);
-        assert_noop!(
-            Pallet::<Test>::vote_on_scheduled(
-                RuntimeOrigin::signed(nay_voter),
-                proposal_hash,
-                proposal_index,
-                false
-            ),
-            Error::<Test>::DuplicateVote
-        );
-    });
-}
+// Named collective voting tests removed — all collective voting is now anonymous via bLSAG ring signatures.
+// See the `anonymous_voting` module at the bottom of this file for threshold/delay/cancellation tests.
 
 #[test]
 fn collective_rotation_run_correctly_at_rotation_period() {
@@ -1658,33 +1143,411 @@ macro_rules! vote_nay_on_proposed {
     }};
 }
 
-#[macro_export]
-macro_rules! vote_aye_on_scheduled {
-    ($voter:expr, $proposal_hash:expr, $proposal_index:expr) => {{
-        assert_ok!(Pallet::<Test>::vote_on_scheduled(
-            RuntimeOrigin::signed($voter),
-            $proposal_hash,
-            $proposal_index,
-            true
-        ));
-    }};
-}
-
-#[macro_export]
-macro_rules! vote_nay_on_scheduled {
-    ($voter:expr, $proposal_hash:expr, $proposal_index:expr) => {{
-        assert_ok!(Pallet::<Test>::vote_on_scheduled(
-            RuntimeOrigin::signed($voter),
-            $proposal_hash,
-            $proposal_index,
-            false
-        ));
-    }};
-}
-
 pub(crate) fn get_scheduler_proposal_task(
     proposal_hash: <Test as frame_system::Config>::Hash,
 ) -> Option<pallet_scheduler::TaskAddress<BlockNumberFor<Test>>> {
     let task_name: [u8; 32] = proposal_hash.as_ref().try_into().unwrap();
     pallet_scheduler::Lookup::<Test>::get(task_name)
+}
+
+// ==========================================================================
+// Anonymous voting tests
+// ==========================================================================
+
+mod anonymous_voting {
+    use super::*;
+    use curve25519_dalek::{constants::RISTRETTO_BASEPOINT_POINT, scalar::Scalar};
+    use rand::rngs::OsRng;
+    use rand_core::{CryptoRng, RngCore};
+
+    fn random_keypair(rng: &mut (impl CryptoRng + RngCore)) -> ([u8; 32], [u8; 32]) {
+        let k = Scalar::random(rng);
+        let p = (k * RISTRETTO_BASEPOINT_POINT).compress().to_bytes();
+        (k.to_bytes(), p)
+    }
+
+    /// Convert a Ristretto public key (32 bytes) to U256 AccountId.
+    /// U256 encodes as little-endian 32 bytes via SCALE, so this round-trips.
+    fn pk_to_account(pk: &[u8; 32]) -> U256 {
+        U256::from_little_endian(pk)
+    }
+
+    /// Generate `n` Ristretto keypairs and set them as economic collective members.
+    /// Remaining economic slots and all building slots are filled with non-Ristretto U256 values
+    /// (they won't be in the ring since they're not valid Ristretto points).
+    fn setup_ristretto_collective(n: usize) -> (Vec<[u8; 32]>, Vec<[u8; 32]>) {
+        let mut rng = OsRng;
+        let mut sks = Vec::new();
+        let mut pks = Vec::new();
+        let mut economic = Vec::new();
+
+        for _ in 0..n.min(ECONOMIC_COLLECTIVE_SIZE as usize) {
+            let (sk, pk) = random_keypair(&mut rng);
+            sks.push(sk);
+            pks.push(pk);
+            economic.push(pk_to_account(&pk));
+        }
+        // Fill remaining economic slots with values that are NOT valid Ristretto points.
+        // U256::MAX - i encodes as bytes with high bits set, which cannot be valid
+        // compressed Ristretto points.
+        for i in economic.len()..ECONOMIC_COLLECTIVE_SIZE as usize {
+            economic.push(U256::MAX - U256::from(i));
+        }
+
+        let mut building = Vec::new();
+        for _i in n.min(ECONOMIC_COLLECTIVE_SIZE as usize)..n {
+            let (sk, pk) = random_keypair(&mut rng);
+            sks.push(sk);
+            pks.push(pk);
+            building.push(pk_to_account(&pk));
+        }
+        for i in building.len()..BUILDING_COLLECTIVE_SIZE as usize {
+            building.push(U256::MAX - U256::from(100 + i));
+        }
+
+        set_next_economic_collective!(economic);
+        set_next_building_collective!(building);
+        // Trigger rotation to apply the new collectives
+        Pallet::<Test>::rotate_collectives();
+
+        (sks, pks)
+    }
+
+    /// Mine a PoW nonce for a given vote payload. Difficulty is 1 in tests.
+    fn mine_pow(
+        proposal_hash: <Test as frame_system::Config>::Hash,
+        approve: bool,
+        signature: &stp_crypto::BlsagSignature,
+    ) -> u64 {
+        for nonce in 0u64.. {
+            if Pallet::<Test>::verify_pow(proposal_hash, approve, signature, nonce).is_ok() {
+                return nonce;
+            }
+        }
+        unreachable!()
+    }
+
+    /// Cast an anonymous vote and return the signature (for key image tracking).
+    fn cast_anonymous_vote(
+        proposal_hash: <Test as frame_system::Config>::Hash,
+        proposal_index: ProposalIndex,
+        sk: &[u8; 32],
+        ring: &[[u8; 32]],
+        approve: bool,
+    ) -> stp_crypto::BlsagSignature {
+        let mut rng = OsRng;
+        let sig = stp_crypto::sign(sk, ring, proposal_hash.as_ref(), &mut rng).unwrap();
+        let nonce = mine_pow(proposal_hash, approve, &sig);
+        assert_ok!(Pallet::<Test>::anonymous_vote_on_scheduled(
+            RuntimeOrigin::none(),
+            proposal_hash,
+            proposal_index,
+            approve,
+            sig.clone(),
+            nonce,
+        ));
+        sig
+    }
+
+    /// Set up collectives with `n` valid Ristretto members, create a scheduled proposal,
+    /// and return everything needed for anonymous voting.
+    fn setup_anonymous_vote(
+        n: usize,
+    ) -> (
+        <Test as frame_system::Config>::Hash,
+        ProposalIndex,
+        Vec<[u8; 32]>,
+        Vec<[u8; 32]>,
+    ) {
+        let (sks, _pks) = setup_ristretto_collective(n);
+        let (proposal_hash, proposal_index) = create_scheduled_proposal!();
+        let ring = ProposalRing::<Test>::get(proposal_hash)
+            .expect("ring should be frozen")
+            .to_vec();
+        assert_eq!(ring.len(), n);
+        (proposal_hash, proposal_index, sks, ring)
+    }
+
+    #[test]
+    fn ring_uses_account_id_bytes_directly() {
+        TestState::default().build_and_execute(|| {
+            let (_sks, pks) = setup_ristretto_collective(3);
+            let (proposal_hash, _) = create_scheduled_proposal!();
+
+            let ring = ProposalRing::<Test>::get(proposal_hash).unwrap();
+            assert_eq!(ring.len(), 3);
+
+            // Ring members are the raw public key bytes of the collective members
+            for pk in &pks {
+                assert!(ring.contains(pk));
+            }
+        });
+    }
+
+    #[test]
+    fn ring_frozen_at_schedule_time() {
+        TestState::default().build_and_execute(|| {
+            let (_sks, pks) = setup_ristretto_collective(3);
+            let (proposal_hash, _) = create_scheduled_proposal!();
+            let ring = ProposalRing::<Test>::get(proposal_hash).unwrap();
+            assert_eq!(ring.len(), 3);
+
+            // Rotate collectives to different members AFTER scheduling
+            let mut rng = OsRng;
+            let mut new_economic = Vec::new();
+            for _ in 0..ECONOMIC_COLLECTIVE_SIZE as usize {
+                let (_, pk) = random_keypair(&mut rng);
+                new_economic.push(pk_to_account(&pk));
+            }
+            set_next_economic_collective!(new_economic);
+            Pallet::<Test>::rotate_collectives();
+
+            // Ring should still be the original 3
+            let ring_after = ProposalRing::<Test>::get(proposal_hash).unwrap();
+            assert_eq!(ring_after.len(), 3);
+            for pk in &pks {
+                assert!(ring_after.contains(pk));
+            }
+        });
+    }
+
+    #[test]
+    fn no_ring_when_fewer_than_2_valid_ristretto_members() {
+        TestState::default().build_and_execute(|| {
+            // Only 1 valid Ristretto member, rest are invalid U256 values
+            let (_sks, _pks) = setup_ristretto_collective(1);
+            let (proposal_hash, _) = create_scheduled_proposal!();
+            // Ring should NOT be stored (need >= 2 valid Ristretto points)
+            assert!(ProposalRing::<Test>::get(proposal_hash).is_none());
+        });
+    }
+
+    #[test]
+    fn anonymous_vote_works() {
+        TestState::default().build_and_execute(|| {
+            let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(3);
+
+            let sig = cast_anonymous_vote(proposal_hash, proposal_index, &sks[0], &ring, true);
+
+            assert_eq!(AnonymousAyeCount::<Test>::get(proposal_hash), 1);
+            assert_eq!(AnonymousNayCount::<Test>::get(proposal_hash), 0);
+            assert_eq!(
+                AnonymousVotes::<Test>::get(proposal_hash, sig.key_image),
+                Some(true)
+            );
+            assert!(matches!(
+                last_event(),
+                RuntimeEvent::Governance(Event::AnonymousVoteCast {
+                    approve: true,
+                    yes: 1,
+                    no: 0,
+                    ..
+                })
+            ));
+        });
+    }
+
+    #[test]
+    fn anonymous_vote_can_change_direction() {
+        TestState::default().build_and_execute(|| {
+            let mut rng = OsRng;
+            let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(3);
+
+            // Vote aye first
+            let sig1 =
+                stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
+            let nonce1 = mine_pow(proposal_hash, true, &sig1);
+            assert_ok!(Pallet::<Test>::anonymous_vote_on_scheduled(
+                RuntimeOrigin::none(),
+                proposal_hash,
+                proposal_index,
+                true,
+                sig1.clone(),
+                nonce1,
+            ));
+            assert_eq!(AnonymousAyeCount::<Test>::get(proposal_hash), 1);
+
+            // Change to nay (same key image)
+            let sig2 =
+                stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
+            assert_eq!(sig1.key_image, sig2.key_image);
+            let nonce2 = mine_pow(proposal_hash, false, &sig2);
+            assert_ok!(Pallet::<Test>::anonymous_vote_on_scheduled(
+                RuntimeOrigin::none(),
+                proposal_hash,
+                proposal_index,
+                false,
+                sig2,
+                nonce2,
+            ));
+
+            assert_eq!(AnonymousAyeCount::<Test>::get(proposal_hash), 0);
+            assert_eq!(AnonymousNayCount::<Test>::get(proposal_hash), 1);
+
+            let events: Vec<_> = System::events().into_iter().map(|e| e.event).collect();
+            assert!(events.iter().any(|e| matches!(
+                e,
+                RuntimeEvent::Governance(Event::AnonymousVoteUpdated {
+                    approve: false,
+                    yes: 0,
+                    no: 1,
+                    ..
+                })
+            )));
+        });
+    }
+
+    #[test]
+    fn anonymous_vote_with_invalid_signature_fails() {
+        TestState::default().build_and_execute(|| {
+            let mut rng = OsRng;
+            let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(3);
+
+            let mut signature =
+                stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
+            signature.challenge[0] ^= 0xff;
+            let pow_nonce = mine_pow(proposal_hash, true, &signature);
+
+            assert_noop!(
+                Pallet::<Test>::anonymous_vote_on_scheduled(
+                    RuntimeOrigin::none(),
+                    proposal_hash,
+                    proposal_index,
+                    true,
+                    signature,
+                    pow_nonce,
+                ),
+                Error::<Test>::RingSignatureVerificationFailed
+            );
+        });
+    }
+
+    #[test]
+    fn anonymous_vote_with_invalid_pow_fails() {
+        TestState::default().build_and_execute(|| {
+            let mut rng = OsRng;
+            let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(3);
+
+            let signature =
+                stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
+            // Mine PoW for approve=false, but submit with approve=true
+            let wrong_nonce = mine_pow(proposal_hash, false, &signature);
+            assert_noop!(
+                Pallet::<Test>::anonymous_vote_on_scheduled(
+                    RuntimeOrigin::none(),
+                    proposal_hash,
+                    proposal_index,
+                    true,
+                    signature,
+                    wrong_nonce,
+                ),
+                Error::<Test>::InvalidPowProof
+            );
+        });
+    }
+
+    #[test]
+    fn anonymous_vote_on_non_scheduled_proposal_fails() {
+        TestState::default().build_and_execute(|| {
+            let mut rng = OsRng;
+            let (sks, pks) = setup_ristretto_collective(3);
+            let (proposal_hash, proposal_index) = create_proposal!();
+
+            let signature =
+                stp_crypto::sign(&sks[0], &pks, proposal_hash.as_ref(), &mut rng).unwrap();
+            let pow_nonce = mine_pow(proposal_hash, true, &signature);
+
+            assert_noop!(
+                Pallet::<Test>::anonymous_vote_on_scheduled(
+                    RuntimeOrigin::none(),
+                    proposal_hash,
+                    proposal_index,
+                    true,
+                    signature,
+                    pow_nonce,
+                ),
+                Error::<Test>::ProposalNotScheduled
+            );
+        });
+    }
+
+    #[test]
+    fn anonymous_vote_cleanup_on_fast_track() {
+        TestState::default().build_and_execute(|| {
+            // Use all 32 members as valid Ristretto keys so we can reach thresholds
+            let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(32);
+
+            // Cast one aye vote
+            cast_anonymous_vote(proposal_hash, proposal_index, &sks[0], &ring, true);
+            assert_eq!(AnonymousAyeCount::<Test>::get(proposal_hash), 1);
+
+            // Cast enough aye votes to reach fast-track threshold (67% of 32 = 22)
+            let threshold = FastTrackThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE) as usize;
+            for i in 1..threshold {
+                cast_anonymous_vote(proposal_hash, proposal_index, &sks[i], &ring, true);
+            }
+
+            // Proposal should have been fast-tracked, storage cleaned up
+            assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
+            assert!(ProposalRing::<Test>::get(proposal_hash).is_none());
+            assert_eq!(AnonymousAyeCount::<Test>::get(proposal_hash), 0);
+            assert_eq!(AnonymousNayCount::<Test>::get(proposal_hash), 0);
+            assert_eq!(
+                last_event(),
+                RuntimeEvent::Governance(Event::<Test>::ScheduledProposalFastTracked {
+                    proposal_hash
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn anonymous_nay_votes_above_threshold_cancels() {
+        TestState::default().build_and_execute(|| {
+            let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(32);
+
+            let threshold = CancellationThreshold::get().mul_ceil(TOTAL_COLLECTIVES_SIZE) as usize;
+            for i in 0..threshold {
+                cast_anonymous_vote(proposal_hash, proposal_index, &sks[i], &ring, false);
+            }
+
+            assert!(Scheduled::<Test>::get().is_empty());
+            assert!(CollectiveVoting::<Test>::get(proposal_hash).is_none());
+            assert!(get_scheduler_proposal_task(proposal_hash).is_none());
+            assert_eq!(
+                last_event(),
+                RuntimeEvent::Governance(Event::<Test>::ScheduledProposalCancelled {
+                    proposal_hash
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn anonymous_nay_votes_adjust_delay() {
+        TestState::default().build_and_execute(|| {
+            let now = frame_system::Pallet::<Test>::block_number();
+            let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(32);
+            let voting = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
+            assert_eq!(voting.delay, 0);
+
+            // One nay vote should increase the delay
+            cast_anonymous_vote(proposal_hash, proposal_index, &sks[0], &ring, false);
+            let initial_delay = InitialSchedulingDelay::get() as f64;
+            let initial_dispatch_time = now + MotionDuration::get();
+            let expected_delay = (initial_delay * 1.5_f64.powi(1)).ceil() as u64;
+
+            let voting = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
+            assert_eq!(voting.delay, expected_delay);
+            assert_eq!(
+                get_scheduler_proposal_task(proposal_hash).unwrap().0,
+                initial_dispatch_time + expected_delay
+            );
+
+            // Adding an aye vote should reduce the delay (net score goes to 0)
+            cast_anonymous_vote(proposal_hash, proposal_index, &sks[1], &ring, true);
+            let voting = CollectiveVoting::<Test>::get(proposal_hash).unwrap();
+            assert_eq!(voting.delay, 0);
+        });
+    }
 }

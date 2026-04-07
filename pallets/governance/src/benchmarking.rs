@@ -9,10 +9,7 @@ use crate::pallet::*;
 use crate::{ProposalIndex, TriumvirateVotes};
 use codec::Encode;
 use frame_benchmarking::{account, v2::*};
-use frame_support::{
-    assert_ok,
-    traits::{QueryPreimage, StorePreimage},
-};
+use frame_support::traits::{QueryPreimage, StorePreimage};
 use frame_system::RawOrigin;
 use sp_runtime::{
     BoundedVec, Vec,
@@ -147,36 +144,6 @@ mod benchmarks {
         assert_eq!(ProposalOf::<T>::iter().count(), 0);
         assert_eq!(TriumvirateVoting::<T>::iter().count(), 0);
         assert_eq!(Scheduled::<T>::get().to_vec(), vec![hash]);
-    }
-
-    #[benchmark]
-    fn vote_on_scheduled() {
-        let proposer = allowed_proposer::<T>(0);
-        let triumvirate = triumvirate::<T>();
-
-        let member: T::AccountId = account("collective_member", 4242, SEED);
-        EconomicCollective::<T>::try_append(member.clone()).unwrap();
-
-        // Set up some scheduled proposal
-        let ayes = vec![triumvirate[0].clone()];
-        let nays = vec![triumvirate[1].clone()];
-        let (hash, index) = create_dummy_proposal::<T>(proposer, Some(0), ayes, nays);
-        assert_ok!(Pallet::<T>::vote_on_proposed(
-            RawOrigin::Signed(triumvirate[2].clone()).into(),
-            hash,
-            index,
-            true,
-        ));
-        let delay = CollectiveVoting::<T>::get(hash).unwrap().delay;
-
-        #[extrinsic_call]
-        _(RawOrigin::Signed(member.clone()), hash, index, false);
-
-        assert_eq!(CollectiveVoting::<T>::iter().count(), 1);
-        let voting = CollectiveVoting::<T>::get(hash).unwrap();
-        assert!(voting.ayes.to_vec().is_empty());
-        assert_eq!(voting.nays.to_vec(), vec![member]);
-        assert!(voting.delay > delay);
     }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

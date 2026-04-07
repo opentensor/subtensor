@@ -40,7 +40,6 @@ pub trait WeightInfo {
 	fn set_triumvirate(p: u32, ) -> Weight;
 	fn propose() -> Weight;
 	fn vote_on_proposed() -> Weight;
-	fn vote_on_scheduled() -> Weight;
 }
 
 /// Weights for `pallet_governance` using the Substrate node and recommended hardware.
@@ -144,25 +143,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(7_u64))
 	}
-	/// Storage: `Governance::EconomicCollective` (r:1 w:0)
-	/// Proof: `Governance::EconomicCollective` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `MaxEncodedLen`)
-	/// Storage: `Governance::Scheduled` (r:1 w:0)
-	/// Proof: `Governance::Scheduled` (`max_values`: Some(1), `max_size`: Some(641), added: 1136, mode: `MaxEncodedLen`)
-	/// Storage: `Governance::CollectiveVoting` (r:1 w:1)
-	/// Proof: `Governance::CollectiveVoting` (`max_values`: None, `max_size`: Some(2094), added: 4569, mode: `MaxEncodedLen`)
-	/// Storage: `Scheduler::Lookup` (r:1 w:1)
-	/// Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
-	/// Storage: `Scheduler::Agenda` (r:2 w:2)
-	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(10463), added: 12938, mode: `MaxEncodedLen`)
-	fn vote_on_scheduled() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `476`
-		//  Estimated: `26866`
-		// Minimum execution time: 22_000_000 picoseconds.
-		Weight::from_parts(24_000_000, 26866)
-			.saturating_add(T::DbWeight::get().reads(6_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
-	}
 }
 
 // For backwards compatibility and tests.
@@ -264,24 +244,5 @@ impl WeightInfo for () {
 		Weight::from_parts(24_000_000, 13928)
 			.saturating_add(ParityDbWeight::get().reads(7_u64))
 			.saturating_add(ParityDbWeight::get().writes(7_u64))
-	}
-	/// Storage: `Governance::EconomicCollective` (r:1 w:0)
-	/// Proof: `Governance::EconomicCollective` (`max_values`: Some(1), `max_size`: Some(513), added: 1008, mode: `MaxEncodedLen`)
-	/// Storage: `Governance::Scheduled` (r:1 w:0)
-	/// Proof: `Governance::Scheduled` (`max_values`: Some(1), `max_size`: Some(641), added: 1136, mode: `MaxEncodedLen`)
-	/// Storage: `Governance::CollectiveVoting` (r:1 w:1)
-	/// Proof: `Governance::CollectiveVoting` (`max_values`: None, `max_size`: Some(2094), added: 4569, mode: `MaxEncodedLen`)
-	/// Storage: `Scheduler::Lookup` (r:1 w:1)
-	/// Proof: `Scheduler::Lookup` (`max_values`: None, `max_size`: Some(48), added: 2523, mode: `MaxEncodedLen`)
-	/// Storage: `Scheduler::Agenda` (r:2 w:2)
-	/// Proof: `Scheduler::Agenda` (`max_values`: None, `max_size`: Some(10463), added: 12938, mode: `MaxEncodedLen`)
-	fn vote_on_scheduled() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `476`
-		//  Estimated: `26866`
-		// Minimum execution time: 22_000_000 picoseconds.
-		Weight::from_parts(24_000_000, 26866)
-			.saturating_add(ParityDbWeight::get().reads(6_u64))
-			.saturating_add(ParityDbWeight::get().writes(4_u64))
 	}
 }

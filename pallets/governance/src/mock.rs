@@ -139,6 +139,7 @@ parameter_types! {
     pub const CleanupPeriod: BlockNumberFor<Test> = 500;
     pub const FastTrackThreshold: Percent = Percent::from_percent(67); // ~2/3
     pub const CancellationThreshold: Percent = Percent::from_percent(51);
+    pub const AnonymousVotePowDifficulty: u32 = 1; // Very low for tests
 }
 
 impl pallet_governance::Config for Test {
@@ -161,6 +162,7 @@ impl pallet_governance::Config for Test {
     type CleanupPeriod = CleanupPeriod;
     type CancellationThreshold = CancellationThreshold;
     type FastTrackThreshold = FastTrackThreshold;
+    type AnonymousVotePowDifficulty = AnonymousVotePowDifficulty;
 }
 
 #[frame_support::pallet]
