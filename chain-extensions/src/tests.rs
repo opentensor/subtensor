@@ -1141,8 +1141,8 @@ fn recycle_alpha_clamps_to_available_when_amount_exceeds_stake() {
 
         let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
         assert_eq!(
-            returned_amount, alpha_before,
-            "should clamp to available alpha"
+            returned_amount, huge_amount,
+            "should return requested amount"
         );
 
         let alpha_after =
@@ -1242,8 +1242,8 @@ fn burn_alpha_clamps_to_available_when_amount_exceeds_stake() {
 
         let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
         assert_eq!(
-            returned_amount, alpha_before,
-            "should clamp to available alpha"
+            returned_amount, huge_amount,
+            "should return requested amount"
         );
 
         let alpha_after =
@@ -1319,6 +1319,144 @@ fn assert_success(ret: RetVal) {
         }
         _ => panic!("unexpected return value"),
     }
+}
+
+#[test]
+fn add_stake_recycle_rollback_on_recycle_failure() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(12001);
+        let owner_coldkey = U256::from(12002);
+        let coldkey = U256::from(12101);
+        let hotkey = U256::from(12102);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let tao_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Set up very low reserves so recycle will fail with InsufficientLiquidity
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(1_000_u64),
+            AlphaBalance::from(1_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+
+        let expected_weight = Weight::from_parts(454_200_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(19));
+
+        let mut env = MockEnv::new(
+            FunctionId::AddStakeRecycleV1,
+            coldkey,
+            (hotkey, netuid, TaoBalance::from(tao_amount_raw)).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        match ret {
+            RetVal::Converging(code) => {
+                assert_ne!(code, Output::Success as u32, "should not succeed")
+            }
+            _ => panic!("unexpected return value"),
+        }
+
+        // Verify full rollback: balance and stake unchanged
+        let balance_after = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+
+        assert_eq!(
+            balance_before, balance_after,
+            "balance should be unchanged after rollback"
+        );
+        assert_eq!(
+            alpha_before, alpha_after,
+            "stake should be unchanged after rollback"
+        );
+    });
+}
+
+#[test]
+fn add_stake_burn_rollback_on_burn_failure() {
+    mock::new_test_ext(1).execute_with(|| {
+        let owner_hotkey = U256::from(12201);
+        let owner_coldkey = U256::from(12202);
+        let coldkey = U256::from(12301);
+        let hotkey = U256::from(12302);
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let tao_amount_raw = min_stake.to_u64().saturating_mul(200);
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Set up very low reserves so burn will fail with InsufficientLiquidity
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(1_000_u64),
+            AlphaBalance::from(1_000_u64),
+        );
+
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            &coldkey,
+            TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
+        );
+
+        let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+        let alpha_before =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+
+        let expected_weight = Weight::from_parts(453_000_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(18));
+
+        let mut env = MockEnv::new(
+            FunctionId::AddStakeBurnV1,
+            coldkey,
+            (hotkey, netuid, TaoBalance::from(tao_amount_raw)).encode(),
+        )
+        .with_expected_weight(expected_weight);
+
+        let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap();
+        match ret {
+            RetVal::Converging(code) => {
+                assert_ne!(code, Output::Success as u32, "should not succeed")
+            }
+            _ => panic!("unexpected return value"),
+        }
+
+        // Verify full rollback: balance and stake unchanged
+        let balance_after = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
+        let alpha_after =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+
+        assert_eq!(
+            balance_before, balance_after,
+            "balance should be unchanged after rollback"
+        );
+        assert_eq!(
+            alpha_before, alpha_after,
+            "stake should be unchanged after rollback"
+        );
+    });
 }
 
 #[test]

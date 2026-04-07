@@ -9,6 +9,7 @@ pub mod types;
 
 use crate::types::{FunctionId, Output};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{DebugNoBound, traits::Get};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
@@ -535,22 +536,16 @@ where
 
                 let caller = env.caller();
 
-                let alpha_available =
-                    pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                        &hotkey, &caller, netuid,
-                    );
-                let actual_amount = amount.min(alpha_available);
-
                 let call_result = pallet_subtensor::Pallet::<T>::recycle_alpha(
                     RawOrigin::Signed(caller).into(),
                     hotkey,
-                    actual_amount,
+                    amount,
                     netuid,
                 );
 
                 match call_result {
                     Ok(_) => {
-                        env.write_output(&actual_amount.encode())
+                        env.write_output(&amount.encode())
                             .map_err(|_| DispatchError::Other("Failed to write output"))?;
                         Ok(RetVal::Converging(Output::Success as u32))
                     }
@@ -572,22 +567,16 @@ where
 
                 let caller = env.caller();
 
-                let alpha_available =
-                    pallet_subtensor::Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                        &hotkey, &caller, netuid,
-                    );
-                let actual_amount = amount.min(alpha_available);
-
                 let call_result = pallet_subtensor::Pallet::<T>::burn_alpha(
                     RawOrigin::Signed(caller).into(),
                     hotkey,
-                    actual_amount,
+                    amount,
                     netuid,
                 );
 
                 match call_result {
                     Ok(_) => {
-                        env.write_output(&actual_amount.encode())
+                        env.write_output(&amount.encode())
                             .map_err(|_| DispatchError::Other("Failed to write output"))?;
                         Ok(RetVal::Converging(Output::Success as u32))
                     }
@@ -609,33 +598,33 @@ where
 
                 let caller = env.caller();
 
-                let alpha = pallet_subtensor::Pallet::<T>::do_add_stake(
-                    RawOrigin::Signed(caller.clone()).into(),
-                    hotkey.clone(),
-                    netuid,
-                    tao_amount,
-                );
+                let result = transactional::with_transaction(|| {
+                    let alpha = match pallet_subtensor::Pallet::<T>::do_add_stake(
+                        RawOrigin::Signed(caller.clone()).into(),
+                        hotkey.clone(),
+                        netuid,
+                        tao_amount,
+                    ) {
+                        Ok(a) => a,
+                        Err(e) => return TransactionOutcome::Rollback(Err(e)),
+                    };
 
-                match alpha {
+                    match pallet_subtensor::Pallet::<T>::recycle_alpha(
+                        RawOrigin::Signed(caller).into(),
+                        hotkey,
+                        alpha,
+                        netuid,
+                    ) {
+                        Ok(_) => TransactionOutcome::Commit(Ok(alpha)),
+                        Err(e) => TransactionOutcome::Rollback(Err(e)),
+                    }
+                });
+
+                match result {
                     Ok(alpha) => {
-                        let recycle_result = pallet_subtensor::Pallet::<T>::recycle_alpha(
-                            RawOrigin::Signed(caller).into(),
-                            hotkey,
-                            alpha,
-                            netuid,
-                        );
-
-                        match recycle_result {
-                            Ok(_) => {
-                                env.write_output(&alpha.encode())
-                                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
-                                Ok(RetVal::Converging(Output::Success as u32))
-                            }
-                            Err(e) => {
-                                let error_code = Output::from(e) as u32;
-                                Ok(RetVal::Converging(error_code))
-                            }
-                        }
+                        env.write_output(&alpha.encode())
+                            .map_err(|_| DispatchError::Other("Failed to write output"))?;
+                        Ok(RetVal::Converging(Output::Success as u32))
                     }
                     Err(e) => {
                         let error_code = Output::from(e) as u32;
@@ -655,33 +644,33 @@ where
 
                 let caller = env.caller();
 
-                let alpha = pallet_subtensor::Pallet::<T>::do_add_stake(
-                    RawOrigin::Signed(caller.clone()).into(),
-                    hotkey.clone(),
-                    netuid,
-                    tao_amount,
-                );
+                let result = transactional::with_transaction(|| {
+                    let alpha = match pallet_subtensor::Pallet::<T>::do_add_stake(
+                        RawOrigin::Signed(caller.clone()).into(),
+                        hotkey.clone(),
+                        netuid,
+                        tao_amount,
+                    ) {
+                        Ok(a) => a,
+                        Err(e) => return TransactionOutcome::Rollback(Err(e)),
+                    };
 
-                match alpha {
+                    match pallet_subtensor::Pallet::<T>::burn_alpha(
+                        RawOrigin::Signed(caller).into(),
+                        hotkey,
+                        alpha,
+                        netuid,
+                    ) {
+                        Ok(_) => TransactionOutcome::Commit(Ok(alpha)),
+                        Err(e) => TransactionOutcome::Rollback(Err(e)),
+                    }
+                });
+
+                match result {
                     Ok(alpha) => {
-                        let burn_result = pallet_subtensor::Pallet::<T>::burn_alpha(
-                            RawOrigin::Signed(caller).into(),
-                            hotkey,
-                            alpha,
-                            netuid,
-                        );
-
-                        match burn_result {
-                            Ok(_) => {
-                                env.write_output(&alpha.encode())
-                                    .map_err(|_| DispatchError::Other("Failed to write output"))?;
-                                Ok(RetVal::Converging(Output::Success as u32))
-                            }
-                            Err(e) => {
-                                let error_code = Output::from(e) as u32;
-                                Ok(RetVal::Converging(error_code))
-                            }
-                        }
+                        env.write_output(&alpha.encode())
+                            .map_err(|_| DispatchError::Other("Failed to write output"))?;
+                        Ok(RetVal::Converging(Output::Success as u32))
                     }
                     Err(e) => {
                         let error_code = Output::from(e) as u32;
