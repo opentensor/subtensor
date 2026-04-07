@@ -320,12 +320,12 @@ interface IStaking {
      * the funds comes from, which is not possible if the spender called `transfer` towards the contract
      * (no callback).
      *
-     * @param spenderColdkey Coldkey of the address allowed to spend funds from the caller.
+     * @param spenderAddress Address allowed to spend funds from the caller.
      * @param netuid The approved subnet token.
      * @param absoluteAmount New approval amount, will overwrite previous value.
      */
     function approve(
-        bytes32 spenderColdkey,
+        address spenderAddress,
         uint256 netuid,
         uint256 absoluteAmount
     ) external;
@@ -333,13 +333,13 @@ interface IStaking {
     /**
      * @dev Get how much the source allows the spender to use their subnet tokens
      *
-     * @param spenderColdkey Coldkey of the source making the allowance.
-     * @param spenderColdkey Coldkey of the address allowed to spend funds from the source.
+     * @param sourceAddress Address of the source making the allowance.
+     * @param spenderAddress Address allowed to spend funds from the source.
      * @param netuid The approved subnet token.
      */
     function allowance(
-        bytes32 sourceColdkey,
-        bytes32 spenderColdkey,
+        address sourceAddress,
+        address spenderAddress,
         uint256 netuid,
     ) external view returns (uint256);
 
@@ -352,12 +352,12 @@ interface IStaking {
      * the funds comes from, which is not possible if the spender called `transfer` towards the contract
      * (no callback).
      *
-     * @param spenderColdkey Coldkey of the address allowed to spend funds from the caller.
+     * @param spenderAddress Address allowed to spend funds from the caller.
      * @param netuid The approved subnet token.
      * @param increaseAmount How much the approval amount should be increased.
      */
     function increaseAllowance(
-        bytes32 spenderColdkey,
+        address spenderAddress,
         uint256 netuid,
         uint256 increaseAmount
     ) external;
@@ -371,19 +371,19 @@ interface IStaking {
      * the funds comes from, which is not possible if the spender called `transfer` towards the contract
      * (no callback).
      *
-     * @param spenderColdkey Coldkey of the address allowed to spend funds from the caller.
+     * @param spenderAddress Address allowed to spend funds from the caller.
      * @param netuid The approved subnet token.
-     * @param increaseAmount How much the approval amount should be decrease.
+     * @param decreaseAmount How much the approval amount should be decreased.
      */
     function decreaseAllowance(
-        bytes32 spenderColdkey,
+        address spenderAddress,
         uint256 netuid,
         uint256 decreaseAmount
     ) external;
 
     /**
-     * @dev Transfer a subtensor stake `amount` associated with the `source_coldkey` to a different coldkey
-     * `destination_coldkey`. The `source_coldkey` must have approved beforehand the transaction signer
+     * @dev Transfer a subtensor stake `amount` associated with the `source_address` to a different coldkey
+     * `destination_coldkey`. The `source_address` must have approved beforehand the transaction signer
      * (spender) to spend at least the `amount` (allowance). The allowance towards that spender will be
      * decreased by this amount.
      *
@@ -393,7 +393,7 @@ interface IStaking {
      * address as implemented in Frontier HashedAddressMapping:
      * https://github.com/polkadot-evm/frontier/blob/2e219e17a526125da003e64ef22ec037917083fa/frame/evm/src/lib.rs#L739
      *
-     * @param source_coldkey The source coldkey public key (32 bytes).
+     * @param source_address The source address (20 bytes).
      * @param destination_coldkey The destination coldkey public key (32 bytes).
      * @param hotkey The hotkey public key (32 bytes).
      * @param origin_netuid The subnet to move stake from (uint256).
@@ -405,7 +405,7 @@ interface IStaking {
      * that the stake is correctly attributed.
      */
     function transferStakeFrom(
-        bytes32 source_coldkey
+        address source_address,
         bytes32 destination_coldkey,
         bytes32 hotkey,
         uint256 origin_netuid,

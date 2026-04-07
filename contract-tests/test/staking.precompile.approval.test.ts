@@ -77,7 +77,7 @@ describe("Test approval in staking precompile", () => {
             // wallet2 tries to transfer from wallet1
             const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
             const tx = await contract.transferStakeFrom(
-                convertH160ToPublicKey(wallet1.address), // source
+                wallet1.address, // source
                 convertH160ToPublicKey(wallet2.address), // distination
                 hotkey.publicKey,
                 stakeNetuid,
@@ -98,8 +98,8 @@ describe("Test approval in staking precompile", () => {
         {
             let allowance = BigInt(
                 await contract.allowance(
-                    convertH160ToPublicKey(wallet1.address), // source
-                    convertH160ToPublicKey(wallet2.address), // destination
+                    wallet1.address, // source
+                    wallet2.address, // spender
                     stakeNetuid,
                 )
             );
@@ -108,7 +108,7 @@ describe("Test approval in staking precompile", () => {
 
         {
             const tx = await contract.approve(
-                convertH160ToPublicKey(wallet2.address), // destination
+                wallet2.address, // spender
                 stakeNetuid,
                 tao(10)
             )
@@ -118,8 +118,8 @@ describe("Test approval in staking precompile", () => {
 
             let allowance = BigInt(
                 await contract.allowance(
-                    convertH160ToPublicKey(wallet1.address), // source
-                    convertH160ToPublicKey(wallet2.address), // destination
+                    wallet1.address, // source
+                    wallet2.address, // spender
                     stakeNetuid,
                 )
             );
@@ -132,8 +132,8 @@ describe("Test approval in staking precompile", () => {
 
         // wallet2 transfer from wallet1
         const tx = await contract.transferStakeFrom(
-            convertH160ToPublicKey(wallet1.address), // source
-            convertH160ToPublicKey(wallet2.address), // distination
+            wallet1.address, // source
+            convertH160ToPublicKey(wallet2.address), // destination
             hotkey.publicKey,
             stakeNetuid,
             stakeNetuid,
@@ -146,8 +146,8 @@ describe("Test approval in staking precompile", () => {
         {
             let allowance = BigInt(
                 await contract.allowance(
-                    convertH160ToPublicKey(wallet1.address), // source
-                    convertH160ToPublicKey(wallet2.address), // destination
+                    wallet1.address, // source
+                    wallet2.address, // spender
                     stakeNetuid,
                 )
             );
@@ -160,7 +160,7 @@ describe("Test approval in staking precompile", () => {
             // wallet2 tries to transfer from wallet1
             const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
             const tx = await contract.transferStakeFrom(
-                convertH160ToPublicKey(wallet1.address), // source
+                wallet1.address, // source
                 convertH160ToPublicKey(wallet2.address), // distination
                 hotkey.publicKey,
                 stakeNetuid,
@@ -180,7 +180,7 @@ describe("Test approval in staking precompile", () => {
 
         {
             const tx = await contract.increaseAllowance(
-                convertH160ToPublicKey(wallet2.address), // destination
+                wallet2.address, // spender
                 stakeNetuid,
                 tao(10)
             )
@@ -190,8 +190,8 @@ describe("Test approval in staking precompile", () => {
 
             let allowance = BigInt(
                 await contract.allowance(
-                    convertH160ToPublicKey(wallet1.address), // source
-                    convertH160ToPublicKey(wallet2.address), // destination
+                    wallet1.address, // source
+                    wallet2.address, // spender
                     stakeNetuid,
                 )
             );
@@ -200,7 +200,7 @@ describe("Test approval in staking precompile", () => {
 
         {
             const tx = await contract.decreaseAllowance(
-                convertH160ToPublicKey(wallet2.address), // destination
+                wallet2.address, // spender
                 stakeNetuid,
                 tao(2)
             )
@@ -210,8 +210,8 @@ describe("Test approval in staking precompile", () => {
 
             let allowance = BigInt(
                 await contract.allowance(
-                    convertH160ToPublicKey(wallet1.address), // source
-                    convertH160ToPublicKey(wallet2.address), // destination
+                    wallet1.address, // source
+                    wallet2.address, // spender
                     stakeNetuid,
                 )
             );
@@ -220,7 +220,7 @@ describe("Test approval in staking precompile", () => {
 
         {
             const tx = await contract.approve(
-                convertH160ToPublicKey(wallet2.address), // destination
+                wallet2.address, // spender
                 stakeNetuid,
                 0
             )
@@ -230,8 +230,8 @@ describe("Test approval in staking precompile", () => {
 
             let allowance = BigInt(
                 await contract.allowance(
-                    convertH160ToPublicKey(wallet1.address), // source
-                    convertH160ToPublicKey(wallet2.address), // destination
+                    wallet1.address, // source
+                    wallet2.address, // spender
                     stakeNetuid,
                 )
             );

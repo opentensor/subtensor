@@ -458,9 +458,9 @@ export const IStakingV2ABI = [
     {
         "inputs": [
             {
-                "internalType": "bytes32",
-                "name": "spenderColdkey",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "spenderAddress",
+                "type": "address"
             },
             {
                 "internalType": "uint256",
@@ -481,14 +481,14 @@ export const IStakingV2ABI = [
     {
         "inputs": [
             {
-                "internalType": "bytes32",
-                "name": "sourceColdkey",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "sourceAddress",
+                "type": "address"
             },
             {
-                "internalType": "bytes32",
-                "name": "spenderColdkey",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "spenderAddress",
+                "type": "address"
             },
             {
                 "internalType": "uint256",
@@ -510,9 +510,9 @@ export const IStakingV2ABI = [
     {
         "inputs": [
             {
-                "internalType": "bytes32",
-                "name": "spenderColdkey",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "spenderAddress",
+                "type": "address"
             },
             {
                 "internalType": "uint256",
@@ -533,9 +533,9 @@ export const IStakingV2ABI = [
     {
         "inputs": [
             {
-                "internalType": "bytes32",
-                "name": "spenderColdkey",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "spenderAddress",
+                "type": "address"
             },
             {
                 "internalType": "uint256",
@@ -556,9 +556,9 @@ export const IStakingV2ABI = [
     {
         "inputs": [
             {
-                "internalType": "bytes32",
-                "name": "source_coldkey",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "source_address",
+                "type": "address"
             },
             {
                 "internalType": "bytes32",

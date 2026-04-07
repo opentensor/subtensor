@@ -43,8 +43,8 @@ use pallet_evm::{
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
-use precompile_utils::prelude::{RuntimeHelper, revert};
-use sp_core::{H256, U256};
+use precompile_utils::prelude::{RuntimeHelper, revert, Address};
+use sp_core::{H160, H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
 use subtensor_runtime_common::{Currency, NetUid, ProxyType};
@@ -61,16 +61,16 @@ impl StorageInstance for AllowancesPrefix {
     }
 }
 
-pub type AllowancesStorage<R> = StorageDoubleMap<
+pub type AllowancesStorage = StorageDoubleMap<
     AllowancesPrefix,
 
-    // For each approver
+    // For each approver (EVM address as only EVM-natives need the precompile)
     Blake2_128Concat,
-    <R as frame_system::Config>::AccountId,
+    H160,
 
-    // For each pair of (spender, netuid)
+    // For each pair of (spender, netuid) (EVM address as only EVM-natives need the precompile)
     Blake2_128Concat,
-    (<R as frame_system::Config>::AccountId, u16),
+    (H160, u16),
 
     // Allowed amount
     U256,
@@ -482,51 +482,50 @@ where
         Ok(stake.to_u64().into())
     }
 
-    #[precompile::public("approve(bytes32,uint256,uint256)")]
+    #[precompile::public("approve(address,uint256,uint256)")]
     fn approve(
         handle: &mut impl PrecompileHandle,
-        spender_coldkey: H256,
+        spender_address: Address,
         origin_netuid: U256,
         amount_alpha: U256,
     ) -> EvmResult<()> {
         // AllowancesStorage write
         handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
 
-        let approver = handle.caller_account_id::<R>();
-        let spender = R::AccountId::from(spender_coldkey.0);
+        let approver = handle.context().caller;
+        let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
 
         if amount_alpha.is_zero() {
-            AllowancesStorage::<R>::remove(approver, (spender, netuid));
+            AllowancesStorage::remove(approver, (spender, netuid));
         } else {
-            AllowancesStorage::<R>::insert(approver, (spender, netuid), amount_alpha);
+            AllowancesStorage::insert(approver, (spender, netuid), amount_alpha);
         }
 
         Ok(())
     }
 
-    #[precompile::public("allowance(bytes32,bytes32,uint256)")]
+    #[precompile::public("allowance(address,address,uint256)")]
     #[precompile::view]
     fn allowance(
         handle: &mut impl PrecompileHandle,
-        source_coldkey: H256,
-        spender_coldkey: H256,
+        source_address: Address,
+        spender_address: Address,
         origin_netuid: U256,
     ) -> EvmResult<U256> {
         // AllowancesStorage read
         handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
 
-        let source = R::AccountId::from(source_coldkey.0);
-        let spender = R::AccountId::from(spender_coldkey.0);
+        let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
 
-        Ok(AllowancesStorage::<R>::get(source, (spender, netuid)))
+        Ok(AllowancesStorage::get(source_address.0, (spender, netuid)))
     }
 
-    #[precompile::public("increaseAllowance(bytes32,uint256,uint256)")]
+    #[precompile::public("increaseAllowance(address,uint256,uint256)")]
     fn increase_allowance(
         handle: &mut impl PrecompileHandle,
-        spender_coldkey: H256,
+        spender_address: Address,
         origin_netuid: U256,
         amount_alpha_increase: U256,
     ) -> EvmResult<()> {
@@ -538,24 +537,24 @@ where
         handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
 
-        let approver = handle.caller_account_id::<R>();
-        let spender = R::AccountId::from(spender_coldkey.0);
+        let approver = handle.context().caller;
+        let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
 
         let approval_key = (spender, netuid);
 
-        let current_amount = AllowancesStorage::<R>::get(&approver, &approval_key);
+        let current_amount = AllowancesStorage::get(&approver, &approval_key);
         let new_amount = current_amount.saturating_add(amount_alpha_increase);
 
-        AllowancesStorage::<R>::insert(approver, &approval_key, new_amount);
+        AllowancesStorage::insert(approver, &approval_key, new_amount);
 
         Ok(())
     }
 
-    #[precompile::public("decreaseAllowance(bytes32,uint256,uint256)")]
+    #[precompile::public("decreaseAllowance(address,uint256,uint256)")]
     fn decrease_allowance(
         handle: &mut impl PrecompileHandle,
-        spender_coldkey: H256,
+        spender_address: Address,
         origin_netuid: U256,
         amount_alpha_decrease: U256,
     ) -> EvmResult<()> {
@@ -567,19 +566,19 @@ where
         handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
 
-        let approver = handle.caller_account_id::<R>();
-        let spender = R::AccountId::from(spender_coldkey.0);
+        let approver = handle.context().caller;
+        let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
 
         let approval_key = (spender, netuid);
 
-        let current_amount = AllowancesStorage::<R>::get(&approver, &approval_key);
+        let current_amount = AllowancesStorage::get(&approver, &approval_key);
         let new_amount = current_amount.saturating_sub(amount_alpha_decrease);
 
         if new_amount.is_zero() {
-            AllowancesStorage::<R>::remove(approver, &approval_key);
+            AllowancesStorage::remove(approver, &approval_key);
         } else {
-            AllowancesStorage::<R>::insert(approver, &approval_key, new_amount);
+            AllowancesStorage::insert(approver, &approval_key, new_amount);
         }
 
         Ok(())
@@ -587,8 +586,8 @@ where
 
     fn try_consume_allowance(
         handle: &mut impl PrecompileHandle,
-        approver: R::AccountId,
-        spender: R::AccountId,
+        approver: H160,
+        spender: H160,
         netuid: u16,
         amount: U256,
     ) -> EvmResult<()> {
@@ -602,32 +601,32 @@ where
 
         let approval_key = (spender, netuid);
 
-        let current_amount = AllowancesStorage::<R>::get(&approver, &approval_key);
+        let current_amount = AllowancesStorage::get(&approver, &approval_key);
         let Some(new_amount) = current_amount.checked_sub(amount) else {
             return Err(revert("trying to spend more than allowed"));
         };
 
         if new_amount.is_zero() {
-            AllowancesStorage::<R>::remove(approver, &approval_key);
+            AllowancesStorage::remove(approver, &approval_key);
         } else {
-            AllowancesStorage::<R>::insert(approver, &approval_key, new_amount);
+            AllowancesStorage::insert(approver, &approval_key, new_amount);
         }
 
         Ok(())
     }
 
-    #[precompile::public("transferStakeFrom(bytes32,bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::public("transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)")]
     fn transfer_stake_from(
         handle: &mut impl PrecompileHandle,
-        source_coldkey: H256,
+        source_address: Address,
         destination_coldkey: H256,
         hotkey: H256,
         origin_netuid: U256,
         destination_netuid: U256,
         amount_alpha: U256,
     ) -> EvmResult<()> {
-        let spender_id = handle.caller_account_id::<R>();
-        let source_id = R::AccountId::from(source_coldkey.0);
+        let spender = handle.context().caller;
+		let source_address = source_address.0;
         let destination_coldkey = R::AccountId::from(destination_coldkey.0);
         let hotkey = R::AccountId::from(hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
@@ -636,8 +635,8 @@ where
 
         Self::try_consume_allowance(
             handle,
-            source_id.clone(),
-            spender_id,
+            source_address.clone(),
+            spender,
             origin_netuid,
             amount_alpha,
         )?;
@@ -649,6 +648,7 @@ where
             destination_netuid: destination_netuid.into(),
             alpha_amount: alpha_amount.into(),
         };
+		let source_id = <R as pallet_evm::Config>::AddressMapping::into_account_id(source_address);
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(source_id))
     }
