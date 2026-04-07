@@ -464,6 +464,7 @@ fn priority_override_applies_with_real_pays_fee() {
 // Coldkey pays for it's hotkey
 // ============================================================
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package node-subtensor-runtime --test transaction_payment_wrapper -- hotkey_origin_charges_coldkey_fee_payer --exact --nocapture
 #[test]
 fn hotkey_origin_charges_coldkey_fee_payer() {
     new_test_ext().execute_with(|| {
@@ -477,5 +478,20 @@ fn hotkey_origin_charges_coldkey_fee_payer() {
         let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(hotkey), &call).unwrap();
 
         assert_eq!(fee_payer(&val), coldkey);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package node-subtensor-runtime --test transaction_payment_wrapper -- hotkey_origin_charges_coldkey_fee_payer_no_association --exact --nocapture
+#[test]
+fn hotkey_origin_charges_coldkey_fee_payer_no_association() {
+    new_test_ext().execute_with(|| {
+        let hotkey = signer();
+
+        let call = call_remark();
+
+        let (_valid_tx, val) = validate_call(RuntimeOrigin::signed(hotkey.clone()), &call).unwrap();
+
+        // No hotkey -> coldkey association, so fee payer is hotkey
+        assert_eq!(fee_payer(&val), hotkey);
     });
 }
