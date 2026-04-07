@@ -20,7 +20,7 @@ fn setup_network_with_owner() -> (NetUid, U256, U256, RuntimeOrigin) {
     let signer = RuntimeOrigin::signed(coldkey);
 
     migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-    SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+    SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
     assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey));
     assert_ok!(SubtensorModule::register_network(signer.clone(), hotkey));
 
