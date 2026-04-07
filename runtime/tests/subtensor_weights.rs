@@ -15,7 +15,7 @@ use subtensor_runtime_common::{AccountId, NetUid};
 #[test]
 fn set_weights_fees_payed_by_coldkey() {
     new_test_ext().execute_with(|| {
-        let hotkey = AccountId::from(common::ONE_NO_BALANCE);
+        let hotkey = AccountId::from(common::FOUR_NO_BALANCE);
         let coldkey = AccountId::from(common::TWO);
         let netuid0 = NetUid::from(1);
         let netuid1 = NetUid::from(2);

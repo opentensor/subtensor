@@ -13,7 +13,7 @@ use {
 pub const ONE: [u8; 32] = [1_u8; 32];
 pub const TWO: [u8; 32] = [2_u8; 32];
 pub const THREE: [u8; 32] = [3_u8; 32];
-pub const ONE_NO_BALANCE: [u8; 32] = [4_u8; 32];
+pub const FOUR_NO_BALANCE: [u8; 32] = [4_u8; 32];
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
