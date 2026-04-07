@@ -63,4 +63,22 @@ impl<T: Config> Pallet<T> {
         // --- 6. Ok and return.
         Ok(())
     }
+
+    /// Preconditions for [`Self::do_decrease_take`] (transaction extension).
+    pub fn validate_decrease_take(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        take: u16,
+    ) -> Result<(), Error<T>> {
+        Self::do_take_checks(coldkey, hotkey)?;
+
+        if let Ok(current_take) = Delegates::<T>::try_get(hotkey) {
+            ensure!(take < current_take, Error::<T>::DelegateTakeTooLow);
+        }
+
+        let min_take = MinDelegateTake::<T>::get();
+        ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
+
+        Ok(())
+    }
 }

@@ -369,4 +369,46 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    /// Same checks as [`Self::do_serve_prometheus`] before storage writes (for transaction extension).
+    pub fn validate_serve_prometheus(
+        hotkey_id: &T::AccountId,
+        netuid: NetUid,
+        version: u32,
+        ip: u128,
+        port: u16,
+        ip_type: u8,
+    ) -> Result<(), Error<T>> {
+        ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
+        ensure!(
+            Self::is_valid_ip_address(ip_type, ip, false),
+            Error::<T>::InvalidIpAddress
+        );
+
+        ensure!(
+            Self::is_hotkey_registered_on_any_network(hotkey_id),
+            Error::<T>::HotKeyNotRegisteredInNetwork
+        );
+
+        let mut prev_prometheus = Self::get_prometheus_info(netuid, hotkey_id);
+        let current_block: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            Self::prometheus_passes_rate_limit(netuid, &prev_prometheus, current_block),
+            Error::<T>::ServingRateLimitExceeded
+        );
+
+        prev_prometheus.block = Self::get_current_block_as_u64();
+        prev_prometheus.version = version;
+        prev_prometheus.ip = ip;
+        prev_prometheus.port = port;
+        prev_prometheus.ip_type = ip_type;
+
+        let prom_validated = Self::validate_prometheus_data(&prev_prometheus);
+        ensure!(
+            prom_validated.is_ok(),
+            prom_validated.err().unwrap_or(Error::<T>::InvalidPort)
+        );
+
+        Ok(())
+    }
 }
