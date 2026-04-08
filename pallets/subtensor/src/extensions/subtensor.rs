@@ -70,42 +70,7 @@ where
                 CustomTransactionError::ServingRateLimitExceeded
             }
             Error::<T>::InvalidPort => CustomTransactionError::InvalidPort,
-            Error::<T>::CommitRevealEnabled => CustomTransactionError::CommitRevealEnabled,
-            Error::<T>::CommitRevealDisabled => CustomTransactionError::CommitRevealDisabled,
             Error::<T>::NonAssociatedColdKey => CustomTransactionError::NonAssociatedColdKey,
-            Error::<T>::InvalidIpType => CustomTransactionError::InvalidIpType,
-            Error::<T>::IncorrectCommitRevealVersion => {
-                CustomTransactionError::IncorrectCommitRevealVersion
-            }
-            Error::<T>::CommittingWeightsTooFast => {
-                CustomTransactionError::CommittingWeightsTooFast
-            }
-            Error::<T>::TooManyUnrevealedCommits => {
-                CustomTransactionError::TooManyUnrevealedCommits
-            }
-            Error::<T>::NewHotKeyIsSameWithOld => CustomTransactionError::NewHotKeyIsSameWithOld,
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet => {
-                CustomTransactionError::HotKeyAlreadyRegisteredInSubNet
-            }
-            Error::<T>::NotEnoughBalanceToPaySwapHotKey => {
-                CustomTransactionError::NotEnoughBalanceToPaySwapHotKey
-            }
-            Error::<T>::HotKeySwapOnSubnetIntervalNotPassed => {
-                CustomTransactionError::HotKeySwapOnSubnetIntervalNotPassed
-            }
-            Error::<T>::DelegateTakeTooLow => CustomTransactionError::DelegateTakeTooLow,
-            Error::<T>::DelegateTakeTooHigh => CustomTransactionError::DelegateTakeTooHigh,
-            Error::<T>::InvalidWorkBlock => CustomTransactionError::InvalidWorkBlock,
-            Error::<T>::InvalidDifficulty => CustomTransactionError::InvalidDifficulty,
-            Error::<T>::InvalidSeal => CustomTransactionError::InvalidSeal,
-            Error::<T>::InputLengthsUnequal => CustomTransactionError::InputLengthsUnequal,
-            Error::<T>::MechanismDoesNotExist => CustomTransactionError::SubnetNotExists,
-            Error::<T>::HotKeyNotRegisteredInSubNet => {
-                CustomTransactionError::HotKeyNotRegisteredInNetwork
-            }
-            Error::<T>::DelegateTxRateLimitExceeded | Error::<T>::HotKeySetTxRateLimitExceeded => {
-                CustomTransactionError::RateLimitExceeded
-            }
             _ => CustomTransactionError::BadRequest,
         }
     }
