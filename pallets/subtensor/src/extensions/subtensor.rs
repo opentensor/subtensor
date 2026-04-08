@@ -206,8 +206,7 @@ where
             }
             Some(Call::reveal_mechanism_weights {
                 netuid,
-                #[warn(unused_variables)]
-                    mecid: _,
+                mecid: _,
                 uids,
                 values,
                 salt,
@@ -362,7 +361,7 @@ where
 
                 let block: u64 = Pallet::<T>::get_current_block_as_u64();
 
-                if !Pallet::<T>::exceeds_tx_rate_limit(Pallet::<T>::get_last_tx_block(who), block) {
+                if Pallet::<T>::exceeds_tx_rate_limit(Pallet::<T>::get_last_tx_block(who), block) {
                     return Err(CustomTransactionError::RateLimitExceeded.into());
                 }
 
