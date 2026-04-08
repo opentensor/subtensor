@@ -84,6 +84,8 @@ impl pallet_balances::Config for Test {
 impl pallet_shield::Config for Test {
     type AuthorityId = sp_core::sr25519::Public;
     type FindAuthors = ();
+    type RuntimeCall = RuntimeCall;
+    type ExtrinsicDecryptor = ();
     type WeightInfo = ();
 }
 
