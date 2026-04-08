@@ -7,7 +7,7 @@ use frame_support::{
 };
 use frame_system::Config;
 use pallet_subtensor::{
-    Error as SubtensorError, Event, MaxRegistrationsPerBlock, Rank, SubnetOwner,
+    Error as SubtensorError, Event, MaxRegistrationsPerBlock, SubnetOwner,
     TargetRegistrationsPerInterval, Tempo, WeightsVersionKeyRateLimit,
     subnets::mechanism::MAX_MECHANISM_COUNT_PER_SUBNET, utils::rate_limiting::TransactionType, *,
 };
@@ -2495,12 +2495,8 @@ fn test_trim_to_max_allowed_uids() {
         let u64_values: Vec<u64> = values.iter().map(|&v| v as u64).collect();
 
         Emission::<Test>::set(netuid, alpha_values);
-        // NOTE: Rank/Trust/PruningScores are *not* trimmed anymore, but we can populate them.
-        Rank::<Test>::insert(netuid, values.clone());
-        Trust::<Test>::insert(netuid, values.clone());
         Consensus::<Test>::insert(netuid, values.clone());
         Dividends::<Test>::insert(netuid, values.clone());
-        PruningScores::<Test>::insert(netuid, values.clone());
         ValidatorTrust::<Test>::insert(netuid, values.clone());
         StakeWeight::<Test>::insert(netuid, values.clone());
         ValidatorPermit::<Test>::insert(netuid, bool_values.clone());
@@ -2593,7 +2589,6 @@ fn test_trim_to_max_allowed_uids() {
         let expected_bools = vec![true, true, true, true, true, true, true, true];
         let expected_u64_values = vec![56, 91, 34, 77, 65, 88, 51, 74];
 
-        // NOTE: Rank/Trust/PruningScores are no longer trimmed; do not assert on them.
         assert_eq!(Active::<Test>::get(netuid), expected_bools);
         assert_eq!(Consensus::<Test>::get(netuid), expected_values);
         assert_eq!(Dividends::<Test>::get(netuid), expected_values);

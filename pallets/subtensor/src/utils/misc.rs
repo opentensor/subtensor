@@ -149,11 +149,13 @@ impl<T: Config> Pallet<T> {
     // ==============================
     // ==== YumaConsensus params ====
     // ==============================
-    pub fn get_rank(netuid: NetUid) -> Vec<u16> {
-        Rank::<T>::get(netuid)
+    /// Deprecated: Rank is no longer computed during epoch. Always returns empty.
+    pub fn get_rank(_netuid: NetUid) -> Vec<u16> {
+        Vec::new()
     }
-    pub fn get_trust(netuid: NetUid) -> Vec<u16> {
-        Trust::<T>::get(netuid)
+    /// Deprecated: Trust is no longer computed during epoch. Always returns empty.
+    pub fn get_trust(_netuid: NetUid) -> Vec<u16> {
+        Vec::new()
     }
     pub fn get_active(netuid: NetUid) -> Vec<bool> {
         Active::<T>::get(netuid)
@@ -181,8 +183,9 @@ impl<T: Config> Pallet<T> {
         }
         v
     }
-    pub fn get_pruning_score(netuid: NetUid) -> Vec<u16> {
-        PruningScores::<T>::get(netuid)
+    /// Deprecated: PruningScores is no longer computed during epoch. Always returns empty.
+    pub fn get_pruning_score(_netuid: NetUid) -> Vec<u16> {
+        Vec::new()
     }
     pub fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
         ValidatorTrust::<T>::get(netuid)
@@ -223,13 +226,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::StakeThresholdSet(min_stake));
     }
 
-    pub fn get_rank_for_uid(netuid: NetUid, uid: u16) -> u16 {
-        let vec = Rank::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(0)
+    /// Deprecated: Rank is no longer computed. Always returns 0.
+    pub fn get_rank_for_uid(_netuid: NetUid, _uid: u16) -> u16 {
+        0
     }
-    pub fn get_trust_for_uid(netuid: NetUid, uid: u16) -> u16 {
-        let vec = Trust::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(0)
+    /// Deprecated: Trust is no longer computed. Always returns 0.
+    pub fn get_trust_for_uid(_netuid: NetUid, _uid: u16) -> u16 {
+        0
     }
     pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaBalance {
         let vec = Emission::<T>::get(netuid);
@@ -255,9 +258,9 @@ impl<T: Config> Pallet<T> {
         let vec = LastUpdate::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-    pub fn get_pruning_score_for_uid(netuid: NetUid, uid: u16) -> u16 {
-        let vec = PruningScores::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(u16::MAX)
+    /// Deprecated: PruningScores is no longer computed. Always returns u16::MAX.
+    pub fn get_pruning_score_for_uid(_netuid: NetUid, _uid: u16) -> u16 {
+        u16::MAX
     }
     pub fn get_validator_trust_for_uid(netuid: NetUid, uid: u16) -> u16 {
         let vec = ValidatorTrust::<T>::get(netuid);
