@@ -11,7 +11,9 @@
             "testFileDir": [
                 "suites/dev"
             ],
-            "runScripts": [],
+            "runScripts": [
+                "generate-types.sh"
+            ],
             "multiThreads": true,
             "reporters": ["basic"],
             "foundation": {
