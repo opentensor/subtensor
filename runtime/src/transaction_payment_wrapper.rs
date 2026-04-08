@@ -60,7 +60,9 @@ where
 impl<T: Config + pallet_proxy::Config + pallet_utility::Config + pallet_subtensor::Config>
     ChargeTransactionPaymentWrapper<T>
 where
-    RuntimeCallOf<T>: IsSubType<pallet_proxy::Call<T>> + IsSubType<pallet_utility::Call<T>>,
+    RuntimeCallOf<T>: IsSubType<pallet_proxy::Call<T>>
+        + IsSubType<pallet_utility::Call<T>>
+        + IsSubType<pallet_subtensor::Call<T>>,
     RuntimeOriginOf<T>: AsSystemOriginSigner<AccountIdOf<T>> + Clone,
 {
     /// Extract (real, delegate, inner_call) from a `proxy` call.
@@ -189,6 +191,13 @@ where
 
         pallet_subtensor::Pallet::<T>::maybe_coldkey_for_hotkey(signer)
     }
+
+    fn is_coldkey_fee_payer_eligible(call: &RuntimeCallOf<T>) -> bool {
+        match call.is_sub_type() {
+            Some(pallet_subtensor::Call::set_weights { .. }) => true,
+            _ => false,
+        }
+    }
 }
 
 impl<T: Config + pallet_proxy::Config + pallet_utility::Config + pallet_subtensor::Config>
@@ -196,7 +205,8 @@ impl<T: Config + pallet_proxy::Config + pallet_utility::Config + pallet_subtenso
 where
     RuntimeCallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_proxy::Call<T>>
-        + IsSubType<pallet_utility::Call<T>>,
+        + IsSubType<pallet_utility::Call<T>>
++ IsSubType<pallet_subtensor::Call<T>>,
     RuntimeOriginOf<T>: AsSystemOriginSigner<AccountIdOf<T>>
         + Clone
         + From<frame_system::RawOrigin<AccountIdOf<T>>>,
@@ -237,8 +247,12 @@ where
         // Otherwise, the signer pays as usual.
         let fee_origin = if let Some(real) = Self::extract_real_fee_payer(call, &origin) {
             frame_system::RawOrigin::Signed(real).into()
-        } else if let Some(coldkey) = Self::extract_coldkey_fee_payer(&origin) {
-            frame_system::RawOrigin::Signed(coldkey).into()
+        } else if Self::is_coldkey_fee_payer_eligible(call) {
+            if let Some(coldkey) = Self::extract_coldkey_fee_payer(&origin) {
+                frame_system::RawOrigin::Signed(coldkey).into()
+            } else {
+                origin.clone()
+            }
         } else {
             origin.clone()
         };
