@@ -50,38 +50,37 @@ where
         Pallet::<T>::check_weights_min_stake(who, netuid)
     }
 
-    pub fn pallet_error_to_custom(err: Error<T>) -> CustomTransactionError {
-        match err {
-            Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow,
-            Error::<T>::SubnetNotExists => CustomTransactionError::SubnetNotExists,
-            Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow,
-            Error::<T>::HotKeyAccountNotExists => CustomTransactionError::HotkeyAccountDoesntExist,
-            Error::<T>::NotEnoughStakeToWithdraw => {
-                CustomTransactionError::NotEnoughStakeToWithdraw
-            }
-            Error::<T>::InsufficientLiquidity => CustomTransactionError::InsufficientLiquidity,
-            Error::<T>::SlippageTooHigh => CustomTransactionError::SlippageTooHigh,
-            Error::<T>::TransferDisallowed => CustomTransactionError::TransferDisallowed,
-            Error::<T>::HotKeyNotRegisteredInNetwork => {
-                CustomTransactionError::HotKeyNotRegisteredInNetwork
-            }
-            Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress,
-            Error::<T>::ServingRateLimitExceeded => {
-                CustomTransactionError::ServingRateLimitExceeded
-            }
-            Error::<T>::InvalidPort => CustomTransactionError::InvalidPort,
-            Error::<T>::NonAssociatedColdKey => CustomTransactionError::NonAssociatedColdKey,
-            _ => CustomTransactionError::BadRequest,
-        }
-    }
-
     pub fn result_to_validity(result: Result<(), Error<T>>, priority: u64) -> TransactionValidity {
         match result {
             Ok(()) => Ok(ValidTransaction {
                 priority,
                 ..Default::default()
             }),
-            Err(err) => Err(Self::pallet_error_to_custom(err).into()),
+            Err(err) => Err(match err {
+                Error::<T>::AmountTooLow => CustomTransactionError::StakeAmountTooLow,
+                Error::<T>::SubnetNotExists => CustomTransactionError::SubnetNotExists,
+                Error::<T>::NotEnoughBalanceToStake => CustomTransactionError::BalanceTooLow,
+                Error::<T>::HotKeyAccountNotExists => {
+                    CustomTransactionError::HotkeyAccountDoesntExist
+                }
+                Error::<T>::NotEnoughStakeToWithdraw => {
+                    CustomTransactionError::NotEnoughStakeToWithdraw
+                }
+                Error::<T>::InsufficientLiquidity => CustomTransactionError::InsufficientLiquidity,
+                Error::<T>::SlippageTooHigh => CustomTransactionError::SlippageTooHigh,
+                Error::<T>::TransferDisallowed => CustomTransactionError::TransferDisallowed,
+                Error::<T>::HotKeyNotRegisteredInNetwork => {
+                    CustomTransactionError::HotKeyNotRegisteredInNetwork
+                }
+                Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress,
+                Error::<T>::ServingRateLimitExceeded => {
+                    CustomTransactionError::ServingRateLimitExceeded
+                }
+                Error::<T>::InvalidPort => CustomTransactionError::InvalidPort,
+                Error::<T>::NonAssociatedColdKey => CustomTransactionError::NonAssociatedColdKey,
+                _ => CustomTransactionError::BadRequest,
+            }
+            .into()),
         }
     }
 }
@@ -308,10 +307,8 @@ where
             }
             Some(Call::increase_take { hotkey, take: _ })
             | Some(Call::decrease_take { hotkey, take: _ }) => {
-                match Pallet::<T>::do_take_checks(who, hotkey) {
-                    Ok(()) => Ok((Default::default(), (), origin)),
-                    Err(err) => Err(Self::pallet_error_to_custom(err).into()),
-                }
+                Self::result_to_validity(Pallet::<T>::do_take_checks(who, hotkey), 0u64)
+                    .map(|validity| (validity, (), origin.clone()))
             }
 
             Some(Call::swap_hotkey_v2 {
