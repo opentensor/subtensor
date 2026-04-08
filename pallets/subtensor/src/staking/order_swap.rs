@@ -1,4 +1,5 @@
 use super::*;
+use frame_support::transactional;
 use frame_support::traits::fungible::Mutate;
 use frame_support::traits::tokens::Preservation;
 use substrate_fixed::types::U96F32;
@@ -6,6 +7,7 @@ use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 use subtensor_swap_interface::{OrderSwapInterface, SwapHandler};
 
 impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
+    #[transactional]
     fn buy_alpha(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
@@ -34,12 +36,19 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         // intermediary account (and individual buyers in execute_orders) cannot
         // stake more TAO than they actually hold.
         let actual_tao = Self::remove_balance_from_coldkey_account(coldkey, tao_amount)?;
+        // `limit_price` arrives in the same units as `current_alpha_price()` (a raw ratio
+        // where 1.0 ≈ 1 unit/alpha).  The AMM encodes its price_limit as `price × 10⁹`
+        // (matching the rao-per-TAO precision convention), so we scale up here before
+        // handing off to `stake_into_subnet`.  saturating_mul handles the no-ceiling case
+        // (limit_price = u64::MAX) by saturating to u64::MAX, which the AMM interprets as
+        // an astronomically high ceiling that current prices never reach.
+        let amm_limit = TaoBalance::from(limit_price.to_u64().saturating_mul(1_000_000_000));
         let alpha_out = Self::stake_into_subnet(
             hotkey,
             coldkey,
             netuid,
             actual_tao,
-            limit_price,
+            amm_limit,
             false,
             false,
         )?;
@@ -49,6 +58,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Ok(alpha_out)
     }
 
+    #[transactional]
     fn sell_alpha(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
@@ -81,8 +91,12 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             );
             Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid)?;
         }
+        // Same ×10⁹ scaling as in buy_alpha: limit_price is in current_alpha_price() units;
+        // the AMM expects price × 10⁹.  For the no-floor case (limit_price = 0) the result
+        // is 0, which the AMM treats as "no lower bound".
+        let amm_limit = TaoBalance::from(limit_price.to_u64().saturating_mul(1_000_000_000));
         let tao_out =
-            Self::unstake_from_subnet(hotkey, coldkey, netuid, alpha_amount, limit_price, false)?;
+            Self::unstake_from_subnet(hotkey, coldkey, netuid, alpha_amount, amm_limit, false)?;
         // Credit TAO proceeds to the seller so the pallet's intermediary account
         // (and individual sellers in execute_orders) have real balance to
         // distribute or forward to the fee collector.

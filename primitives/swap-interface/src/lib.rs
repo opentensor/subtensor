@@ -65,6 +65,14 @@ pub trait OrderSwapInterface<AccountId> {
     /// coldkey balance, and sets the staking rate-limit flag for `(hotkey,
     /// coldkey, netuid)` after a successful stake. Pass `false` for internal
     /// pallet-intermediary swaps that must bypass these user-facing guards.
+    /// Buy alpha with TAO: debit `tao_amount` from `coldkey`'s free balance,
+    /// credit resulting alpha as stake at `hotkey` on `netuid`.
+    ///
+    /// **Implementations MUST be transactional** (wrap in
+    /// `frame_support::storage::with_transaction` or annotate with
+    /// `#[frame_support::transactional]`). The implementation debits the
+    /// caller's balance before the pool swap; if the swap fails the debit
+    /// must be rolled back to leave the caller's state unchanged.
     fn buy_alpha(
         coldkey: &AccountId,
         hotkey: &AccountId,
@@ -82,6 +90,14 @@ pub trait OrderSwapInterface<AccountId> {
     /// balance, and checks that the staking rate-limit flag is not set for
     /// `(hotkey, coldkey, netuid)` (i.e. the account did not stake this
     /// block). Pass `false` for internal pallet-intermediary swaps.
+    /// Sell alpha for TAO: remove `alpha_amount` from `coldkey`'s stake at
+    /// `hotkey` on `netuid`, credit resulting TAO to `coldkey`'s free balance.
+    ///
+    /// **Implementations MUST be transactional** (wrap in
+    /// `frame_support::storage::with_transaction` or annotate with
+    /// `#[frame_support::transactional]`). The implementation decrements the
+    /// caller's stake before the pool swap; if the swap fails the decrement
+    /// must be rolled back to leave the caller's state unchanged.
     fn sell_alpha(
         coldkey: &AccountId,
         hotkey: &AccountId,

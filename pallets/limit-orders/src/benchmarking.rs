@@ -69,6 +69,7 @@ mod benchmarks {
             fee_rate: Perbill::zero(),
             fee_recipient: account.clone(),
             relayer: None,
+            max_slippage: None,
         });
         let signed = sign_order::<T>(public, &order);
 
@@ -114,6 +115,7 @@ mod benchmarks {
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
                 relayer: None,
+                max_slippage: None,
             });
             orders.push(sign_order::<T>(public, &order));
         }
@@ -160,6 +162,7 @@ mod benchmarks {
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
                 relayer: None,
+                max_slippage: None,
             });
             orders.push(sign_order::<T>(public, &order));
         }

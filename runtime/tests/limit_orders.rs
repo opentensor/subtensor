@@ -7,6 +7,7 @@ use node_subtensor_runtime::{
     System, pallet_subtensor,
 };
 use pallet_limit_orders::{Order, OrderStatus, OrderType, Orders, SignedOrder, VersionedOrder};
+use pallet_subtensor::{SubnetAlphaIn, SubnetMechanism, SubnetTAO};
 use sp_core::{Get, H256, Pair};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{MultiSignature, Perbill};
@@ -60,6 +61,7 @@ fn make_signed_order(
         fee_rate,
         fee_recipient,
         relayer: None,
+        max_slippage: None,
     });
     let sig = keyring.pair().sign(&order.encode());
     SignedOrder {
@@ -91,6 +93,7 @@ fn cancel_order_works() {
             fee_rate: Perbill::zero(),
             fee_recipient,
             relayer: None,
+            max_slippage: None,
         });
         let id = order_id(&order);
 
@@ -124,6 +127,7 @@ fn execute_orders_ed25519_signature_rejected() {
             fee_rate: Perbill::zero(),
             fee_recipient,
             relayer: None,
+            max_slippage: None,
         });
         let id = order_id(&order);
 
@@ -1489,6 +1493,206 @@ fn batched_multiple_fee_recipients_each_receive_correct_amount() {
         assert!(
             dave_balance <= TaoBalance::from(expected_sell_fee),
             "dave should not have received the buy fee (got {dave_balance:?})"
+        );
+    });
+}
+
+// ── max_slippage enforcement against the real dynamic-mechanism AMM ───────────
+
+/// Set up a dynamic-mechanism (Uniswap v3-style) subnet with equal TAO and
+/// alpha reserves, giving an initial pool price of exactly 1.0 TAO/alpha.
+///
+/// The stable mechanism (mechanism_id = 0) ignores the `price_limit` parameter
+/// entirely and always executes at 1:1, so slippage enforcement can only be
+/// tested against a dynamic subnet.
+fn setup_dynamic_subnet(netuid: NetUid) {
+    SubtensorModule::init_new_network(netuid, 0);
+    // Override the mechanism to 1 (dynamic / Uniswap v3).
+    SubnetMechanism::<Runtime>::insert(netuid, 1u16);
+    pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+    // Equal reserves → price = tao_reserve / alpha_reserve = 1.0
+    SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
+    SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(1_000_000_000_000_u64));
+}
+
+/// Build a signed order with an explicit `max_slippage` value.
+fn make_signed_order_with_slippage_rt(
+    keyring: Sr25519Keyring,
+    hotkey: AccountId,
+    netuid: NetUid,
+    order_type: OrderType,
+    amount: u64,
+    limit_price: u64,
+    expiry: u64,
+    fee_rate: Perbill,
+    fee_recipient: AccountId,
+    max_slippage: Option<Perbill>,
+) -> SignedOrder<AccountId> {
+    let order = VersionedOrder::V1(Order {
+        signer: keyring.to_account_id(),
+        hotkey,
+        netuid,
+        order_type,
+        amount,
+        limit_price,
+        expiry,
+        fee_rate,
+        fee_recipient,
+        relayer: None,
+        max_slippage,
+    });
+    let sig = keyring.pair().sign(&order.encode());
+    SignedOrder {
+        order,
+        signature: MultiSignature::Sr25519(sig),
+    }
+}
+
+/// A StopLoss order whose price condition is met (`current_price ≤ limit_price`)
+/// but whose `max_slippage`-derived floor exceeds the pool's actual price is
+/// silently skipped by `execute_orders`.
+///
+/// Setup:
+///   Dynamic subnet, equal reserves → pool price = 1.0 (raw ratio, i.e. 1 rao/alpha).
+///   limit_price = 2  →  StopLoss trigger: 1.0 ≤ 2.0 ✓  (price has fallen to the trigger)
+///   max_slippage = 10 %  →  floor = 2 − 10% × 2.
+///     Note: `Perbill::from_percent(10) * 2 = 0` (integer truncation), so floor = 2.
+///   After the ×10⁹ scale in `order_swap.rs`:
+///     AMM price_limit = 2 × 10⁹ = 2_000_000_000
+///     limit_sqrt_price = √(2_000_000_000 / 10⁹) = √2 ≈ 1.414
+///   Pool sqrt_price = √1.0 = 1.0  →  1.0 > 1.414 is false  →  PriceLimitExceeded
+///   `execute_orders` catches the error and skips the order (no storage write).
+///   Because `sell_alpha` is `#[transactional]`, the stake decrement is rolled back.
+#[test]
+fn execute_orders_stoploss_max_slippage_exceeds_pool_price_skipped() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_dynamic_subnet(netuid);
+
+        // Alice needs staked alpha so the sell can debit her position.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id,
+            &alice_id,
+            netuid,
+            initial_alpha,
+        );
+
+        // limit_price = 2: StopLoss triggers when price ≤ 2.0; pool is at 1.0 → met.
+        // max_slippage sets a floor: Perbill integer truncation gives floor = 2 - 0 = 2.
+        // After ×10⁹ scaling, AMM limit_sqrt = √2 ≈ 1.414 > pool sqrt 1.0 → rejected.
+        let signed = make_signed_order_with_slippage_rt(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::StopLoss,
+            min_default_stake().into(),
+            2, // trigger at price 2.0; pool is at 1.0 — condition met
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+            Some(Perbill::from_percent(10)),
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        // execute_orders is best-effort: the call succeeds even though the order
+        // is rejected by the AMM.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order must NOT have been written to storage — it was silently skipped.
+        assert!(
+            Orders::<Runtime>::get(id).is_none(),
+            "order should have been skipped, not stored"
+        );
+
+        // `try_execute_order` is #[transactional]: the stake decrement inside
+        // `unstake_from_subnet` is rolled back when the AMM rejects the swap,
+        // so alice's alpha is unchanged.
+        let remaining =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        assert_eq!(
+            remaining,
+            initial_alpha,
+            "alice's staked alpha should be unchanged when the order is rolled back"
+        );
+    });
+}
+
+/// Contrasting test: the same StopLoss order without `max_slippage` executes
+/// successfully against the dynamic-mechanism pool.
+///
+/// This confirms that the price condition alone is not the blocker and that
+/// the previous test's skip is genuinely caused by the slippage floor.
+#[test]
+fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_dynamic_subnet(netuid);
+
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id,
+            &alice_id,
+            netuid,
+            initial_alpha,
+        );
+
+        // Same limit_price — trigger still met.  max_slippage = None → floor = 0
+        // → AMM limit = 0 → no floor constraint → pool executes the sell.
+        let signed = make_signed_order_with_slippage_rt(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::StopLoss,
+            min_default_stake().into(),
+            2_000_000_000,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+            None,
+        );
+        let id = order_id(&signed.order);
+
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![signed].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order must be marked as fulfilled.
+        assert_eq!(
+            Orders::<Runtime>::get(id),
+            Some(OrderStatus::Fulfilled),
+            "order should be fulfilled when no slippage floor is set"
+        );
+
+        // Alice's staked alpha must have decreased by exactly min_default_stake.
+        let remaining =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        assert_eq!(
+            remaining,
+            AlphaBalance::from(min_default_stake().to_u64() * 9u64),
+            "alice's staked alpha should decrease by min_default_stake after StopLoss executes"
         );
     });
 }

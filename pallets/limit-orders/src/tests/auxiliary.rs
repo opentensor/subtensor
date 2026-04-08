@@ -309,6 +309,171 @@ fn validate_and_classify_applies_buy_fee_to_net() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// compute_effective_swap_limit
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn compute_effective_swap_limit_buy_no_slippage() {
+    new_test_ext().execute_with(|| {
+        // No slippage → u64::MAX (no ceiling).
+        let limit = LimitOrders::<Test>::compute_effective_swap_limit(true, 1_000, None);
+        assert_eq!(limit, u64::MAX);
+    });
+}
+
+#[test]
+fn compute_effective_swap_limit_sell_no_slippage() {
+    new_test_ext().execute_with(|| {
+        // No slippage → 0 (no floor).
+        let limit = LimitOrders::<Test>::compute_effective_swap_limit(false, 1_000, None);
+        assert_eq!(limit, 0);
+    });
+}
+
+#[test]
+fn compute_effective_swap_limit_buy_one_percent() {
+    new_test_ext().execute_with(|| {
+        // 1% slippage on a buy with limit_price=1000 → ceiling = 1010.
+        let limit = LimitOrders::<Test>::compute_effective_swap_limit(
+            true,
+            1_000,
+            Some(Perbill::from_percent(1)),
+        );
+        assert_eq!(limit, 1_010);
+    });
+}
+
+#[test]
+fn compute_effective_swap_limit_sell_one_percent() {
+    new_test_ext().execute_with(|| {
+        // 1% slippage on a sell with limit_price=1000 → floor = 990.
+        let limit = LimitOrders::<Test>::compute_effective_swap_limit(
+            false,
+            1_000,
+            Some(Perbill::from_percent(1)),
+        );
+        assert_eq!(limit, 990);
+    });
+}
+
+#[test]
+fn compute_effective_swap_limit_sell_saturates_at_zero() {
+    new_test_ext().execute_with(|| {
+        // 100% slippage on a sell with limit_price=500 → floor saturates at 0.
+        let limit = LimitOrders::<Test>::compute_effective_swap_limit(
+            false,
+            500,
+            Some(Perbill::from_percent(100)),
+        );
+        assert_eq!(limit, 0);
+    });
+}
+
+#[test]
+fn compute_effective_swap_limit_buy_saturates_at_u64_max() {
+    new_test_ext().execute_with(|| {
+        // 100% slippage on a buy with limit_price=u64::MAX → ceiling saturates at u64::MAX.
+        let limit = LimitOrders::<Test>::compute_effective_swap_limit(
+            true,
+            u64::MAX,
+            Some(Perbill::from_percent(100)),
+        );
+        assert_eq!(limit, u64::MAX);
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validate_and_classify — effective_swap_limit propagation
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn validate_and_classify_stores_effective_swap_limit_for_buy() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        // 1% slippage on limit_price=1000 → ceiling = 1010.
+        let order = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            500u64,
+            1_000u64,
+            2_000_000u64,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        // Override max_slippage on the inner order after signing — we need to rebuild
+        // the signed order so the signature covers the updated payload.
+        let new_inner = {
+            let mut o = order.order.inner().clone();
+            o.max_slippage = Some(Perbill::from_percent(1));
+            o
+        };
+        let versioned = crate::VersionedOrder::V1(new_inner.clone());
+        let sig = AccountKeyring::Alice.pair().sign(&versioned.encode());
+        let signed_with_slippage = crate::SignedOrder {
+            order: versioned,
+            signature: sp_runtime::MultiSignature::Sr25519(sig),
+        };
+
+        let orders = bounded(vec![signed_with_slippage]);
+        let (buys, _) = LimitOrders::<Test>::validate_and_classify(
+            netuid(),
+            &orders,
+            1_000_000u64,
+            U96F32::from_num(1u32),
+            bob(),
+        )
+        .expect("should succeed");
+
+        assert_eq!(buys[0].effective_swap_limit, 1_010);
+    });
+}
+
+#[test]
+fn validate_and_classify_stores_effective_swap_limit_for_sell() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        // Price must be >= limit_price for TakeProfit to trigger.
+        // limit_price=1000, 1% slippage → floor = 990.
+        let new_inner = crate::Order {
+            signer: AccountKeyring::Alice.to_account_id(),
+            hotkey: bob(),
+            netuid: netuid(),
+            order_type: OrderType::TakeProfit,
+            amount: 500u64,
+            limit_price: 1_000u64,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient: fee_recipient(),
+            relayer: None,
+            max_slippage: Some(Perbill::from_percent(1)),
+        };
+        let versioned = crate::VersionedOrder::V1(new_inner);
+        let sig = AccountKeyring::Alice.pair().sign(&versioned.encode());
+        let signed = crate::SignedOrder {
+            order: versioned,
+            signature: sp_runtime::MultiSignature::Sr25519(sig),
+        };
+
+        let orders = bounded(vec![signed]);
+        let (_, sells) = LimitOrders::<Test>::validate_and_classify(
+            netuid(),
+            &orders,
+            1_000_000u64,
+            U96F32::from_num(2_000u32), // current_price=2000 >= limit_price=1000 ✓
+            bob(),
+        )
+        .expect("should succeed");
+
+        assert_eq!(sells[0].effective_swap_limit, 990);
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // validate_and_classify — relayer enforcement
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -465,6 +630,7 @@ fn make_buy_entry(
         net,
         fee_rate,
         fee_recipient,
+        effective_swap_limit: u64::MAX, // no slippage constraint
     }
 }
 
@@ -1223,6 +1389,7 @@ fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
         fee_rate: Perbill::zero(),
         fee_recipient: fee_recipient(),
         relayer: None,
+        max_slippage: None,
     });
     let id = H256(sp_io::hashing::blake2_256(&order.encode()));
     let sig = keyring.pair().sign(&order.encode());
@@ -1343,6 +1510,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
             relayer: None,
+            max_slippage: None,
         });
         let id = H256(sp_io::hashing::blake2_256(&order.encode()));
         let sig = keyring.pair().sign(&order.encode());

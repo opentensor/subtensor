@@ -85,6 +85,11 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub fee_recipient: AccountId,
     /// Account that should relay the transactions
     pub relayer: Option<AccountId>,
+    /// Maximum slippage tolerance in parts per billion applied to `limit_price`
+    /// at execution time. `None` = no protection (execute at market).
+    /// - Buy:  effective price ceiling = `limit_price + limit_price * max_slippage`
+    /// - Sell: effective price floor   = `limit_price - limit_price * max_slippage`
+    pub max_slippage: Option<Perbill>,
 }
 
 /// Versioned wrapper around an order payload.
@@ -156,6 +161,11 @@ pub(crate) struct OrderEntry<AccountId> {
     pub(crate) fee_rate: Perbill,
     /// Per-order fee recipient.
     pub(crate) fee_recipient: AccountId,
+    /// Effective price limit passed to the pool swap.
+    /// For buys: ceiling (max TAO per alpha the pool may charge).
+    /// For sells: floor (min TAO per alpha the pool must return).
+    /// Derived from `limit_price` and `max_slippage` during classification.
+    pub(crate) effective_swap_limit: u64,
 }
 
 // ── Pallet ───────────────────────────────────────────────────────────────────
@@ -421,6 +431,33 @@ pub mod pallet {
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     impl<T: Config> Pallet<T> {
+        /// Compute the effective price limit passed to the pool swap.
+        ///
+        /// - `None` slippage → no constraint: `u64::MAX` for buys (no ceiling),
+        ///   `0` for sells (no floor).
+        /// - `Some(p)` → widens `limit_price` by the slippage fraction:
+        ///   - Buy:  ceiling = `limit_price + limit_price * p`  (saturating)
+        ///   - Sell: floor   = `limit_price - limit_price * p`  (saturating)
+        pub(crate) fn compute_effective_swap_limit(
+            is_buy: bool,
+            limit_price: u64,
+            max_slippage: Option<Perbill>,
+        ) -> u64 {
+            match max_slippage {
+                None => {
+                    if is_buy { u64::MAX } else { 0 }
+                }
+                Some(slippage) => {
+                    let delta = slippage * limit_price;
+                    if is_buy {
+                        limit_price.saturating_add(delta)
+                    } else {
+                        limit_price.saturating_sub(delta)
+                    }
+                }
+            }
+        }
+
         /// Derive the on-chain `OrderId` as blake2_256 over the SCALE-encoded order.
         pub fn derive_order_id(order: &VersionedOrder<T::AccountId>) -> H256 {
             H256(sp_core::hashing::blake2_256(&order.encode()))
@@ -484,15 +521,16 @@ pub mod pallet {
 
             Self::is_order_valid(&signed_order, order_id, now_ms, current_price, relayer)?;
 
+            let effective_swap_limit = Self::compute_effective_swap_limit(
+                order.order_type.is_buy(),
+                order.limit_price,
+                order.max_slippage,
+            );
+
             // Execute the swap, taking the order's fee from the input (buys) or output (sells).
-            //
-            // NOTE: `order.limit_price` is intentionally used only as a trigger threshold
-            // in `is_order_valid` above, not as slippage protection for the swap.  The
-            // V3 swap interprets `price_limit` in different units (price × 1e9 → sqrt),
-            // so passing `order.limit_price` directly into `buy_alpha` / `sell_alpha`
-            // does not produce a meaningful price floor/ceiling.  Slippage protection
-            // is a known future improvement; for now the order executes at market once
-            // the trigger condition is satisfied.
+            // `effective_swap_limit` enforces slippage protection: for buys it caps the price
+            // ceiling; for sells it sets a minimum floor.  When `max_slippage` is None the
+            // limit is u64::MAX (buys) or 0 (sells), matching previous market-order behaviour.
             let (amount_in, amount_out) = if order.order_type.is_buy() {
                 let tao_in = TaoBalance::from(order.amount);
                 // Deduct fee from TAO input before swapping.
@@ -504,7 +542,7 @@ pub mod pallet {
                     &order.hotkey,
                     order.netuid,
                     tao_after_fee,
-                    TaoBalance::from(order.limit_price),
+                    TaoBalance::from(effective_swap_limit),
                     true,
                 )?;
 
@@ -528,7 +566,7 @@ pub mod pallet {
                     &order.hotkey,
                     order.netuid,
                     AlphaBalance::from(order.amount),
-                    TaoBalance::from(order.limit_price),
+                    TaoBalance::from(effective_swap_limit),
                     true,
                 )?;
 
@@ -598,6 +636,22 @@ pub mod pallet {
                 netuid,
             )?;
 
+            // Derive the tightest slippage constraint from the dominant side:
+            // buy-dominant → min of all buy ceilings; sell-dominant → max of all sell floors.
+            let pool_price_limit = if total_buy_net >= total_sell_tao_equiv {
+                valid_buys
+                    .iter()
+                    .map(|e| e.effective_swap_limit)
+                    .min()
+                    .unwrap_or(u64::MAX)
+            } else {
+                valid_sells
+                    .iter()
+                    .map(|e| e.effective_swap_limit)
+                    .max()
+                    .unwrap_or(0)
+            };
+
             // Execute a single pool swap for the residual (buy TAO minus sell TAO-equiv, or vice versa).
             let (net_side, actual_out) = Self::net_pool_swap(
                 total_buy_net,
@@ -607,6 +661,7 @@ pub mod pallet {
                 &pallet_acct,
                 &pallet_hotkey,
                 netuid,
+                pool_price_limit,
             )?;
 
             // Give every buyer their pro-rata share of (pool alpha output + offset sell alpha).
@@ -697,6 +752,12 @@ pub mod pallet {
                     order.amount
                 };
 
+                let effective_swap_limit = Self::compute_effective_swap_limit(
+                    order.order_type.is_buy(),
+                    order.limit_price,
+                    order.max_slippage,
+                );
+
                 let entry = OrderEntry {
                     order_id,
                     signer: order.signer.clone(),
@@ -706,6 +767,7 @@ pub mod pallet {
                     net,
                     fee_rate: order.fee_rate,
                     fee_recipient: order.fee_recipient.clone(),
+                    effective_swap_limit,
                 };
 
                 // try_push cannot fail: both vecs share the same bound as `orders`.
@@ -749,6 +811,9 @@ pub mod pallet {
         /// Execute a single pool swap for the net (residual) amount.
         /// Returns `(net_side, actual_out)` where `actual_out` is in the output
         /// token units (alpha for Buy, TAO for Sell).
+        ///
+        /// `price_limit` encodes the tightest slippage constraint across all dominant-side
+        /// orders: a ceiling for buy-dominant swaps, a floor for sell-dominant swaps.
         fn net_pool_swap(
             total_buy_net: u128,
             total_sell_net: u128,
@@ -757,6 +822,7 @@ pub mod pallet {
             pallet_acct: &T::AccountId,
             pallet_hotkey: &T::AccountId,
             netuid: NetUid,
+            price_limit: u64,
         ) -> Result<(OrderSide, u128), DispatchError> {
             if total_buy_net >= total_sell_tao_equiv {
                 let net_tao = (total_buy_net.saturating_sub(total_sell_tao_equiv)) as u64;
@@ -766,7 +832,7 @@ pub mod pallet {
                         pallet_hotkey,
                         netuid,
                         TaoBalance::from(net_tao),
-                        TaoBalance::from(u64::MAX), // no price ceiling for net pool swap
+                        TaoBalance::from(price_limit),
                         false,
                     )?
                     .to_u64() as u128;
@@ -785,7 +851,7 @@ pub mod pallet {
                         pallet_hotkey,
                         netuid,
                         AlphaBalance::from(net_alpha),
-                        TaoBalance::ZERO,
+                        TaoBalance::from(price_limit),
                         false,
                     )?
                     .to_u64() as u128;

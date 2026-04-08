@@ -63,12 +63,14 @@ pub enum SwapCall {
         hotkey: AccountId,
         netuid: NetUid,
         tao: u64,
+        limit_price: u64,
     },
     SellAlpha {
         coldkey: AccountId,
         hotkey: AccountId,
         netuid: NetUid,
         alpha: u64,
+        limit_price: u64,
     },
     TransferTao {
         from: AccountId,
@@ -109,6 +111,10 @@ thread_local! {
     pub static FAIL_FEE_TRANSFER: RefCell<bool> = RefCell::new(false);
     /// When `true`, `buy_alpha` and `sell_alpha` return `DispatchError::Other("pool error")`.
     pub static MOCK_SWAP_FAIL: RefCell<bool> = RefCell::new(false);
+    /// When `true`, swap calls enforce their `limit_price` argument against `MOCK_PRICE`:
+    /// `buy_alpha` fails if `market_price > limit_price` (ceiling exceeded);
+    /// `sell_alpha` fails if `market_price < limit_price` (floor not met).
+    pub static MOCK_ENFORCE_PRICE_LIMIT: RefCell<bool> = RefCell::new(false);
     /// Rate-limit flags set by `transfer_staked_alpha` when `set_receiver_limit` is true.
     /// Key: (hotkey, coldkey, netuid) — mirrors `StakingOperationRateLimiter` in subtensor.
     pub static RATE_LIMITS: RefCell<std::collections::HashSet<(AccountId, AccountId, NetUid)>> =
@@ -130,11 +136,15 @@ impl MockSwap {
     pub fn set_swap_fail(fail: bool) {
         MOCK_SWAP_FAIL.with(|v| *v.borrow_mut() = fail);
     }
+    pub fn set_enforce_price_limit(enforce: bool) {
+        MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow_mut() = enforce);
+    }
     pub fn clear_log() {
         SWAP_LOG.with(|l| l.borrow_mut().clear());
         ALPHA_BALANCES.with(|b| b.borrow_mut().clear());
         TAO_BALANCES.with(|b| b.borrow_mut().clear());
         RATE_LIMITS.with(|r| r.borrow_mut().clear());
+        MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow_mut() = false);
     }
     pub fn is_rate_limited(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> bool {
         RATE_LIMITS.with(|r| {
@@ -169,6 +179,33 @@ impl MockSwap {
     pub fn log() -> Vec<SwapCall> {
         SWAP_LOG.with(|l| l.borrow().clone())
     }
+    /// Returns the `limit_price` argument from every `buy_alpha` call, in order.
+    pub fn buy_alpha_limit_prices() -> Vec<u64> {
+        Self::log()
+            .into_iter()
+            .filter_map(|c| {
+                if let SwapCall::BuyAlpha { limit_price, .. } = c {
+                    Some(limit_price)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+    /// Returns the `limit_price` argument from every `sell_alpha` call, in order.
+    pub fn sell_alpha_limit_prices() -> Vec<u64> {
+        Self::log()
+            .into_iter()
+            .filter_map(|c| {
+                if let SwapCall::SellAlpha { limit_price, .. } = c {
+                    Some(limit_price)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     pub fn tao_transfers() -> Vec<(AccountId, AccountId, u64)> {
         Self::log()
             .into_iter()
@@ -216,7 +253,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         hotkey: &AccountId,
         netuid: NetUid,
         tao_amount: TaoBalance,
-        _limit_price: TaoBalance,
+        limit_price: TaoBalance,
         _apply_limits: bool,
     ) -> Result<AlphaBalance, frame_support::pallet_prelude::DispatchError> {
         if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
@@ -225,6 +262,24 @@ impl OrderSwapInterface<AccountId> for MockSwap {
             ));
         }
         let tao = tao_amount.to_u64();
+        // Record the call (including rejected ones) so tests can verify the limit was passed.
+        SWAP_LOG.with(|l| {
+            l.borrow_mut().push(SwapCall::BuyAlpha {
+                coldkey: coldkey.clone(),
+                hotkey: hotkey.clone(),
+                netuid,
+                tao,
+                limit_price: limit_price.to_u64(),
+            })
+        });
+        if MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow()) {
+            let price = MOCK_PRICE.with(|p| p.borrow().to_num::<u64>());
+            if price > limit_price.to_u64() {
+                return Err(frame_support::pallet_prelude::DispatchError::Other(
+                    "price limit exceeded",
+                ));
+            }
+        }
         let alpha_out = MOCK_BUY_ALPHA_RETURN.with(|v| *v.borrow());
         // Debit TAO from coldkey, credit alpha to (coldkey, hotkey, netuid).
         TAO_BALANCES.with(|b| {
@@ -239,14 +294,6 @@ impl OrderSwapInterface<AccountId> for MockSwap {
                 .or_insert(0);
             *bal = bal.saturating_add(alpha_out);
         });
-        SWAP_LOG.with(|l| {
-            l.borrow_mut().push(SwapCall::BuyAlpha {
-                coldkey: coldkey.clone(),
-                hotkey: hotkey.clone(),
-                netuid,
-                tao,
-            })
-        });
         Ok(AlphaBalance::from(alpha_out))
     }
 
@@ -255,7 +302,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         hotkey: &AccountId,
         netuid: NetUid,
         alpha_amount: AlphaBalance,
-        _limit_price: TaoBalance,
+        limit_price: TaoBalance,
         _apply_limits: bool,
     ) -> Result<TaoBalance, frame_support::pallet_prelude::DispatchError> {
         if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
@@ -264,6 +311,25 @@ impl OrderSwapInterface<AccountId> for MockSwap {
             ));
         }
         let alpha = alpha_amount.to_u64();
+        // Record the call (including rejected ones) so tests can verify the limit was passed.
+        SWAP_LOG.with(|l| {
+            l.borrow_mut().push(SwapCall::SellAlpha {
+                coldkey: coldkey.clone(),
+                hotkey: hotkey.clone(),
+                netuid,
+                alpha,
+                limit_price: limit_price.to_u64(),
+            })
+        });
+        // Only enforce if a non-zero floor was requested (0 means no constraint).
+        if MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow()) && limit_price.to_u64() > 0 {
+            let price = MOCK_PRICE.with(|p| p.borrow().to_num::<u64>());
+            if price < limit_price.to_u64() {
+                return Err(frame_support::pallet_prelude::DispatchError::Other(
+                    "price limit exceeded",
+                ));
+            }
+        }
         let tao_out = MOCK_SELL_TAO_RETURN.with(|v| *v.borrow());
         // Debit alpha from (coldkey, hotkey, netuid), credit TAO to coldkey.
         ALPHA_BALANCES.with(|b| {
@@ -277,14 +343,6 @@ impl OrderSwapInterface<AccountId> for MockSwap {
             let mut map = b.borrow_mut();
             let bal = map.entry(coldkey.clone()).or_insert(0);
             *bal = bal.saturating_add(tao_out);
-        });
-        SWAP_LOG.with(|l| {
-            l.borrow_mut().push(SwapCall::SellAlpha {
-                coldkey: coldkey.clone(),
-                hotkey: hotkey.clone(),
-                netuid,
-                alpha,
-            })
         });
         Ok(TaoBalance::from(tao_out))
     }
@@ -480,6 +538,7 @@ pub fn make_signed_order(
         fee_rate,
         fee_recipient,
         relayer,
+        max_slippage: None,
     });
     let sig = keyring.pair().sign(&order.encode());
     crate::SignedOrder {

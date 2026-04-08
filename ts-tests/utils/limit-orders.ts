@@ -22,6 +22,7 @@ export interface OrderParams {
     feeRate: number; // Perbill (parts per billion), e.g. 10_000_000 = 1%
     feeRecipient: string;
     relayer?: string | null; // Optional: if set, only this account may relay the order
+    maxSlippage?: number | null; // Optional: Perbill (ppb). When set, effective swap limit = limit_price ± limit_price * maxSlippage / 1e9
 }
 
 export interface Order {
@@ -35,6 +36,7 @@ export interface Order {
     fee_rate: number;
     fee_recipient: string;
     relayer: string | null;
+    max_slippage: number | null;
 }
 
 export interface VersionedOrder {
@@ -71,6 +73,7 @@ export function buildSignedOrder(api: any, params: OrderParams): SignedOrder {
         fee_rate: params.feeRate,
         fee_recipient: params.feeRecipient,
         relayer: params.relayer ?? null,
+        max_slippage: params.maxSlippage ?? null,
     };
 
     const versionedOrder: VersionedOrder = { V1: inner };
@@ -116,6 +119,7 @@ export function registerLimitOrderTypes(api: any): void {
             fee_rate: "u32", // Perbill
             fee_recipient: "AccountId",
             relayer: "Option<AccountId>",
+            max_slippage: "Option<u32>",
         },
         LimitVersionedOrder: {
             _enum: {

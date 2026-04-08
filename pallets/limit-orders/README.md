@@ -72,6 +72,7 @@ encoding (`OrderId`) is persisted.
 | `fee_rate`      | `Perbill`   | Per-order fee as a fraction of the input amount. `Perbill::zero()` = no fee. |
 | `fee_recipient` | `AccountId` | Account that receives the fee collected for this order. |
 | `relayer`       | `Option<AccountId>` | If `Some`, restricts execution to a single designated relayer account. Any attempt by a different account to execute this order is rejected with `RelayerMissMatch`. `None` = any relayer may execute. |
+| `max_slippage`  | `Option<Perbill>`   | Maximum acceptable slippage in parts per billion applied to `limit_price` at swap time. `None` = no slippage protection (execute at market). When `Some(p)`: Buy ceiling = `limit_price + limit_price * p`; Sell floor = `limit_price - limit_price * p`. Both saturate at `u64` bounds. |
 
 ### `OrderType`
 
@@ -155,7 +156,8 @@ interaction:
    corresponding error. All orders must be valid for execution to proceed. Valid
    orders are split into buy-side (`LimitBuy`) and sell-side (`TakeProfit`,
    `StopLoss`) groups. For buy orders the net TAO (after fee) is pre-computed
-   here.
+   here. Each order's `effective_swap_limit` (derived from `limit_price` and
+   `max_slippage`) is computed and stored for use in the pool swap.
 
 2. **Collect assets** — gross TAO is pulled from each buyer's free balance into
    the pallet intermediary account. Gross alpha stake is moved from each seller's
@@ -165,8 +167,8 @@ interaction:
 3. **Net pool swap** — buy TAO and sell alpha are converted to a common TAO
    basis at the current spot price and offset against each other. Only the
    residual amount touches the pool in a single swap:
-   - Buy-dominant: residual TAO is sent to the pool; pool returns alpha.
-   - Sell-dominant: residual alpha is sent to the pool; pool returns TAO.
+   - Buy-dominant: residual TAO is sent to the pool; pool returns alpha. Price ceiling = `min(effective_swap_limit)` across all buy orders.
+   - Sell-dominant: residual alpha is sent to the pool; pool returns TAO. Price floor = `max(effective_swap_limit)` across all sell orders.
    - Perfectly offset: no pool interaction.
 
 4. **Distribute alpha pro-rata** — every buyer receives their share of the total
@@ -248,3 +250,24 @@ upcasts to u128 internally to avoid overflow).
 At the end of each batch, fees are accumulated per unique `fee_recipient` and
 forwarded in a single transfer per recipient. If multiple orders share the same
 `fee_recipient`, they result in exactly one transfer rather than one per order.
+
+---
+
+## Known limitations
+
+### `max_slippage` is semantically inverted for `StopLoss` orders
+
+`StopLoss` sells are triggered when the spot price *falls* to `limit_price`.
+`max_slippage` derives a sell floor as `limit_price - limit_price * slippage`,
+which is computed from the (higher) trigger threshold. By the time the order
+fires, the actual market price will typically be **below** `limit_price`, so
+the derived floor will almost always exceed the real fill price, causing the
+swap to be rejected.
+
+**Consequence:** Applying `max_slippage` to a `StopLoss` order will usually
+prevent it from executing. In `execute_orders` the order is silently skipped;
+in `execute_batched_orders` the entire batch fails.
+
+**Recommendation:** Relayers should set `max_slippage: None` on `StopLoss`
+orders. If slippage protection is desired, apply it at the relayer layer by
+choosing a conservative `limit_price` rather than relying on `max_slippage`.
