@@ -6,11 +6,12 @@ import { Keyring } from "@polkadot/keyring";
 
 export async function setAutoParentDelegationEnabled(
     api: TypedApi<typeof subtensor>,
-    hotkey: KeyringPair,
+    coldkey: KeyringPair,
+    hotkey: string,
     enabled: boolean
 ): Promise<void> {
-    const tx = api.tx.SubtensorModule.set_auto_parent_delegation_enabled({ enabled });
-    await waitForTransactionWithRetry(api, tx, hotkey, "set_auto_parent_delegation_enabled");
+    const tx = api.tx.SubtensorModule.set_auto_parent_delegation_enabled({ hotkey, enabled });
+    await waitForTransactionWithRetry(api, tx, coldkey, "set_auto_parent_delegation_enabled");
 }
 
 export async function getChildren(

@@ -2512,16 +2512,22 @@ mod dispatches {
         #[pallet::call_index(135)]
         #[pallet::weight((
             Weight::from_parts(21_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(3_u64))
+                .saturating_add(T::DbWeight::get().reads(1_u64))
                 .saturating_add(T::DbWeight::get().writes(1_u64)),
             DispatchClass::Normal,
             Pays::Yes
         ))]
         pub fn set_auto_parent_delegation_enabled(
             origin: OriginFor<T>,
+            hotkey: T::AccountId,
             enabled: bool,
         ) -> DispatchResult {
-            let hotkey = ensure_signed(origin)?;
+            let coldkey = ensure_signed(origin)?;
+
+            ensure!(
+                Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
 
             ensure!(
                 Self::is_hotkey_registered_on_network(NetUid::ROOT, &hotkey),

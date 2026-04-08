@@ -4580,7 +4580,8 @@ fn test_register_network_schedules_root_validators_auto_parent_delegation_flag()
         });
 
         assert_ok!(SubtensorModule::set_auto_parent_delegation_enabled(
-            RuntimeOrigin::signed(root_val_hotkey_1),
+            RuntimeOrigin::signed(root_val_coldkey_1),
+            root_val_hotkey_1,
             false,
         ));
 

@@ -81,7 +81,7 @@ describeSuite({
                 await addStake(api, rootVal1Coldkey, rootVal1Hotkey.address, 0, stake);
                 await addStake(api, rootVal2Coldkey, rootVal2Hotkey.address, 0, stake);
 
-                await setAutoParentDelegationEnabled(api, rootVal1Hotkey, false);
+                await setAutoParentDelegationEnabled(api, rootVal1Coldkey, rootVal1Hotkey.address, false);
                 log("val1 opted out of auto parent delegation");
 
                 const newNetuid = await addNewSubnetwork(api, subnetOwnerHotkey, subnetOwnerColdkey);
