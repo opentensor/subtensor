@@ -63,12 +63,15 @@ impl StorageInstance for AllowancesPrefix {
 
 pub type AllowancesStorage = StorageDoubleMap<
     AllowancesPrefix,
+
     // For each approver (EVM address as only EVM-natives need the precompile)
     Blake2_128Concat,
     H160,
+
     // For each pair of (spender, netuid) (EVM address as only EVM-natives need the precompile)
     Blake2_128Concat,
     (H160, u16),
+
     // Allowed amount
     U256,
     ValueQuery,
@@ -631,7 +634,13 @@ where
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
         let alpha_amount: u64 = amount_alpha.unique_saturated_into();
 
-        Self::try_consume_allowance(handle, source_address, spender, origin_netuid, amount_alpha)?;
+        Self::try_consume_allowance(
+            handle,
+            source_address,
+            spender,
+            origin_netuid,
+            amount_alpha,
+        )?;
 
         let call = pallet_subtensor::Call::<R>::transfer_stake {
             destination_coldkey,

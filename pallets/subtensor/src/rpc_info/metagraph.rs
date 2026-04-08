@@ -748,10 +748,7 @@ impl<T: Config> Pallet<T> {
             identities,
             active: Active::<T>::get(netuid), // Active per UID
             validator_permit: ValidatorPermit::<T>::get(netuid), // Val permit per UID
-            pruning_score: PruningScores::<T>::get(netuid)
-                .into_iter()
-                .map(Compact::from)
-                .collect(), // Pruning per UID
+            pruning_score: Vec::new(),        // Deprecated: no longer computed
             last_update: LastUpdate::<T>::get(NetUidStorageIndex::from(netuid))
                 .into_iter()
                 .map(Compact::from)
@@ -772,14 +769,8 @@ impl<T: Config> Pallet<T> {
                 .into_iter()
                 .map(Compact::from)
                 .collect(), // Consensus per UID
-            trust: Trust::<T>::get(netuid)
-                .into_iter()
-                .map(Compact::from)
-                .collect(), // Trust per UID
-            rank: Rank::<T>::get(netuid)
-                .into_iter()
-                .map(Compact::from)
-                .collect(), // Rank per UID
+            trust: Vec::new(),                // Deprecated: no longer computed
+            rank: Vec::new(),                 // Deprecated: no longer computed
             block_at_registration,            // Reg block per UID
             alpha_stake: alpha_stake_fl
                 .iter()
@@ -1262,12 +1253,7 @@ impl<T: Config> Pallet<T> {
 
             Some(SelectiveMetagraphIndex::PruningScore) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                pruning_score: Some(
-                    PruningScores::<T>::get(netuid)
-                        .into_iter()
-                        .map(Compact::from)
-                        .collect(),
-                ),
+                pruning_score: Some(Vec::new()), // Deprecated: no longer computed
                 ..Default::default()
             },
 
@@ -1328,22 +1314,12 @@ impl<T: Config> Pallet<T> {
 
             Some(SelectiveMetagraphIndex::Trust) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                trust: Some(
-                    Trust::<T>::get(netuid)
-                        .into_iter()
-                        .map(Compact::from)
-                        .collect(),
-                ),
+                trust: Some(Vec::new()), // Deprecated: no longer computed
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::Rank) => SelectiveMetagraph {
                 netuid: netuid.into(),
-                rank: Some(
-                    Rank::<T>::get(netuid)
-                        .into_iter()
-                        .map(Compact::from)
-                        .collect(),
-                ),
+                rank: Some(Vec::new()), // Deprecated: no longer computed
                 ..Default::default()
             },
             Some(SelectiveMetagraphIndex::BlockAtRegistration) => {

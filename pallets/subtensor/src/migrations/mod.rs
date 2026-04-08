@@ -6,7 +6,6 @@ use sp_io::hashing::twox_128;
 use sp_io::storage::clear_prefix;
 pub mod migrate_auto_stake_destination;
 pub mod migrate_clear_deprecated_registration_maps;
-pub mod migrate_clear_rank_trust_pruning_maps;
 pub mod migrate_coldkey_swap_scheduled;
 pub mod migrate_coldkey_swap_scheduled_to_announcements;
 pub mod migrate_commit_reveal_settings;
