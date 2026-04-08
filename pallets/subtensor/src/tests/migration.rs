@@ -4451,8 +4451,9 @@ fn test_migrate_subnet_balances() {
         let subnet_account_2 = SubtensorModule::get_subnet_account_id(netuid2).unwrap();
         let balance1 = SubtensorModule::get_coldkey_balance(&subnet_account_1);
         let balance2 = SubtensorModule::get_coldkey_balance(&subnet_account_2);
-        assert_eq!(balance1, lock1 + reserve1);
-        assert_eq!(balance2, lock2 + reserve2);
+        let initial_pool_tao = NetworkMinLockCost::<Test>::get();
+        assert_eq!(balance1, lock1 + reserve1 - initial_pool_tao);
+        assert_eq!(balance2, lock2 + reserve2 - initial_pool_tao);
 
         // Check migration has been marked as run
         const MIGRATION_NAME: &[u8] = b"migrate_subnet_balances";

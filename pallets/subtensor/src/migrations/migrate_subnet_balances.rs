@@ -1,5 +1,4 @@
 use super::*;
-use crate::migrations::migrate_subnet_locked::SUBNET_LOCKED;
 use frame_support::{
     traits::{Get, fungible::Inspect},
     weights::Weight,
@@ -34,6 +33,9 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
     // Actual migration
 
     // Mint SubnetTAO into subnet accounts
+    // The mint_tao will be adding to subtensor TotalIssuance (which is not the intention
+    // and will be corrected below). There is no u64 saturation possible, so it is safe to
+    // add the whole amount to TI and then reduce back.
     let mut total_subnet_tao = TaoBalance::ZERO;
     SubnetTAO::<T>::iter().for_each(|(netuid, tao)| {
         if let Some(subnet_account) = Pallet::<T>::get_subnet_account_id(netuid) {
@@ -45,14 +47,14 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
     });
 
     // Mint SubnetLocked into subnet accounts
-    // Currently (3.3.13) we still burn TAO less initial pool value (which is min lock cost) on 
-    // registrations and record full lock cost (including initial pool TAO) in SubnetLocked. 
-    // Initial pool TAO is accounted for both in SubnetLocked and SubnetTAO. The double-accounted 
-    // initial pool TAO equals NetworkMinLockCost, which is 1 TAO per subnet. It is only 
-    // double-accounted in situation when owner emission is zero and subnet is dissolved, which is 
-    // only known in the future and is uncertain currently. To make accounting accurate and certain, 
-    // we stay with pessimistic approach and rather avoid minting more than 21M TAO. This means that 
-    // subnet accounts will be credited SubnetLocked amount less initial pool TAO, but the 
+    // Currently (3.3.13) we still burn TAO less initial pool value (which is min lock cost) on
+    // registrations and record full lock cost (including initial pool TAO) in SubnetLocked.
+    // Initial pool TAO is accounted for both in SubnetLocked and SubnetTAO. The double-accounted
+    // initial pool TAO equals NetworkMinLockCost, which is 1 TAO per subnet. It is only
+    // double-accounted in situation when owner emission is zero and subnet is dissolved, which is
+    // only known in the future and is uncertain currently. To make accounting accurate and certain,
+    // we stay with pessimistic approach and rather avoid minting more than 21M TAO. This means that
+    // subnet accounts will be credited SubnetLocked amount less initial pool TAO, but the
     // TotalIssuance recorded will be increased by the full SubnetLocked amount.
     let mut total_subnet_locked = TaoBalance::ZERO;
     SubnetLocked::<T>::iter().for_each(|(netuid, tao)| {
@@ -66,36 +68,36 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
         }
     });
 
-    // In rao release (v2.0.0) the lock was burned (TotalIssuance reduction), in the subsequent 
-    // migration migrate_restore_subnet_locked we restored locks into SubnetLocked, but did not 
-    // increase the TotalIssuance back. Now, in order to restore the TotalIssuance correctly and 
-    // account for TAO burned / unburned in locks, increase subtensor pallet TotalIssuance by 
-    // total of SubnetLocked update in migrate_restore_subnet_locked.
-    let total_locked_adjustment = SUBNET_LOCKED
-        .iter()
-        .fold(0u64, |acc, (_, value)| acc.saturating_add(*value));
-
-    // mint_tao increases subtensor TotalIssuance, but this is not the intention here because 
-    // SubnetTAO and SubnetLocked are already accounted in it. Reduce it back.
-    TotalIssuance::<T>::mutate(|total| {
-        *total = total.saturating_sub(total_subnet_tao)
-            .saturating_sub(total_locked_adjustment.into())
-            // Adjust for migrate_subnet_locked unburn
-            .saturating_add(total_subnet_locked);
-    });
+    // mint_tao increases subtensor TotalIssuance, but this is not the intention for SubnetTAO
+    // because staked TAO is already accounted for in it subtensor pallet TotalIssuance. Reduce
+    // it back.
+    //
+    // SubnetLocked, in opposite, was not previously included in the subtensor TotalIssuance
+    // because we call recycle_tao in subnet registration.
+    //
+    // Remark about migrate_restore_subnet_locked migration:
+    //
+    // In rao release (v2.0.0) the lock was burned (TotalIssuance reduction), in the subsequent
+    // migration migrate_restore_subnet_locked we restored locks into SubnetLocked, but did not
+    // increase the TotalIssuance back. Now, in order to restore the TotalIssuance correctly and
+    // account for TAO unburned in locks, we will let TotalIssuance stay increased after the mint
+    // above, so no additional adjustment is needed.
+    TotalIssuance::<T>::mutate(|total| *total = total.saturating_sub(total_subnet_tao));
 
     // Update the total issuance in storage
     let balances_total_issuance = <T as Config>::Currency::total_issuance();
     let subtensor_total_issuance = TotalIssuance::<T>::get();
     weight = weight.saturating_add(T::DbWeight::get().reads(2));
+    log::warn!("  balances_total_issuance  = {}", balances_total_issuance);
+    log::warn!("  subtensor_total_issuance = {}", subtensor_total_issuance);
+    log::warn!("  total_subnet_tao         = {}", total_subnet_tao);
+    log::warn!("  total_subnet_locked      = {}", total_subnet_locked);
     if balances_total_issuance != subtensor_total_issuance {
         log::warn!(
             "Balances and Subtensor total issuance still do not match: {} vs {}. Making them match now.",
             balances_total_issuance,
             subtensor_total_issuance
         );
-        log::warn!("  total_locked_adjustment = {}", total_locked_adjustment);
-        log::warn!("  balances_total_issuance = {}", balances_total_issuance);
         TotalIssuance::<T>::put(balances_total_issuance);
         weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
