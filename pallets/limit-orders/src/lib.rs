@@ -90,6 +90,8 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     /// - Buy:  effective price ceiling = `limit_price + limit_price * max_slippage`
     /// - Sell: effective price floor   = `limit_price - limit_price * max_slippage`
     pub max_slippage: Option<Perbill>,
+    /// Wether partial fills are enabled
+    pub partial_fills_enabled: bool,
 }
 
 /// Versioned wrapper around an order payload.
@@ -132,6 +134,8 @@ pub struct SignedOrder<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + C
     pub order: VersionedOrder<AccountId>,
     /// Sr25519 signature over `SCALE_ENCODE(VersionedOrder)`.
     pub signature: MultiSignature,
+    /// Whether we want a partial fill for this order
+    pub partial_fill: Option<u64>,
 }
 
 #[derive(
@@ -140,6 +144,8 @@ pub struct SignedOrder<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + C
 pub enum OrderStatus {
     /// The order was successfully executed.
     Fulfilled,
+    /// The order was partially filled, with the amount already fulfilled in the enum
+    PartiallyFilled(u64),
     /// The user registered a cancellation intent before execution.
     Cancelled,
 }
@@ -152,8 +158,10 @@ pub(crate) struct OrderEntry<AccountId> {
     pub(crate) signer: AccountId,
     pub(crate) hotkey: AccountId,
     pub(crate) side: OrderType,
-    /// Gross input amount (before fee).
+    /// Actual input amount being processed this execution (partial or full, before fee).
     pub(crate) gross: u64,
+    /// Full order amount as signed by the user. Used to determine terminal status.
+    pub(crate) order_amount: u64,
     /// Net input amount (after fee).
     /// For buys: `gross - fee_rate * gross`. For sells: equals `gross` (fee on TAO output).
     pub(crate) net: u64,
@@ -166,6 +174,8 @@ pub(crate) struct OrderEntry<AccountId> {
     /// For sells: floor (min TAO per alpha the pool must return).
     /// Derived from `limit_price` and `max_slippage` during classification.
     pub(crate) effective_swap_limit: u64,
+    /// Present when this execution covers only part of the order.
+    pub(crate) partial_fill: Option<u64>,
 }
 
 // ── Pallet ───────────────────────────────────────────────────────────────────
@@ -291,6 +301,8 @@ pub mod pallet {
         InvalidSignature,
         /// The order has already been Fulfilled or Cancelled.
         OrderAlreadyProcessed,
+        /// Order has been cancelled
+        OrderCancelled,
         /// The order's expiry timestamp is in the past.
         OrderExpired,
         /// The current market price does not satisfy the order's limit price.
@@ -307,6 +319,12 @@ pub mod pallet {
         LimitOrdersDisabled,
         /// Relayer not the same as specified in the order
         RelayerMissMatch,
+        /// Partial fills not enabled for this order
+        PartialFillsNotEnabled,
+        /// Incorrect partial fill amount provided
+        IncorrectPartialFillAmount,
+        /// A relayer must be set on the order when using partial fills
+        RelayerRequiredForPartialFill,
     }
 
     // ── Extrinsics ────────────────────────────────────────────────────────────
@@ -445,7 +463,11 @@ pub mod pallet {
         ) -> u64 {
             match max_slippage {
                 None => {
-                    if is_buy { u64::MAX } else { 0 }
+                    if is_buy {
+                        u64::MAX
+                    } else {
+                        0
+                    }
                 }
                 Some(slippage) => {
                     let delta = slippage * limit_price;
@@ -488,9 +510,14 @@ pub mod pallet {
                         .verify(signed_order.order.encode().as_slice(), &order.signer),
                 Error::<T>::InvalidSignature
             );
+            let order_status = Orders::<T>::get(order_id);
             ensure!(
-                Orders::<T>::get(order_id).is_none(),
+                order_status != Some(OrderStatus::Fulfilled),
                 Error::<T>::OrderAlreadyProcessed
+            );
+            ensure!(
+                order_status != Some(OrderStatus::Cancelled),
+                Error::<T>::OrderCancelled
             );
             ensure!(now_ms <= order.expiry, Error::<T>::OrderExpired);
             ensure!(
@@ -505,7 +532,54 @@ pub mod pallet {
             if let Some(forced_relayer) = order.relayer.clone() {
                 ensure!(forced_relayer == *relayer, Error::<T>::RelayerMissMatch);
             }
+            if let Some(partial_fill) = signed_order.partial_fill {
+                ensure!(
+                    order.relayer.is_some(),
+                    Error::<T>::RelayerRequiredForPartialFill
+                );
+                ensure!(
+                    order.partial_fills_enabled,
+                    Error::<T>::PartialFillsNotEnabled
+                );
+                let max_fill =
+                    if let Some(OrderStatus::PartiallyFilled(already_filled)) = order_status {
+                        order.amount.saturating_sub(already_filled)
+                    } else {
+                        order.amount
+                    };
+                ensure!(
+                    partial_fill > 0 && partial_fill <= max_fill,
+                    Error::<T>::IncorrectPartialFillAmount
+                );
+            }
             Ok(())
+        }
+
+        /// Compute the new `OrderStatus` to write after filling `fill_amount` of an order.
+        ///
+        /// Reads the current on-chain status to find any already-filled amount, adds
+        /// `fill_amount`, and returns `Fulfilled` when the total reaches `order_amount`.
+        /// Pass `None` for `fill_amount` when the order is being fully executed in one shot.
+        pub(crate) fn compute_order_status(
+            order_id: H256,
+            fill_amount: Option<u64>,
+            order_amount: u64,
+        ) -> OrderStatus {
+            let Some(fill) = fill_amount else {
+                return OrderStatus::Fulfilled;
+            };
+            let already_filled =
+                if let Some(OrderStatus::PartiallyFilled(n)) = Orders::<T>::get(order_id) {
+                    n
+                } else {
+                    0
+                };
+            let new_total = already_filled.saturating_add(fill);
+            if new_total >= order_amount {
+                OrderStatus::Fulfilled
+            } else {
+                OrderStatus::PartiallyFilled(new_total)
+            }
         }
 
         /// Attempt to execute one signed order. Returns an error on any
@@ -532,7 +606,8 @@ pub mod pallet {
             // ceiling; for sells it sets a minimum floor.  When `max_slippage` is None the
             // limit is u64::MAX (buys) or 0 (sells), matching previous market-order behaviour.
             let (amount_in, amount_out) = if order.order_type.is_buy() {
-                let tao_in = TaoBalance::from(order.amount);
+                // partial fill validations have passed, it is safe here to do this
+                let tao_in = TaoBalance::from(signed_order.partial_fill.unwrap_or(order.amount));
                 // Deduct fee from TAO input before swapping.
                 let fee_tao = TaoBalance::from(order.fee_rate * tao_in.to_u64());
                 let tao_after_fee = tao_in.saturating_sub(fee_tao);
@@ -558,14 +633,17 @@ pub mod pallet {
                         });
                     }
                 }
-                (order.amount, alpha_out.to_u64())
+                (tao_after_fee.to_u64(), alpha_out.to_u64())
             } else {
+                // partial fill validations have passed, it is safe here to do this
+                let alpha_in = AlphaBalance::from(signed_order.partial_fill.unwrap_or(order.amount));
+
                 // Sell the full alpha amount; fee is taken from the TAO output.
                 let tao_out = T::SwapInterface::sell_alpha(
                     &order.signer,
                     &order.hotkey,
                     order.netuid,
-                    AlphaBalance::from(order.amount),
+                    alpha_in,
                     TaoBalance::from(effective_swap_limit),
                     true,
                 )?;
@@ -583,11 +661,13 @@ pub mod pallet {
                         });
                     }
                 }
-                (order.amount, tao_out.saturating_sub(fee_tao).to_u64())
+                (alpha_in.to_u64(), tao_out.saturating_sub(fee_tao).to_u64())
             };
 
-            // 6. Mark as fulfilled and emit event.
-            Orders::<T>::insert(order_id, OrderStatus::Fulfilled);
+            // Mark as fulfilled or partially filled and emit event.
+            let status =
+                Self::compute_order_status(order_id, signed_order.partial_fill, order.amount);
+            Orders::<T>::insert(order_id, status);
             Self::deposit_event(Event::OrderExecuted {
                 order_id,
                 signer: order.signer.clone(),
@@ -743,13 +823,14 @@ pub mod pallet {
                 // Hard-fail on any per-order validation error (signature, expiry, price, root).
                 Self::is_order_valid(signed_order, order_id, now_ms, current_price, &relayer)?;
 
+                let amount_in = signed_order.partial_fill.unwrap_or(order.amount);
                 let net = if order.order_type.is_buy() {
                     // Buy: fee on TAO input — net is the amount that reaches the pool.
-                    order.amount.saturating_sub(order.fee_rate * order.amount)
+                    amount_in.saturating_sub(order.fee_rate * amount_in)
                 } else {
                     // Sell: fee on TAO output — full alpha enters the pool; the fee is
                     // deducted from the TAO payout later in `distribute_tao_pro_rata`.
-                    order.amount
+                    amount_in
                 };
 
                 let effective_swap_limit = Self::compute_effective_swap_limit(
@@ -763,11 +844,13 @@ pub mod pallet {
                     signer: order.signer.clone(),
                     hotkey: order.hotkey.clone(),
                     side: order.order_type.clone(),
-                    gross: order.amount,
+                    gross: amount_in,
+                    order_amount: order.amount,
                     net,
                     fee_rate: order.fee_rate,
                     fee_recipient: order.fee_recipient.clone(),
                     effective_swap_limit,
+                    partial_fill: signed_order.partial_fill,
                 };
 
                 // try_push cannot fail: both vecs share the same bound as `orders`.
@@ -902,7 +985,8 @@ pub mod pallet {
                         true,  // set_receiver_limit: rate-limit the buyer after they receive stake
                     )?;
                 }
-                Orders::<T>::insert(e.order_id, OrderStatus::Fulfilled);
+                let status = Self::compute_order_status(e.order_id, e.partial_fill, e.order_amount);
+                Orders::<T>::insert(e.order_id, status);
                 Self::deposit_event(Event::OrderExecuted {
                     order_id: e.order_id,
                     signer: e.signer.clone(),
@@ -963,7 +1047,8 @@ pub mod pallet {
                     &e.signer,
                     TaoBalance::from(net_share),
                 )?;
-                Orders::<T>::insert(e.order_id, OrderStatus::Fulfilled);
+                let status = Self::compute_order_status(e.order_id, e.partial_fill, e.order_amount);
+                Orders::<T>::insert(e.order_id, status);
                 Self::deposit_event(Event::OrderExecuted {
                     order_id: e.order_id,
                     signer: e.signer.clone(),

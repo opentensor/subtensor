@@ -62,11 +62,13 @@ fn make_signed_order(
         fee_recipient,
         relayer: None,
         max_slippage: None,
+        partial_fills_enabled: false,
     });
     let sig = keyring.pair().sign(&order.encode());
     SignedOrder {
         order,
         signature: MultiSignature::Sr25519(sig),
+        partial_fill: None,
     }
 }
 
@@ -94,6 +96,7 @@ fn cancel_order_works() {
             fee_recipient,
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         let id = order_id(&order);
 
@@ -128,6 +131,7 @@ fn execute_orders_ed25519_signature_rejected() {
             fee_recipient,
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         let id = order_id(&order);
 
@@ -137,6 +141,7 @@ fn execute_orders_ed25519_signature_rejected() {
         let signed = SignedOrder {
             order,
             signature: MultiSignature::Ed25519(ed_sig),
+            partial_fill: None,
         };
 
         let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
@@ -1540,11 +1545,13 @@ fn make_signed_order_with_slippage_rt(
         fee_recipient,
         relayer: None,
         max_slippage,
+        partial_fills_enabled: false,
     });
     let sig = keyring.pair().sign(&order.encode());
     SignedOrder {
         order,
         signature: MultiSignature::Sr25519(sig),
+        partial_fill: None,
     }
 }
 
@@ -1623,8 +1630,7 @@ fn execute_orders_stoploss_max_slippage_exceeds_pool_price_skipped() {
         let remaining =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
         assert_eq!(
-            remaining,
-            initial_alpha,
+            remaining, initial_alpha,
             "alice's staked alpha should be unchanged when the order is rolled back"
         );
     });
@@ -1693,6 +1699,217 @@ fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
             remaining,
             AlphaBalance::from(min_default_stake().to_u64() * 9u64),
             "alice's staked alpha should decrease by min_default_stake after StopLoss executes"
+        );
+    });
+}
+
+// ── Partial fill tests ────────────────────────────────────────────────────────
+
+/// Build a `SignedOrder` with `partial_fills_enabled = true` and the relayer set
+/// to `relayer`.  The `partial_fill` field on the envelope is supplied separately
+/// by each test so that the *same* `VersionedOrder` payload (and therefore the
+/// same order-id) can be re-used across multiple submissions.
+fn make_partial_fill_order(
+    keyring: Sr25519Keyring,
+    hotkey: AccountId,
+    netuid: NetUid,
+    order_type: OrderType,
+    amount: u64,
+    limit_price: u64,
+    expiry: u64,
+    fee_recipient: AccountId,
+    relayer: AccountId,
+    partial_fill: Option<u64>,
+) -> SignedOrder<AccountId> {
+    let order = VersionedOrder::V1(Order {
+        signer: keyring.to_account_id(),
+        hotkey,
+        netuid,
+        order_type,
+        amount,
+        limit_price,
+        expiry,
+        fee_rate: Perbill::zero(),
+        fee_recipient,
+        relayer: Some(relayer),
+        max_slippage: None,
+        partial_fills_enabled: true,
+    });
+    let sig = keyring.pair().sign(&order.encode());
+    SignedOrder {
+        order,
+        signature: MultiSignature::Sr25519(sig),
+        partial_fill,
+    }
+}
+
+/// A LimitBuy order with `partial_fills_enabled` is partially filled on the
+/// first `execute_orders` call, then fully filled (Fulfilled) on a second call
+/// carrying the remaining amount.
+///
+/// The signed payload (`VersionedOrder`) is identical in both submissions so
+/// both calls share the same order-id.  Only `SignedOrder::partial_fill` changes.
+#[test]
+fn execute_orders_partial_fill_then_complete() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Alice funds two fills: partial_amount + remaining_amount = order amount.
+        let order_amount = min_default_stake().to_u64() * 4u64;
+        let partial_amount = min_default_stake().to_u64() * 3u64;
+        let remaining_amount = order_amount - partial_amount;
+
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            TaoBalance::from(order_amount * 2u64),
+        );
+
+        // Create the hotkey association Alice → Bob.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Build the base signed order — this exact payload is re-used for both submissions.
+        let first_signed = make_partial_fill_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            order_amount,
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            charlie_id.clone(),
+            charlie_id.clone(), // relayer = caller
+            Some(partial_amount),
+        );
+        let id = order_id(&first_signed.order);
+
+        // ── First submission: partial fill ────────────────────────────────────
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![first_signed.clone()].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id.clone()),
+            orders,
+        ));
+
+        // After the first execution the order must be partially filled.
+        assert_eq!(
+            Orders::<Runtime>::get(id),
+            Some(OrderStatus::PartiallyFilled(partial_amount)),
+            "order should be PartiallyFilled({partial_amount}) after first execution"
+        );
+
+        // ── Second submission: fill the remainder ─────────────────────────────
+        // Clone the order payload from the first signed order (same VersionedOrder,
+        // same order-id) but set partial_fill to the remaining amount.
+        let second_signed = SignedOrder {
+            order: first_signed.order.clone(),
+            signature: first_signed.signature.clone(),
+            partial_fill: Some(remaining_amount),
+        };
+
+        let orders2: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![second_signed].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id.clone()),
+            orders2,
+        ));
+
+        // After the second execution the order must be fulfilled.
+        assert_eq!(
+            Orders::<Runtime>::get(id),
+            Some(OrderStatus::Fulfilled),
+            "order should be Fulfilled after the remaining amount is filled"
+        );
+    });
+}
+
+/// Same partial-fill-then-complete scenario exercised through
+/// `execute_batched_orders`.
+///
+/// The buy order is the only order in the batch both times, so the batch is
+/// buy-dominant and routes all TAO through the pool.  The signed payload is
+/// identical between submissions; only `SignedOrder::partial_fill` changes.
+#[test]
+fn execute_batched_orders_partial_fill_then_complete() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        let order_amount = min_default_stake().to_u64() * 4u64;
+        let partial_amount = min_default_stake().to_u64() * 3u64;
+        let remaining_amount = order_amount - partial_amount;
+
+        SubtensorModule::add_balance_to_coldkey_account(
+            &alice_id,
+            TaoBalance::from(order_amount * 2u64),
+        );
+
+        // Create the hotkey association Alice → Bob.
+        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Build the base signed order — identical payload reused in both batches.
+        let first_signed = make_partial_fill_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            order_amount,
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            charlie_id.clone(),
+            charlie_id.clone(), // relayer = caller
+            Some(partial_amount),
+        );
+        let id = order_id(&first_signed.order);
+
+        // ── First batch: partial fill ─────────────────────────────────────────
+        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![first_signed.clone()].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie_id.clone()),
+            netuid,
+            orders,
+        ));
+
+        assert_eq!(
+            Orders::<Runtime>::get(id),
+            Some(OrderStatus::PartiallyFilled(partial_amount)),
+            "order should be PartiallyFilled({partial_amount}) after first batch"
+        );
+
+        // ── Second batch: fill the remainder ──────────────────────────────────
+        let second_signed = SignedOrder {
+            order: first_signed.order.clone(),
+            signature: first_signed.signature.clone(),
+            partial_fill: Some(remaining_amount),
+        };
+
+        let orders2: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
+            vec![second_signed].try_into().unwrap();
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie_id.clone()),
+            netuid,
+            orders2,
+        ));
+
+        assert_eq!(
+            Orders::<Runtime>::get(id),
+            Some(OrderStatus::Fulfilled),
+            "order should be Fulfilled after the remaining amount is filled in the second batch"
         );
     });
 }

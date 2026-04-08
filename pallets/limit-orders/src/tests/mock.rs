@@ -539,11 +539,49 @@ pub fn make_signed_order(
         fee_recipient,
         relayer,
         max_slippage: None,
+        partial_fills_enabled: false,
     });
     let sig = keyring.pair().sign(&order.encode());
     crate::SignedOrder {
         order,
         signature: MultiSignature::Sr25519(sig),
+        partial_fill: None,
+    }
+}
+
+/// Build a signed order with partial fills enabled and a relayer set.
+/// `partial_fill` is the fill amount to inject into the `SignedOrder` envelope.
+pub fn make_partial_fill_order(
+    keyring: AccountKeyring,
+    hotkey: AccountId,
+    netuid: NetUid,
+    order_type: crate::OrderType,
+    amount: u64,
+    limit_price: u64,
+    expiry: u64,
+    relayer: AccountId,
+    partial_fill: u64,
+) -> crate::SignedOrder<AccountId> {
+    let signer = keyring.to_account_id();
+    let order = crate::VersionedOrder::V1(crate::Order {
+        signer,
+        hotkey,
+        netuid,
+        order_type,
+        amount,
+        limit_price,
+        expiry,
+        fee_rate: sp_runtime::Perbill::zero(),
+        fee_recipient: fee_recipient(),
+        relayer: Some(relayer),
+        max_slippage: None,
+        partial_fills_enabled: true,
+    });
+    let sig = keyring.pair().sign(&order.encode());
+    crate::SignedOrder {
+        order,
+        signature: MultiSignature::Sr25519(sig),
+        partial_fill: Some(partial_fill),
     }
 }
 

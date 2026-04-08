@@ -15,6 +15,7 @@ import {
     FAR_FUTURE,
     filterEvents,
     registerLimitOrderTypes,
+    seedPoolReserves,
 } from "../../../../utils/limit-orders.js";
 
 // Tests in this file do NOT interact with the pool (price-not-met, expired,
@@ -44,6 +45,11 @@ describeSuite({
 
             await devEnableSubtoken(polkadotJs, context, alice, netuid);
             await devAssociateHotKey(polkadotJs, context, alice, aliceHotKey.address);
+
+            // Seed pool reserves so the spot price is well above 1n RAO/alpha.
+            // taoReserve = tao(1_000), alphaIn = tao(1_000) → price ≈ 1 TAO/alpha = 1_000_000_000n RAO/alpha.
+            // This ensures LimitBuy orders with limitPrice = 1n are correctly skipped (price not met).
+            await seedPoolReserves(null as any, polkadotJs, netuid, tao(1_000), tao(1_000));
         });
 
         it({

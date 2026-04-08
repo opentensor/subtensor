@@ -23,6 +23,7 @@ export interface OrderParams {
     feeRecipient: string;
     relayer?: string | null; // Optional: if set, only this account may relay the order
     maxSlippage?: number | null; // Optional: Perbill (ppb). When set, effective swap limit = limit_price ± limit_price * maxSlippage / 1e9
+    partialFillsEnabled?: boolean; // Optional: if true, order can be partially filled (requires relayer)
 }
 
 export interface Order {
@@ -37,6 +38,7 @@ export interface Order {
     fee_recipient: string;
     relayer: string | null;
     max_slippage: number | null;
+    partial_fills_enabled: boolean;
 }
 
 export interface VersionedOrder {
@@ -46,6 +48,7 @@ export interface VersionedOrder {
 export interface SignedOrder {
     order: VersionedOrder;
     signature: { Sr25519: `0x${string}` } | { Ed25519: `0x${string}` } | { Ecdsa: `0x${string}` };
+    partial_fill: number | null;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -74,6 +77,7 @@ export function buildSignedOrder(api: any, params: OrderParams): SignedOrder {
         fee_recipient: params.feeRecipient,
         relayer: params.relayer ?? null,
         max_slippage: params.maxSlippage ?? null,
+        partial_fills_enabled: params.partialFillsEnabled ?? false,
     };
 
     const versionedOrder: VersionedOrder = { V1: inner };
@@ -85,6 +89,7 @@ export function buildSignedOrder(api: any, params: OrderParams): SignedOrder {
     return {
         order: versionedOrder,
         signature: { Sr25519: u8aToHex(sig) as `0x${string}` },
+        partial_fill: null,
     };
 }
 
@@ -120,6 +125,7 @@ export function registerLimitOrderTypes(api: any): void {
             fee_recipient: "AccountId",
             relayer: "Option<AccountId>",
             max_slippage: "Option<u32>",
+            partial_fills_enabled: "bool",
         },
         LimitVersionedOrder: {
             _enum: {
@@ -129,9 +135,14 @@ export function registerLimitOrderTypes(api: any): void {
         LimitSignedOrder: {
             order: "LimitVersionedOrder",
             signature: "MultiSignature",
+            partial_fill: "Option<u64>",
         },
         LimitOrderStatus: {
-            _enum: ["Fulfilled", "Cancelled"],
+            _enum: {
+                Fulfilled: null,
+                PartiallyFilled: "u64",
+                Cancelled: null,
+            },
         },
     });
 }
@@ -203,10 +214,22 @@ export async function setPalletStatus(
 export async function getOrderStatus(
     polkadotJs: any,
     id: `0x${string}`
-): Promise<"Fulfilled" | "Cancelled" | undefined> {
+): Promise<"Fulfilled" | "PartiallyFilled" | "Cancelled" | undefined> {
     const result = await polkadotJs.query.limitOrders.orders(id);
     if (result.isNone) return undefined;
-    return result.unwrap().type as "Fulfilled" | "Cancelled";
+    return result.unwrap().type as "Fulfilled" | "PartiallyFilled" | "Cancelled";
+}
+
+/** Read the on-chain OrderStatus and return the PartiallyFilled amount, or null. */
+export async function getPartiallyFilledAmount(
+    polkadotJs: any,
+    id: `0x${string}`
+): Promise<bigint | null> {
+    const result = await polkadotJs.query.limitOrders.orders(id);
+    if (result.isNone) return null;
+    const status = result.unwrap();
+    if (status.type !== "PartiallyFilled") return null;
+    return BigInt(status.asPartiallyFilled.toString());
 }
 
 /** Filter system events by method name. */

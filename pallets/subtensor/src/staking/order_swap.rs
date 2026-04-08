@@ -1,7 +1,7 @@
 use super::*;
-use frame_support::transactional;
 use frame_support::traits::fungible::Mutate;
 use frame_support::traits::tokens::Preservation;
+use frame_support::transactional;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
 use subtensor_swap_interface::{OrderSwapInterface, SwapHandler};
@@ -43,15 +43,8 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         // (limit_price = u64::MAX) by saturating to u64::MAX, which the AMM interprets as
         // an astronomically high ceiling that current prices never reach.
         let amm_limit = TaoBalance::from(limit_price.to_u64().saturating_mul(1_000_000_000));
-        let alpha_out = Self::stake_into_subnet(
-            hotkey,
-            coldkey,
-            netuid,
-            actual_tao,
-            amm_limit,
-            false,
-            false,
-        )?;
+        let alpha_out =
+            Self::stake_into_subnet(hotkey, coldkey, netuid, actual_tao, amm_limit, false, false)?;
         if validate {
             Self::set_stake_operation_limit(hotkey, coldkey, netuid);
         }

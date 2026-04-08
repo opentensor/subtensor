@@ -48,6 +48,7 @@ fn cancel_order_signer_can_cancel() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         let id = order_id(&order);
 
@@ -78,6 +79,7 @@ fn cancel_order_non_signer_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         // Bob tries to cancel Alice's order.
         assert_noop!(
@@ -102,6 +104,7 @@ fn cancel_order_already_cancelled_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         let id = order_id(&order);
         Orders::<Test>::insert(id, OrderStatus::Cancelled);
@@ -128,6 +131,7 @@ fn cancel_order_already_fulfilled_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         let id = order_id(&order);
         Orders::<Test>::insert(id, OrderStatus::Fulfilled);
@@ -154,6 +158,7 @@ fn cancel_order_unsigned_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         assert_noop!(
             LimitOrders::cancel_order(RuntimeOrigin::none(), order),
@@ -1205,7 +1210,7 @@ fn execute_batched_orders_fails_for_cancelled_order() {
                 netuid(),
                 bounded(vec![signed]),
             ),
-            Error::<Test>::OrderAlreadyProcessed
+            Error::<Test>::OrderCancelled
         );
 
         // Still cancelled, not changed to Fulfilled.
@@ -1738,11 +1743,13 @@ fn make_signed_order_with_slippage(
         fee_recipient,
         relayer: None,
         max_slippage,
+        partial_fills_enabled: false,
     });
     let sig = keyring.pair().sign(&order.encode());
     crate::SignedOrder {
         order,
         signature: sp_runtime::MultiSignature::Sr25519(sig),
+        partial_fill: None,
     }
 }
 
@@ -2050,27 +2057,45 @@ fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
         MockSwap::set_alpha_balance(dave(), alice(), netuid(), 200);
 
         let alice_order = make_signed_order_with_slippage(
-            AccountKeyring::Alice, dave(), netuid(),
-            OrderType::TakeProfit, 600, 1_000, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Alice,
+            dave(),
+            netuid(),
+            OrderType::TakeProfit,
+            600,
+            1_000,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             Some(Perbill::from_percent(3)),
         );
         let bob_order = make_signed_order_with_slippage(
-            AccountKeyring::Bob, dave(), netuid(),
-            OrderType::TakeProfit, 200, 1_000, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Bob,
+            dave(),
+            netuid(),
+            OrderType::TakeProfit,
+            200,
+            1_000,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             Some(Perbill::from_percent(1)),
         );
         let dave_stoploss = make_signed_order_with_slippage(
-            AccountKeyring::Dave, alice(), netuid(),
-            OrderType::StopLoss, 200, 5_000, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Dave,
+            alice(),
+            netuid(),
+            OrderType::StopLoss,
+            200,
+            5_000,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             None, // StopLoss: no slippage → floor=0, does not constrain pool
         );
 
         let alice_id = order_id(&alice_order.order);
-        let bob_id   = order_id(&bob_order.order);
-        let dave_id  = order_id(&dave_stoploss.order);
+        let bob_id = order_id(&bob_order.order);
+        let dave_id = order_id(&dave_stoploss.order);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie()),
@@ -2080,8 +2105,8 @@ fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
 
         // All three fulfilled.
         assert_eq!(Orders::<Test>::get(alice_id), Some(OrderStatus::Fulfilled));
-        assert_eq!(Orders::<Test>::get(bob_id),   Some(OrderStatus::Fulfilled));
-        assert_eq!(Orders::<Test>::get(dave_id),  Some(OrderStatus::Fulfilled));
+        assert_eq!(Orders::<Test>::get(bob_id), Some(OrderStatus::Fulfilled));
+        assert_eq!(Orders::<Test>::get(dave_id), Some(OrderStatus::Fulfilled));
 
         // Pool called once with the tightest TakeProfit floor (990), not 0 from StopLoss.
         assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990]);
@@ -2109,27 +2134,45 @@ fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
         MockSwap::set_alpha_balance(dave(), alice(), netuid(), 100);
 
         let alice_order = make_signed_order_with_slippage(
-            AccountKeyring::Alice, bob(), netuid(),
-            OrderType::LimitBuy, 600, 100, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            600,
+            100,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             Some(Perbill::from_percent(2)),
         );
         let bob_order = make_signed_order_with_slippage(
-            AccountKeyring::Bob, bob(), netuid(),
-            OrderType::LimitBuy, 400, 100, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Bob,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            400,
+            100,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             Some(Perbill::from_percent(1)),
         );
         let dave_stoploss = make_signed_order_with_slippage(
-            AccountKeyring::Dave, alice(), netuid(),
-            OrderType::StopLoss, 100, 5, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Dave,
+            alice(),
+            netuid(),
+            OrderType::StopLoss,
+            100,
+            5,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             None, // StopLoss: no slippage; settled at spot, never constrains pool ceiling
         );
 
         let alice_id = order_id(&alice_order.order);
-        let bob_id   = order_id(&bob_order.order);
-        let dave_id  = order_id(&dave_stoploss.order);
+        let bob_id = order_id(&bob_order.order);
+        let dave_id = order_id(&dave_stoploss.order);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie()),
@@ -2139,8 +2182,8 @@ fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
 
         // All three fulfilled.
         assert_eq!(Orders::<Test>::get(alice_id), Some(OrderStatus::Fulfilled));
-        assert_eq!(Orders::<Test>::get(bob_id),   Some(OrderStatus::Fulfilled));
-        assert_eq!(Orders::<Test>::get(dave_id),  Some(OrderStatus::Fulfilled));
+        assert_eq!(Orders::<Test>::get(bob_id), Some(OrderStatus::Fulfilled));
+        assert_eq!(Orders::<Test>::get(dave_id), Some(OrderStatus::Fulfilled));
 
         // Pool buy called with min(102, 101) = 101. StopLoss's floor (0) is ignored on buy side.
         assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![101]);
@@ -2165,9 +2208,15 @@ fn execute_batched_orders_stoploss_narrow_slippage_breaks_batch() {
         MockSwap::set_alpha_balance(dave(), alice(), netuid(), 200);
 
         let stoploss = make_signed_order_with_slippage(
-            AccountKeyring::Dave, alice(), netuid(),
-            OrderType::StopLoss, 200, 100, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Dave,
+            alice(),
+            netuid(),
+            OrderType::StopLoss,
+            200,
+            100,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             Some(Perbill::from_percent(1)), // floor=99, but market=50 → pool rejects
         );
 
@@ -2199,9 +2248,15 @@ fn execute_orders_stoploss_narrow_slippage_skips_order() {
         MockSwap::set_enforce_price_limit(true);
 
         let stoploss = make_signed_order_with_slippage(
-            AccountKeyring::Dave, alice(), netuid(),
-            OrderType::StopLoss, 200, 100, FAR_FUTURE,
-            Perbill::zero(), fee_recipient(),
+            AccountKeyring::Dave,
+            alice(),
+            netuid(),
+            OrderType::StopLoss,
+            200,
+            100,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
             Some(Perbill::from_percent(1)), // floor=99, but market=50 → pool rejects
         );
         let id = order_id(&stoploss.order);
@@ -2369,6 +2424,242 @@ fn execute_batched_orders_correct_relayer_succeeds() {
             bounded(vec![signed])
         ));
 
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Partial fills — execute_orders
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn execute_orders_partial_fill_sets_partially_filled_status() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        // Order for 1000 TAO; relayer is charlie (required for partial fills).
+        let signed = make_partial_fill_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            charlie(),
+            400, // fill 400 out of 1000
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed]),
+        ));
+
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(400)));
+    });
+}
+
+#[test]
+fn execute_orders_second_partial_fill_completes_order() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        let signed_first = make_partial_fill_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            charlie(),
+            600,
+        );
+        let id = order_id(&signed_first.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed_first.clone()]),
+        ));
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(600)));
+
+        // Re-submit the same signed order payload with a different partial_fill amount.
+        let mut signed_second = signed_first.clone();
+        signed_second.partial_fill = Some(400);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed_second]),
+        ));
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+    });
+}
+
+#[test]
+fn execute_orders_partial_fill_without_relayer_skipped() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        // Build an order with partial_fills_enabled but no relayer set.
+        let inner = crate::Order {
+            signer: alice(),
+            hotkey: bob(),
+            netuid: netuid(),
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: u64::MAX,
+            expiry: FAR_FUTURE,
+            fee_rate: Perbill::zero(),
+            fee_recipient: fee_recipient(),
+            relayer: None, // <-- no relayer
+            max_slippage: None,
+            partial_fills_enabled: true,
+        };
+        let versioned = VersionedOrder::V1(inner);
+        let sig = AccountKeyring::Alice.pair().sign(&versioned.encode());
+        let signed = crate::SignedOrder {
+            order: versioned,
+            signature: sp_runtime::MultiSignature::Sr25519(sig),
+            partial_fill: Some(400),
+        };
+        let id = order_id(&signed.order);
+
+        // The order is skipped (best-effort), not reverting the batch.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed]),
+        ));
+
+        // Nothing written to storage.
+        assert_eq!(Orders::<Test>::get(id), None);
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::RelayerRequiredForPartialFill.into(),
+        });
+    });
+}
+
+#[test]
+fn execute_orders_partial_fill_exceeding_remaining_is_skipped() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        // Pre-fill 700 of 1000.
+        let signed = make_partial_fill_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            charlie(),
+            700,
+        );
+        let id = order_id(&signed.order);
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed.clone()]),
+        ));
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(700)));
+
+        // Try to fill 500 more, but only 300 remain → should be skipped.
+        let mut over_fill = signed.clone();
+        over_fill.partial_fill = Some(500);
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![over_fill]),
+        ));
+
+        // Status unchanged.
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(700)));
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::IncorrectPartialFillAmount.into(),
+        });
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Partial fills — execute_batched_orders
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn execute_batched_orders_partial_fill_sets_partially_filled_status() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_buy_alpha_return(400);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        let signed = make_partial_fill_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            charlie(),
+            400,
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie()),
+            netuid(),
+            bounded(vec![signed]),
+        ));
+
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(400)));
+    });
+}
+
+#[test]
+fn execute_batched_orders_second_partial_fill_completes_order() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_buy_alpha_return(600);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        let signed_first = make_partial_fill_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            charlie(),
+            600,
+        );
+        let id = order_id(&signed_first.order);
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie()),
+            netuid(),
+            bounded(vec![signed_first.clone()]),
+        ));
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(600)));
+
+        let mut signed_second = signed_first.clone();
+        signed_second.partial_fill = Some(400);
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie()),
+            netuid(),
+            bounded(vec![signed_second]),
+        ));
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
     });
 }

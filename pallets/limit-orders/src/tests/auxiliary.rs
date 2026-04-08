@@ -417,6 +417,7 @@ fn validate_and_classify_stores_effective_swap_limit_for_buy() {
         let signed_with_slippage = crate::SignedOrder {
             order: versioned,
             signature: sp_runtime::MultiSignature::Sr25519(sig),
+            partial_fill: None,
         };
 
         let orders = bounded(vec![signed_with_slippage]);
@@ -451,12 +452,14 @@ fn validate_and_classify_stores_effective_swap_limit_for_sell() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: Some(Perbill::from_percent(1)),
+            partial_fills_enabled: false,
         };
         let versioned = crate::VersionedOrder::V1(new_inner);
         let sig = AccountKeyring::Alice.pair().sign(&versioned.encode());
         let signed = crate::SignedOrder {
             order: versioned,
             signature: sp_runtime::MultiSignature::Sr25519(sig),
+            partial_fill: None,
         };
 
         let orders = bounded(vec![signed]);
@@ -627,10 +630,12 @@ fn make_buy_entry(
         hotkey,
         side: OrderType::LimitBuy,
         gross,
+        order_amount: gross,
         net,
         fee_rate,
         fee_recipient,
         effective_swap_limit: u64::MAX, // no slippage constraint
+        partial_fill: None,
     }
 }
 
@@ -1390,12 +1395,14 @@ fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
         fee_recipient: fee_recipient(),
         relayer: None,
         max_slippage: None,
+        partial_fills_enabled: false,
     });
     let id = H256(sp_io::hashing::blake2_256(&order.encode()));
     let sig = keyring.pair().sign(&order.encode());
     let signed = crate::SignedOrder {
         order,
         signature: MultiSignature::Sr25519(sig),
+        partial_fill: None,
     };
     (signed, id)
 }
@@ -1483,6 +1490,7 @@ fn is_order_valid_expired_order_returns_error() {
         let signed2 = crate::SignedOrder {
             order,
             signature: MultiSignature::Sr25519(sig),
+            partial_fill: None,
         };
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
@@ -1511,17 +1519,90 @@ fn is_order_valid_price_condition_not_met_returns_error() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         let id = H256(sp_io::hashing::blake2_256(&order.encode()));
         let sig = keyring.pair().sign(&order.encode());
         let signed = crate::SignedOrder {
             order,
             signature: MultiSignature::Sr25519(sig),
+            partial_fill: None,
         };
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
             LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
             Error::<Test>::PriceConditionNotMet
         );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// compute_order_status
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn compute_order_status_no_partial_fill_returns_fulfilled() {
+    new_test_ext().execute_with(|| {
+        let id = H256::repeat_byte(1);
+        // No existing state, no partial fill → Fulfilled immediately.
+        let status = LimitOrders::<Test>::compute_order_status(id, None, 1_000);
+        assert_eq!(status, OrderStatus::Fulfilled);
+    });
+}
+
+#[test]
+fn compute_order_status_partial_fill_below_total_returns_partially_filled() {
+    new_test_ext().execute_with(|| {
+        let id = H256::repeat_byte(2);
+        // First partial fill of 400 on a 1000-unit order → PartiallyFilled(400).
+        let status = LimitOrders::<Test>::compute_order_status(id, Some(400), 1_000);
+        assert_eq!(status, OrderStatus::PartiallyFilled(400));
+    });
+}
+
+#[test]
+fn compute_order_status_partial_fill_exact_total_returns_fulfilled() {
+    new_test_ext().execute_with(|| {
+        let id = H256::repeat_byte(3);
+        // Single partial fill that equals the full order amount → Fulfilled.
+        let status = LimitOrders::<Test>::compute_order_status(id, Some(1_000), 1_000);
+        assert_eq!(status, OrderStatus::Fulfilled);
+    });
+}
+
+#[test]
+fn compute_order_status_accumulates_previous_partial_fill() {
+    new_test_ext().execute_with(|| {
+        let id = H256::repeat_byte(4);
+        // Pre-seed storage as if a prior partial fill of 300 already happened.
+        Orders::<Test>::insert(id, OrderStatus::PartiallyFilled(300));
+
+        // Second fill of 400 → 300 + 400 = 700, still below 1000.
+        let status = LimitOrders::<Test>::compute_order_status(id, Some(400), 1_000);
+        assert_eq!(status, OrderStatus::PartiallyFilled(700));
+    });
+}
+
+#[test]
+fn compute_order_status_completes_order_when_accumulated_total_reaches_amount() {
+    new_test_ext().execute_with(|| {
+        let id = H256::repeat_byte(5);
+        Orders::<Test>::insert(id, OrderStatus::PartiallyFilled(600));
+
+        // Fill the remaining 400 → 600 + 400 = 1000 = order_amount → Fulfilled.
+        let status = LimitOrders::<Test>::compute_order_status(id, Some(400), 1_000);
+        assert_eq!(status, OrderStatus::Fulfilled);
+    });
+}
+
+#[test]
+fn compute_order_status_ignores_fulfilled_storage_when_no_partial_fill() {
+    new_test_ext().execute_with(|| {
+        let id = H256::repeat_byte(6);
+        // If somehow called with no partial_fill regardless of what's in storage
+        // (should not happen in practice) it still returns Fulfilled.
+        Orders::<Test>::insert(id, OrderStatus::PartiallyFilled(500));
+        let status = LimitOrders::<Test>::compute_order_status(id, None, 1_000);
+        assert_eq!(status, OrderStatus::Fulfilled);
     });
 }
