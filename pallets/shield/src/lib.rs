@@ -29,8 +29,6 @@ use subtensor_macros::freeze_struct;
 
 pub use pallet::*;
 
-pub mod weights;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
