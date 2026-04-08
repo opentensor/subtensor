@@ -5,7 +5,7 @@ use super::mock;
 use super::mock::*;
 use approx::assert_abs_diff_eq;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use substrate_fixed::types::{I64F64, I96F32, U96F32};
+use substrate_fixed::types::{I64F64, I96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
@@ -3092,17 +3092,14 @@ fn test_parent_child_chain_emission() {
         // Set the weight of root TAO to be 0%, so only alpha is effective.
         SubtensorModule::set_tao_weight(0);
 
-        let emission = U96F32::from_num(
-            SubtensorModule::get_block_emission()
-                .unwrap_or(TaoBalance::ZERO)
-                .to_u64(),
-        );
+        let emission = SubtensorModule::get_block_emission();
 
         // Set pending emission to 0
         PendingValidatorEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
         PendingServerEmission::<Test>::insert(netuid, AlphaBalance::ZERO);
 
         // Run epoch with emission value
+        let emission_value = u64::from(emission.peek());
         SubtensorModule::run_coinbase(emission);
 
         // Log new stake
@@ -3169,8 +3166,8 @@ fn test_parent_child_chain_emission() {
 
         assert_abs_diff_eq!(
             total_stake_inc.to_num::<u64>(),
-            emission.to_num::<u64>(),
-            epsilon = emission.to_num::<u64>() / 1000,
+            emission_value,
+            epsilon = emission_value / 1000,
         );
     });
 }

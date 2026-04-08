@@ -16,6 +16,7 @@ use frame_support::{
     assert_ok, parameter_types,
     traits::{Hooks, PrivilegeCmp},
 };
+pub use frame_support::traits::Imbalance;
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;

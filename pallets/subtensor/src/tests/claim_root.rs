@@ -17,7 +17,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
+use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
@@ -806,8 +806,8 @@ fn test_claim_root_with_run_coinbase() {
                 .into();
         assert_eq!(initial_stake, 0u64);
 
-        let block_emissions = 1_000_000u64;
-        SubtensorModule::run_coinbase(U96F32::from(block_emissions));
+        let block_emissions = SubtensorModule::mint_tao(1_000_000u64.into());
+        SubtensorModule::run_coinbase(block_emissions);
 
         // Claim root alpha
 

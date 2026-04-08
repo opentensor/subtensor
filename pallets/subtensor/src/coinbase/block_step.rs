@@ -1,6 +1,6 @@
 use super::*;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{NetUid, TaoBalance};
+use subtensor_runtime_common::NetUid;
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -12,11 +12,7 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
         Self::update_registration_prices_for_networks();
 
         // --- 2. Get the current coinbase emission.
-        let block_emission: U96F32 = U96F32::saturating_from_num(
-            Self::get_block_emission()
-                .unwrap_or(TaoBalance::ZERO)
-                .to_u64(),
-        );
+        let block_emission = Self::get_block_emission();
         log::debug!("Block emission: {block_emission:?}");
 
         // --- 3. Reveal matured weights.

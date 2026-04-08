@@ -1,5 +1,7 @@
+use crate::coinbase::tao::CreditOf;
 use super::*;
 use alloc::collections::BTreeMap;
+use frame_support::traits::Imbalance;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
@@ -19,9 +21,10 @@ macro_rules! tou64 {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn run_coinbase(block_emission: U96F32) {
+    pub fn run_coinbase(block_emission_credit: CreditOf<T>) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
+        let block_emission = U96F32::saturating_from_num(block_emission_credit.peek());
         log::debug!(
             "Running coinbase for block {current_block:?} with block emission: {block_emission:?}"
         );
@@ -124,7 +127,7 @@ impl<T: Config> Pallet<T> {
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let tao_block_emission: U96F32 = U96F32::saturating_from_num(
-            Self::get_block_emission()
+            Self::calculate_block_emission()
                 .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );

@@ -572,7 +572,7 @@ impl<T: Config> Pallet<T> {
         let interval: I64F64 =
             I64F64::saturating_from_num(NetworkLockReductionInterval::<T>::get());
         let block_emission: I64F64 = I64F64::saturating_from_num(
-            Self::get_block_emission()
+            Self::calculate_block_emission()
                 .unwrap_or(1_000_000_000.into())
                 .to_u64(),
         );
