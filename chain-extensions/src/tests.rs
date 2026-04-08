@@ -1141,8 +1141,8 @@ fn recycle_alpha_clamps_to_available_when_amount_exceeds_stake() {
 
         let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
         assert_eq!(
-            returned_amount, huge_amount,
-            "should return requested amount"
+            returned_amount, alpha_before,
+            "should return actual clamped amount, not requested amount"
         );
 
         let alpha_after =
@@ -1242,8 +1242,8 @@ fn burn_alpha_clamps_to_available_when_amount_exceeds_stake() {
 
         let returned_amount = AlphaBalance::decode(&mut env.output()).unwrap();
         assert_eq!(
-            returned_amount, huge_amount,
-            "should return requested amount"
+            returned_amount, alpha_before,
+            "should return actual clamped amount, not requested amount"
         );
 
         let alpha_after =

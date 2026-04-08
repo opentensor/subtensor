@@ -536,7 +536,7 @@ where
 
                 let caller = env.caller();
 
-                let call_result = pallet_subtensor::Pallet::<T>::recycle_alpha(
+                let call_result = pallet_subtensor::Pallet::<T>::do_recycle_alpha(
                     RawOrigin::Signed(caller).into(),
                     hotkey,
                     amount,
@@ -544,8 +544,8 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => {
-                        env.write_output(&amount.encode())
+                    Ok(real_amount) => {
+                        env.write_output(&real_amount.encode())
                             .map_err(|_| DispatchError::Other("Failed to write output"))?;
                         Ok(RetVal::Converging(Output::Success as u32))
                     }
@@ -567,7 +567,7 @@ where
 
                 let caller = env.caller();
 
-                let call_result = pallet_subtensor::Pallet::<T>::burn_alpha(
+                let call_result = pallet_subtensor::Pallet::<T>::do_burn_alpha(
                     RawOrigin::Signed(caller).into(),
                     hotkey,
                     amount,
@@ -575,8 +575,8 @@ where
                 );
 
                 match call_result {
-                    Ok(_) => {
-                        env.write_output(&amount.encode())
+                    Ok(real_amount) => {
+                        env.write_output(&real_amount.encode())
                             .map_err(|_| DispatchError::Other("Failed to write output"))?;
                         Ok(RetVal::Converging(Output::Success as u32))
                     }
@@ -609,13 +609,13 @@ where
                         Err(e) => return TransactionOutcome::Rollback(Err(e)),
                     };
 
-                    match pallet_subtensor::Pallet::<T>::recycle_alpha(
+                    match pallet_subtensor::Pallet::<T>::do_recycle_alpha(
                         RawOrigin::Signed(caller).into(),
                         hotkey,
                         alpha,
                         netuid,
                     ) {
-                        Ok(_) => TransactionOutcome::Commit(Ok(alpha)),
+                        Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
                         Err(e) => TransactionOutcome::Rollback(Err(e)),
                     }
                 });
@@ -655,13 +655,13 @@ where
                         Err(e) => return TransactionOutcome::Rollback(Err(e)),
                     };
 
-                    match pallet_subtensor::Pallet::<T>::burn_alpha(
+                    match pallet_subtensor::Pallet::<T>::do_burn_alpha(
                         RawOrigin::Signed(caller).into(),
                         hotkey,
                         alpha,
                         netuid,
                     ) {
-                        Ok(_) => TransactionOutcome::Commit(Ok(alpha)),
+                        Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
                         Err(e) => TransactionOutcome::Rollback(Err(e)),
                     }
                 });

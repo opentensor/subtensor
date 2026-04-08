@@ -14,13 +14,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
-    pub(crate) fn do_recycle_alpha(
+    /// * `Result<AlphaBalance, DispatchError>` - The actual amount recycled, or error
+    pub fn do_recycle_alpha(
         origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
-    ) -> DispatchResult {
+    ) -> Result<AlphaBalance, DispatchError> {
         let coldkey: T::AccountId = ensure_signed(origin)?;
 
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -58,7 +58,7 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::AlphaRecycled(coldkey, hotkey, amount, netuid));
 
-        Ok(())
+        Ok(amount)
     }
 
     /// Burns alpha from a cold/hot key pair without reducing AlphaOut
@@ -72,13 +72,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
-    pub(crate) fn do_burn_alpha(
+    /// * `Result<AlphaBalance, DispatchError>` - The actual amount burned, or error
+    pub fn do_burn_alpha(
         origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
-    ) -> DispatchResult {
+    ) -> Result<AlphaBalance, DispatchError> {
         let coldkey = ensure_signed(origin)?;
 
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
         // Deposit event
         Self::deposit_event(Event::AlphaBurned(coldkey, hotkey, amount, netuid));
 
-        Ok(())
+        Ok(amount)
     }
     pub(crate) fn do_add_stake_burn(
         origin: OriginFor<T>,
