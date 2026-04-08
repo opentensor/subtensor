@@ -31,6 +31,7 @@ fn sign_order<T: crate::Config>(
     crate::SignedOrder {
         order: order.clone(),
         signature: MultiSignature::Sr25519(sig),
+        partial_fill: None,
     }
 }
 
@@ -70,6 +71,7 @@ mod benchmarks {
             fee_recipient: account.clone(),
             relayer: None,
             max_slippage: None,
+            partial_fills_enabled: false,
         });
         let signed = sign_order::<T>(public, &order);
 
@@ -116,6 +118,7 @@ mod benchmarks {
                 fee_recipient,
                 relayer: None,
                 max_slippage: None,
+                partial_fills_enabled: false,
             });
             orders.push(sign_order::<T>(public, &order));
         }
@@ -163,6 +166,7 @@ mod benchmarks {
                 fee_recipient,
                 relayer: None,
                 max_slippage: None,
+                partial_fills_enabled: false,
             });
             orders.push(sign_order::<T>(public, &order));
         }
