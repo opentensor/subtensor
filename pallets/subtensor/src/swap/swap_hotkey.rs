@@ -145,60 +145,6 @@ impl<T: Config> Pallet<T> {
         Ok(Some(weight).into())
     }
 
-    /// Early checks for [`Self::do_swap_hotkey`] (matches extrinsic failure modes; used by transaction extension).
-    pub fn validate_swap_hotkey_v2_signed(
-        coldkey: &T::AccountId,
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-        netuid: Option<NetUid>,
-    ) -> Result<(), Error<T>> {
-        ensure!(
-            Self::coldkey_owns_hotkey(coldkey, old_hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
-
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(coldkey), block),
-            Error::<T>::HotKeySetTxRateLimitExceeded
-        );
-
-        match netuid {
-            Some(netuid) => {
-                ensure!(
-                    !Self::is_hotkey_registered_on_specific_network(new_hotkey, netuid),
-                    Error::<T>::HotKeyAlreadyRegisteredInSubNet
-                );
-                let hotkey_swap_interval = T::HotkeySwapOnSubnetInterval::get();
-                let last_hotkey_swap_block = LastHotkeySwapOnNetuid::<T>::get(netuid, coldkey);
-                ensure!(
-                    last_hotkey_swap_block.saturating_add(hotkey_swap_interval) < block,
-                    Error::<T>::HotKeySwapOnSubnetIntervalNotPassed
-                );
-                let swap_cost = T::KeySwapOnSubnetCost::get();
-                ensure!(
-                    Self::can_remove_balance_from_coldkey_account(coldkey, swap_cost),
-                    Error::<T>::NotEnoughBalanceToPaySwapHotKey
-                );
-            }
-            None => {
-                ensure!(
-                    !Self::is_hotkey_registered_on_any_network(new_hotkey),
-                    Error::<T>::HotKeyAlreadyRegisteredInSubNet
-                );
-                let swap_cost = Self::get_key_swap_cost();
-                ensure!(
-                    Self::can_remove_balance_from_coldkey_account(coldkey, swap_cost.into()),
-                    Error::<T>::NotEnoughBalanceToPaySwapHotKey
-                );
-            }
-        }
-
-        Ok(())
-    }
-
     /// Performs the hotkey swap operation, transferring all associated data and state from the old hotkey to the new hotkey.
     ///
     /// This function executes a series of steps to ensure a complete transfer of all relevant information:
