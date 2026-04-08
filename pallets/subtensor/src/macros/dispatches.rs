@@ -2506,5 +2506,32 @@ mod dispatches {
         ) -> DispatchResult {
             Self::do_register_limit(origin, netuid, hotkey, limit_price)
         }
+
+        /// --- Allows a root validator to toggle auto parent delegation
+        /// for new subnets owner hotkey
+        #[pallet::call_index(135)]
+        #[pallet::weight((
+            Weight::from_parts(21_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(3_u64))
+                .saturating_add(T::DbWeight::get().writes(1_u64)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn set_auto_parent_delegation_enabled(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            let hotkey = ensure_signed(origin)?;
+
+            ensure!(
+                Self::is_hotkey_registered_on_network(NetUid::ROOT, &hotkey),
+                Error::<T>::HotKeyNotRegisteredInSubNet
+            );
+
+            AutoParentDelegationEnabled::<T>::insert(&hotkey, enabled);
+
+            Self::deposit_event(Event::AutoParentDelegationEnabledSet { hotkey, enabled });
+            Ok(())
+        }
     }
 }

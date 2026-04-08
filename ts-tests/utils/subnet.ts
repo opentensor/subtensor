@@ -64,3 +64,12 @@ export async function startCall(api: TypedApi<typeof subtensor>, netuid: number,
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
 }
+
+export async function rootRegister(
+    api: TypedApi<typeof subtensor>,
+    coldkey: KeyringPair,
+    hotkeyAddress: string
+): Promise<void> {
+    const tx = api.tx.SubtensorModule.root_register({ hotkey: hotkeyAddress });
+    await waitForTransactionWithRetry(api, tx, coldkey, "root_register");
+}
