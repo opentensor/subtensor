@@ -145,7 +145,7 @@
                     "endpoints": ["ws://127.0.0.1:9947"]
                 }
             ]
-        } ,{
+        }, {
             "name": "smoke_mainnet",
             "testFileDir": ["suites/smoke"],
             "foundation": {
