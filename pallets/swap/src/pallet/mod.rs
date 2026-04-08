@@ -71,6 +71,23 @@ mod pallet {
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+
+        /// Helper for setting up cross-pallet state needed by benchmarks.
+        #[cfg(feature = "runtime-benchmarks")]
+        type BenchmarkHelper: BenchmarkHelper<Self::AccountId>;
+    }
+
+    /// Benchmark setup helper — the runtime wires this to set state in other pallets.
+    #[cfg(feature = "runtime-benchmarks")]
+    pub trait BenchmarkHelper<AccountId> {
+        fn setup_subnet(netuid: NetUid);
+        fn register_hotkey(hotkey: &AccountId, coldkey: &AccountId);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl<AccountId> BenchmarkHelper<AccountId> for () {
+        fn setup_subnet(_netuid: NetUid) {}
+        fn register_hotkey(_hotkey: &AccountId, _coldkey: &AccountId) {}
     }
 
     /// Default fee rate if not set
@@ -606,7 +623,7 @@ mod pallet {
         ///
         /// Emits `Event::UserLiquidityToggled` on success
         #[pallet::call_index(5)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::modify_position())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::disable_lp())]
         pub fn disable_lp(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
 

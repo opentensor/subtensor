@@ -29,6 +29,8 @@ use subtensor_macros::freeze_struct;
 
 pub use pallet::*;
 
+pub mod weights;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -77,6 +79,7 @@ impl<RuntimeCall> ExtrinsicDecryptor<RuntimeCall> for () {
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
+    use crate::weights::WeightInfo;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
