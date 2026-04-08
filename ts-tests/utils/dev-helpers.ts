@@ -4,8 +4,8 @@
  */
 import type { ApiPromise } from "@polkadot/api";
 import { tao } from "./balance.ts";
-import { DevModeContext } from "@moonwall/cli";
-import { KeyringPair } from "@moonwall/util";
+import type { DevModeContext } from "@moonwall/cli";
+import type { KeyringPair } from "@moonwall/util";
 
 export async function devForceSetBalance(
     polkadotJs: ApiPromise,
