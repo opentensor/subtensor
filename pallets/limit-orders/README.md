@@ -71,6 +71,7 @@ encoding (`OrderId`) is persisted.
 | `expiry`        | `u64`       | Unix timestamp in milliseconds. Order must not execute after this time. |
 | `fee_rate`      | `Perbill`   | Per-order fee as a fraction of the input amount. `Perbill::zero()` = no fee. |
 | `fee_recipient` | `AccountId` | Account that receives the fee collected for this order. |
+| `relayer`       | `Option<AccountId>` | If `Some`, restricts execution to a single designated relayer account. Any attempt by a different account to execute this order is rejected with `RelayerMissMatch`. `None` = any relayer may execute. |
 
 ### `OrderType`
 
@@ -224,6 +225,7 @@ Registers a cancellation intent by writing the `OrderId` into `Orders` as
 | `RootNetUidNotAllowed` | The order or batch targets netuid 0 (root). Root uses a fixed 1:1 stable mechanism with no AMM — limit orders are not meaningful there. |
 | `Unauthorized` | Caller of `cancel_order` is not the order's `signer`. |
 | `SwapReturnedZero` | The pool swap returned zero output for a non-zero residual input. |
+| `RelayerMissMatch` | The caller is not the relayer designated in the order's `relayer` field. Only raised when the field is `Some`. |
 
 ---
 

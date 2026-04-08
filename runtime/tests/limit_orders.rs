@@ -59,6 +59,7 @@ fn make_signed_order(
         expiry,
         fee_rate,
         fee_recipient,
+        relayer: None,
     });
     let sig = keyring.pair().sign(&order.encode());
     SignedOrder {
@@ -89,6 +90,7 @@ fn cancel_order_works() {
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient,
+            relayer: None,
         });
         let id = order_id(&order);
 
@@ -121,6 +123,7 @@ fn execute_orders_ed25519_signature_rejected() {
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient,
+            relayer: None,
         });
         let id = order_id(&order);
 

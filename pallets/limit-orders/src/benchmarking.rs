@@ -68,6 +68,7 @@ mod benchmarks {
             expiry: 1_000_000_000,
             fee_rate: Perbill::zero(),
             fee_recipient: account.clone(),
+            relayer: None,
         });
         let signed = sign_order::<T>(public, &order);
 
@@ -112,6 +113,7 @@ mod benchmarks {
                 expiry: u64::MAX,
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
+                relayer: None,
             });
             orders.push(sign_order::<T>(public, &order));
         }
@@ -157,6 +159,7 @@ mod benchmarks {
                 expiry: u64::MAX,
                 fee_rate: Perbill::from_percent(1),
                 fee_recipient,
+                relayer: None,
             });
             orders.push(sign_order::<T>(public, &order));
         }

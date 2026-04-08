@@ -21,6 +21,7 @@ export interface OrderParams {
     expiry: bigint;
     feeRate: number; // Perbill (parts per billion), e.g. 10_000_000 = 1%
     feeRecipient: string;
+    relayer?: string | null; // Optional: if set, only this account may relay the order
 }
 
 export interface Order {
@@ -33,6 +34,7 @@ export interface Order {
     expiry: bigint;
     fee_rate: number;
     fee_recipient: string;
+    relayer: string | null;
 }
 
 export interface VersionedOrder {
@@ -68,6 +70,7 @@ export function buildSignedOrder(api: any, params: OrderParams): SignedOrder {
         expiry: params.expiry,
         fee_rate: params.feeRate,
         fee_recipient: params.feeRecipient,
+        relayer: params.relayer ?? null,
     };
 
     const versionedOrder: VersionedOrder = { V1: inner };
@@ -112,6 +115,7 @@ export function registerLimitOrderTypes(api: any): void {
             expiry: "u64",
             fee_rate: "u32", // Perbill
             fee_recipient: "AccountId",
+            relayer: "Option<AccountId>",
         },
         LimitVersionedOrder: {
             _enum: {

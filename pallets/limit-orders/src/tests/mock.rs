@@ -466,6 +466,7 @@ pub fn make_signed_order(
     expiry: u64,
     fee_rate: sp_runtime::Perbill,
     fee_recipient: AccountId,
+    relayer: Option<AccountId>,
 ) -> crate::SignedOrder<AccountId> {
     let signer = keyring.to_account_id();
     let order = crate::VersionedOrder::V1(crate::Order {
@@ -478,6 +479,7 @@ pub fn make_signed_order(
         expiry,
         fee_rate,
         fee_recipient,
+        relayer,
     });
     let sig = keyring.pair().sign(&order.encode());
     crate::SignedOrder {

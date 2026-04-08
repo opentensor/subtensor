@@ -91,6 +91,7 @@ fn validate_and_classify_separates_buys_and_sells() {
             2_000_000u64, // expiry ms
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let sell_order = make_signed_order(
             AccountKeyring::Bob,
@@ -102,6 +103,7 @@ fn validate_and_classify_separates_buys_and_sells() {
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         let orders = bounded(vec![buy_order, sell_order]);
@@ -110,6 +112,7 @@ fn validate_and_classify_separates_buys_and_sells() {
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
+            bob(),
         )
         .expect("validate_and_classify should succeed");
 
@@ -148,6 +151,7 @@ fn validate_and_classify_fails_for_wrong_netuid() {
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         let orders = bounded(vec![wrong_netuid_order]);
@@ -157,6 +161,7 @@ fn validate_and_classify_fails_for_wrong_netuid() {
                 &orders,
                 1_000_000u64,
                 U96F32::from_num(1u32),
+                bob()
             ),
             crate::Error::<Test>::OrderNetUidMismatch
         );
@@ -180,6 +185,7 @@ fn validate_and_classify_fails_for_expired_order() {
             2_000_000u64, // expiry already past
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         let orders = bounded(vec![expired]);
@@ -189,6 +195,7 @@ fn validate_and_classify_fails_for_expired_order() {
                 &orders,
                 2_000_001u64,
                 U96F32::from_num(1u32),
+                bob()
             ),
             crate::Error::<Test>::OrderExpired
         );
@@ -210,6 +217,7 @@ fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         let orders = bounded(vec![order]);
@@ -219,6 +227,7 @@ fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
                 &orders,
                 1_000_000u64,
                 U96F32::from_num(3u32), // current price = 3 > limit 2 → fails
+                bob()
             ),
             crate::Error::<Test>::PriceConditionNotMet
         );
@@ -240,6 +249,7 @@ fn validate_and_classify_fails_for_already_processed_order() {
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         // Pre-mark as fulfilled on-chain.
@@ -253,6 +263,7 @@ fn validate_and_classify_fails_for_already_processed_order() {
                 &orders,
                 1_000_000u64,
                 U96F32::from_num(1u32),
+                bob()
             ),
             crate::Error::<Test>::OrderAlreadyProcessed
         );
@@ -276,6 +287,7 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             2_000_000u64,
             Perbill::from_parts(1_000_000), // 0.1% fee
             fee_recipient(),
+            None,
         );
 
         let orders = bounded(vec![order]);
@@ -284,6 +296,7 @@ fn validate_and_classify_applies_buy_fee_to_net() {
             &orders,
             1_000_000u64,
             U96F32::from_num(1u32),
+            bob(),
         )
         .expect("validate_and_classify should succeed");
 
@@ -292,6 +305,79 @@ fn validate_and_classify_applies_buy_fee_to_net() {
         assert_eq!(entry.gross, 1_000_000_000u64);
         assert_eq!(entry.fee_rate, Perbill::from_parts(1_000_000));
         assert_eq!(entry.net, 999_000_000u64);
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validate_and_classify — relayer enforcement
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn validate_and_classify_fails_for_wrong_relayer() {
+    new_test_ext().execute_with(|| {
+        // Order explicitly locks execution to charlie(); submitting as bob() must fail.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        let order = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000u64,
+            u64::MAX,
+            2_000_000u64,
+            Perbill::zero(),
+            fee_recipient(),
+            Some(charlie()), // only charlie may relay this order
+        );
+
+        let orders = bounded(vec![order]);
+        assert_noop!(
+            LimitOrders::<Test>::validate_and_classify(
+                netuid(),
+                &orders,
+                1_000_000u64,
+                U96F32::from_num(1u32),
+                bob() // wrong relayer
+            ),
+            crate::Error::<Test>::RelayerMissMatch
+        );
+    });
+}
+
+#[test]
+fn validate_and_classify_succeeds_for_correct_relayer() {
+    new_test_ext().execute_with(|| {
+        // Same setup as above but now the correct relayer (charlie) is used.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        let order = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000u64,
+            u64::MAX,
+            2_000_000u64,
+            Perbill::zero(),
+            fee_recipient(),
+            Some(charlie()), // only charlie may relay this order
+        );
+
+        let orders = bounded(vec![order]);
+        let (buys, sells) = LimitOrders::<Test>::validate_and_classify(
+            netuid(),
+            &orders,
+            1_000_000u64,
+            U96F32::from_num(1u32),
+            charlie(), // correct relayer
+        )
+        .expect("validate_and_classify should succeed");
+
+        assert_eq!(buys.len(), 1, "expected 1 valid buy");
+        assert_eq!(sells.len(), 0);
     });
 }
 
@@ -1136,6 +1222,7 @@ fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
         expiry: u64::MAX,
         fee_rate: Perbill::zero(),
         fee_recipient: fee_recipient(),
+        relayer: None,
     });
     let id = H256(sp_io::hashing::blake2_256(&order.encode()));
     let sig = keyring.pair().sign(&order.encode());
@@ -1154,7 +1241,11 @@ fn is_order_valid_returns_ok_for_well_formed_order() {
         let (signed, id) = make_valid_signed_order();
         let price = MockSwap::current_alpha_price(netuid());
         assert_ok!(LimitOrders::<Test>::is_order_valid(
-            &signed, id, 1_000_000, price
+            &signed,
+            id,
+            1_000_000,
+            price,
+            &bob()
         ));
     });
 }
@@ -1170,7 +1261,7 @@ fn is_order_valid_invalid_signature_returns_error() {
         signed.signature = MultiSignature::Sr25519(wrong_sig);
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
-            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
             Error::<Test>::InvalidSignature
         );
     });
@@ -1187,7 +1278,7 @@ fn is_order_valid_non_sr25519_signature_returns_error() {
         signed.signature = MultiSignature::Ed25519(ed_sig);
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
-            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
             Error::<Test>::InvalidSignature
         );
     });
@@ -1202,7 +1293,7 @@ fn is_order_valid_already_processed_returns_error() {
         Orders::<Test>::insert(id, crate::OrderStatus::Fulfilled);
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
-            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
             Error::<Test>::OrderAlreadyProcessed
         );
     });
@@ -1228,7 +1319,7 @@ fn is_order_valid_expired_order_returns_error() {
         };
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
-            LimitOrders::<Test>::is_order_valid(&signed2, id2, 1_000_000, price),
+            LimitOrders::<Test>::is_order_valid(&signed2, id2, 1_000_000, price, &bob()),
             Error::<Test>::OrderExpired
         );
     });
@@ -1251,6 +1342,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
+            relayer: None,
         });
         let id = H256(sp_io::hashing::blake2_256(&order.encode()));
         let sig = keyring.pair().sign(&order.encode());
@@ -1260,7 +1352,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
         };
         let price = MockSwap::current_alpha_price(netuid());
         assert_noop!(
-            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price),
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
             Error::<Test>::PriceConditionNotMet
         );
     });

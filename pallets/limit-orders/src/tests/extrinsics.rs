@@ -44,6 +44,7 @@ fn cancel_order_signer_can_cancel() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
+            relayer: None,
         });
         let id = order_id(&order);
 
@@ -72,6 +73,7 @@ fn cancel_order_non_signer_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
+            relayer: None,
         });
         // Bob tries to cancel Alice's order.
         assert_noop!(
@@ -94,6 +96,7 @@ fn cancel_order_already_cancelled_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
+            relayer: None,
         });
         let id = order_id(&order);
         Orders::<Test>::insert(id, OrderStatus::Cancelled);
@@ -118,6 +121,7 @@ fn cancel_order_already_fulfilled_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
+            relayer: None,
         });
         let id = order_id(&order);
         Orders::<Test>::insert(id, OrderStatus::Fulfilled);
@@ -142,6 +146,7 @@ fn cancel_order_unsigned_rejected() {
             expiry: FAR_FUTURE,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
+            relayer: None,
         });
         assert_noop!(
             LimitOrders::cancel_order(RuntimeOrigin::none(), order),
@@ -170,6 +175,7 @@ fn execute_orders_buy_order_fulfilled() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
 
@@ -206,6 +212,7 @@ fn execute_orders_sell_order_fulfilled() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
 
@@ -242,6 +249,7 @@ fn execute_orders_stop_loss_order_fulfilled() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
 
@@ -277,6 +285,7 @@ fn execute_orders_stop_loss_price_not_met_skipped() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
 
@@ -308,6 +317,7 @@ fn execute_orders_expired_order_skipped() {
             2_000_000, // expiry in the past
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
 
@@ -340,6 +350,7 @@ fn execute_orders_price_not_met_skipped() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
 
@@ -371,6 +382,7 @@ fn execute_orders_already_processed_skipped() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
         Orders::<Test>::insert(id, OrderStatus::Fulfilled);
@@ -405,6 +417,7 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let expired = make_signed_order(
             AccountKeyring::Bob,
@@ -416,6 +429,7 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
             500_000, // already expired
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let valid_id = order_id(&valid.order);
         let expired_id = order_id(&expired.order);
@@ -460,6 +474,7 @@ fn execute_orders_buy_with_fee_charges_fee() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
         MockSwap::set_tao_balance(alice(), 1_000);
         assert_ok!(LimitOrders::execute_orders(
@@ -507,6 +522,7 @@ fn execute_orders_sell_with_fee_charges_fee() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
@@ -563,6 +579,7 @@ fn execute_orders_fee_transfer_failure_emits_event() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
 
         FAIL_FEE_TRANSFER.with(|f| *f.borrow_mut() = true);
@@ -613,6 +630,7 @@ mod execute_orders_skip_invalid {
                 2_000_000, // expiry in the past
                 Perbill::zero(),
                 fee_recipient(),
+                None,
             );
             let id = order_id(&signed.order);
 
@@ -649,6 +667,7 @@ mod execute_orders_skip_invalid {
                 FAR_FUTURE,
                 Perbill::zero(),
                 fee_recipient(),
+                None,
             );
             let id = order_id(&signed.order);
 
@@ -685,6 +704,7 @@ mod execute_orders_skip_invalid {
                 FAR_FUTURE,
                 Perbill::zero(),
                 fee_recipient(),
+                None,
             );
             let expired = make_signed_order(
                 AccountKeyring::Bob,
@@ -696,6 +716,7 @@ mod execute_orders_skip_invalid {
                 500_000, // already expired
                 Perbill::zero(),
                 fee_recipient(),
+                None,
             );
             let valid_id = order_id(&valid.order);
             let expired_id = order_id(&expired.order);
@@ -746,6 +767,7 @@ fn execute_batched_orders_all_invalid_fails() {
             1_000_000,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         assert_noop!(
             LimitOrders::execute_batched_orders(
@@ -776,6 +798,7 @@ fn execute_batched_orders_fails_for_wrong_netuid() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         assert_noop!(
@@ -808,6 +831,7 @@ fn execute_batched_orders_price_condition_not_met_fails_entire_batch() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         assert_noop!(
@@ -845,6 +869,7 @@ fn execute_batched_orders_buy_only_fulfills_orders_and_distributes_alpha() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let bob_order = make_signed_order(
             AccountKeyring::Bob,
@@ -856,6 +881,7 @@ fn execute_batched_orders_buy_only_fulfills_orders_and_distributes_alpha() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let alice_id = order_id(&alice_order.order);
         let bob_id = order_id(&bob_order.order);
@@ -910,6 +936,7 @@ fn execute_batched_orders_sell_only_fulfills_orders_and_distributes_tao() {
             FAR_FUTURE, // limit=0 → accept any price
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let bob_order = make_signed_order(
             AccountKeyring::Bob,
@@ -921,6 +948,7 @@ fn execute_batched_orders_sell_only_fulfills_orders_and_distributes_tao() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let alice_id = order_id(&alice_order.order);
         let bob_id = order_id(&bob_order.order);
@@ -980,6 +1008,7 @@ fn execute_batched_orders_buy_dominant_mixed() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let bob_buy = make_signed_order(
             AccountKeyring::Bob,
@@ -991,6 +1020,7 @@ fn execute_batched_orders_buy_dominant_mixed() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let charlie_sell = make_signed_order(
             AccountKeyring::Charlie,
@@ -1002,6 +1032,7 @@ fn execute_batched_orders_buy_dominant_mixed() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1056,6 +1087,7 @@ fn execute_batched_orders_sell_dominant_mixed() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let bob_sell = make_signed_order(
             AccountKeyring::Bob,
@@ -1067,6 +1099,7 @@ fn execute_batched_orders_sell_dominant_mixed() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let charlie_sell = make_signed_order(
             AccountKeyring::Charlie,
@@ -1078,6 +1111,7 @@ fn execute_batched_orders_sell_dominant_mixed() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1121,6 +1155,7 @@ fn execute_batched_orders_fee_forwarded_to_collector() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1152,6 +1187,7 @@ fn execute_batched_orders_fails_for_cancelled_order() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let id = order_id(&signed.order);
         Orders::<Test>::insert(id, OrderStatus::Cancelled);
@@ -1200,6 +1236,7 @@ fn execute_batched_orders_fees_charged_on_both_sides_when_matched_internally() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
         let bob_sell = make_signed_order(
             AccountKeyring::Bob,
@@ -1211,6 +1248,7 @@ fn execute_batched_orders_fees_charged_on_both_sides_when_matched_internally() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1249,6 +1287,7 @@ fn execute_batched_orders_buy_zero_alpha_returns_error() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         assert_noop!(
@@ -1281,6 +1320,7 @@ fn execute_batched_orders_sell_zero_tao_returns_error() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         assert_noop!(
@@ -1313,6 +1353,7 @@ fn execute_batched_orders_sell_alpha_respects_swap_fail() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         assert_noop!(
@@ -1354,6 +1395,7 @@ fn execute_batched_orders_fees_routed_to_different_recipients() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             charlie(),
+            None,
         );
         let bob_buy = make_signed_order(
             AccountKeyring::Bob,
@@ -1365,6 +1407,7 @@ fn execute_batched_orders_fees_routed_to_different_recipients() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             dave(),
+            None,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1404,6 +1447,7 @@ fn execute_batched_orders_fees_batched_for_shared_recipient() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             charlie(),
+            None,
         );
         let bob_buy = make_signed_order(
             AccountKeyring::Bob,
@@ -1415,6 +1459,7 @@ fn execute_batched_orders_fees_batched_for_shared_recipient() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             charlie(),
+            None,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1484,6 +1529,7 @@ fn execute_batched_orders_four_orders_two_fee_recipients() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             ferdie.clone(),
+            None,
         );
         let bob_buy = make_signed_order(
             AccountKeyring::Bob,
@@ -1495,6 +1541,7 @@ fn execute_batched_orders_four_orders_two_fee_recipients() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             ferdie.clone(),
+            None,
         );
         let charlie_sell = make_signed_order(
             AccountKeyring::Charlie,
@@ -1506,6 +1553,7 @@ fn execute_batched_orders_four_orders_two_fee_recipients() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
         let eve_sell = make_signed_order(
             AccountKeyring::Eve,
@@ -1517,6 +1565,7 @@ fn execute_batched_orders_four_orders_two_fee_recipients() {
             FAR_FUTURE,
             Perbill::from_parts(10_000_000), // 1%
             fee_recipient(),
+            None,
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1579,6 +1628,7 @@ fn execute_batched_orders_mixed_batch_does_not_rate_limit_pallet_intermediary() 
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
         let sell = make_signed_order(
             AccountKeyring::Bob,
@@ -1590,6 +1640,7 @@ fn execute_batched_orders_mixed_batch_does_not_rate_limit_pallet_intermediary() 
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         // Must succeed: collecting Bob's alpha must not rate-limit the pallet
@@ -1635,6 +1686,7 @@ fn root_disables_and_extrinsics_are_filtered() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
+            None,
         );
 
         // Must succeed: collecting Bob's alpha must not rate-limit the pallet
@@ -1647,6 +1699,149 @@ fn root_disables_and_extrinsics_are_filtered() {
             ),
             Error::<Test>::LimitOrdersDisabled
         );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// relayer enforcement
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn execute_orders_wrong_relayer_skipped() {
+    new_test_ext().execute_with(|| {
+        // Order locks execution to charlie(); submitting as bob() must be silently skipped.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            Some(charlie()), // only charlie may relay this order
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(bob()), // wrong relayer
+            bounded(vec![signed])
+        ));
+
+        // Order not stored — it was skipped.
+        assert!(Orders::<Test>::get(id).is_none());
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::RelayerMissMatch.into(),
+        });
+    });
+}
+
+#[test]
+fn execute_orders_correct_relayer_executed() {
+    new_test_ext().execute_with(|| {
+        // Same order submitted by the designated relayer (charlie) — must succeed.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            Some(charlie()), // charlie is the designated relayer
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()), // correct relayer
+            bounded(vec![signed])
+        ));
+
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+        assert_event(Event::OrderExecuted {
+            order_id: id,
+            signer: alice(),
+            netuid: netuid(),
+            order_type: OrderType::LimitBuy,
+            amount_in: 1_000,
+            amount_out: 0,
+        });
+    });
+}
+
+#[test]
+fn execute_batched_orders_wrong_relayer_fails_entire_batch() {
+    new_test_ext().execute_with(|| {
+        // In execute_batched_orders a relayer mismatch is a hard failure — the
+        // whole call is reverted, unlike the best-effort skip in execute_orders.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            Some(charlie()), // only charlie may relay this order
+        );
+
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(bob()), // wrong relayer
+                netuid(),
+                bounded(vec![signed])
+            ),
+            Error::<Test>::RelayerMissMatch
+        );
+    });
+}
+
+#[test]
+fn execute_batched_orders_correct_relayer_succeeds() {
+    new_test_ext().execute_with(|| {
+        // Same order submitted by the designated relayer — must execute and
+        // distribute alpha to the buyer.
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        MockSwap::set_buy_alpha_return(1_000);
+        MockSwap::set_tao_balance(alice(), 1_000);
+
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::LimitBuy,
+            1_000,
+            u64::MAX,
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            Some(charlie()), // charlie is the designated relayer
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_batched_orders(
+            RuntimeOrigin::signed(charlie()), // correct relayer
+            netuid(),
+            bounded(vec![signed])
+        ));
+
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
     });
 }
 

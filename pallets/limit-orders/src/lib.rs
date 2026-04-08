@@ -83,6 +83,8 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub fee_rate: Perbill,
     /// Account that receives the fee collected from this order.
     pub fee_recipient: AccountId,
+    /// Account that should relay the transactions
+    pub relayer: Option<AccountId>,
 }
 
 /// Versioned wrapper around an order payload.
@@ -293,6 +295,8 @@ pub mod pallet {
         OrderNetUidMismatch,
         /// Limit orders are disabled
         LimitOrdersDisabled,
+        /// Relayer not the same as specified in the order
+        RelayerMissMatch,
     }
 
     // ── Extrinsics ────────────────────────────────────────────────────────────
@@ -311,7 +315,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let relayer = ensure_signed(origin)?;
             ensure!(
                 LimitOrdersEnabled::<T>::get(),
                 Error::<T>::LimitOrdersDisabled
@@ -320,7 +324,7 @@ pub mod pallet {
             for signed_order in orders {
                 // Best-effort: individual order failures do not revert the batch.
                 let order_id = Self::derive_order_id(&signed_order.order);
-                if let Err(reason) = Self::try_execute_order(signed_order) {
+                if let Err(reason) = Self::try_execute_order(signed_order, &relayer) {
                     Self::deposit_event(Event::OrderSkipped { order_id, reason });
                 }
             }
@@ -357,13 +361,13 @@ pub mod pallet {
             netuid: NetUid,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let relayer = ensure_signed(origin)?;
             ensure!(
                 LimitOrdersEnabled::<T>::get(),
                 Error::<T>::LimitOrdersDisabled
             );
 
-            Self::do_execute_batched_orders(netuid, orders)
+            Self::do_execute_batched_orders(netuid, orders, relayer)
         }
 
         /// Register a cancellation intent for an order.
@@ -436,6 +440,7 @@ pub mod pallet {
             order_id: H256,
             now_ms: u64,
             current_price: U96F32,
+            relayer: &T::AccountId,
         ) -> DispatchResult {
             let order = signed_order.order.inner();
             ensure!(!order.netuid.is_root(), Error::<T>::RootNetUidNotAllowed);
@@ -460,20 +465,34 @@ pub mod pallet {
                 },
                 Error::<T>::PriceConditionNotMet
             );
+            if let Some(forced_relayer) = order.relayer.clone() {
+                ensure!(forced_relayer == *relayer, Error::<T>::RelayerMissMatch);
+            }
             Ok(())
         }
 
         /// Attempt to execute one signed order. Returns an error on any
         /// validation or execution failure without panicking.
-        fn try_execute_order(signed_order: SignedOrder<T::AccountId>) -> DispatchResult {
+        fn try_execute_order(
+            signed_order: SignedOrder<T::AccountId>,
+            relayer: &T::AccountId,
+        ) -> DispatchResult {
             let order_id = Self::derive_order_id(&signed_order.order);
             let order = signed_order.order.inner();
             let now_ms = T::TimeProvider::now().as_millis() as u64;
             let current_price = T::SwapInterface::current_alpha_price(order.netuid);
 
-            Self::is_order_valid(&signed_order, order_id, now_ms, current_price)?;
+            Self::is_order_valid(&signed_order, order_id, now_ms, current_price, relayer)?;
 
-            // 5. Execute the swap, taking the order's fee from the input (buys) or output (sells).
+            // Execute the swap, taking the order's fee from the input (buys) or output (sells).
+            //
+            // NOTE: `order.limit_price` is intentionally used only as a trigger threshold
+            // in `is_order_valid` above, not as slippage protection for the swap.  The
+            // V3 swap interprets `price_limit` in different units (price × 1e9 → sqrt),
+            // so passing `order.limit_price` directly into `buy_alpha` / `sell_alpha`
+            // does not produce a meaningful price floor/ceiling.  Slippage protection
+            // is a known future improvement; for now the order executes at market once
+            // the trigger condition is satisfied.
             let (amount_in, amount_out) = if order.order_type.is_buy() {
                 let tao_in = TaoBalance::from(order.amount);
                 // Deduct fee from TAO input before swapping.
@@ -491,7 +510,9 @@ pub mod pallet {
 
                 // Forward the fee TAO to the order's fee recipient.
                 if !fee_tao.is_zero() {
-                    if let Err(reason) = T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao) {
+                    if let Err(reason) =
+                        T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
+                    {
                         Self::deposit_event(Event::FeeTransferFailed {
                             recipient: order.fee_recipient.clone(),
                             amount: fee_tao.to_u64(),
@@ -514,7 +535,9 @@ pub mod pallet {
                 // Deduct fee from TAO output and forward to the order's fee recipient.
                 let fee_tao = TaoBalance::from(order.fee_rate * tao_out.to_u64());
                 if !fee_tao.is_zero() {
-                    if let Err(reason) = T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao) {
+                    if let Err(reason) =
+                        T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
+                    {
                         Self::deposit_event(Event::FeeTransferFailed {
                             recipient: order.fee_recipient.clone(),
                             amount: fee_tao.to_u64(),
@@ -543,6 +566,7 @@ pub mod pallet {
         fn do_execute_batched_orders(
             netuid: NetUid,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
+            relayer: T::AccountId,
         ) -> DispatchResult {
             ensure!(!netuid.is_root(), Error::<T>::RootNetUidNotAllowed);
 
@@ -551,7 +575,7 @@ pub mod pallet {
 
             // Validate all orders; any invalid order causes the entire batch to fail.
             let (valid_buys, valid_sells) =
-                Self::validate_and_classify(netuid, &orders, now_ms, current_price)?;
+                Self::validate_and_classify(netuid, &orders, now_ms, current_price, relayer)?;
 
             let executed_count = (valid_buys.len() + valid_sells.len()) as u32;
             if executed_count == 0 {
@@ -643,6 +667,7 @@ pub mod pallet {
             orders: &BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
             now_ms: u64,
             current_price: U96F32,
+            relayer: T::AccountId,
         ) -> Result<
             (
                 BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
@@ -661,7 +686,7 @@ pub mod pallet {
                 ensure!(order.netuid == netuid, Error::<T>::OrderNetUidMismatch);
 
                 // Hard-fail on any per-order validation error (signature, expiry, price, root).
-                Self::is_order_valid(signed_order, order_id, now_ms, current_price)?;
+                Self::is_order_valid(signed_order, order_id, now_ms, current_price, &relayer)?;
 
                 let net = if order.order_type.is_buy() {
                     // Buy: fee on TAO input — net is the amount that reaches the pool.
