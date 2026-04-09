@@ -38,7 +38,7 @@ pub use metagraph::MetagraphPrecompile;
 pub use neuron::NeuronPrecompile;
 pub use proxy::ProxyPrecompile;
 pub use sr25519::Sr25519Verify;
-pub use staking::{StakingPrecompile, StakingPrecompileV2};
+pub use staking::{StakingPrecompile, StakingPrecompileV2, purge_netuid_allowances};
 pub use storage_query::StorageQueryPrecompile;
 pub use subnet::SubnetPrecompile;
 pub use uid_lookup::UidLookupPrecompile;
@@ -282,6 +282,16 @@ where
             is_precompile: Self::used_addresses().contains(&address),
             extra_cost: 0,
         }
+    }
+}
+
+/// Implementation of [`pallet_subtensor::PrecompileCleanupInterface`] that cleans up
+/// EVM precompile storage (e.g. staking allowances) when a subnet is deregistered.
+pub struct PrecompileCleanup;
+
+impl pallet_subtensor::PrecompileCleanupInterface for PrecompileCleanup {
+    fn purge_netuid(netuid: subtensor_runtime_common::NetUid) {
+        purge_netuid_allowances(netuid.into());
     }
 }
 
