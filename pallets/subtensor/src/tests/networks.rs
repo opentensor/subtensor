@@ -2632,3 +2632,76 @@ fn register_network_non_associated_hotkey_does_not_withdraw_or_write_owner_alpha
         );
     });
 }
+
+#[test]
+fn dissolve_network_clears_root_alpha_dividends() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+        let net = add_dynamic_network(&hot, &cold);
+
+        // Insert some root alpha dividend data for this subnet.
+        RootAlphaDividendsPerSubnet::<Test>::insert(net, hot, AlphaBalance::from(1000));
+        assert!(RootAlphaDividendsPerSubnet::<Test>::contains_key(net, hot));
+
+        // Dissolve the network.
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // RootAlphaDividendsPerSubnet should be cleared.
+        assert!(
+            !RootAlphaDividendsPerSubnet::<Test>::contains_key(net, hot),
+            "RootAlphaDividendsPerSubnet not cleaned up after network removal"
+        );
+    });
+}
+
+#[test]
+fn dissolve_network_clears_voting_power() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+        let net = add_dynamic_network(&hot, &cold);
+
+        // Insert voting power for a validator on this subnet.
+        VotingPower::<Test>::insert(net, hot, 9999u64);
+        assert!(VotingPower::<Test>::contains_key(net, hot));
+
+        // Dissolve the network.
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        assert!(
+            !VotingPower::<Test>::contains_key(net, hot),
+            "VotingPower not cleaned up after network removal"
+        );
+    });
+}
+
+#[test]
+fn dissolve_network_clears_root_claimed() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+        let net = add_dynamic_network(&hot, &cold);
+
+        // Simulate a recorded root claim for this subnet.
+        RootClaimed::<Test>::insert((net, hot, cold), 500u128);
+        assert!(RootClaimed::<Test>::contains_key((net, hot, cold)));
+
+        // Dissolve the network.
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        assert!(
+            !RootClaimed::<Test>::contains_key((net, hot, cold)),
+            "RootClaimed not cleaned up after network removal"
+        );
+    });
+}
