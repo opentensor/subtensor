@@ -47,6 +47,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         type Scheme: Get<VotingSchemeOf<Self>>;
+
         type Polls: Polls<Self::AccountId, Tally = Tally>;
 
         type MaxVotesToClear: Get<u32>;
@@ -104,39 +105,10 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             ensure!(T::Polls::is_ongoing(poll_index), Error::<T>::PollNotOngoing);
-
             Self::ensure_valid_voting_scheme(poll_index)?;
             Self::ensure_part_of_voter_set(poll_index, &who)?;
 
-            let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
-
-            VotingFor::<T>::try_mutate(&poll_index, &who, |vote| -> DispatchResult {
-                match vote {
-                    Some(vote) => match (vote, approve) {
-                        (true, false) => {
-                            tally.ayes.saturating_dec();
-                            tally.nays.saturating_inc();
-                        }
-                        (false, true) => {
-                            tally.nays.saturating_dec();
-                            tally.ayes.saturating_inc();
-                        }
-                        _ => return Err(Error::<T>::DuplicateVote.into()),
-                    },
-                    None => {
-                        if approve {
-                            tally.ayes.saturating_inc();
-                        } else {
-                            tally.nays.saturating_inc();
-                        }
-                    }
-                }
-                *vote = Some(approve);
-                Ok(())
-            })?;
-
-            TallyOf::<T>::insert(poll_index, tally.clone());
-            T::Polls::on_tally_updated(poll_index, tally.clone());
+            let tally = Self::try_vote(poll_index, &who, approve)?;
 
             Self::deposit_event(Event::<T>::Voted {
                 who,
@@ -152,29 +124,10 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
 
             ensure!(T::Polls::is_ongoing(poll_index), Error::<T>::PollNotOngoing);
-
             Self::ensure_valid_voting_scheme(poll_index)?;
             Self::ensure_part_of_voter_set(poll_index, &who)?;
 
-            let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
-
-            VotingFor::<T>::try_mutate_exists(&poll_index, &who, |vote| -> DispatchResult {
-                match vote {
-                    Some(vote) => {
-                        if *vote {
-                            tally.ayes.saturating_dec();
-                        } else {
-                            tally.nays.saturating_dec();
-                        }
-                    }
-                    None => return Err(Error::<T>::VoteNotFound.into()),
-                }
-                *vote = None;
-                Ok(())
-            })?;
-
-            TallyOf::<T>::insert(poll_index, tally.clone());
-            T::Polls::on_tally_updated(poll_index, tally.clone());
+            let tally = Self::try_remove_vote(poll_index, &who)?;
 
             Self::deposit_event(Event::<T>::VoteRemoved {
                 who,
@@ -187,6 +140,71 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    fn try_vote(
+        poll_index: PollIndexOf<T>,
+        who: &T::AccountId,
+        approve: bool,
+    ) -> Result<Tally, DispatchError> {
+        let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
+
+        VotingFor::<T>::try_mutate(&poll_index, &who, |vote| -> DispatchResult {
+            match vote {
+                Some(vote) => match (vote, approve) {
+                    (true, false) => {
+                        tally.ayes.saturating_dec();
+                        tally.nays.saturating_inc();
+                    }
+                    (false, true) => {
+                        tally.nays.saturating_dec();
+                        tally.ayes.saturating_inc();
+                    }
+                    _ => return Err(Error::<T>::DuplicateVote.into()),
+                },
+                None => {
+                    if approve {
+                        tally.ayes.saturating_inc();
+                    } else {
+                        tally.nays.saturating_inc();
+                    }
+                }
+            }
+            *vote = Some(approve);
+            Ok(())
+        })?;
+
+        TallyOf::<T>::insert(poll_index, tally.clone());
+        T::Polls::on_tally_updated(poll_index, tally.clone());
+
+        Ok(tally)
+    }
+
+    fn try_remove_vote(
+        poll_index: PollIndexOf<T>,
+        who: &T::AccountId,
+    ) -> Result<Tally, DispatchError> {
+        let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
+
+        VotingFor::<T>::try_mutate_exists(&poll_index, &who, |vote| -> DispatchResult {
+            match vote {
+                Some(vote) => {
+                    if *vote {
+                        tally.ayes.saturating_dec();
+                    } else {
+                        tally.nays.saturating_dec();
+                    }
+                }
+                None => return Err(Error::<T>::VoteNotFound.into()),
+            }
+            *vote = None;
+            Ok(())
+        })?;
+
+        TallyOf::<T>::insert(poll_index, tally.clone());
+        T::Polls::on_tally_updated(poll_index, tally.clone());
+
+        Ok(tally)
+    }
+
     fn ensure_valid_voting_scheme(poll_index: PollIndexOf<T>) -> DispatchResult {
         let scheme = T::Polls::voting_scheme_of(poll_index).ok_or(Error::<T>::PollNotFound)?;
         ensure!(T::Scheme::get() == scheme, Error::<T>::InvalidVotingScheme);
