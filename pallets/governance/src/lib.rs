@@ -20,7 +20,9 @@ pub use pallet::*;
 use sp_runtime::{
     FixedU128, Percent, Saturating,
     traits::{Hash, SaturatedConversion, UniqueSaturatedInto},
-    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
+    transaction_validity::{
+        InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
+    },
 };
 use sp_std::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use subtensor_macros::freeze_struct;
@@ -238,18 +240,18 @@ pub mod pallet {
 
     /// Collectives votes for a given proposal, if it is scheduled.
     #[pallet::storage]
-    pub type CollectiveVoting<T: Config> = StorageMap<
-        _,
-        Identity,
-        T::Hash,
-        CollectiveVotes<BlockNumberFor<T>>,
-        OptionQuery,
-    >;
+    pub type CollectiveVoting<T: Config> =
+        StorageMap<_, Identity, T::Hash, CollectiveVotes<BlockNumberFor<T>>, OptionQuery>;
 
     /// Frozen ring of collective AccountId bytes snapshotted when a proposal enters collective voting.
     #[pallet::storage]
-    pub type ProposalRing<T: Config> =
-        StorageMap<_, Identity, T::Hash, BoundedVec<[u8; 32], ConstU32<TOTAL_COLLECTIVES_SIZE>>, OptionQuery>;
+    pub type ProposalRing<T: Config> = StorageMap<
+        _,
+        Identity,
+        T::Hash,
+        BoundedVec<[u8; 32], ConstU32<TOTAL_COLLECTIVES_SIZE>>,
+        OptionQuery,
+    >;
 
     /// Anonymous votes keyed by (ProposalHash, KeyImage). Value is vote direction.
     #[pallet::storage]
@@ -258,13 +260,11 @@ pub mod pallet {
 
     /// Count of anonymous aye votes per proposal.
     #[pallet::storage]
-    pub type AnonymousAyeCount<T: Config> =
-        StorageMap<_, Identity, T::Hash, u32, ValueQuery>;
+    pub type AnonymousAyeCount<T: Config> = StorageMap<_, Identity, T::Hash, u32, ValueQuery>;
 
     /// Count of anonymous nay votes per proposal.
     #[pallet::storage]
-    pub type AnonymousNayCount<T: Config> =
-        StorageMap<_, Identity, T::Hash, u32, ValueQuery>;
+    pub type AnonymousNayCount<T: Config> = StorageMap<_, Identity, T::Hash, u32, ValueQuery>;
 
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
@@ -763,12 +763,15 @@ pub mod pallet {
                 Error::<T>::ProposalNotScheduled
             );
 
-            let voting = CollectiveVoting::<T>::get(proposal_hash)
-                .ok_or(Error::<T>::VotingPeriodEnded)?;
-            ensure!(voting.index == proposal_index, Error::<T>::WrongProposalIndex);
+            let voting =
+                CollectiveVoting::<T>::get(proposal_hash).ok_or(Error::<T>::VotingPeriodEnded)?;
+            ensure!(
+                voting.index == proposal_index,
+                Error::<T>::WrongProposalIndex
+            );
 
-            let ring = ProposalRing::<T>::get(proposal_hash)
-                .ok_or(Error::<T>::NoRingForProposal)?;
+            let ring =
+                ProposalRing::<T>::get(proposal_hash).ok_or(Error::<T>::NoRingForProposal)?;
 
             // Message = proposal_hash only (not vote direction, so voters can change vote)
             let message = proposal_hash.as_ref();
