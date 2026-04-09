@@ -41,7 +41,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
-use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
+use pallet_subtensor::{CommitmentsInterface, PrecompileCleanupInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_swap_runtime_api::{SimSwapResult, SubnetPrice};
 use pallet_subtensor_utility as pallet_utility;
@@ -878,6 +878,13 @@ impl CommitmentsInterface for CommitmentsI {
     }
 }
 
+pub struct PrecompileCleanupI;
+impl PrecompileCleanupInterface for PrecompileCleanupI {
+    fn purge_netuid(netuid: NetUid) {
+        subtensor_precompiles::staking::purge_netuid_allowances(<u16 as From<NetUid>>::from(netuid));
+    }
+}
+
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
@@ -1199,6 +1206,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type PrecompileCleanupInterface = PrecompileCleanupI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;

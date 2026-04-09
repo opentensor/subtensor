@@ -218,6 +218,7 @@ impl<T: Config> Pallet<T> {
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
+        T::PrecompileCleanupInterface::purge_netuid(netuid);
 
         // --- Remove the network
         Self::remove_network(netuid);

@@ -55,7 +55,7 @@ mod metagraph;
 mod neuron;
 mod proxy;
 mod sr25519;
-mod staking;
+pub mod staking;
 mod storage_query;
 mod subnet;
 mod uid_lookup;

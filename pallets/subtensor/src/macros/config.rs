@@ -6,7 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
-    use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
+    use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha, PrecompileCleanupInterface};
     use pallet_commitments::GetCommitments;
     use subtensor_runtime_common::AuthorshipInfo;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
@@ -59,6 +59,9 @@ mod config {
 
         ///  Interface to clean commitments on network dissolution.
         type CommitmentsInterface: CommitmentsInterface;
+
+        /// Interface to clean EVM precompile storage on network dissolution.
+        type PrecompileCleanupInterface: PrecompileCleanupInterface;
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;
