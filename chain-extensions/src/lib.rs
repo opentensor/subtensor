@@ -99,6 +99,7 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
+        // weight for remove_stake is not defined in the Subtensor pallet's WeightInfo
         let weight = Weight::from_parts(196_800_000, 0)
             .saturating_add(T::DbWeight::get().reads(19))
             .saturating_add(T::DbWeight::get().writes(10));
