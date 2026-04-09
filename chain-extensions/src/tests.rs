@@ -8,6 +8,7 @@ use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::RetVal;
 use pallet_subtensor::DefaultMinStake;
+use pallet_subtensor::weights::WeightInfo as SubtensorWeightInfo;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::DispatchError;
@@ -46,9 +47,7 @@ fn set_coldkey_auto_stake_hotkey_success_sets_destination() {
             None
         );
 
-        let expected_weight = Weight::from_parts(29_930_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(4))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(2));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::set_coldkey_auto_stake_hotkey();
 
         let mut env = MockEnv::new(
             FunctionId::SetColdkeyAutoStakeHotkeyV1,
@@ -103,9 +102,7 @@ fn remove_stake_full_limit_success_with_limit_price() {
 
         mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
-        let expected_weight = Weight::from_parts(395_300_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(14));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
 
         let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
@@ -181,9 +178,7 @@ fn swap_stake_limit_with_tight_price_returns_slippage_error() {
         let alpha_to_swap: AlphaBalance = (alpha_origin_before.to_u64() / 8).into();
         let limit_price: TaoBalance = 100u64.into();
 
-        let expected_weight = Weight::from_parts(411_500_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(35))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(22));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake_limit();
 
         let mut env = MockEnv::new(
             FunctionId::SwapStakeLimitV1,
@@ -256,9 +251,7 @@ fn remove_stake_limit_success_respects_price_limit() {
 
         let alpha_to_unstake: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
-        let expected_weight = Weight::from_parts(377_400_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(14));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit();
 
         let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
@@ -315,9 +308,7 @@ fn add_stake_limit_success_executes_within_price_guard() {
             );
         let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
-        let expected_weight = Weight::from_parts(402_900_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(24))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(15));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_limit();
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeLimitV1,
@@ -403,9 +394,7 @@ fn swap_stake_success_moves_between_subnets() {
             );
         let alpha_to_swap: AlphaBalance = (alpha_origin_before.to_u64() / 3).into();
 
-        let expected_weight = Weight::from_parts(351_300_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(35))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(22));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake();
 
         let mut env = MockEnv::new(
             FunctionId::SwapStakeV1,
@@ -478,9 +467,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
             );
         let alpha_to_transfer: AlphaBalance = (alpha_before.to_u64() / 3).into();
 
-        let expected_weight = Weight::from_parts(160_300_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(13))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(6));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake();
 
         let mut env = MockEnv::new(
             FunctionId::TransferStakeV1,
@@ -562,9 +549,7 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
             );
         let alpha_to_move: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
-        let expected_weight = Weight::from_parts(164_300_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(15))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(7));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake();
 
         let mut env = MockEnv::new(
             FunctionId::MoveStakeV1,
@@ -634,9 +619,7 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
 
         mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
-        let expected_weight = Weight::from_parts(358_500_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(36))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(21));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all_alpha();
 
         let mut env = MockEnv::new(FunctionId::UnstakeAllAlphaV1, coldkey, hotkey.encode())
             .with_expected_weight(expected_weight);
@@ -855,9 +838,7 @@ fn add_stake_success_updates_stake_and_returns_success_code() {
             pallet_subtensor::Pallet::<mock::Test>::get_total_stake_for_hotkey(&hotkey).is_zero()
         );
 
-        let expected_weight = Weight::from_parts(340_800_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(24))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(15));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeV1,
@@ -890,9 +871,7 @@ fn remove_stake_with_no_stake_returns_amount_too_low() {
         let min_stake = DefaultMinStake::<mock::Test>::get();
         let amount: AlphaBalance = AlphaBalance::from(min_stake.to_u64());
 
-        let expected_weight = Weight::from_parts(196_800_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(19))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(10));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake();
 
         let mut env = MockEnv::new(
             FunctionId::RemoveStakeV1,
@@ -948,9 +927,7 @@ fn unstake_all_success_unstakes_balance() {
 
         mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
-        let expected_weight = Weight::from_parts(28_830_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(6))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(0));
+        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all();
 
         let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
@@ -1040,9 +1017,7 @@ mod caller_dispatch_tests {
                 amount_raw.into(),
             );
 
-            let expected_weight = Weight::from_parts(340_800_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(24))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(15));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerAddStakeV1,
@@ -1074,9 +1049,7 @@ mod caller_dispatch_tests {
             let min_stake = DefaultMinStake::<mock::Test>::get();
             let amount: AlphaBalance = AlphaBalance::from(min_stake.to_u64());
 
-            let expected_weight = Weight::from_parts(196_800_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(19))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(10));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerRemoveStakeV1,
@@ -1128,9 +1101,7 @@ mod caller_dispatch_tests {
 
             mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
-            let expected_weight = Weight::from_parts(28_830_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(6))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(0));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all();
 
             let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
@@ -1184,9 +1155,7 @@ mod caller_dispatch_tests {
 
             mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
-            let expected_weight = Weight::from_parts(358_500_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(36))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(21));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all_alpha();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerUnstakeAllAlphaV1,
@@ -1258,9 +1227,7 @@ mod caller_dispatch_tests {
                 );
             let alpha_to_move: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
-            let expected_weight = Weight::from_parts(164_300_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(15))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(7));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerMoveStakeV1,
@@ -1340,9 +1307,7 @@ mod caller_dispatch_tests {
                 );
             let alpha_to_transfer: AlphaBalance = (alpha_before.to_u64() / 3).into();
 
-            let expected_weight = Weight::from_parts(160_300_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(13))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(6));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerTransferStakeV1,
@@ -1433,9 +1398,7 @@ mod caller_dispatch_tests {
                 );
             let alpha_to_swap: AlphaBalance = (alpha_origin_before.to_u64() / 3).into();
 
-            let expected_weight = Weight::from_parts(351_300_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(35))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(22));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerSwapStakeV1,
@@ -1493,9 +1456,7 @@ mod caller_dispatch_tests {
             let balance_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
 
-            let expected_weight = Weight::from_parts(402_900_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(24))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(15));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_limit();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerAddStakeLimitV1,
@@ -1573,9 +1534,7 @@ mod caller_dispatch_tests {
 
             let alpha_to_unstake: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
-            let expected_weight = Weight::from_parts(377_400_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(14));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit();
 
             let balance_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
@@ -1653,9 +1612,7 @@ mod caller_dispatch_tests {
             let alpha_to_swap: AlphaBalance = (alpha_origin_before.to_u64() / 8).into();
             let limit_price: TaoBalance = 100u64.into();
 
-            let expected_weight = Weight::from_parts(411_500_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(35))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(22));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake_limit();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerSwapStakeLimitV1,
@@ -1713,9 +1670,7 @@ mod caller_dispatch_tests {
 
             mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
-            let expected_weight = Weight::from_parts(395_300_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(28))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(14));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
 
             let balance_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
@@ -1762,9 +1717,7 @@ mod caller_dispatch_tests {
                 None
             );
 
-            let expected_weight = Weight::from_parts(29_930_000, 0)
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(4))
-                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(2));
+            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::set_coldkey_auto_stake_hotkey();
 
             let mut env = MockEnv::new(
                 FunctionId::CallerSetColdkeyAutoStakeHotkeyV1,
