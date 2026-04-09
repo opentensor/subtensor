@@ -14,6 +14,7 @@ use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
     BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
 };
+use pallet_subtensor::weights::WeightInfo as SubtensorWeightInfo;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
@@ -69,9 +70,8 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(340_800_000, 0)
-            .saturating_add(T::DbWeight::get().reads(24_u64))
-            .saturating_add(T::DbWeight::get().writes(15));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
 
         env.charge_weight(weight)?;
 
@@ -133,9 +133,8 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(28_830_000, 0)
-            .saturating_add(T::DbWeight::get().reads(6))
-            .saturating_add(T::DbWeight::get().writes(0));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all();
 
         env.charge_weight(weight)?;
 
@@ -162,9 +161,9 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(358_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(36_u64))
-            .saturating_add(T::DbWeight::get().writes(21_u64));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all_alpha(
+            );
 
         env.charge_weight(weight)?;
 
@@ -191,9 +190,8 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(164_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(15_u64))
-            .saturating_add(T::DbWeight::get().writes(7_u64));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake();
 
         env.charge_weight(weight)?;
 
@@ -233,9 +231,8 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(160_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(13_u64))
-            .saturating_add(T::DbWeight::get().writes(6_u64));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake();
 
         env.charge_weight(weight)?;
 
@@ -275,9 +272,8 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(351_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(35_u64))
-            .saturating_add(T::DbWeight::get().writes(22_u64));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake();
 
         env.charge_weight(weight)?;
 
@@ -315,9 +311,8 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(402_900_000, 0)
-            .saturating_add(T::DbWeight::get().reads(24_u64))
-            .saturating_add(T::DbWeight::get().writes(15));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_limit();
 
         env.charge_weight(weight)?;
 
@@ -357,9 +352,8 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(377_400_000, 0)
-            .saturating_add(T::DbWeight::get().reads(28_u64))
-            .saturating_add(T::DbWeight::get().writes(14));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit();
 
         env.charge_weight(weight)?;
 
@@ -399,9 +393,9 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(411_500_000, 0)
-            .saturating_add(T::DbWeight::get().reads(35_u64))
-            .saturating_add(T::DbWeight::get().writes(22_u64));
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake_limit(
+            );
 
         env.charge_weight(weight)?;
 
@@ -443,9 +437,7 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(395_300_000, 0)
-            .saturating_add(T::DbWeight::get().reads(28_u64))
-            .saturating_add(T::DbWeight::get().writes(14_u64));
+        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
 
         env.charge_weight(weight)?;
 
@@ -477,9 +469,7 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = Weight::from_parts(29_930_000, 0)
-            .saturating_add(T::DbWeight::get().reads(4_u64))
-            .saturating_add(T::DbWeight::get().writes(2_u64));
+        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::set_coldkey_auto_stake_hotkey();
 
         env.charge_weight(weight)?;
 
