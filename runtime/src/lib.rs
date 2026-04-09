@@ -881,7 +881,9 @@ impl CommitmentsInterface for CommitmentsI {
 pub struct PrecompileCleanupI;
 impl PrecompileCleanupInterface for PrecompileCleanupI {
     fn purge_netuid(netuid: NetUid) {
-        subtensor_precompiles::staking::purge_netuid_allowances(<u16 as From<NetUid>>::from(netuid));
+        subtensor_precompiles::staking::purge_netuid_allowances(<u16 as From<NetUid>>::from(
+            netuid,
+        ));
     }
 }
 
