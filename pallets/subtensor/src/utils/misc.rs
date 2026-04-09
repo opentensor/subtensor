@@ -137,9 +137,6 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Getters ====
     // ========================
-    pub fn get_total_issuance() -> TaoBalance {
-        TotalIssuance::<T>::get()
-    }
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
             .ok()
@@ -340,10 +337,6 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn increase_issuance(amount: TaoBalance) {
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
-    }
-
     pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoBalance) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
@@ -707,10 +700,6 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
         StakingHotkeys::<T>::get(coldkey)
-    }
-
-    pub fn set_total_issuance(total_issuance: TaoBalance) {
-        TotalIssuance::<T>::put(total_issuance);
     }
 
     pub fn get_rao_recycled(netuid: NetUid) -> TaoBalance {

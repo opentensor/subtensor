@@ -67,7 +67,6 @@ fn test_coinbase_basecase() {
 fn test_coinbase_tao_issuance_base() {
     new_test_ext(1).execute_with(|| {
         let emission = TaoBalance::from(1_234_567);
-        let emission_credit = SubtensorModule::mint_tao(emission);
         let subnet_owner_ck = U256::from(1001);
         let subnet_owner_hk = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
@@ -76,6 +75,7 @@ fn test_coinbase_tao_issuance_base() {
         SubnetTaoFlow::<Test>::insert(netuid, 1234567_i64);
         let tao_in_before = SubnetTAO::<Test>::get(netuid);
         let total_stake_before = TotalStake::<Test>::get();
+        let emission_credit = SubtensorModule::mint_tao(emission);
         SubtensorModule::run_coinbase(emission_credit);
         assert_eq!(SubnetTAO::<Test>::get(netuid), tao_in_before + emission);
         assert_eq!(
@@ -3535,7 +3535,8 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
         let excess_tao = BTreeMap::from([(netuid0, U96F32::saturating_from_num(789100))]);
 
         // Run the inject and maybe swap
-        SubtensorModule::inject_and_maybe_swap(&[netuid0], &tao_in, &alpha_in, &excess_tao);
+        let credit = SubtensorModule::mint_tao((123 + 789100).into());
+        SubtensorModule::inject_and_maybe_swap(&[netuid0], &tao_in, &alpha_in, &excess_tao, credit);
 
         let tao_in_after = SubnetTAO::<Test>::get(netuid0);
         let alpha_in_after = SubnetAlphaIn::<Test>::get(netuid0);
@@ -3682,7 +3683,8 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
         assert!(tao_emission / price <= alpha_emission);
 
         // ==== Run the emit to subnets =====
-        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, root_sell_flag);
+        let credit = SubtensorModule::mint_tao(12345678.into());
+        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, credit, root_sell_flag);
 
         // Find the owner cut expected
         let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
@@ -3773,7 +3775,8 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
         assert!(tao_emission / price <= alpha_emission);
 
         // ==== Run the emit to subnets =====
-        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, root_sell_flag);
+        let credit = SubtensorModule::mint_tao(12345678.into());
+        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, credit, root_sell_flag);
 
         // Find the owner cut expected
         let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();

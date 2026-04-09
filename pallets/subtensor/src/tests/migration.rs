@@ -47,29 +47,6 @@ fn close(value: u64, target: u64, eps: u64) {
 }
 
 #[test]
-fn test_initialise_ti() {
-    use frame_support::traits::OnRuntimeUpgrade;
-
-    new_test_ext(1).execute_with(|| {
-        pallet_balances::TotalIssuance::<Test>::put(TaoBalance::from(1000));
-        crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoBalance::from(100));
-        crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoBalance::from(5));
-
-        // Ensure values are NOT initialized prior to running migration
-        assert!(crate::TotalIssuance::<Test>::get().is_zero());
-		assert!(crate::TotalStake::<Test>::get().is_zero());
-
-        crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
-
-        // Ensure values were initialized correctly
-		assert_eq!(crate::TotalStake::<Test>::get(), TaoBalance::from(105));
-        assert_eq!(
-            crate::TotalIssuance::<Test>::get(), TaoBalance::from(105 + 1000)
-        );
-    });
-}
-
-#[test]
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 1

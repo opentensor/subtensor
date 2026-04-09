@@ -197,11 +197,8 @@ impl<T: Config> Pallet<T> {
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
-        // --- 5. Add Balance via faucet.
+        // --- 5. Add Balance via faucet (mint free TAO)
         let balance_to_add: u64 = 1_000_000_000_000;
-        Self::increase_issuance(100_000_000_000_u64.into()); // We are creating tokens here from the coinbase.
-
-        // Mint free TAO
         let credit = Self::mint_tao(balance_to_add.into());
         let _ = Self::spend_tao(&coldkey, credit, balance_to_add.into());
 

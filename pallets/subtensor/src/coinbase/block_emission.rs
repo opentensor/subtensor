@@ -1,12 +1,12 @@
 use super::*;
 // use frame_support::traits::{Currency as BalancesCurrency, Get, Imbalance};
+use crate::coinbase::tao::CreditOf;
 use frame_support::traits::Get;
 use safe_math::*;
 use substrate_fixed::{transcendental::log2, types::I96F32};
-use crate::coinbase::tao::CreditOf;
 
 impl<T: Config> Pallet<T> {
-    /// Calculates the block emission based on the total issuance and mints corresponding 
+    /// Calculates the block emission based on the total issuance and mints corresponding
     /// amount of TAO.
     ///
     /// This function computes the block emission by applying a logarithmic function

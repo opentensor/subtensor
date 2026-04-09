@@ -14,44 +14,48 @@ pub mod deprecated_loaded_emission_format {
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
 
+/// This on-going migration is disabled as part of imbalances work.
 pub(crate) fn migrate_init_total_issuance<T: Config>() -> Weight {
-    let subnets_len = crate::NetworksAdded::<T>::iter().count() as u64;
+    // let subnets_len = crate::NetworksAdded::<T>::iter().count() as u64;
 
-    // Retrieve the total balance of all accounts
-    let total_account_balances = <<T as crate::Config>::Currency as fungible::Inspect<
-        <T as frame_system::Config>::AccountId,
-    >>::total_issuance();
+    // // Retrieve the total balance of all accounts
+    // let total_account_balances = <<T as crate::Config>::Currency as fungible::Inspect<
+    //     <T as frame_system::Config>::AccountId,
+    // >>::total_issuance();
 
-    // Get the total stake from the system
-    let prev_total_stake = crate::TotalStake::<T>::get();
+    // // Get the total stake from the system
+    // let prev_total_stake = crate::TotalStake::<T>::get();
 
-    // Calculate new total stake using the sum of all subnet TAO
-    let total_subnet_tao =
-        crate::SubnetTAO::<T>::iter().fold(TaoBalance::ZERO, |acc, (_, v)| acc.saturating_add(v));
+    // // Calculate new total stake using the sum of all subnet TAO
+    // let total_subnet_tao =
+    //     crate::SubnetTAO::<T>::iter().fold(TaoBalance::ZERO, |acc, (_, v)| acc.saturating_add(v));
 
-    let total_stake = total_subnet_tao;
-    // Update the total stake in storage
-    crate::TotalStake::<T>::put(total_stake);
-    log::info!(
-        "Subtensor Pallet Total Stake Updated: previous: {prev_total_stake:?}, new: {total_stake:?}"
-    );
-    // Retrieve the previous total issuance for logging purposes
-    let prev_total_issuance = crate::TotalIssuance::<T>::get();
+    // let total_stake = total_subnet_tao;
+    // // Update the total stake in storage
+    // crate::TotalStake::<T>::put(total_stake);
+    // log::info!(
+    //     "Subtensor Pallet Total Stake Updated: previous: {prev_total_stake:?}, new: {total_stake:?}"
+    // );
+    // // Retrieve the previous total issuance for logging purposes
+    // let prev_total_issuance = crate::TotalIssuance::<T>::get();
 
-    // Calculate the new total issuance
-    let new_total_issuance: TaoBalance = total_account_balances.saturating_add(total_stake).into();
+    // // Calculate the new total issuance
+    // let new_total_issuance: TaoBalance = total_account_balances.saturating_add(total_stake).into();
 
-    // Update the total issuance in storage
-    crate::TotalIssuance::<T>::put(new_total_issuance);
+    // // Update the total issuance in storage
+    // crate::TotalIssuance::<T>::put(new_total_issuance);
 
-    // Log the change in total issuance
-    log::info!(
-        "Subtensor Pallet Total Issuance Updated: previous: {prev_total_issuance:?}, new: {new_total_issuance:?}"
-    );
+    // // Log the change in total issuance
+    // log::info!(
+    //     "Subtensor Pallet Total Issuance Updated: previous: {prev_total_issuance:?}, new: {new_total_issuance:?}"
+    // );
 
-    // Return the weight of the operation
-    // We performed subnets_len + 5 reads and 1 write
-    <T as frame_system::Config>::DbWeight::get().reads_writes(subnets_len.saturating_add(5), 2)
+    // // Return the weight of the operation
+    // // We performed subnets_len + 5 reads and 1 write
+    // <T as frame_system::Config>::DbWeight::get().reads_writes(subnets_len.saturating_add(5), 2)
+
+    log::info!("Subtensor Pallet Total Issuance ongoing update migration is disabled.");
+    T::DbWeight::get().reads(0)
 }
 
 pub mod initialise_total_issuance {

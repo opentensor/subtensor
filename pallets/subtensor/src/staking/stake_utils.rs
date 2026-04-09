@@ -665,9 +665,7 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_add(swap_result.amount_paid_out.into());
         });
 
-        // Increase only the protocol TAO reserve. We only use the sum of
-        // (SubnetTAO + SubnetTaoProvided) in tao_reserve(), so it is irrelevant
-        // which one to increase.
+        // Increase the protocol TAO reserve
         SubnetTAO::<T>::mutate(netuid, |total| {
             let delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
             *total = total.saturating_add(delta.into());
@@ -899,10 +897,9 @@ impl<T: Config> Pallet<T> {
             )?;
         } else {
             // Block author is not found - burn this TAO
-            // Pallet balances total issuance was taken care of when balance was withdrawn for this swap
-            TotalIssuance::<T>::mutate(|ti| {
-                *ti = ti.saturating_sub(swap_result.fee_to_block_author);
-            });
+            if let Some(subnet_account_id) = Self::get_subnet_account_id(netuid) {
+                let _ = Self::burn_tao(&subnet_account_id, swap_result.fee_to_block_author.into());
+            }
         }
 
         // Record TAO inflow

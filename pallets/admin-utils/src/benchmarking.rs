@@ -416,12 +416,6 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn sudo_set_total_issuance() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, 100u64.into());
-    }
-
-    #[benchmark]
     fn sudo_set_rao_recycled() {
         let netuid = NetUid::from(1);
         pallet_subtensor::Pallet::<T>::init_new_network(

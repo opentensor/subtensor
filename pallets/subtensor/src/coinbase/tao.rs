@@ -179,6 +179,7 @@ impl<T: Config> Pallet<T> {
 
     /// Remove TAO from existence and reduce total issuance.
     /// Effects issuance rate by reducing TI.
+    /// Does not allow the account to drop below ED.
     pub fn recycle_tao(coldkey: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
         // Ensure that the coldkey doesn't drop below ED
         let max_preserving_amount = <T as Config>::Currency::reducible_balance(
@@ -253,53 +254,32 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         credit: CreditOf<T>,
         part: BalanceOf<T>,
-    ) -> Result<CreditOf<T>, DispatchError> {
+    ) -> Result<CreditOf<T>, CreditOf<T>> {
         let (to_spend, remainder) = credit.split(part);
 
-        <T as Config>::Currency::resolve(coldkey, to_spend)
-            .map_err(|_credit| DispatchError::Other("Could not resolve partial credit"))?;
-
-        Ok(remainder)
-    }
-
-    /// Finalizes the unused part of the minted TAO. Normally, there should be none, this function
-    /// is only needed for guarding / logging
-    pub fn burn_credit(credit: CreditOf<T>) -> DispatchResult {
-        let amount = credit.peek();
-        if amount.is_zero() {
-            // Normal behavior
-            return Ok(());
+        match <T as Config>::Currency::resolve(coldkey, to_spend) {
+            Ok(()) => Ok(remainder),
+            Err(unresolved_to_spend) => Err(unresolved_to_spend.merge(remainder)),
         }
-
-        // Some credit is remaining. This is error and it should be corrected. Record the situation with
-        // burned amount in logs and in burn_address.
-        let burn_address: T::AccountId = T::BurnAccountId::get().into_account_truncating();
-        log::error!(
-            "burn_credit received non-zero credit ({:?}); sending it to burn account {:?}, which will burn it",
-            amount,
-            burn_address,
-        );
-
-        <T as Config>::Currency::resolve(&burn_address, credit).map_err(|unresolved_credit| {
-            log::error!(
-                "burn_credit failed: could not resolve credit {:?} into burn account {:?}",
-                unresolved_credit.peek(),
-                burn_address,
-            );
-            DispatchError::Other("Could not resolve burn credit")
-        })
     }
 
-    // pub fn drain_tao_imbalance_into_subnet_reserve(imbalance: NegativeImbalance, netuid: NetUid) {
-    // }
+    /// Finalizes the unused part of the minted TAO.
+    pub fn recycle_credit(credit: CreditOf<T>) {
+        let amount = credit.peek();
+        if !amount.is_zero() {
+            // Some credit is remaining: Decrease subtensor pallet total issuance
+            log::warn!(
+                "recycle_credit received non-zero credit ({:?}); will reduce TotalIssuance",
+                amount,
+            );
 
-    // pub fn mint_tao_for_subnet_reserve(tao: TaoBalance, netuid: NetUid) -> DispatchResult {
-    //     let maybe_subnet_account = SubtensorModule::get_subnet_account_id(netuid);
-    //     if let Some(subnet_account) = maybe_subnet_account {
-    //         let _ = <T as Config>::Currency::deposit(subnet_account, tao, Precision::BestEffort);
-    //         Ok(())
-    //     } else {
-    //         Err(Error::<T>::SubnetNotExists)
-    //     }
-    // }
+            TotalIssuance::<T>::mutate(|total| {
+                *total = total.saturating_sub(amount);
+            });
+        }
+    }
+
+    pub fn get_total_issuance() -> TaoBalance {
+        TotalIssuance::<T>::get()
+    }
 }

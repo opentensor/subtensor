@@ -8,6 +8,7 @@ use core::num::NonZeroU64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
+pub use frame_support::traits::Imbalance;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
@@ -16,7 +17,6 @@ use frame_support::{
     assert_ok, parameter_types,
     traits::{Hooks, PrivilegeCmp},
 };
-pub use frame_support::traits::Imbalance;
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;

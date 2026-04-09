@@ -19,7 +19,7 @@ impl<T: Config> Pallet<T> {
         // These values can be off slightly due to float rounding errors.
         // They are corrected every runtime upgrade.
         let delta = TaoBalance::from(1000);
-        let total_issuance = TotalIssuance::<T>::get();
+        let total_issuance = Self::get_total_issuance();
 
         let diff = if total_issuance > expected_total_issuance {
             total_issuance.checked_sub(&expected_total_issuance)
