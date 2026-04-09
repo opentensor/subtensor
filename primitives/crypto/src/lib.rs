@@ -366,10 +366,8 @@ pub fn sign(
             &[RISTRETTO_BASEPOINT_POINT, ring_points[i]],
         );
         // L1_i = r_i * Hp(K_i) + c_i * K_tilde
-        let l1_i = RistrettoPoint::multiscalar_mul(
-            &[responses[i], challenges[i]],
-            &[hp_i, key_image],
-        );
+        let l1_i =
+            RistrettoPoint::multiscalar_mul(&[responses[i], challenges[i]], &[hp_i, key_image]);
 
         let next = (i + 1) % n;
         challenges[next] = compute_challenge(&ring_binding, message, &l0_i, &l1_i);
@@ -528,10 +526,8 @@ pub fn verify(
         );
 
         // L1_j = r_j * Hp(K_j) + c_j * K_tilde
-        let l1 = RistrettoPoint::multiscalar_mul(
-            &[responses[j], reconstructed_c],
-            &[hp_j, key_image],
-        );
+        let l1 =
+            RistrettoPoint::multiscalar_mul(&[responses[j], reconstructed_c], &[hp_j, key_image]);
 
         // c_{j+1} = Hn(ring_binding, m, L0_j, L1_j)
         reconstructed_c = compute_challenge(&ring_binding, message, &l0, &l1);
@@ -627,7 +623,10 @@ mod tests {
             let msg = b"ring size test";
 
             let sig = sign(&sk, &ring, msg, &mut rng).unwrap();
-            assert!(verify(&sig, &ring, msg).unwrap(), "failed for ring size {size}");
+            assert!(
+                verify(&sig, &ring, msg).unwrap(),
+                "failed for ring size {size}"
+            );
         }
     }
 
@@ -785,8 +784,14 @@ mod tests {
         let mut rng = OsRng;
         let (sk, pk) = random_keypair(&mut rng);
 
-        assert_eq!(sign(&sk, &[pk], b"test", &mut rng), Err(BlsagError::RingTooSmall));
-        assert_eq!(sign(&sk, &[], b"test", &mut rng), Err(BlsagError::RingTooSmall));
+        assert_eq!(
+            sign(&sk, &[pk], b"test", &mut rng),
+            Err(BlsagError::RingTooSmall)
+        );
+        assert_eq!(
+            sign(&sk, &[], b"test", &mut rng),
+            Err(BlsagError::RingTooSmall)
+        );
     }
 
     #[test]
@@ -795,7 +800,10 @@ mod tests {
         let (ring, sk) = setup_ring(5);
         let sig = sign(&sk, &ring, b"test", &mut rng).unwrap();
 
-        assert_eq!(verify(&sig, &[ring[0]], b"test"), Err(BlsagError::RingTooSmall));
+        assert_eq!(
+            verify(&sig, &[ring[0]], b"test"),
+            Err(BlsagError::RingTooSmall)
+        );
     }
 
     #[test]
@@ -817,7 +825,10 @@ mod tests {
 
         let mut sig = sign(&sk, &ring, b"test", &mut rng).unwrap();
         sig.responses.pop();
-        assert_eq!(verify(&sig, &ring, b"test"), Err(BlsagError::ResponseCountMismatch));
+        assert_eq!(
+            verify(&sig, &ring, b"test"),
+            Err(BlsagError::ResponseCountMismatch)
+        );
     }
 
     #[test]
@@ -827,7 +838,10 @@ mod tests {
 
         let mut sig = sign(&sk, &ring, b"test", &mut rng).unwrap();
         sig.key_image = [0u8; 32];
-        assert_eq!(verify(&sig, &ring, b"test"), Err(BlsagError::InvalidKeyImage));
+        assert_eq!(
+            verify(&sig, &ring, b"test"),
+            Err(BlsagError::InvalidKeyImage)
+        );
     }
 
     #[test]
@@ -837,7 +851,10 @@ mod tests {
         let (_, pk2) = random_keypair(&mut rng);
         let ring = [[0u8; 32], pk, pk2];
 
-        assert_eq!(sign(&sk, &ring, b"test", &mut rng), Err(BlsagError::InvalidRingMember));
+        assert_eq!(
+            sign(&sk, &ring, b"test", &mut rng),
+            Err(BlsagError::InvalidRingMember)
+        );
     }
 
     #[test]
@@ -848,7 +865,10 @@ mod tests {
         let sig = sign(&sk, &ring, b"test", &mut rng).unwrap();
         let mut bad_ring = ring.clone();
         bad_ring[0] = [0u8; 32];
-        assert_eq!(verify(&sig, &bad_ring, b"test"), Err(BlsagError::InvalidRingMember));
+        assert_eq!(
+            verify(&sig, &bad_ring, b"test"),
+            Err(BlsagError::InvalidRingMember)
+        );
     }
 
     #[test]
@@ -858,7 +878,10 @@ mod tests {
         let (_, pk2) = random_keypair(&mut rng);
         let ring = [[0xFFu8; 32], pk, pk2];
 
-        assert_eq!(sign(&sk, &ring, b"test", &mut rng), Err(BlsagError::InvalidRingMember));
+        assert_eq!(
+            sign(&sk, &ring, b"test", &mut rng),
+            Err(BlsagError::InvalidRingMember)
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -890,7 +913,10 @@ mod tests {
 
         let mut sig = sign(&sk, &ring, b"test", &mut rng).unwrap();
         sig.responses.push(Scalar::random(&mut rng).to_bytes());
-        assert_eq!(verify(&sig, &ring, b"test"), Err(BlsagError::ResponseCountMismatch));
+        assert_eq!(
+            verify(&sig, &ring, b"test"),
+            Err(BlsagError::ResponseCountMismatch)
+        );
     }
 
     #[test]
@@ -968,7 +994,10 @@ mod tests {
         let mut sig = sign(&sk, &ring, b"test", &mut rng).unwrap();
         // Non-decompressible key image (not identity, just garbage)
         sig.key_image = [0xDE; 32];
-        assert_eq!(verify(&sig, &ring, b"test"), Err(BlsagError::InvalidKeyImage));
+        assert_eq!(
+            verify(&sig, &ring, b"test"),
+            Err(BlsagError::InvalidKeyImage)
+        );
     }
 
     #[test]
@@ -995,7 +1024,10 @@ mod tests {
         let mut bigger = ring.to_vec();
         let (_, extra) = random_keypair(&mut rng);
         bigger.push(extra);
-        assert_eq!(verify(&sig, &bigger, b"test"), Err(BlsagError::ResponseCountMismatch));
+        assert_eq!(
+            verify(&sig, &bigger, b"test"),
+            Err(BlsagError::ResponseCountMismatch)
+        );
     }
 
     #[test]
@@ -1007,7 +1039,10 @@ mod tests {
 
         // Remove last member — response count won't match
         let smaller = &ring[..4];
-        assert_eq!(verify(&sig, smaller, b"test"), Err(BlsagError::ResponseCountMismatch));
+        assert_eq!(
+            verify(&sig, smaller, b"test"),
+            Err(BlsagError::ResponseCountMismatch)
+        );
     }
 
     #[test]
@@ -1046,6 +1081,9 @@ mod tests {
         let (ring, _) = setup_ring(5);
 
         let zero_sk = [0u8; 32];
-        assert_eq!(sign(&zero_sk, &ring, b"test", &mut rng), Err(BlsagError::SignerNotInRing));
+        assert_eq!(
+            sign(&zero_sk, &ring, b"test", &mut rng),
+            Err(BlsagError::SignerNotInRing)
+        );
     }
 }

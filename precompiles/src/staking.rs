@@ -43,7 +43,7 @@ use pallet_evm::{
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use precompile_utils::EvmResult;
-use precompile_utils::prelude::{RuntimeHelper, revert, Address};
+use precompile_utils::prelude::{Address, RuntimeHelper, revert};
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::{AsSystemOriginSigner, Dispatchable, StaticLookup, UniqueSaturatedInto};
 use sp_std::vec;
@@ -63,15 +63,12 @@ impl StorageInstance for AllowancesPrefix {
 
 pub type AllowancesStorage = StorageDoubleMap<
     AllowancesPrefix,
-
     // For each approver (EVM address as only EVM-natives need the precompile)
     Blake2_128Concat,
     H160,
-
     // For each pair of (spender, netuid) (EVM address as only EVM-natives need the precompile)
     Blake2_128Concat,
     (H160, u16),
-
     // Allowed amount
     U256,
     ValueQuery,
@@ -627,20 +624,14 @@ where
         amount_alpha: U256,
     ) -> EvmResult<()> {
         let spender = handle.context().caller;
-		let source_address = source_address.0;
+        let source_address = source_address.0;
         let destination_coldkey = R::AccountId::from(destination_coldkey.0);
         let hotkey = R::AccountId::from(hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
         let alpha_amount: u64 = amount_alpha.unique_saturated_into();
 
-        Self::try_consume_allowance(
-            handle,
-            source_address,
-            spender,
-            origin_netuid,
-            amount_alpha,
-        )?;
+        Self::try_consume_allowance(handle, source_address, spender, origin_netuid, amount_alpha)?;
 
         let call = pallet_subtensor::Call::<R>::transfer_stake {
             destination_coldkey,
@@ -649,7 +640,7 @@ where
             destination_netuid: destination_netuid.into(),
             alpha_amount: alpha_amount.into(),
         };
-		let source_id = <R as pallet_evm::Config>::AddressMapping::into_account_id(source_address);
+        let source_id = <R as pallet_evm::Config>::AddressMapping::into_account_id(source_address);
 
         handle.try_dispatch_runtime_call::<R, _>(call, RawOrigin::Signed(source_id))
     }
