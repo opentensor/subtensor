@@ -2051,16 +2051,6 @@ pub mod pallet {
     pub type Active<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
 
-    /// --- MAP ( netuid ) --> rank
-    #[pallet::storage]
-    pub type Rank<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
-    /// --- MAP ( netuid ) --> trust
-    #[pallet::storage]
-    pub type Trust<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
     /// --- MAP ( netuid ) --> consensus
     #[pallet::storage]
     pub type Consensus<T: Config> =
@@ -2088,11 +2078,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> validator_trust
     #[pallet::storage]
     pub type ValidatorTrust<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
-    /// --- MAP ( netuid ) --> pruning_scores
-    #[pallet::storage]
-    pub type PruningScores<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
 
     /// --- MAP ( netuid ) --> validator_permit
