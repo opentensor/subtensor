@@ -456,6 +456,16 @@ pub struct VoteTally {
     pub abstention: Perbill,
 }
 
+impl VoteTally {
+    pub fn new() -> Self {
+        Self {
+            approval: Perbill::zero(),
+            rejection: Perbill::zero(),
+            abstention: Perbill::zero(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
