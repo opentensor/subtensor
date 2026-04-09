@@ -871,8 +871,9 @@ fn remove_stake_with_no_stake_returns_amount_too_low() {
         let min_stake = DefaultMinStake::<mock::Test>::get();
         let amount: AlphaBalance = AlphaBalance::from(min_stake.to_u64());
 
-        let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake();
-
+        let expected_weight = Weight::from_parts(164_300_000, 0)
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(15))
+            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(7));
         let mut env = MockEnv::new(
             FunctionId::RemoveStakeV1,
             coldkey,
@@ -1049,8 +1050,9 @@ mod caller_dispatch_tests {
             let min_stake = DefaultMinStake::<mock::Test>::get();
             let amount: AlphaBalance = AlphaBalance::from(min_stake.to_u64());
 
-            let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake();
-
+            let expected_weight = Weight::from_parts(164_300_000, 0)
+                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(15))
+                .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(7));
             let mut env = MockEnv::new(
                 FunctionId::CallerRemoveStakeV1,
                 coldkey,
