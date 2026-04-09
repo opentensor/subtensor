@@ -35,6 +35,7 @@ pallet-drand.workspace = true
 subtensor-swap-interface.workspace = true
 num_enum.workspace = true
 substrate-fixed.workspace = true
+sp-debug-derive = { workspace = true, features = ["force-debug"] }
 
 [lints]
 workspace = true

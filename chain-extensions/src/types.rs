@@ -35,6 +35,8 @@ pub enum FunctionId {
     CallerSetColdkeyAutoStakeHotkeyV1 = 27,
     CallerAddProxyV1 = 28,
     CallerRemoveProxyV1 = 29,
+    /// No-op extension for ink integration tests (`direct_call` / `delegate_call` contracts).
+    DummyV1 = 100,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -134,6 +136,7 @@ mod function_id_tests {
         assert_eq!(FunctionId::CallerSetColdkeyAutoStakeHotkeyV1 as u16, 27);
         assert_eq!(FunctionId::CallerAddProxyV1 as u16, 28);
         assert_eq!(FunctionId::CallerRemoveProxyV1 as u16, 29);
+        assert_eq!(FunctionId::DummyV1 as u16, 100);
     }
 
     #[test]

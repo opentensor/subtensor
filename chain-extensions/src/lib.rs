@@ -739,6 +739,15 @@ where
 
                 Ok(RetVal::Converging(Output::Success as u32))
             }
+            FunctionId::DummyV1 => {
+                let weight = Weight::from_parts(1_000, 0);
+                let caller = env.caller();
+                let origin = env.origin();
+                log::error!("dummy: contract address as caller = {:?}", caller);
+                log::error!("dummy: original account as origin = {:?}", origin);
+                env.charge_weight(weight)?;
+                Ok(RetVal::Converging(Output::Success as u32))
+            }
         }
     }
 }
@@ -817,6 +826,9 @@ where
     }
 
     fn origin(&mut self) -> pallet_contracts::Origin<T> {
+        if let pallet_contracts::Origin::Signed(account_id) = self.env.ext().caller() {
+            log::error!("origin: signed account id = {:?}", account_id);
+        }
         self.env.ext().caller()
     }
 }

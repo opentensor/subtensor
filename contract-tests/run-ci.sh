@@ -10,6 +10,12 @@ rustup component add rust-src
 cargo install cargo-contract 
 cargo contract build --release 
 
+cd ../direct-call
+cargo contract build --release
+
+cd ../delegate-call
+cargo contract build --release
+
 cd ../..
 
 scripts/localnet.sh &>/dev/null &
