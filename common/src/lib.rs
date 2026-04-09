@@ -9,7 +9,7 @@ use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    MultiSignature, Vec,
+    MultiSignature, Perbill, Vec,
     traits::{IdentifyAccount, Verify},
 };
 use subtensor_macros::freeze_struct;
@@ -445,6 +445,15 @@ impl TypeInfo for NetUidStorageIndex {
     fn type_info() -> scale_info::Type {
         <u16 as TypeInfo>::type_info()
     }
+}
+
+#[derive(
+    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
+)]
+pub struct VoteTally {
+    pub approval: Perbill,
+    pub rejection: Perbill,
+    pub abstention: Perbill,
 }
 
 #[cfg(test)]

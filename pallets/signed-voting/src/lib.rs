@@ -18,22 +18,21 @@ type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Voting
 #[derive(
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
 )]
-pub struct Tally {
+pub struct SignedVoteTally {
     ayes: u32,
     nays: u32,
     total: u32,
 }
 
-impl VoteTally for Tally {
-    fn approval(&self) -> Perbill {
-        Perbill::from_rational(self.ayes, self.total)
-    }
-    fn rejection(&self) -> Perbill {
-        Perbill::from_rational(self.nays, self.total)
-    }
-    fn abstention(&self) -> Perbill {
+impl Into<VoteTally> for SignedVoteTally {
+    fn into(self: SignedVoteTally) -> VoteTally {
         let voted = self.ayes.saturating_add(self.nays);
-        Perbill::from_rational(self.total.saturating_sub(voted), self.total)
+        let abstention = self.total.saturating_sub(voted);
+        VoteTally {
+            approval: Perbill::from_rational(self.ayes, self.total),
+            rejection: Perbill::from_rational(self.nays, self.total),
+            abstention: Perbill::from_rational(abstention, self.total),
+        }
     }
 }
 
@@ -48,7 +47,7 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Scheme: Get<VotingSchemeOf<Self>>;
 
-        type Polls: Polls<Self::AccountId, Tally = Tally>;
+        type Polls: Polls<Self::AccountId>;
 
         type MaxVotesToClear: Get<u32>;
     }
@@ -65,7 +64,8 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type TallyOf<T: Config> = StorageMap<_, Twox64Concat, PollIndexOf<T>, Tally, OptionQuery>;
+    pub type TallyOf<T: Config> =
+        StorageMap<_, Twox64Concat, PollIndexOf<T>, SignedVoteTally, OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -74,13 +74,13 @@ pub mod pallet {
             who: T::AccountId,
             poll_index: PollIndexOf<T>,
             approve: bool,
-            tally: Tally,
+            tally: SignedVoteTally,
         },
 
         VoteRemoved {
             who: T::AccountId,
             poll_index: PollIndexOf<T>,
-            tally: Tally,
+            tally: SignedVoteTally,
         },
     }
 
@@ -144,7 +144,7 @@ impl<T: Config> Pallet<T> {
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
         approve: bool,
-    ) -> Result<Tally, DispatchError> {
+    ) -> Result<SignedVoteTally, DispatchError> {
         let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
 
         VotingFor::<T>::try_mutate(&poll_index, &who, |vote| -> DispatchResult {
@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
         })?;
 
         TallyOf::<T>::insert(poll_index, tally.clone());
-        T::Polls::on_tally_updated(poll_index, tally.clone());
+        T::Polls::on_tally_updated(poll_index, &tally.clone().into());
 
         Ok(tally)
     }
@@ -181,7 +181,7 @@ impl<T: Config> Pallet<T> {
     fn try_remove_vote(
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
-    ) -> Result<Tally, DispatchError> {
+    ) -> Result<SignedVoteTally, DispatchError> {
         let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
 
         VotingFor::<T>::try_mutate_exists(&poll_index, &who, |vote| -> DispatchResult {
@@ -200,7 +200,7 @@ impl<T: Config> Pallet<T> {
         })?;
 
         TallyOf::<T>::insert(poll_index, tally.clone());
-        T::Polls::on_tally_updated(poll_index, tally.clone());
+        T::Polls::on_tally_updated(poll_index, &tally.clone().into());
 
         Ok(tally)
     }
@@ -226,7 +226,7 @@ impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
 
         TallyOf::<T>::insert(
             poll_index,
-            Tally {
+            SignedVoteTally {
                 ayes: 0,
                 nays: 0,
                 total,
