@@ -2510,13 +2510,7 @@ mod dispatches {
         /// --- Allows a root validator to toggle auto parent delegation
         /// for new subnets owner hotkey
         #[pallet::call_index(135)]
-        #[pallet::weight((
-            Weight::from_parts(21_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
+        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_auto_parent_delegation_enabled(), DispatchClass::Normal, Pays::Yes))]
         pub fn set_auto_parent_delegation_enabled(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
