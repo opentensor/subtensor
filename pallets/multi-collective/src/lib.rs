@@ -2,13 +2,13 @@
 
 extern crate alloc;
 
-use frame_support::{dispatch::DispatchResult, pallet_prelude::*};
+use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::EnsureOriginWithArg};
 use frame_system::pallet_prelude::*;
 use num_traits::ops::checked::CheckedRem;
 pub use pallet::*;
 
 pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
-type Name = [u8; MAX_COLLECTIVE_NAME_LEN];
+type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -22,19 +22,19 @@ pub mod pallet {
         type CollectiveId: Parameter + MaxEncodedLen + Copy;
 
         /// Provides per-collective information.
-        type Collectives: CollectivesInfo<BlockNumberFor<Self>, Name, Id = Self::CollectiveId>;
+        type Collectives: CollectivesInfo<BlockNumberFor<Self>, CollectiveName, Id = Self::CollectiveId>;
 
         /// Required origin for adding a member to a collective.
-        type AddOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        type AddOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// Required origin for removing a member from a collective.
-        type RemoveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        type RemoveOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// Required origin for swapping a member in a collective.
-        type SwapOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        type SwapOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// Required origin for resetting the members of a collective.
-        type ResetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        type ResetOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// The receiver of the signal for when the members of a collective have changed.
         type OnMembersChanged: OnMembersChanged<Self::CollectiveId, Self::AccountId>;
