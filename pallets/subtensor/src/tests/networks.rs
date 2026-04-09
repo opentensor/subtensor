@@ -2242,6 +2242,74 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
     });
 }
 
+#[test]
+fn test_dissolve_network_clears_orphaned_storage() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+        let net = add_dynamic_network(&hot, &cold);
+
+        let hotkey1 = U256::from(100);
+        let hotkey2 = U256::from(200);
+
+        // Seed RootAlphaDividendsPerSubnet (DMAP, netuid is first key).
+        RootAlphaDividendsPerSubnet::<Test>::insert(net, hotkey1, AlphaBalance::from(5_000u64));
+        RootAlphaDividendsPerSubnet::<Test>::insert(net, hotkey2, AlphaBalance::from(10_000u64));
+
+        // Seed VotingPower (DMAP, netuid is first key).
+        VotingPower::<Test>::insert(net, hotkey1, 42u64);
+
+        // Seed simple StorageMaps that were previously missed.
+        MinAllowedUids::<Test>::insert(net, 4u16);
+        MaxWeightsLimit::<Test>::insert(net, 100u16);
+        AdjustmentAlpha::<Test>::insert(net, 999u64);
+        AdjustmentInterval::<Test>::insert(net, 50u16);
+        MinNonImmuneUids::<Test>::insert(net, 2u16);
+        RecycleOrBurn::<Test>::insert(net, RecycleOrBurnEnum::Recycle);
+        VotingPowerTrackingEnabled::<Test>::insert(net, true);
+        VotingPowerDisableAtBlock::<Test>::insert(net, 1000u64);
+        VotingPowerEmaAlpha::<Test>::insert(net, 500u64);
+
+        // Seed a different netuid to ensure it's untouched.
+        let other_net = add_dynamic_network(&U256::from(3), &U256::from(4));
+        RootAlphaDividendsPerSubnet::<Test>::insert(
+            other_net,
+            hotkey1,
+            AlphaBalance::from(7_000u64),
+        );
+        VotingPower::<Test>::insert(other_net, hotkey1, 99u64);
+
+        // Dissolve the network.
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Double-map entries for the dissolved netuid should be gone.
+        assert!(!RootAlphaDividendsPerSubnet::<Test>::contains_key(
+            net, hotkey1
+        ));
+        assert!(!RootAlphaDividendsPerSubnet::<Test>::contains_key(
+            net, hotkey2
+        ));
+        assert!(!VotingPower::<Test>::contains_key(net, hotkey1));
+
+        // Simple maps for the dissolved netuid should be gone.
+        assert!(!MinAllowedUids::<Test>::contains_key(net));
+        assert!(!MaxWeightsLimit::<Test>::contains_key(net));
+        assert!(!AdjustmentAlpha::<Test>::contains_key(net));
+        assert!(!AdjustmentInterval::<Test>::contains_key(net));
+        assert!(!MinNonImmuneUids::<Test>::contains_key(net));
+        assert!(!RecycleOrBurn::<Test>::contains_key(net));
+        assert!(!VotingPowerTrackingEnabled::<Test>::contains_key(net));
+        assert!(!VotingPowerDisableAtBlock::<Test>::contains_key(net));
+        assert!(!VotingPowerEmaAlpha::<Test>::contains_key(net));
+
+        // Entries for the other netuid should remain.
+        assert!(RootAlphaDividendsPerSubnet::<Test>::contains_key(
+            other_net, hotkey1
+        ));
+        assert!(VotingPower::<Test>::contains_key(other_net, hotkey1));
+    });
+}
+
 fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
     let alpha = (U96F32::from_num(lock_cost_u64)
         .checked_div(price)

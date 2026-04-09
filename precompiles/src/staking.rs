@@ -74,6 +74,25 @@ pub type AllowancesStorage = StorageDoubleMap<
     ValueQuery,
 >;
 
+/// Remove all allowance entries for the given `netuid`.
+///
+/// Because `netuid` is embedded in the second key `(spender, netuid)`, we must iterate
+/// all entries and filter. Called during subnet deregistration.
+pub fn purge_allowances_for_netuid(netuid: u16) {
+    let to_rm: Vec<(H160, H160)> = AllowancesStorage::iter()
+        .filter_map(|(approver, (spender, n), _)| {
+            if n == netuid {
+                Some((approver, spender))
+            } else {
+                None
+            }
+        })
+        .collect();
+    for (approver, spender) in to_rm {
+        AllowancesStorage::remove(approver, (spender, netuid));
+    }
+}
+
 // Old StakingPrecompile had ETH-precision in values, which was not alligned with Substrate API. So
 // it's kinda deprecated, but exists for backward compatibility. Eventually, we should remove it
 // to stop supporting both precompiles.
