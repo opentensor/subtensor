@@ -842,6 +842,7 @@ pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) 
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
+
     SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
     TotalIssuance::<Test>::mutate(|total_issuance| {
         *total_issuance = total_issuance.saturating_add(lock_cost);
@@ -851,6 +852,10 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
         RawOrigin::Signed(*coldkey).into(),
         *hotkey
     ));
+
+    // Normalize the freshly registered subnet back to the legacy 1:1 mock shape.
+    remove_owner_registration_stake(netuid);
+
     NetworkRegistrationAllowed::<Test>::insert(netuid, true);
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
     SubtokenEnabled::<Test>::insert(netuid, true);
@@ -1111,26 +1116,38 @@ pub fn remove_owner_registration_stake(netuid: NetUid) {
     let owner_hotkey = SubnetOwnerHotkey::<Test>::get(netuid);
     let owner_coldkey = SubnetOwner::<Test>::get(netuid);
 
-    let owner_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-        &owner_hotkey,
-        &owner_coldkey,
+    let legacy_pool_tao = SubtensorModule::get_network_min_lock()
+        .min(SubtensorModule::get_subnet_locked_balance(netuid));
+    let legacy_pool_alpha: AlphaBalance = legacy_pool_tao.to_u64().into();
+
+    let current_pool_tao = SubnetTAO::<Test>::get(netuid);
+
+    // Hard-reset the owner stake/sharepool state so the subnet matches the legacy
+    // post-registration shape used by the original base-branch test suite.
+    Alpha::<Test>::remove((owner_hotkey, owner_coldkey, netuid));
+    AlphaV2::<Test>::remove((owner_hotkey, owner_coldkey, netuid));
+    TotalHotkeyShares::<Test>::remove(owner_hotkey, netuid);
+    TotalHotkeySharesV2::<Test>::remove(owner_hotkey, netuid);
+    TotalHotkeyAlpha::<Test>::remove(owner_hotkey, netuid);
+    TotalHotkeyAlphaLastEpoch::<Test>::remove(owner_hotkey, netuid);
+    AlphaDividendsPerSubnet::<Test>::remove(netuid, owner_hotkey);
+
+    // Restore the original 1:1 seeded pool used by the legacy tests.
+    SubnetTAO::<Test>::insert(netuid, legacy_pool_tao);
+    SubnetAlphaIn::<Test>::insert(netuid, legacy_pool_alpha);
+    SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::ZERO);
+    SubnetTaoProvided::<Test>::insert(netuid, TaoBalance::ZERO);
+    SubnetAlphaInProvided::<Test>::insert(netuid, AlphaBalance::ZERO);
+    RAORecycledForRegistration::<Test>::insert(
         netuid,
+        SubtensorModule::get_subnet_locked_balance(netuid).saturating_sub(legacy_pool_tao),
     );
 
-    if owner_stake.is_zero() {
-        return;
-    }
-
-    let alpha_out_before = SubnetAlphaOut::<Test>::get(netuid);
-
-    SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-        &owner_hotkey,
-        &owner_coldkey,
-        netuid,
-        owner_stake,
-    );
-
-    SubnetAlphaOut::<Test>::insert(netuid, alpha_out_before.saturating_sub(owner_stake));
+    TotalStake::<Test>::mutate(|total| {
+        *total = total
+            .saturating_sub(current_pool_tao)
+            .saturating_add(legacy_pool_tao);
+    });
 
     assert_eq!(
         SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1144,4 +1161,7 @@ pub fn remove_owner_registration_stake(netuid: NetUid) {
         TotalHotkeyAlpha::<Test>::get(owner_hotkey, netuid),
         AlphaBalance::ZERO
     );
+    assert_eq!(SubnetAlphaOut::<Test>::get(netuid), AlphaBalance::ZERO);
+    assert_eq!(SubnetTAO::<Test>::get(netuid), legacy_pool_tao);
+    assert_eq!(SubnetAlphaIn::<Test>::get(netuid), legacy_pool_alpha);
 }

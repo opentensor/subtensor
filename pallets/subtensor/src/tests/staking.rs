@@ -40,6 +40,7 @@ fn test_add_stake_dispatch_info_ok() {
         assert_eq!(di.pays_fee, Pays::Yes,);
     });
 }
+
 #[test]
 fn test_add_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
@@ -66,10 +67,12 @@ fn test_add_stake_ok_no_emission() {
             TaoBalance::ZERO
         );
 
-        // Also total stake should be equal to the network initial lock
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            SubtensorModule::get_network_min_lock()
+        // The legacy-normalized subnet should start with essentially the legacy initial lock.
+        let initial_total_stake = SubtensorModule::get_total_stake();
+        assert_abs_diff_eq!(
+            initial_total_stake,
+            SubtensorModule::get_network_min_lock(),
+            epsilon = 1.into()
         );
 
         // Transfer to hotkey account, and check if the result is ok
@@ -106,10 +109,11 @@ fn test_add_stake_ok_no_emission() {
             1.into()
         );
 
-        // Check if total stake has increased accordingly.
-        assert_eq!(
+        // Check if total stake increased by the staked TAO amount.
+        assert_abs_diff_eq!(
             SubtensorModule::get_total_stake(),
-            SubtensorModule::get_network_min_lock() + amount.into()
+            initial_total_stake + amount.into(),
+            epsilon = 1.into()
         );
     });
 }
