@@ -88,6 +88,7 @@ pub trait WeightInfo {
 	fn sudo_set_root_claim_threshold() -> Weight;
 	fn add_stake_burn() -> Weight;
 	fn set_pending_childkey_cooldown() -> Weight;
+    fn set_auto_parent_delegation_enabled() -> Weight;
 }
 
 /// Weights for `pallet_subtensor` using the Substrate node and recommended hardware.
@@ -2191,6 +2192,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(2_243_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+    /// Storage: `SubtensorModule::Owner` (r:1 w:0)
+    /// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    /// Storage: `SubtensorModule::Uids` (r:1 w:0)
+    /// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    /// Storage: `SubtensorModule::AutoParentDelegationEnabled` (r:0 w:1)
+    /// Proof: `SubtensorModule::AutoParentDelegationEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn set_auto_parent_delegation_enabled() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `852`
+        //  Estimated: `4317`
+        // Minimum execution time: 19_000_000 picoseconds.
+        Weight::from_parts(20_000_000, 4317)
+            .saturating_add(T::DbWeight::get().reads(2_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+    }
 }
 
 // For backwards compatibility and tests.
@@ -4293,4 +4310,20 @@ impl WeightInfo for () {
 		Weight::from_parts(2_243_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+
+    /// Storage: `SubtensorModule::Owner` (r:1 w:0)
+    /// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    /// Storage: `SubtensorModule::Uids` (r:1 w:0)
+    /// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    /// Storage: `SubtensorModule::AutoParentDelegationEnabled` (r:0 w:1)
+    /// Proof: `SubtensorModule::AutoParentDelegationEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
+    fn set_auto_parent_delegation_enabled() -> Weight {
+        // Proof Size summary in bytes:
+        //  Measured:  `852`
+        //  Estimated: `4317`
+        // Minimum execution time: 19_000_000 picoseconds.
+        Weight::from_parts(20_000_000, 4317)
+            .saturating_add(RocksDbWeight::get().reads(2_u64))
+            .saturating_add(RocksDbWeight::get().writes(1_u64))
+    }
 }
