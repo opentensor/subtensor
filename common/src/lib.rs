@@ -20,6 +20,7 @@ pub use transaction_error::*;
 
 mod currency;
 mod evm_context;
+pub mod migration;
 mod transaction_error;
 
 /// Balance of an account.

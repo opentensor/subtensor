@@ -1,9 +1,38 @@
 use super::*;
 use alloc::string::String;
+use core::marker::PhantomData;
 use frame_support::pallet_prelude::Weight;
 use sp_io::KillStorageResult;
 use sp_io::hashing::twox_128;
 use sp_io::storage::clear_prefix;
+use subtensor_runtime_common::migration::MigrationGuard;
+
+/// `subtensor_runtime_common::decl_migration!` glue: routes
+/// `MigrationGuard::{has_run, mark_run}` to this pallet's `HasMigrationRun`
+/// storage map.
+pub struct SubtensorMigrationGuard<T>(PhantomData<T>);
+
+impl<T: Config> MigrationGuard for SubtensorMigrationGuard<T> {
+    fn has_run(name: &[u8]) -> bool {
+        HasMigrationRun::<T>::get(name.to_vec())
+    }
+    fn mark_run(name: &[u8]) {
+        HasMigrationRun::<T>::insert(name.to_vec(), true);
+    }
+}
+
+/// Thin wrapper around `subtensor_runtime_common::decl_migration!` that bakes
+/// in this pallet's [`SubtensorMigrationGuard`], so individual migration files
+/// don't have to repeat the `guard = ...;` line.
+#[macro_export]
+macro_rules! subtensor_migration {
+    ($($t:tt)*) => {
+        ::subtensor_runtime_common::decl_migration! {
+            guard = $crate::migrations::SubtensorMigrationGuard<T>;
+            $($t)*
+        }
+    };
+}
 pub mod migrate_auto_stake_destination;
 pub mod migrate_clear_deprecated_registration_maps;
 pub mod migrate_coldkey_swap_scheduled;

@@ -18262,6 +18262,8 @@ dependencies = [
  "approx",
  "environmental",
  "frame-support",
+ "hex-literal",
+ "log",
  "num-traits",
  "parity-scale-codec",
  "polkadot-runtime-common",
