@@ -269,7 +269,7 @@ impl<T: Config> Pallet<T> {
         if !amount.is_zero() {
             // Some credit is remaining: Decrease subtensor pallet total issuance
             log::warn!(
-                "recycle_credit received non-zero credit ({:?}); will reduce TotalIssuance",
+                "recycle_credit received non-zero credit ({}); will reduce TotalIssuance",
                 amount,
             );
 

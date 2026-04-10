@@ -556,7 +556,8 @@ impl<T: Config> Pallet<T> {
             // Credit each share directly to coldkey free balance.
             for p in portions {
                 if p.share > 0 {
-                    Self::transfer_tao_from_subnet(netuid, &p.cold, p.share.into())?;
+                    // Cannot fail the whole transaction if this transfer fails
+                    let _ = Self::transfer_tao_from_subnet(netuid, &p.cold, p.share.into());
                 }
             }
         }
