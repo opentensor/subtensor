@@ -2,62 +2,32 @@
 
 extern crate alloc;
 
+use codec::Encode;
 use frame_support::{
+    Blake2_128Concat, Parameter,
     dispatch::DispatchResult,
-    pallet_prelude::*,
+    pallet_prelude::{Get, IsType, OptionQuery, StorageMap, StorageValue, ValueQuery},
     sp_runtime::{
-        Perbill, Saturating,
-        traits::{BlockNumberProvider, Dispatchable},
+        DispatchError, Saturating,
+        traits::{BlockNumberProvider, Dispatchable, One},
     },
     traits::{
-        Bounded, EnsureOriginWithArg, LockIdentifier, QueryPreimage, StorePreimage,
+        EnsureOriginWithArg, LockIdentifier, QueryPreimage, StorePreimage,
         schedule::{
             DispatchTime, Priority,
             v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},
         },
     },
 };
-use frame_system::pallet_prelude::*;
-use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
+use frame_system::pallet_prelude::{OriginFor, ensure_root};
+use subtensor_runtime_common::{PollHooks, Polls, VoteTally};
 
 pub use pallet::*;
+pub use types::*;
 
-pub const MAX_TRACK_NAME_LEN: usize = 32;
-type TrackName = [u8; MAX_TRACK_NAME_LEN];
+mod types;
 
 pub const ASSEMBLY_ID: LockIdentifier = *b"assembly";
-
-pub type PalletsOriginOf<T> =
-    <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
-
-type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-
-type CallOf<T> = <T as Config>::RuntimeCall;
-type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
-
-type ScheduleAddressOf<T> = <<T as Config>::Scheduler as ScheduleAnon<
-    BlockNumberFor<T>,
-    CallOf<T>,
-    PalletsOriginOf<T>,
->>::Address;
-
-pub type BlockNumberFor<T> =
-    <<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-
-pub type TracksOf<T> = <T as Config>::Tracks;
-pub type TrackIdOf<T> =
-    <TracksOf<T> as TracksInfo<TrackName, AccountIdOf<T>, CallOf<T>, BlockNumberFor<T>>>::Id;
-pub type VotingSchemeOf<T> = <TracksOf<T> as TracksInfo<
-    TrackName,
-    AccountIdOf<T>,
-    CallOf<T>,
-    BlockNumberFor<T>,
->>::VotingScheme;
-pub type VoterSetOf<T> =
-    <TracksOf<T> as TracksInfo<TrackName, AccountIdOf<T>, CallOf<T>, BlockNumberFor<T>>>::VoterSet;
-
-pub type ReferendumStatusOf<T> =
-    ReferendumStatus<TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>, ScheduleAddressOf<T>>;
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -121,12 +91,19 @@ pub mod pallet {
             track: TrackIdOf<T>,
             proposal: Proposal<BoundedCallOf<T>>,
         },
+        Expired {
+            index: ReferendumIndex,
+        },
+        Executed {
+            when: BlockNumberFor<T>,
+            index: ReferendumIndex,
+        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
         TrackNotFound,
-        PreimageStoredWithDifferentLength,
+        NotOngoing,
     }
 
     #[pallet::call]
@@ -152,17 +129,16 @@ pub mod pallet {
                     decision_period, ..
                 } => {
                     let when = now.saturating_add(decision_period);
-                    // The alarm will trigger when the decision period ends
-                    // to mark the referendum as expired if it has not been decided.
+                    // Triggers after decision period ends to mark the referendum as expired if
+                    // it has not been decided yet.
                     let alarm = Self::set_alarm(index, when)?;
                     (Proposal::Action(bounded_call), alarm)
                 }
                 DecisionStrategy::Adjustable { initial_delay, .. } => {
                     let when = now.saturating_add(initial_delay);
                     Self::schedule_adjustable(index, when, bounded_call)?;
-                    // The alarm will trigger just after the scheduled proposal
-                    // to check if it has been executed and update the status accordingly,
-                    // it will be updated every time the schedule is adjusted.
+                    // Triggers after initial delay to check if the referendum has been executed
+                    // and update the status accordingly if it has.
                     let alarm = Self::set_alarm(index, when.saturating_add(One::one()))?;
                     (Proposal::Review, alarm)
                 }
@@ -194,20 +170,49 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        pub fn cleanup(_origin: OriginFor<T>, _index: ReferendumIndex) -> DispatchResult {
+        pub fn nudge_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
+            ensure_root(origin)?;
+            let info = Self::ensure_ongoing(index)?;
+            let now = T::BlockNumberProvider::current_block_number();
+
+            let new_status = match info.proposal {
+                Proposal::Action(call) => {
+                    T::Preimages::drop(&call);
+                    Self::deposit_event(Event::<T>::Expired { index });
+                    ReferendumStatus::Expired(now)
+                }
+                Proposal::Review => {
+                    // Should never happen that the referendum is still scheduled while being nudged
+                    // given the alarm is one block after the scheduled time but we check it anyway.
+                    if Self::task_next_dispatch_time(task_name(index)).is_ok() {
+                        return Ok(());
+                    }
+                    let when = now - One::one();
+                    Self::deposit_event(Event::<T>::Executed { index, when });
+                    ReferendumStatus::Executed(when)
+                }
+            };
+            ReferendumStatusFor::<T>::insert(index, new_status);
+
+            T::PollHooks::on_poll_completed(index);
+
             Ok(())
         }
 
         #[pallet::call_index(3)]
-        pub fn nudge_referendum(_origin: OriginFor<T>, _index: ReferendumIndex) -> DispatchResult {
+        pub fn cleanup(_origin: OriginFor<T>, _index: ReferendumIndex) -> DispatchResult {
             Ok(())
         }
     }
 }
 
 impl<T: Config> Pallet<T> {
-    fn referendum_task_name(index: ReferendumIndex) -> TaskName {
-        (ASSEMBLY_ID, "adjustable", index).using_encoded(sp_io::hashing::blake2_256)
+    fn task_next_dispatch_time(task_name: TaskName) -> Result<BlockNumberFor<T>, DispatchError> {
+        <T::Scheduler as ScheduleNamed<
+            BlockNumberFor<T>,
+            CallOf<T>,
+            PalletsOriginOf<T>,
+        >>::next_dispatch_time(task_name)
     }
 
     fn set_alarm(
@@ -231,7 +236,7 @@ impl<T: Config> Pallet<T> {
         call: BoundedCallOf<T>,
     ) -> DispatchResult {
         T::Scheduler::schedule_named(
-            Self::referendum_task_name(index),
+            task_name(index),
             DispatchTime::At(when),
             None,
             Priority::MAX,
@@ -240,146 +245,13 @@ impl<T: Config> Pallet<T> {
         )?;
         Ok(())
     }
-}
 
-pub type ReferendumIndex = u32;
-
-pub struct TrackInfo<Id, Name, Moment, ProposerSet, VoterSet, VotingScheme> {
-    pub name: Name,
-    pub proposer_set: ProposerSet,
-    pub voting_scheme: VotingScheme,
-    pub voter_set: VoterSet,
-    pub decision_strategy: DecisionStrategy<Id, Moment>,
-}
-
-pub struct Track<Id, Name, Moment, ProposerSet, VoterSet, VotingScheme> {
-    pub id: Id,
-    pub info: TrackInfo<Id, Name, Moment, ProposerSet, VoterSet, VotingScheme>,
-}
-
-pub trait TracksInfo<Name, AccountId, Call, Moment> {
-    type Id: Parameter + MaxEncodedLen + Copy + Ord + PartialOrd + Send + Sync + 'static;
-
-    type ProposerSet: SetLike<AccountId>;
-
-    type VotingScheme: PartialEq;
-    type VoterSet: SetLike<AccountId>;
-
-    fn tracks() -> impl Iterator<
-        Item = Track<Self::Id, Name, Moment, Self::ProposerSet, Self::VoterSet, Self::VotingScheme>,
-    >;
-
-    fn track_ids() -> impl Iterator<Item = Self::Id> {
-        Self::tracks().map(|x| x.id)
+    fn ensure_ongoing(index: ReferendumIndex) -> Result<ReferendumInfoOf<T>, DispatchError> {
+        match ReferendumStatusFor::<T>::get(index) {
+            Some(ReferendumStatus::Ongoing(info)) => Ok(info),
+            _ => Err(Error::<T>::NotOngoing.into()),
+        }
     }
-
-    fn info(
-        id: Self::Id,
-    ) -> Option<
-        TrackInfo<Self::Id, Name, Moment, Self::ProposerSet, Self::VoterSet, Self::VotingScheme>,
-    > {
-        Self::tracks().find(|t| t.id == id).map(|t| t.info)
-    }
-
-    fn authorize_proposal(id: Self::Id, proposal: &Call) -> bool;
-}
-
-#[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
-    PartialEq,
-    Eq,
-    RuntimeDebug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-pub struct ReferendumInfo<TrackId, Call, Moment, ScheduleAddress> {
-    pub track: TrackId,
-    pub proposal: Proposal<Call>,
-    pub submitted: Moment,
-    pub tally: VoteTally,
-    pub alarm: (Moment, ScheduleAddress),
-}
-
-#[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
-    PartialEq,
-    Eq,
-    RuntimeDebug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-pub enum ReferendumStatus<TrackId, Call, Moment, ScheduleAddress> {
-    Ongoing(ReferendumInfo<TrackId, Call, Moment, ScheduleAddress>),
-    Approved(Moment),
-    Rejected(Moment),
-    Expired(Moment),
-    FastTracked(Moment),
-    Cancelled(Moment),
-    Executed(Moment),
-    Killed(Moment),
-}
-
-#[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
-    PartialEq,
-    Eq,
-    RuntimeDebug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-pub enum DecisionStrategy<TrackId, Moment> {
-    PassOrFail {
-        decision_period: Moment,
-        approve_threshold: Perbill,
-        reject_threshold: Perbill,
-        on_approval: ApprovalAction<TrackId>,
-    },
-    Adjustable {
-        initial_delay: Moment,
-        fast_track_threshold: Perbill,
-        cancel_threshold: Perbill,
-    },
-}
-
-#[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
-    PartialEq,
-    Eq,
-    RuntimeDebug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-pub enum ApprovalAction<TrackId> {
-    Execute,
-    ScheduleAndReview { review_track: TrackId },
-}
-
-#[derive(
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    Clone,
-    PartialEq,
-    Eq,
-    RuntimeDebug,
-    TypeInfo,
-    MaxEncodedLen,
-)]
-pub enum Proposal<Call> {
-    Action(Call),
-    Review,
 }
 
 impl<T: Config> Polls<T::AccountId> for Pallet<T> {
@@ -387,17 +259,25 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
     type VotingScheme = VotingSchemeOf<T>;
     type VoterSet = VoterSetOf<T>;
 
-    fn is_ongoing(_index: Self::Index) -> bool {
-        false
+    fn is_ongoing(index: Self::Index) -> bool {
+        Self::ensure_ongoing(index).is_ok()
     }
 
-    fn voting_scheme_of(_index: Self::Index) -> Option<Self::VotingScheme> {
-        None
+    fn voting_scheme_of(index: Self::Index) -> Option<Self::VotingScheme> {
+        let info = Self::ensure_ongoing(index).ok()?;
+        let track = T::Tracks::info(info.track)?;
+        Some(track.voting_scheme)
     }
 
-    fn voter_set_of(_index: Self::Index) -> Option<Self::VoterSet> {
-        None
+    fn voter_set_of(index: Self::Index) -> Option<Self::VoterSet> {
+        let info = Self::ensure_ongoing(index).ok()?;
+        let track = T::Tracks::info(info.track)?;
+        Some(track.voter_set)
     }
 
     fn on_tally_updated(_index: Self::Index, _tally: &VoteTally) {}
+}
+
+fn task_name(index: ReferendumIndex) -> TaskName {
+    (ASSEMBLY_ID, "adjustable", index).using_encoded(sp_io::hashing::blake2_256)
 }
