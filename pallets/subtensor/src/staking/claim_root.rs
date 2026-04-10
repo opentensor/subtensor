@@ -182,7 +182,13 @@ impl<T: Config> Pallet<T> {
             // Transfer unstaked TAO from subnet account to the root subnet account
             // and increase root stake.
             if let Some(root_subnet_account_id) = Self::get_subnet_account_id(NetUid::ROOT) {
-                if Self::transfer_tao_from_subnet(netuid, &root_subnet_account_id, owed_tao.amount_paid_out.into()).is_ok() {
+                if Self::transfer_tao_from_subnet(
+                    netuid,
+                    &root_subnet_account_id,
+                    owed_tao.amount_paid_out.into(),
+                )
+                .is_ok()
+                {
                     Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                         hotkey,
                         coldkey,
@@ -198,6 +204,11 @@ impl<T: Config> Pallet<T> {
                     // Increase root `SubnetAlphaOut
                     SubnetAlphaOut::<T>::mutate(netuid, |total| {
                         *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
+                    });
+
+                    // Increase Total Stake
+                    TotalStake::<T>::mutate(|total| {
+                        *total = total.saturating_add(owed_tao.amount_paid_out.into());
                     });
                 }
             }
