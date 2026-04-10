@@ -9,7 +9,7 @@ import { PublicClient } from "viem";
 import { TypedApi } from "polkadot-api";
 import { ALPHA_POOL_CONTRACT_ABI, ALPHA_POOL_CONTRACT_BYTECODE } from "../src/contracts/alphaPool";
 import { convertH160ToPublicKey, convertH160ToSS58, convertPublicKeyToSs58, toViemAddress } from "../src/address-utils";
-import { forceSetBalanceToEthAddress, disableWhiteListCheck, addNewSubnetwork, forceSetBalanceToSs58Address, startCall, burnedRegister } from "../src/subtensor";
+import { forceSetBalanceToEthAddress, disableWhiteListCheck, addNewSubnetwork, forceSetBalanceToSs58Address, startCall, burnedRegister, getStake } from "../src/subtensor";
 import { ethers } from "ethers"
 import { tao } from "../src/balance-math";
 import { ISTAKING_V2_ADDRESS, IStakingV2ABI } from "../src/contracts/staking";
@@ -46,7 +46,7 @@ describe("Alpha Pool Test", () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
     // the unit in V2 is RAO, not ETH
     let stakeBalance = tao(20)
-    const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
+    const stakeBefore = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
     const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet);
     const tx = await contract.addStake(hotkey.publicKey, stakeBalance.toString(), netuid)
     await tx.wait()
@@ -56,7 +56,7 @@ describe("Alpha Pool Test", () => {
     );
 
     assert.ok(stakeFromContract > stakeBefore)
-    const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
+    const stakeAfter = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
     assert.ok(stakeAfter > stakeBefore)
     assert.ok(stakeFromContract > tao(20))
   })
@@ -66,7 +66,7 @@ describe("Alpha Pool Test", () => {
     let netuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
     const stakingPrecompile = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet);
 
-    const stakeBeforeDeposit = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
+    const stakeBeforeDeposit = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
 
     const contractFactory = new ethers.ContractFactory(ALPHA_POOL_CONTRACT_ABI, ALPHA_POOL_CONTRACT_BYTECODE, wallet)
     const contract = await contractFactory.deploy(hotkey.publicKey)
@@ -103,11 +103,11 @@ describe("Alpha Pool Test", () => {
     await depositAlphaTx.wait()
 
     // compare wallet stake
-    const stakeAftereDeposit = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
+    const stakeAftereDeposit = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet.address), netuid)
     assert.ok(stakeAftereDeposit < stakeBeforeDeposit)
 
     // check the contract stake
-    const ContractStake = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(contractAddress), netuid)
+    const ContractStake = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(contractAddress), netuid)
     assert.ok(ContractStake > 0)
 
     // check the wallet alpha balance in contract, the actual swapped alpha could be less than alphaAmount in deposit call

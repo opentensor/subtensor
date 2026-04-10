@@ -1,11 +1,12 @@
 use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
-use sp_consensus::Error as ConsensusError;
+use sp_consensus::{BlockOrigin, Error as ConsensusError};
 use sp_runtime::traits::{Block as BlockT, Header};
 use std::marker::PhantomData;
 
 pub struct ConditionalEVMBlockImport<B: BlockT, I, F> {
     inner: I,
     frontier_block_import: F,
+    skip_history_backfill: bool,
     _marker: PhantomData<B>,
 }
 
@@ -19,6 +20,7 @@ where
         ConditionalEVMBlockImport {
             inner: self.inner.clone(),
             frontier_block_import: self.frontier_block_import.clone(),
+            skip_history_backfill: self.skip_history_backfill,
             _marker: PhantomData,
         }
     }
@@ -32,10 +34,11 @@ where
     F: BlockImport<B>,
     F::Error: Into<ConsensusError>,
 {
-    pub fn new(inner: I, frontier_block_import: F) -> Self {
+    pub fn new(inner: I, frontier_block_import: F, skip_history_backfill: bool) -> Self {
         Self {
             inner,
             frontier_block_import,
+            skip_history_backfill,
             _marker: PhantomData,
         }
     }
@@ -56,7 +59,17 @@ where
         self.inner.check_block(block).await.map_err(Into::into)
     }
 
-    async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
+    async fn import_block(
+        &self,
+        mut block: BlockImportParams<B>,
+    ) -> Result<ImportResult, Self::Error> {
+        if self.skip_history_backfill && matches!(block.origin, BlockOrigin::NetworkInitialSync) {
+            // During initial network sync, Substrate can mark missing historical ranges as "gaps"
+            // (`create_gap = true`) and then backfill them later. When history backfill is set to
+            // `skip`, we disable gap creation so no history reconstruction work is scheduled.
+            // `build-patched-spec` just defaults this setting to `skip`.
+            block.create_gap = false;
+        }
         // 4345556 - mainnet runtime upgrade block with Frontier
         if *block.header.number() < 4345557u32.into() {
             self.inner.import_block(block).await.map_err(Into::into)

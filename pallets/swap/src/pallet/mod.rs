@@ -3,9 +3,10 @@ use core::ops::Neg;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
+use sp_arithmetic::Perbill;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaCurrency, BalanceOps, Currency, CurrencyReserve, NetUid, SubnetInfo, TaoCurrency,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
 };
 
 use crate::{
@@ -39,10 +40,10 @@ mod pallet {
         type SubnetInfo: SubnetInfo<Self::AccountId>;
 
         /// Tao reserves info.
-        type TaoReserve: CurrencyReserve<TaoCurrency>;
+        type TaoReserve: TokenReserve<TaoBalance>;
 
         /// Alpha reserves info.
-        type AlphaReserve: CurrencyReserve<AlphaCurrency>;
+        type AlphaReserve: TokenReserve<AlphaBalance>;
 
         /// Implementor of
         /// [`BalanceOps`](subtensor_swap_interface::BalanceOps).
@@ -70,12 +71,36 @@ mod pallet {
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+
+        /// Helper for setting up cross-pallet state needed by benchmarks.
+        #[cfg(feature = "runtime-benchmarks")]
+        type BenchmarkHelper: BenchmarkHelper<Self::AccountId>;
+    }
+
+    /// Benchmark setup helper — the runtime wires this to set state in other pallets.
+    #[cfg(feature = "runtime-benchmarks")]
+    pub trait BenchmarkHelper<AccountId> {
+        fn setup_subnet(netuid: NetUid);
+        fn register_hotkey(hotkey: &AccountId, coldkey: &AccountId);
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl<AccountId> BenchmarkHelper<AccountId> for () {
+        fn setup_subnet(_netuid: NetUid) {}
+        fn register_hotkey(_hotkey: &AccountId, _coldkey: &AccountId) {}
     }
 
     /// Default fee rate if not set
     #[pallet::type_value]
     pub fn DefaultFeeRate() -> u16 {
         33 // ~0.05 %
+    }
+
+    /// Fee split between pool and block builder.
+    /// Pool receives the portion returned by this function
+    #[pallet::type_value]
+    pub fn DefaultFeeSplit() -> Perbill {
+        Perbill::zero()
     }
 
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
@@ -149,12 +174,11 @@ mod pallet {
 
     /// TAO reservoir for scraps of protocol claimed fees.
     #[pallet::storage]
-    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoCurrency, ValueQuery>;
+    pub type ScrapReservoirTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoBalance, ValueQuery>;
 
     /// Alpha reservoir for scraps of protocol claimed fees.
     #[pallet::storage]
-    pub type ScrapReservoirAlpha<T> =
-        StorageMap<_, Twox64Concat, NetUid, AlphaCurrency, ValueQuery>;
+    pub type ScrapReservoirAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -179,9 +203,9 @@ mod pallet {
             /// The amount of liquidity added to the position
             liquidity: u64,
             /// The amount of TAO tokens committed to the position
-            tao: TaoCurrency,
+            tao: TaoBalance,
             /// The amount of Alpha tokens committed to the position
-            alpha: AlphaCurrency,
+            alpha: AlphaBalance,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -201,13 +225,13 @@ mod pallet {
             /// The amount of liquidity removed from the position
             liquidity: u64,
             /// The amount of TAO tokens returned to the user
-            tao: TaoCurrency,
+            tao: TaoBalance,
             /// The amount of Alpha tokens returned to the user
-            alpha: AlphaCurrency,
+            alpha: AlphaBalance,
             /// The amount of TAO fees earned from the position
-            fee_tao: TaoCurrency,
+            fee_tao: TaoBalance,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: AlphaCurrency,
+            fee_alpha: AlphaBalance,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -232,9 +256,9 @@ mod pallet {
             /// The amount of Alpha tokens returned to the user
             alpha: i64,
             /// The amount of TAO fees earned from the position
-            fee_tao: TaoCurrency,
+            fee_tao: TaoBalance,
             /// The amount of Alpha fees earned from the position
-            fee_alpha: AlphaCurrency,
+            fee_alpha: AlphaBalance,
             /// the lower tick
             tick_low: TickIndex,
             /// the upper tick
@@ -395,8 +419,8 @@ mod pallet {
             //     tick_high,
             //     liquidity,
             // )?;
-            // let alpha = AlphaCurrency::from(alpha);
-            // let tao = TaoCurrency::from(tao);
+            // let alpha = AlphaBalance::from(alpha);
+            // let tao = TaoBalance::from(tao);
 
             // // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
             // let tao_provided = T::BalanceOps::decrease_balance(&coldkey, tao)?;
@@ -526,12 +550,7 @@ mod pallet {
                 let tao_provided = T::BalanceOps::decrease_balance(&coldkey, result.tao)?;
                 ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
 
-                let alpha_provided =
-                    T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
-                ensure!(
-                    alpha_provided == result.alpha,
-                    Error::<T>::InsufficientBalance
-                );
+                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
 
                 // Emit an event
                 Self::deposit_event(Event::LiquidityModified {
@@ -585,7 +604,7 @@ mod pallet {
             }
 
             // Credit accrued fees to user account (no matter if liquidity is added or removed)
-            if result.fee_tao > TaoCurrency::ZERO {
+            if result.fee_tao > TaoBalance::ZERO {
                 T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
             }
             if !result.fee_alpha.is_zero() {
@@ -604,7 +623,7 @@ mod pallet {
         ///
         /// Emits `Event::UserLiquidityToggled` on success
         #[pallet::call_index(5)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::modify_position())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::disable_lp())]
         pub fn disable_lp(origin: OriginFor<T>) -> DispatchResult {
             ensure_root(origin)?;
 

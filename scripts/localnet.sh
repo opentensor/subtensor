@@ -12,16 +12,11 @@ NO_PURGE=0
 # Check if `--build-only` passed as parameter
 BUILD_ONLY=0
 
-CHAIN="local"
-
 for arg in "$@"; do
   if [ "$arg" = "--no-purge" ]; then
     NO_PURGE=1
   elif [ "$arg" = "--build-only" ]; then
     BUILD_ONLY=1
-  # start local network with 5 nodes
-  elif [ "$arg" = "--local5" ]; then
-    CHAIN="local5"
   fi
 done
 
@@ -38,14 +33,16 @@ fast_runtime=${1:-"True"}
 if [ "$fast_runtime" == "False" ]; then
   # Block of code to execute if fast_runtime is False
   echo "fast_runtime is Off"
+  : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet"}"
+  : "${FEATURES:="pow-faucet metadata-hash"}"
   BUILD_DIR="$BASE_DIR/target/non-fast-runtime"
 else
   # Block of code to execute if fast_runtime is not False
   echo "fast_runtime is On"
+  : "${CHAIN:=local}"
   : "${BUILD_BINARY:=1}"
-  : "${FEATURES:="pow-faucet fast-runtime"}"
+  : "${FEATURES:="pow-faucet metadata-hash fast-runtime"}"
   BUILD_DIR="$BASE_DIR/target/fast-runtime"
 fi
 
@@ -89,60 +86,93 @@ echo "*** Building chainspec..."
 "$BUILD_DIR/release/node-subtensor" build-spec --disable-default-bootnode --raw --chain "$CHAIN" >"$FULL_PATH"
 echo "*** Chainspec built and output to file"
 
-NODES=("dave" "eve" "ferdie" "one" "two")
-
 # Generate node keys
-for i in "${NODES[@]}"; do
-  echo /tmp/$i
-  "$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/$i
-done
-
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/one
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/two
+"$BUILD_DIR/release/node-subtensor" key generate-node-key --chain="$FULL_PATH" --base-path /tmp/three
 
 if [ $NO_PURGE -eq 1 ]; then
   echo "*** Purging previous state skipped..."
 else
   echo "*** Purging previous state..."
-  for i in "${NODES[@]}"; do
-    "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/$i --chain="$FULL_PATH" >/dev/null 2>&1
-  done
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/two --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/one --chain="$FULL_PATH" >/dev/null 2>&1
+  "$BUILD_DIR/release/node-subtensor" purge-chain -y --base-path /tmp/three --chain="$FULL_PATH" >/dev/null 2>&1
   echo "*** Previous chainstate purged"
 fi
 
-command_base=(
+if [ $BUILD_ONLY -eq 0 ]; then
+  echo "*** Starting localnet nodes..."
+
+  one_start=(
     "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/one
     --chain="$FULL_PATH"
+    --one
+    --port 30334
+    --rpc-port 9944
     --validator
     --rpc-cors=all
     --allow-private-ipv4
     --discover-local
     --unsafe-force-node-key-generation
-    --unsafe-rpc-external 
   )
 
-if [ $BUILD_ONLY -eq 0 ]; then
-  echo "*** Starting localnet nodes..."
+  two_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/two
+    --chain="$FULL_PATH"
+    --two
+    --port 30335
+    --rpc-port 9945
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+  )
 
-  dave_start=("${command_base[@]}" --dave --base-path /tmp/dave --port 30331 --rpc-port 9941) 
-  eve_start=("${command_base[@]}" --eve --base-path /tmp/eve --port 30332 --rpc-port 9942)
-  ferdie_start=("${command_base[@]}" --ferdie --base-path /tmp/ferdie --port 30333 --rpc-port 9943)
-  one_start=("${command_base[@]}" --one --base-path /tmp/one --port 30334 --rpc-port 9944)
-  two_start=("${command_base[@]}" --two --base-path /tmp/two --port 30335 --rpc-port 9945)
+  # Insert //Three keys manually (no --three shorthand exists in Substrate)
+  "$BUILD_DIR/release/node-subtensor" key insert \
+    --base-path /tmp/three \
+    --chain="$FULL_PATH" \
+    --scheme Sr25519 \
+    --suri "//Three" \
+    --key-type aura
+  "$BUILD_DIR/release/node-subtensor" key insert \
+    --base-path /tmp/three \
+    --chain="$FULL_PATH" \
+    --scheme Ed25519 \
+    --suri "//Three" \
+    --key-type gran
+
+  three_start=(
+    "$BUILD_DIR/release/node-subtensor"
+    --base-path /tmp/three
+    --chain="$FULL_PATH"
+    --name Three
+    --port 30336
+    --rpc-port 9946
+    --validator
+    --rpc-cors=all
+    --allow-private-ipv4
+    --discover-local
+    --unsafe-force-node-key-generation
+  )
+
+  # Provide RUN_IN_DOCKER local environment variable if run script in the docker image
+  if [ "${RUN_IN_DOCKER}" == "1" ]; then
+    one_start+=(--unsafe-rpc-external)
+    two_start+=(--unsafe-rpc-external)
+    three_start+=(--unsafe-rpc-external)
+  fi
 
   trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
-  if [ "$CHAIN" = "local5" ]; then
-    (
-      ("${dave_start[@]}" 2>&1) &
-      ("${eve_start[@]}" 2>&1) &
-      ("${ferdie_start[@]}" 2>&1) &
-      ("${one_start[@]}" 2>&1) &
-      ("${two_start[@]}" 2>&1)
-      wait
-    )
-  fi
   (
     ("${one_start[@]}" 2>&1) &
-    ("${two_start[@]}" 2>&1)
+    ("${two_start[@]}" 2>&1) &
+    ("${three_start[@]}" 2>&1)
     wait
   )
 fi

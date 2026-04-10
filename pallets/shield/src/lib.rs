@@ -1,9 +1,39 @@
 // pallets/mev-shield/src/lib.rs
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec;
+use chacha20poly1305::{
+    KeyInit, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Payload},
+};
+use frame_support::{
+    dispatch::{GetDispatchInfo, PostDispatchInfo},
+    pallet_prelude::*,
+    traits::{ConstU64, IsSubType},
+};
+use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
+use ml_kem::{
+    Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
+    kem::{Decapsulate, DecapsulationKey},
+};
+use sp_io::hashing::twox_128;
+use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
+use sp_runtime::traits::{Dispatchable, Saturating};
+use stp_shield::{
+    INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
+    ShieldedTransaction,
+};
+use subtensor_macros::freeze_struct;
+
 pub use pallet::*;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+
+pub mod weights;
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 pub mod mock;
@@ -11,464 +41,636 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 
+mod extension;
+mod migrations;
+pub use extension::CheckShieldedTxValidity;
+
+type MigrationKeyMaxLen = ConstU32<128>;
+
+type ExtrinsicOf<Block> = <Block as BlockT>::Extrinsic;
+type CheckedOf<T, Context> = <T as Checkable<Context>>::Checked;
+type ApplyableCallOf<T> = <T as Applyable>::Call;
+
+const MAX_EXTRINSIC_DEPTH: u32 = 8;
+
+/// Weight for `store_encrypted`, intentionally set higher than the benchmark
+/// to discourage abuse of the encrypted extrinsic queue.
+const STORE_ENCRYPTED_WEIGHT: u64 = 20_000_000_000;
+
+pub fn store_encrypted_weight() -> Weight {
+    Weight::from_parts(STORE_ENCRYPTED_WEIGHT, 0)
+}
+
+/// Trait for decrypting stored extrinsics before dispatch.
+pub trait ExtrinsicDecryptor<RuntimeCall> {
+    /// Decrypt the stored bytes and return the decoded RuntimeCall.
+    fn decrypt(data: &[u8]) -> Result<RuntimeCall, DispatchError>;
+}
+
+/// Default implementation that always returns an error.
+impl<RuntimeCall> ExtrinsicDecryptor<RuntimeCall> for () {
+    fn decrypt(_data: &[u8]) -> Result<RuntimeCall, DispatchError> {
+        Err(DispatchError::Other("ExtrinsicDecryptor not implemented"))
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use codec::Encode;
-    use frame_support::{
-        dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
-        pallet_prelude::*,
-        traits::ConstU32,
-        traits::IsSubType,
-        weights::Weight,
-    };
-    use frame_system::pallet_prelude::*;
-    use sp_consensus_aura::sr25519::AuthorityId as AuraAuthorityId;
-    use sp_core::ByteArray;
-    use sp_runtime::{
-        AccountId32, DispatchErrorWithPostInfo, RuntimeDebug, Saturating,
-        traits::{
-            BadOrigin, DispatchInfoOf, DispatchOriginOf, Dispatchable, Hash, Implication,
-            TransactionExtension,
-        },
-        transaction_validity::{InvalidTransaction, TransactionSource, ValidTransaction},
-    };
-    use sp_std::{marker::PhantomData, prelude::*};
-    use subtensor_macros::freeze_struct;
-
-    /// Origin helper: ensure the signer is an Aura authority (no session/authorship).
-    pub struct EnsureAuraAuthority<T>(PhantomData<T>);
-
-    pub trait AuthorityOriginExt<Origin> {
-        type AccountId;
-
-        fn ensure_validator(origin: Origin) -> Result<Self::AccountId, BadOrigin>;
-    }
-
-    impl<T> AuthorityOriginExt<OriginFor<T>> for EnsureAuraAuthority<T>
-    where
-        T: frame_system::Config<AccountId = AccountId32>
-            + pallet_aura::Config<AuthorityId = AuraAuthorityId>,
-    {
-        type AccountId = AccountId32;
-
-        fn ensure_validator(origin: OriginFor<T>) -> Result<Self::AccountId, BadOrigin> {
-            let who: AccountId32 = frame_system::ensure_signed(origin)?;
-
-            let aura_id =
-                <AuraAuthorityId as ByteArray>::from_slice(who.as_ref()).map_err(|_| BadOrigin)?;
-
-            let is_validator = pallet_aura::Authorities::<T>::get()
-                .into_iter()
-                .any(|id| id == aura_id);
-
-            if is_validator {
-                Ok(who)
-            } else {
-                Err(BadOrigin)
-            }
-        }
-    }
-
-    // ----------------- Types -----------------
-
-    /// AEAD‑independent commitment over the revealed payload.
-    #[freeze_struct("66e393c88124f360")]
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-    pub struct Submission<AccountId, BlockNumber, Hash> {
-        pub author: AccountId,
-        pub commitment: Hash,
-        pub ciphertext: BoundedVec<u8, ConstU32<8192>>,
-        pub submitted_in: BlockNumber,
-    }
-
-    // ----------------- Config -----------------
+    use crate::weights::WeightInfo;
 
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config<RuntimeEvent: From<Event<Self>>> + pallet_aura::Config
-    {
-        type RuntimeCall: Parameter
-            + sp_runtime::traits::Dispatchable<
-                RuntimeOrigin = Self::RuntimeOrigin,
-                PostInfo = PostDispatchInfo,
-            > + GetDispatchInfo;
+    pub trait Config: frame_system::Config {
+        /// The identifier type for an authority.
+        type AuthorityId: Member + Parameter + MaybeSerializeDeserialize + MaxEncodedLen;
 
-        type AuthorityOrigin: AuthorityOriginExt<Self::RuntimeOrigin, AccountId = Self::AccountId>;
+        /// A way to find the current and next block author.
+        type FindAuthors: FindAuthors<Self>;
+
+        /// The overarching call type for dispatching stored extrinsics.
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
+            + GetDispatchInfo;
+
+        /// Decryptor for stored extrinsics.
+        type ExtrinsicDecryptor: ExtrinsicDecryptor<<Self as pallet::Config>::RuntimeCall>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    // ----------------- Storage -----------------
-
-    /// Current ML‑KEM‑768 public key bytes (encoded form).
+    /// Current block author's ML-KEM-768 encapsulation key (internal, not for encryption).
     #[pallet::storage]
-    pub type CurrentKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
+    pub type CurrentKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
-    /// Next ML‑KEM‑768 public key bytes, announced by the block author.
+    /// Next block author's key, staged here before promoting to `CurrentKey`.
     #[pallet::storage]
-    pub type NextKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<2048>>, OptionQuery>;
+    pub type PendingKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
-    /// Buffered encrypted submissions, indexed by wrapper id.
+    /// Key users should encrypt with (N+2 author's key).
     #[pallet::storage]
-    pub type Submissions<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::Hash,
-        Submission<T::AccountId, BlockNumberFor<T>, T::Hash>,
-        OptionQuery,
-    >;
+    pub type NextKey<T> = StorageValue<_, ShieldEncKey, OptionQuery>;
 
-    /// Hash(CurrentKey) per block, used to bind `key_hash` to the epoch at submit time.
+    /// Per-author ML-KEM-768 encapsulation key, updated each time the author produces a block.
     #[pallet::storage]
-    pub type KeyHashByBlock<T: Config> =
-        StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, T::Hash, OptionQuery>;
+    pub type AuthorKeys<T: Config> =
+        StorageMap<_, Twox64Concat, T::AuthorityId, ShieldEncKey, OptionQuery>;
 
-    /// How many recent blocks of key-epoch hashes we retain.
-    const KEY_EPOCH_HISTORY: u32 = 100;
+    /// Block number at which `PendingKey` is no longer valid (exclusive upper bound).
+    /// Updated every block during rotation.
+    #[pallet::storage]
+    pub type PendingKeyExpiresAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
-    // ----------------- Events & Errors -----------------
+    /// Block number at which `NextKey` is no longer valid (exclusive upper bound).
+    /// Updated every block during rotation.
+    #[pallet::storage]
+    pub type NextKeyExpiresAt<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
+
+    /// Stores whether some migration has been run.
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
+
+    /// Maximum size of a single encoded call.
+    pub type MaxEncryptedCallSize = ConstU32<8192>;
+
+    /// Default maximum number of pending extrinsics.
+    pub type DefaultMaxPendingExtrinsics = ConstU32<100>;
+
+    /// Configurable maximum number of pending extrinsics.
+    /// Defaults to 100 if not explicitly set via `set_max_pending_extrinsics`.
+    #[pallet::storage]
+    pub type MaxPendingExtrinsicsLimit<T: Config> =
+        StorageValue<_, u32, ValueQuery, DefaultMaxPendingExtrinsics>;
+
+    /// Default extrinsic lifetime in blocks.
+    pub const DEFAULT_EXTRINSIC_LIFETIME: u32 = 10;
+
+    /// Configurable extrinsic lifetime (max block difference between submission and execution).
+    /// Defaults to 10 blocks if not explicitly set.
+    #[pallet::storage]
+    pub type ExtrinsicLifetime<T: Config> =
+        StorageValue<_, u32, ValueQuery, ConstU32<DEFAULT_EXTRINSIC_LIFETIME>>;
+
+    /// Default maximum weight allowed for on_initialize processing.
+    pub const DEFAULT_ON_INITIALIZE_WEIGHT: u64 = 500_000_000_000;
+
+    /// Absolute maximum weight for on_initialize: half the total block weight (2s of 4s).
+    pub const MAX_ON_INITIALIZE_WEIGHT: u64 = 2_000_000_000_000;
+
+    /// Configurable maximum weight for on_initialize processing.
+    /// Defaults to 500_000_000_000 ref_time if not explicitly set.
+    #[pallet::storage]
+    pub type OnInitializeWeight<T: Config> =
+        StorageValue<_, u64, ValueQuery, ConstU64<DEFAULT_ON_INITIALIZE_WEIGHT>>;
+
+    /// Default maximum weight for a single extrinsic.
+    pub const DEFAULT_MAX_EXTRINSIC_WEIGHT: u64 = 50_000_000_000;
+
+    /// Configurable maximum weight for a single extrinsic dispatched during on_initialize.
+    /// Extrinsics exceeding this limit are removed from the queue.
+    #[pallet::storage]
+    pub type MaxExtrinsicWeight<T: Config> =
+        StorageValue<_, u64, ValueQuery, ConstU64<DEFAULT_MAX_EXTRINSIC_WEIGHT>>;
+
+    /// A pending extrinsic stored for later execution.
+    #[freeze_struct("f13d2a9d7bd4767d")]
+    #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Debug)]
+    #[scale_info(skip_type_params(T))]
+    pub struct PendingExtrinsic<T: Config> {
+        /// The account that submitted the extrinsic.
+        pub who: T::AccountId,
+        /// The encoded call data.
+        pub encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+        /// The block number when the extrinsic was submitted.
+        pub submitted_at: BlockNumberFor<T>,
+    }
+
+    /// Storage map for encrypted extrinsics to be executed in on_initialize.
+    /// Uses u32 index for O(1) insertion and removal. Count is maintained automatically.
+    #[pallet::storage]
+    pub type PendingExtrinsics<T: Config> =
+        CountedStorageMap<_, Identity, u32, PendingExtrinsic<T>, OptionQuery>;
+
+    /// Next index to use when inserting a pending extrinsic (unique auto-increment).
+    #[pallet::storage]
+    pub type NextPendingExtrinsicIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Encrypted wrapper accepted.
         EncryptedSubmitted { id: T::Hash, who: T::AccountId },
-        /// Decrypted call executed.
-        DecryptedExecuted { id: T::Hash, signer: T::AccountId },
-        /// Decrypted execution rejected.
-        DecryptedRejected {
-            id: T::Hash,
-            reason: DispatchErrorWithPostInfo<PostDispatchInfo>,
-        },
-        /// Decryption failed - validator could not decrypt the submission.
-        DecryptionFailed {
-            id: T::Hash,
-            reason: BoundedVec<u8, ConstU32<256>>,
-        },
+        /// Encrypted extrinsic was stored for later execution.
+        ExtrinsicStored { index: u32, who: T::AccountId },
+        /// Extrinsic decode failed during on_initialize.
+        ExtrinsicDecodeFailed { index: u32 },
+        /// Extrinsic dispatch failed during on_initialize.
+        ExtrinsicDispatchFailed { index: u32, error: DispatchError },
+        /// Extrinsic was successfully dispatched during on_initialize.
+        ExtrinsicDispatched { index: u32 },
+        /// Extrinsic expired (exceeded max block lifetime).
+        ExtrinsicExpired { index: u32 },
+        /// Extrinsic postponed due to weight limit.
+        ExtrinsicPostponed { index: u32 },
+        /// Maximum pending extrinsics limit was updated.
+        MaxPendingExtrinsicsNumberSet { value: u32 },
+        /// Maximum on_initialize weight was updated.
+        OnInitializeWeightSet { value: u64 },
+        /// Extrinsic lifetime was updated.
+        ExtrinsicLifetimeSet { value: u32 },
+        /// Maximum per-extrinsic weight was updated.
+        MaxExtrinsicWeightSet { value: u64 },
+        /// Extrinsic exceeded the per-extrinsic weight limit and was removed.
+        ExtrinsicWeightExceeded { index: u32 },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// A submission with the same id already exists in `Submissions`.
-        SubmissionAlreadyExists,
-        /// The referenced submission id does not exist in `Submissions`.
-        MissingSubmission,
-        /// The recomputed commitment does not match the stored commitment.
-        CommitmentMismatch,
-        /// The provided signature over the payload is invalid.
-        SignatureInvalid,
-        /// The announced ML‑KEM public key length is invalid.
-        BadPublicKeyLen,
-        /// The MEV‑Shield key epoch for this submission has expired and is no longer accepted.
-        KeyExpired,
-        /// The provided `key_hash` does not match the expected epoch key hash.
-        KeyHashMismatch,
+        /// The announced ML‑KEM encapsulation key length is invalid.
+        BadEncKeyLen,
+        /// Unreachable.
+        Unreachable,
+        /// Too many pending extrinsics in storage.
+        TooManyPendingExtrinsics,
+        /// Weight exceeds the absolute maximum (half of total block weight).
+        WeightExceedsAbsoluteMax,
     }
-
-    // ----------------- Hooks -----------------
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let db_weight = T::DbWeight::get();
-            let mut reads: u64 = 0;
-            let mut writes: u64 = 0;
+        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            Self::process_pending_extrinsics()
+        }
 
-            // 1) Roll NextKey -> CurrentKey if a next key is present.
-            reads = reads.saturating_add(1);
-            writes = writes.saturating_add(1);
-            let mut current_opt: Option<BoundedVec<u8, ConstU32<2048>>> =
-                if let Some(next) = NextKey::<T>::take() {
-                    CurrentKey::<T>::put(&next);
-                    writes = writes.saturating_add(1);
-                    Some(next)
-                } else {
-                    None
-                };
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            // 2) If we didn't roll, read the existing CurrentKey exactly once.
-            if current_opt.is_none() {
-                reads = reads.saturating_add(1);
-                current_opt = CurrentKey::<T>::get();
-            }
+            weight = weight.saturating_add(
+                migrations::migrate_clear_v1_storage::migrate_clear_v1_storage::<T>(),
+            );
 
-            // 3) Maintain KeyHashByBlock entry for this block:
-            match current_opt {
-                Some(current) => {
-                    let epoch_hash: T::Hash = T::Hashing::hash(current.as_ref());
-                    KeyHashByBlock::<T>::insert(n, epoch_hash);
-                    writes = writes.saturating_add(1);
-                }
-                None => {
-                    KeyHashByBlock::<T>::remove(n);
-                    writes = writes.saturating_add(1);
-                }
-            }
-
-            // 4) Prune old epoch hashes with a sliding window of size KEY_EPOCH_HISTORY.
-            let depth: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
-            if n >= depth {
-                let prune_bn = n.saturating_sub(depth);
-                KeyHashByBlock::<T>::remove(prune_bn);
-                writes = writes.saturating_add(1);
-            }
-
-            // 5) TTL-based pruning of stale submissions.
-            let ttl: BlockNumberFor<T> = KEY_EPOCH_HISTORY.into();
-            let threshold: BlockNumberFor<T> = n.saturating_sub(ttl);
-
-            let mut to_remove: Vec<T::Hash> = Vec::new();
-
-            for (id, sub) in Submissions::<T>::iter() {
-                reads = reads.saturating_add(1);
-                if sub.submitted_in < threshold {
-                    to_remove.push(id);
-                }
-            }
-
-            for id in to_remove {
-                Submissions::<T>::remove(id);
-                writes = writes.saturating_add(1);
-            }
-
-            db_weight.reads_writes(reads, writes)
+            weight
         }
     }
 
-    // ----------------- Calls -----------------
-
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Announce the ML‑KEM public key that will become `CurrentKey` in
-        /// the following block.
+        /// Rotate the key chain and announce the current author's ML-KEM encapsulation key.
+        ///
+        /// Called as an inherent every block. `enc_key` is `None` on node failure,
+        /// which removes the author from future shielded tx eligibility.
+        ///
+        /// Key rotation order (using pre-update AuthorKeys):
+        ///   1. CurrentKey  ← PendingKey
+        ///   2. PendingKey  ← NextKey
+        ///   3. NextKey     ← next-next author's key  (user-facing)
+        ///   4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
-        #[pallet::weight((
-            Weight::from_parts(20_999_999_999, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Operational,
-            Pays::Yes
-        ))]
-        #[allow(clippy::useless_conversion)]
+        #[pallet::weight(T::WeightInfo::announce_next_key())]
         pub fn announce_next_key(
             origin: OriginFor<T>,
-            public_key: BoundedVec<u8, ConstU32<2048>>,
-        ) -> DispatchResultWithPostInfo {
-            // Only a current Aura validator may call this (signed account ∈ Aura authorities)
-            T::AuthorityOrigin::ensure_validator(origin)?;
+            enc_key: Option<ShieldEncKey>,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
 
-            const MAX_KYBER768_PK_LENGTH: usize = 1184;
-            ensure!(
-                public_key.len() == MAX_KYBER768_PK_LENGTH,
-                Error::<T>::BadPublicKeyLen
-            );
+            let author = T::FindAuthors::find_current_author().ok_or(Error::<T>::Unreachable)?;
+            let now = <frame_system::Pallet<T>>::block_number();
 
-            NextKey::<T>::put(public_key);
+            // 1. CurrentKey ← PendingKey
+            if let Some(pending_key) = PendingKey::<T>::take() {
+                CurrentKey::<T>::put(pending_key);
+            } else {
+                CurrentKey::<T>::kill();
+            }
 
-            // Refund the fee on success by setting pays_fee = Pays::No
-            Ok(PostDispatchInfo {
-                actual_weight: None,
-                pays_fee: Pays::No,
-            })
+            // 2. PendingKey ← NextKey (what was N+2 last block is now N+1)
+            if let Some(next_key) = NextKey::<T>::take() {
+                PendingKey::<T>::put(next_key);
+            } else {
+                PendingKey::<T>::kill();
+            }
+
+            // 3. NextKey ← next-next author's key
+            if let Some(next_next_author) = T::FindAuthors::find_next_next_author()
+                && let Some(key) = AuthorKeys::<T>::get(&next_next_author)
+            {
+                NextKey::<T>::put(key);
+            } else {
+                NextKey::<T>::kill();
+            }
+
+            // 4. Update AuthorKeys after rotations for consistent reads above.
+            if let Some(enc_key) = &enc_key {
+                ensure!(
+                    enc_key.len() == MLKEM768_ENC_KEY_LEN,
+                    Error::<T>::BadEncKeyLen
+                );
+                AuthorKeys::<T>::insert(&author, enc_key.clone());
+            } else {
+                AuthorKeys::<T>::remove(&author);
+            }
+
+            // 5. Set expiration blocks for user-facing keys.
+            if PendingKey::<T>::get().is_some() {
+                PendingKeyExpiresAt::<T>::put(now + 2u32.into());
+            } else {
+                PendingKeyExpiresAt::<T>::kill();
+            }
+            if NextKey::<T>::get().is_some() {
+                NextKeyExpiresAt::<T>::put(now + 3u32.into());
+            } else {
+                NextKeyExpiresAt::<T>::kill();
+            }
+
+            Ok(())
         }
 
         /// Users submit an encrypted wrapper.
         ///
         /// Client‑side:
         ///
-        ///   1. Read `NextKey` (ML‑KEM public key bytes) from storage.
+        ///   1. Read `NextKey` (ML‑KEM encapsulation key bytes) from storage.
         ///   2. Sign your extrinsic so that it can be executed when added to the pool,
         ///        i.e. you may need to increment the nonce if you submit using the same account.
-        ///   3. `commitment = Hashing::hash(signed_extrinsic)`.
-        ///   4. Encrypt:
+        ///   3. Encrypt:
         ///
         ///        plaintext = signed_extrinsic
+        ///        key_hash = xxhash128(NextKey)
+        ///        kem_len = Length of kem_ct in bytes (u16)
+        ///        kem_ct = Ciphertext from ML‑KEM‑768
+        ///        nonce = Random 24 bytes used for XChaCha20‑Poly1305
+        ///        aead_ct = Ciphertext from XChaCha20‑Poly1305
         ///
         ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
         ///
-        ///        ciphertext = [u16 kem_len] || kem_ct || nonce24 || aead_ct
+        ///        ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((
-            Weight::from_parts(13_980_000, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Normal,
-            Pays::Yes,
-        ))]
+        #[pallet::weight(T::WeightInfo::submit_encrypted())]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
-            commitment: T::Hash,
             ciphertext: BoundedVec<u8, ConstU32<8192>>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
+            let id: T::Hash = T::Hashing::hash_of(&(who.clone(), &ciphertext));
 
-            let id: T::Hash = T::Hashing::hash_of(&(who.clone(), commitment, &ciphertext));
-            let sub = Submission::<T::AccountId, BlockNumberFor<T>, T::Hash> {
-                author: who.clone(),
-                commitment,
-                ciphertext,
-                submitted_in: <frame_system::Pallet<T>>::block_number(),
-            };
-            ensure!(
-                !Submissions::<T>::contains_key(id),
-                Error::<T>::SubmissionAlreadyExists
-            );
-            Submissions::<T>::insert(id, sub);
             Self::deposit_event(Event::EncryptedSubmitted { id, who });
             Ok(())
         }
 
-        /// Marks a submission as failed to decrypt and removes it from storage.
-        ///
-        /// Called by the block author when decryption fails at any stage (e.g., ML-KEM decapsulate
-        /// failed, AEAD decrypt failed, invalid ciphertext format, etc.). This allows clients to be
-        /// notified of decryption failures through on-chain events.
-        ///
-        /// # Arguments
-        ///
-        /// * `id` - The wrapper id (hash of (author, commitment, ciphertext))
-        /// * `reason` - Human-readable reason for the decryption failure (e.g., "ML-KEM decapsulate failed")
-        #[pallet::call_index(3)]
-        #[pallet::weight((
-            Weight::from_parts(13_260_000, 0)
-                .saturating_add(T::DbWeight::get().reads(1_u64))
-                .saturating_add(T::DbWeight::get().writes(1_u64)),
-            DispatchClass::Normal,
-            Pays::No
-        ))]
-        pub fn mark_decryption_failed(
+        /// Store an encrypted extrinsic for later execution in on_initialize.
+        #[pallet::call_index(2)]
+        #[pallet::weight(store_encrypted_weight())]
+        pub fn store_encrypted(
             origin: OriginFor<T>,
-            id: T::Hash,
-            reason: BoundedVec<u8, ConstU32<256>>,
+            encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
         ) -> DispatchResult {
-            // Unsigned: only the author node may inject this via ValidateUnsigned.
-            ensure_none(origin)?;
+            let who = ensure_signed(origin)?;
 
-            // Load and consume the submission.
-            let Some(_sub) = Submissions::<T>::take(id) else {
-                return Err(Error::<T>::MissingSubmission.into());
+            ensure!(
+                PendingExtrinsics::<T>::count() < MaxPendingExtrinsicsLimit::<T>::get(),
+                Error::<T>::TooManyPendingExtrinsics
+            );
+
+            let index = NextPendingExtrinsicIndex::<T>::get();
+            let pending = PendingExtrinsic {
+                who: who.clone(),
+                encrypted_call,
+                submitted_at: frame_system::Pallet::<T>::block_number(),
+            };
+            PendingExtrinsics::<T>::insert(index, pending);
+
+            NextPendingExtrinsicIndex::<T>::put(index.saturating_add(1));
+
+            Self::deposit_event(Event::ExtrinsicStored { index, who });
+            Ok(())
+        }
+
+        /// Set the maximum number of pending extrinsics allowed in the queue.
+        #[pallet::call_index(3)]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
+        pub fn set_max_pending_extrinsics_number(
+            origin: OriginFor<T>,
+            value: u32,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            MaxPendingExtrinsicsLimit::<T>::put(value);
+
+            Self::deposit_event(Event::MaxPendingExtrinsicsNumberSet { value });
+            Ok(())
+        }
+
+        /// Set the maximum weight allowed for on_initialize processing.
+        /// Rejects values exceeding the absolute limit (half of total block weight).
+        #[pallet::call_index(4)]
+        #[pallet::weight(T::WeightInfo::set_on_initialize_weight())]
+        pub fn set_on_initialize_weight(origin: OriginFor<T>, value: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                value <= MAX_ON_INITIALIZE_WEIGHT,
+                Error::<T>::WeightExceedsAbsoluteMax
+            );
+
+            OnInitializeWeight::<T>::put(value);
+
+            Self::deposit_event(Event::OnInitializeWeightSet { value });
+            Ok(())
+        }
+
+        /// Set the extrinsic lifetime (max blocks between submission and execution).
+        #[pallet::call_index(5)]
+        #[pallet::weight(T::WeightInfo::set_stored_extrinsic_lifetime())]
+        pub fn set_stored_extrinsic_lifetime(origin: OriginFor<T>, value: u32) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ExtrinsicLifetime::<T>::put(value);
+
+            Self::deposit_event(Event::ExtrinsicLifetimeSet { value });
+            Ok(())
+        }
+
+        /// Set the maximum weight allowed for a single extrinsic during on_initialize processing.
+        /// Extrinsics exceeding this limit are removed from the queue.
+        /// Rejects values exceeding the absolute limit.
+        #[pallet::call_index(6)]
+        #[pallet::weight(T::WeightInfo::set_max_extrinsic_weight())]
+        pub fn set_max_extrinsic_weight(origin: OriginFor<T>, value: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            ensure!(
+                value <= MAX_ON_INITIALIZE_WEIGHT,
+                Error::<T>::WeightExceedsAbsoluteMax
+            );
+
+            MaxExtrinsicWeight::<T>::put(value);
+
+            Self::deposit_event(Event::MaxExtrinsicWeightSet { value });
+            Ok(())
+        }
+    }
+
+    #[pallet::inherent]
+    impl<T: Config> ProvideInherent for Pallet<T> {
+        type Call = Call<T>;
+        type Error = sp_inherents::MakeFatalError<()>;
+
+        const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
+
+        fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+            let enc_key = data
+                .get_data::<InherentType>(&INHERENT_IDENTIFIER)
+                .inspect_err(
+                    |e| log::debug!(target: LOG_TARGET, "Failed to get shielded enc key inherent data: {:?}", e),
+                )
+                .ok()??;
+            Some(Call::announce_next_key { enc_key })
+        }
+
+        fn is_inherent(call: &Self::Call) -> bool {
+            matches!(call, Call::announce_next_key { .. })
+        }
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    /// Process pending encrypted extrinsics up to the weight limit.
+    /// Returns the total weight consumed.
+    pub fn process_pending_extrinsics() -> Weight {
+        let next_index = NextPendingExtrinsicIndex::<T>::get();
+        let count = PendingExtrinsics::<T>::count();
+
+        let mut weight = T::DbWeight::get().reads(2);
+
+        if count == 0 {
+            return weight;
+        }
+
+        let start_index = next_index.saturating_sub(count);
+        let current_block = frame_system::Pallet::<T>::block_number();
+
+        // Process extrinsics
+        for index in start_index..next_index {
+            let Some(pending) = PendingExtrinsics::<T>::get(index) else {
+                weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
+                continue;
             };
 
-            // Emit event to notify clients
-            Self::deposit_event(Event::DecryptionFailed { id, reason });
+            let remove_weight = T::DbWeight::get().reads_writes(1, 2);
 
-            Ok(())
-        }
-    }
+            // Check if the extrinsic has expired
+            let age = current_block.saturating_sub(pending.submitted_at);
+            if age > ExtrinsicLifetime::<T>::get().into() {
+                PendingExtrinsics::<T>::remove(index);
+                weight = weight.saturating_add(remove_weight);
 
-    #[pallet::validate_unsigned]
-    impl<T: Config> ValidateUnsigned for Pallet<T> {
-        type Call = Call<T>;
+                Self::deposit_event(Event::ExtrinsicExpired { index });
 
-        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-            match call {
-                Call::mark_decryption_failed { id, .. } => {
-                    match source {
-                        TransactionSource::Local | TransactionSource::InBlock => {
-                            ValidTransaction::with_tag_prefix("mev-shield-failed")
-                                .priority(1u64)
-                                .longevity(64) // long because propagate(false)
-                                .and_provides(id) // dedupe by wrapper id
-                                .propagate(false) // CRITICAL: no gossip, stays on author node
-                                .build()
-                        }
-                        _ => InvalidTransaction::Call.into(),
-                    }
+                continue;
+            }
+
+            let Ok(call) = T::ExtrinsicDecryptor::decrypt(&pending.encrypted_call) else {
+                PendingExtrinsics::<T>::remove(index);
+                weight = weight.saturating_add(remove_weight);
+
+                Self::deposit_event(Event::ExtrinsicDecodeFailed { index });
+
+                continue;
+            };
+
+            // Check if dispatching would exceed weight limit
+            let info = call.get_dispatch_info();
+            let dispatch_weight = T::DbWeight::get()
+                .writes(2)
+                .saturating_add(info.call_weight);
+
+            // Check per-extrinsic weight limit
+            let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
+            if info.call_weight.any_gt(max_extrinsic_weight) {
+                PendingExtrinsics::<T>::remove(index);
+                weight = weight.saturating_add(remove_weight);
+
+                Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
+
+                continue;
+            }
+
+            let max_weight = Weight::from_parts(OnInitializeWeight::<T>::get(), 0);
+
+            if weight.saturating_add(dispatch_weight).any_gt(max_weight) {
+                Self::deposit_event(Event::ExtrinsicPostponed { index });
+                break;
+            }
+
+            // We're going to execute it - remove the item from storage
+            PendingExtrinsics::<T>::remove(index);
+            weight = weight.saturating_add(remove_weight);
+
+            // Dispatch the extrinsic
+            let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(pending.who).into();
+            let result = call.dispatch(origin);
+
+            match result {
+                Ok(post_info) => {
+                    let actual_weight = post_info.actual_weight.unwrap_or(info.call_weight);
+                    weight = weight.saturating_add(actual_weight);
+
+                    Self::deposit_event(Event::ExtrinsicDispatched { index });
                 }
-                _ => InvalidTransaction::Call.into(),
+                Err(e) => {
+                    weight = weight.saturating_add(info.call_weight);
+
+                    Self::deposit_event(Event::ExtrinsicDispatchFailed {
+                        index,
+                        error: e.error,
+                    });
+                }
             }
         }
+
+        weight
     }
 
-    #[freeze_struct("51f74eb54f5ab1fe")]
-    #[derive(Default, Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-    pub struct MevShieldDecryptionFilter<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
-
-    impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for MevShieldDecryptionFilter<T> {
-        fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-            write!(f, "MevShieldDecryptionFilter")
-        }
-    }
-
-    impl<T: Config + Send + Sync + TypeInfo> MevShieldDecryptionFilter<T> {
-        pub fn new() -> Self {
-            Self(PhantomData)
-        }
-
-        #[inline]
-        fn mev_failed_priority() -> TransactionPriority {
-            1u64
-        }
-    }
-
-    impl<T: Config + Send + Sync + TypeInfo> TransactionExtension<RuntimeCallFor<T>>
-        for MevShieldDecryptionFilter<T>
+    pub fn try_decode_shielded_tx<Block: BlockT, Context: Default>(
+        uxt: ExtrinsicOf<Block>,
+    ) -> Option<ShieldedTransaction>
     where
-        <T as frame_system::Config>::RuntimeCall:
-            Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-        <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+        Block::Extrinsic: Checkable<Context>,
+        CheckedOf<Block::Extrinsic, Context>: Applyable,
+        ApplyableCallOf<CheckedOf<Block::Extrinsic, Context>>: IsSubType<Call<T>>,
     {
-        const IDENTIFIER: &'static str = "MevShieldDecryptionFilter";
+        // Prevent stack overflows by limiting the depth of the extrinsic.
+        let encoded = uxt.encode();
+        let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+            MAX_EXTRINSIC_DEPTH,
+            &mut &encoded[..],
+        )
+        .inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded extrinsic: {:?}", e),
+        )
+        .ok()?;
 
-        type Implicit = ();
-        type Val = ();
-        type Pre = ();
+        // Verify that the signature is correct.
+        let xt = ExtrinsicOf::<Block>::check(uxt, &Context::default())
+            .inspect_err(
+                |e| log::debug!(target: LOG_TARGET, "Failed to check shielded extrinsic: {:?}", e),
+            )
+            .ok()?;
+        let call = xt.call();
 
-        fn weight(&self, _call: &RuntimeCallFor<T>) -> Weight {
-            // Only does light pattern matching; treat as free.
-            Weight::zero()
-        }
+        let Some(Call::submit_encrypted { ciphertext }) = IsSubType::<Call<T>>::is_sub_type(call)
+        else {
+            return None;
+        };
 
-        fn validate(
-            &self,
-            origin: DispatchOriginOf<RuntimeCallFor<T>>,
-            call: &RuntimeCallFor<T>,
-            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
-            _len: usize,
-            _self_implicit: Self::Implicit,
-            _inherited_implication: &impl Implication,
-            source: TransactionSource,
-        ) -> ValidateResult<Self::Val, RuntimeCallFor<T>> {
-            match call.is_sub_type() {
-                Some(Call::mark_decryption_failed { id, .. }) => {
-                    match source {
-                        TransactionSource::Local | TransactionSource::InBlock => {
-                            let validity_res =
-                                ValidTransaction::with_tag_prefix("mev-shield-failed")
-                                    .priority(Self::mev_failed_priority())
-                                    .longevity(64)
-                                    .and_provides(id)
-                                    .propagate(false)
-                                    .build();
-
-                            match validity_res {
-                                Ok(validity) => Ok((validity, (), origin)),
-                                Err(e) => Err(e),
-                            }
-                        }
-
-                        // Anything coming from the outside world (including *signed*
-                        // transactions) is rejected at the pool boundary.
-                        _ => Err(InvalidTransaction::Call.into()),
-                    }
-                }
-
-                _ => Ok((Default::default(), (), origin)),
-            }
-        }
-
-        fn prepare(
-            self,
-            _val: Self::Val,
-            _origin: &DispatchOriginOf<RuntimeCallFor<T>>,
-            _call: &RuntimeCallFor<T>,
-            _info: &DispatchInfoOf<RuntimeCallFor<T>>,
-            _len: usize,
-        ) -> Result<Self::Pre, TransactionValidityError> {
-            Ok(())
-        }
+        ShieldedTransaction::parse(ciphertext)
     }
+
+    pub fn is_shielded_using_current_key(key_hash: &[u8; 16]) -> bool {
+        let pending = PendingKey::<T>::get();
+        let pending_hash = pending.as_ref().map(|k| twox_128(&k[..]));
+        pending_hash.as_ref() == Some(key_hash)
+    }
+
+    pub fn try_unshield_tx<Block: BlockT>(
+        dec_key_bytes: alloc::vec::Vec<u8>,
+        shielded_tx: ShieldedTransaction,
+    ) -> Option<<Block as BlockT>::Extrinsic> {
+        let plaintext = unshield(&dec_key_bytes, &shielded_tx).or_else(|| {
+            log::debug!(target: LOG_TARGET, "Failed to unshield transaction");
+            None
+        })?;
+
+        if plaintext.is_empty() {
+            return None;
+        }
+
+        ExtrinsicOf::<Block>::decode(&mut &plaintext[..]).inspect_err(
+            |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded transaction: {:?}", e),
+        ).ok()
+    }
+}
+
+pub trait FindAuthors<T: Config> {
+    fn find_current_author() -> Option<T::AuthorityId>;
+    fn find_next_next_author() -> Option<T::AuthorityId>;
+}
+
+impl<T: Config> FindAuthors<T> for () {
+    fn find_current_author() -> Option<T::AuthorityId> {
+        None
+    }
+    fn find_next_next_author() -> Option<T::AuthorityId> {
+        None
+    }
+}
+
+/// Decrypt a shielded transaction using the raw decapsulation key bytes.
+///
+/// Performs ML-KEM-768 decapsulation followed by XChaCha20-Poly1305 AEAD decryption.
+/// Runs entirely in WASM — no host functions needed.
+fn unshield(
+    dec_key_bytes: &[u8],
+    shielded_tx: &ShieldedTransaction,
+) -> Option<alloc::vec::Vec<u8>> {
+    let dec_key = DecapsulationKey::<MlKem768Params>::from_bytes(dec_key_bytes.try_into().ok()?);
+    let ciphertext = Ciphertext::<MlKem768>::try_from(shielded_tx.kem_ct.as_slice()).ok()?;
+    let shared_secret = dec_key.decapsulate(&ciphertext).ok()?;
+
+    let aead = XChaCha20Poly1305::new(shared_secret.as_slice().into());
+    let nonce = XNonce::from_slice(&shielded_tx.nonce);
+    aead.decrypt(
+        nonce,
+        Payload {
+            msg: &shielded_tx.aead_ct,
+            aad: &[],
+        },
+    )
+    .ok()
 }

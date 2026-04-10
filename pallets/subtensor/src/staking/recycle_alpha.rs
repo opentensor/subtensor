@@ -1,6 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
-use subtensor_runtime_common::{AlphaCurrency, NetUid};
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 impl<T: Config> Pallet<T> {
     /// Recycles alpha from a cold/hot key pair, reducing AlphaOut on a subnet
@@ -16,9 +16,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `DispatchResult` - Success or error
     pub(crate) fn do_recycle_alpha(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
         netuid: NetUid,
     ) -> DispatchResult {
         let coldkey: T::AccountId = ensure_signed(origin)?;
@@ -51,21 +51,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Deduct from the coldkey's stake.
-        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid, amount,
-        );
-
-        ensure!(actual_alpha_decrease <= amount, Error::<T>::PrecisionLoss);
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
 
         // Recycle means we should decrease the alpha issuance tracker.
-        Self::recycle_subnet_alpha(netuid, actual_alpha_decrease);
+        Self::recycle_subnet_alpha(netuid, amount);
 
-        Self::deposit_event(Event::AlphaRecycled(
-            coldkey,
-            hotkey,
-            actual_alpha_decrease,
-            netuid,
-        ));
+        Self::deposit_event(Event::AlphaRecycled(coldkey, hotkey, amount, netuid));
 
         Ok(())
     }
@@ -83,9 +74,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `DispatchResult` - Success or error
     pub(crate) fn do_burn_alpha(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
-        amount: AlphaCurrency,
+        amount: AlphaBalance,
         netuid: NetUid,
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin)?;
@@ -118,40 +109,31 @@ impl<T: Config> Pallet<T> {
         );
 
         // Deduct from the coldkey's stake.
-        let actual_alpha_decrease = Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
-            &hotkey, &coldkey, netuid, amount,
-        );
+        Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
 
-        ensure!(actual_alpha_decrease <= amount, Error::<T>::PrecisionLoss);
-
-        Self::burn_subnet_alpha(netuid, actual_alpha_decrease);
+        Self::burn_subnet_alpha(netuid, amount);
 
         // Deposit event
-        Self::deposit_event(Event::AlphaBurned(
-            coldkey,
-            hotkey,
-            actual_alpha_decrease,
-            netuid,
-        ));
+        Self::deposit_event(Event::AlphaBurned(coldkey, hotkey, amount, netuid));
 
         Ok(())
     }
-    pub(crate) fn do_subnet_buyback(
-        origin: T::RuntimeOrigin,
+    pub(crate) fn do_add_stake_burn(
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
-        amount: TaoCurrency,
-        limit: Option<TaoCurrency>,
+        amount: TaoBalance,
+        limit: Option<TaoBalance>,
     ) -> DispatchResult {
         Self::ensure_subnet_owner(origin.clone(), netuid)?;
 
         let current_block = Self::get_current_block_as_u64();
-        let last_block = Self::get_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid));
-        let rate_limit = TransactionType::SubnetBuyback.rate_limit_on_subnet::<T>(netuid);
+        let last_block = Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid));
+        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
 
         ensure!(
             last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
-            Error::<T>::SubnetBuybackRateLimitExceeded
+            Error::<T>::AddStakeBurnRateLimitExceeded
         );
 
         let alpha = if let Some(limit) = limit {
@@ -162,9 +144,9 @@ impl<T: Config> Pallet<T> {
 
         Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
 
-        Self::set_rate_limited_last_block(&RateLimitKey::SubnetBuyback(netuid), current_block);
+        Self::set_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid), current_block);
 
-        Self::deposit_event(Event::SubnetBuyback {
+        Self::deposit_event(Event::AddStakeBurn {
             netuid,
             hotkey,
             amount,

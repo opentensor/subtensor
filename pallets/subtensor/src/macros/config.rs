@@ -8,27 +8,31 @@ mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use pallet_commitments::GetCommitments;
+    use subtensor_runtime_common::AuthorshipInfo;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + pallet_drand::Config + pallet_crowdloan::Config
+        frame_system::Config
+        + pallet_drand::Config
+        + pallet_crowdloan::Config
+        + pallet_scheduler::Config
     {
         /// call type
         type RuntimeCall: Parameter
-            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + Dispatchable<RuntimeOrigin = OriginFor<Self>>
             + From<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
 
         /// A sudo-able call.
         type SudoRuntimeCall: Parameter
-            + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + UnfilteredDispatchable<RuntimeOrigin = OriginFor<Self>>
             + GetDispatchInfo;
 
         ///  Currency type that will be used to place deposits on neurons
-        type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
+        type Currency: fungible::Balanced<Self::AccountId, Balance = TaoBalance>
             + fungible::Mutate<Self::AccountId>;
 
         /// The scheduler type used for scheduling delayed calls.
@@ -59,13 +63,19 @@ mod config {
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;
 
+        /// Provider of current block author
+        type AuthorshipProvider: AuthorshipInfo<Self::AccountId>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: crate::weights::WeightInfo;
+
         /// =================================
         /// ==== Initial Value Constants ====
         /// =================================
 
         /// Initial currency issuance.
         #[pallet::constant]
-        type InitialIssuance: Get<u64>;
+        type InitialIssuance: Get<TaoBalance>;
         /// Initial min allowed weights setting.
         #[pallet::constant]
         type InitialMinAllowedWeights: Get<u16>;
@@ -86,22 +96,22 @@ mod config {
         type InitialMinDifficulty: Get<u64>;
         /// Initial RAO Recycled.
         #[pallet::constant]
-        type InitialRAORecycledForRegistration: Get<u64>;
+        type InitialRAORecycledForRegistration: Get<TaoBalance>;
         /// Initial Burn.
         #[pallet::constant]
-        type InitialBurn: Get<u64>;
+        type InitialBurn: Get<TaoBalance>;
         /// Initial Max Burn.
         #[pallet::constant]
-        type InitialMaxBurn: Get<u64>;
+        type InitialMaxBurn: Get<TaoBalance>;
         /// Initial Min Burn.
         #[pallet::constant]
-        type InitialMinBurn: Get<u64>;
+        type InitialMinBurn: Get<TaoBalance>;
         /// Min  burn upper bound.
         #[pallet::constant]
-        type MinBurnUpperBound: Get<TaoCurrency>;
+        type MinBurnUpperBound: Get<TaoBalance>;
         /// Max burn lower bound.
         #[pallet::constant]
-        type MaxBurnLowerBound: Get<TaoCurrency>;
+        type MaxBurnLowerBound: Get<TaoBalance>;
         /// Initial adjustment interval.
         #[pallet::constant]
         type InitialAdjustmentInterval: Get<u16>;
@@ -191,7 +201,7 @@ mod config {
         type InitialNetworkImmunityPeriod: Get<u64>;
         /// Initial network minimum burn cost
         #[pallet::constant]
-        type InitialNetworkMinLockCost: Get<u64>;
+        type InitialNetworkMinLockCost: Get<TaoBalance>;
         /// Initial network subnet cut.
         #[pallet::constant]
         type InitialSubnetOwnerCut: Get<u16>;
@@ -203,7 +213,7 @@ mod config {
         type InitialNetworkRateLimit: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
-        type KeySwapCost: Get<u64>;
+        type KeySwapCost: Get<TaoBalance>;
         /// The upper bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaHigh: Get<u16>;
@@ -236,7 +246,7 @@ mod config {
         type InitialStartCallDelay: Get<u64>;
         /// Cost of swapping a hotkey in a subnet.
         #[pallet::constant]
-        type KeySwapOnSubnetCost: Get<u64>;
+        type KeySwapOnSubnetCost: Get<TaoBalance>;
         /// Block number for a coldkey swap the hotkey in specific subnet.
         #[pallet::constant]
         type HotkeySwapOnSubnetInterval: Get<u64>;

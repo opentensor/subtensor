@@ -5,7 +5,7 @@ use fp_evm::{ExitError, PrecompileFailure, PrecompileHandle};
 use pallet_subtensor::AxonInfo as SubtensorModuleAxonInfo;
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256};
-use subtensor_runtime_common::{Currency, NetUid};
+use subtensor_runtime_common::{NetUid, Token};
 
 use crate::PrecompileExt;
 
@@ -44,22 +44,18 @@ where
         Ok(pallet_subtensor::Pallet::<R>::get_total_stake_for_hotkey(&hotkey).to_u64())
     }
 
+    /// Deprecated: Rank is no longer computed. Always returns 0.
     #[precompile::public("getRank(uint16,uint16)")]
     #[precompile::view]
-    fn get_rank(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::Pallet::<R>::get_rank_for_uid(
-            netuid.into(),
-            uid,
-        ))
+    fn get_rank(_: &mut impl PrecompileHandle, _netuid: u16, _uid: u16) -> EvmResult<u16> {
+        Ok(0)
     }
 
+    /// Deprecated: Trust is no longer computed. Always returns 0.
     #[precompile::public("getTrust(uint16,uint16)")]
     #[precompile::view]
-    fn get_trust(_: &mut impl PrecompileHandle, netuid: u16, uid: u16) -> EvmResult<u16> {
-        Ok(pallet_subtensor::Pallet::<R>::get_trust_for_uid(
-            netuid.into(),
-            uid,
-        ))
+    fn get_trust(_: &mut impl PrecompileHandle, _netuid: u16, _uid: u16) -> EvmResult<u16> {
+        Ok(0)
     }
 
     #[precompile::public("getConsensus(uint16,uint16)")]

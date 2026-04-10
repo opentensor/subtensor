@@ -13,11 +13,7 @@ impl<T: Config> Pallet<T> {
             .filter(|netuid| !netuid.is_root())
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .filter(|netuid| SubtokenEnabled::<T>::get(*netuid))
-            .filter(|&netuid| {
-                // Only emit TAO if the subnetwork allows registration.
-                Self::get_network_registration_allowed(*netuid)
-                    || Self::get_network_pow_registration_allowed(*netuid)
-            })
+            .filter(|&netuid| Self::get_network_registration_allowed(*netuid))
             .copied()
             .collect()
     }
@@ -39,13 +35,13 @@ impl<T: Config> Pallet<T> {
             .collect::<BTreeMap<NetUid, U96F32>>()
     }
 
-    pub fn record_tao_inflow(netuid: NetUid, tao: TaoCurrency) {
+    pub fn record_tao_inflow(netuid: NetUid, tao: TaoBalance) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
             *flow = flow.saturating_add(u64::from(tao) as i64);
         });
     }
 
-    pub fn record_tao_outflow(netuid: NetUid, tao: TaoCurrency) {
+    pub fn record_tao_outflow(netuid: NetUid, tao: TaoBalance) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
             *flow = flow.saturating_sub(u64::from(tao) as i64)
         });

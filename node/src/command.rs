@@ -2,7 +2,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::{
     chain_spec,
-    cli::{Cli, Subcommand, SupportedConsensusMechanism},
+    cli::{Cli, HistoryBackfill, Subcommand, SupportedConsensusMechanism},
     consensus::BabeConsensus,
     ethereum::db_config_dir,
     service,
@@ -63,6 +63,7 @@ pub fn run() -> sc_cli::Result<()> {
     let cmd = Cli::command();
     let arg_matches = cmd.get_matches();
     let cli = Cli::from_arg_matches(&arg_matches)?;
+    let skip_history_backfill = resolve_skip_history_backfill(&cli, &arg_matches);
 
     match &cli.subcommand {
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
@@ -73,32 +74,40 @@ pub fn run() -> sc_cli::Result<()> {
         Some(Subcommand::CheckBlock(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
-                let (client, _, import_queue, task_manager, _) =
-                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
+                let (client, _, import_queue, task_manager, _) = cli
+                    .initial_consensus
+                    .new_chain_ops(&mut config, &cli.eth, skip_history_backfill)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
         Some(Subcommand::ExportBlocks(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
-                let (client, _, _, task_manager, _) =
-                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
+                let (client, _, _, task_manager, _) = cli.initial_consensus.new_chain_ops(
+                    &mut config,
+                    &cli.eth,
+                    skip_history_backfill,
+                )?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         }
         Some(Subcommand::ExportState(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
-                let (client, _, _, task_manager, _) =
-                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
+                let (client, _, _, task_manager, _) = cli.initial_consensus.new_chain_ops(
+                    &mut config,
+                    &cli.eth,
+                    skip_history_backfill,
+                )?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         }
         Some(Subcommand::ImportBlocks(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
-                let (client, _, import_queue, task_manager, _) =
-                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
+                let (client, _, import_queue, task_manager, _) = cli
+                    .initial_consensus
+                    .new_chain_ops(&mut config, &cli.eth, skip_history_backfill)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -151,8 +160,11 @@ pub fn run() -> sc_cli::Result<()> {
         Some(Subcommand::Revert(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|mut config| {
-                let (client, backend, _, task_manager, _) =
-                    cli.initial_consensus.new_chain_ops(&mut config, &cli.eth)?;
+                let (client, backend, _, task_manager, _) = cli.initial_consensus.new_chain_ops(
+                    &mut config,
+                    &cli.eth,
+                    skip_history_backfill,
+                )?;
                 let aux_revert = Box::new(move |client, _, blocks| {
                     sc_consensus_grandpa::revert(client, blocks)?;
                     Ok(())
@@ -218,7 +230,7 @@ pub fn run() -> sc_cli::Result<()> {
                             Box::new(TransferKeepAliveBuilder::new(
                                 client.clone(),
                                 Sr25519Keyring::Alice.to_account_id(),
-                                EXISTENTIAL_DEPOSIT,
+                                EXISTENTIAL_DEPOSIT.into(),
                             )),
                         ]);
 
@@ -234,25 +246,54 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| cmd.run::<Block>(&config))
         }
-        // Start with the initial consensus type asked.
-        None => {
-            let arg_matches = Cli::command().get_matches();
-            let cli = Cli::from_args();
-            match cli.initial_consensus {
-                SupportedConsensusMechanism::Babe => start_babe_service(&arg_matches),
-                SupportedConsensusMechanism::Aura => start_aura_service(&arg_matches),
-            }
+        Some(Subcommand::CloneState(cmd)) => {
+            let runner = cli.create_runner(&cli.run)?;
+            let cmd = cmd.clone();
+            runner.sync_run(move |_| crate::clone_spec::run(&cmd, skip_history_backfill))
         }
+        // Start with the initial consensus type asked.
+        None => match cli.initial_consensus {
+            SupportedConsensusMechanism::Babe => {
+                start_babe_service(&arg_matches, skip_history_backfill)
+            }
+            SupportedConsensusMechanism::Aura => {
+                start_aura_service(&arg_matches, skip_history_backfill)
+            }
+        },
     }
 }
 
+fn resolve_skip_history_backfill(cli: &Cli, arg_matches: &ArgMatches) -> bool {
+    // We keep a single global `--history-backfill` flag, but `build-patched-spec` should default to
+    // `skip` when the operator didn't set the flag explicitly. This preserves `keep` as the default
+    // for normal node runs.
+    if matches!(
+        arg_matches.value_source("history_backfill"),
+        Some(ValueSource::CommandLine)
+    ) {
+        return matches!(cli.history_backfill, HistoryBackfill::Skip);
+    }
+
+    matches!(&cli.subcommand, Some(Subcommand::CloneState(_)))
+}
+
 #[allow(clippy::expect_used)]
-fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+fn start_babe_service(
+    arg_matches: &ArgMatches,
+    skip_history_backfill: bool,
+) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
     match runner.run_node_until_exit(|config| async move {
         let config = customise_config(arg_matches, config);
-        service::build_full::<BabeConsensus>(config, cli.eth, cli.sealing, None).await
+        service::build_full::<BabeConsensus>(
+            config,
+            cli.eth,
+            cli.sealing,
+            None,
+            skip_history_backfill,
+        )
+        .await
     }) {
         Ok(_) => Ok(()),
         Err(e) => {
@@ -265,7 +306,7 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
                 log::info!(
                     "💡 Chain is using Aura consensus. Switching to Aura service until Babe block is detected.",
                 );
-                start_aura_service(arg_matches)
+                start_aura_service(arg_matches, skip_history_backfill)
             // Handle Aura service still has DB lock. This never has been observed to take more
             // than 1s to drop.
             } else if matches!(e, sc_service::Error::Client(sp_blockchain::Error::Backend(ref msg))
@@ -273,7 +314,7 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
             {
                 log::info!("Failed to aquire DB lock, trying again in 1s...");
                 std::thread::sleep(std::time::Duration::from_secs(1));
-                start_babe_service(arg_matches)
+                start_babe_service(arg_matches, skip_history_backfill)
             // Unknown error, return it.
             } else {
                 log::error!("Failed to start Babe service: {e:?}");
@@ -284,7 +325,10 @@ fn start_babe_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
 }
 
 #[allow(clippy::expect_used)]
-fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
+fn start_aura_service(
+    arg_matches: &ArgMatches,
+    skip_history_backfill: bool,
+) -> Result<(), sc_cli::Error> {
     let cli = Cli::from_arg_matches(arg_matches).expect("Bad arg_matches");
     let runner = cli.create_runner(&cli.run)?;
 
@@ -302,13 +346,14 @@ fn start_aura_service(arg_matches: &ArgMatches) -> Result<(), sc_cli::Error> {
             cli.eth,
             cli.sealing,
             Some(custom_service_signal_clone),
+            skip_history_backfill,
         )
         .await
     }) {
         Ok(()) => Ok(()),
         Err(e) => {
             if custom_service_signal.load(std::sync::atomic::Ordering::Relaxed) {
-                start_babe_service(arg_matches)
+                start_babe_service(arg_matches, skip_history_backfill)
             } else {
                 Err(e.into())
             }

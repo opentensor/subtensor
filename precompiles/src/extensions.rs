@@ -23,6 +23,7 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidityError},
 };
 use sp_std::vec::Vec;
+use subtensor_runtime_common::with_evm_context;
 
 pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     fn caller_account_id<R>(&self) -> R::AccountId
@@ -113,7 +114,7 @@ pub(crate) trait PrecompileHandleExt: PrecompileHandle {
             .prepare(val, &origin, &call, &info, 0)
             .map_err(extension_error)?;
 
-        match call.dispatch(origin) {
+        match with_evm_context(|| call.dispatch(origin)) {
             Ok(mut post_info) => {
                 post_info.set_extension_weight(&info);
                 let result: DispatchResult = Ok(());
@@ -186,7 +187,7 @@ fn extension_error(err: TransactionValidityError) -> PrecompileFailure {
 
 impl<T> PrecompileHandleExt for T where T: PrecompileHandle {}
 
-pub(crate) trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
+pub trait PrecompileExt<AccountId: From<[u8; 32]>>: Precompile {
     const INDEX: u64;
 
     // ss58 public key i.e., the contract sends funds it received to the destination address from

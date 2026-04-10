@@ -419,3 +419,21 @@ export async function resetNetworkLastLockCost(api: TypedApi<typeof devnet>) {
     const valueOnChain = await api.query.SubtensorModule.NetworkLastLockCost.getValue()
     assert.equal(networkMinLockCost, valueOnChain)
 }
+
+
+export async function getStake(api: TypedApi<typeof devnet>, hotkey: string, coldkey: string, netuid: number): Promise<bigint> {
+    const value = (await api.query.SubtensorModule.AlphaV2.getValue(hotkey, coldkey, netuid));
+
+    const mantissa = value.mantissa;
+    const exponent = value.exponent;
+
+    let result: bigint;
+
+    if (exponent >= 0) {
+        result = mantissa * BigInt(10) ** exponent;
+    } else {
+        result = mantissa / BigInt(10) ** -exponent;
+    }
+
+    return result;
+}
