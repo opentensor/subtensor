@@ -193,10 +193,10 @@ where
     }
 
     fn is_coldkey_fee_payer_eligible(call: &RuntimeCallOf<T>) -> bool {
-        match call.is_sub_type() {
-            Some(pallet_subtensor::Call::set_weights { .. }) => true,
-            _ => false,
-        }
+        matches!(
+            call.is_sub_type(),
+            Some(pallet_subtensor::Call::set_weights { .. })
+        )
     }
 }
 
@@ -206,7 +206,7 @@ where
     RuntimeCallOf<T>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
         + IsSubType<pallet_proxy::Call<T>>
         + IsSubType<pallet_utility::Call<T>>
-+ IsSubType<pallet_subtensor::Call<T>>,
+        + IsSubType<pallet_subtensor::Call<T>>,
     RuntimeOriginOf<T>: AsSystemOriginSigner<AccountIdOf<T>>
         + Clone
         + From<frame_system::RawOrigin<AccountIdOf<T>>>,

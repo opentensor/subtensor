@@ -17,7 +17,7 @@ describeSuite({
 
         it({
             id: "T01",
-            title: "Check set_weights",
+            title: "Fees for set_weights charged by coldkey instead of origin(hotkey)",
             test: async () => {
                 const coldkey = generateKeyringPair("sr25519");
                 const hotkey = generateKeyringPair("sr25519");
@@ -28,8 +28,10 @@ describeSuite({
                 const initialBalance = tao(1e10);
 
                 log("Set Up");
+                const existentialDeposit = await api.consts.balances.existentialDeposit.toBigInt();
+                // Hotkey should "exist", even if coldkey is paying for tx
+                await devForceSetBalance(api, context, hotkey.address, existentialDeposit);
                 await devForceSetBalance(api, context, coldkey.address, initialBalance);
-                await devForceSetBalance(api, context, hotkey.address, initialBalance);
                 await devTryAssociateHotkey(api, context, coldkey, hotkey.address);
 
                 const coldkeyBalanceBefore = (await api.query.system.account(coldkey.address)).data.free.toBigInt();
@@ -48,7 +50,7 @@ describeSuite({
                 const txFee = feeEvent[0].event.data.actualFee.toBigInt();
                 expect(txFee).toBeGreaterThan(0n);
                 expect(coldkeyBalanceAfter).toEqual(coldkeyBalanceBefore - txFee);
-                expect(hotkeyBalance).toEqual(initialBalance);
+                expect(hotkeyBalance).toEqual(existentialDeposit);
             },
         });
     },
