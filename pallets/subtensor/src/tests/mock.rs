@@ -1181,7 +1181,7 @@ pub fn total_registration_alpha_from_lock_and_price(lock_cost_u64: u64, price: U
 
 pub fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
     let total_alpha_u64 = total_registration_alpha_from_lock_and_price(lock_cost_u64, price);
-    total_alpha_u64.saturating_sub(total_alpha_u64.checked_div(2).unwrap_or_default())
+    total_alpha_u64 - total_alpha_u64.checked_div(2).unwrap_or_default()
 }
 
 pub fn pool_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
@@ -1195,5 +1195,5 @@ pub fn pool_tao_from_lock(lock_cost_u64: u64) -> u64 {
 }
 
 pub fn recycled_tao_from_lock(lock_cost_u64: u64) -> u64 {
-    lock_cost_u64.saturating_sub(pool_tao_from_lock(lock_cost_u64))
+    lock_cost_u64 - pool_tao_from_lock(lock_cost_u64)
 }
