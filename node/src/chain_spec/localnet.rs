@@ -3,7 +3,7 @@
 
 use super::*;
 
-pub fn localnet_config(authority_count: u32) -> Result<ChainSpec, String> {
+pub fn localnet_config(single_authority: bool) -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
     // Give front-ends necessary data to present to users
@@ -32,19 +32,11 @@ pub fn localnet_config(authority_count: u32) -> Result<ChainSpec, String> {
     .with_genesis_config_patch(localnet_genesis(
         // Initial PoA authorities (Validators)
         // aura | grandpa
-        if authority_count == 1 {
+        if single_authority {
             // single authority allows you to run the network using a single node
             vec![authority_keys_from_seed("One")]
-        } else if authority_count == 2 {
-            vec![
-                authority_keys_from_seed("One"),
-                authority_keys_from_seed("Two"),
-            ]
         } else {
             vec![
-                authority_keys_from_seed("Dave"),
-                authority_keys_from_seed("Eve"),
-                authority_keys_from_seed("Ferdie"),
                 authority_keys_from_seed("One"),
                 authority_keys_from_seed("Two"),
                 authority_keys_from_seed("Three"),
