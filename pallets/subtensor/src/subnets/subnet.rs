@@ -185,8 +185,10 @@ impl<T: Config> Pallet<T> {
             None => Self::get_next_netuid(),
         };
 
-        // --- 11. Snapshot the current median subnet alpha price before creating the new subnet.
-        let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
+        // --- 11. Snapshot the current median price of the bottom 50% of subnet alpha prices
+        //         before creating the new subnet.
+        let bottom_half_median_subnet_alpha_price =
+            Self::get_bottom_half_median_subnet_alpha_price();
 
         // --- 12. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
@@ -209,17 +211,33 @@ impl<T: Config> Pallet<T> {
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // Seed the new subnet pool at a 1:1 reserve ratio.
-        // Separately, grant the subnet owner outstanding alpha based on the TAO they actually spent
-        // on registration converted by the current median subnet alpha price.
-        let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
-        let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
-        let owner_alpha_stake: AlphaBalance =
-            U96F32::saturating_from_num(actual_tao_lock_amount.to_u64())
-                .safe_div(median_subnet_alpha_price)
+        // Convert the full registration lock into alpha using the median price of the bottom 50%
+        // of eligible subnet prices.
+        let actual_tao_lock_amount_u64 = actual_tao_lock_amount.to_u64();
+        let registration_lock_alpha_equivalent_u64: u64 =
+            U96F32::saturating_from_num(actual_tao_lock_amount_u64)
+                .safe_div(bottom_half_median_subnet_alpha_price)
                 .saturating_floor()
-                .saturating_to_num::<u64>()
-                .into();
+                .saturating_to_num::<u64>();
+
+        // Seed the new subnet as follows:
+        //   * 25% of the current lock cost as TAO into the pool.
+        //   * A / 2 as free alpha into the pool, where A is the converted lock cost in alpha.
+        //   * The remaining half of A to the subnet owner as staked alpha.
+        let pool_initial_tao_u64 = actual_tao_lock_amount_u64
+            .checked_div(4)
+            .unwrap_or_default();
+        let pool_initial_tao: TaoBalance = pool_initial_tao_u64.into();
+
+        let pool_initial_alpha_u64 = registration_lock_alpha_equivalent_u64
+            .checked_div(2)
+            .unwrap_or_default();
+        let pool_initial_alpha: AlphaBalance = pool_initial_alpha_u64.into();
+
+        let owner_alpha_stake_u64 =
+            registration_lock_alpha_equivalent_u64.saturating_sub(pool_initial_alpha_u64);
+        let owner_alpha_stake: AlphaBalance = owner_alpha_stake_u64.into();
+
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
 
@@ -280,7 +298,7 @@ impl<T: Config> Pallet<T> {
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 19. Return success.
+        // --- 20. Return success.
         Ok(())
     }
 

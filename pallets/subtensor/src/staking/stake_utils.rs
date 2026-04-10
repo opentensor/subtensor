@@ -70,73 +70,68 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Gets the Median Subnet Alpha Price
-    pub fn get_median_subnet_alpha_price() -> U96F32 {
+    pub fn get_bottom_half_median_subnet_alpha_price() -> U96F32 {
         let default_price = U96F32::saturating_from_num(1_u64);
         let zero_price = U96F32::saturating_from_num(0_u64);
         let two = U96F32::saturating_from_num(2_u64);
 
-        let mut price_counts: BTreeMap<U96F32, usize> = BTreeMap::new();
-        let mut total_prices: usize = 0;
+        let mut prices: Vec<U96F32> = NetworksAdded::<T>::iter()
+            .filter_map(|(netuid, added)| {
+                if added && netuid != NetUid::ROOT {
+                    let price = T::SwapInterface::current_alpha_price(netuid);
+                    if price > zero_price {
+                        Some(price)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-        for (netuid, added) in NetworksAdded::<T>::iter() {
-            if !added || netuid == NetUid::ROOT {
-                continue;
-            }
-
-            let price = T::SwapInterface::current_alpha_price(netuid);
-            if price <= zero_price {
-                continue;
-            }
-
-            total_prices = total_prices.saturating_add(1);
-
-            if let Some(count) = price_counts.get_mut(&price) {
-                *count = count.saturating_add(1);
-            } else {
-                price_counts.insert(price, 1usize);
-            }
-        }
-
-        if total_prices == 0 {
+        if prices.is_empty() {
             return default_price;
         }
 
-        let Some(last_index) = total_prices.checked_sub(1) else {
+        prices.sort_unstable();
+
+        let len = prices.len();
+        let Some(bottom_half_len) = len.checked_add(1).and_then(|value| value.checked_div(2))
+        else {
             return default_price;
         };
-        let Some(lower_target) = last_index.checked_div(2) else {
+
+        let bottom_half_prices: Vec<U96F32> = prices.into_iter().take(bottom_half_len).collect();
+        let bottom_len = bottom_half_prices.len();
+
+        let Some(mid_index) = bottom_len.checked_div(2) else {
             return default_price;
         };
-        let Some(upper_target) = total_prices.checked_div(2) else {
+
+        let Some(remainder) = bottom_len.checked_rem(2) else {
             return default_price;
         };
 
-        let mut cumulative: usize = 0;
-        let mut lower_price: Option<U96F32> = None;
-        let mut upper_price: Option<U96F32> = None;
+        if remainder == 0 {
+            let Some(left_index) = mid_index.checked_sub(1) else {
+                return default_price;
+            };
 
-        for (price, count) in price_counts.into_iter() {
-            let next_cumulative = cumulative.saturating_add(count);
-
-            if lower_price.is_none() && lower_target < next_cumulative {
-                lower_price = Some(price);
+            match (
+                bottom_half_prices.get(left_index).copied(),
+                bottom_half_prices.get(mid_index).copied(),
+            ) {
+                (Some(left_price), Some(right_price)) => {
+                    left_price.saturating_add(right_price).safe_div(two)
+                }
+                _ => default_price,
             }
-
-            if upper_price.is_none() && upper_target < next_cumulative {
-                upper_price = Some(price);
+        } else {
+            match bottom_half_prices.get(mid_index).copied() {
+                Some(price) => price,
+                None => default_price,
             }
-
-            if lower_price.is_some() && upper_price.is_some() {
-                break;
-            }
-
-            cumulative = next_cumulative;
-        }
-
-        match (lower_price, upper_price) {
-            (Some(_), Some(upper)) if lower_target == upper_target => upper,
-            (Some(lower), Some(upper)) => lower.saturating_add(upper).safe_div(two),
-            _ => default_price,
         }
     }
 
