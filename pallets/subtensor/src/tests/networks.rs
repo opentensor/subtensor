@@ -2667,33 +2667,3 @@ fn register_network_non_associated_hotkey_does_not_withdraw_or_write_owner_alpha
         );
     });
 }
-
-fn total_registration_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
-    let alpha = (U96F32::from_num(lock_cost_u64)
-        .checked_div(price)
-        .unwrap_or_default())
-    .floor();
-
-    if alpha > U96F32::from_num(u64::MAX) {
-        u64::MAX
-    } else {
-        alpha.to_num::<u64>()
-    }
-}
-
-fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
-    let total_alpha_u64 = total_registration_alpha_from_lock_and_price(lock_cost_u64, price);
-    total_alpha_u64.saturating_sub(total_alpha_u64 / 2)
-}
-
-fn pool_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
-    total_registration_alpha_from_lock_and_price(lock_cost_u64, price) / 2
-}
-
-fn pool_tao_from_lock(lock_cost_u64: u64) -> u64 {
-    lock_cost_u64 / 4
-}
-
-fn recycled_tao_from_lock(lock_cost_u64: u64) -> u64 {
-    lock_cost_u64.saturating_sub(pool_tao_from_lock(lock_cost_u64))
-}

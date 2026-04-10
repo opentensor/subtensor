@@ -29,7 +29,7 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -1164,4 +1164,36 @@ pub fn remove_owner_registration_stake(netuid: NetUid) {
     assert_eq!(SubnetAlphaOut::<Test>::get(netuid), AlphaBalance::ZERO);
     assert_eq!(SubnetTAO::<Test>::get(netuid), legacy_pool_tao);
     assert_eq!(SubnetAlphaIn::<Test>::get(netuid), legacy_pool_alpha);
+}
+
+pub fn total_registration_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
+    let alpha = (U96F32::from_num(lock_cost_u64)
+        .checked_div(price)
+        .unwrap_or_default())
+    .floor();
+
+    if alpha > U96F32::from_num(u64::MAX) {
+        u64::MAX
+    } else {
+        alpha.to_num::<u64>()
+    }
+}
+
+pub fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
+    let total_alpha_u64 = total_registration_alpha_from_lock_and_price(lock_cost_u64, price);
+    total_alpha_u64.saturating_sub(total_alpha_u64.checked_div(2).unwrap_or_default())
+}
+
+pub fn pool_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
+    total_registration_alpha_from_lock_and_price(lock_cost_u64, price)
+        .checked_div(2)
+        .unwrap_or_default()
+}
+
+pub fn pool_tao_from_lock(lock_cost_u64: u64) -> u64 {
+    lock_cost_u64.checked_div(4).unwrap_or_default()
+}
+
+pub fn recycled_tao_from_lock(lock_cost_u64: u64) -> u64 {
+    lock_cost_u64.saturating_sub(pool_tao_from_lock(lock_cost_u64))
 }
