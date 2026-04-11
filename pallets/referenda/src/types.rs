@@ -2,7 +2,7 @@ use super::*;
 use frame_support::{
     pallet_prelude::*,
     sp_runtime::{Perbill, traits::BlockNumberProvider},
-    traits::{Bounded, schedule::v3::Anon as ScheduleAnon},
+    traits::Bounded,
 };
 use subtensor_runtime_common::{SetLike, VoteTally};
 
@@ -16,12 +16,6 @@ pub type PalletsOriginOf<T> =
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub type CallOf<T> = <T as Config>::RuntimeCall;
 pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
-
-pub type ScheduleAddressOf<T> = <<T as Config>::Scheduler as ScheduleAnon<
-    BlockNumberFor<T>,
-    CallOf<T>,
-    PalletsOriginOf<T>,
->>::Address;
 
 pub type TracksOf<T> = <T as Config>::Tracks;
 pub type TrackIdOf<T> =
@@ -37,9 +31,8 @@ pub type VoterSetOf<T> =
     <TracksOf<T> as TracksInfo<TrackName, AccountIdOf<T>, CallOf<T>, BlockNumberFor<T>>>::VoterSet;
 
 pub type ReferendumStatusOf<T> =
-    ReferendumStatus<TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>, ScheduleAddressOf<T>>;
-pub type ReferendumInfoOf<T> =
-    ReferendumInfo<TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>, ScheduleAddressOf<T>>;
+    ReferendumStatus<TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>>;
+pub type ReferendumInfoOf<T> = ReferendumInfo<TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>>;
 
 pub type ReferendumIndex = u32;
 
@@ -54,12 +47,11 @@ pub type ReferendumIndex = u32;
     TypeInfo,
     MaxEncodedLen,
 )]
-pub struct ReferendumInfo<TrackId, Call, Moment, ScheduleAddress> {
+pub struct ReferendumInfo<TrackId, Call, Moment> {
     pub track: TrackId,
     pub proposal: Proposal<Call>,
     pub submitted: Moment,
     pub tally: VoteTally,
-    pub alarm: (Moment, ScheduleAddress),
 }
 
 #[derive(
@@ -73,14 +65,14 @@ pub struct ReferendumInfo<TrackId, Call, Moment, ScheduleAddress> {
     TypeInfo,
     MaxEncodedLen,
 )]
-pub enum ReferendumStatus<TrackId, Call, Moment, ScheduleAddress> {
-    Ongoing(ReferendumInfo<TrackId, Call, Moment, ScheduleAddress>),
+pub enum ReferendumStatus<TrackId, Call, Moment> {
+    Ongoing(ReferendumInfo<TrackId, Call, Moment>),
     Approved(Moment),
     Rejected(Moment),
     Expired(Moment),
     FastTracked(Moment),
     Cancelled(Moment),
-    Executed(Moment),
+    Enacted(Moment),
     Killed(Moment),
 }
 

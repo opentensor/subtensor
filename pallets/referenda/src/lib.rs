@@ -4,7 +4,7 @@ extern crate alloc;
 
 use codec::Encode;
 use frame_support::{
-    Blake2_128Concat, Parameter,
+    Parameter, Twox64Concat,
     dispatch::DispatchResult,
     pallet_prelude::{Get, IsType, OptionQuery, StorageMap, StorageValue, ValueQuery},
     sp_runtime::{
@@ -15,7 +15,7 @@ use frame_support::{
         EnsureOriginWithArg, LockIdentifier, QueryPreimage, StorePreimage,
         schedule::{
             DispatchTime, Priority,
-            v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},
+            v3::{Named as ScheduleNamed, TaskName},
         },
     },
 };
@@ -27,7 +27,7 @@ pub use types::*;
 
 mod types;
 
-pub const ASSEMBLY_ID: LockIdentifier = *b"assembly";
+pub const REFERENDA_ID: LockIdentifier = *b"referend";
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
@@ -44,12 +44,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
 
-        type Scheduler: ScheduleAnon<
-                BlockNumberFor<Self>,
-                CallOf<Self>,
-                PalletsOriginOf<Self>,
-                Hasher = Self::Hashing,
-            > + ScheduleNamed<
+        type Scheduler: ScheduleNamed<
                 BlockNumberFor<Self>,
                 CallOf<Self>,
                 PalletsOriginOf<Self>,
@@ -57,8 +52,6 @@ pub mod pallet {
             >;
 
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
-
-        type MaxQueued: Get<u32>;
 
         type SubmitOrigin: EnsureOriginWithArg<
                 Self::RuntimeOrigin,
@@ -80,7 +73,7 @@ pub mod pallet {
 
     #[pallet::storage]
     pub type ReferendumStatusFor<T: Config> =
-        StorageMap<_, Blake2_128Concat, ReferendumIndex, ReferendumStatusOf<T>, OptionQuery>;
+        StorageMap<_, Twox64Concat, ReferendumIndex, ReferendumStatusOf<T>, OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -91,11 +84,26 @@ pub mod pallet {
             track: TrackIdOf<T>,
             proposal: Proposal<BoundedCallOf<T>>,
         },
+        Approved {
+            index: ReferendumIndex,
+        },
+        Rejected {
+            index: ReferendumIndex,
+        },
         Expired {
             index: ReferendumIndex,
         },
-        Executed {
+        FastTracked {
+            index: ReferendumIndex,
+        },
+        Cancelled {
+            index: ReferendumIndex,
+        },
+        Enacted {
+            index: ReferendumIndex,
             when: BlockNumberFor<T>,
+        },
+        Killed {
             index: ReferendumIndex,
         },
     }
@@ -103,6 +111,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         TrackNotFound,
+        NotFound,
         NotOngoing,
     }
 
@@ -124,23 +133,22 @@ pub mod pallet {
 
             let track = T::Tracks::info(track_id).ok_or(Error::<T>::TrackNotFound)?;
 
-            let (proposal, alarm) = match track.decision_strategy {
+            let proposal = match track.decision_strategy {
                 DecisionStrategy::PassOrFail {
                     decision_period, ..
                 } => {
-                    let when = now.saturating_add(decision_period);
                     // Triggers after decision period ends to mark the referendum as expired if
                     // it has not been decided yet.
-                    let alarm = Self::set_alarm(index, when)?;
-                    (Proposal::Action(bounded_call), alarm)
+                    Self::set_alarm(index, now.saturating_add(decision_period))?;
+                    Proposal::Action(bounded_call)
                 }
                 DecisionStrategy::Adjustable { initial_delay, .. } => {
                     let when = now.saturating_add(initial_delay);
-                    Self::schedule_adjustable(index, when, bounded_call)?;
-                    // Triggers after initial delay to check if the referendum has been executed
+                    Self::schedule_enactment(index, when, bounded_call)?;
+                    // Triggers after initial delay to check if the referendum has been enacted
                     // and update the status accordingly if it has.
-                    let alarm = Self::set_alarm(index, when.saturating_add(One::one()))?;
-                    (Proposal::Review, alarm)
+                    Self::set_alarm(index, when.saturating_add(One::one()))?;
+                    Proposal::Review
                 }
             };
 
@@ -149,7 +157,6 @@ pub mod pallet {
                 proposal: proposal.clone(),
                 submitted: now,
                 tally: VoteTally::new(),
-                alarm,
             };
             ReferendumStatusFor::<T>::insert(index, ReferendumStatus::Ongoing(info));
 
@@ -172,29 +179,33 @@ pub mod pallet {
         #[pallet::call_index(2)]
         pub fn nudge_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
-            let info = Self::ensure_ongoing(index)?;
             let now = T::BlockNumberProvider::current_block_number();
 
-            let new_status = match info.proposal {
-                Proposal::Action(call) => {
-                    T::Preimages::drop(&call);
-                    Self::deposit_event(Event::<T>::Expired { index });
-                    ReferendumStatus::Expired(now)
-                }
-                Proposal::Review => {
-                    // Should never happen that the referendum is still scheduled while being nudged
-                    // given the alarm is one block after the scheduled time but we check it anyway.
-                    if Self::task_next_dispatch_time(task_name(index)).is_ok() {
-                        return Ok(());
+            let new_status = match ReferendumStatusFor::<T>::get(index) {
+                Some(ReferendumStatus::Ongoing(info)) => match info.proposal {
+                    Proposal::Action(call) => {
+                        T::Preimages::drop(&call);
+                        Self::deposit_event(Event::<T>::Expired { index });
+                        Some(ReferendumStatus::Expired(now))
                     }
-                    let when = now - One::one();
-                    Self::deposit_event(Event::<T>::Executed { index, when });
-                    ReferendumStatus::Executed(when)
+                    Proposal::Review => {
+                        let when = now.saturating_sub(One::one());
+                        Self::deposit_event(Event::<T>::Enacted { index, when });
+                        Some(ReferendumStatus::Enacted(when))
+                    }
+                },
+                Some(ReferendumStatus::Approved(_)) => {
+                    let when = now.saturating_sub(One::one());
+                    Self::deposit_event(Event::<T>::Enacted { index, when });
+                    Some(ReferendumStatus::Enacted(when))
                 }
+                _ => None,
             };
-            ReferendumStatusFor::<T>::insert(index, new_status);
 
-            T::PollHooks::on_poll_completed(index);
+            if let Some(new_status) = new_status {
+                ReferendumStatusFor::<T>::insert(index, new_status);
+                T::PollHooks::on_poll_completed(index);
+            }
 
             Ok(())
         }
@@ -207,37 +218,27 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn task_next_dispatch_time(task_name: TaskName) -> Result<BlockNumberFor<T>, DispatchError> {
-        <T::Scheduler as ScheduleNamed<
-            BlockNumberFor<T>,
-            CallOf<T>,
-            PalletsOriginOf<T>,
-        >>::next_dispatch_time(task_name)
-    }
-
-    fn set_alarm(
-        index: ReferendumIndex,
-        when: BlockNumberFor<T>,
-    ) -> Result<(BlockNumberFor<T>, ScheduleAddressOf<T>), DispatchError> {
+    fn set_alarm(index: ReferendumIndex, when: BlockNumberFor<T>) -> DispatchResult {
         let call = T::Preimages::bound(CallOf::<T>::from(Call::nudge_referendum { index }))?;
-        T::Scheduler::schedule(
+        T::Scheduler::schedule_named(
+            alarm_name(index),
             DispatchTime::At(when),
             None,
             Priority::MAX,
             frame_system::RawOrigin::Root.into(),
             call,
-        )
-        .map(|address| (when, address))
+        )?;
+        Ok(())
     }
 
-    fn schedule_adjustable(
+    fn schedule_enactment(
         index: ReferendumIndex,
-        when: BlockNumberFor<T>,
+        desired: BlockNumberFor<T>,
         call: BoundedCallOf<T>,
     ) -> DispatchResult {
         T::Scheduler::schedule_named(
             task_name(index),
-            DispatchTime::At(when),
+            DispatchTime::At(desired),
             None,
             Priority::MAX,
             frame_system::RawOrigin::Root.into(),
@@ -275,9 +276,76 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
         Some(track.voter_set)
     }
 
-    fn on_tally_updated(_index: Self::Index, _tally: &VoteTally) {}
+    fn on_tally_updated(index: Self::Index, tally: &VoteTally) {
+        let Some(mut info) = Self::ensure_ongoing(index).ok() else {
+            return;
+        };
+        let Some(track) = T::Tracks::info(info.track) else {
+            return;
+        };
+        let now = T::BlockNumberProvider::current_block_number();
+
+        info.tally = *tally;
+
+        let new_status = match (&info.proposal, &track.decision_strategy) {
+            (
+                Proposal::Action(call),
+                DecisionStrategy::PassOrFail {
+                    decision_period,
+                    approve_threshold,
+                    reject_threshold,
+                    on_approval,
+                },
+            ) => {
+                if tally.approval >= *approve_threshold {
+                    match on_approval {
+                        ApprovalAction::Execute => {
+                            let call = call.clone();
+                            let _ = T::Scheduler::cancel_named(alarm_name(index));
+                            let when = now.saturating_add(One::one());
+                            let _ = Self::schedule_enactment(index, when, call);
+                            // Triggers to mark referendum as enacted one block after enactment
+                            let _ = Self::set_alarm(index, when.saturating_add(One::one()));
+                        }
+                        ApprovalAction::ScheduleAndReview { review_track } => {
+                            // Move to new track
+                        }
+                    };
+                    Self::deposit_event(Event::<T>::Approved { index });
+                    Some(ReferendumStatus::Approved(now))
+                } else if tally.rejection >= *reject_threshold {
+                    let _ = T::Scheduler::cancel_named(alarm_name(index));
+                    Self::deposit_event(Event::<T>::Rejected { index });
+                    Some(ReferendumStatus::Rejected(now))
+                } else {
+                    None
+                }
+            }
+            (
+                Proposal::Review,
+                DecisionStrategy::Adjustable {
+                    initial_delay,
+                    fast_track_threshold,
+                    cancel_threshold,
+                },
+            ) => {
+                // Adjust proposal delay and rest
+                None
+            }
+            // Unreachable, track decision strategy defines proposal type
+            _ => None,
+        };
+
+        if let Some(new_status) = new_status {
+            ReferendumStatusFor::<T>::insert(index, new_status);
+        }
+    }
 }
 
 fn task_name(index: ReferendumIndex) -> TaskName {
-    (ASSEMBLY_ID, "adjustable", index).using_encoded(sp_io::hashing::blake2_256)
+    (REFERENDA_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256)
+}
+
+fn alarm_name(index: ReferendumIndex) -> TaskName {
+    (REFERENDA_ID, "alarm", index).using_encoded(sp_io::hashing::blake2_256)
 }
