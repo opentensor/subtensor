@@ -31,11 +31,14 @@ workspace = true
 default = ["std"]
 std = [
     "codec/std",
+    "frame-benchmarking?/std",
     "frame-support/std",
     "frame-system/std",
     "scale-info/std",
     "sp-core/std",
     "sp-io?/std",
+    "sp-keyring?/std",
+    "sp-keystore/std",
     "sp-runtime/std",
     "sp-std/std",
     "substrate-fixed/std",

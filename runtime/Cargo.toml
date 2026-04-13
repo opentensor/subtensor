@@ -222,6 +222,7 @@ std = [
 	"subtensor-transaction-fee/std",
 	"serde_json/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-tracing/std",
 	"log/std",
 	"safe-math/std",
