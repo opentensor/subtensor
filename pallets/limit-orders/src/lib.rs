@@ -17,6 +17,7 @@ use sp_runtime::{
 };
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
+use subtensor_macros::freeze_struct;
 use subtensor_swap_interface::OrderSwapInterface;
 
 // ── Data structures ──────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ impl OrderType {
 /// The canonical order payload that users sign off-chain.
 /// Only its H256 hash is stored on-chain; the full struct is submitted by the
 /// admin at execution time (or by the user at cancellation time).
+#[freeze_struct("e64b59c23fbce993")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
@@ -127,6 +129,7 @@ impl<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> VersionedOrd
 /// Signature verification is performed against `order.inner().signer` (the AccountId)
 /// directly. Only sr25519 signatures are accepted; ed25519 and ecdsa variants
 /// of `MultiSignature` are rejected at validation time.
+#[freeze_struct("13d20c29e7ce8917")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
