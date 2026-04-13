@@ -535,5 +535,28 @@ mod events {
             /// Resulting swapped TAO amount
             tao_amount: TaoBalance,
         },
+        /// Burn half-life set for neuron registration.
+        BurnHalfLifeSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn half-life value for neuron registration.
+            burn_half_life: u16,
+        },
+
+        /// Burn increase multiplier set for neuron registration.
+        BurnIncreaseMultSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn increase multiplier value for neuron registration.
+            burn_increase_mult: u64,
+        },
+
+        /// A root validator toggled the "auto parent delegation" flag.
+        AutoParentDelegationEnabledSet {
+            /// The validator hotkey.
+            hotkey: T::AccountId,
+            /// Whether delegation is now enabled.
+            enabled: bool,
+        },
     }
 }

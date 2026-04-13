@@ -121,6 +121,57 @@
                     "descriptor": "subtensor"
                 }
             ]
+        },
+        {
+            "name": "zombienet_coldkey_swap",
+            "timeout": 600000,
+            "testFileDir": ["suites/zombienet_coldkey_swap"],
+            "runScripts": [
+                "generate-types.sh",
+                "build-spec.sh"
+            ],
+            "foundation": {
+                "type": "zombie",
+                "zombieSpec": {
+                    "configPath": "./configs/zombie_node.json",
+                    "skipBlockCheck": []
+                }
+            },
+            "vitestArgs": {
+                "bail": 1
+            },
+            "connections": [
+                {
+                    "name": "Node",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9947"]
+                }
+            ]
+        }, {
+            "name": "zombienet_subnets",
+            "timeout": 600000,
+            "testFileDir": ["suites/zombienet_subnets"],
+            "runScripts": [
+                "generate-types.sh",
+                "build-spec.sh"
+            ],
+            "foundation": {
+                "type": "zombie",
+                "zombieSpec": {
+                    "configPath": "./configs/zombie_node.json",
+                    "skipBlockCheck": []
+                }
+            },
+            "vitestArgs": {
+                "bail": 1
+            },
+            "connections": [
+                {
+                    "name": "Node",
+                    "type": "papi",
+                    "endpoints": ["ws://127.0.0.1:9947"]
+                }
+            ]
         }, {
             "name": "smoke_mainnet",
             "testFileDir": ["suites/smoke"],

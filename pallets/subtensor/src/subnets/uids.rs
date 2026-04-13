@@ -98,6 +98,13 @@ impl<T: Config> Pallet<T> {
 
         // 5. Reset new neuron's values.
         Self::clear_neuron(netuid, uid_to_replace);
+
+        // 6. Replacement creates a new logical neuron at the reused UID, so the weights timing
+        //    state should start from this registration block.
+        for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+            Self::set_last_update_for_uid(netuid_index, uid_to_replace, block_number);
+        }
     }
 
     /// Appends the uid to the network.

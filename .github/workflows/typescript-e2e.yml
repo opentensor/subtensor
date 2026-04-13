@@ -103,6 +103,10 @@ jobs:
             binary: release
           - test: zombienet_staking
             binary: fast
+          - test: zombienet_coldkey_swap
+            binary: fast
+          - test: zombienet_subnets
+            binary: fast
 
     name: "typescript-e2e-${{ matrix.test }}"
 

@@ -2,6 +2,7 @@ use super::*;
 use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::Saturating;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{NetUid, Token};
 use subtensor_swap_interface::SwapHandler;
 use system::pallet_prelude::BlockNumberFor;
@@ -34,98 +35,57 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
-    ///
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     - The signature of the calling coldkey.
-    ///       Burned registers can only be created by the coldkey.
-    ///
-    /// * 'netuid' (u16):
-    ///     - The u16 network identifier.
-    ///
-    /// * 'hotkey' ( T::AccountId ):
-    ///     - Hotkey to be registered to the network.
-    ///
-    /// # Event:
-    /// * NeuronRegistered;
-    ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
-    ///
-    /// # Raises:
-    /// * 'MechanismDoesNotExist':
-    ///     - Attempting to registed to a non existent network.
-    ///
-    /// * 'TooManyRegistrationsThisBlock':
-    ///     - This registration exceeds the total allowed on this network this block.
-    ///
-    /// * 'HotKeyAlreadyRegisteredInSubNet':
-    ///     - The hotkey is already registered on this network.
-    ///
-    pub fn do_burned_registration(
+    pub fn do_register(
         origin: OriginFor<T>,
         netuid: NetUid,
         hotkey: T::AccountId,
     ) -> DispatchResult {
-        // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
+        // 1) coldkey pays
         let coldkey = ensure_signed(origin)?;
-        log::debug!("do_registration( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )");
+        log::debug!("do_register( coldkey:{coldkey:?} netuid:{netuid:?} hotkey:{hotkey:?} )");
 
-        // --- 2. Ensure the passed network is valid.
+        // 2) network validity
         ensure!(
             !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
-        // --- 3. Ensure the passed network allows registrations.
+        // 3) registrations allowed
         ensure!(
             Self::get_network_registration_allowed(netuid),
             Error::<T>::SubNetRegistrationDisabled
         );
 
-        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
-        ensure!(
-            Self::get_registrations_this_block(netuid)
-                < Self::get_max_registrations_per_block(netuid),
-            Error::<T>::TooManyRegistrationsThisBlock
-        );
-
-        // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
-        ensure!(
-            Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
-            Error::<T>::TooManyRegistrationsThisInterval
-        );
-
-        // --- 6. Ensure that the key is not already registered.
+        // 4) hotkey not already registered
         ensure!(
             !Uids::<T>::contains_key(netuid, &hotkey),
             Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
-        // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
-        let registration_cost = Self::get_burn(netuid);
+        // 5) compute current burn price.
+        // This has already been decayed in `on_initialize` for this block, and
+        // successful registrations in the same block bump it immediately.
+        let registration_cost: TaoBalance = Self::get_burn(netuid);
+
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost.into()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // If the network account does not exist we will create it here.
+        // 6) ensure pairing exists and is correct
         Self::create_account_if_non_existent(&coldkey, &hotkey);
-
-        // --- 8. Ensure that the pairing is correct.
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 9. Possibly there are no neuron slots at all.
+        // 7) capacity check + prune candidate if full
         ensure!(
             Self::get_max_allowed_uids(netuid) != 0,
             Error::<T>::NoNeuronIdAvailable
         );
 
-        // --- 10. If replacement is needed, ensure a safe prune candidate exists.
         let current_n = Self::get_subnetwork_n(netuid);
         let max_n = Self::get_max_allowed_uids(netuid);
         if current_n >= max_n {
@@ -135,11 +95,10 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 11. Ensure the remove operation from the coldkey is a success.
+        // 8) burn payment (same mechanics as old burned_register)
         let actual_burn_amount =
             Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
 
-        // Tokens are swapped and then burned.
         let burned_alpha = Self::swap_tao_for_alpha(
             netuid,
             actual_burn_amount,
@@ -147,191 +106,57 @@ impl<T: Config> Pallet<T> {
             false,
         )?
         .amount_paid_out;
+
         SubnetAlphaOut::<T>::mutate(netuid, |total| {
             *total = total.saturating_sub(burned_alpha.into())
         });
 
-        // Actually perform the registration.
+        // 9) register neuron
         let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey)?;
 
-        // --- 12. Record the registration and increment block and interval counters.
-        BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
-        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-        Self::increase_rao_recycled(netuid, Self::get_burn(netuid).into());
+        // 10) immediate burn bump for subsequent registrations in this block
+        Self::bump_registration_price_after_registration(netuid);
 
-        // --- 13. Deposit successful event.
-        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
+        // 11) counters
+        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
+        Self::increase_rao_recycled(netuid, registration_cost.into());
+
+        // 12) event
+        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?} )");
         Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
 
-        // --- 14. Ok and done.
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic do_registration.
-    ///
-    /// # Args:
-    /// *'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     - The signature of the calling hotkey.
-    ///
-    /// *'netuid' (u16):
-    ///     - The u16 network identifier.
-    ///
-    /// *'block_number' ( u64 ):
-    ///     - Block hash used to prove work done.
-    ///
-    /// *'nonce' ( u64 ):
-    ///     - Positive integer nonce used in POW.
-    ///
-    /// *'work' ( Vec<u8> ):
-    ///     - Vector encoded bytes representing work done.
-    ///
-    /// *'hotkey' ( T::AccountId ):
-    ///     - Hotkey to be registered to the network.
-    ///
-    /// *'coldkey' ( T::AccountId ):
-    ///     - Associated coldkey account.
-    ///
-    /// # Event:
-    /// *NeuronRegistered;
-    ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
-    ///
-    /// # Raises:
-    /// *'MechanismDoesNotExist':
-    ///     - Attempting to registed to a non existent network.
-    ///
-    /// *'TooManyRegistrationsThisBlock':
-    ///     - This registration exceeds the total allowed on this network this block.
-    ///
-    /// *'HotKeyAlreadyRegisteredInSubNet':
-    ///     - The hotkey is already registered on this network.
-    ///
-    /// *'InvalidWorkBlock':
-    ///     - The work has been performed on a stale, future, or non existent block.
-    ///
-    /// *'InvalidDifficulty':
-    ///     - The work does not match the difficutly.
-    ///
-    /// *'InvalidSeal':
-    ///     - The seal is incorrect.
-    ///
-    pub fn do_registration(
+    pub fn do_register_limit(
         origin: OriginFor<T>,
         netuid: NetUid,
-        block_number: u64,
-        nonce: u64,
-        work: Vec<u8>,
         hotkey: T::AccountId,
-        coldkey: T::AccountId,
+        limit_price: u64,
     ) -> DispatchResult {
-        // --- 1. Check that the caller has signed the transaction.
-        let signing_origin = ensure_signed(origin)?;
+        let coldkey = ensure_signed(origin.clone())?;
         log::debug!(
-            "do_registration( origin:{signing_origin:?} netuid:{netuid:?} hotkey:{hotkey:?}, coldkey:{coldkey:?} )"
+            "do_register_limit( netuid:{netuid:?} coldkey:{coldkey:?} limit_price:{limit_price:?} )"
         );
 
-        ensure!(
-            signing_origin == hotkey,
-            Error::<T>::TransactorAccountShouldBeHotKey
-        );
-
-        // --- 2. Ensure the passed network is valid.
+        // Minimal validation before reading/comparing burn.
         ensure!(
             !netuid.is_root(),
             Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
 
-        // --- 3. Ensure the passed network allows registrations.
+        // Enforce caller limit before entering the shared registration path.
+        let registration_cost: TaoBalance = Self::get_burn(netuid);
+        let limit_price_tao: TaoBalance = TaoBalance::from(limit_price);
+
         ensure!(
-            Self::get_network_pow_registration_allowed(netuid),
-            Error::<T>::SubNetRegistrationDisabled
+            registration_cost <= limit_price_tao,
+            Error::<T>::RegistrationPriceLimitExceeded
         );
 
-        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
-        ensure!(
-            Self::get_registrations_this_block(netuid)
-                < Self::get_max_registrations_per_block(netuid),
-            Error::<T>::TooManyRegistrationsThisBlock
-        );
-
-        // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
-        ensure!(
-            Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
-            Error::<T>::TooManyRegistrationsThisInterval
-        );
-
-        // --- 6. Ensure that the key is not already registered.
-        ensure!(
-            !Uids::<T>::contains_key(netuid, &hotkey),
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet
-        );
-
-        // --- 7. Ensure the passed block number is valid, not in the future or too old.
-        // Work must have been done within 3 blocks (stops long range attacks).
-        let current_block_number: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            block_number <= current_block_number,
-            Error::<T>::InvalidWorkBlock
-        );
-        ensure!(
-            current_block_number.saturating_sub(block_number) < 3,
-            Error::<T>::InvalidWorkBlock
-        );
-
-        // --- 8. Ensure the supplied work passes the difficulty.
-        let difficulty: U256 = Self::get_difficulty(netuid);
-        let work_hash: H256 = Self::vec_to_hash(work.clone());
-        ensure!(
-            Self::hash_meets_difficulty(&work_hash, difficulty),
-            Error::<T>::InvalidDifficulty
-        ); // Check that the work meets difficulty.
-
-        // --- 9. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
-        let seal: H256 = Self::create_seal_hash(block_number, nonce, &hotkey);
-        ensure!(seal == work_hash, Error::<T>::InvalidSeal);
-        UsedWork::<T>::insert(work.clone(), current_block_number);
-
-        // --- 10. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
-
-        // --- 11. Ensure that the pairing is correct.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 12. Possibly there is no neuron slots at all.
-        ensure!(
-            Self::get_max_allowed_uids(netuid) != 0,
-            Error::<T>::NoNeuronIdAvailable
-        );
-
-        // --- 13. If replacement is needed, ensure a safe prune candidate exists.
-        let current_n = Self::get_subnetwork_n(netuid);
-        let max_n = Self::get_max_allowed_uids(netuid);
-        if current_n >= max_n {
-            ensure!(
-                Self::get_neuron_to_prune(netuid).is_some(),
-                Error::<T>::NoNeuronIdAvailable
-            );
-        }
-
-        // Actually perform the registration.
-        let neuron_uid: u16 = Self::register_neuron(netuid, &hotkey)?;
-
-        // --- 14. Record the registration and increment block and interval counters.
-        POWRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
-        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
-
-        // --- 15. Deposit successful event.
-        log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?}  ) ");
-        Self::deposit_event(Event::NeuronRegistered(netuid, neuron_uid, hotkey));
-
-        // --- 16. Ok and done.
-        Ok(())
+        // Delegate the full shared registration flow.
+        Self::do_register(origin, netuid, hotkey)
     }
 
     pub fn do_faucet(
@@ -634,5 +459,82 @@ impl<T: Config> Pallet<T> {
         }
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
         (nonce, vec_work)
+    }
+
+    /// Updates neuron burn price.
+    ///
+    /// Behavior:
+    /// - Each non-genesis block: burn decays continuously by a per-block factor `f`,
+    ///   where `f ^ BurnHalfLife = 1/2`.
+    /// - Burn is clamped to the configured [`MinBurn`, `MaxBurn`] range.
+    ///
+    pub fn update_registration_prices_for_networks() {
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        for (netuid, _) in NetworksAdded::<T>::iter() {
+            // --- 1) Apply continuous per-block decay.
+            let burn_u64: u64 = Self::get_burn(netuid).into();
+            let min_burn_u64: u64 = Self::get_min_burn(netuid).into();
+            let max_burn_u64: u64 = Self::get_max_burn(netuid).into();
+            let half_life: u16 = BurnHalfLife::<T>::get(netuid);
+
+            let mut new_burn_u64: u64 = burn_u64;
+
+            if half_life > 0 {
+                // Since this function runs every block in `on_initialize`,
+                // applying the per-block factor once here gives continuous
+                // exponential decay.
+                if current_block > 1 {
+                    let factor_q32: u64 = Self::decay_factor_q32(half_life);
+                    new_burn_u64 = Self::mul_by_q32(burn_u64, factor_q32);
+                }
+            }
+
+            // Enforce configured burn bounds.
+            if new_burn_u64 < min_burn_u64 {
+                new_burn_u64 = min_burn_u64;
+            }
+            if new_burn_u64 > max_burn_u64 {
+                new_burn_u64 = max_burn_u64;
+            }
+
+            if new_burn_u64 != burn_u64 {
+                Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
+            }
+
+            // --- 2) Reset per-block registrations counter for the new block.
+            Self::set_registrations_this_block(netuid, 0);
+
+            // --- 3) Root keeps interval-based admission, so reset that counter on the root epoch boundary.
+            if netuid.is_root() && Self::should_run_epoch(netuid, current_block) {
+                Self::set_registrations_this_interval(netuid, 0);
+            }
+        }
+    }
+
+    pub fn bump_registration_price_after_registration(netuid: NetUid) {
+        // Root does not use the per-registration burn bump path.
+        if netuid.is_root() {
+            return;
+        }
+
+        let mult: U64F64 = BurnIncreaseMult::<T>::get(netuid).max(U64F64::saturating_from_num(1));
+        let burn_u64: u64 = Self::get_burn(netuid).into();
+        let min_burn_u64: u64 = Self::get_min_burn(netuid).into();
+        let max_burn_u64: u64 = Self::get_max_burn(netuid).into();
+
+        let mut new_burn_u64: u64 = U64F64::saturating_from_num(burn_u64)
+            .saturating_mul(mult)
+            .saturating_to_num::<u64>();
+
+        // Enforce configured burn bounds.
+        if new_burn_u64 < min_burn_u64 {
+            new_burn_u64 = min_burn_u64;
+        }
+        if new_burn_u64 > max_burn_u64 {
+            new_burn_u64 = max_burn_u64;
+        }
+
+        Self::set_burn(netuid, TaoBalance::from(new_burn_u64));
     }
 }

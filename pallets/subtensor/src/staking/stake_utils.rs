@@ -1,7 +1,7 @@
 use super::*;
 use safe_math::*;
 use share_pool::{SafeFloat, SharePool, SharePoolDataOperations};
-use sp_std::ops::Neg;
+use sp_std::{collections::btree_map::BTreeMap, ops::Neg};
 use substrate_fixed::types::{I64F64, I96F32, U96F32};
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
@@ -67,6 +67,77 @@ impl<T: Config> Pallet<T> {
         let new_moving: I96F32 =
             I96F32::saturating_from_num(current_price.saturating_add(current_moving));
         SubnetMovingPrice::<T>::insert(netuid, new_moving);
+    }
+
+    /// Gets the Median Subnet Alpha Price
+    pub fn get_median_subnet_alpha_price() -> U96F32 {
+        let default_price = U96F32::saturating_from_num(1_u64);
+        let zero_price = U96F32::saturating_from_num(0_u64);
+        let two = U96F32::saturating_from_num(2_u64);
+
+        let mut price_counts: BTreeMap<U96F32, usize> = BTreeMap::new();
+        let mut total_prices: usize = 0;
+
+        for (netuid, added) in NetworksAdded::<T>::iter() {
+            if !added || netuid == NetUid::ROOT {
+                continue;
+            }
+
+            let price = T::SwapInterface::current_alpha_price(netuid);
+            if price <= zero_price {
+                continue;
+            }
+
+            total_prices = total_prices.saturating_add(1);
+
+            if let Some(count) = price_counts.get_mut(&price) {
+                *count = count.saturating_add(1);
+            } else {
+                price_counts.insert(price, 1usize);
+            }
+        }
+
+        if total_prices == 0 {
+            return default_price;
+        }
+
+        let Some(last_index) = total_prices.checked_sub(1) else {
+            return default_price;
+        };
+        let Some(lower_target) = last_index.checked_div(2) else {
+            return default_price;
+        };
+        let Some(upper_target) = total_prices.checked_div(2) else {
+            return default_price;
+        };
+
+        let mut cumulative: usize = 0;
+        let mut lower_price: Option<U96F32> = None;
+        let mut upper_price: Option<U96F32> = None;
+
+        for (price, count) in price_counts.into_iter() {
+            let next_cumulative = cumulative.saturating_add(count);
+
+            if lower_price.is_none() && lower_target < next_cumulative {
+                lower_price = Some(price);
+            }
+
+            if upper_price.is_none() && upper_target < next_cumulative {
+                upper_price = Some(price);
+            }
+
+            if lower_price.is_some() && upper_price.is_some() {
+                break;
+            }
+
+            cumulative = next_cumulative;
+        }
+
+        match (lower_price, upper_price) {
+            (Some(_), Some(upper)) if lower_target == upper_target => upper,
+            (Some(lower), Some(upper)) => lower.saturating_add(upper).safe_div(two),
+            _ => default_price,
+        }
     }
 
     /// Retrieves the global global weight as a normalized value between 0 and 1.

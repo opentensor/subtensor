@@ -155,12 +155,13 @@ impl<T: Config> Pallet<T> {
     // ==============================
     // ==== YumaConsensus params ====
     // ==============================
-    pub fn get_rank(netuid: NetUid) -> Vec<u16> {
-        Rank::<T>::get(netuid)
+    /// Deprecated: Rank is no longer computed during epoch. Always returns empty.
+    pub fn get_rank(_netuid: NetUid) -> Vec<u16> {
+        Vec::new()
     }
-
-    pub fn get_trust(netuid: NetUid) -> Vec<u16> {
-        Trust::<T>::get(netuid)
+    /// Deprecated: Trust is no longer computed during epoch. Always returns empty.
+    pub fn get_trust(_netuid: NetUid) -> Vec<u16> {
+        Vec::new()
     }
 
     pub fn get_active(netuid: NetUid) -> Vec<bool> {
@@ -193,9 +194,9 @@ impl<T: Config> Pallet<T> {
         }
         v
     }
-
-    pub fn get_pruning_score(netuid: NetUid) -> Vec<u16> {
-        PruningScores::<T>::get(netuid)
+    /// Deprecated: PruningScores is no longer computed during epoch. Always returns empty.
+    pub fn get_pruning_score(_netuid: NetUid) -> Vec<u16> {
+        Vec::new()
     }
 
     pub fn get_validator_trust(netuid: NetUid) -> Vec<u16> {
@@ -241,14 +242,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::StakeThresholdSet(min_stake));
     }
 
-    pub fn get_rank_for_uid(netuid: NetUid, uid: u16) -> u16 {
-        let vec = Rank::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(0)
+    /// Deprecated: Rank is no longer computed. Always returns 0.
+    pub fn get_rank_for_uid(_netuid: NetUid, _uid: u16) -> u16 {
+        0
     }
-
-    pub fn get_trust_for_uid(netuid: NetUid, uid: u16) -> u16 {
-        let vec = Trust::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(0)
+    /// Deprecated: Trust is no longer computed. Always returns 0.
+    pub fn get_trust_for_uid(_netuid: NetUid, _uid: u16) -> u16 {
+        0
     }
     pub fn get_emission_for_uid(netuid: NetUid, uid: u16) -> AlphaBalance {
         let vec = Emission::<T>::get(netuid);
@@ -279,10 +279,9 @@ impl<T: Config> Pallet<T> {
         let vec = LastUpdate::<T>::get(netuid);
         vec.get(uid as usize).copied().unwrap_or(0)
     }
-
-    pub fn get_pruning_score_for_uid(netuid: NetUid, uid: u16) -> u16 {
-        let vec = PruningScores::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(u16::MAX)
+    /// Deprecated: PruningScores is no longer computed. Always returns u16::MAX.
+    pub fn get_pruning_score_for_uid(_netuid: NetUid, _uid: u16) -> u16 {
+        u16::MAX
     }
 
     pub fn get_validator_trust_for_uid(netuid: NetUid, uid: u16) -> u16 {
@@ -967,5 +966,73 @@ impl<T: Config> Pallet<T> {
     /// Sets TAO flow smoothing factor (alpha)
     pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
+    }
+
+    /// Multiply an integer `value` by a Q32 fixed-point factor.
+    ///
+    /// Q32 means:
+    ///   1.0 == 1 << 32
+    ///   0.5 == 1 << 31
+    ///
+    /// Safe / non-panicking:
+    /// - uses saturating u128 multiplication
+    /// - clamps back into u64 range
+    pub fn mul_by_q32(value: u64, factor_q32: u64) -> u64 {
+        let product: u128 = (value as u128).saturating_mul(factor_q32 as u128);
+        let shifted: u128 = product >> 32;
+        core::cmp::min(shifted, u64::MAX as u128) as u64
+    }
+
+    /// Exponentiation-by-squaring for Q32 values.
+    ///
+    /// Returns `base_q32 ^ exp` in Q32.
+    ///
+    /// Safe / non-panicking:
+    /// - uses `mul_by_q32`, which is saturating/clamped
+    pub fn pow_q32(base_q32: u64, exp: u16) -> u64 {
+        let mut result: u64 = 1u64 << 32; // 1.0 in Q32
+        let mut factor: u64 = base_q32;
+        let mut power: u32 = u32::from(exp);
+
+        while power > 0 {
+            if (power & 1) == 1 {
+                result = Self::mul_by_q32(result, factor);
+            }
+
+            power >>= 1;
+
+            if power > 0 {
+                factor = Self::mul_by_q32(factor, factor);
+            }
+        }
+
+        result
+    }
+
+    /// Returns the per-block decay factor `f` in Q32
+    pub fn decay_factor_q32(half_life: u16) -> u64 {
+        if half_life == 0 {
+            return 1u64 << 32; // 1.0
+        }
+
+        let one_q32: u64 = 1u64 << 32;
+        let half_q32: u64 = 1u64 << 31; // 0.5
+
+        let mut lo: u64 = 0;
+        let mut hi: u64 = one_q32;
+
+        while lo.saturating_add(1) < hi {
+            let span: u64 = hi.saturating_sub(lo);
+            let mid: u64 = lo.saturating_add(span >> 1);
+            let mid_pow: u64 = Self::pow_q32(mid, half_life);
+
+            if mid_pow > half_q32 {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+
+        lo
     }
 }

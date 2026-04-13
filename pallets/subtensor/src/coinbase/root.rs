@@ -269,14 +269,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 9. Remove various network-related parameters.
-        Rank::<T>::remove(netuid);
-        Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
 
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
-        PruningScores::<T>::remove(netuid);
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
@@ -334,15 +331,16 @@ impl<T: Config> Pallet<T> {
         AlphaSigmoidSteepness::<T>::remove(netuid);
 
         MaxAllowedValidators::<T>::remove(netuid);
-        AdjustmentInterval::<T>::remove(netuid);
         BondsMovingAverage::<T>::remove(netuid);
         BondsPenalty::<T>::remove(netuid);
         BondsResetOn::<T>::remove(netuid);
         ValidatorPruneLen::<T>::remove(netuid);
         ScalingLawPower::<T>::remove(netuid);
         TargetRegistrationsPerInterval::<T>::remove(netuid);
-        AdjustmentAlpha::<T>::remove(netuid);
         CommitRevealWeightsEnabled::<T>::remove(netuid);
+
+        BurnHalfLife::<T>::remove(netuid);
+        BurnIncreaseMult::<T>::remove(netuid);
 
         Burn::<T>::remove(netuid);
         MinBurn::<T>::remove(netuid);
