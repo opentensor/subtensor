@@ -4,7 +4,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::string::String;
 use sp_core::crypto::Ss58Codec;
 use sp_runtime::AccountId32;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I96F32, U64F64};
 
 pub fn decode_account_id32<T: Config>(ss58_string: &str) -> Option<T::AccountId> {
     let account_id32: AccountId32 = AccountId32::from_ss58check(ss58_string).ok()?;
@@ -138,10 +138,6 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
                 }
             };
 
-            // Reverting the Root Claimable because it only should happen for root subnet
-            Pallet::<T>::transfer_root_claimable_for_new_hotkey(&new_hotkey, &old_hotkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-
             // Collect all coldkeys that have non-zero alpha on root subnet
             // (meaning they had root stake at swap time)
             let alpha_on_swapped_subnet: Vec<T::AccountId> =
@@ -165,6 +161,19 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
 
             // Revert RootClaimed for each qualifying coldkey
             for coldkey in alpha_on_swapped_subnet {
+                let src_root_stake: I96F32 = I96F32::saturating_from_num(
+                    Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&old_hotkey, &coldkey, NetUid::ROOT),
+                );
+
+                let dst_root_stake: I96F32 = I96F32::saturating_from_num(
+                    Pallet::<T>::get_stake_for_hotkey_and_coldkey_on_subnet(&new_hotkey, &coldkey, NetUid::ROOT),
+                );
+
+                // Reverting the Root Claimable because it only should happen for root subnet
+                Pallet::<T>::transfer_root_claimable_for_new_hotkey(&new_hotkey, &old_hotkey, src_root_stake, dst_root_stake);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+
+
                 claimed_restored = claimed_restored.saturating_add(1);
                 Pallet::<T>::transfer_root_claimed_for_new_keys(
                     netuid,

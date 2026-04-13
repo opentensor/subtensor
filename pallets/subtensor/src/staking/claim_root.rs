@@ -373,16 +373,19 @@ impl<T: Config> Pallet<T> {
     pub fn transfer_root_claimable_for_new_hotkey(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
+        src_root_stake: I96F32,
+        dst_root_stake: I96F32,
     ) {
         let src_root_claimable = RootClaimable::<T>::get(old_hotkey);
         let mut dst_root_claimable = RootClaimable::<T>::get(new_hotkey);
         RootClaimable::<T>::remove(old_hotkey);
 
         for (netuid, claimable_rate) in src_root_claimable.into_iter() {
+            let adjusted_rate = claimable_rate.saturating_mul(src_root_stake).saturating_div(dst_root_stake);
             dst_root_claimable
                 .entry(netuid)
-                .and_modify(|total| *total = total.saturating_add(claimable_rate))
-                .or_insert(claimable_rate);
+                .and_modify(|total| *total = total.saturating_add(adjusted_rate))
+                .or_insert(adjusted_rate);
         }
 
         RootClaimable::<T>::insert(new_hotkey, dst_root_claimable);

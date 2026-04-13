@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
-use substrate_fixed::types::U64F64;
+use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{MechId, NetUid, Token};
 
 impl<T: Config> Pallet<T> {
@@ -534,7 +534,7 @@ impl<T: Config> Pallet<T> {
                 .collect();
 
             // For each coldkey remove their stake from old_hotkey and add to new_hotkey
-            for coldkey in unique_coldkeys {
+            for coldkey in unique_coldkeys.clone() {
                 let alpha_old =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(old_hotkey, &coldkey, netuid);
                 Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
@@ -559,8 +559,18 @@ impl<T: Config> Pallet<T> {
             // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
             // otherwise root stakers won't be able to receive dividends.
             if netuid == NetUid::ROOT {
-                Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+                for coldkey in unique_coldkeys.clone() {
+                    let src_root_stake: I96F32 = I96F32::saturating_from_num(
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(old_hotkey, &coldkey, NetUid::ROOT),
+                    );
+
+                    let dst_root_stake: I96F32 = I96F32::saturating_from_num(
+                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(new_hotkey, &coldkey, NetUid::ROOT),
+                    );
+
+                    Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey, src_root_stake, dst_root_stake);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+                }
 
                 // After transfer, new_hotkey has the full RootClaimable map.
                 // We use it to know which subnets have outstanding claims.
