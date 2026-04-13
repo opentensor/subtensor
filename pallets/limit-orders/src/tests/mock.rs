@@ -89,13 +89,13 @@ pub enum SwapCall {
 
 thread_local! {
     /// Log of every `OrderSwapInterface` call made during a test.
-    pub static SWAP_LOG: RefCell<Vec<SwapCall>> = RefCell::new(Vec::new());
+    pub static SWAP_LOG: RefCell<Vec<SwapCall>> = const { RefCell::new(Vec::new()) };
     /// Fixed price returned by `current_alpha_price` (default 1.0).
     pub static MOCK_PRICE: RefCell<U96F32> = RefCell::new(U96F32::from_num(1u32));
     /// Fixed alpha returned by `buy_alpha` (default 0 — tests override as needed).
-    pub static MOCK_BUY_ALPHA_RETURN: RefCell<u64> = RefCell::new(0u64);
+    pub static MOCK_BUY_ALPHA_RETURN: RefCell<u64> = const { RefCell::new(0u64) };
     /// Fixed TAO returned by `sell_alpha` (default 0 — tests override as needed).
-    pub static MOCK_SELL_TAO_RETURN: RefCell<u64> = RefCell::new(0u64);
+    pub static MOCK_SELL_TAO_RETURN: RefCell<u64> = const { RefCell::new(0u64) };
     /// In-memory staked alpha ledger: (coldkey, hotkey, netuid) → balance.
     /// `transfer_staked_alpha` debits/credits this map so tests can assert
     /// on residual balances after distribution.
@@ -108,13 +108,13 @@ thread_local! {
         RefCell::new(HashMap::new());
     /// When set to `true`, `transfer_tao` returns `Err(CannotTransfer)` so
     /// tests can exercise the `FeeTransferFailed` event path.
-    pub static FAIL_FEE_TRANSFER: RefCell<bool> = RefCell::new(false);
+    pub static FAIL_FEE_TRANSFER: RefCell<bool> = const { RefCell::new(false) };
     /// When `true`, `buy_alpha` and `sell_alpha` return `DispatchError::Other("pool error")`.
-    pub static MOCK_SWAP_FAIL: RefCell<bool> = RefCell::new(false);
+    pub static MOCK_SWAP_FAIL: RefCell<bool> = const { RefCell::new(false) };
     /// When `true`, swap calls enforce their `limit_price` argument against `MOCK_PRICE`:
     /// `buy_alpha` fails if `market_price > limit_price` (ceiling exceeded);
     /// `sell_alpha` fails if `market_price < limit_price` (floor not met).
-    pub static MOCK_ENFORCE_PRICE_LIMIT: RefCell<bool> = RefCell::new(false);
+    pub static MOCK_ENFORCE_PRICE_LIMIT: RefCell<bool> = const { RefCell::new(false) };
     /// Rate-limit flags set by `transfer_staked_alpha` when `set_receiver_limit` is true.
     /// Key: (hotkey, coldkey, netuid) — mirrors `StakingOperationRateLimiter` in subtensor.
     pub static RATE_LIMITS: RefCell<std::collections::HashSet<(AccountId, AccountId, NetUid)>> =
@@ -454,7 +454,7 @@ impl OrderSwapInterface<AccountId> for MockSwap {
 // ── MockTime ─────────────────────────────────────────────────────────────────
 
 thread_local! {
-    pub static MOCK_TIME_MS: RefCell<u64> = RefCell::new(1_000_000u64);
+    pub static MOCK_TIME_MS: RefCell<u64> = const { RefCell::new(1_000_000u64) };
 }
 
 pub struct MockTime;
