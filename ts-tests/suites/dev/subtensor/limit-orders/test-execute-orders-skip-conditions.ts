@@ -15,11 +15,11 @@ import {
     FAR_FUTURE,
     filterEvents,
     registerLimitOrderTypes,
-    seedPoolReserves,
 } from "../../../../utils/limit-orders.js";
 
-// Tests in this file do NOT interact with the pool (price-not-met, expired,
-// bad-sig, root-netuid, already-processed).  A single subnet in beforeAll is fine.
+// Tests in this file cover skip conditions: price-not-met, expired, bad-sig,
+// root-netuid, already-processed.  Pool price after devEnableSubtoken is ~1 TAO/alpha,
+// so LimitBuy with limitPrice=1n is always skipped and TakeProfit with limitPrice=FAR_FUTURE too.
 
 describeSuite({
     id: "DEV_SUB_LIMIT_ORDERS_SKIP",
@@ -45,25 +45,20 @@ describeSuite({
 
             await devEnableSubtoken(polkadotJs, context, alice, netuid);
             await devAssociateHotKey(polkadotJs, context, alice, aliceHotKey.address);
-
-            // Seed pool reserves so the spot price is well above 1n RAO/alpha.
-            // taoReserve = tao(1_000), alphaIn = tao(1_000) → price ≈ 1 TAO/alpha = 1_000_000_000n RAO/alpha.
-            // This ensures LimitBuy orders with limitPrice = 1n are correctly skipped (price not met).
-            await seedPoolReserves(null as any, polkadotJs, netuid, tao(1_000), tao(1_000));
         });
 
         it({
             id: "T01",
             title: "LimitBuy skipped when limit_price below current price",
             test: async () => {
-                // Set limit_price = 1 RAO — almost certainly below any real price
+                // limit_price = 0: current_price (1.0 TAO/alpha) > 0 → condition never met
                 const signed = buildSignedOrder(polkadotJs, {
                     signer: alice,
                     hotkey: aliceHotKey.address,
                     netuid,
                     orderType: "LimitBuy",
                     amount: tao(1),
-                    limitPrice: 1n,
+                    limitPrice: 0n,
                     expiry: FAR_FUTURE,
                     feeRate: 0,
                     feeRecipient: alice.address,
@@ -256,7 +251,7 @@ describeSuite({
                     netuid,
                     orderType: "LimitBuy",
                     amount: tao(3),
-                    limitPrice: 1n,
+                    limitPrice: 0n,
                     expiry: FAR_FUTURE,
                     feeRate: 0,
                     feeRecipient: alice.address,

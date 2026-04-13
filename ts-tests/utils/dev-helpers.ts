@@ -123,27 +123,6 @@ export async function devEnableSubtoken(
             .signAsync(alice),
     ]);
 }
-
-export async function devSeedPool(
-    polkadotJs: ApiPromise,
-    context: any,
-    alice: KeyringPair,
-    netuid: number,
-    taoReserve: bigint,
-    alphaIn: bigint
-): Promise<void> {
-    await context.createBlock([
-        await polkadotJs.tx.sudo
-            .sudo(polkadotJs.tx.adminUtils.sudoSetSubnetTao(netuid, taoReserve))
-            .signAsync(alice),
-    ]);
-    await context.createBlock([
-        await polkadotJs.tx.sudo
-            .sudo(polkadotJs.tx.adminUtils.sudoSetSubnetAlphaIn(netuid, alphaIn))
-            .signAsync(alice),
-    ]);
-}
-
 export async function devExecuteOrders(
     polkadotJs: ApiPromise,
     context: any,
