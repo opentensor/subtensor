@@ -73,8 +73,6 @@ describeSuite({
                 const currentCutoffA = await api.query.SubtensorModule.ActivityCutoff.getValue(netuidA);
                 const currentCutoffB = await api.query.SubtensorModule.ActivityCutoff.getValue(netuidB);
                 const currentRhoA = await api.query.SubtensorModule.Rho.getValue(netuidA);
-                const currentBurnHalfLifeA = await api.query.SubtensorModule.BurnHalfLife.getValue(netuidA);
-
                 const cutoffAFirst = api.tx.AdminUtils.sudo_set_activity_cutoff({
                     netuid: netuidA,
                     activity_cutoff: currentCutoffA + 1,
@@ -89,7 +87,7 @@ describeSuite({
                 });
                 const burnHalfLifeA = api.tx.AdminUtils.sudo_set_burn_half_life({
                     netuid: netuidA,
-                    burn_half_life: currentBurnHalfLifeA + 1,
+                    burn_half_life: 361,
                 });
                 const cutoffB = api.tx.AdminUtils.sudo_set_activity_cutoff({
                     netuid: netuidB,
