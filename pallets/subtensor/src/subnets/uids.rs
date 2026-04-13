@@ -102,8 +102,19 @@ impl<T: Config> Pallet<T> {
         // 6. Replacement creates a new logical neuron at the reused UID, so the weights timing
         //    state should start from this registration block.
         for mecid in 0..MechanismCountCurrent::<T>::get(netuid).into() {
-            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid.into());
+            let mecid: MechId = mecid.into();
+            let netuid_index = Self::get_mechanism_storage_index(netuid, mecid);
             Self::set_last_update_for_uid(netuid_index, uid_to_replace, block_number);
+            let usage = RateLimitUsageKey::SubnetMechanismNeuron {
+                netuid,
+                mecid,
+                uid: uid_to_replace,
+            };
+            T::RateLimiting::set_last_seen(
+                rate_limiting::GROUP_WEIGHTS_SET,
+                Some(usage),
+                Some(block_number.saturated_into()),
+            );
         }
     }
 
