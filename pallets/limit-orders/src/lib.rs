@@ -16,8 +16,8 @@ use sp_runtime::{
     traits::{ConstBool, Verify},
 };
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_macros::freeze_struct;
+use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
 
 // ── Data structures ──────────────────────────────────────────────────────────
@@ -645,7 +645,8 @@ pub mod pallet {
                 (tao_after_fee.to_u64(), alpha_out.to_u64())
             } else {
                 // partial fill validations have passed, it is safe here to do this
-                let alpha_in = AlphaBalance::from(signed_order.partial_fill.unwrap_or(order.amount));
+                let alpha_in =
+                    AlphaBalance::from(signed_order.partial_fill.unwrap_or(order.amount));
 
                 // Sell the full alpha amount; fee is taken from the TAO output.
                 let tao_out = T::SwapInterface::sell_alpha(

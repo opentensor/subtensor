@@ -2458,7 +2458,10 @@ fn execute_orders_partial_fill_sets_partially_filled_status() {
             bounded(vec![signed]),
         ));
 
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(400)));
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(400))
+        );
     });
 }
 
@@ -2486,7 +2489,10 @@ fn execute_orders_second_partial_fill_completes_order() {
             RuntimeOrigin::signed(charlie()),
             bounded(vec![signed_first.clone()]),
         ));
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(600)));
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(600))
+        );
 
         // Re-submit the same signed order payload with a different partial_fill amount.
         let mut signed_second = signed_first.clone();
@@ -2570,7 +2576,10 @@ fn execute_orders_partial_fill_exceeding_remaining_is_skipped() {
             RuntimeOrigin::signed(charlie()),
             bounded(vec![signed.clone()]),
         ));
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(700)));
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(700))
+        );
 
         // Try to fill 500 more, but only 300 remain → should be skipped.
         let mut over_fill = signed.clone();
@@ -2581,7 +2590,10 @@ fn execute_orders_partial_fill_exceeding_remaining_is_skipped() {
         ));
 
         // Status unchanged.
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(700)));
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(700))
+        );
         assert_event(Event::OrderSkipped {
             order_id: id,
             reason: Error::<Test>::IncorrectPartialFillAmount.into(),
@@ -2620,7 +2632,10 @@ fn execute_batched_orders_partial_fill_sets_partially_filled_status() {
             bounded(vec![signed]),
         ));
 
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(400)));
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(400))
+        );
     });
 }
 
@@ -2650,7 +2665,10 @@ fn execute_batched_orders_second_partial_fill_completes_order() {
             netuid(),
             bounded(vec![signed_first.clone()]),
         ));
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::PartiallyFilled(600)));
+        assert_eq!(
+            Orders::<Test>::get(id),
+            Some(OrderStatus::PartiallyFilled(600))
+        );
 
         let mut signed_second = signed_first.clone();
         signed_second.partial_fill = Some(400);
