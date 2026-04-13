@@ -372,6 +372,8 @@ pub mod types {
         ImmuneNeuronLimit = 23,
         RecycleOrBurn = 24,
         MaxAllowedUids = 25,
+        BurnHalfLife = 26,
+        BurnIncreaseMult = 27,
     }
 
     impl From<Hyperparameter> for TransactionType {

@@ -58,10 +58,14 @@ describeSuite({
                     netuid: netuidA,
                     rho: 1,
                 });
+                const burnHalfLifeTemplate = api.tx.AdminUtils.sudo_set_burn_half_life({
+                    netuid: netuidA,
+                    burn_half_life: 1,
+                });
                 await registerCallsInGroup(
                     api,
                     groupId,
-                    [cutoffTemplate, rhoTemplate],
+                    [cutoffTemplate, rhoTemplate, burnHalfLifeTemplate],
                     "register_smoke_owner_hparams_calls"
                 );
                 await setGlobalGroupRateLimit(api, groupId, 2);
@@ -69,6 +73,7 @@ describeSuite({
                 const currentCutoffA = await api.query.SubtensorModule.ActivityCutoff.getValue(netuidA);
                 const currentCutoffB = await api.query.SubtensorModule.ActivityCutoff.getValue(netuidB);
                 const currentRhoA = await api.query.SubtensorModule.Rho.getValue(netuidA);
+                const currentBurnHalfLifeA = await api.query.SubtensorModule.BurnHalfLife.getValue(netuidA);
 
                 const cutoffAFirst = api.tx.AdminUtils.sudo_set_activity_cutoff({
                     netuid: netuidA,
@@ -82,6 +87,10 @@ describeSuite({
                     netuid: netuidA,
                     rho: currentRhoA + 1,
                 });
+                const burnHalfLifeA = api.tx.AdminUtils.sudo_set_burn_half_life({
+                    netuid: netuidA,
+                    burn_half_life: currentBurnHalfLifeA + 1,
+                });
                 const cutoffB = api.tx.AdminUtils.sudo_set_activity_cutoff({
                     netuid: netuidB,
                     activity_cutoff: currentCutoffB + 1,
@@ -91,6 +100,13 @@ describeSuite({
                 await waitForRateLimitTransactionWithRetry(api, cutoffAFirst, coldkey, "owner_cutoff_a_initial");
                 await waitForFinalizedBlocks(api, 1);
                 await waitForRateLimitTransactionWithRetry(api, rhoA, coldkey, "owner_rho_a_initial");
+                await waitForFinalizedBlocks(api, 1);
+                await waitForRateLimitTransactionWithRetry(
+                    api,
+                    burnHalfLifeA,
+                    coldkey,
+                    "owner_burn_half_life_a_initial"
+                );
                 await waitForFinalizedBlocks(api, 1);
                 await waitForRateLimitTransactionWithRetry(api, cutoffB, coldkey, "owner_cutoff_b_allowed");
                 await submitTransactionBestEffort(api, cutoffASecond, coldkey);

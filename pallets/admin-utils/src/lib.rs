@@ -1876,11 +1876,7 @@ pub mod pallet {
             netuid: NetUid,
             burn_half_life: u16,
         ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::BurnHalfLife.into()],
-            )?;
+            let _ = pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
@@ -1900,12 +1896,6 @@ pub mod pallet {
                 burn_half_life,
             });
 
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::BurnHalfLife.into()],
-            );
-
             Ok(())
         }
 
@@ -1924,11 +1914,7 @@ pub mod pallet {
             netuid: NetUid,
             burn_increase_mult: U64F64,
         ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::BurnIncreaseMult.into()],
-            )?;
+            let _ = pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
             pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
 
             ensure!(
@@ -1949,12 +1935,6 @@ pub mod pallet {
                 netuid,
                 burn_increase_mult,
             });
-
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::BurnIncreaseMult.into()],
-            );
 
             Ok(())
         }

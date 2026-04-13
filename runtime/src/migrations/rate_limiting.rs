@@ -64,7 +64,6 @@ const HYPERPARAMETERS: &[Hyperparameter] = &[
     Hyperparameter::ImmunityPeriod,
     Hyperparameter::MinAllowedWeights,
     Hyperparameter::MaxAllowedUids,
-    Hyperparameter::Kappa,
     Hyperparameter::Rho,
     Hyperparameter::ActivityCutoff,
     Hyperparameter::PowRegistrationAllowed,
@@ -82,6 +81,8 @@ const HYPERPARAMETERS: &[Hyperparameter] = &[
     Hyperparameter::BondsResetEnabled,
     Hyperparameter::ImmuneNeuronLimit,
     Hyperparameter::RecycleOrBurn,
+    Hyperparameter::BurnHalfLife,
+    Hyperparameter::BurnIncreaseMult,
 ];
 
 /// Runtime hook that executes the grouped rate-limiting migration.
@@ -1052,7 +1053,6 @@ fn identifier_for_hyperparameter(hparam: Hyperparameter) -> Option<MigratedCall>
         ImmunityPeriod => MigratedCall::admin(13, false),
         MinAllowedWeights => MigratedCall::admin(14, false),
         MaxAllowedUids => MigratedCall::admin(15, false),
-        Kappa => MigratedCall::admin(16, false),
         Rho => MigratedCall::admin(17, false),
         ActivityCutoff => MigratedCall::admin(18, false),
         PowRegistrationAllowed => MigratedCall::admin(20, false),
@@ -1070,6 +1070,8 @@ fn identifier_for_hyperparameter(hparam: Hyperparameter) -> Option<MigratedCall>
         BondsResetEnabled => MigratedCall::admin(70, false),
         ImmuneNeuronLimit => MigratedCall::admin(72, false),
         RecycleOrBurn => MigratedCall::admin(80, false),
+        BurnHalfLife => MigratedCall::admin(89, false),
+        BurnIncreaseMult => MigratedCall::admin(90, false),
         _ => return None,
     };
 

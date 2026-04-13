@@ -4616,7 +4616,6 @@ fn test_register_network_schedules_root_validators_auto_parent_delegation_flag()
         );
 
         // --- Verify subnet owner can now set weights ---
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 

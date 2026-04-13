@@ -461,6 +461,8 @@ fn owner_hparam_netuid(call: &AdminUtilsCall<Runtime>) -> Option<NetUid> {
         | AdminUtilsCall::sudo_set_bonds_moving_average { netuid, .. }
         | AdminUtilsCall::sudo_set_bonds_penalty { netuid, .. }
         | AdminUtilsCall::sudo_set_bonds_reset_enabled { netuid, .. }
+        | AdminUtilsCall::sudo_set_burn_half_life { netuid, .. }
+        | AdminUtilsCall::sudo_set_burn_increase_mult { netuid, .. }
         | AdminUtilsCall::sudo_set_commit_reveal_weights_enabled { netuid, .. }
         | AdminUtilsCall::sudo_set_commit_reveal_weights_interval { netuid, .. }
         | AdminUtilsCall::sudo_set_immunity_period { netuid, .. }

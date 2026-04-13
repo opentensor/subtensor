@@ -4037,6 +4037,8 @@ fn test_remove_99_9991_per_cent_stake_works_precisely() {
             &coldkey_account_id,
             netuid,
         );
+        let coldkey_balance_before_remove =
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id);
 
         let remove_amount = AlphaBalance::from(
             (U64F64::from_num(alpha) * U64F64::from_num(0.999991)).to_num::<u64>(),
