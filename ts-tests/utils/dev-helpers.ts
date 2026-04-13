@@ -73,13 +73,6 @@ export async function devGetAlphaStake(
     return result;
 }
 
-export async function devGetBalance(
-    polkadotJs: ApiPromise,
-    address: string
-): Promise<bigint> {
-    const account = (await polkadotJs.query.system.account(address)) as any;
-    return account.data.free.toBigInt();
-}
 
 export async function devSudoSetLockReductionInterval(
     polkadotJs: ApiPromise,
