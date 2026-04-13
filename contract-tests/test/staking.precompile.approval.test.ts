@@ -11,6 +11,7 @@ import {
     forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
     sendProxyCall,
     startCall,
+    getStake,
 } from "../src/subtensor"
 import { ETH_LOCAL_URL } from "../src/config";
 import { ISTAKING_ADDRESS, ISTAKING_V2_ADDRESS, IStakingABI, IStakingV2ABI } from "../src/contracts/staking"
@@ -67,7 +68,7 @@ describe("Test approval in staking precompile", () => {
             );
 
             assert.ok(stakeFromContract > stakeBefore)
-            const stakeAfter = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), stakeNetuid)
+            const stakeAfter = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), stakeNetuid)
             assert.ok(stakeAfter > stakeBefore)
         }
     })
