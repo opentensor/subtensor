@@ -490,6 +490,22 @@ pub mod pallet {
             T::PalletId::get().into_account_truncating()
         }
 
+        /// Transfer `fee_tao` from `signer` to `recipient`, emitting
+        /// `FeeTransferFailed` best-effort on failure without reverting the
+        /// surrounding operation.  Does nothing when `fee_tao` is zero.
+        fn forward_fee(signer: &T::AccountId, recipient: &T::AccountId, fee_tao: TaoBalance) {
+            if fee_tao.is_zero() {
+                return;
+            }
+            if let Err(reason) = T::SwapInterface::transfer_tao(signer, recipient, fee_tao) {
+                Self::deposit_event(Event::FeeTransferFailed {
+                    recipient: recipient.clone(),
+                    amount: fee_tao.to_u64(),
+                    reason,
+                });
+            }
+        }
+
         /// Validates all execution preconditions for a signed order.
         /// Checks that the order's netuid is not root (0), that the signature is valid,
         /// the order has not been processed, is not expired, and the price condition is met.
@@ -622,17 +638,7 @@ pub mod pallet {
                 )?;
 
                 // Forward the fee TAO to the order's fee recipient.
-                if !fee_tao.is_zero() {
-                    if let Err(reason) =
-                        T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
-                    {
-                        Self::deposit_event(Event::FeeTransferFailed {
-                            recipient: order.fee_recipient.clone(),
-                            amount: fee_tao.to_u64(),
-                            reason,
-                        });
-                    }
-                }
+                Self::forward_fee(&order.signer, &order.fee_recipient, fee_tao);
                 (tao_after_fee.to_u64(), alpha_out.to_u64())
             } else {
                 // partial fill validations have passed, it is safe here to do this
@@ -650,17 +656,7 @@ pub mod pallet {
 
                 // Deduct fee from TAO output and forward to the order's fee recipient.
                 let fee_tao = TaoBalance::from(order.fee_rate * tao_out.to_u64());
-                if !fee_tao.is_zero() {
-                    if let Err(reason) =
-                        T::SwapInterface::transfer_tao(&order.signer, &order.fee_recipient, fee_tao)
-                    {
-                        Self::deposit_event(Event::FeeTransferFailed {
-                            recipient: order.fee_recipient.clone(),
-                            amount: fee_tao.to_u64(),
-                            reason,
-                        });
-                    }
-                }
+                Self::forward_fee(&order.signer, &order.fee_recipient, fee_tao);
                 (alpha_in.to_u64(), tao_out.saturating_sub(fee_tao).to_u64())
             };
 
@@ -1089,19 +1085,7 @@ pub mod pallet {
 
             // One transfer per unique fee recipient.
             for (recipient, amount) in fees {
-                if amount > 0 {
-                    if let Err(reason) = T::SwapInterface::transfer_tao(
-                        pallet_acct,
-                        &recipient,
-                        TaoBalance::from(amount),
-                    ) {
-                        Self::deposit_event(Event::FeeTransferFailed {
-                            recipient,
-                            amount,
-                            reason,
-                        });
-                    }
-                }
+                Self::forward_fee(pallet_acct, &recipient, TaoBalance::from(amount));
             }
 
             // TODO: sweep rounding dust and any emissions accrued on the pallet account.
