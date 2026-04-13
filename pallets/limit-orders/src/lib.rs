@@ -352,7 +352,7 @@ pub mod pallet {
             for signed_order in orders {
                 // Best-effort: individual order failures do not revert the batch.
                 let order_id = Self::derive_order_id(&signed_order.order);
-                if let Err(reason) = Self::try_execute_order(signed_order, &relayer) {
+                if let Err(reason) = Self::try_execute_order(signed_order, order_id, &relayer) {
                     Self::deposit_event(Event::OrderSkipped { order_id, reason });
                 }
             }
@@ -602,9 +602,9 @@ pub mod pallet {
         /// validation or execution failure without panicking.
         fn try_execute_order(
             signed_order: SignedOrder<T::AccountId>,
+            order_id: H256,
             relayer: &T::AccountId,
         ) -> DispatchResult {
-            let order_id = Self::derive_order_id(&signed_order.order);
             let order = signed_order.order.inner();
             let now_ms = T::TimeProvider::now().as_millis() as u64;
             let current_price = T::SwapInterface::current_alpha_price(order.netuid);
