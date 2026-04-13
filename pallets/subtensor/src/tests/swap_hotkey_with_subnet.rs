@@ -3187,7 +3187,9 @@ fn test_swap_hotkey_auto_parent_delegation_transferred_on_root() {
 
         // Opt out of auto parent delegation on the old hotkey.
         AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
-        assert!(AutoParentDelegationEnabled::<Test>::contains_key(old_hotkey));
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            old_hotkey
+        ));
         assert!(!AutoParentDelegationEnabled::<Test>::get(old_hotkey));
 
         step_block(20);
@@ -3203,7 +3205,9 @@ fn test_swap_hotkey_auto_parent_delegation_transferred_on_root() {
         assert!(!AutoParentDelegationEnabled::<Test>::contains_key(
             old_hotkey
         ));
-        assert!(AutoParentDelegationEnabled::<Test>::contains_key(new_hotkey));
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            new_hotkey
+        ));
         assert!(!AutoParentDelegationEnabled::<Test>::get(new_hotkey));
     });
 }
@@ -3236,7 +3240,9 @@ fn test_swap_hotkey_auto_parent_delegation_transferred_on_all_subnets() {
         assert!(!AutoParentDelegationEnabled::<Test>::contains_key(
             old_hotkey
         ));
-        assert!(AutoParentDelegationEnabled::<Test>::contains_key(new_hotkey));
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            new_hotkey
+        ));
         assert!(!AutoParentDelegationEnabled::<Test>::get(new_hotkey));
     });
 }
@@ -3264,7 +3270,9 @@ fn test_swap_hotkey_auto_parent_delegation_not_transferred_on_non_root() {
         ));
 
         // Non-root subnet swap must not move the flag.
-        assert!(AutoParentDelegationEnabled::<Test>::contains_key(old_hotkey));
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            old_hotkey
+        ));
         assert!(!AutoParentDelegationEnabled::<Test>::get(old_hotkey));
         assert!(!AutoParentDelegationEnabled::<Test>::contains_key(
             new_hotkey
