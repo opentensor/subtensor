@@ -35,8 +35,83 @@ fn setup_subnet(netuid: NetUid) {
 fn min_default_stake() -> TaoBalance {
     pallet_subtensor::DefaultMinStake::<Runtime>::get()
 }
+
+fn fund_account(id: &AccountId) {
+    SubtensorModule::add_balance_to_coldkey_account(id, min_default_stake() * 10u64.into());
+}
+
 fn order_id(order: &VersionedOrder<AccountId>) -> H256 {
     H256(sp_io::hashing::blake2_256(&order.encode()))
+}
+
+fn make_order_batch(
+    orders: Vec<SignedOrder<AccountId>>,
+) -> BoundedVec<SignedOrder<AccountId>, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch>
+{
+    orders.try_into().unwrap()
+}
+
+fn setup_buyer_seller(
+    netuid: NetUid,
+    alice_id: &AccountId,
+    charlie_id: &AccountId,
+    bob_id: &AccountId,
+    dave_id: &AccountId,
+) {
+    fund_account(alice_id);
+    let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        dave_id,
+        bob_id,
+        netuid,
+        initial_alpha,
+    );
+    SubtensorModule::create_account_if_non_existent(alice_id, charlie_id);
+    SubtensorModule::create_account_if_non_existent(bob_id, dave_id);
+}
+
+struct OrderParams {
+    order_type: OrderType,
+    amount: u64,
+    limit_price: u64,
+    expiry: u64,
+    fee_rate: Perbill,
+    fee_recipient: AccountId,
+    relayer: Option<AccountId>,
+    max_slippage: Option<Perbill>,
+    partial_fills_enabled: bool,
+}
+
+/// Shared implementation: constructs and signs a `VersionedOrder::V1` from an
+/// `OrderParams` and returns a `SignedOrder` with `partial_fill = None`.
+/// All three public factory functions delegate here so that adding a new field
+/// to `Order` requires updating only this function.
+fn make_signed_order_inner(
+    keyring: Sr25519Keyring,
+    hotkey: AccountId,
+    netuid: NetUid,
+    params: OrderParams,
+) -> SignedOrder<AccountId> {
+    let order = VersionedOrder::V1(Order {
+        signer: keyring.to_account_id(),
+        hotkey,
+        netuid,
+        order_type: params.order_type,
+        amount: params.amount,
+        limit_price: params.limit_price,
+        expiry: params.expiry,
+        fee_rate: params.fee_rate,
+        fee_recipient: params.fee_recipient,
+        relayer: params.relayer,
+        max_slippage: params.max_slippage,
+        partial_fills_enabled: params.partial_fills_enabled,
+    });
+    let sig = keyring.pair().sign(&order.encode());
+    SignedOrder {
+        order,
+        signature: MultiSignature::Sr25519(sig),
+        partial_fill: None,
+    }
 }
 
 fn make_signed_order(
@@ -50,26 +125,105 @@ fn make_signed_order(
     fee_rate: Perbill,
     fee_recipient: AccountId,
 ) -> SignedOrder<AccountId> {
-    let order = VersionedOrder::V1(Order {
-        signer: keyring.to_account_id(),
+    make_signed_order_inner(
+        keyring,
         hotkey,
         netuid,
-        order_type,
-        amount,
-        limit_price,
-        expiry,
-        fee_rate,
-        fee_recipient,
-        relayer: None,
-        max_slippage: None,
-        partial_fills_enabled: false,
-    });
-    let sig = keyring.pair().sign(&order.encode());
-    SignedOrder {
-        order,
-        signature: MultiSignature::Sr25519(sig),
-        partial_fill: None,
-    }
+        OrderParams {
+            order_type,
+            amount,
+            limit_price,
+            expiry,
+            fee_rate,
+            fee_recipient,
+            relayer: None,
+            max_slippage: None,
+            partial_fills_enabled: false,
+        },
+    )
+}
+
+/// Set up a dynamic-mechanism (Uniswap v3-style) subnet with equal TAO and
+/// alpha reserves, giving an initial pool price of exactly 1.0 TAO/alpha.
+///
+/// The stable mechanism (mechanism_id = 0) ignores the `price_limit` parameter
+/// entirely and always executes at 1:1, so slippage enforcement can only be
+/// tested against a dynamic subnet.
+fn setup_dynamic_subnet(netuid: NetUid) {
+    SubtensorModule::init_new_network(netuid, 0);
+    // Override the mechanism to 1 (dynamic / Uniswap v3).
+    SubnetMechanism::<Runtime>::insert(netuid, 1u16);
+    pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+    // Equal reserves → price = tao_reserve / alpha_reserve = 1.0
+    SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
+    SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(1_000_000_000_000_u64));
+}
+
+/// Build a signed order with an explicit `max_slippage` value.
+fn make_signed_order_with_slippage_rt(
+    keyring: Sr25519Keyring,
+    hotkey: AccountId,
+    netuid: NetUid,
+    order_type: OrderType,
+    amount: u64,
+    limit_price: u64,
+    expiry: u64,
+    fee_rate: Perbill,
+    fee_recipient: AccountId,
+    max_slippage: Option<Perbill>,
+) -> SignedOrder<AccountId> {
+    make_signed_order_inner(
+        keyring,
+        hotkey,
+        netuid,
+        OrderParams {
+            order_type,
+            amount,
+            limit_price,
+            expiry,
+            fee_rate,
+            fee_recipient,
+            relayer: None,
+            max_slippage,
+            partial_fills_enabled: false,
+        },
+    )
+}
+
+/// Build a `SignedOrder` with `partial_fills_enabled = true` and the relayer set
+/// to `relayer`.  The `partial_fill` field on the envelope is supplied separately
+/// by each test so that the *same* `VersionedOrder` payload (and therefore the
+/// same order-id) can be re-used across multiple submissions.
+fn make_partial_fill_order(
+    keyring: Sr25519Keyring,
+    hotkey: AccountId,
+    netuid: NetUid,
+    order_type: OrderType,
+    amount: u64,
+    limit_price: u64,
+    expiry: u64,
+    fee_recipient: AccountId,
+    relayer: AccountId,
+    partial_fill: Option<u64>,
+) -> SignedOrder<AccountId> {
+    let mut signed = make_signed_order_inner(
+        keyring,
+        hotkey,
+        netuid,
+        OrderParams {
+            order_type,
+            amount,
+            limit_price,
+            expiry,
+            fee_rate: Perbill::zero(),
+            fee_recipient,
+            relayer: Some(relayer),
+            max_slippage: None,
+            partial_fills_enabled: true,
+        },
+    );
+    signed.partial_fill = partial_fill;
+    signed
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,8 +298,7 @@ fn execute_orders_ed25519_signature_rejected() {
             partial_fill: None,
         };
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(alice_id),
@@ -171,10 +324,7 @@ fn limit_buy_order_executes_and_stakes_alpha() {
         setup_subnet(netuid);
 
         // Fund Alice so buy_alpha can debit her balance.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         // Create the hot-key association.
         SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
@@ -193,8 +343,7 @@ fn limit_buy_order_executes_and_stakes_alpha() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
@@ -256,8 +405,7 @@ fn take_profit_order_executes_and_unstakes_alpha() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
@@ -322,8 +470,7 @@ fn stop_loss_order_executes_and_unstakes_alpha() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
@@ -378,26 +525,7 @@ fn batched_buy_dominant_executes_correctly() {
 
         setup_subnet(netuid);
 
-        // Alice has free TAO to spend on a buy order.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
-
-        // Seed Bob with staked alph so he has something to sell.
-        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
-
-        // Bob has staked alpha (through Dave) to sell.
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &dave_id,
-            &bob_id,
-            netuid,
-            initial_alpha,
-        );
-
-        // Create the hot-key association. Alice-> Charlie, Bob -> Dave
-        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
-        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
+        setup_buyer_seller(netuid, &alice_id, &charlie_id, &bob_id, &dave_id);
 
         let buy = make_signed_order(
             alice,
@@ -422,8 +550,7 @@ fn batched_buy_dominant_executes_correctly() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy, sell].try_into().unwrap();
+        let orders = make_order_batch(vec![buy, sell]);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -483,24 +610,7 @@ fn batched_sell_dominant_executes_correctly() {
 
         setup_subnet(netuid);
 
-        // Create the hot-key association. Alice-> Charlie, Bob -> Dave
-        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
-        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
-
-        // Alice has free TAO to spend on a buy order.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
-
-        // Seed Bob with staked alph so he has something to sell.
-        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &dave_id,
-            &bob_id,
-            netuid,
-            initial_alpha,
-        );
+        setup_buyer_seller(netuid, &alice_id, &charlie_id, &bob_id, &dave_id);
 
         let buy = make_signed_order(
             alice,
@@ -525,8 +635,7 @@ fn batched_sell_dominant_executes_correctly() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy, sell].try_into().unwrap();
+        let orders = make_order_batch(vec![buy, sell]);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -575,24 +684,7 @@ fn batched_fails_if_executing_below_minimum_on_sell() {
 
         setup_subnet(netuid);
 
-        // Create the hot-key association. Alice-> Charlie, Bob -> Dave
-        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
-        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
-
-        // Alice has free TAO to spend on a buy order.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
-
-        // Seed Bob with staked alph so he has something to sell.
-        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &dave_id,
-            &bob_id,
-            netuid,
-            initial_alpha,
-        );
+        setup_buyer_seller(netuid, &alice_id, &charlie_id, &bob_id, &dave_id);
 
         let buy = make_signed_order(
             alice,
@@ -617,8 +709,7 @@ fn batched_fails_if_executing_below_minimum_on_sell() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy, sell].try_into().unwrap();
+        let orders = make_order_batch(vec![buy, sell]);
 
         assert_noop!(
             LimitOrders::execute_batched_orders(
@@ -647,10 +738,7 @@ fn batched_fails_if_executing_without_hot_key_association() {
         // Create the hot-key association. Alice is not associating to charlie
 
         // Alice has free TAO to spend on a buy order.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         // Seed Bob with staked alph so he has something to sell.
         let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
@@ -684,8 +772,7 @@ fn batched_fails_if_executing_without_hot_key_association() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy, sell].try_into().unwrap();
+        let orders = make_order_batch(vec![buy, sell]);
 
         assert_noop!(
             LimitOrders::execute_batched_orders(
@@ -712,10 +799,7 @@ fn batched_fails_for_nonexistent_subnet() {
 
         // Fund Alice so that `transfer_tao` succeeds; the subnet check happens
         // later inside `buy_alpha`.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         let buy = make_signed_order(
             alice,
@@ -729,8 +813,7 @@ fn batched_fails_for_nonexistent_subnet() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy].try_into().unwrap();
+        let orders = make_order_batch(vec![buy]);
 
         assert_noop!(
             LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
@@ -755,10 +838,7 @@ fn batched_fails_if_subtoken_not_enabled() {
         SubtensorModule::init_new_network(netuid, 0);
 
         // Fund Alice so that the TAO transfer in `collect_assets` succeeds.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         let buy = make_signed_order(
             alice,
@@ -772,8 +852,7 @@ fn batched_fails_if_subtoken_not_enabled() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy].try_into().unwrap();
+        let orders = make_order_batch(vec![buy]);
 
         assert_noop!(
             LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
@@ -811,8 +890,7 @@ fn batched_fails_for_expired_order() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_noop!(
             LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
@@ -848,8 +926,7 @@ fn batched_fails_if_price_condition_not_met() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_noop!(
             LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
@@ -870,10 +947,7 @@ fn batched_fails_for_root_netuid() {
         let charlie_id = Sr25519Keyring::Charlie.to_account_id();
 
         // Fund Alice so the call gets past any balance checks before hitting the root guard.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         let buy = make_signed_order(
             alice,
@@ -887,8 +961,7 @@ fn batched_fails_for_root_netuid() {
             charlie_id.clone(),
         );
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy].try_into().unwrap();
+        let orders = make_order_batch(vec![buy]);
 
         assert_noop!(
             LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
@@ -928,8 +1001,7 @@ fn execute_orders_skips_expired_order() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         // The call must succeed even though the order is expired.
         assert_ok!(LimitOrders::execute_orders(
@@ -958,10 +1030,7 @@ fn execute_orders_valid_and_invalid_mixed() {
         setup_subnet(netuid);
 
         // Fund Alice so that her LimitBuy order can execute.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         // Create the hotkey association for Alice so buy_alpha succeeds.
         SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
@@ -996,8 +1065,7 @@ fn execute_orders_valid_and_invalid_mixed() {
         let valid_id = order_id(&valid.order);
         let expired_id = order_id(&expired.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![valid, expired].try_into().unwrap();
+        let orders = make_order_batch(vec![valid, expired]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
@@ -1029,10 +1097,7 @@ fn execute_orders_skips_order_with_unassociated_hotkey() {
         setup_subnet(netuid);
 
         // Fund Alice so that any balance check is not the reason for skipping.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         // Deliberately do NOT call create_account_if_non_existent — Alice has no
         // hotkey association, so the order should be silently skipped.
@@ -1050,8 +1115,7 @@ fn execute_orders_skips_order_with_unassociated_hotkey() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         // The call must succeed even though the hotkey association is missing.
         assert_ok!(LimitOrders::execute_orders(
@@ -1079,10 +1143,7 @@ fn execute_orders_skips_order_below_minimum_stake() {
         setup_subnet(netuid);
 
         // Fund Alice so that any balance check is not the reason for skipping.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         // Create the hotkey association so that is not the reason for skipping.
         SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
@@ -1101,8 +1162,7 @@ fn execute_orders_skips_order_below_minimum_stake() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         // The call must succeed even though the amount is below the minimum.
         assert_ok!(LimitOrders::execute_orders(
@@ -1129,10 +1189,7 @@ fn execute_orders_skips_order_for_nonexistent_subnet() {
         let charlie_id = Sr25519Keyring::Charlie.to_account_id();
 
         // Fund Alice so that any balance check is not the reason for skipping.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         // Create the hotkey association so that is not the reason for skipping.
         SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
@@ -1150,8 +1207,7 @@ fn execute_orders_skips_order_for_nonexistent_subnet() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         // The call must succeed even though the subnet does not exist.
         assert_ok!(LimitOrders::execute_orders(
@@ -1192,10 +1248,7 @@ fn execute_orders_fee_forwarded_to_recipient() {
         setup_subnet(netuid);
 
         // Fund Alice with 10× min_default_stake so she can cover the order amount and a margin.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
+        fund_account(&alice_id);
 
         // Create the hotkey association Alice → Bob.
         SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
@@ -1224,8 +1277,7 @@ fn execute_orders_fee_forwarded_to_recipient() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -1286,24 +1338,7 @@ fn batched_fee_forwarded_to_recipient() {
 
         setup_subnet(netuid);
 
-        // Alice (buyer) funded with free TAO.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
-
-        // Bob (seller) seeded with staked alpha through Dave.
-        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &dave_id,
-            &bob_id,
-            netuid,
-            initial_alpha,
-        );
-
-        // Create hotkey associations: Alice → Charlie, Bob → Dave.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
-        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
+        setup_buyer_seller(netuid, &alice_id, &charlie_id, &bob_id, &dave_id);
 
         // Eve (shared fee recipient) starts with zero balance.
         assert_eq!(
@@ -1337,8 +1372,7 @@ fn batched_fee_forwarded_to_recipient() {
         let buy_id = order_id(&buy.order);
         let sell_id = order_id(&sell.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy, sell].try_into().unwrap();
+        let orders = make_order_batch(vec![buy, sell]);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -1393,24 +1427,7 @@ fn batched_multiple_fee_recipients_each_receive_correct_amount() {
 
         setup_subnet(netuid);
 
-        // Alice (buyer) funded with free TAO.
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            min_default_stake() * 10u64.into(),
-        );
-
-        // Bob (seller) seeded with staked alpha through Dave.
-        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
-            &dave_id,
-            &bob_id,
-            netuid,
-            initial_alpha,
-        );
-
-        // Create hotkey associations: Alice → Charlie, Bob → Dave.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &charlie_id);
-        SubtensorModule::create_account_if_non_existent(&bob_id, &dave_id);
+        setup_buyer_seller(netuid, &alice_id, &charlie_id, &bob_id, &dave_id);
 
         // Charlie and Dave start with zero free balance (they are hotkeys; no initial funding).
         assert_eq!(
@@ -1451,8 +1468,7 @@ fn batched_multiple_fee_recipients_each_receive_correct_amount() {
         let buy_id = order_id(&buy.order);
         let sell_id = order_id(&sell.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![buy, sell].try_into().unwrap();
+        let orders = make_order_batch(vec![buy, sell]);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -1503,57 +1519,6 @@ fn batched_multiple_fee_recipients_each_receive_correct_amount() {
 }
 
 // ── max_slippage enforcement against the real dynamic-mechanism AMM ───────────
-
-/// Set up a dynamic-mechanism (Uniswap v3-style) subnet with equal TAO and
-/// alpha reserves, giving an initial pool price of exactly 1.0 TAO/alpha.
-///
-/// The stable mechanism (mechanism_id = 0) ignores the `price_limit` parameter
-/// entirely and always executes at 1:1, so slippage enforcement can only be
-/// tested against a dynamic subnet.
-fn setup_dynamic_subnet(netuid: NetUid) {
-    SubtensorModule::init_new_network(netuid, 0);
-    // Override the mechanism to 1 (dynamic / Uniswap v3).
-    SubnetMechanism::<Runtime>::insert(netuid, 1u16);
-    pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
-    // Equal reserves → price = tao_reserve / alpha_reserve = 1.0
-    SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
-    SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(1_000_000_000_000_u64));
-}
-
-/// Build a signed order with an explicit `max_slippage` value.
-fn make_signed_order_with_slippage_rt(
-    keyring: Sr25519Keyring,
-    hotkey: AccountId,
-    netuid: NetUid,
-    order_type: OrderType,
-    amount: u64,
-    limit_price: u64,
-    expiry: u64,
-    fee_rate: Perbill,
-    fee_recipient: AccountId,
-    max_slippage: Option<Perbill>,
-) -> SignedOrder<AccountId> {
-    let order = VersionedOrder::V1(Order {
-        signer: keyring.to_account_id(),
-        hotkey,
-        netuid,
-        order_type,
-        amount,
-        limit_price,
-        expiry,
-        fee_rate,
-        fee_recipient,
-        relayer: None,
-        max_slippage,
-        partial_fills_enabled: false,
-    });
-    let sig = keyring.pair().sign(&order.encode());
-    SignedOrder {
-        order,
-        signature: MultiSignature::Sr25519(sig),
-        partial_fill: None,
-    }
-}
 
 /// A StopLoss order whose price condition is met (`current_price ≤ limit_price`)
 /// but whose `max_slippage`-derived floor exceeds the pool's actual price is
@@ -1608,8 +1573,7 @@ fn execute_orders_stoploss_max_slippage_exceeds_pool_price_skipped() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         // execute_orders is best-effort: the call succeeds even though the order
         // is rejected by the AMM.
@@ -1677,8 +1641,7 @@ fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
         );
         let id = order_id(&signed.order);
 
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![signed].try_into().unwrap();
+        let orders = make_order_batch(vec![signed]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
@@ -1704,44 +1667,6 @@ fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
 }
 
 // ── Partial fill tests ────────────────────────────────────────────────────────
-
-/// Build a `SignedOrder` with `partial_fills_enabled = true` and the relayer set
-/// to `relayer`.  The `partial_fill` field on the envelope is supplied separately
-/// by each test so that the *same* `VersionedOrder` payload (and therefore the
-/// same order-id) can be re-used across multiple submissions.
-fn make_partial_fill_order(
-    keyring: Sr25519Keyring,
-    hotkey: AccountId,
-    netuid: NetUid,
-    order_type: OrderType,
-    amount: u64,
-    limit_price: u64,
-    expiry: u64,
-    fee_recipient: AccountId,
-    relayer: AccountId,
-    partial_fill: Option<u64>,
-) -> SignedOrder<AccountId> {
-    let order = VersionedOrder::V1(Order {
-        signer: keyring.to_account_id(),
-        hotkey,
-        netuid,
-        order_type,
-        amount,
-        limit_price,
-        expiry,
-        fee_rate: Perbill::zero(),
-        fee_recipient,
-        relayer: Some(relayer),
-        max_slippage: None,
-        partial_fills_enabled: true,
-    });
-    let sig = keyring.pair().sign(&order.encode());
-    SignedOrder {
-        order,
-        signature: MultiSignature::Sr25519(sig),
-        partial_fill,
-    }
-}
 
 /// A LimitBuy order with `partial_fills_enabled` is partially filled on the
 /// first `execute_orders` call, then fully filled (Fulfilled) on a second call
@@ -1789,8 +1714,7 @@ fn execute_orders_partial_fill_then_complete() {
         let id = order_id(&first_signed.order);
 
         // ── First submission: partial fill ────────────────────────────────────
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![first_signed.clone()].try_into().unwrap();
+        let orders = make_order_batch(vec![first_signed.clone()]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -1813,8 +1737,7 @@ fn execute_orders_partial_fill_then_complete() {
             partial_fill: Some(remaining_amount),
         };
 
-        let orders2: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![second_signed].try_into().unwrap();
+        let orders2 = make_order_batch(vec![second_signed]);
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -1875,8 +1798,7 @@ fn execute_batched_orders_partial_fill_then_complete() {
         let id = order_id(&first_signed.order);
 
         // ── First batch: partial fill ─────────────────────────────────────────
-        let orders: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![first_signed.clone()].try_into().unwrap();
+        let orders = make_order_batch(vec![first_signed.clone()]);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
@@ -1897,8 +1819,7 @@ fn execute_batched_orders_partial_fill_then_complete() {
             partial_fill: Some(remaining_amount),
         };
 
-        let orders2: BoundedVec<_, <Runtime as pallet_limit_orders::Config>::MaxOrdersPerBatch> =
-            vec![second_signed].try_into().unwrap();
+        let orders2 = make_order_batch(vec![second_signed]);
 
         assert_ok!(LimitOrders::execute_batched_orders(
             RuntimeOrigin::signed(charlie_id.clone()),

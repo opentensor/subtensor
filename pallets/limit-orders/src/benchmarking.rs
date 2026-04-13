@@ -48,6 +48,50 @@ pub fn order_id<T: crate::Config>(order: &crate::VersionedOrder<T::AccountId>) -
     crate::pallet::Pallet::<T>::derive_order_id(order)
 }
 
+/// Build `n` signed benchmark orders for `netuid`, one per distinct signer.
+///
+/// For each index `i` in `0..n` the function:
+/// - derives a deterministic sr25519 key via `benchmark_key(i)`,
+/// - calls `T::SwapInterface::set_up_acc_for_benchmark` so the account has
+///   sufficient balance / stake,
+/// - constructs a worst-case `LimitBuy` order (amount = 1 TAO, price = u64::MAX,
+///   expiry = u64::MAX, fee 1 %, distinct fee recipient), and
+/// - signs it with the generated key.
+fn make_benchmark_orders<T: crate::Config>(
+    n: u32,
+    netuid: NetUid,
+) -> alloc::vec::Vec<crate::SignedOrder<T::AccountId>> {
+    use subtensor_swap_interface::OrderSwapInterface;
+
+    let mut orders = alloc::vec::Vec::new();
+
+    for i in 0..n {
+        let (public, account_id) = benchmark_key(i);
+        let account: T::AccountId = account_id.into();
+        let fee_recipient: T::AccountId = frame_benchmarking::account("fee_recipient", i, 0);
+
+        T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
+
+        let order = crate::VersionedOrder::V1(crate::Order {
+            signer: account.clone(),
+            hotkey: account.clone(),
+            netuid,
+            order_type: OrderType::LimitBuy,
+            amount: 1_000_000_000u64,
+            limit_price: u64::MAX,
+            expiry: u64::MAX,
+            fee_rate: Perbill::from_percent(1),
+            fee_recipient,
+            relayer: None,
+            max_slippage: None,
+            partial_fills_enabled: false,
+        });
+        orders.push(sign_order::<T>(public, &order));
+    }
+
+    orders
+}
+
 #[benchmarks]
 mod benchmarks {
     use super::*;
@@ -97,31 +141,7 @@ mod benchmarks {
         let netuid = NetUid::from(1u16);
         T::SwapInterface::set_up_netuid_for_benchmark(netuid);
 
-        let mut orders = alloc::vec::Vec::new();
-
-        for i in 0..n {
-            let (public, account_id) = benchmark_key(i);
-            let account: T::AccountId = account_id.into();
-            let fee_recipient: T::AccountId = frame_benchmarking::account("fee_recipient", i, 0);
-
-            T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
-
-            let order = crate::VersionedOrder::V1(crate::Order {
-                signer: account.clone(),
-                hotkey: account.clone(),
-                netuid,
-                order_type: OrderType::LimitBuy,
-                amount: 1_000_000_000u64,
-                limit_price: u64::MAX,
-                expiry: u64::MAX,
-                fee_rate: Perbill::from_percent(1),
-                fee_recipient,
-                relayer: None,
-                max_slippage: None,
-                partial_fills_enabled: false,
-            });
-            orders.push(sign_order::<T>(public, &order));
-        }
+        let orders = make_benchmark_orders::<T>(n, netuid);
 
         let bounded_orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
             frame_support::BoundedVec::try_from(orders).unwrap();
@@ -145,31 +165,7 @@ mod benchmarks {
         let pallet_hotkey: T::AccountId = T::PalletHotkey::get();
         T::SwapInterface::set_up_acc_for_benchmark(&pallet_hotkey, &pallet_acct);
 
-        let mut orders = alloc::vec::Vec::new();
-
-        for i in 0..n {
-            let (public, account_id) = benchmark_key(i);
-            let account: T::AccountId = account_id.into();
-            let fee_recipient: T::AccountId = frame_benchmarking::account("fee_recipient", i, 0);
-
-            T::SwapInterface::set_up_acc_for_benchmark(&account, &account);
-
-            let order = crate::VersionedOrder::V1(crate::Order {
-                signer: account.clone(),
-                hotkey: account.clone(),
-                netuid,
-                order_type: OrderType::LimitBuy,
-                amount: 1_000_000_000u64,
-                limit_price: u64::MAX,
-                expiry: u64::MAX,
-                fee_rate: Perbill::from_percent(1),
-                fee_recipient,
-                relayer: None,
-                max_slippage: None,
-                partial_fills_enabled: false,
-            });
-            orders.push(sign_order::<T>(public, &order));
-        }
+        let orders = make_benchmark_orders::<T>(n, netuid);
 
         let bounded_orders: frame_support::BoundedVec<_, T::MaxOrdersPerBatch> =
             frame_support::BoundedVec::try_from(orders).unwrap();
