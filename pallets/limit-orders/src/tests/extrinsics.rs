@@ -1,3 +1,4 @@
+#![allow(clippy::indexing_slicing)]
 //! Integration tests for `pallet-limit-orders` extrinsics.
 //!
 //! Tests go through the full dispatch path: origin enforcement, storage changes,

@@ -969,7 +969,10 @@ pub mod pallet {
 
             for e in buys.iter() {
                 let share: u64 = if total_buy_net > 0 {
-                    (total_alpha.saturating_mul(e.net as u128) / total_buy_net) as u64
+                    total_alpha
+                        .saturating_mul(e.net as u128)
+                        .checked_div(total_buy_net)
+                        .unwrap_or(0) as u64
                 } else {
                     0
                 };
@@ -1027,7 +1030,10 @@ pub mod pallet {
             for e in sells.iter() {
                 let sell_tao_equiv = Self::alpha_to_tao(e.net as u128, current_price);
                 let gross_share: u64 = if total_sell_tao_equiv > 0 {
-                    (total_tao.saturating_mul(sell_tao_equiv) / total_sell_tao_equiv) as u64
+                    total_tao
+                        .saturating_mul(sell_tao_equiv)
+                        .checked_div(total_sell_tao_equiv)
+                        .unwrap_or(0) as u64
                 } else {
                     0u64
                 };

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 //! Minimal mock runtime for `pallet-limit-orders` unit tests.
 //!
 //! `AccountId` is `sp_runtime::AccountId32` so that `MultiSignature` works

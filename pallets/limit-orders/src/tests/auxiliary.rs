@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::indexing_slicing)]
 //! Unit tests for the auxiliary helper functions in `pallet-limit-orders`.
 //!
 //! Extrinsics are NOT tested here. Each section focuses on one helper.

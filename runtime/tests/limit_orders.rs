@@ -1,4 +1,8 @@
-#![allow(clippy::unwrap_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::arithmetic_side_effects,
+    clippy::too_many_arguments
+)]
 
 use codec::Encode;
 use frame_support::{BoundedVec, assert_noop, assert_ok};

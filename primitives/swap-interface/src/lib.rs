@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::too_many_arguments)]
 use core::ops::Neg;
 
 use frame_support::pallet_prelude::*;
