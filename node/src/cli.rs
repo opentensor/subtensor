@@ -21,7 +21,7 @@ pub struct Cli {
     pub run: RunCmd,
 
     /// Choose sealing method: manual, instant, or interval=<ms>.
-    #[arg(long, value_enum, ignore_case = true)]
+    #[arg(long)]
     pub sealing: Option<Sealing>,
 
     /// Whether to try Aura or Babe consensus on first start.
