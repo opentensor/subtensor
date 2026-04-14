@@ -587,7 +587,8 @@ where
             }
             FunctionId::AddStakeRecycleV1 => {
                 let add_stake_weight =
-                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake(
+                    );
                 let recycle_weight =
                     <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha();
 
@@ -643,7 +644,8 @@ where
             }
             FunctionId::AddStakeBurnV1 => {
                 let add_stake_weight =
-                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake(
+                    );
                 let burn_weight =
                     <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
 

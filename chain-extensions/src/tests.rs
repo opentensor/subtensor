@@ -1286,10 +1286,11 @@ impl SubtensorExtensionEnv<AccountId> for MockEnv {
     }
 
     fn charge_weight(&mut self, weight: Weight) -> Result<(), DispatchError> {
-        let cumulative = self
-            .charged_weight
-            .unwrap_or_default()
-            .saturating_add(weight);
+        let prev = self.charged_weight.unwrap_or_default();
+        let cumulative = Weight::from_parts(
+            prev.ref_time().checked_add(weight.ref_time()).unwrap(),
+            prev.proof_size().checked_add(weight.proof_size()).unwrap(),
+        );
         if let Some(expected) = self.expected_weight
             && (cumulative.ref_time() > expected.ref_time()
                 || cumulative.proof_size() > expected.proof_size())
