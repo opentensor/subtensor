@@ -2444,7 +2444,11 @@ fn register_network_credits_owner_alpha_using_fallback_price_one_on_first_subnet
         let expected_owner_alpha: AlphaBalance =
             owner_alpha_from_lock_and_price(actual_locked_u64, pre_registration_price).into();
         let expected_alpha_issuance: AlphaBalance =
-            total_registration_alpha_from_lock_and_price(actual_locked_u64, pre_registration_price)
+            pool_alpha_from_lock_and_price(actual_locked_u64, pre_registration_price)
+                .saturating_add(owner_alpha_from_lock_and_price(
+                    actual_locked_u64,
+                    pre_registration_price,
+                ))
                 .into();
         let expected_recycled: TaoBalance = recycled_tao_from_lock(actual_locked_u64).into();
 
@@ -2491,11 +2495,14 @@ fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet
     new_test_ext(1).execute_with(|| {
         let n1 = add_dynamic_network(&U256::from(1201), &U256::from(1200));
         let n2 = add_dynamic_network(&U256::from(1203), &U256::from(1202));
+        let n3 = add_dynamic_network(&U256::from(1205), &U256::from(1204));
 
-        setup_reserves(n1, TaoBalance::from(500u64), AlphaBalance::from(100u64));
-        setup_reserves(n2, TaoBalance::from(200u64), AlphaBalance::from(100u64));
+        // Existing prices are {10, 3, 1}.
+        // Sorted prices are {1, 3, 10}; the bottom 50% is {1, 3}; its median is 2.
+        setup_reserves(n1, TaoBalance::from(1_000u64), AlphaBalance::from(100u64));
+        setup_reserves(n2, TaoBalance::from(300u64), AlphaBalance::from(100u64));
+        setup_reserves(n3, TaoBalance::from(100u64), AlphaBalance::from(100u64));
 
-        // Existing prices are {5, 2}. Sorted prices are {2, 5}; the bottom 50% is {2}.
         let pre_registration_price = SubtensorModule::get_bottom_half_median_subnet_alpha_price();
         assert_eq!(pre_registration_price, U96F32::from_num(2u64));
 
@@ -2526,8 +2533,11 @@ fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet
         let wrong_post_registration_owner_alpha: AlphaBalance =
             owner_alpha_from_lock_and_price(actual_locked_u64, post_registration_price).into();
 
-        // Eligible prices are now {1, 2, 5}; the bottom 50% is {1, 2}; its median is 1.5.
-        assert_eq!(new_subnet_price, U96F32::from_num(1u64));
+        // With the corrected launch math, the new subnet launches exactly at the snapshot price.
+        assert_eq!(new_subnet_price, U96F32::from_num(2u64));
+
+        // Eligible prices are now {10, 3, 1, 2}.
+        // Sorted prices are {1, 2, 3, 10}; the bottom 50% is {1, 2}; its median is 1.5.
         assert_eq!(post_registration_price, U96F32::from_num(1.5));
         assert_ne!(pre_registration_price, post_registration_price);
 
