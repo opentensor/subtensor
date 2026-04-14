@@ -333,6 +333,7 @@ runtime-benchmarks = [
 	"pallet-shield/runtime-benchmarks",
 	
 	"subtensor-runtime-common/runtime-benchmarks",
+	"subtensor-chain-extensions/runtime-benchmarks",
 	"pallet-limit-orders/runtime-benchmarks",
 	"subtensor-swap-interface/runtime-benchmarks",
 ]

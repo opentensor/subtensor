@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(test)]
+pub mod mock;
+#[cfg(test)]
 mod tests;
 
 mod benchmarking;
@@ -20,6 +22,7 @@ use sp_std::boxed::Box;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[deny(missing_docs)]
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
