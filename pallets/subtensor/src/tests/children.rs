@@ -4565,7 +4565,7 @@ fn test_register_network_schedules_root_validators_auto_parent_delegation_flag()
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
         let lock_cost = SubtensorModule::get_network_lock_cost();
-        SubtensorModule::add_balance_to_coldkey_account(&subnet_owner_coldkey, lock_cost.into());
+        add_balance_to_coldkey_account(&subnet_owner_coldkey, lock_cost.into());
         TotalIssuance::<Test>::mutate(|total| {
             *total = total.saturating_add(lock_cost);
         });

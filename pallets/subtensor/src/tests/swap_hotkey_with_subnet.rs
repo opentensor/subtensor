@@ -3183,7 +3183,7 @@ fn test_swap_hotkey_auto_parent_delegation_transferred_on_root() {
         let new_hotkey = U256::from(1005);
 
         let _ = add_dynamic_network(&old_hotkey, &owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
 
         // Opt out of auto parent delegation on the old hotkey.
         AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
@@ -3224,7 +3224,7 @@ fn test_swap_hotkey_auto_parent_delegation_transferred_on_all_subnets() {
         NetworksAdded::<Test>::insert(NetUid::ROOT, true);
 
         let _ = add_dynamic_network(&old_hotkey, &owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
 
         AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
 
@@ -3256,7 +3256,7 @@ fn test_swap_hotkey_auto_parent_delegation_not_transferred_on_non_root() {
         let new_hotkey = U256::from(1005);
 
         let netuid = add_dynamic_network(&old_hotkey, &owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
 
         AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
 
