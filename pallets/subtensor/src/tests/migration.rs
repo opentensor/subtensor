@@ -4156,7 +4156,7 @@ fn test_migrate_fix_root_claimed_overclaim() {
         hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
     const MIGRATION_NAME: &[u8] = b"migrate_fix_root_claimed_overclaim";
 
-    // CASE 1: new hotkey has no root stake → state is cleared, other hotkeys untouched
+    // CASE 1: new hotkey has no root stake → RootClaimable is cleared
     new_test_ext(1).execute_with(|| {
         frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
 
@@ -4185,11 +4185,13 @@ fn test_migrate_fix_root_claimed_overclaim() {
         );
         assert_eq!(
             RootClaimed::<Test>::get((netuid_a, new_hotkey, coldkey_a)),
-            0u128
+            999u128,
+            "RootClaimed entries must be left intact"
         );
         assert_eq!(
             RootClaimed::<Test>::get((netuid_b, new_hotkey, coldkey_b)),
-            0u128
+            111u128,
+            "RootClaimed entries must be left intact"
         );
 
         assert_eq!(

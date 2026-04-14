@@ -1,5 +1,4 @@
 use super::*;
-use alloc::collections::BTreeSet;
 use frame_support::pallet_prelude::Weight;
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::string::String;
@@ -17,16 +16,17 @@ struct HotkeySwapFix {
     new_hotkey_ss58: &'static str,
 }
 
-/// Cleans up leftover `RootClaimable` / `RootClaimed` state on new hotkeys produced
-/// by the buggy `perform_hotkey_swap_on_one_subnet`, which unconditionally moved the
-/// entire `RootClaimable` map from the old hotkey to the new hotkey during a
+/// Cleans up leftover `RootClaimable` state on new hotkeys produced by the buggy
+/// `perform_hotkey_swap_on_one_subnet`, which unconditionally moved the entire
+/// `RootClaimable` map from the old hotkey to the new hotkey during a
 /// single-subnet swap.
 ///
 /// These new hotkeys have no root stake (root swaps are and were guarded), so the
 /// transferred claimable state produces no legitimate yield and only blocks future
 /// flows. For each affected new hotkey we check that it truly holds no root-subnet
-/// alpha and, if so, remove its `RootClaimable` entry and all `RootClaimed`
-/// watermarks keyed by it.
+/// alpha and, if so, remove its `RootClaimable` entry. `RootClaimed` watermarks
+/// are intentionally left in place — scanning that map does not fit in a single
+/// block.
 pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
     let migration_name = b"migrate_fix_root_claimed_overclaim".to_vec();
     let mut weight = T::DbWeight::get().reads(1);
@@ -52,7 +52,6 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
         hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
 
     let mut cleared_hotkeys: u64 = 0;
-    let mut cleared_claimed: u64 = 0;
 
     if genesis_bytes == mainnet_genesis {
         let fixes: &[HotkeySwapFix] = &[
@@ -94,8 +93,6 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
             },
         ];
 
-        // Collect the set of new hotkeys that actually need cleanup (no root stake).
-        let mut targets: BTreeSet<T::AccountId> = BTreeSet::new();
         for fix in fixes {
             let new_hotkey = match decode_account_id32::<T>(fix.new_hotkey_ss58) {
                 Some(h) => h,
@@ -119,30 +116,9 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
                 continue;
             }
 
-            targets.insert(new_hotkey);
-        }
-
-        // Clear RootClaimable for each target.
-        for hk in &targets {
-            RootClaimable::<T>::remove(hk);
+            RootClaimable::<T>::remove(&new_hotkey);
             weight.saturating_accrue(T::DbWeight::get().writes(1));
             cleared_hotkeys = cleared_hotkeys.saturating_add(1);
-        }
-
-        let mut claimed_keys: Vec<(NetUid, T::AccountId, T::AccountId)> = Vec::new();
-        let mut scanned: u64 = 0;
-        for ((netuid, hk, ck), _) in RootClaimed::<T>::iter() {
-            scanned = scanned.saturating_add(1);
-            if targets.contains(&hk) {
-                claimed_keys.push((netuid, hk, ck));
-            }
-        }
-        weight.saturating_accrue(T::DbWeight::get().reads(scanned));
-
-        for key in claimed_keys {
-            RootClaimed::<T>::remove(key);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-            cleared_claimed = cleared_claimed.saturating_add(1);
         }
     }
 
@@ -152,8 +128,7 @@ pub fn migrate_fix_root_claimed_overclaim<T: Config>() -> Weight {
 
     log::info!(
         "Migration 'migrate_fix_root_claimed_overclaim' completed. \
-         Cleared RootClaimable for {cleared_hotkeys} hotkeys, \
-         removed {cleared_claimed} RootClaimed entries."
+         Cleared RootClaimable for {cleared_hotkeys} hotkeys."
     );
 
     weight
