@@ -209,17 +209,50 @@ impl<T: Config> Pallet<T> {
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // Seed the new subnet pool at a 1:1 reserve ratio.
-        // Separately, grant the subnet owner outstanding alpha based on the TAO they actually spent
-        // on registration converted by the current median subnet alpha price.
-        let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
-        let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
-        let owner_alpha_stake: AlphaBalance =
-            U96F32::saturating_from_num(actual_tao_lock_amount.to_u64())
-                .safe_div(median_subnet_alpha_price)
-                .saturating_floor()
-                .saturating_to_num::<u64>()
-                .into();
+        // Registration seeding model:
+        //   L = actual_tao_lock_amount
+        //   P = median TAO price of alpha across active subnets
+        //   A = L / P
+        //
+        // Inject:
+        //   - L / 4 TAO into the TAO side of the pool
+        //   - A / 2 total alpha, split evenly between:
+        //       * pool alpha reserve
+        //       * owner staked alpha
+        //
+        // This means the owner's alpha comes out of the seeded A / 2 rather than
+        // being minted on top of it. Subject to integer rounding, this initializes
+        // the pool at the median price and gives the owner ~12.5% of L if they
+        // immediately fully unstake into the fresh pool.
+        let two = U96F32::saturating_from_num(2_u64);
+        let four = U96F32::saturating_from_num(4_u64);
+        let lock_amount_as_float = U96F32::saturating_from_num(actual_tao_lock_amount.to_u64());
+
+        let alpha_at_median_price = lock_amount_as_float.safe_div(median_subnet_alpha_price);
+
+        let pool_initial_tao: TaoBalance = lock_amount_as_float
+            .safe_div(four)
+            .saturating_floor()
+            .saturating_to_num::<u64>()
+            .into();
+
+        let total_created_alpha: AlphaBalance = alpha_at_median_price
+            .safe_div(two)
+            .saturating_floor()
+            .saturating_to_num::<u64>()
+            .into();
+
+        let owner_alpha_stake: AlphaBalance = alpha_at_median_price
+            .safe_div(four)
+            .saturating_floor()
+            .saturating_to_num::<u64>()
+            .into();
+
+        // The owner's alpha must come out of the seeded A / 2 rather than be
+        // minted on top of it. Any rounding dust remains in the pool.
+        let pool_initial_alpha: AlphaBalance =
+            total_created_alpha.saturating_sub(owner_alpha_stake);
+
         let actual_tao_lock_amount_less_pool_tao =
             actual_tao_lock_amount.saturating_sub(pool_initial_tao);
 
@@ -252,7 +285,7 @@ impl<T: Config> Pallet<T> {
         }
 
         if actual_tao_lock_amount > TaoBalance::ZERO && pool_initial_tao > TaoBalance::ZERO {
-            // Record in TotalStake the initial TAO in the pool.
+            // Record in TotalStake only the TAO actually injected into the subnet pool.
             Self::increase_total_stake(pool_initial_tao);
         }
 
@@ -280,7 +313,7 @@ impl<T: Config> Pallet<T> {
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 19. Return success.
+        // --- 20. Return success.
         Ok(())
     }
 

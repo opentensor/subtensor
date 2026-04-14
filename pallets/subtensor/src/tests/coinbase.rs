@@ -2394,28 +2394,42 @@ fn test_distribute_emission_no_miners_all_drained() {
     new_test_ext(1).execute_with(|| {
         let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
         remove_owner_registration_stake(netuid);
+
+        // Restore the pre-change test invariant that this subnet starts with an exact 1:1 spot price.
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(1_000_000_000_000_u64),
+            AlphaBalance::from(1_000_000_000_000_u64),
+        );
+
         let hotkey = U256::from(3);
         let coldkey = U256::from(4);
-        let init_stake = 1;
+        let init_stake = 1_u64;
+
         SubtensorModule::set_burn(netuid, TaoBalance::from(0));
+        SubtensorModule::set_subnet_owner_cut(0_u16);
+
         register_ok_neuron(netuid, hotkey, coldkey, 0);
-        // Give non-zero stake
+
+        // Give non-zero stake.
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             netuid,
             init_stake.into(),
         );
+
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            init_stake.into()
+            TaoBalance::from(init_stake)
         );
 
         // Set the weight of root TAO to be 0%, so only alpha is effective.
         SubtensorModule::set_tao_weight(0);
 
         // Set the emission to be 1 million.
-        let emission = AlphaBalance::from(1_000_000);
+        let emission = AlphaBalance::from(1_000_000_u64);
+
         // Run drain pending without any miners.
         SubtensorModule::distribute_emission(
             netuid,
@@ -2425,14 +2439,12 @@ fn test_distribute_emission_no_miners_all_drained() {
             AlphaBalance::ZERO,
         );
 
-        // Get the new stake of the hotkey.
-        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
         // We expect this neuron to get *all* the emission.
-        // Slight epsilon due to rounding (hotkey_take).
+        let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
         assert_abs_diff_eq!(
             new_stake,
-            u64::from(emission + init_stake.into()).into(),
-            epsilon = 1.into()
+            TaoBalance::from(init_stake + emission.to_u64()),
+            epsilon = TaoBalance::from(1_u64)
         );
     });
 }
@@ -2442,28 +2454,38 @@ fn test_distribute_emission_no_miners_all_drained() {
 fn test_distribute_emission_zero_emission() {
     new_test_ext(1).execute_with(|| {
         let netuid = add_dynamic_network_disable_commit_reveal(&U256::from(1), &U256::from(2));
+        remove_owner_registration_stake(netuid);
+
+        // Restore the pre-change test invariant that this subnet starts with an exact 1:1 spot price.
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(1_000_000_000_000_u64),
+            AlphaBalance::from(1_000_000_000_000_u64),
+        );
+
         let hotkey = U256::from(3);
         let coldkey = U256::from(4);
         let miner_hk = U256::from(5);
         let miner_ck = U256::from(6);
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
+
         SubtensorModule::set_tempo(netuid, tempo);
-        // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         register_ok_neuron(netuid, miner_hk, miner_ck, 0);
-        // Give non-zero stake
+
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             netuid,
             init_stake.into(),
         );
+
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            init_stake.into()
+            TaoBalance::from(init_stake)
         );
 
         // Set the weight of root TAO to be 0%, so only alpha is effective.
@@ -2474,7 +2496,7 @@ fn test_distribute_emission_zero_emission() {
         // Run epoch for initial setup.
         SubtensorModule::epoch(netuid, AlphaBalance::ZERO);
 
-        // Set weights on miner
+        // Set weights on miner.
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
@@ -2485,7 +2507,6 @@ fn test_distribute_emission_zero_emission() {
 
         run_to_block_no_epoch(netuid, 50);
 
-        // Clear incentive and dividends.
         Incentive::<Test>::remove(NetUidStorageIndex::from(netuid));
         Dividends::<Test>::remove(netuid);
 
@@ -2498,12 +2519,11 @@ fn test_distribute_emission_zero_emission() {
             AlphaBalance::ZERO,
         );
 
-        // Get the new stake of the hotkey.
+        // Stake should remain unchanged.
         let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
-        // We expect the stake to remain unchanged.
-        assert_eq!(new_stake, init_stake.into());
+        assert_eq!(new_stake, TaoBalance::from(init_stake));
 
-        // Check that the incentive and dividends are set by epoch.
+        // Epoch should still have rebuilt incentive/dividend state.
         assert!(
             Incentive::<Test>::get(NetUidStorageIndex::from(netuid))
                 .iter()
@@ -3968,32 +3988,33 @@ fn test_get_subnet_terms_alpha_emissions_cap() {
         let owner_hotkey = U256::from(10);
         let owner_coldkey = U256::from(11);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+
+        // Restore the original "price = 1.0" precondition explicitly.
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(1_000_000_000_u64),
+            AlphaBalance::from(1_000_000_000_u64),
+        );
+
         let tao_block_emission: U96F32 = U96F32::saturating_from_num(
             SubtensorModule::get_block_emission()
                 .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );
 
-        // price = 1.0
-        // tao_block_emission = 1000000000
-        // tao_block_emission == alpha_emission_i
-        // alpha_in_i <= alpha_injection_cap
-        let emissions1 = U96F32::from_num(100_000_000);
-
+        let emissions1 = U96F32::from_num(100_000_000_u64);
         let subnet_emissions1 = BTreeMap::from([(netuid, emissions1)]);
-        let (_, alpha_in, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions1);
+        let (_, alpha_in_1, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions1);
 
-        assert_eq!(alpha_in.get(&netuid).copied().unwrap(), emissions1);
+        assert_eq!(alpha_in_1.get(&netuid).copied().unwrap(), emissions1);
 
-        // price = 1.0
-        // tao_block_emission = 1000000000
-        // tao_block_emission == alpha_emission_i
-        // alpha_in_i > alpha_injection_cap
-        let emissions2 = U96F32::from_num(10_000_000_000u64);
-
+        let emissions2 = U96F32::from_num(10_000_000_000_u64);
         let subnet_emissions2 = BTreeMap::from([(netuid, emissions2)]);
-        let (_, alpha_in, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions2);
+        let (_, alpha_in_2, _, _) = SubtensorModule::get_subnet_terms(&subnet_emissions2);
 
-        assert_eq!(alpha_in.get(&netuid).copied().unwrap(), tao_block_emission);
+        assert_eq!(
+            alpha_in_2.get(&netuid).copied().unwrap(),
+            tao_block_emission
+        );
     });
 }

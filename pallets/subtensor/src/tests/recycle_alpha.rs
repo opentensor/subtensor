@@ -68,38 +68,36 @@ fn test_recycle_two_stakers() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-
         let other_coldkey = U256::from(3);
 
         let owner_coldkey = U256::from(1001);
         let owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        let initial_balance = 1_000_000_000;
+        let initial_balance = 1_000_000_000_u64;
         Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
-        // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
-        // add stake to coldkey-hotkey pair so we can recycle it
-        let stake = 200_000;
-        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+        let stake = 200_000_u64;
+
+        // First staker.
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
-        // add some stake to other coldkey on same hotkey.
+        // Quote the second staker against the post-first-stake reserves.
+        let (expected_other_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+
+        // Second staker.
         increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake.into(), netuid);
 
-        // get initial total issuance and alpha out
         let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
-        // amount to recycle
         let recycle_amount = AlphaBalance::from(stake / 2);
 
-        // recycle
         assert_ok!(SubtensorModule::recycle_alpha(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -111,17 +109,18 @@ fn test_recycle_two_stakers() {
         assert!(SubnetAlphaOut::<Test>::get(netuid) < initial_net_alpha);
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                < stake.into()
+                < AlphaBalance::from(stake)
         );
-        // Make sure the other coldkey has no change
+
+        // The other coldkey should remain unchanged.
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &other_coldkey,
                 netuid
             ),
-            expected_alpha,
-            epsilon = 2.into()
+            expected_other_alpha,
+            epsilon = AlphaBalance::from(2_u64)
         );
 
         assert!(System::events().iter().any(|e| {
@@ -337,38 +336,36 @@ fn test_burn_two_stakers() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-
         let other_coldkey = U256::from(3);
 
         let owner_coldkey = U256::from(1001);
         let owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
 
-        let initial_balance = 1_000_000_000;
+        let initial_balance = 1_000_000_000_u64;
         Balances::make_free_balance_be(&coldkey, initial_balance.into());
 
-        // associate coldkey and hotkey
         SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
-        // add stake to coldkey-hotkey pair so we can recycle it
-        let stake = 200_000;
-        let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+        let stake = 200_000_u64;
+
+        // First staker.
         increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake.into(), netuid);
 
-        // add some stake to other coldkey on same hotkey.
+        // Quote the second staker against the post-first-stake reserves.
+        let (expected_other_alpha, _) = mock::swap_tao_to_alpha(netuid, stake.into());
+
+        // Second staker.
         increase_stake_on_coldkey_hotkey_account(&other_coldkey, &hotkey, stake.into(), netuid);
 
-        // get initial total issuance and alpha out
         let initial_alpha = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
         let initial_net_alpha = SubnetAlphaOut::<Test>::get(netuid);
 
-        // amount to recycle
         let burn_amount = AlphaBalance::from(stake / 2);
 
-        // burn from coldkey
         assert_ok!(SubtensorModule::burn_alpha(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -377,20 +374,21 @@ fn test_burn_two_stakers() {
         ));
 
         assert!(TotalHotkeyAlpha::<Test>::get(hotkey, netuid) < initial_alpha);
-        assert!(SubnetAlphaOut::<Test>::get(netuid) == initial_net_alpha);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid), initial_net_alpha);
         assert!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid)
-                < stake.into()
+                < AlphaBalance::from(stake)
         );
-        // Make sure the other coldkey has no change
+
+        // The other coldkey should remain unchanged.
         assert_abs_diff_eq!(
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey,
                 &other_coldkey,
                 netuid
             ),
-            expected_alpha,
-            epsilon = 2.into()
+            expected_other_alpha,
+            epsilon = AlphaBalance::from(2_u64)
         );
 
         assert!(System::events().iter().any(|e| {

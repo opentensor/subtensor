@@ -47,32 +47,30 @@ fn test_add_stake_ok_no_emission() {
         let coldkey_account_id = U256::from(55453);
         let amount = DefaultMinStake::<Test>::get().to_u64() * 10;
 
-        //add network
+        // add network
         let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
         remove_owner_registration_stake(netuid);
 
         mock::setup_reserves(
             netuid,
-            (amount * 1_000_000).into(),
-            (amount * 10_000_000).into(),
+            TaoBalance::from(amount * 1_000_000),
+            AlphaBalance::from(amount * 10_000_000),
         );
 
-        // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
-        // Check we have zero staked before transfer
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             TaoBalance::ZERO
         );
 
-        // Also total stake should be equal to the network initial lock
+        let expected_initial_total_stake =
+            TaoBalance::from(SubtensorModule::get_subnet_locked_balance(netuid).to_u64() / 4);
         assert_eq!(
             SubtensorModule::get_total_stake(),
-            SubtensorModule::get_network_min_lock()
+            expected_initial_total_stake
         );
 
-        // Transfer to hotkey account, and check if the result is ok
         let (alpha_staked, fee) = mock::swap_tao_to_alpha(netuid, amount.into());
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
@@ -89,27 +87,24 @@ fn test_add_stake_ok_no_emission() {
 
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            tao_expected + approx_fee, // swap returns value after fee, so we need to compensate it
-            epsilon = 10000.into(),
+            tao_expected + approx_fee,
+            epsilon = TaoBalance::from(10_000_u64),
         );
 
-        // Check if stake has increased
         assert_abs_diff_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            (amount - fee).into(),
-            epsilon = 10000.into()
+            TaoBalance::from(amount - fee),
+            epsilon = TaoBalance::from(10_000_u64)
         );
 
-        // Check if balance has decreased
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
-            1.into()
+            TaoBalance::from(1_u64)
         );
 
-        // Check if total stake has increased accordingly.
         assert_eq!(
             SubtensorModule::get_total_stake(),
-            SubtensorModule::get_network_min_lock() + amount.into()
+            expected_initial_total_stake + TaoBalance::from(amount)
         );
     });
 }
@@ -548,49 +543,96 @@ fn test_add_stake_partial_below_min_stake_fails() {
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // Stake TAO amount is above min stake
         let min_stake = DefaultMinStake::<Test>::get();
         let amount = min_stake.to_u64() * 2;
+
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey_account_id,
             TaoBalance::from(amount) + ExistentialDeposit::get(),
         );
 
-        // Setup reserves
-        mock::setup_reserves(netuid, (amount * 10).into(), (amount * 10).into());
+        mock::setup_reserves(
+            netuid,
+            TaoBalance::from(amount * 10),
+            AlphaBalance::from(amount * 10),
+        );
 
-        // Force the swap to initialize
+        // Force the swap interface into an initialized state.
         SubtensorModule::swap_tao_for_alpha(
             netuid,
             TaoBalance::ZERO,
-            1_000_000_000_000_u64.into(),
+            TaoBalance::from(1_000_000_000_000_u64),
             false,
         )
         .unwrap();
 
-        // Get the current price
         let current_price =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         assert!(current_price.to_num::<f64>() > 0.0);
 
-        // Set "max spend" to ~1 TAO around current price
-        let current_price_scaled = (current_price.to_num::<f64>() * 1_000_000_000_f64) as u64;
-        let max_spend = current_price_scaled.saturating_add(1);
+        // `limit_price` is in RAO per Alpha.
+        let current_price_rao_per_alpha =
+            (current_price.to_num::<f64>() * 1_000_000_000_f64) as u64;
 
-        // Add stake with partial flag on
+        let max_for_limit = |limit_rao_per_alpha: u64| -> Option<u64> {
+            SubtensorModule::get_max_amount_add(netuid, TaoBalance::from(limit_rao_per_alpha)).ok()
+        };
+
+        // Find the smallest limit price that allows a non-zero execution.
+        // That is the most reliable way to stay in the "partial execution exists,
+        // but it is still too small" region.
+        let mut lo = 0_u64; // known to be non-executable
+        let mut hi = current_price_rao_per_alpha.saturating_add(1);
+        let mut found_positive = false;
+        let mut step = 1_u64;
+
+        for _ in 0..64 {
+            if max_for_limit(hi).unwrap_or(0) > 0 {
+                found_positive = true;
+                break;
+            }
+            step = step.saturating_mul(2);
+            hi = current_price_rao_per_alpha.saturating_add(step);
+        }
+
+        assert!(
+            found_positive,
+            "failed to find a limit_price with non-zero executable amount"
+        );
+
+        while lo.saturating_add(1) < hi {
+            let mid = lo.saturating_add(hi.saturating_sub(lo) / 2);
+            if max_for_limit(mid).unwrap_or(0) > 0 {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+
+        let limit_price = TaoBalance::from(hi);
+        let max_amount = TaoBalance::from(
+            max_for_limit(hi).expect("smallest positive limit should yield executable amount"),
+        );
+
+        assert!(max_amount > TaoBalance::ZERO);
+        assert!(
+            max_amount < min_stake,
+            "test setup must produce a non-zero partial fill below DefaultMinStake; got max_amount={max_amount:?}, min_stake={min_stake:?}, limit_price={limit_price:?}, current_price={current_price:?}"
+        );
+
         assert_err!(
             SubtensorModule::add_stake_limit(
                 RuntimeOrigin::signed(coldkey_account_id),
                 hotkey_account_id,
                 netuid,
                 amount.into(),
-                max_spend.into(),
+                limit_price,
                 true
             ),
             Error::<Test>::AmountTooLow
         );
 
-        // Price should be unchanged on failure
+        // Failure path must not move price.
         let new_current_price =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
         assert_eq!(new_current_price, current_price);
@@ -4219,19 +4261,14 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
         let subnet_owner_hotkey = U256::from(2);
         let hotkey_account_id = U256::from(581337);
         let coldkey_account_id = U256::from(81337);
-        let amount = 10_000_000_000;
+        let amount = 10_000_000_000_u64;
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, 192213123);
 
-        // Set fee rate to 0 so that alpha fee is not moved to block producer
-        // to avoid false success in this test
         pallet_subtensor_swap::FeeRate::<Test>::insert(netuid, 0);
 
-        // Give it some $$$ in his coldkey balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, amount.into());
 
-        // Stake to hotkey account, and check if the result is ok
-        let (_, fee) = mock::swap_tao_to_alpha(netuid, amount.into());
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
@@ -4239,45 +4276,54 @@ fn test_remove_99_9989_per_cent_stake_leaves_a_little() {
             amount.into()
         ));
 
-        // Remove 99.9989% stake
         remove_stake_rate_limit_for_tests(&hotkey_account_id, &coldkey_account_id, netuid);
-        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &coldkey_account_id,
             netuid,
         );
-        let fee =
-            mock::swap_alpha_to_tao(netuid, ((alpha.to_u64() as f64 * 0.99) as u64).into()).1 + fee;
+
+        let alpha_to_remove =
+            (U64F64::from_num(alpha_before.to_u64()) * U64F64::from_num(0.99)).to_num::<u64>();
+        let (expected_tao_returned, _) =
+            mock::swap_alpha_to_tao(netuid, AlphaBalance::from(alpha_to_remove));
+
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(coldkey_account_id),
             hotkey_account_id,
             netuid,
-            (U64F64::from_num(alpha.to_u64()) * U64F64::from_num(0.99))
-                .to_num::<u64>()
-                .into()
+            AlphaBalance::from(alpha_to_remove)
         ));
 
-        // Check that all alpha was unstaked and 99% TAO balance was returned (less fees)
-        // let fee = <Test as Config>::SwapInterface::approx_fee_amount(netuid.into(), (amount as f64 * 0.99) as u64);
         assert_abs_diff_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id).to_u64(),
-            (amount as f64 * 0.99) as u64 - fee,
-            epsilon = amount / 1000,
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            expected_tao_returned,
+            epsilon = TaoBalance::from(amount / 1000)
         );
-        assert_abs_diff_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id).to_u64(),
-            (amount as f64 * 0.01) as u64,
-            epsilon = amount / 1000,
-        );
+
         let new_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey_account_id,
             &coldkey_account_id,
             netuid,
         );
+
+        let current_price =
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid.into());
+        let expected_remaining_tao_value = TaoBalance::from(
+            (U96F32::from_num(new_alpha.to_u64()) * current_price).to_num::<u64>(),
+        );
+
+        assert_abs_diff_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            expected_remaining_tao_value,
+            epsilon = TaoBalance::from(amount / 1000)
+        );
+
         assert_abs_diff_eq!(
             new_alpha,
-            AlphaBalance::from((alpha.to_u64() as f64 * 0.01) as u64),
-            epsilon = 10.into()
+            AlphaBalance::from((alpha_before.to_u64() as f64 * 0.01) as u64),
+            epsilon = AlphaBalance::from(10_u64)
         );
     });
 }
