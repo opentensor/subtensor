@@ -161,31 +161,6 @@ export async function getAlphaPrice(api: TypedApi<typeof subtensor>, netuid: num
     return taoReserve / alphaIn; // integer approximation
 }
 
-/**
- * Sudo-set pool reserves directly so benchmarks and tests have a
- * well-defined, non-zero starting price.
- */
-export async function seedPoolReserves(
-    api: TypedApi<typeof subtensor>,
-    polkadotJs: any,
-    netuid: number,
-    taoReserve: bigint,
-    alphaIn: bigint
-): Promise<void> {
-    const keyring = new Keyring({ type: "sr25519" });
-    const alice = keyring.addFromUri("//Alice");
-
-    const setTao = polkadotJs.tx.sudo.sudo(
-        polkadotJs.tx.adminUtils.sudoSetSubnetTao(netuid, taoReserve)
-    );
-    await setTao.signAndSend(alice, { nonce: -1 });
-
-    const setAlpha = polkadotJs.tx.sudo.sudo(
-        polkadotJs.tx.adminUtils.sudoSetSubnetAlphaIn(netuid, alphaIn)
-    );
-    await setAlpha.signAndSend(alice, { nonce: -1 });
-}
-
 /** Enable the subtoken for a subnet (required for swaps to work). */
 export async function enableSubtoken(
     api: TypedApi<typeof subtensor>,
