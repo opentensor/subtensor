@@ -595,7 +595,15 @@ impl<T: Config> Pallet<T> {
         if !refund.is_zero()
             && let Some(subnet_account) = Self::get_subnet_account_id(netuid)
         {
-            let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund);
+            // Transfer maximum transferrable up to refund to owner
+            let transferrable = Self::get_coldkey_balance(&subnet_account);
+            let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund.min(transferrable));
+        }
+
+        // 9) Recycle TAO remaining on the subnet account, forgive errors.
+        if let Some(subnet_account) = Self::get_subnet_account_id(netuid) {
+            let remaining_subnet_balance = Self::get_coldkey_balance(&subnet_account);
+            let _ = Self::recycle_tao(&subnet_account, remaining_subnet_balance);
         }
 
         Ok(())

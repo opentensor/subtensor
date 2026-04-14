@@ -1,6 +1,6 @@
-# The subnet account IDs
+## Subnet account IDs
 
-netuid: ss58 account ID
+**Format:** netuid: ss58 account ID
 
 0: 5EYCAe5jLQhn6ofDSvqF6iY53erXNkwhyE1aCEgvi1NNs91F
 1: 5EYCAe5jLQhn6ofDSvqWqk5fA9XiqK3ahtx5kBNmAqF78mqL
@@ -1027,3 +1027,7 @@ netuid: ss58 account ID
 1022: 5EYCAe5jLQhn6ofDSx2BiBSgM9s6gL99i6fYbnGsm4HovEUC
 1023: 5EYCAe5jLQhn6ofDSx2TTCzGTeYJ8tF2Smc49ixiDtAYBtUX
 1024: 5EYCAe5jLQhn6ofDSvqFLyy2rszPQ5a3o1vzDeCYos492Xug
+
+## Burn account ID
+
+5EYCAe5fvqwE4eNE7ddxEfasPGZe11e6SWKvos7FUXP2LUrp

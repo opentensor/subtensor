@@ -255,13 +255,6 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        if actual_tao_lock_amount_less_pool_tao > TaoBalance::ZERO {
-            // TAO paid for registration is already on the subnet account. Recycle from it if needed.
-            let subnet_account = Self::get_subnet_account_id(netuid_to_register)
-                .ok_or(Error::<T>::SubnetNotExists)?;
-            Self::recycle_tao(&subnet_account, actual_tao_lock_amount_less_pool_tao)?;
-        }
-
         if actual_tao_lock_amount > TaoBalance::ZERO && pool_initial_tao > TaoBalance::ZERO {
             // Record in TotalStake the initial TAO in the pool.
             Self::increase_total_stake(pool_initial_tao);

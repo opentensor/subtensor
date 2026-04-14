@@ -80,7 +80,6 @@ impl<T: Config> Pallet<T> {
     /// DispatchResult of the operation.
     ///
     /// # Errors
-    /// - [`Error::<T>::InsufficientBalance`] if there is no transferable balance.
     /// - Any error returned by the underlying currency transfer.
     pub fn transfer_all_tao_and_kill(
         origin_coldkey: &T::AccountId,
