@@ -559,18 +559,8 @@ impl<T: Config> Pallet<T> {
             // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
             // otherwise root stakers won't be able to receive dividends.
             if netuid == NetUid::ROOT {
-                for coldkey in unique_coldkeys.clone() {
-                    let src_root_stake: I96F32 = I96F32::saturating_from_num(
-                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(old_hotkey, &coldkey, NetUid::ROOT),
-                    );
-
-                    let dst_root_stake: I96F32 = I96F32::saturating_from_num(
-                        Self::get_stake_for_hotkey_and_coldkey_on_subnet(new_hotkey, &coldkey, NetUid::ROOT),
-                    );
-
-                    Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey, src_root_stake, dst_root_stake);
-                    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
-                }
+                Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
                 // After transfer, new_hotkey has the full RootClaimable map.
                 // We use it to know which subnets have outstanding claims.
