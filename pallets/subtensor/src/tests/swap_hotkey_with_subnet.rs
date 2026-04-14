@@ -3173,3 +3173,109 @@ fn test_swap_hotkey_root_claims_changed_if_all_subnets() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_auto_parent_delegation_transferred_on_root --exact --nocapture
+#[test]
+fn test_swap_hotkey_auto_parent_delegation_transferred_on_root() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let old_hotkey = U256::from(1004);
+        let new_hotkey = U256::from(1005);
+
+        let _ = add_dynamic_network(&old_hotkey, &owner_coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+
+        // Opt out of auto parent delegation on the old hotkey.
+        AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            old_hotkey
+        ));
+        assert!(!AutoParentDelegationEnabled::<Test>::get(old_hotkey));
+
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner_coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(NetUid::ROOT),
+            false
+        ));
+
+        // Flag is moved to the new hotkey, cleared from the old one.
+        assert!(!AutoParentDelegationEnabled::<Test>::contains_key(
+            old_hotkey
+        ));
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            new_hotkey
+        ));
+        assert!(!AutoParentDelegationEnabled::<Test>::get(new_hotkey));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_auto_parent_delegation_transferred_on_all_subnets --exact --nocapture
+#[test]
+fn test_swap_hotkey_auto_parent_delegation_transferred_on_all_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let old_hotkey = U256::from(1004);
+        let new_hotkey = U256::from(1005);
+
+        SubtokenEnabled::<Test>::insert(NetUid::ROOT, true);
+        NetworksAdded::<Test>::insert(NetUid::ROOT, true);
+
+        let _ = add_dynamic_network(&old_hotkey, &owner_coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+
+        AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
+
+        step_block(20);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner_coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            None,
+            false
+        ));
+
+        assert!(!AutoParentDelegationEnabled::<Test>::contains_key(
+            old_hotkey
+        ));
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            new_hotkey
+        ));
+        assert!(!AutoParentDelegationEnabled::<Test>::get(new_hotkey));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::swap_hotkey_with_subnet::test_swap_hotkey_auto_parent_delegation_not_transferred_on_non_root --exact --nocapture
+#[test]
+fn test_swap_hotkey_auto_parent_delegation_not_transferred_on_non_root() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let old_hotkey = U256::from(1004);
+        let new_hotkey = U256::from(1005);
+
+        let netuid = add_dynamic_network(&old_hotkey, &owner_coldkey);
+        SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, u64::MAX.into());
+
+        AutoParentDelegationEnabled::<Test>::insert(old_hotkey, false);
+
+        System::set_block_number(System::block_number() + HotkeySwapOnSubnetInterval::get());
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            RuntimeOrigin::signed(owner_coldkey),
+            &old_hotkey,
+            &new_hotkey,
+            Some(netuid),
+            false
+        ));
+
+        // Non-root subnet swap must not move the flag.
+        assert!(AutoParentDelegationEnabled::<Test>::contains_key(
+            old_hotkey
+        ));
+        assert!(!AutoParentDelegationEnabled::<Test>::get(old_hotkey));
+        assert!(!AutoParentDelegationEnabled::<Test>::contains_key(
+            new_hotkey
+        ));
+    });
+}

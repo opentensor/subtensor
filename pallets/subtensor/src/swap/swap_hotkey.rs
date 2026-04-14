@@ -560,10 +560,10 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 9. Transfer root claimable and root claimed only for the root subnet
-            // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
-            // otherwise root stakers won't be able to receive dividends.
             if netuid == NetUid::ROOT {
+                // 9. Transfer root claimable and root claimed only for the root subnet
+                // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
+                // otherwise root stakers won't be able to receive dividends.
                 Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
@@ -589,6 +589,14 @@ impl<T: Config> Pallet<T> {
                         );
                         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
                     }
+                }
+
+                // Transfer AutoParentDelegationEnabled flag from old_hotkey to new_hotkey.
+                // Only migrate if it was explicitly set, to preserve the storage default semantics.
+                if AutoParentDelegationEnabled::<T>::contains_key(old_hotkey) {
+                    let enabled = AutoParentDelegationEnabled::<T>::take(old_hotkey);
+                    AutoParentDelegationEnabled::<T>::insert(new_hotkey, enabled);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
                 }
             }
         }

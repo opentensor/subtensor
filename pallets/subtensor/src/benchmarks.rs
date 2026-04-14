@@ -1871,6 +1871,26 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn set_auto_parent_delegation_enabled() {
+        let seed: u32 = 1;
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+
+        Subtensor::<T>::init_new_network(NetUid::ROOT, 1);
+        Subtensor::<T>::set_network_registration_allowed(NetUid::ROOT, true);
+        FirstEmissionBlockNumber::<T>::insert(NetUid::ROOT, 1);
+        SubtokenEnabled::<T>::insert(NetUid::ROOT, true);
+
+        let _ = Subtensor::<T>::do_root_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hotkey, true);
+    }
+
+    #[benchmark]
     fn add_stake_burn() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
