@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use codec::Encode;
 use frame_support::{
     BoundedVec, PalletId, construct_runtime, derive_impl, parameter_types,
-    traits::{ConstU32, Everything},
+    traits::{ConstU32, ConstU64, Everything},
 };
 use frame_system as system;
 use sp_core::{H256, Pair};
@@ -493,6 +493,7 @@ impl pallet_limit_orders::Config for Test {
     type PalletId = LimitOrdersPalletId;
     type PalletHotkey = PalletHotkeyAccount;
     type WeightInfo = ();
+    type ChainId = ConstU64<945>;
 }
 
 // ── Shared test helpers ───────────────────────────────────────────────────────
@@ -540,6 +541,7 @@ pub fn make_signed_order(
         fee_recipient,
         relayer,
         max_slippage: None,
+        chain_id: 945,
         partial_fills_enabled: false,
     });
     let sig = keyring.pair().sign(&order.encode());
@@ -576,6 +578,7 @@ pub fn make_partial_fill_order(
         fee_recipient: fee_recipient(),
         relayer: Some(relayer),
         max_slippage: None,
+        chain_id: 945,
         partial_fills_enabled: true,
     });
     let sig = keyring.pair().sign(&order.encode());

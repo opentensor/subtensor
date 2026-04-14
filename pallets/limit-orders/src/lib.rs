@@ -59,7 +59,8 @@ impl OrderType {
 /// The canonical order payload that users sign off-chain.
 /// Only its H256 hash is stored on-chain; the full struct is submitted by the
 /// admin at execution time (or by the user at cancellation time).
-#[freeze_struct("e64b59c23fbce993")]
+#[allow(clippy::multiple_bound_locations)] // bounds on AccountId required by FRAME derives
+#[freeze_struct("bb268090054f462e")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
@@ -92,6 +93,9 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     /// - Buy:  effective price ceiling = `limit_price + limit_price * max_slippage`
     /// - Sell: effective price floor   = `limit_price - limit_price * max_slippage`
     pub max_slippage: Option<Perbill>,
+    /// EVM-compatible chain ID that this order is bound to.
+    /// Prevents replay of testnet-signed orders on mainnet and vice versa.
+    pub chain_id: u64,
     /// Wether partial fills are enabled
     pub partial_fills_enabled: bool,
 }
@@ -120,16 +124,10 @@ impl<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> VersionedOrd
 /// The envelope the admin submits on-chain: the versioned order payload plus
 /// the user's signature over the SCALE-encoded `VersionedOrder`.
 ///
-/// TODO: evaluate cross-chain replay protection. The signature covers only the
-/// SCALE-encoded `VersionedOrder` with no chain-specific domain separator (genesis
-/// hash, chain ID, or pallet prefix). A signed order is therefore valid on any chain
-/// that shares the same runtime types (e.g. a testnet fork). Consider prepending
-/// a domain tag to the signed payload or adding the genesis hash as an `Order` field.
-///
 /// Signature verification is performed against `order.inner().signer` (the AccountId)
 /// directly. Only sr25519 signatures are accepted; ed25519 and ecdsa variants
 /// of `MultiSignature` are rejected at validation time.
-#[freeze_struct("13d20c29e7ce8917")]
+#[freeze_struct("9dd5a8ac812dc504")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
@@ -230,6 +228,10 @@ pub mod pallet {
 
         /// Weight information for the pallet's extrinsics.
         type WeightInfo: crate::weights::WeightInfo;
+
+        /// EVM-compatible chain ID used to bind orders to a specific chain.
+        /// Wire to `pallet_evm_chain_id` in the runtime via `ConfigurableChainId`.
+        type ChainId: Get<u64>;
     }
 
     // ── Storage ───────────────────────────────────────────────────────────────
@@ -328,6 +330,8 @@ pub mod pallet {
         IncorrectPartialFillAmount,
         /// A relayer must be set on the order when using partial fills
         RelayerRequiredForPartialFill,
+        /// The order's chain_id does not match the current chain.
+        ChainIdMismatch,
     }
 
     // ── Extrinsics ────────────────────────────────────────────────────────────
@@ -522,6 +526,10 @@ pub mod pallet {
         ) -> DispatchResult {
             let order = signed_order.order.inner();
             ensure!(!order.netuid.is_root(), Error::<T>::RootNetUidNotAllowed);
+            ensure!(
+                order.chain_id == T::ChainId::get(),
+                Error::<T>::ChainIdMismatch
+            );
             ensure!(
                 matches!(signed_order.signature, MultiSignature::Sr25519(_))
                     && signed_order

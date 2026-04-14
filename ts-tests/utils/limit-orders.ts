@@ -21,6 +21,7 @@ export interface OrderParams {
     expiry: bigint;
     feeRate: number; // Perbill (parts per billion), e.g. 10_000_000 = 1%
     feeRecipient: string;
+    chainId?: bigint; // defaults to 42n (the dev node's EVM chain ID)
     relayer?: string | null; // Optional: if set, only this account may relay the order
     maxSlippage?: number | null; // Optional: Perbill (ppb). When set, effective swap limit = limit_price ± limit_price * maxSlippage / 1e9
     partialFillsEnabled?: boolean; // Optional: if true, order can be partially filled (requires relayer)
@@ -38,6 +39,7 @@ export interface Order {
     fee_recipient: string;
     relayer: string | null;
     max_slippage: number | null;
+    chain_id: bigint;
     partial_fills_enabled: boolean;
 }
 
@@ -77,6 +79,7 @@ export function buildSignedOrder(api: any, params: OrderParams): SignedOrder {
         fee_recipient: params.feeRecipient,
         relayer: params.relayer ?? null,
         max_slippage: params.maxSlippage ?? null,
+        chain_id: params.chainId ?? 42n,
         partial_fills_enabled: params.partialFillsEnabled ?? false,
     };
 
@@ -125,6 +128,7 @@ export function registerLimitOrderTypes(api: any): void {
             fee_recipient: "AccountId",
             relayer: "Option<AccountId>",
             max_slippage: "Option<u32>",
+            chain_id: "u64",
             partial_fills_enabled: "bool",
         },
         LimitVersionedOrder: {
@@ -235,6 +239,12 @@ export async function getPartiallyFilledAmount(
 /** Filter system events by method name. */
 export function filterEvents(events: any, method: string): any[] {
     return (events as any[]).filter((e: any) => e.event.method === method);
+}
+
+/** Read the EVM chain ID from pallet_evm_chain_id storage. */
+export async function fetchChainId(api: any): Promise<bigint> {
+    const result = await api.query.evmChainId.chainId();
+    return BigInt(result.toString());
 }
 
 /**

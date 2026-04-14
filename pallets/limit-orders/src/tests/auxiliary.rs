@@ -453,6 +453,7 @@ fn validate_and_classify_stores_effective_swap_limit_for_sell() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: Some(Perbill::from_percent(1)),
+            chain_id: 945,
             partial_fills_enabled: false,
         };
         let versioned = crate::VersionedOrder::V1(new_inner);
@@ -1396,6 +1397,7 @@ fn make_valid_signed_order() -> (crate::SignedOrder<AccountId>, sp_core::H256) {
         fee_recipient: fee_recipient(),
         relayer: None,
         max_slippage: None,
+        chain_id: 945,
         partial_fills_enabled: false,
     });
     let id = H256(sp_io::hashing::blake2_256(&order.encode()));
@@ -1520,6 +1522,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            chain_id: 945,
             partial_fills_enabled: false,
         });
         let id = H256(sp_io::hashing::blake2_256(&order.encode()));
@@ -1533,6 +1536,32 @@ fn is_order_valid_price_condition_not_met_returns_error() {
         assert_noop!(
             LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
             Error::<Test>::PriceConditionNotMet
+        );
+    });
+}
+
+#[test]
+fn is_order_valid_wrong_chain_id_returns_error() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        MockSwap::set_price(1.0);
+        let keyring = AccountKeyring::Alice;
+        // Build an order with a chain_id that doesn't match the mock config (945).
+        let order = crate::VersionedOrder::V1(crate::Order {
+            chain_id: 9999,
+            ..make_valid_signed_order().0.order.inner().clone()
+        });
+        let id = H256(sp_io::hashing::blake2_256(&order.encode()));
+        let sig = keyring.pair().sign(&order.encode());
+        let signed = crate::SignedOrder {
+            order,
+            signature: MultiSignature::Sr25519(sig),
+            partial_fill: None,
+        };
+        let price = MockSwap::current_alpha_price(netuid());
+        assert_noop!(
+            LimitOrders::<Test>::is_order_valid(&signed, id, 1_000_000, price, &bob()),
+            Error::<Test>::ChainIdMismatch
         );
     });
 }

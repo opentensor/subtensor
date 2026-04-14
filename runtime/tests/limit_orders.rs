@@ -109,6 +109,8 @@ fn make_signed_order_inner(
         relayer: params.relayer,
         max_slippage: params.max_slippage,
         partial_fills_enabled: params.partial_fills_enabled,
+        // chain_id 0 matches the default pallet_evm_chain_id genesis value in tests
+        chain_id: 0,
     });
     let sig = keyring.pair().sign(&order.encode());
     SignedOrder {
@@ -255,6 +257,8 @@ fn cancel_order_works() {
             relayer: None,
             max_slippage: None,
             partial_fills_enabled: false,
+            // chain_id 0 matches the default pallet_evm_chain_id genesis value in tests
+            chain_id: 0,
         });
         let id = order_id(&order);
 
@@ -290,6 +294,8 @@ fn execute_orders_ed25519_signature_rejected() {
             relayer: None,
             max_slippage: None,
             partial_fills_enabled: false,
+            // chain_id 0 matches the default pallet_evm_chain_id genesis value in tests
+            chain_id: 0,
         });
         let id = order_id(&order);
 
@@ -307,6 +313,54 @@ fn execute_orders_ed25519_signature_rejected() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(alice_id),
             orders,
+        ));
+
+        // Order was silently skipped — nothing written to storage.
+        assert!(Orders::<Runtime>::get(id).is_none());
+    });
+}
+
+/// An order carrying a wrong chain_id is silently skipped by `execute_orders`
+/// (the per-order error path) and must not appear in the Orders storage map.
+#[test]
+fn execute_orders_chain_id_mismatch_rejected() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        setup_subnet(netuid);
+
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let fee_recipient = Sr25519Keyring::Charlie.to_account_id();
+        fund_account(&alice_id);
+
+        // Build an order with a chain_id that doesn't match the runtime (0).
+        let order = VersionedOrder::V1(Order {
+            signer: alice_id.clone(),
+            hotkey: bob_id,
+            netuid,
+            order_type: OrderType::LimitBuy,
+            amount: 1_000,
+            limit_price: u64::MAX,
+            expiry: u64::MAX,
+            fee_rate: Perbill::zero(),
+            fee_recipient,
+            relayer: None,
+            max_slippage: None,
+            partial_fills_enabled: false,
+            chain_id: 9999, // wrong chain — should be rejected
+        });
+        let id = order_id(&order);
+        let sig = alice.pair().sign(&order.encode());
+        let signed = SignedOrder {
+            order,
+            signature: MultiSignature::Sr25519(sig),
+            partial_fill: None,
+        };
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(alice_id),
+            make_order_batch(vec![signed]),
         ));
 
         // Order was silently skipped — nothing written to storage.

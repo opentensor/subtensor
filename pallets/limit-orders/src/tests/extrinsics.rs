@@ -49,6 +49,7 @@ fn cancel_order_signer_can_cancel() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            chain_id: 945,
             partial_fills_enabled: false,
         });
         let id = order_id(&order);
@@ -80,6 +81,7 @@ fn cancel_order_non_signer_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            chain_id: 945,
             partial_fills_enabled: false,
         });
         // Bob tries to cancel Alice's order.
@@ -105,6 +107,7 @@ fn cancel_order_already_cancelled_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            chain_id: 945,
             partial_fills_enabled: false,
         });
         let id = order_id(&order);
@@ -132,6 +135,7 @@ fn cancel_order_already_fulfilled_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            chain_id: 945,
             partial_fills_enabled: false,
         });
         let id = order_id(&order);
@@ -159,6 +163,7 @@ fn cancel_order_unsigned_rejected() {
             fee_recipient: fee_recipient(),
             relayer: None,
             max_slippage: None,
+            chain_id: 945,
             partial_fills_enabled: false,
         });
         assert_noop!(
@@ -1744,6 +1749,7 @@ fn make_signed_order_with_slippage(
         fee_recipient,
         relayer: None,
         max_slippage,
+        chain_id: 945,
         partial_fills_enabled: false,
     });
     let sig = keyring.pair().sign(&order.encode());
@@ -2527,6 +2533,7 @@ fn execute_orders_partial_fill_without_relayer_skipped() {
             fee_recipient: fee_recipient(),
             relayer: None, // <-- no relayer
             max_slippage: None,
+            chain_id: 945,
             partial_fills_enabled: true,
         };
         let versioned = VersionedOrder::V1(inner);

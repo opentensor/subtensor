@@ -6,6 +6,7 @@ import { devForceSetBalance, devGetAlphaStake, devAssociateHotKey, devEnableSubt
 import {
     buildSignedOrder,
     FAR_FUTURE,
+    fetchChainId,
     filterEvents,
     getOrderStatus,
     orderId,
@@ -25,6 +26,7 @@ describeSuite({
         let bob: KeyringPair;
         let bobHotKey: KeyringPair;
         let netuid: number;
+        let chainId: bigint;
 
         beforeAll(async () => {
             polkadotJs = context.polkadotJs();
@@ -35,7 +37,8 @@ describeSuite({
             bobHotKey = generateKeyringPair("sr25519");
  
             registerLimitOrderTypes(polkadotJs);
- 
+            chainId = await fetchChainId(polkadotJs);
+
             await devForceSetBalance(polkadotJs, context, alice.address, tao(10_000));
             await devForceSetBalance(polkadotJs, context, bob.address, tao(10_000));
  
@@ -75,6 +78,7 @@ describeSuite({
                     expiry: FAR_FUTURE,
                     feeRate: 0,
                     feeRecipient: alice.address,
+                    chainId,
                 });
 
                 await devExecuteOrders(polkadotJs, context, alice, [signed]);
