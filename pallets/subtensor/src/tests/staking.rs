@@ -610,9 +610,10 @@ fn test_add_stake_partial_below_min_stake_fails() {
         }
 
         let limit_price = TaoBalance::from(hi);
-        let max_amount = TaoBalance::from(
-            max_for_limit(hi).expect("smallest positive limit should yield executable amount"),
-        );
+        let max_amount = match max_for_limit(hi) {
+            Some(amount) => TaoBalance::from(amount),
+            None => panic!("smallest positive limit should yield executable amount"),
+        };
 
         assert!(max_amount > TaoBalance::ZERO);
         assert!(
