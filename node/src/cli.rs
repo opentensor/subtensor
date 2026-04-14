@@ -188,17 +188,11 @@ impl std::str::FromStr for Sealing {
         match s.to_lowercase().as_str() {
             "manual" => Ok(Sealing::Manual),
             "instant" => Ok(Sealing::Instant),
-            s if s.starts_with("interval=") => {
-                let ms = s["interval=".len()..]
-                    .parse::<u64>()
-                    .map_err(|e| format!("invalid interval milliseconds: {e}"))?;
-                Ok(Sealing::Interval(ms))
-            }
             s => s
                 .parse::<u64>()
                 .map(Sealing::Interval)
                 .map_err(|_| format!(
-                    "unknown sealing mode '{s}': expected 'manual', 'instant', 'interval=<ms>', or a plain number of milliseconds"
+                    "unknown sealing mode '{s}': expected 'manual', 'instant', or a number of milliseconds"
                 )),
         }
     }
