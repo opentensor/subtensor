@@ -185,8 +185,8 @@ impl<T: Config> Pallet<T> {
             None => Self::get_next_netuid(),
         };
 
-        // --- 11. Snapshot the current median price of the bottom 50% of subnet alpha prices
-        //         before creating the new subnet.
+        // --- 11. Snapshot the current bottom-half median subnet alpha price before
+        //         creating the new subnet.
         let bottom_half_median_subnet_alpha_price =
             Self::get_bottom_half_median_subnet_alpha_price();
 
@@ -211,31 +211,29 @@ impl<T: Config> Pallet<T> {
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // Convert the full registration lock into alpha using the median price of the bottom 50%
-        // of eligible subnet prices.
+        // Seed the new subnet with:
+        //   * 25% of the actual lock as TAO in the pool
+        //   * alpha priced off that TAO amount at the bottom-half median snapshot price
+        //   * the same alpha amount again to the owner as staked alpha
+        //
+        // This keeps the opening pool price aligned with the snapshot price and avoids
+        // ratcheting the bottom-half median downward on sequential registrations.
         let actual_tao_lock_amount_u64 = actual_tao_lock_amount.to_u64();
-        let registration_lock_alpha_equivalent_u64: u64 =
-            U96F32::saturating_from_num(actual_tao_lock_amount_u64)
-                .safe_div(bottom_half_median_subnet_alpha_price)
-                .saturating_floor()
-                .saturating_to_num::<u64>();
 
-        // Seed the new subnet as follows:
-        //   * 25% of the current lock cost as TAO into the pool.
-        //   * A / 2 as free alpha into the pool, where A is the converted lock cost in alpha.
-        //   * The remaining half of A to the subnet owner as staked alpha.
         let pool_initial_tao_u64 = actual_tao_lock_amount_u64
             .checked_div(4)
             .unwrap_or_default();
         let pool_initial_tao: TaoBalance = pool_initial_tao_u64.into();
 
-        let pool_initial_alpha_u64 = registration_lock_alpha_equivalent_u64
-            .checked_div(2)
-            .unwrap_or_default();
+        let pool_initial_alpha_u64 = U96F32::saturating_from_num(pool_initial_tao_u64)
+            .safe_div(bottom_half_median_subnet_alpha_price)
+            .saturating_floor()
+            .saturating_to_num::<u64>();
         let pool_initial_alpha: AlphaBalance = pool_initial_alpha_u64.into();
 
-        let owner_alpha_stake_u64 =
-            registration_lock_alpha_equivalent_u64.saturating_sub(pool_initial_alpha_u64);
+        // Give the owner the same alpha amount as the pool-side alpha so the launch
+        // price remains equal to the snapshot price.
+        let owner_alpha_stake_u64 = pool_initial_alpha_u64;
         let owner_alpha_stake: AlphaBalance = owner_alpha_stake_u64.into();
 
         let actual_tao_lock_amount_less_pool_tao =
