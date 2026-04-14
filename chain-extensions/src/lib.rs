@@ -15,6 +15,7 @@ use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
     BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
 };
+use pallet_subtensor::weights::WeightInfo as SubtensorWeightInfo;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
@@ -525,9 +526,8 @@ where
                 Ok(RetVal::Converging(Output::Success as u32))
             }
             FunctionId::RecycleAlphaV1 => {
-                let weight = Weight::from_parts(113_400_000, 0)
-                    .saturating_add(T::DbWeight::get().reads(10))
-                    .saturating_add(T::DbWeight::get().writes(4));
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha();
 
                 env.charge_weight(weight)?;
 
@@ -556,9 +556,8 @@ where
                 }
             }
             FunctionId::BurnAlphaV1 => {
-                let weight = Weight::from_parts(112_200_000, 0)
-                    .saturating_add(T::DbWeight::get().reads(10))
-                    .saturating_add(T::DbWeight::get().writes(3));
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
 
                 env.charge_weight(weight)?;
 
@@ -587,9 +586,11 @@ where
                 }
             }
             FunctionId::AddStakeRecycleV1 => {
-                let weight = Weight::from_parts(454_200_000, 0)
-                    .saturating_add(T::DbWeight::get().reads(33))
-                    .saturating_add(T::DbWeight::get().writes(19));
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                        .saturating_add(
+                            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
+                        );
 
                 env.charge_weight(weight)?;
 
@@ -633,9 +634,8 @@ where
                 }
             }
             FunctionId::AddStakeBurnV1 => {
-                let weight = Weight::from_parts(453_000_000, 0)
-                    .saturating_add(T::DbWeight::get().reads(33))
-                    .saturating_add(T::DbWeight::get().writes(18));
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_burn();
 
                 env.charge_weight(weight)?;
 

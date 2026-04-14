@@ -8,6 +8,7 @@ use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::RetVal;
 use pallet_subtensor::DefaultMinStake;
+use pallet_subtensor::weights::WeightInfo as SubtensorWeightInfo;
 use sp_core::Get;
 use sp_core::U256;
 use sp_runtime::DispatchError;
@@ -767,9 +768,8 @@ fn recycle_alpha_success_reduces_stake_and_returns_actual_amount() {
 
         let recycle_amount: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
-        let expected_weight = Weight::from_parts(113_400_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(4));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha();
 
         let mut env = MockEnv::new(
             FunctionId::RecycleAlphaV1,
@@ -804,9 +804,8 @@ fn recycle_alpha_on_root_subnet_returns_error() {
 
         pallet_subtensor::Owner::<mock::Test>::insert(hotkey, coldkey);
 
-        let expected_weight = Weight::from_parts(113_400_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(4));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha();
 
         let mut env = MockEnv::new(
             FunctionId::RecycleAlphaV1,
@@ -870,9 +869,8 @@ fn burn_alpha_success_reduces_stake_and_returns_actual_amount() {
 
         let burn_amount: AlphaBalance = (alpha_before.to_u64() / 2).into();
 
-        let expected_weight = Weight::from_parts(112_200_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
 
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
@@ -906,9 +904,8 @@ fn burn_alpha_on_nonexistent_subnet_returns_error() {
         let coldkey = U256::from(9501);
         let hotkey = U256::from(9502);
 
-        let expected_weight = Weight::from_parts(112_200_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
 
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
@@ -957,9 +954,11 @@ fn add_stake_recycle_success_atomically_stakes_and_recycles() {
 
         let alpha_out_before = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
 
-        let expected_weight = Weight::from_parts(454_200_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(19));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                .saturating_add(
+                    <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
+                );
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeRecycleV1,
@@ -1014,9 +1013,8 @@ fn add_stake_burn_success_atomically_stakes_and_burns() {
 
         let alpha_out_before = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
 
-        let expected_weight = Weight::from_parts(453_000_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(18));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_burn();
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeBurnV1,
@@ -1064,9 +1062,11 @@ fn add_stake_recycle_with_insufficient_balance_returns_error() {
 
         // Don't fund the coldkey - should fail with balance error
 
-        let expected_weight = Weight::from_parts(454_200_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(19));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                .saturating_add(
+                    <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
+                );
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeRecycleV1,
@@ -1125,9 +1125,8 @@ fn recycle_alpha_clamps_to_available_when_amount_exceeds_stake() {
         // Request way more than available — should clamp to alpha_before
         let huge_amount = AlphaBalance::from(u64::MAX);
 
-        let expected_weight = Weight::from_parts(113_400_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(4));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha();
 
         let mut env = MockEnv::new(
             FunctionId::RecycleAlphaV1,
@@ -1161,9 +1160,8 @@ fn burn_alpha_on_root_subnet_returns_error() {
 
         pallet_subtensor::Owner::<mock::Test>::insert(hotkey, coldkey);
 
-        let expected_weight = Weight::from_parts(112_200_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
 
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
@@ -1226,9 +1224,8 @@ fn burn_alpha_clamps_to_available_when_amount_exceeds_stake() {
         // Request way more than available — should clamp to alpha_before
         let huge_amount = AlphaBalance::from(u64::MAX);
 
-        let expected_weight = Weight::from_parts(112_200_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(10))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(3));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
 
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
@@ -1353,9 +1350,11 @@ fn add_stake_recycle_rollback_on_recycle_failure() {
                 &hotkey, &coldkey, netuid,
             );
 
-        let expected_weight = Weight::from_parts(454_200_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(19));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                .saturating_add(
+                    <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
+                );
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeRecycleV1,
@@ -1422,9 +1421,8 @@ fn add_stake_burn_rollback_on_burn_failure() {
                 &hotkey, &coldkey, netuid,
             );
 
-        let expected_weight = Weight::from_parts(453_000_000, 0)
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(33))
-            .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().writes(18));
+        let expected_weight =
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_burn();
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeBurnV1,
