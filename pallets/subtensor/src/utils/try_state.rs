@@ -11,14 +11,13 @@ impl<T: Config> Pallet<T> {
         let currency_issuance = <T as Config>::Currency::total_issuance();
 
         // Calculate the expected total issuance
-        let expected_total_issuance =
-            currency_issuance.saturating_add(TotalStake::<T>::get().into());
+        let expected_total_issuance = currency_issuance;
 
         // Verify the diff between calculated TI and actual TI is less than delta
         //
         // These values can be off slightly due to float rounding errors.
         // They are corrected every runtime upgrade.
-        let delta = TaoBalance::from(1000);
+        let delta = TaoBalance::ZERO;
         let total_issuance = Self::get_total_issuance();
 
         let diff = if total_issuance > expected_total_issuance {
@@ -29,7 +28,7 @@ impl<T: Config> Pallet<T> {
         .expect("LHS > RHS");
 
         ensure!(
-            diff <= delta,
+            diff == delta,
             "TotalIssuance diff greater than allowable delta",
         );
 
