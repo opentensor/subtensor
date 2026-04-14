@@ -20,8 +20,8 @@ pub struct Cli {
     #[clap(flatten)]
     pub run: RunCmd,
 
-    /// Choose sealing method.
-    #[arg(long, value_enum, ignore_case = true)]
+    /// Choose sealing method: manual, instant, or interval=<ms>.
+    #[arg(long)]
     pub sealing: Option<Sealing>,
 
     /// Whether to try Aura or Babe consensus on first start.
@@ -170,13 +170,38 @@ impl fmt::Display for HistoryBackfill {
 }
 
 /// Available Sealing methods.
-#[derive(Copy, Clone, Debug, Default, clap::ValueEnum)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum Sealing {
     /// Seal using rpc method.
     #[default]
     Manual,
     /// Seal when transaction is executed.
     Instant,
+    /// Seal on a fixed timer interval.  Value is the period in milliseconds.
+    Interval(u64),
+}
+
+impl std::str::FromStr for Sealing {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "manual" => Ok(Sealing::Manual),
+            "instant" => Ok(Sealing::Instant),
+            s if s.starts_with("interval=") => {
+                let ms = s["interval=".len()..]
+                    .parse::<u64>()
+                    .map_err(|e| format!("invalid interval milliseconds: {e}"))?;
+                Ok(Sealing::Interval(ms))
+            }
+            s => s
+                .parse::<u64>()
+                .map(Sealing::Interval)
+                .map_err(|_| format!(
+                    "unknown sealing mode '{s}': expected 'manual', 'instant', 'interval=<ms>', or a plain number of milliseconds"
+                )),
+        }
+    }
 }
 
 /// Supported consensus mechanisms.

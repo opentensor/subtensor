@@ -1,7 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use crate::consensus::ConsensusMechanism;
-use futures::{FutureExt, channel::mpsc, future};
+use futures::{FutureExt, StreamExt as _, channel::mpsc};
 use node_subtensor_runtime::{RuntimeApi, TransactionConverter, opaque::Block};
 use sc_chain_spec::ChainType;
 use sc_client_api::{Backend as BackendT, BlockBackend};
@@ -25,6 +25,7 @@ use stc_shield::{self, MemoryShieldKeystore};
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
+use sc_transaction_pool_api::TransactionPool as _;
 use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
 use stp_shield::ShieldKeystorePtr;
@@ -756,9 +757,12 @@ fn run_manual_seal_authorship(
             inherent_data: &mut sp_inherents::InherentData,
         ) -> Result<(), sp_inherents::Error> {
             TIMESTAMP.with(|x| {
-                let mut x_ref = x.borrow_mut();
-                *x_ref = x_ref.saturating_add(subtensor_runtime_common::time::SLOT_DURATION);
-                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x_ref)
+                let ts = {
+                    let mut x_ref = x.borrow_mut();
+                    *x_ref = x_ref.saturating_add(subtensor_runtime_common::time::SLOT_DURATION);
+                    *x_ref
+                };
+                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &ts)
             })
         }
 
@@ -778,31 +782,55 @@ fn run_manual_seal_authorship(
     let aura_data_provider =
         sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider::new(client.clone());
 
-    let manual_seal = match sealing {
-        Sealing::Manual => future::Either::Left(sc_consensus_manual_seal::run_manual_seal(
-            sc_consensus_manual_seal::ManualSealParams {
-                block_import,
-                env: proposer_factory,
-                client,
-                pool: transaction_pool,
-                commands_stream,
-                select_chain,
-                consensus_data_provider: Some(Box::new(aura_data_provider)),
-                create_inherent_data_providers,
-            },
-        )),
-        Sealing::Instant => future::Either::Right(sc_consensus_manual_seal::run_instant_seal(
-            sc_consensus_manual_seal::InstantSealParams {
-                block_import,
-                env: proposer_factory,
-                client,
-                pool: transaction_pool,
-                select_chain,
-                consensus_data_provider: None,
-                create_inherent_data_providers,
-            },
-        )),
+    type SealStream = std::pin::Pin<
+        Box<
+            dyn futures::Stream<
+                    Item = sc_consensus_manual_seal::rpc::EngineCommand<<Block as BlockT>::Hash>,
+                > + Send,
+        >,
+    >;
+
+    let seal_stream: SealStream = match sealing {
+        Sealing::Manual => Box::pin(commands_stream),
+        Sealing::Instant => Box::pin(
+            transaction_pool
+                .import_notification_stream()
+                .map(|_| sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock {
+                    create_empty: false,
+                    finalize: false,
+                    parent_hash: None,
+                    sender: None,
+                }),
+        ),
+        Sealing::Interval(millis) => Box::pin(
+            futures::stream::unfold(
+                tokio::time::interval(std::time::Duration::from_millis(millis)),
+                |mut interval| async move {
+                    interval.tick().await;
+                    Some(((), interval))
+                },
+            )
+            .map(|_| sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock {
+                create_empty: true,
+                finalize: true,
+                parent_hash: None,
+                sender: None,
+            }),
+        ),
     };
+
+    let manual_seal = sc_consensus_manual_seal::run_manual_seal(
+        sc_consensus_manual_seal::ManualSealParams {
+            block_import,
+            env: proposer_factory,
+            client,
+            pool: transaction_pool,
+            commands_stream: seal_stream,
+            select_chain,
+            consensus_data_provider: Some(Box::new(aura_data_provider)),
+            create_inherent_data_providers,
+        },
+    );
 
     // we spawn the future on a background thread managed by service.
     task_manager
