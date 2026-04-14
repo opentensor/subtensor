@@ -1014,7 +1014,10 @@ fn add_stake_burn_success_atomically_stakes_and_burns() {
         let alpha_out_before = pallet_subtensor::SubnetAlphaOut::<mock::Test>::get(netuid);
 
         let expected_weight =
-            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_burn();
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                .saturating_add(
+                    <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha(),
+                );
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeBurnV1,
@@ -1062,11 +1065,10 @@ fn add_stake_recycle_with_insufficient_balance_returns_error() {
 
         // Don't fund the coldkey - should fail with balance error
 
+        // add_stake fails early, so only add_stake weight should be charged —
+        // recycle_alpha weight is not charged because that stage is never reached.
         let expected_weight =
-            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
-                .saturating_add(
-                    <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
-                );
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeRecycleV1,
@@ -1082,6 +1084,7 @@ fn add_stake_recycle_with_insufficient_balance_returns_error() {
             }
             _ => panic!("unexpected return value"),
         }
+        assert_eq!(env.charged_weight(), Some(expected_weight));
     });
 }
 
@@ -1283,14 +1286,19 @@ impl SubtensorExtensionEnv<AccountId> for MockEnv {
     }
 
     fn charge_weight(&mut self, weight: Weight) -> Result<(), DispatchError> {
+        let cumulative = self
+            .charged_weight
+            .unwrap_or_default()
+            .saturating_add(weight);
         if let Some(expected) = self.expected_weight
-            && weight != expected
+            && (cumulative.ref_time() > expected.ref_time()
+                || cumulative.proof_size() > expected.proof_size())
         {
             return Err(DispatchError::Other(
                 "unexpected weight charged by mock env",
             ));
         }
-        self.charged_weight = Some(weight);
+        self.charged_weight = Some(cumulative);
         Ok(())
     }
 
@@ -1422,7 +1430,10 @@ fn add_stake_burn_rollback_on_burn_failure() {
             );
 
         let expected_weight =
-            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_burn();
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                .saturating_add(
+                    <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha(),
+                );
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeBurnV1,
