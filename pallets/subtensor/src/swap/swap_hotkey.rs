@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
-use substrate_fixed::types::{U64F64};
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{MechId, NetUid, Token};
 
 impl<T: Config> Pallet<T> {
