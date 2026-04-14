@@ -2,7 +2,7 @@ use super::*;
 use frame_support::weights::Weight;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
-use substrate_fixed::types::{I96F32, U64F64};
+use substrate_fixed::types::{U64F64};
 use subtensor_runtime_common::{MechId, NetUid, Token};
 
 impl<T: Config> Pallet<T> {
@@ -534,7 +534,7 @@ impl<T: Config> Pallet<T> {
                 .collect();
 
             // For each coldkey remove their stake from old_hotkey and add to new_hotkey
-            for coldkey in unique_coldkeys.clone() {
+            for coldkey in unique_coldkeys {
                 let alpha_old =
                     Self::get_stake_for_hotkey_and_coldkey_on_subnet(old_hotkey, &coldkey, netuid);
                 Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(

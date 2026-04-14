@@ -168,9 +168,7 @@ mod hooks {
                 // Migrate coldkey swap scheduled to announcements
                 .saturating_add(migrations::migrate_coldkey_swap_scheduled_to_announcements::migrate_coldkey_swap_scheduled_to_announcements::<T>())
                 // Migrate fix bad hk swap
-                .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>())
-                // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
-                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>());
+                .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>());
             weight
         }
 
