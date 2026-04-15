@@ -534,6 +534,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_registered_block(netuid: NetUid) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
     }
+    pub fn get_netuid_generation(netuid: NetUid) -> u64 {
+        NetuidGeneration::<T>::get(netuid)
+    }
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()
     }

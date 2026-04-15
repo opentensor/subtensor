@@ -2632,3 +2632,70 @@ fn register_network_non_associated_hotkey_does_not_withdraw_or_write_owner_alpha
         );
     });
 }
+
+#[test]
+fn netuid_generation_bumps_on_first_registration() {
+    new_test_ext(1).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+
+        let netuid = add_dynamic_network(&hot, &cold);
+
+        assert_eq!(
+            SubtensorModule::get_netuid_generation(netuid),
+            1,
+            "first registration of a netuid must leave generation == 1"
+        );
+    });
+}
+
+#[test]
+fn netuid_generation_is_independent_per_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = add_dynamic_network(&U256::from(10), &U256::from(11));
+        let n2 = add_dynamic_network(&U256::from(20), &U256::from(21));
+
+        assert_ne!(n1, n2);
+        assert_eq!(SubtensorModule::get_netuid_generation(n1), 1);
+        assert_eq!(SubtensorModule::get_netuid_generation(n2), 1);
+    });
+}
+
+#[test]
+fn netuid_generation_survives_dissolve_and_bumps_on_reregistration() {
+    new_test_ext(1).execute_with(|| {
+        // Force reuse of the same netuid on re-registration by pinning the
+        // active subnet cap so the next registration must prune.
+        SubtensorModule::set_max_subnets(2);
+
+        let owner_cold = U256::from(100);
+        let owner_hot = U256::from(101);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+        assert_eq!(SubtensorModule::get_netuid_generation(netuid), 1);
+
+        // Dissolve: generation is intentionally *not* cleared — stale
+        // consumers can still detect the pre-dereg lifetime if they stored
+        // the generation they observed at approval time.
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        assert!(!SubtensorModule::if_subnet_exist(netuid));
+        assert_eq!(
+            SubtensorModule::get_netuid_generation(netuid),
+            1,
+            "dissolve must not clear or reset the generation"
+        );
+
+        // Re-register. With the cap pinned, the prune selector reuses the
+        // freed netuid; the generation bumps to 2 so that any state still
+        // keyed to gen=1 becomes unreachable under the new registration.
+        let reg_netuid = add_dynamic_network(&owner_hot, &owner_cold);
+        assert_eq!(
+            reg_netuid, netuid,
+            "the pruned netuid should be reused under the subnet cap"
+        );
+        assert_eq!(
+            SubtensorModule::get_netuid_generation(netuid),
+            2,
+            "re-registration must bump generation"
+        );
+    });
+}
