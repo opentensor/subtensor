@@ -27,7 +27,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Effect from migrate_total_issuance adjustment diff
-        total_issuance =
+        total_issuance = currency_issuance +
             u64::from(SubnetTAO::<T>::iter().fold(TaoBalance::ZERO, |acc, (_, v)| acc + v)) as i128;
 
         // Calculate total SubnetLock
