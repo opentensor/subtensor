@@ -66,9 +66,10 @@ pub type AllowancesStorage = StorageDoubleMap<
     // For each approver (EVM address as only EVM-natives need the precompile)
     Blake2_128Concat,
     H160,
-    // For each pair of (spender, netuid) (EVM address as only EVM-natives need the precompile)
+    // For each (spender, netuid, generation) triple — the generation tag invalidates
+    // entries written under a previous registration of the same netuid.
     Blake2_128Concat,
-    (H160, u16),
+    (H160, u16, u64),
     // Allowed amount
     U256,
     ValueQuery,
@@ -480,6 +481,13 @@ where
         Ok(stake.to_u64().into())
     }
 
+    /// Current registration generation for `netuid`, used as part of the
+    /// `AllowancesStorage` secondary key to invalidate approvals granted
+    /// for a previous registration of the same netuid.
+    fn current_netuid_generation(netuid: u16) -> u64 {
+        pallet_subtensor::Pallet::<R>::get_netuid_generation(netuid.into())
+    }
+
     #[precompile::public("approve(address,uint256,uint256)")]
     fn approve(
         handle: &mut impl PrecompileHandle,
@@ -487,17 +495,19 @@ where
         origin_netuid: U256,
         amount_alpha: U256,
     ) -> EvmResult<()> {
-        // AllowancesStorage write
+        // AllowancesStorage write + NetuidGeneration read
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
 
         let approver = handle.context().caller;
         let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
+        let generation = Self::current_netuid_generation(netuid);
 
         if amount_alpha.is_zero() {
-            AllowancesStorage::remove(approver, (spender, netuid));
+            AllowancesStorage::remove(approver, (spender, netuid, generation));
         } else {
-            AllowancesStorage::insert(approver, (spender, netuid), amount_alpha);
+            AllowancesStorage::insert(approver, (spender, netuid, generation), amount_alpha);
         }
 
         Ok(())
@@ -511,13 +521,18 @@ where
         spender_address: Address,
         origin_netuid: U256,
     ) -> EvmResult<U256> {
-        // AllowancesStorage read
+        // AllowancesStorage read + NetuidGeneration read
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
 
         let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
+        let generation = Self::current_netuid_generation(netuid);
 
-        Ok(AllowancesStorage::get(source_address.0, (spender, netuid)))
+        Ok(AllowancesStorage::get(
+            source_address.0,
+            (spender, netuid, generation),
+        ))
     }
 
     #[precompile::public("increaseAllowance(address,uint256,uint256)")]
@@ -531,15 +546,17 @@ where
             return Ok(());
         }
 
-        // AllowancesStorage read + write
+        // AllowancesStorage read + write + NetuidGeneration read
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
 
         let approver = handle.context().caller;
         let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
+        let generation = Self::current_netuid_generation(netuid);
 
-        let approval_key = (spender, netuid);
+        let approval_key = (spender, netuid, generation);
 
         let current_amount = AllowancesStorage::get(approver, approval_key);
         let new_amount = current_amount.saturating_add(amount_alpha_increase);
@@ -560,15 +577,17 @@ where
             return Ok(());
         }
 
-        // AllowancesStorage read + write
+        // AllowancesStorage read + write + NetuidGeneration read
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
 
         let approver = handle.context().caller;
         let spender = spender_address.0;
         let netuid = try_u16_from_u256(origin_netuid)?;
+        let generation = Self::current_netuid_generation(netuid);
 
-        let approval_key = (spender, netuid);
+        let approval_key = (spender, netuid, generation);
 
         let current_amount = AllowancesStorage::get(approver, approval_key);
         let new_amount = current_amount.saturating_sub(amount_alpha_decrease);
@@ -593,11 +612,13 @@ where
             return Ok(());
         }
 
-        // AllowancesStorage read + write
+        // AllowancesStorage read + write + NetuidGeneration read
+        handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_read_gas_cost())?;
         handle.record_cost(RuntimeHelper::<R>::db_write_gas_cost())?;
 
-        let approval_key = (spender, netuid);
+        let generation = Self::current_netuid_generation(netuid);
+        let approval_key = (spender, netuid, generation);
 
         let current_amount = AllowancesStorage::get(approver, approval_key);
         let Some(new_amount) = current_amount.checked_sub(amount) else {
