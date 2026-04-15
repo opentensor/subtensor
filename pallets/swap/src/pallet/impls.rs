@@ -12,6 +12,7 @@ use subtensor_runtime_common::{
 };
 
 use super::pallet::*;
+use super::sim;
 use super::swap_step::{BasicSwapStep, SwapStep, SwapStepAction};
 use crate::{
     SqrtPrice,
@@ -19,7 +20,7 @@ use crate::{
     tick::{ActiveTickIndexManager, Tick, TickIndex},
 };
 use subtensor_swap_interface::{
-    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
+    DefaultPriceLimit, Order as OrderT, PureSwapDispatch, SwapEngine, SwapHandler, SwapResult,
 };
 
 const MAX_SWAP_ITERATIONS: u16 = 1000;
@@ -1030,6 +1031,42 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    /// Pure-read swap simulation.
+    ///
+    /// Functionally equivalent to `sim_swap` but never writes to storage at
+    /// all — AMM state is carried as local variables through the swap loop.
+    /// Callers must also satisfy `Self: PureSimDispatch<O::PaidIn, O::PaidOut>`,
+    /// which is implemented for the two concrete token-pair directions.
+    pub fn sim_swap_pure<O>(
+        netuid: NetUid,
+        order: O,
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
+    where
+        O: OrderT,
+        Self: SwapEngine<O>,
+    {
+        match T::SubnetInfo::mechanism(netuid) {
+            1 => <Self as PureSwapDispatch<O::PaidIn, O::PaidOut>>::sim_run(
+                netuid,
+                order.amount(),
+                false,
+            ),
+            _ => {
+                let actual_amount = if T::SubnetInfo::exists(netuid) {
+                    order.amount()
+                } else {
+                    O::PaidIn::ZERO
+                };
+                Ok(SwapResult {
+                    amount_paid_in: actual_amount,
+                    amount_paid_out: actual_amount.to_u64().into(),
+                    fee_paid: 0.into(),
+                    fee_to_block_author: 0.into(),
+                })
+            }
+        }
+    }
 }
 
 impl<T: Config> DefaultPriceLimit<TaoBalance, AlphaBalance> for Pallet<T> {
@@ -1044,12 +1081,74 @@ impl<T: Config> DefaultPriceLimit<AlphaBalance, TaoBalance> for Pallet<T> {
     }
 }
 
+/// `PureSwapDispatch` impl for the Tao→Alpha (buy) direction.
+///
+/// Uses `BuyStep` to run the pure simulation loop.
+impl<T: Config> PureSwapDispatch<TaoBalance, AlphaBalance> for Pallet<T> {
+    fn sim_run(
+        netuid: NetUid,
+        amount: TaoBalance,
+        drop_fees: bool,
+    ) -> Result<SwapResult<TaoBalance, AlphaBalance>, DispatchError> {
+        let limit_sqrt_price =
+            <Self as DefaultPriceLimit<TaoBalance, AlphaBalance>>::default_price_limit::<TaoBalance>()
+                .to_u64();
+        let limit_sqrt_price = SqrtPrice::saturating_from_num(limit_sqrt_price)
+            .safe_div(SqrtPrice::saturating_from_num(1_000_000_000))
+            .checked_sqrt(SqrtPrice::saturating_from_num(0.0000000001))
+            .unwrap_or_else(|| {
+                // max_price_inner is guaranteed to be a well-formed positive value;
+                // this branch is unreachable in production.
+                SqrtPrice::saturating_from_num(u64::MAX)
+            });
+
+        sim::sim_swap_inner_pure::<T, TaoBalance, AlphaBalance, sim::BuyStep<T>>(
+            netuid,
+            amount,
+            limit_sqrt_price,
+            drop_fees,
+        )
+        .map_err(Into::into)
+    }
+}
+
+/// `PureSwapDispatch` impl for the Alpha→Tao (sell) direction.
+///
+/// Uses `SellStep` to run the pure simulation loop.
+impl<T: Config> PureSwapDispatch<AlphaBalance, TaoBalance> for Pallet<T> {
+    fn sim_run(
+        netuid: NetUid,
+        amount: AlphaBalance,
+        drop_fees: bool,
+    ) -> Result<SwapResult<AlphaBalance, TaoBalance>, DispatchError> {
+        let limit_sqrt_price =
+            <Self as DefaultPriceLimit<AlphaBalance, TaoBalance>>::default_price_limit::<AlphaBalance>()
+                .to_u64();
+        let limit_sqrt_price = SqrtPrice::saturating_from_num(limit_sqrt_price)
+            .safe_div(SqrtPrice::saturating_from_num(1_000_000_000))
+            .checked_sqrt(SqrtPrice::saturating_from_num(0.0000000001))
+            .unwrap_or_else(|| {
+                // min_price_inner returns a very small value; if sqrt fails, use zero.
+                SqrtPrice::saturating_from_num(0u64)
+            });
+
+        sim::sim_swap_inner_pure::<T, AlphaBalance, TaoBalance, sim::SellStep<T>>(
+            netuid,
+            amount,
+            limit_sqrt_price,
+            drop_fees,
+        )
+        .map_err(Into::into)
+    }
+}
+
 impl<T, O> SwapEngine<O> for Pallet<T>
 where
     T: Config,
     O: OrderT,
     BasicSwapStep<T, O::PaidIn, O::PaidOut>: SwapStep<T, O::PaidIn, O::PaidOut>,
     Self: DefaultPriceLimit<O::PaidIn, O::PaidOut>,
+    Self: PureSwapDispatch<O::PaidIn, O::PaidOut>,
 {
     fn swap(
         netuid: NetUid,
@@ -1117,6 +1216,19 @@ impl<T: Config> SwapHandler for Pallet<T> {
                 })
             }
         }
+    }
+
+    fn sim_swap_pure<O>(
+        netuid: NetUid,
+        order: O,
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
+    where
+        O: OrderT,
+        Self: SwapEngine<O>,
+    {
+        // `SwapEngine<O>` requires `PureSwapDispatch<O::PaidIn, O::PaidOut>` as a
+        // supertrait, so this call is always valid.
+        Pallet::<T>::sim_swap_pure(netuid, order)
     }
 
     fn approx_fee_amount<C: Token>(netuid: NetUid, amount: C) -> C {

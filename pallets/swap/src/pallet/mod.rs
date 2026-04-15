@@ -18,6 +18,7 @@ use crate::{
 pub use pallet::*;
 
 mod impls;
+mod sim;
 mod swap_step;
 #[cfg(test)]
 mod tests;
