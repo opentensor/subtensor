@@ -2272,7 +2272,7 @@ fn test_do_remove_stake_clears_pending_childkeys() {
         assert!(pending_before.1 > 0);
 
         // Remove stake
-        remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
+
         assert_ok!(SubtensorModule::do_remove_stake(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -2669,8 +2669,6 @@ fn test_childkey_set_weights_single_parent() {
             1_000_000.into(),
         );
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
         // Set parent-child relationship
         mock_set_children_no_epochs(netuid, &parent, &[(u64::MAX, child)]);
 
@@ -2768,8 +2766,6 @@ fn test_set_weights_no_parent() {
             netuid,
             stake_to_give_child,
         );
-
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         // Has stake and no parent
         step_block(7200 + 1);
@@ -2872,7 +2868,6 @@ fn test_childkey_take_drain() {
                 &nominator,
                 TaoBalance::from(stake) + ExistentialDeposit::get(),
             );
-            SubtensorModule::set_weights_set_rate_limit(netuid, 0);
             SubtensorModule::set_max_allowed_validators(netuid, 2);
             step_block(subnet_tempo);
             SubnetOwnerCut::<Test>::set(0);
@@ -3673,9 +3668,6 @@ fn test_dynamic_parent_child_relationships() {
         let values: Vec<u16> = vec![65535, 65535, 65535]; // Set equal weights for all hotkeys
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
-        // Ensure we can set weights without rate limiting
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
         assert_ok!(SubtensorModule::set_weights(
             origin,
             netuid,
@@ -4326,8 +4318,6 @@ fn test_root_children_enable_subnet_owner_set_weights() {
             root_stake,
         );
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
         let version_key = SubtensorModule::get_weights_version_key(netuid);
         let uids: Vec<u16> = vec![0];
         let values: Vec<u16> = vec![u16::MAX];
@@ -4497,7 +4487,6 @@ fn test_register_network_schedules_root_validators() {
         );
 
         // --- Verify subnet owner can now set weights ---
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 
@@ -4627,7 +4616,6 @@ fn test_register_network_schedules_root_validators_auto_parent_delegation_flag()
         );
 
         // --- Verify subnet owner can now set weights ---
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
         let version_key = SubtensorModule::get_weights_version_key(netuid);
 

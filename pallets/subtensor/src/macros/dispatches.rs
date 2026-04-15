@@ -795,10 +795,6 @@ mod dispatches {
         ///
         /// * 'InvalidIpAddress':
         /// 	- The numerically encoded ip address does not resolve to a proper ip.
-        ///
-        /// * 'ServingRateLimitExceeded':
-        /// 	- Attempting to set prometheus information withing the rate limit min.
-        ///
         #[pallet::call_index(4)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::serve_axon(), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -877,10 +873,6 @@ mod dispatches {
         ///
         /// * 'InvalidIpAddress':
         /// 	- The numerically encoded ip address does not resolve to a proper ip.
-        ///
-        /// * 'ServingRateLimitExceeded':
-        /// 	- Attempting to set prometheus information withing the rate limit min.
-        ///
         #[pallet::call_index(40)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::serve_axon_tls(), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon_tls(

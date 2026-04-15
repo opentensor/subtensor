@@ -32,9 +32,6 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeyNotRegisteredInSubNet`:
     ///   - Raised if the hotkey is not registered on the specified network.
     ///
-    /// * `CommittingWeightsTooFast`:
-    ///   - Raised if the hotkey's commit rate exceeds the permitted limit.
-    ///
     /// * `TooManyUnrevealedCommits`:
     ///   - Raised if the hotkey has reached the maximum number of unrevealed commits.
     ///
@@ -87,14 +84,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        // 4. Check that the commit rate does not exceed the allowed frequency.
         let commit_block = Self::get_current_block_as_u64();
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
-        ensure!(
-            // Rate limiting should happen per sub-subnet, so use netuid_index here
-            Self::check_rate_limit(netuid_index, neuron_uid, commit_block),
-            Error::<T>::CommittingWeightsTooFast
-        );
 
         // 5. Calculate the reveal blocks based on network tempo and reveal period.
         let (first_reveal_block, last_reveal_block) = Self::get_reveal_blocks(netuid, commit_block);
@@ -216,43 +207,41 @@ impl<T: Config> Pallet<T> {
     /// ---- Commits a timelocked, encrypted weight payload (Commit-Reveal v3).
     ///
     /// # Args
-    /// * `origin` (`<T as frame_system::Config>::RuntimeOrigin`):  
+    /// * `origin` (`<T as frame_system::Config>::RuntimeOrigin`):
     ///   The signed origin of the committing hotkey.
-    /// * `netuid` (`NetUid` = `u16`):  
+    /// * `netuid` (`NetUid` = `u16`):
     ///   Unique identifier for the subnet on which the commit is made.
-    /// * `commit` (`BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>`):  
-    ///   The encrypted weight payload, produced as follows:  
-    ///   1. Build a [`WeightsPayload`] structure.  
-    ///   2. SCALE-encode it (`parity_scale_codec::Encode`).  
-    ///   3. Encrypt it following the steps  
-    ///      [here](https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336) to  
-    ///      produce a [`TLECiphertext<TinyBLS381>`].  
+    /// * `commit` (`BoundedVec<u8, ConstU32<MAX_CRV3_COMMIT_SIZE_BYTES>>`):
+    ///   The encrypted weight payload, produced as follows:
+    ///   1. Build a [`WeightsPayload`] structure.
+    ///   2. SCALE-encode it (`parity_scale_codec::Encode`).
+    ///   3. Encrypt it following the steps
+    ///      [here](https://github.com/ideal-lab5/tle/blob/f8e6019f0fb02c380ebfa6b30efb61786dede07b/timelock/src/tlock.rs#L283-L336) to
+    ///      produce a [`TLECiphertext<TinyBLS381>`].
     ///   4. Compress & serialise.
-    /// * `reveal_round` (`u64`):  
-    ///   DRAND round whose output becomes known during epoch `n + 1`; the payload  
+    /// * `reveal_round` (`u64`):
+    ///   DRAND round whose output becomes known during epoch `n + 1`; the payload
     ///   must be revealed in that epoch.
-    /// * `commit_reveal_version` (`u16`):  
-    ///   Version tag that **must** match [`get_commit_reveal_weights_version`] for  
+    /// * `commit_reveal_version` (`u16`):
+    ///   Version tag that **must** match [`get_commit_reveal_weights_version`] for
     ///   the call to succeed. Used to gate runtime upgrades.
     ///
     /// # Behaviour
-    /// 1. Verifies the caller’s signature and registration on `netuid`.  
+    /// 1. Verifies the caller’s signature and registration on `netuid`.
     /// 2. Ensures commit-reveal is enabled **and** the supplied
-    ///    `commit_reveal_version` is current.  
-    /// 3. Enforces per-neuron rate-limiting via [`Pallet::check_rate_limit`].  
-    /// 4. Rejects the call when the hotkey already has ≥ 10 unrevealed commits in
-    ///    the current epoch.  
-    /// 5. Appends `(hotkey, commit_block, commit, reveal_round)` to  
-    ///    `TimelockedWeightCommits[netuid][epoch]`.  
-    /// 6. Emits `TimelockedWeightsCommitted` with the Blake2 hash of `commit`.  
-    /// 7. Updates `LastUpdateForUid` so subsequent rate-limit checks include this
+    ///    `commit_reveal_version` is current.
+    /// 3. Rejects the call when the hotkey already has ≥ 10 unrevealed commits in
+    ///    the current epoch.
+    /// 4. Appends `(hotkey, commit_block, commit, reveal_round)` to
+    ///    `TimelockedWeightCommits[netuid][epoch]`.
+    /// 5. Emits `TimelockedWeightsCommitted` with the Blake2 hash of `commit`.
+    /// 6. Updates `LastUpdateForUid` so subsequent rate-limit checks include this
     ///    commit.
     ///
     /// # Raises
-    /// * `CommitRevealDisabled` – Commit-reveal is disabled on `netuid`.  
-    /// * `IncorrectCommitRevealVersion` – Provided version ≠ runtime version.  
-    /// * `HotKeyNotRegisteredInSubNet` – Caller’s hotkey is not registered.  
-    /// * `CommittingWeightsTooFast` – Caller exceeds commit-rate limit.  
+    /// * `CommitRevealDisabled` – Commit-reveal is disabled on `netuid`.
+    /// * `IncorrectCommitRevealVersion` – Provided version ≠ runtime version.
+    /// * `HotKeyNotRegisteredInSubNet` – Caller’s hotkey is not registered.
     /// * `TooManyUnrevealedCommits` – Caller already has 10 unrevealed commits.
     ///
     /// # Events
@@ -329,13 +318,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        // 5. Check that the commit rate does not exceed the allowed frequency.
         let commit_block = Self::get_current_block_as_u64();
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &who)?;
-        ensure!(
-            Self::check_rate_limit(netuid_index, neuron_uid, commit_block),
-            Error::<T>::CommittingWeightsTooFast
-        );
 
         // 6. Retrieve or initialize the VecDeque of commits for the hotkey.
         let cur_block = Self::get_current_block_as_u64();
@@ -798,16 +782,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IncorrectWeightVersionKey
         );
 
-        // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
-        let current_block: u64 = Self::get_current_block_as_u64();
-        if !Self::get_commit_reveal_weights_enabled(netuid) {
-            ensure!(
-                // Rate limit should apply per sub-subnet, so use netuid_index here
-                Self::check_rate_limit(netuid_index, neuron_uid, current_block),
-                Error::<T>::SettingWeightsTooFast
-            );
-        }
+        let current_block = Self::get_current_block_as_u64();
+
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
             Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
@@ -1099,30 +1076,6 @@ impl<T: Config> Pallet<T> {
             "check_version_key( network_version_key:{network_version_key:?}, version_key:{version_key:?} )"
         );
         network_version_key == 0 || version_key >= network_version_key
-    }
-
-    /// Checks if the neuron has set weights within the weights_set_rate_limit.
-    ///
-    pub fn check_rate_limit(
-        netuid_index: NetUidStorageIndex,
-        neuron_uid: u16,
-        current_block: u64,
-    ) -> bool {
-        let maybe_netuid_and_subid = Self::get_netuid_and_subid(netuid_index);
-        if let Ok((netuid, _)) = maybe_netuid_and_subid
-            && Self::is_uid_exist_on_network(netuid, neuron_uid)
-        {
-            // --- 1. Ensure that the diff between current and last_set weights is greater than limit.
-            let last_set_weights: u64 = Self::get_last_update_for_uid(netuid_index, neuron_uid);
-            if last_set_weights == 0 {
-                return true;
-            } // (Storage default) Never set weights.
-            return current_block.saturating_sub(last_set_weights)
-                >= Self::get_weights_set_rate_limit(netuid);
-        }
-
-        // --- 3. Non registered peers cant pass. Neither can non-existing mecid
-        false
     }
 
     /// Checks for any invalid uids on this network.

@@ -36,6 +36,9 @@ subtensor-swap-interface.workspace = true
 num_enum.workspace = true
 substrate-fixed.workspace = true
 
+[dev-dependencies]
+rate-limiting-interface.workspace = true
+
 [lints]
 workspace = true
 
@@ -66,6 +69,7 @@ std = [
 	"subtensor-swap-interface/std",
 	"num_enum/std",
 	"substrate-fixed/std",
+	"rate-limiting-interface/std",
 ]
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",

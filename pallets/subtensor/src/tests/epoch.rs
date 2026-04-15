@@ -568,7 +568,6 @@ fn test_1_graph() {
             stake_amount + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock(),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
@@ -1016,7 +1015,6 @@ fn test_bonds() {
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
 		SubtensorModule::set_target_registrations_per_interval(netuid, n);
-		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
         SubtensorModule::set_min_allowed_weights( netuid, 1 );
 		SubtensorModule::set_bonds_penalty(netuid, u16::MAX);
 
@@ -1581,7 +1579,6 @@ fn test_outdated_weights() {
         let stake: TaoBalance = 1.into();
         add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -1781,7 +1778,6 @@ fn test_zero_weights() {
         let stake: u64 = 1;
         add_network_disable_commit_reveal(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -1991,7 +1987,6 @@ fn test_deregistered_miner_bonds() {
         let stake: TaoBalance = 1.into();
         add_network_disable_commit_reveal(netuid, high_tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -2727,7 +2722,6 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
     assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
     SubtensorModule::set_max_registrations_per_block(netuid, n);
     SubtensorModule::set_target_registrations_per_interval(netuid, n);
-    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
     SubtensorModule::set_min_allowed_weights(netuid, 1);
     SubtensorModule::set_bonds_penalty(netuid, 0);
     SubtensorModule::set_alpha_sigmoid_steepness(netuid, 1000);
@@ -3668,7 +3662,6 @@ fn test_epoch_masks_incoming_to_sniped_uid_prevents_inheritance() {
 
         /* validator weights uid‑1 */
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(val_hot),
             netuid,
@@ -3740,7 +3733,6 @@ fn test_epoch_no_mask_when_commit_reveal_disabled() {
             1_000.into(),
         );
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hot),
             netuid,
@@ -3833,7 +3825,6 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
 
         /* vote */
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(v_hot),
             netuid,
@@ -3882,7 +3873,6 @@ fn test_last_update_size_mismatch() {
                 + (SubtensorModule::get_network_min_lock() * 2.into()),
         );
         register_ok_neuron(netuid, hotkey, coldkey, 1);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),

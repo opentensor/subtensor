@@ -28,6 +28,7 @@ pallet-scheduler = { workspace = true, default-features = false, optional = true
 approx.workspace = true
 frame-executive.workspace = true
 pallet-evm-chain-id.workspace = true
+rate-limiting-interface.workspace = true
 scale-info.workspace = true
 sp-consensus-aura.workspace = true
 sp-consensus-grandpa.workspace = true
@@ -57,6 +58,7 @@ std = [
 	"pallet-subtensor/std",
 	"pallet-subtensor-swap/std",
 	"pallet-transaction-payment/std",
+	"rate-limiting-interface/std",
 	"scale-info/std",
 	"sp-runtime/std",
 	"sp-std/std",

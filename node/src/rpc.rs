@@ -120,6 +120,7 @@ where
     CIDP: CreateInherentDataProviders<Block, ()> + Send + Clone + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + Clone + 'static,
 {
+    use pallet_rate_limiting_rpc::{RateLimiting, RateLimitingRpcApiServer};
     use pallet_subtensor_swap_rpc::{Swap, SwapRpcApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
@@ -136,6 +137,9 @@ where
 
     // Custom RPC methods for Paratensor
     module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
+
+    // Rate limiting RPC
+    module.merge(RateLimiting::new(client.clone()).into_rpc())?;
 
     // Swap RPC
     module.merge(Swap::new(client.clone()).into_rpc())?;

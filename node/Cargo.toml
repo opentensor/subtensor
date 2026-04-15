@@ -73,6 +73,7 @@ pallet-balances.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-commitments.workspace = true
 pallet-drand.workspace = true
+pallet-rate-limiting.workspace = true
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = [
 	"bls12-381",
 ] }
@@ -128,6 +129,7 @@ node-subtensor-runtime = { workspace = true, features = ["std"] }
 subtensor-runtime-common = { workspace = true, features = ["std"] }
 subtensor-custom-rpc = { workspace = true, features = ["std"] }
 subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
+pallet-rate-limiting-rpc = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
 subtensor-macros.workspace = true
@@ -168,6 +170,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
+	"pallet-rate-limiting/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
 ]
@@ -182,6 +185,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-rate-limiting/try-runtime",
 	"pallet-commitments/try-runtime",
 	"pallet-drand/try-runtime",
 	"polkadot-sdk/try-runtime",
