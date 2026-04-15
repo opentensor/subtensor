@@ -8,8 +8,8 @@ impl<T: Config> Pallet<T> {
     #[allow(clippy::arithmetic_side_effects, clippy::expect_used)]
     pub(crate) fn check_total_issuance() -> Result<(), sp_runtime::TryRuntimeError> {
         // Get the total currency issuance
-        let mut currency_issuance = u64::from(<T as Config>::Currency::total_issuance()) as i128;
-        let total_issuance = u64::from(TotalIssuance::<T>::get()) as i128;
+        let currency_issuance = u64::from(<T as Config>::Currency::total_issuance()) as i128;
+        let mut total_issuance = u64::from(TotalIssuance::<T>::get()) as i128;
 
         log::info!("=== Try runtime check_total_issuance ===");
         log::info!("  currency_issuance: {}", currency_issuance);
@@ -27,7 +27,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Effect from migrate_total_issuance adjustment diff
-        currency_issuance =
+        total_issuance =
             u64::from(SubnetTAO::<T>::iter().fold(TaoBalance::ZERO, |acc, (_, v)| acc + v)) as i128;
 
         // Calculate total SubnetLock
