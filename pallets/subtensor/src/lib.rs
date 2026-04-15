@@ -1703,8 +1703,7 @@ pub mod pallet {
     /// unreachable after the netuid is re-registered, without requiring
     /// unbounded storage iteration on deregistration.
     #[pallet::storage]
-    pub type RegisteredSubnetCounter<T: Config> =
-        StorageMap<_, Identity, NetUid, u64, ValueQuery>;
+    pub type RegisteredSubnetCounter<T: Config> = StorageMap<_, Identity, NetUid, u64, ValueQuery>;
 
     /// --- MAP ( netuid ) --> pending_server_emission
     #[pallet::storage]
