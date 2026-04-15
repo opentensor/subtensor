@@ -10,9 +10,13 @@ impl<T: Config> Pallet<T> {
         // Get the total currency issuance
         let currency_issuance = <T as Config>::Currency::total_issuance();
 
+        // Calculate total SubnetLock
+        let total_locked = Self::get_total_subnet_locked();
+
         // Calculate the expected total issuance
-        let expected_total_issuance =
-            currency_issuance.saturating_add(TotalStake::<T>::get().into());
+        let expected_total_issuance = currency_issuance
+            .saturating_add(TotalStake::<T>::get().into())
+            .saturating_add(total_locked);
         let expected_fixed_total_issuance = currency_issuance;
 
         // Verify the diff between calculated TI and actual TI is less than delta
