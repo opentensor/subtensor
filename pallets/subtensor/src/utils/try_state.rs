@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
         let initial_pool_tao = NetworkMinLockCost::<T>::get();
         SubnetLocked::<T>::iter().for_each(|(netuid, tao)| {
             if Pallet::<T>::get_subnet_account_id(netuid).is_some() {
-                let tao_lock = tao - initial_pool_tao;
+                let tao_lock = tao.saturating_sub(initial_pool_tao);
                 total_locked += u64::from(tao_lock) as i128;
             }
         });
