@@ -1209,9 +1209,22 @@ mod dispatches {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
 
-        /// Facility extrinsic for user to get taken from faucet
-        /// It is only available when pow-faucet feature enabled
-        /// Just deployed in testnet and devnet for testing purpose
+        /// Facility extrinsic for user to get taken from faucet.
+        ///
+        /// Only present in runtimes built with the `pow-faucet` cargo feature,
+        /// which this repository's `Dockerfile` enables only in the
+        /// `local_builder` stage. The deployed `test` (testnet) and `devnet`
+        /// runtimes are built **without** this feature, so this dispatchable
+        /// is compiled out of the `Call` enum and is not reachable on-chain
+        /// on any public Opentensor network. Clients that want a working
+        /// on-chain faucet must run a local `node-subtensor` built with
+        /// `--features pow-faucet`.
+        ///
+        /// See also the documented user path for obtaining tTAO in
+        /// <https://github.com/opentensor/bittensor-subnet-template>,
+        /// `docs/running_on_testnet.md` §4 ("Get faucet tokens"), which
+        /// instructs testnet users to request tokens via the Bittensor
+        /// Discord community rather than calling this extrinsic.
         #[pallet::call_index(60)]
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(27))
