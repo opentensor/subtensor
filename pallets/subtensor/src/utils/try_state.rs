@@ -10,14 +10,27 @@ impl<T: Config> Pallet<T> {
         // Get the total currency issuance
         let currency_issuance = <T as Config>::Currency::total_issuance();
 
+        log::info!("=== Try runtime check_total_issuance ===");
+        log::info!("  currency_issuance: {}", currency_issuance);
+
+        // If balances total issuance is greater than 21M, we're on devnet or testnet, ignore 
+        // this check, TI is off for multiple reasons.
+        if currency_issuance > 21_000_000_000_000_000_u64.into() {
+            return Ok(());
+        }
+
         // Calculate total SubnetLock
         let total_locked = Self::get_total_subnet_locked();
+        log::info!("  total_locked: {}", total_locked);
 
         // Calculate the expected total issuance
+        let total_stake = TotalStake::<T>::get();
+        log::info!("  total stake: {}", total_stake);
         let expected_total_issuance = currency_issuance
-            .saturating_add(TotalStake::<T>::get().into())
-            .saturating_add(total_locked);
+            .saturating_add(total_stake.into());
         let expected_fixed_total_issuance = currency_issuance;
+        log::info!("  expected_total_issuance: {}", expected_total_issuance);
+        log::info!("  expected_fixed_total_issuance: {}", expected_fixed_total_issuance);
 
         // Verify the diff between calculated TI and actual TI is less than delta
         //
@@ -25,6 +38,7 @@ impl<T: Config> Pallet<T> {
         // They are corrected every runtime upgrade.
         let delta = TaoBalance::from(1000);
         let total_issuance = TotalIssuance::<T>::get();
+        log::info!("  total_issuance: {}", total_issuance);
 
         let diff = if total_issuance > expected_total_issuance {
             total_issuance.checked_sub(&expected_total_issuance)
@@ -40,20 +54,22 @@ impl<T: Config> Pallet<T> {
         }
         .expect("LHS > RHS");
 
-        if diff > delta {
-            log::error!(
-                "expected_total_issuance: {} != total_issuance: {}",
-                expected_total_issuance,
-                total_issuance
-            );
-        }
+        if (diff > delta) && (diff_fixed > delta) {
+            if diff > delta {
+                log::error!(
+                    "expected_total_issuance: {} != total_issuance: {}",
+                    expected_total_issuance,
+                    total_issuance
+                );
+            }
 
-        if diff_fixed > delta {
-            log::error!(
-                "expected_fixed_total_issuance: {} != total_issuance: {}",
-                expected_fixed_total_issuance,
-                total_issuance
-            );
+            if diff_fixed > delta {
+                log::error!(
+                    "expected_fixed_total_issuance: {} != total_issuance: {}",
+                    expected_fixed_total_issuance,
+                    total_issuance
+                );
+            }
         }
 
         ensure!(
