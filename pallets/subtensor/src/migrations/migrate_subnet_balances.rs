@@ -35,17 +35,6 @@ pub fn migrate_subnet_balances<T: Config>() -> Weight {
     let balances_total_issuance_before = <T as Config>::Currency::total_issuance();
     let subtensor_total_issuance_before = TotalIssuance::<T>::get();
 
-    // One-time correction from now disabled on-going migrate_init_total_issuance
-    let subnets_len = crate::NetworksAdded::<T>::iter().count() as u64;
-    let total_stake =
-        SubnetTAO::<T>::iter().fold(TaoBalance::ZERO, |acc, (_, v)| acc.saturating_add(v));
-    let new_total_issuance: TaoBalance = balances_total_issuance_before
-        .saturating_add(total_stake)
-        .into();
-    TotalIssuance::<T>::put(new_total_issuance);
-    weight =
-        weight.saturating_add(T::DbWeight::get().reads_writes(subnets_len.saturating_add(1), 1));
-
     // Mint SubnetTAO into subnet accounts
     // The mint_tao will be adding to subtensor TotalIssuance (which is not the intention
     // and will be corrected below). There is no u64 saturation possible, so it is safe to
