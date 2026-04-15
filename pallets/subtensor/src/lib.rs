@@ -1092,6 +1092,12 @@ pub mod pallet {
         10u16
     }
 
+    /// Default value for AutoParentDelegationEnabled.
+    #[pallet::type_value]
+    pub fn DefaultAutoParentDelegationEnabled<T: Config>() -> bool {
+        true
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -2051,16 +2057,6 @@ pub mod pallet {
     pub type Active<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
 
-    /// --- MAP ( netuid ) --> rank
-    #[pallet::storage]
-    pub type Rank<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
-    /// --- MAP ( netuid ) --> trust
-    #[pallet::storage]
-    pub type Trust<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
     /// --- MAP ( netuid ) --> consensus
     #[pallet::storage]
     pub type Consensus<T: Config> =
@@ -2088,11 +2084,6 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> validator_trust
     #[pallet::storage]
     pub type ValidatorTrust<T: Config> =
-        StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-
-    /// --- MAP ( netuid ) --> pruning_scores
-    #[pallet::storage]
-    pub type PruningScores<T: Config> =
         StorageMap<_, Identity, NetUid, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
 
     /// --- MAP ( netuid ) --> validator_permit
@@ -2468,6 +2459,21 @@ pub mod pallet {
     #[pallet::storage]
     pub type BurnIncreaseMult<T> =
         StorageMap<_, Identity, NetUid, U64F64, ValueQuery, DefaultBurnIncreaseMult<T>>;
+
+    /// --- MAP ( hotkey ) --> parent_delegation_enabled
+    ///
+    /// When `true`, this root validator allows auto parent delegation.
+    /// Defaults to `true`; validators can opt out at any time
+    /// by calling `set_auto_parent_delegation_enabled(false)`.
+    #[pallet::storage]
+    pub type AutoParentDelegationEnabled<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        bool,
+        ValueQuery,
+        DefaultAutoParentDelegationEnabled<T>, // default = true
+    >;
 
     /// ==================
     /// ==== Genesis =====
