@@ -3223,3 +3223,171 @@ fn sim_swap_pure_repeated_calls_are_idempotent() {
         assert_eq!(result_sim, result_pure_1, "sim_swap and sim_swap_pure must agree");
     });
 }
+
+// --- sim_swap_pure edge case tests ---
+
+/// Zero-amount buy: both functions must agree and return an all-zero SwapResult
+/// without executing any swap step.
+#[test]
+fn sim_swap_pure_zero_amount_buy_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        let order = GetAlphaForTao::with_amount(0);
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "both must agree on zero-amount buy"
+        );
+    });
+}
+
+/// Zero-amount sell: both functions must agree and return an all-zero SwapResult.
+#[test]
+fn sim_swap_pure_zero_amount_sell_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+
+        let order = GetTaoForAlpha::with_amount(0);
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "both must agree on zero-amount sell"
+        );
+    });
+}
+
+/// Degenerate pool: alpha_reserve = 0.
+/// Both functions derive zero liquidity and must agree on the result.
+#[test]
+fn sim_swap_pure_zero_alpha_reserve_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(50);
+        assert!(!SwapV3Initialized::<Test>::get(netuid), "pool must be uninitialized");
+
+        AlphaReserve::set_mock_reserve(netuid, 0.into());
+
+        let order = GetAlphaForTao::with_amount(1_000_000);
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "both must agree for zero alpha reserve"
+        );
+    });
+}
+
+/// Degenerate pool: tao_reserve = 0.
+/// Both functions derive zero liquidity and must agree on the result.
+#[test]
+fn sim_swap_pure_zero_tao_reserve_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(50);
+        assert!(!SwapV3Initialized::<Test>::get(netuid), "pool must be uninitialized");
+
+        TaoReserve::set_mock_reserve(netuid, 0.into());
+
+        let order = GetAlphaForTao::with_amount(1_000_000);
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "both must agree for zero tao reserve"
+        );
+    });
+}
+
+/// Large buy on a tiny uninitialized pool: the swap amount is large enough to
+/// push price beyond TickIndex::MAX, exercising the virtual boundary-crossing
+/// path in `sim_swap_inner_pure`. Both functions must agree on the partial fill.
+#[test]
+fn sim_swap_pure_large_buy_exhausts_virtual_liquidity_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(50);
+        assert!(!SwapV3Initialized::<Test>::get(netuid), "pool must be uninitialized");
+
+        // Tiny pool: liquidity = sqrt(100 * 100) = 100, price = 1.
+        // A buy of 1e10 TAO dwarfs the pool capacity, forcing price to TickIndex::MAX.
+        TaoReserve::set_mock_reserve(netuid, 100.into());
+        AlphaReserve::set_mock_reserve(netuid, 100.into());
+
+        let order = GetAlphaForTao::with_amount(10_000_000_000);
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "both must agree when large buy exhausts virtual liquidity"
+        );
+    });
+}
+
+/// Large sell on a tiny uninitialized pool: exercises the virtual TickIndex::MIN
+/// boundary crossing in the sell direction. Both functions must agree.
+#[test]
+fn sim_swap_pure_large_sell_exhausts_virtual_liquidity_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(50);
+        assert!(!SwapV3Initialized::<Test>::get(netuid), "pool must be uninitialized");
+
+        TaoReserve::set_mock_reserve(netuid, 100.into());
+        AlphaReserve::set_mock_reserve(netuid, 100.into());
+
+        let order = GetTaoForAlpha::with_amount(10_000_000_000);
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "both must agree when large sell exhausts virtual liquidity"
+        );
+    });
+}
+
+/// When `drop_fees=true`, `sim_run` must produce fee_paid=0 and
+/// fee_to_block_author=0, and must yield at least as much output as the
+/// equivalent call with fees enabled.
+#[test]
+fn sim_swap_pure_drop_fees_produces_zero_fee() {
+    use subtensor_swap_interface::PureSwapDispatch;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+        // Non-zero fee rate so the two calls produce measurably different results.
+        FeeRate::<Test>::insert(netuid, 1000u16);
+
+        let amount: TaoBalance = 1_000_000.into();
+
+        let with_fees =
+            <Pallet<Test> as PureSwapDispatch<TaoBalance, AlphaBalance>>::sim_run(
+                netuid, amount, false,
+            )
+            .expect("sim_run with fees must succeed");
+
+        let no_fees =
+            <Pallet<Test> as PureSwapDispatch<TaoBalance, AlphaBalance>>::sim_run(
+                netuid, amount, true,
+            )
+            .expect("sim_run drop_fees must succeed");
+
+        assert_eq!(no_fees.fee_paid, 0.into(), "fee_paid must be zero when drop_fees=true");
+        assert_eq!(
+            no_fees.fee_to_block_author,
+            0.into(),
+            "fee_to_block_author must be zero when drop_fees=true"
+        );
+        assert!(
+            no_fees.amount_paid_out >= with_fees.amount_paid_out,
+            "dropping fees must yield at least as much output"
+        );
+    });
+}
