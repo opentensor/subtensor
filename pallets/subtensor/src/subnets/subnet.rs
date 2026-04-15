@@ -204,6 +204,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 15. Set the creation terms.
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
+        NetuidGeneration::<T>::mutate(netuid_to_register, |g| *g = g.saturating_add(1));
 
         // --- 16. Set the symbol.
         let symbol = Self::get_next_available_symbol(netuid_to_register);
