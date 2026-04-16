@@ -99,6 +99,72 @@ mod address_mapping {
                 .execute_returns_raw(expected_output.to_vec());
         });
     }
+
+    #[test]
+    fn address_mapping_precompile_maps_distinct_addresses_to_distinct_accounts() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(1);
+            let first_address = addr_from_index(0x1234);
+            let second_address = addr_from_index(0x5678);
+            let precompile_addr = addr_from_index(AddressMappingPrecompile::<Runtime>::INDEX);
+
+            let first_output = execute_precompile(
+                &Precompiles::<Runtime>::new(),
+                precompile_addr,
+                caller,
+                address_mapping_call_data(first_address),
+                U256::zero(),
+            )
+            .expect("expected precompile mapping call to be routed to a precompile")
+            .expect("address mapping call should succeed")
+            .output;
+            let second_output = execute_precompile(
+                &Precompiles::<Runtime>::new(),
+                precompile_addr,
+                caller,
+                address_mapping_call_data(second_address),
+                U256::zero(),
+            )
+            .expect("expected precompile mapping call to be routed to a precompile")
+            .expect("address mapping call should succeed")
+            .output;
+
+            assert_ne!(first_output, second_output);
+        });
+    }
+
+    #[test]
+    fn address_mapping_precompile_is_deterministic() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(1);
+            let target_address = addr_from_index(0x1234);
+            let precompile_addr = addr_from_index(AddressMappingPrecompile::<Runtime>::INDEX);
+            let input = address_mapping_call_data(target_address);
+
+            let first_output = execute_precompile(
+                &Precompiles::<Runtime>::new(),
+                precompile_addr,
+                caller,
+                input.clone(),
+                U256::zero(),
+            )
+            .expect("expected precompile mapping call to be routed to a precompile")
+            .expect("address mapping call should succeed")
+            .output;
+            let second_output = execute_precompile(
+                &Precompiles::<Runtime>::new(),
+                precompile_addr,
+                caller,
+                input,
+                U256::zero(),
+            )
+            .expect("expected precompile mapping call to be routed to a precompile")
+            .expect("address mapping call should succeed")
+            .output;
+
+            assert_eq!(first_output, second_output);
+        });
+    }
 }
 
 mod balance_transfer {
