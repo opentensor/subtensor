@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
+#![allow(clippy::arithmetic_side_effects)]
 
 use core::iter::IntoIterator;
 use std::collections::BTreeSet;
@@ -98,8 +99,7 @@ fn call_data_u16_u64(signature: &str, first: u16, second: u64) -> Vec<u8> {
 
 /// Matches the alpha precompile conversion from fixed-point price to EVM `uint256`.
 fn alpha_price_to_evm(price: U96F32) -> U256 {
-    let scaled_price = price.saturating_mul(U96F32::from_num(1_000_000_000));
-    let scaled_price = scaled_price.saturating_to_num::<u64>();
+    let scaled_price = (price * U96F32::from_num(1_000_000_000)).to_num::<u64>();
     <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(scaled_price.into())
         .expect("runtime balance conversion should work for alpha price")
         .into_u256()
@@ -450,7 +450,7 @@ mod alpha {
                         netuid,
                     );
                 if price < U96F32::from_num(1) {
-                    sum_alpha_price = sum_alpha_price.saturating_add(price);
+                    sum_alpha_price += price;
                 }
             }
 
