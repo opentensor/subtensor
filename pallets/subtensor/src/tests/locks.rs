@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::arithmetic_side_effects)]
 
 use approx::assert_abs_diff_eq;
-use frame_support::{assert_noop, assert_ok};
 use frame_support::weights::Weight;
+use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, TaoBalance};
@@ -46,7 +46,11 @@ fn setup_subnet_with_stake(
     netuid
 }
 
-fn get_alpha(hotkey: &U256, coldkey: &U256, netuid: subtensor_runtime_common::NetUid) -> AlphaBalance {
+fn get_alpha(
+    hotkey: &U256,
+    coldkey: &U256,
+    netuid: subtensor_runtime_common::NetUid,
+) -> AlphaBalance {
     SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
 }
 
@@ -75,7 +79,10 @@ fn test_lock_stake_creates_new_lock() {
         assert_eq!(lock.hotkey, hotkey);
         assert_eq!(lock.locked_mass, lock_amount.into());
         assert_eq!(lock.conviction, U64F64::saturating_from_num(0));
-        assert_eq!(lock.last_update, SubtensorModule::get_current_block_as_u64());
+        assert_eq!(
+            lock.last_update,
+            SubtensorModule::get_current_block_as_u64()
+        );
     });
 }
 
@@ -200,10 +207,7 @@ fn test_available_to_unstake_fully_locked() {
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         assert_ok!(SubtensorModule::do_lock_stake(
-            &coldkey,
-            netuid,
-            &hotkey,
-            total,
+            &coldkey, netuid, &hotkey, total,
         ));
 
         let available = SubtensorModule::available_to_unstake(&coldkey, netuid);
@@ -223,12 +227,22 @@ fn test_lock_stake_topup() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         let first_lock = 1000u64;
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, first_lock.into()));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            first_lock.into()
+        ));
 
         step_block(100);
 
         let second_lock = 500u64;
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, second_lock.into()));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            second_lock.into()
+        ));
 
         let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
         // locked_mass should be decayed(first_lock) + second_lock
@@ -237,7 +251,10 @@ fn test_lock_stake_topup() {
         assert!(lock.locked_mass < 1501.into());
         // conviction should have grown from the time the first lock was active
         assert!(lock.conviction > U64F64::saturating_from_num(0));
-        assert_eq!(lock.last_update, SubtensorModule::get_current_block_as_u64());
+        assert_eq!(
+            lock.last_update,
+            SubtensorModule::get_current_block_as_u64()
+        );
     });
 }
 
@@ -250,11 +267,17 @@ fn test_lock_stake_topup_multiple_times() {
 
         let chunk = 500u64.into();
 
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, chunk));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, chunk
+        ));
         step_block(50);
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, chunk));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, chunk
+        ));
         step_block(50);
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, chunk));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, chunk
+        ));
 
         let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
         // After three top-ups with small decay, should be close to 1500
@@ -274,9 +297,13 @@ fn test_lock_stake_topup_same_block() {
         let first = 1000u64.into();
         let second = 500u64.into();
 
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, first));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, first
+        ));
         // No block advancement — same block top-up
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, second));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, second
+        ));
 
         let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
         // dt=0 means no decay, simple addition
@@ -297,12 +324,7 @@ fn test_lock_stake_zero_amount() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         assert_noop!(
-            SubtensorModule::do_lock_stake(
-                &coldkey,
-                netuid,
-                &hotkey,
-                AlphaBalance::ZERO,
-            ),
+            SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, AlphaBalance::ZERO,),
             Error::<Test>::AmountTooLow
         );
     });
@@ -341,12 +363,7 @@ fn test_lock_stake_wrong_hotkey() {
         ));
 
         assert_noop!(
-            SubtensorModule::do_lock_stake(
-                &coldkey,
-                netuid,
-                &hotkey_b,
-                500u64.into(),
-            ),
+            SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey_b, 500u64.into(),),
             Error::<Test>::LockHotkeyMismatch
         );
     });
@@ -362,7 +379,9 @@ fn test_lock_stake_topup_exceeds_total() {
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         // Lock 80% initially
         let initial = total * 8.into() / 10.into();
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, initial));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, initial
+        ));
 
         // Try to top up the remaining 30% (exceeds total by 10%)
         let topup = total * 3.into() / 10.into();
@@ -417,7 +436,12 @@ fn test_roll_forward_locked_mass_decays() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         let lock_amount = 10000u64;
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, lock_amount.into()));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount.into()
+        ));
 
         // Advance one full tau via direct block number jump (step_block overflows u16 for tau=216000)
         let tau = TauBlocks::<Test>::get();
@@ -444,7 +468,12 @@ fn test_roll_forward_conviction_grows_then_decays() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         let lock_amount = 10000u64.into();
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, lock_amount));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount
+        ));
 
         // Conviction at t=0 is 0
         let c0 = SubtensorModule::get_conviction(&coldkey, netuid);
@@ -519,7 +548,12 @@ fn test_unstake_allowed_up_to_available() {
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         let lock_amount = total / 2.into();
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, lock_amount));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount
+        ));
 
         // Unstake the unlocked half
         let alpha = get_alpha(&hotkey, &coldkey, netuid);
@@ -569,7 +603,9 @@ fn test_unstake_allowed_after_decay() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, total));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, total
+        ));
 
         // Advance many taus so lock decays to near-zero (use set_block_number to avoid u16 overflow)
         let tau = TauBlocks::<Test>::get();
@@ -603,7 +639,9 @@ fn test_unstake_partial_after_partial_decay() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, total));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, total
+        ));
 
         // Advance one tau: lock ~ 37% of original
         let tau = TauBlocks::<Test>::get();
@@ -649,7 +687,9 @@ fn test_move_stake_same_coldkey_same_subnet_allowed() {
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         // Lock the full amount to hotkey_a
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey_a, total));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey_a, total
+        ));
 
         // Move from hotkey_a to hotkey_b on same subnet — total coldkey alpha unchanged
         let alpha = get_alpha(&hotkey_a, &coldkey, netuid);
@@ -682,7 +722,9 @@ fn test_move_stake_cross_subnet_blocked_by_lock() {
         );
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid_a);
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid_a, &hotkey, total));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid_a, &hotkey, total
+        ));
 
         step_block(1);
 
@@ -1200,12 +1242,7 @@ fn test_hotkey_swap_lock_becomes_stale() {
 
         // Trying to top up to new_hotkey fails with mismatch
         assert_noop!(
-            SubtensorModule::do_lock_stake(
-                &coldkey,
-                netuid,
-                &new_hotkey,
-                100u64.into(),
-            ),
+            SubtensorModule::do_lock_stake(&coldkey, netuid, &new_hotkey, 100u64.into(),),
             Error::<Test>::LockHotkeyMismatch
         );
     });
@@ -1328,7 +1365,9 @@ fn test_burn_alpha_bypasses_lock() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, total));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, total
+        ));
 
         step_block(1);
 
@@ -1472,7 +1511,12 @@ fn test_emissions_do_not_break_lock_invariant() {
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
         let total_alpha_before = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, total_alpha_before));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            total_alpha_before
+        ));
 
         // Simulate emission: directly increase alpha for the hotkey on subnet
         // This increases the pool value for all share holders (including our coldkey)
@@ -1508,7 +1552,12 @@ fn test_neuron_replacement_does_not_affect_lock() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         let lock_amount = 5000u64.into();
-        assert_ok!(SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, lock_amount));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount
+        ));
 
         let total_before = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         let locked_before = SubtensorModule::get_current_locked(&coldkey, netuid);

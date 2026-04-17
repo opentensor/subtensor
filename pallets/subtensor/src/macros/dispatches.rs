@@ -2559,12 +2559,7 @@ mod dispatches {
             amount: AlphaBalance,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            Self::do_lock_stake(
-                &coldkey,
-                netuid,
-                &hotkey,
-                amount,
-            )
-        }        
+            Self::do_lock_stake(&coldkey, netuid, &hotkey, amount)
+        }
     }
 }

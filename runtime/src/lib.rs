@@ -73,7 +73,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use stp_shield::ShieldedTransaction;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -2527,6 +2527,14 @@ impl_runtime_apis! {
 
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
+        }
+
+        fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64 {
+            SubtensorModule::hotkey_conviction(&hotkey, netuid)
+        }
+
+        fn get_most_convicted_hotkey_on_subnet(netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::subnet_king(netuid)
         }
     }
 

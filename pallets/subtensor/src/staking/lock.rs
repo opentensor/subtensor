@@ -15,8 +15,9 @@ impl<T: Config> Pallet<T> {
             return U64F64::saturating_from_num(0);
         }
         let min_ratio = I64F64::saturating_from_num(-40);
-        let neg_ratio =
-            I64F64::saturating_from_num(-(dt as i128)).checked_div(I64F64::saturating_from_num(tau)).unwrap_or(min_ratio);
+        let neg_ratio = I64F64::saturating_from_num(-(dt as i128))
+            .checked_div(I64F64::saturating_from_num(tau))
+            .unwrap_or(min_ratio);
         let clamped = neg_ratio.max(min_ratio);
         let result: I64F64 = exp(clamped).unwrap_or(I64F64::saturating_from_num(0));
         if result < I64F64::saturating_from_num(0) {
@@ -30,10 +31,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// X_new = decay * X_old
     /// Y_new = decay * (Y_old + dt * X_old)
-    pub fn roll_forward_lock(
-        lock: LockState<T::AccountId>,
-        now: u64,
-    ) -> LockState<T::AccountId> {
+    pub fn roll_forward_lock(lock: LockState<T::AccountId>, now: u64) -> LockState<T::AccountId> {
         if now <= lock.last_update {
             return lock;
         }
@@ -43,9 +41,14 @@ impl<T: Config> Pallet<T> {
 
         let dt_fixed = U64F64::saturating_from_num(dt);
         let mass_fixed = U64F64::saturating_from_num(lock.locked_mass);
-        let new_locked_mass = decay.saturating_mul(mass_fixed).saturating_to_num::<u64>().into();
-        let new_conviction =
-            decay.saturating_mul(lock.conviction.saturating_add(dt_fixed.saturating_mul(mass_fixed)));
+        let new_locked_mass = decay
+            .saturating_mul(mass_fixed)
+            .saturating_to_num::<u64>()
+            .into();
+        let new_conviction = decay.saturating_mul(
+            lock.conviction
+                .saturating_add(dt_fixed.saturating_mul(mass_fixed)),
+        );
 
         LockState {
             hotkey: lock.hotkey,
@@ -59,7 +62,9 @@ impl<T: Config> Pallet<T> {
     pub fn total_coldkey_alpha_on_subnet(coldkey: &T::AccountId, netuid: NetUid) -> AlphaBalance {
         StakingHotkeys::<T>::get(coldkey)
             .into_iter()
-            .map(|hotkey| Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, coldkey, netuid))
+            .map(|hotkey| {
+                Self::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, coldkey, netuid)
+            })
             .fold(AlphaBalance::ZERO, |acc, stake| acc.saturating_add(stake))
     }
 
@@ -101,10 +106,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
-        ensure!(
-            !amount.is_zero(),
-            Error::<T>::AmountTooLow
-        );
+        ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
 
         let total = Self::total_coldkey_alpha_on_subnet(coldkey, netuid);
         let now = Self::get_current_block_as_u64();
@@ -124,10 +126,7 @@ impl<T: Config> Pallet<T> {
                 );
             }
             Some(existing) => {
-                ensure!(
-                    *hotkey == existing.hotkey,
-                    Error::<T>::LockHotkeyMismatch
-                );
+                ensure!(*hotkey == existing.hotkey, Error::<T>::LockHotkeyMismatch);
                 let lock = Self::roll_forward_lock(existing, now);
                 let new_locked = lock.locked_mass.saturating_add(amount);
                 ensure!(total >= new_locked, Error::<T>::InsufficientStakeForLock);
@@ -160,8 +159,10 @@ impl<T: Config> Pallet<T> {
             let now = Self::get_current_block_as_u64();
             let lock = Self::roll_forward_lock(existing, now);
             let dust = DUST_THRESHOLD.into();
-            
-            if lock.locked_mass < dust && lock.conviction < U64F64::saturating_from_num(DUST_THRESHOLD) {
+
+            if lock.locked_mass < dust
+                && lock.conviction < U64F64::saturating_from_num(DUST_THRESHOLD)
+            {
                 Lock::<T>::remove(coldkey, netuid);
             } else {
                 Lock::<T>::insert(coldkey, netuid, lock);
@@ -206,7 +207,10 @@ impl<T: Config> Pallet<T> {
 
         scores
             .into_values()
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(sp_std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.1.partial_cmp(&b.1)
+                    .unwrap_or(sp_std::cmp::Ordering::Equal)
+            })
             .map(|(hotkey, _)| hotkey)
     }
 }

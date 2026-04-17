@@ -296,6 +296,6 @@ mod errors {
         /// Lock hotkey mismatch: existing lock is for a different hotkey.
         LockHotkeyMismatch,
         /// Insufficient stake on subnet to cover the lock amount.
-        InsufficientStakeForLock,        
+        InsufficientStakeForLock,
     }
 }
