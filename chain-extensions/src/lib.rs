@@ -70,14 +70,14 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
+        let (hotkey, netuid, amount_staked): (T::AccountId, NetUid, TaoBalance) = env
+            .read_as()
+            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
         let weight =
             <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
 
         env.charge_weight(weight)?;
-
-        let (hotkey, netuid, amount_staked): (T::AccountId, NetUid, TaoBalance) = env
-            .read_as()
-            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
         let call_result =
             pallet_subtensor::Pallet::<T>::add_stake(origin.into(), hotkey, netuid, amount_staked);
@@ -99,16 +99,16 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
+        let (hotkey, netuid, amount_unstaked): (T::AccountId, NetUid, AlphaBalance) = env
+            .read_as()
+            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
         // weight for remove_stake is not defined in the Subtensor pallet's WeightInfo
         let weight = Weight::from_parts(196_800_000, 0)
             .saturating_add(T::DbWeight::get().reads(19))
             .saturating_add(T::DbWeight::get().writes(10));
 
         env.charge_weight(weight)?;
-
-        let (hotkey, netuid, amount_unstaked): (T::AccountId, NetUid, AlphaBalance) = env
-            .read_as()
-            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
         let call_result = pallet_subtensor::Pallet::<T>::remove_stake(
             origin.into(),
@@ -134,14 +134,14 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
+        let hotkey: T::AccountId = env
+            .read_as()
+            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
         let weight =
             <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all();
 
         env.charge_weight(weight)?;
-
-        let hotkey: T::AccountId = env
-            .read_as()
-            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
         let call_result = pallet_subtensor::Pallet::<T>::unstake_all(origin.into(), hotkey);
 
@@ -162,15 +162,15 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
+        let hotkey: T::AccountId = env
+            .read_as()
+            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
         let weight =
             <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all_alpha(
             );
 
         env.charge_weight(weight)?;
-
-        let hotkey: T::AccountId = env
-            .read_as()
-            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
         let call_result = pallet_subtensor::Pallet::<T>::unstake_all_alpha(origin.into(), hotkey);
 
@@ -191,11 +191,6 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake();
-
-        env.charge_weight(weight)?;
-
         let (origin_hotkey, destination_hotkey, origin_netuid, destination_netuid, alpha_amount): (
             T::AccountId,
             T::AccountId,
@@ -205,6 +200,11 @@ where
         ) = env
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::move_stake();
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::move_stake(
             origin.into(),
@@ -232,11 +232,6 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake();
-
-        env.charge_weight(weight)?;
-
         let (destination_coldkey, hotkey, origin_netuid, destination_netuid, alpha_amount): (
             T::AccountId,
             T::AccountId,
@@ -246,6 +241,11 @@ where
         ) = env
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::transfer_stake();
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::transfer_stake(
             origin.into(),
@@ -273,11 +273,6 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake();
-
-        env.charge_weight(weight)?;
-
         let (hotkey, origin_netuid, destination_netuid, alpha_amount): (
             T::AccountId,
             NetUid,
@@ -286,6 +281,11 @@ where
         ) = env
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake();
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::swap_stake(
             origin.into(),
@@ -312,11 +312,6 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_limit();
-
-        env.charge_weight(weight)?;
-
         let (hotkey, netuid, amount_staked, limit_price, allow_partial): (
             T::AccountId,
             NetUid,
@@ -326,6 +321,11 @@ where
         ) = env
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake_limit();
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::add_stake_limit(
             origin.into(),
@@ -353,11 +353,6 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit();
-
-        env.charge_weight(weight)?;
-
         let (hotkey, netuid, amount_unstaked, limit_price, allow_partial): (
             T::AccountId,
             NetUid,
@@ -367,6 +362,11 @@ where
         ) = env
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_limit();
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::remove_stake_limit(
             origin.into(),
@@ -394,12 +394,6 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight =
-            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake_limit(
-            );
-
-        env.charge_weight(weight)?;
-
         let (
             hotkey,
             origin_netuid,
@@ -410,6 +404,12 @@ where
         ): (T::AccountId, NetUid, NetUid, AlphaBalance, TaoBalance, bool) =
             env.read_as()
                 .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::swap_stake_limit(
+            );
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::swap_stake_limit(
             origin.into(),
@@ -438,13 +438,13 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
-
-        env.charge_weight(weight)?;
-
         let (hotkey, netuid, limit_price): (T::AccountId, NetUid, Option<TaoBalance>) = env
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::remove_stake_full_limit(
             origin.into(),
@@ -470,13 +470,13 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
-        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::set_coldkey_auto_stake_hotkey();
-
-        env.charge_weight(weight)?;
-
         let (netuid, hotkey): (NetUid, T::AccountId) = env
             .read_as()
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
+        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::set_coldkey_auto_stake_hotkey();
+
+        env.charge_weight(weight)?;
 
         let call_result = pallet_subtensor::Pallet::<T>::set_coldkey_auto_stake_hotkey(
             origin.into(),
@@ -501,15 +501,15 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
+        let delegate: T::AccountId = env
+            .read_as()
+            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
         let weight = <T as pallet_proxy::Config>::WeightInfo::add_proxy(
             <T as pallet_proxy::Config>::MaxProxies::get(),
         );
 
         env.charge_weight(weight)?;
-
-        let delegate: T::AccountId = env
-            .read_as()
-            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
         let delegate_lookup =
             <<T as frame_system::Config>::Lookup as StaticLookup>::Source::from(delegate);
@@ -538,15 +538,15 @@ where
         Env: SubtensorExtensionEnv<T>,
         <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     {
+        let delegate: T::AccountId = env
+            .read_as()
+            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
+
         let weight = <T as pallet_proxy::Config>::WeightInfo::remove_proxy(
             <T as pallet_proxy::Config>::MaxProxies::get(),
         );
 
         env.charge_weight(weight)?;
-
-        let delegate: T::AccountId = env
-            .read_as()
-            .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
         let delegate_lookup =
             <<T as frame_system::Config>::Lookup as StaticLookup>::Source::from(delegate);
