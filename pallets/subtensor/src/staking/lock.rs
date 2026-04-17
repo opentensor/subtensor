@@ -1,0 +1,211 @@
+use super::*;
+use substrate_fixed::transcendental::exp;
+use substrate_fixed::types::{I64F64, U64F64};
+use subtensor_runtime_common::NetUid;
+
+const DUST_THRESHOLD: u64 = 100;
+
+impl<T: Config> Pallet<T> {
+    /// Computes exp(-dt / tau) as a U64F64 decay factor.
+    pub fn exp_decay(dt: u64, tau: u64) -> U64F64 {
+        if tau == 0 || dt == 0 {
+            if dt == 0 {
+                return U64F64::saturating_from_num(1);
+            }
+            return U64F64::saturating_from_num(0);
+        }
+        let neg_ratio =
+            I64F64::saturating_from_num(-(dt as i128)).saturating_div(I64F64::saturating_from_num(tau));
+        let clamped = neg_ratio.max(I64F64::saturating_from_num(-40));
+        let result: I64F64 = exp(clamped).unwrap_or(I64F64::saturating_from_num(0));
+        if result < I64F64::saturating_from_num(0) {
+            U64F64::saturating_from_num(0)
+        } else {
+            U64F64::saturating_from_num(result)
+        }
+    }
+
+    /// Rolls a LockState forward to `now` using exponential decay.
+    ///
+    /// X_new = decay * X_old
+    /// Y_new = decay * (Y_old + dt * X_old)
+    pub fn roll_forward_lock(
+        lock: LockState<T::AccountId>,
+        now: u64,
+    ) -> LockState<T::AccountId> {
+        if now <= lock.last_update {
+            return lock;
+        }
+        let dt = now.saturating_sub(lock.last_update);
+        let tau = TauBlocks::<T>::get();
+        let decay = Self::exp_decay(dt, tau);
+
+        let dt_fixed = U64F64::saturating_from_num(dt);
+        let new_locked_mass = decay.saturating_mul(lock.locked_mass);
+        let new_conviction =
+            decay.saturating_mul(lock.conviction.saturating_add(dt_fixed.saturating_mul(lock.locked_mass)));
+
+        LockState {
+            hotkey: lock.hotkey,
+            locked_mass: new_locked_mass,
+            conviction: new_conviction,
+            last_update: now,
+        }
+    }
+
+    /// Returns the sum of raw alpha shares for a coldkey across all hotkeys on a given subnet.
+    pub fn total_coldkey_alpha_on_subnet(coldkey: &T::AccountId, netuid: NetUid) -> U64F64 {
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+        let mut total = U64F64::saturating_from_num(0);
+        for hotkey in hotkeys.iter() {
+            total = total.saturating_add(Alpha::<T>::get((&hotkey, coldkey, netuid)));
+        }
+        total
+    }
+
+    /// Returns the current locked amount for a coldkey on a subnet (rolled forward to now).
+    pub fn get_current_locked(coldkey: &T::AccountId, netuid: NetUid) -> U64F64 {
+        let now = Self::get_current_block_as_u64();
+        match Lock::<T>::get(coldkey, netuid) {
+            Some(lock) => Self::roll_forward_lock(lock, now).locked_mass,
+            None => U64F64::saturating_from_num(0),
+        }
+    }
+
+    /// Returns the current conviction for a coldkey on a subnet (rolled forward to now).
+    pub fn get_conviction(coldkey: &T::AccountId, netuid: NetUid) -> U64F64 {
+        let now = Self::get_current_block_as_u64();
+        match Lock::<T>::get(coldkey, netuid) {
+            Some(lock) => Self::roll_forward_lock(lock, now).conviction,
+            None => U64F64::saturating_from_num(0),
+        }
+    }
+
+    /// Returns the alpha amount available to unstake for a coldkey on a subnet.
+    pub fn available_to_unstake(coldkey: &T::AccountId, netuid: NetUid) -> U64F64 {
+        let total = Self::total_coldkey_alpha_on_subnet(coldkey, netuid);
+        let locked = Self::get_current_locked(coldkey, netuid);
+        if total > locked {
+            total.saturating_sub(locked)
+        } else {
+            U64F64::saturating_from_num(0)
+        }
+    }
+
+    /// Locks stake for a coldkey on a subnet to a specific hotkey.
+    /// If no lock exists, creates one. If one exists, the hotkey must match.
+    /// Top-up adds to locked_mass after rolling forward.
+    pub fn do_lock_stake(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        hotkey: &T::AccountId,
+        amount: U64F64,
+    ) -> dispatch::DispatchResult {
+        ensure!(
+            amount > U64F64::saturating_from_num(0),
+            Error::<T>::AmountTooLow
+        );
+
+        let total = Self::total_coldkey_alpha_on_subnet(coldkey, netuid);
+        let now = Self::get_current_block_as_u64();
+
+        match Lock::<T>::get(coldkey, netuid) {
+            None => {
+                ensure!(total >= amount, Error::<T>::InsufficientStakeForLock);
+                Lock::<T>::insert(
+                    coldkey,
+                    netuid,
+                    LockState {
+                        hotkey: hotkey.clone(),
+                        locked_mass: amount,
+                        conviction: U64F64::saturating_from_num(0),
+                        last_update: now,
+                    },
+                );
+            }
+            Some(existing) => {
+                let lock = Self::roll_forward_lock(existing, now);
+                ensure!(
+                    *hotkey == lock.hotkey,
+                    Error::<T>::LockHotkeyMismatch
+                );
+                let new_locked = lock.locked_mass.saturating_add(amount);
+                ensure!(total >= new_locked, Error::<T>::InsufficientStakeForLock);
+                Lock::<T>::insert(
+                    coldkey,
+                    netuid,
+                    LockState {
+                        hotkey: lock.hotkey,
+                        locked_mass: new_locked,
+                        conviction: lock.conviction,
+                        last_update: now,
+                    },
+                );
+            }
+        }
+
+        Self::deposit_event(Event::StakeLocked {
+            coldkey: coldkey.clone(),
+            hotkey: hotkey.clone(),
+            netuid,
+            amount: amount.saturating_to_num::<u64>(),
+        });
+
+        Ok(())
+    }
+
+    /// Clears the lock if both locked_mass and conviction have decayed below the dust threshold.
+    pub fn maybe_cleanup_lock(coldkey: &T::AccountId, netuid: NetUid) {
+        if let Some(existing) = Lock::<T>::get(coldkey, netuid) {
+            let now = Self::get_current_block_as_u64();
+            let lock = Self::roll_forward_lock(existing, now);
+            let dust = U64F64::saturating_from_num(DUST_THRESHOLD);
+            if lock.locked_mass < dust && lock.conviction < dust {
+                Lock::<T>::remove(coldkey, netuid);
+            } else {
+                Lock::<T>::insert(coldkey, netuid, lock);
+            }
+        }
+    }
+
+    /// Returns the total conviction for a hotkey on a subnet,
+    /// summed over all coldkeys that have locked to this hotkey.
+    pub fn hotkey_conviction(hotkey: &T::AccountId, netuid: NetUid) -> U64F64 {
+        let now = Self::get_current_block_as_u64();
+        let mut total = U64F64::saturating_from_num(0);
+        for (_coldkey, _subnet_id, lock) in Lock::<T>::iter() {
+            if _subnet_id != netuid {
+                continue;
+            }
+            if *hotkey == lock.hotkey {
+                let rolled = Self::roll_forward_lock(lock, now);
+                total = total.saturating_add(rolled.conviction);
+            }
+        }
+        total
+    }
+
+    /// Finds the hotkey with the highest conviction on a given subnet.
+    pub fn subnet_king(netuid: NetUid) -> Option<T::AccountId> {
+        let now = Self::get_current_block_as_u64();
+        let mut scores: sp_std::collections::btree_map::BTreeMap<Vec<u8>, (T::AccountId, U64F64)> =
+            sp_std::collections::btree_map::BTreeMap::new();
+
+        for (_coldkey, subnet_id, lock) in Lock::<T>::iter() {
+            if subnet_id != netuid {
+                continue;
+            }
+            let rolled = Self::roll_forward_lock(lock, now);
+            let key = rolled.hotkey.encode();
+            let entry = scores
+                .entry(key)
+                .or_insert_with(|| (rolled.hotkey.clone(), U64F64::saturating_from_num(0)));
+            entry.1 = entry.1.saturating_add(rolled.conviction);
+        }
+
+        scores
+            .into_values()
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(sp_std::cmp::Ordering::Equal))
+            .map(|(hotkey, _)| hotkey)
+    }
+}

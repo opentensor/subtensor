@@ -1103,6 +1103,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        let alpha_after = Self::total_coldkey_alpha_on_subnet(coldkey, netuid)
+            .saturating_sub(U64F64::saturating_from_num(alpha_unstaked.to_u64()));
+        let locked = Self::get_current_locked(coldkey, netuid);
+        ensure!(alpha_after >= locked, Error::<T>::CannotUnstakeLock);
+
         Ok(())
     }
 
@@ -1246,6 +1251,16 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::TransferDisallowed
                 );
             }
+        }
+
+        // Enforce lock invariant: if the operation reduces total coldkey alpha on origin subnet
+        // (cross-coldkey transfer or cross-subnet move), the remaining amount must cover the lock.
+        if origin_coldkey != destination_coldkey || origin_netuid != destination_netuid {
+            let sender_total = Self::total_coldkey_alpha_on_subnet(origin_coldkey, origin_netuid);
+            let sender_locked = Self::get_current_locked(origin_coldkey, origin_netuid);
+            let sender_after = sender_total
+                .saturating_sub(U64F64::saturating_from_num(alpha_amount.to_u64()));
+            ensure!(sender_after >= sender_locked, Error::<T>::CannotUnstakeLock);
         }
 
         Ok(())
