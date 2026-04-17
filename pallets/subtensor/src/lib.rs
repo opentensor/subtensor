@@ -1435,6 +1435,43 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// Exponential lock state for a coldkey on a subnet.
+    #[derive(
+        Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo,
+    )]
+    pub struct LockState<AccountId> {
+        /// The hotkey this stake is locked to.
+        pub hotkey: AccountId,
+        /// Exponentially decaying locked amount.
+        pub locked_mass: U64F64,
+        /// Matured decaying score (integral of locked_mass over time).
+        pub conviction: U64F64,
+        /// Block number of last roll-forward.
+        pub last_update: u64,
+    }
+
+    /// --- DMAP ( coldkey, netuid ) --> LockState | Exponential lock per coldkey per subnet.
+    #[pallet::storage]
+    pub type Lock<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId, // coldkey
+        Identity,
+        NetUid, // subnet
+        LockState<T::AccountId>,
+        OptionQuery,
+    >;
+
+    /// Default decay timescale: ~30 days at 12s blocks.
+    #[pallet::type_value]
+    pub fn DefaultTauBlocks<T: Config>() -> u64 {
+        7200 * 30
+    }
+
+    /// --- ITEM( tau_blocks ) | Decay timescale in blocks for exponential lock.
+    #[pallet::storage]
+    pub type TauBlocks<T: Config> = StorageValue<_, u64, ValueQuery, DefaultTauBlocks<T>>;
+
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
     pub type AlphaMapLastKey<T: Config> =
