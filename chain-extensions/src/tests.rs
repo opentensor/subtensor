@@ -1065,10 +1065,11 @@ fn add_stake_recycle_with_insufficient_balance_returns_error() {
 
         // Don't fund the coldkey - should fail with balance error
 
-        // add_stake fails early, so only add_stake weight should be charged —
-        // recycle_alpha weight is not charged because that stage is never reached.
         let expected_weight =
-            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake();
+            <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                .saturating_add(
+                    <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
+                );
 
         let mut env = MockEnv::new(
             FunctionId::AddStakeRecycleV1,

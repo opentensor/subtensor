@@ -9,7 +9,6 @@ pub mod types;
 
 use crate::types::{FunctionId, Output};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{DebugNoBound, traits::Get};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
@@ -586,51 +585,25 @@ where
                 }
             }
             FunctionId::AddStakeRecycleV1 => {
-                let add_stake_weight =
-                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake(
-                    );
-                let recycle_weight =
-                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha();
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                        .saturating_add(
+                            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
+                        );
 
-                env.charge_weight(add_stake_weight)?;
+                env.charge_weight(weight)?;
 
                 let (hotkey, netuid, tao_amount): (T::AccountId, NetUid, TaoBalance) =
                     env.read_as()?;
 
-                let caller = env.caller();
+                let call_result = pallet_subtensor::Pallet::<T>::do_add_stake_recycle(
+                    RawOrigin::Signed(env.caller()).into(),
+                    hotkey,
+                    netuid,
+                    tao_amount,
+                );
 
-                let mut recycle_attempted = false;
-
-                let result: Result<AlphaBalance, DispatchError> =
-                    transactional::with_transaction(|| {
-                        let alpha = match pallet_subtensor::Pallet::<T>::do_add_stake(
-                            RawOrigin::Signed(caller.clone()).into(),
-                            hotkey.clone(),
-                            netuid,
-                            tao_amount,
-                        ) {
-                            Ok(a) => a,
-                            Err(e) => return TransactionOutcome::Rollback(Err(e)),
-                        };
-
-                        recycle_attempted = true;
-
-                        match pallet_subtensor::Pallet::<T>::do_recycle_alpha(
-                            RawOrigin::Signed(caller).into(),
-                            hotkey,
-                            alpha,
-                            netuid,
-                        ) {
-                            Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
-                            Err(e) => TransactionOutcome::Rollback(Err(e)),
-                        }
-                    });
-
-                if recycle_attempted {
-                    env.charge_weight(recycle_weight)?;
-                }
-
-                match result {
+                match call_result {
                     Ok(alpha) => {
                         env.write_output(&alpha.encode())
                             .map_err(|_| DispatchError::Other("Failed to write output"))?;
@@ -643,51 +616,25 @@ where
                 }
             }
             FunctionId::AddStakeBurnV1 => {
-                let add_stake_weight =
-                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake(
-                    );
-                let burn_weight =
-                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                        .saturating_add(
+                            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha(),
+                        );
 
-                env.charge_weight(add_stake_weight)?;
+                env.charge_weight(weight)?;
 
                 let (hotkey, netuid, tao_amount): (T::AccountId, NetUid, TaoBalance) =
                     env.read_as()?;
 
-                let caller = env.caller();
+                let call_result = pallet_subtensor::Pallet::<T>::do_add_stake_burn_permissionless(
+                    RawOrigin::Signed(env.caller()).into(),
+                    hotkey,
+                    netuid,
+                    tao_amount,
+                );
 
-                let mut burn_attempted = false;
-
-                let result: Result<AlphaBalance, DispatchError> =
-                    transactional::with_transaction(|| {
-                        let alpha = match pallet_subtensor::Pallet::<T>::do_add_stake(
-                            RawOrigin::Signed(caller.clone()).into(),
-                            hotkey.clone(),
-                            netuid,
-                            tao_amount,
-                        ) {
-                            Ok(a) => a,
-                            Err(e) => return TransactionOutcome::Rollback(Err(e)),
-                        };
-
-                        burn_attempted = true;
-
-                        match pallet_subtensor::Pallet::<T>::do_burn_alpha(
-                            RawOrigin::Signed(caller).into(),
-                            hotkey,
-                            alpha,
-                            netuid,
-                        ) {
-                            Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
-                            Err(e) => TransactionOutcome::Rollback(Err(e)),
-                        }
-                    });
-
-                if burn_attempted {
-                    env.charge_weight(burn_weight)?;
-                }
-
-                match result {
+                match call_result {
                     Ok(alpha) => {
                         env.write_output(&alpha.encode())
                             .map_err(|_| DispatchError::Other("Failed to write output"))?;
