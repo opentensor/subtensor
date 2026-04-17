@@ -242,9 +242,6 @@ impl<T: Config> Pallet<T> {
                 .saturating_to_num::<u64>()
                 .into();
 
-        // With the full lock retained in the reserve, this will normally be zero.
-        let tao_recycled_for_registration = actual_tao_lock_amount.saturating_sub(total_pool_tao);
-
         // Core pool + ownership
         SubnetTAO::<T>::insert(netuid_to_register, total_pool_tao);
         SubnetAlphaIn::<T>::insert(netuid_to_register, total_pool_alpha);

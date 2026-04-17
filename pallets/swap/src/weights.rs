@@ -340,8 +340,8 @@ impl WeightInfo for () {
 		//  Estimated: `670430`
 		// Minimum execution time: 795_151_000 picoseconds.
 		Weight::from_parts(795_151_000, 670430)
-			.saturating_add(T::DbWeight::get().reads(128_u64))
-			.saturating_add(T::DbWeight::get().writes(128_u64))
+			.saturating_add(RocksDbWeight::get().reads(128_u64))
+			.saturating_add(RocksDbWeight::get().writes(128_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)

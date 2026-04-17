@@ -1196,7 +1196,7 @@ fn test_do_swap_hotkey_err_new_hotkey_not_clean_for_root() {
         SubtensorModule::set_last_tx_block(&coldkey, 0);
 
         let initial_balance = SubtensorModule::get_key_swap_cost() + 1000.into();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+        add_balance_to_coldkey_account(&coldkey, initial_balance);
 
         // new_hotkey is NOT registered on any network, but some other coldkey
         // has staked to it on root. This must block a root-touching swap.

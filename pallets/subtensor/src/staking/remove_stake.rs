@@ -604,7 +604,7 @@ impl<T: Config> Pallet<T> {
         if let Some(subnet_account) = Self::get_subnet_account_id(netuid) {
             let remaining_subnet_balance = Self::get_coldkey_balance(&subnet_account);
             if Self::recycle_tao(&subnet_account, remaining_subnet_balance).is_ok() {
-                RAORecycledForRegistration::<T>::insert(netuid_to_register, remaining_subnet_balance);
+                RAORecycledForRegistration::<T>::insert(netuid, remaining_subnet_balance);
             }
         }
 
