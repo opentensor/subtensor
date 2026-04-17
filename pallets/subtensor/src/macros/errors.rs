@@ -293,5 +293,9 @@ mod errors {
         DisabledTemporarily,
         /// Registration Price Limit Exceeded
         RegistrationPriceLimitExceeded,
+        /// Lock hotkey mismatch: existing lock is for a different hotkey.
+        LockHotkeyMismatch,
+        /// Insufficient stake on subnet to cover the lock amount.
+        InsufficientStakeForLock,        
     }
 }

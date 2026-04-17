@@ -2533,5 +2533,38 @@ mod dispatches {
             Self::deposit_event(Event::AutoParentDelegationEnabledSet { hotkey, enabled });
             Ok(())
         }
+
+        /// Locks stake on a subnet to a specific hotkey, building conviction over time.
+        ///
+        /// If no lock exists for (coldkey, subnet), a new one is created.
+        /// If a lock exists, the destination hotkey must match the existing lock's hotkey.
+        /// Top-up adds to the locked amount after rolling the lock state forward.
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the coldkey.
+        /// * `hotkey` - The hotkey to lock stake to.
+        /// * `netuid` - The subnet on which to lock.
+        /// * `amount` - The alpha amount to lock.
+        #[pallet::call_index(136)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4))
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn lock_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount: AlphaBalance,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_lock_stake(
+                &coldkey,
+                netuid,
+                &hotkey,
+                amount,
+            )
+        }        
     }
 }
