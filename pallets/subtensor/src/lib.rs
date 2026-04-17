@@ -1493,6 +1493,7 @@ pub mod pallet {
     >;
 
     /// Exponential lock state for a coldkey on a subnet.
+    #[crate::freeze_struct("cfa10602e0577f6e")]
     #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
     pub struct LockState<AccountId> {
         /// The hotkey this stake is locked to.
