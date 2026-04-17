@@ -531,7 +531,7 @@ where
 
                 env.charge_weight(weight)?;
 
-                let (hotkey, amount, netuid): (T::AccountId, AlphaBalance, NetUid) =
+                let (hotkey, netuid, amount): (T::AccountId, NetUid, AlphaBalance) =
                     env.read_as()?;
 
                 let caller = env.caller();
@@ -561,7 +561,7 @@ where
 
                 env.charge_weight(weight)?;
 
-                let (hotkey, amount, netuid): (T::AccountId, AlphaBalance, NetUid) =
+                let (hotkey, netuid, amount): (T::AccountId, NetUid, AlphaBalance) =
                     env.read_as()?;
 
                 let caller = env.caller();

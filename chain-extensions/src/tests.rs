@@ -774,7 +774,7 @@ fn recycle_alpha_success_reduces_stake_and_returns_actual_amount() {
         let mut env = MockEnv::new(
             FunctionId::RecycleAlphaV1,
             coldkey,
-            (hotkey, recycle_amount, netuid).encode(),
+            (hotkey, netuid, recycle_amount).encode(),
         )
         .with_expected_weight(expected_weight);
 
@@ -810,7 +810,7 @@ fn recycle_alpha_on_root_subnet_returns_error() {
         let mut env = MockEnv::new(
             FunctionId::RecycleAlphaV1,
             coldkey,
-            (hotkey, AlphaBalance::from(1_000u64), NetUid::ROOT).encode(),
+            (hotkey, NetUid::ROOT, AlphaBalance::from(1_000u64)).encode(),
         )
         .with_expected_weight(expected_weight);
 
@@ -875,7 +875,7 @@ fn burn_alpha_success_reduces_stake_and_returns_actual_amount() {
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
             coldkey,
-            (hotkey, burn_amount, netuid).encode(),
+            (hotkey, netuid, burn_amount).encode(),
         )
         .with_expected_weight(expected_weight);
 
@@ -910,7 +910,7 @@ fn burn_alpha_on_nonexistent_subnet_returns_error() {
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
             coldkey,
-            (hotkey, AlphaBalance::from(1_000u64), NetUid::from(999u16)).encode(),
+            (hotkey, NetUid::from(999u16), AlphaBalance::from(1_000u64)).encode(),
         )
         .with_expected_weight(expected_weight);
 
@@ -1134,7 +1134,7 @@ fn recycle_alpha_clamps_to_available_when_amount_exceeds_stake() {
         let mut env = MockEnv::new(
             FunctionId::RecycleAlphaV1,
             coldkey,
-            (hotkey, huge_amount, netuid).encode(),
+            (hotkey, netuid, huge_amount).encode(),
         )
         .with_expected_weight(expected_weight);
 
@@ -1169,7 +1169,7 @@ fn burn_alpha_on_root_subnet_returns_error() {
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
             coldkey,
-            (hotkey, AlphaBalance::from(1_000u64), NetUid::ROOT).encode(),
+            (hotkey, NetUid::ROOT, AlphaBalance::from(1_000u64)).encode(),
         )
         .with_expected_weight(expected_weight);
 
@@ -1233,7 +1233,7 @@ fn burn_alpha_clamps_to_available_when_amount_exceeds_stake() {
         let mut env = MockEnv::new(
             FunctionId::BurnAlphaV1,
             coldkey,
-            (hotkey, huge_amount, netuid).encode(),
+            (hotkey, netuid, huge_amount).encode(),
         )
         .with_expected_weight(expected_weight);
 
