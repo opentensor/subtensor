@@ -132,6 +132,9 @@ mod pallet_benchmarks {
 
             RegistrationsThisInterval::<T>::insert(netuid, 0);
 
+            // Reset burn so that we don't hit maximum issuance
+            Burn::<T>::insert(netuid, TaoBalance::from(1_000_000));
+
             assert_ok!(Subtensor::<T>::burned_register(
                 RawOrigin::Signed(coldkey.clone()).into(),
                 netuid,
