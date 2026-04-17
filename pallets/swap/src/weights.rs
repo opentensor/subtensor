@@ -107,10 +107,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1600`
 		//  Estimated: `6096`
-		// Minimum execution time: 131_446_000 picoseconds.
-		Weight::from_parts(134_572_000, 6096)
-			.saturating_add(T::DbWeight::get().reads(19_u64))
-			.saturating_add(T::DbWeight::get().writes(11_u64))
+		// Minimum execution time: 2_535_000 picoseconds.
+		Weight::from_parts(2_535_000, 6096)
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -152,10 +150,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `1645`
 		//  Estimated: `6096`
-		// Minimum execution time: 149_791_000 picoseconds.
-		Weight::from_parts(154_219_000, 6096)
-			.saturating_add(T::DbWeight::get().reads(19_u64))
-			.saturating_add(T::DbWeight::get().writes(9_u64))
+		// Minimum execution time: 2_484_000 picoseconds.
+		Weight::from_parts(2_484_000, 6096)
 	}
 	/// Storage: `Swap::EnabledUserLiquidity` (r:128 w:128)
 	/// Proof: `Swap::EnabledUserLiquidity` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
@@ -187,10 +183,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `32696`
 		//  Estimated: `670430`
-		// Minimum execution time: 9_917_169_000 picoseconds.
-		Weight::from_parts(9_951_573_000, 670430)
-			.saturating_add(T::DbWeight::get().reads(1920_u64))
-			.saturating_add(T::DbWeight::get().writes(896_u64))
+		// Minimum execution time: 795_151_000 picoseconds.
+		Weight::from_parts(795_151_000, 670430)
+			.saturating_add(T::DbWeight::get().reads(128_u64))
+			.saturating_add(T::DbWeight::get().writes(128_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -266,10 +262,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `1600`
 		//  Estimated: `6096`
-		// Minimum execution time: 131_446_000 picoseconds.
-		Weight::from_parts(134_572_000, 6096)
-			.saturating_add(RocksDbWeight::get().reads(19_u64))
-			.saturating_add(RocksDbWeight::get().writes(11_u64))
+		// Minimum execution time: 2_535_000 picoseconds.
+		Weight::from_parts(2_535_000, 6096)
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -311,10 +305,8 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `1645`
 		//  Estimated: `6096`
-		// Minimum execution time: 149_791_000 picoseconds.
-		Weight::from_parts(154_219_000, 6096)
-			.saturating_add(RocksDbWeight::get().reads(19_u64))
-			.saturating_add(RocksDbWeight::get().writes(9_u64))
+		// Minimum execution time: 2_484_000 picoseconds.
+		Weight::from_parts(2_484_000, 6096)
 	}
 	/// Storage: `Swap::EnabledUserLiquidity` (r:128 w:128)
 	/// Proof: `Swap::EnabledUserLiquidity` (`max_values`: None, `max_size`: Some(11), added: 2486, mode: `MaxEncodedLen`)
@@ -346,10 +338,10 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `32696`
 		//  Estimated: `670430`
-		// Minimum execution time: 9_917_169_000 picoseconds.
-		Weight::from_parts(9_951_573_000, 670430)
-			.saturating_add(RocksDbWeight::get().reads(1920_u64))
-			.saturating_add(RocksDbWeight::get().writes(896_u64))
+		// Minimum execution time: 795_151_000 picoseconds.
+		Weight::from_parts(795_151_000, 670430)
+			.saturating_add(T::DbWeight::get().reads(128_u64))
+			.saturating_add(T::DbWeight::get().writes(128_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
