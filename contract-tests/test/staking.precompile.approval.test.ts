@@ -58,7 +58,7 @@ describe("Test approval in staking precompile", () => {
             stakeNetuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
             // the unit in V2 is RAO, not ETH
             let stakeBalance = tao(20)
-            const stakeBefore = await api.query.SubtensorModule.Alpha.getValue(convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), stakeNetuid)
+            const stakeBefore = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), stakeNetuid)
             const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet1);
             const tx = await contract.addStake(hotkey.publicKey, stakeBalance.toString(), stakeNetuid)
             await tx.wait()
