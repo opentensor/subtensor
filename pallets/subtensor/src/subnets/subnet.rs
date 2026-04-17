@@ -217,23 +217,37 @@ impl<T: Config> Pallet<T> {
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // Seed the new subnet pool at a 1:1 reserve ratio.
-        // Separately, grant the subnet owner outstanding alpha based on the TAO they actually spent
-        // on registration converted by the current median subnet alpha price.
+        // Keep the locked TAO in the pool instead of recycling the excess.
+        // Mint the owner alpha separately at the median subnet alpha price.
+        // Size the pool alpha reserve from the total TAO reserve at that same price.
         let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
-        let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
+        let total_pool_tao: TaoBalance = if actual_tao_lock_amount >= pool_initial_tao {
+            actual_tao_lock_amount
+        } else {
+            pool_initial_tao
+        };
+        let owner_alpha_tao_equivalent: TaoBalance =
+            total_pool_tao.saturating_sub(pool_initial_tao);
+
+        let total_pool_alpha: AlphaBalance = U96F32::saturating_from_num(total_pool_tao.to_u64())
+            .safe_div(median_subnet_alpha_price)
+            .saturating_floor()
+            .saturating_to_num::<u64>()
+            .into();
+
         let owner_alpha_stake: AlphaBalance =
-            U96F32::saturating_from_num(actual_tao_lock_amount.to_u64())
+            U96F32::saturating_from_num(owner_alpha_tao_equivalent.to_u64())
                 .safe_div(median_subnet_alpha_price)
                 .saturating_floor()
                 .saturating_to_num::<u64>()
                 .into();
-        let actual_tao_lock_amount_less_pool_tao =
-            actual_tao_lock_amount.saturating_sub(pool_initial_tao);
+
+        // With the full lock retained in the reserve, this will normally be zero.
+        let tao_recycled_for_registration = actual_tao_lock_amount.saturating_sub(total_pool_tao);
 
         // Core pool + ownership
-        SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
-        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_alpha);
+        SubnetTAO::<T>::insert(netuid_to_register, total_pool_tao);
+        SubnetAlphaIn::<T>::insert(netuid_to_register, total_pool_alpha);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         Self::set_subnet_owner_hotkey(netuid_to_register, hotkey)?;
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
@@ -241,12 +255,8 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
         SubnetAlphaOut::<T>::insert(netuid_to_register, owner_alpha_stake);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
-        RAORecycledForRegistration::<T>::insert(
-            netuid_to_register,
-            actual_tao_lock_amount_less_pool_tao,
-        );
 
-        if owner_alpha_stake > AlphaBalance::ZERO {
+        if !owner_alpha_stake.is_zero() {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 hotkey,
                 &coldkey,
@@ -255,9 +265,9 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        if actual_tao_lock_amount > TaoBalance::ZERO && pool_initial_tao > TaoBalance::ZERO {
+        if total_pool_tao > TaoBalance::ZERO {
             // Record in TotalStake the initial TAO in the pool.
-            Self::increase_total_stake(pool_initial_tao);
+            Self::increase_total_stake(total_pool_tao);
         }
 
         // --- 17. Add the identity if it exists
@@ -284,7 +294,7 @@ impl<T: Config> Pallet<T> {
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 19. Return success.
+        // --- 20. Return success.
         Ok(())
     }
 
