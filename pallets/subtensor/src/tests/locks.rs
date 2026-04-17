@@ -1,4 +1,8 @@
-#![allow(clippy::unwrap_used, clippy::arithmetic_side_effects)]
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::arithmetic_side_effects
+)]
 
 use approx::assert_abs_diff_eq;
 use frame_support::weights::Weight;

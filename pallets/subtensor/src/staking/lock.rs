@@ -1,4 +1,5 @@
 use super::*;
+use sp_std::ops::Neg;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
@@ -15,7 +16,7 @@ impl<T: Config> Pallet<T> {
             return U64F64::saturating_from_num(0);
         }
         let min_ratio = I64F64::saturating_from_num(-40);
-        let neg_ratio = I64F64::saturating_from_num(-(dt as i128))
+        let neg_ratio = I64F64::saturating_from_num((dt as i128).neg())
             .checked_div(I64F64::saturating_from_num(tau))
             .unwrap_or(min_ratio);
         let clamped = neg_ratio.max(min_ratio);
