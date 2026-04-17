@@ -429,6 +429,24 @@ fn test_exp_decay_one_tau() {
 }
 
 #[test]
+fn test_exp_decay_clamps_large_dt_to_min_ratio() {
+    new_test_ext(1).execute_with(|| {
+        let tau = 216000u64;
+        let clamped_result = SubtensorModule::exp_decay(40 * tau, tau);
+        let oversized_result = SubtensorModule::exp_decay(100 * tau, tau);
+
+        let diff = if oversized_result > clamped_result {
+            oversized_result - clamped_result
+        } else {
+            clamped_result - oversized_result
+        };
+
+        assert!(diff < U64F64::saturating_from_num(0.000000001));
+        assert!(oversized_result > U64F64::saturating_from_num(0));
+    });
+}
+
+#[test]
 fn test_roll_forward_locked_mass_decays() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
