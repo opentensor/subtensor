@@ -27,6 +27,8 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeySetTxRateLimitExceeded` - If the transaction rate limit is exceeded.
     /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
     /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
+    /// * `NewHotKeyNotCleanForRootSwap` - If the swap touches root and the new hotkey
+    ///   has outstanding `RootClaimable` entries or non-zero root stake.
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
     pub fn do_swap_hotkey(
         origin: OriginFor<T>,
@@ -76,6 +78,22 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::HotKeyAlreadyRegisteredInSubNet
                 );
             }
+        }
+
+        // 7.2 If the swap touches the root subnet, require that new_hotkey is clean
+        // on root (no outstanding claimable rate and no existing root stake). Merging
+        // a non-empty rate-book would either violate total conservation or misallocate
+        // dividends across coldkeys that never staked on old_hotkey.
+        let touches_root = match netuid {
+            None => true,
+            Some(n) => n == NetUid::ROOT,
+        };
+        if touches_root {
+            ensure!(
+                RootClaimable::<T>::get(new_hotkey).is_empty()
+                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero(),
+                Error::<T>::NewHotKeyNotCleanForRootSwap
+            );
         }
 
         // 8. Swap LastTxBlock
