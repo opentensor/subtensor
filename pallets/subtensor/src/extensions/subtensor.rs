@@ -391,7 +391,8 @@ where
             }) => Self::result_to_validity(
                 Pallet::<T>::validate_serve_prometheus(
                     who, *netuid, *version, *ip, *port, *ip_type,
-                ),
+                )
+                .map(|_| ()),
                 0u64,
             )
             .map(|validity| (validity, (), origin.clone())),
