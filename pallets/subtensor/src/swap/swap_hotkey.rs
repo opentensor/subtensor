@@ -27,6 +27,8 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeySetTxRateLimitExceeded` - If the transaction rate limit is exceeded.
     /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
     /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
+    /// * `NewHotKeyNotCleanForRootSwap` - If the swap touches root and the new hotkey
+    ///   has outstanding `RootClaimable` entries or non-zero root stake.
     /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
     pub fn do_swap_hotkey(
         origin: OriginFor<T>,
@@ -76,6 +78,22 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::HotKeyAlreadyRegisteredInSubNet
                 );
             }
+        }
+
+        // 7.2 If the swap touches the root subnet, require that new_hotkey is clean
+        // on root (no outstanding claimable rate and no existing root stake). Merging
+        // a non-empty rate-book would either violate total conservation or misallocate
+        // dividends across coldkeys that never staked on old_hotkey.
+        let touches_root = match netuid {
+            None => true,
+            Some(n) => n == NetUid::ROOT,
+        };
+        if touches_root {
+            ensure!(
+                RootClaimable::<T>::get(new_hotkey).is_empty()
+                    && Self::get_stake_for_hotkey_on_subnet(new_hotkey, NetUid::ROOT).is_zero(),
+                Error::<T>::NewHotKeyNotCleanForRootSwap
+            );
         }
 
         // 8. Swap LastTxBlock
@@ -568,10 +586,10 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 9. Transfer root claimable and root claimed only for the root subnet
-            // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
-            // otherwise root stakers won't be able to receive dividends.
             if netuid == NetUid::ROOT {
+                // 9. Transfer root claimable and root claimed only for the root subnet
+                // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
+                // otherwise root stakers won't be able to receive dividends.
                 Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
@@ -597,6 +615,14 @@ impl<T: Config> Pallet<T> {
                         );
                         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
                     }
+                }
+
+                // Transfer AutoParentDelegationEnabled flag from old_hotkey to new_hotkey.
+                // Only migrate if it was explicitly set, to preserve the storage default semantics.
+                if AutoParentDelegationEnabled::<T>::contains_key(old_hotkey) {
+                    let enabled = AutoParentDelegationEnabled::<T>::take(old_hotkey);
+                    AutoParentDelegationEnabled::<T>::insert(new_hotkey, enabled);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
                 }
             }
         }

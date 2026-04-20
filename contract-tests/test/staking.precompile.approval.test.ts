@@ -11,6 +11,7 @@ import {
     forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, addNewSubnetwork, burnedRegister,
     sendProxyCall,
     startCall,
+    getStake,
 } from "../src/subtensor"
 import { ETH_LOCAL_URL } from "../src/config";
 import { ISTAKING_ADDRESS, ISTAKING_V2_ADDRESS, IStakingABI, IStakingV2ABI } from "../src/contracts/staking"
@@ -57,17 +58,17 @@ describe("Test approval in staking precompile", () => {
             stakeNetuid = (await api.query.SubtensorModule.TotalNetworks.getValue()) - 1
             // the unit in V2 is RAO, not ETH
             let stakeBalance = tao(20)
+            const stakeBefore = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), stakeNetuid)
             const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet1);
-            const stakeBefore = BigInt(
-                await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet1.address), stakeNetuid)
-            );
             const tx = await contract.addStake(hotkey.publicKey, stakeBalance.toString(), stakeNetuid)
             await tx.wait()
 
-            const stakeAfter = BigInt(
+            const stakeFromContract = BigInt(
                 await contract.getStake(hotkey.publicKey, convertH160ToPublicKey(wallet1.address), stakeNetuid)
             );
 
+            assert.ok(stakeFromContract > stakeBefore)
+            const stakeAfter = await getStake(api, convertPublicKeyToSs58(hotkey.publicKey), convertH160ToSS58(wallet1.address), stakeNetuid)
             assert.ok(stakeAfter > stakeBefore)
         }
     })
