@@ -1363,24 +1363,27 @@ fn test_recycle_alpha_bypasses_lock() {
             Error::<Test>::CannotUnstakeLock
         );
 
-        // BUG: recycle_alpha bypasses lock — it succeeds despite full lock
+        // recycle_alpha checks lock and should fail if it would reduce alpha below locked amount
         let recycle_amount = alpha / 2.into();
-        assert_ok!(SubtensorModule::do_recycle_alpha(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
-            recycle_amount,
-            netuid,
-        ));
+        assert_noop!(
+            SubtensorModule::do_recycle_alpha(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                recycle_amount,
+                netuid,
+            ),
+            Error::<Test>::CannotUnstakeLock
+        );
 
-        // Alpha is now below locked_mass — lock invariant violated
+        // Alpha is not below locked_mass
         let total_after = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         let locked = SubtensorModule::get_current_locked(&coldkey, netuid);
-        assert!(total_after < locked);
+        assert!(total_after >= locked);
     });
 }
 
 #[test]
-fn test_burn_alpha_bypasses_lock() {
+fn test_burn_alpha_checks_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1393,20 +1396,23 @@ fn test_burn_alpha_bypasses_lock() {
 
         step_block(1);
 
-        // BUG: burn_alpha bypasses lock — it succeeds despite full lock
+        // burn_alpha checks lock and should fail if it would reduce alpha below locked amount
         let alpha = get_alpha(&hotkey, &coldkey, netuid);
         let burn_amount = alpha / 2.into();
-        assert_ok!(SubtensorModule::do_burn_alpha(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
-            burn_amount,
-            netuid,
-        ));
+        assert_noop!(
+            SubtensorModule::do_burn_alpha(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                burn_amount,
+                netuid,
+            ),
+            Error::<Test>::CannotUnstakeLock
+        );
 
-        // Alpha is now below locked_mass — lock invariant violated
+        // Alpha is not below locked_mass
         let total_after = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         let locked = SubtensorModule::get_current_locked(&coldkey, netuid);
-        assert!(total_after < locked);
+        assert!(total_after >= locked);
     });
 }
 

@@ -1158,11 +1158,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that unstaked amount is not greater than available to unstake (due to locks)
-        let alpha_available = Self::available_to_unstake(coldkey, netuid);
-        ensure!(
-            alpha_available >= alpha_unstaked,
-            Error::<T>::CannotUnstakeLock
-        );
+        Self::ensure_available_to_unstake(&coldkey, netuid, alpha_unstaked)?;
 
         Ok(())
     }
@@ -1312,11 +1308,7 @@ impl<T: Config> Pallet<T> {
         // Enforce lock invariant: if the operation reduces total coldkey alpha on origin subnet
         // (cross-coldkey transfer or cross-subnet move), the remaining amount must cover the lock.
         if origin_coldkey != destination_coldkey || origin_netuid != destination_netuid {
-            let alpha_available = Self::available_to_unstake(origin_coldkey, origin_netuid);
-            ensure!(
-                alpha_available >= alpha_amount,
-                Error::<T>::CannotUnstakeLock
-            );
+            Self::ensure_available_to_unstake(origin_coldkey, origin_netuid, alpha_amount)?;
         }
 
         Ok(())

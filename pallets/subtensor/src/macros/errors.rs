@@ -297,5 +297,7 @@ mod errors {
         LockHotkeyMismatch,
         /// Insufficient stake on subnet to cover the lock amount.
         InsufficientStakeForLock,
+        /// No existing lock found for the given coldkey and subnet.
+        NoExistingLock,
     }
 }

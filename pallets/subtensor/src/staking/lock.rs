@@ -98,6 +98,17 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Ensures that the amount can be unstaked
+    pub fn ensure_available_to_unstake(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) -> Result<(), Error<T>> {
+        let alpha_available = Self::available_to_unstake(coldkey, netuid);
+        ensure!(alpha_available >= amount, Error::<T>::CannotUnstakeLock);
+        Ok(())
+    }
+
     /// Locks stake for a coldkey on a subnet to a specific hotkey.
     /// If no lock exists, creates one. If one exists, the hotkey must match.
     /// Top-up adds to locked_mass after rolling forward.
