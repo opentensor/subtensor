@@ -1,4 +1,5 @@
 use super::*;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::ops::Neg;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I64F64, U64F64};
@@ -26,6 +27,25 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    fn calculate_decayed_mass_and_conviction(
+        locked_mass: AlphaBalance,
+        conviction: U64F64,
+        dt: u64,
+    ) -> (AlphaBalance, U64F64) {
+        let tau = TauBlocks::<T>::get();
+
+        let decay = Self::exp_decay(dt, tau);
+        let dt_fixed = U64F64::saturating_from_num(dt);
+        let mass_fixed = U64F64::saturating_from_num(locked_mass);
+        let new_locked_mass = decay
+            .saturating_mul(mass_fixed)
+            .saturating_to_num::<u64>()
+            .into();
+        let new_conviction =
+            decay.saturating_mul(conviction.saturating_add(dt_fixed.saturating_mul(mass_fixed)));
+        (new_locked_mass, new_conviction)
+    }
+
     /// Rolls a LockState forward to `now` using exponential decay.
     ///
     /// X_new = decay * X_old
@@ -35,22 +55,27 @@ impl<T: Config> Pallet<T> {
             return lock;
         }
         let dt = now.saturating_sub(lock.last_update);
-        let tau = TauBlocks::<T>::get();
-        let decay = Self::exp_decay(dt, tau);
-
-        let dt_fixed = U64F64::saturating_from_num(dt);
-        let mass_fixed = U64F64::saturating_from_num(lock.locked_mass);
-        let new_locked_mass = decay
-            .saturating_mul(mass_fixed)
-            .saturating_to_num::<u64>()
-            .into();
-        let new_conviction = decay.saturating_mul(
-            lock.conviction
-                .saturating_add(dt_fixed.saturating_mul(mass_fixed)),
-        );
+        let (new_locked_mass, new_conviction) =
+            Self::calculate_decayed_mass_and_conviction(lock.locked_mass, lock.conviction, dt);
 
         LockState {
             hotkey: lock.hotkey,
+            locked_mass: new_locked_mass,
+            conviction: new_conviction,
+            last_update: now,
+        }
+    }
+
+    /// Rolls a HotkeyLockState forward to `now` using exponential decay.
+    pub fn roll_forward_hotkey_lock(lock: HotkeyLockState, now: u64) -> HotkeyLockState {
+        if now <= lock.last_update {
+            return lock;
+        }
+        let dt = now.saturating_sub(lock.last_update);
+        let (new_locked_mass, new_conviction) =
+            Self::calculate_decayed_mass_and_conviction(lock.locked_mass, lock.conviction, dt);
+
+        HotkeyLockState {
             locked_mass: new_locked_mass,
             conviction: new_conviction,
             last_update: now,
@@ -153,6 +178,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // Update the total hotkey lock
+        Self::upsert_hotkey_lock(hotkey, netuid, amount);
+
         Self::deposit_event(Event::StakeLocked {
             coldkey: coldkey.clone(),
             hotkey: hotkey.clone(),
@@ -169,55 +197,71 @@ impl<T: Config> Pallet<T> {
         Lock::<T>::remove(coldkey, netuid);
     }
 
+    /// Update the total lock for a hotkey on a subnet or create one if
+    /// it doesn't exist.
+    ///
+    /// Roll the existing hotkey lock forward to now, then add the
+    /// latest conviction and locked mass.
+    pub fn upsert_hotkey_lock(hotkey: &T::AccountId, netuid: NetUid, amount: AlphaBalance) {
+        let total_lock = HotkeyLock::<T>::get(netuid, hotkey);
+
+        // Roll forward the total lock to now
+        let now = Self::get_current_block_as_u64();
+        let rolled_hotkey_lock = if let Some(lock) = total_lock {
+            Self::roll_forward_hotkey_lock(lock, now)
+        } else {
+            HotkeyLockState {
+                locked_mass: 0.into(),
+                conviction: U64F64::saturating_from_num(0),
+                last_update: now,
+            }
+        };
+
+        // Merge the new lock into the rolled total lock (only add mass)
+        let new_locked_mass = rolled_hotkey_lock.locked_mass.saturating_add(amount);
+        let new_hotkey_lock = HotkeyLockState {
+            locked_mass: new_locked_mass,
+            conviction: rolled_hotkey_lock.conviction,
+            last_update: now,
+        };
+        HotkeyLock::<T>::insert(netuid, hotkey, new_hotkey_lock);
+    }
+
     /// Returns the total conviction for a hotkey on a subnet,
     /// summed over all coldkeys that have locked to this hotkey.
     pub fn hotkey_conviction(hotkey: &T::AccountId, netuid: NetUid) -> U64F64 {
-        let now = Self::get_current_block_as_u64();
-        let mut total = U64F64::saturating_from_num(0);
-        for (_coldkey, _subnet_id, lock) in Lock::<T>::iter() {
-            if _subnet_id != netuid {
-                continue;
-            }
-            if *hotkey == lock.hotkey {
-                let rolled = Self::roll_forward_lock(lock, now);
-                total = total.saturating_add(rolled.conviction);
-            }
+        let lock = HotkeyLock::<T>::get(netuid, hotkey);
+        if let Some(lock) = lock {
+            Self::roll_forward_hotkey_lock(lock, Self::get_current_block_as_u64()).conviction
+        } else {
+            U64F64::saturating_from_num(0)
         }
-        total
     }
 
     /// Finds the hotkey with the highest conviction on a given subnet.
     pub fn subnet_king(netuid: NetUid) -> Option<T::AccountId> {
         let now = Self::get_current_block_as_u64();
-        let mut scores: sp_std::collections::btree_map::BTreeMap<Vec<u8>, (T::AccountId, U64F64)> =
-            sp_std::collections::btree_map::BTreeMap::new();
+        let mut scores: BTreeMap<T::AccountId, U64F64> = BTreeMap::new();
 
-        for (_coldkey, subnet_id, lock) in Lock::<T>::iter() {
-            if subnet_id != netuid {
-                continue;
-            }
-            let rolled = Self::roll_forward_lock(lock, now);
-            let key = rolled.hotkey.encode();
+        HotkeyLock::<T>::iter_prefix(netuid).for_each(|(hotkey, lock)| {
+            let rolled = Self::roll_forward_hotkey_lock(lock, now);
             let entry = scores
-                .entry(key)
-                .or_insert_with(|| (rolled.hotkey.clone(), U64F64::saturating_from_num(0)));
-            entry.1 = entry.1.saturating_add(rolled.conviction);
-        }
+                .entry(hotkey)
+                .or_insert_with(|| U64F64::saturating_from_num(0));
+            *entry = entry.saturating_add(rolled.conviction);
+        });
 
         scores
-            .into_values()
-            .max_by(|a, b| {
-                a.1.partial_cmp(&b.1)
-                    .unwrap_or(sp_std::cmp::Ordering::Equal)
-            })
+            .into_iter()
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(core::cmp::Ordering::Equal))
             .map(|(hotkey, _)| hotkey)
     }
 
-    /// Transfers the lock from one coldkey to another for all subnets. This is used when a 
+    /// Transfers the lock from one coldkey to another for all subnets. This is used when a
     /// user swaps their coldkey and we want to preserve their locks.
     /// The hotkey and netuid remain the same, only the coldkey changes.
-    /// 
-    /// If the new coldkey already has a lock for the same subnet, the locks are merged by summing 
+    ///
+    /// If the new coldkey already has a lock for the same subnet, the locks are merged by summing
     /// the locked_mass and conviction after rolling forward both locks to now.
     pub fn transfer_lock_coldkey(_old_coldkey: &T::AccountId, _new_coldkey: &T::AccountId) {
         // let now = Self::get_current_block_as_u64();

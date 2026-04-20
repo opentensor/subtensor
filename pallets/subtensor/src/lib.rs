@@ -1518,6 +1518,30 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// Exponential lock state for a hotkey on a subnet.
+    #[crate::freeze_struct("aba5b4d024b9837a")]
+    #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
+    pub struct HotkeyLockState {
+        /// Exponentially decaying locked amount.
+        pub locked_mass: AlphaBalance,
+        /// Matured decaying score (integral of locked_mass over time).
+        pub conviction: U64F64,
+        /// Block number of last roll-forward.
+        pub last_update: u64,
+    }
+
+    /// --- DMAP ( netuid, hotkey ) --> LockState | Total lock per hotkey per subnet.
+    #[pallet::storage]
+    pub type HotkeyLock<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid, // subnet
+        Blake2_128Concat,
+        T::AccountId,    // hotkey
+        HotkeyLockState, // Total merged lock
+        OptionQuery,
+    >;
+
     /// Default decay timescale: ~30 days at 12s blocks.
     #[pallet::type_value]
     pub fn DefaultTauBlocks<T: Config>() -> u64 {
