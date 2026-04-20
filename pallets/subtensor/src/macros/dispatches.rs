@@ -31,10 +31,12 @@ mod dispatches {
         /// probabilities. The specific weights determine how inflation propagates outward
         /// from this peer.
         ///
-        /// Note: The 16 bit integers weights should represent 1.0 as the max u16.
-        /// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
-        /// elements is larger or smaller than the amount of elements * u16_max, all elements
-        /// will be corrected for this deviation.
+        /// # Note
+        /// The 16-bit integer weights should represent 1.0 as the max u16.
+        /// However, the function normalizes all integers to u16_max anyway.
+        /// This means that if the sum of all elements is larger or smaller
+        /// than the amount of elements * u16_max, all elements will be
+        /// corrected for this deviation.
         ///
         /// # Arguments
         /// * `origin`: (<T as frame_system::Config>Origin):
@@ -96,10 +98,12 @@ mod dispatches {
         /// probabilities. The specific weights determine how inflation propagates outward
         /// from this peer.
         ///
-        /// Note: The 16 bit integers weights should represent 1.0 as the max u16.
-        /// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
-        /// elements is larger or smaller than the amount of elements * u16_max, all elements
-        /// will be corrected for this deviation.
+        /// # Note
+        /// The 16-bit integer weights should represent 1.0 as the max u16.
+        /// However, the function normalizes all integers to u16_max anyway.
+        /// This means that if the sum of all elements is larger or smaller
+        /// than the amount of elements * u16_max, all elements will be
+        /// corrected for this deviation.
         ///
         /// # Arguments
         /// * `origin`: (<T as frame_system::Config>Origin):
@@ -629,7 +633,8 @@ mod dispatches {
         /// Adds stake to a hotkey. The call is made from a coldkey account.
         /// This delegates stake to the hotkey.
         ///
-        /// Note: the coldkey account may own the hotkey, in which case they are
+        /// # Note
+        /// The coldkey account may own the hotkey, in which case they are
         /// delegating to themselves.
         ///
         /// # Arguments
@@ -1245,7 +1250,9 @@ mod dispatches {
 
         /// Schedules a coldkey swap operation to be executed at a future block.
         ///
-        /// WARNING: This function is deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`
+        /// # Note
+        /// This function is deprecated; please migrate to
+        /// `announce_coldkey_swap` / `coldkey_swap`.
         #[pallet::call_index(73)]
         #[pallet::weight(T::DbWeight::get().reads(5))]
         #[deprecated(note = "Deprecated, please migrate to `announce_coldkey_swap`/`coldkey_swap`")]

@@ -46,12 +46,13 @@ mod events {
         NeuronRegistered(NetUid, u16, T::AccountId),
         /// multiple uids have been concurrently registered.
         BulkNeuronsRegistered(u16, u16),
-        /// FIXME: Not used yet
+        // FIXME: Not used yet.
+        /// bulk balances have been set (placeholder: this event is currently unused).
         BulkBalancesSet(u16, u16),
         /// max allowed uids has been set for a subnetwork.
         MaxAllowedUidsSet(NetUid, u16),
+        /// max weight limit has been set for a subnet.
         #[deprecated(note = "Max weight limit is now a constant and this event is unused")]
-        /// DEPRECATED: max weight limit updates are no longer supported.
         MaxWeightLimitSet(NetUid, u16),
         /// the difficulty has been set for a subnet.
         DifficultySet(NetUid, u64),
