@@ -1253,9 +1253,14 @@ mod dispatches {
             Self::do_register_network(origin, &hotkey, 1, None)
         }
 
-        /// Facility extrinsic for user to get taken from faucet
-        /// It is only available when pow-faucet feature enabled
-        /// Just deployed in testnet and devnet for testing purpose
+        /// Facility extrinsic to acquire TAO from a proof-of-work faucet.
+        ///
+        /// Only compiled into runtimes built with `--features pow-faucet`. The
+        /// production testnet and devnet images are built without this feature
+        /// (see the `Dockerfile` — only the `local_builder` stage enables it),
+        /// so this dispatchable is absent from the on-chain `Call` enum on the
+        /// deployed public networks and is intended for local development
+        /// runtimes only.
         #[pallet::call_index(60)]
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(27))
@@ -1267,11 +1272,7 @@ mod dispatches {
             nonce: u64,
             work: Vec<u8>,
         ) -> DispatchResult {
-            if cfg!(feature = "pow-faucet") {
-                return Self::do_faucet(origin, block_number, nonce, work);
-            }
-
-            Err(Error::<T>::FaucetDisabled.into())
+            Self::do_faucet(origin, block_number, nonce, work)
         }
 
         /// Remove a user's subnetwork
