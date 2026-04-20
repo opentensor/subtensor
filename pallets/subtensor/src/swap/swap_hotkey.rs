@@ -11,15 +11,15 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `origin` - The origin of the transaction, and also the coldkey account.
-    /// * `old_hotkey` - The old hotkey to be swapped.
-    /// * `new_hotkey` - The new hotkey to replace the old one.
-    /// * `netuid` - The hotkey swap in a subnet or all subnets.
-    /// * `keep_stake` - If `true`, stake remains on the old hotkey and the rest metadata
+    /// * `origin`: The origin of the transaction, and also the coldkey account.
+    /// * `old_hotkey`: The old hotkey to be swapped.
+    /// * `new_hotkey`: The new hotkey to replace the old one.
+    /// * `netuid`: The hotkey swap in a subnet or all subnets.
+    /// * `keep_stake`: If `true`, stake remains on the old hotkey and the rest metadata.
     ///
     /// # Returns
     ///
-    /// * 'DispatchResultWithPostInfo': The result of the dispatch.
+    /// * `DispatchResultWithPostInfo`: The result of the dispatch.
     ///
     /// # Errors
     ///
@@ -185,13 +185,13 @@ impl<T: Config> Pallet<T> {
     /// Throughout the process, the function accumulates the computational weight of operations performed.
     ///
     /// # Arguments
-    /// * `old_hotkey` - The AccountId of the current hotkey to be replaced.
-    /// * `new_hotkey` - The AccountId of the new hotkey to replace the old one.
-    /// * `coldkey` - The AccountId of the coldkey that owns both hotkeys.
-    /// * `weight` - A mutable reference to the Weight, updated as operations are performed.
+    /// * `old_hotkey`: The AccountId of the current hotkey to be replaced.
+    /// * `new_hotkey`: The AccountId of the new hotkey to replace the old one.
+    /// * `coldkey`: The AccountId of the coldkey that owns both hotkeys.
+    /// * `weight`: A mutable reference to the Weight, updated as operations are performed.
     ///
     /// # Returns
-    /// * 'DispatchResult': Ok(()) if the swap was successful, or an error if any operation failed.
+    /// * `DispatchResult`: Ok(()) if the swap was successful, or an error if any operation failed.
     ///
     /// # Note
     /// This function performs extensive storage reads and writes, which can be computationally expensive.

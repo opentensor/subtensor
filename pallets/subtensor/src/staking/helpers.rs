@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
     /// Returns the coldkey owning this hotkey. This function should only be called for active accounts.
     ///
     /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
+    /// * `hotkey`: The hotkey account ID.
     ///
     /// # Returns
     /// The coldkey account ID that owns the hotkey.
@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
     /// Returns the hotkey take.
     ///
     /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
+    /// * `hotkey`: The hotkey account ID.
     ///
     /// # Returns
     /// The take value of the hotkey.
@@ -188,7 +188,7 @@ impl<T: Config> Pallet<T> {
     /// Returns true if the hotkey account has been created.
     ///
     /// # Arguments
-    /// * `hotkey` - The hotkey account ID.
+    /// * `hotkey`: The hotkey account ID.
     ///
     /// # Returns
     /// True if the hotkey account exists, false otherwise.
@@ -199,8 +199,8 @@ impl<T: Config> Pallet<T> {
     /// Returns true if the passed coldkey owns the hotkey.
     ///
     /// # Arguments
-    /// * `coldkey` - The coldkey account ID.
-    /// * `hotkey` - The hotkey account ID.
+    /// * `coldkey`: The coldkey account ID.
+    /// * `hotkey`: The hotkey account ID.
     ///
     /// # Returns
     /// True if the coldkey owns the hotkey, false otherwise.

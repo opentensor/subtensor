@@ -5,35 +5,25 @@ impl<T: Config> Pallet<T> {
     /// The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
     ///
     /// # Arguments
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     - The signature of the caller.
+    /// * `origin`: The signature of the caller.
     ///
-    /// * 'netuid' (u16):
-    ///     - The u16 network identifier.
+    /// * `netuid`: The u16 network identifier.
     ///
-    /// * 'version' (u64):
-    ///     - The bittensor version identifier.
+    /// * `version`: The bittensor version identifier.
     ///
-    /// * 'ip' (u64):
-    ///     - The endpoint ip information as a u128 encoded integer.
+    /// * `ip`: The endpoint ip information as a u128 encoded integer.
     ///
-    /// * 'port' (u16):
-    ///     - The endpoint port information as a u16 encoded integer.
+    /// * `port`: The endpoint port information as a u16 encoded integer.
     ///
-    /// * 'ip_type' (u8):
-    ///     - The endpoint ip version as a u8, 4 or 6.
+    /// * `ip_type`: The endpoint ip version as a u8, 4 or 6.
     ///
-    /// * 'protocol' (u8):
-    ///     - UDP:1 or TCP:0
+    /// * `protocol`: UDP:1 or TCP:0.
     ///
-    /// * 'placeholder1' (u8):
-    ///     - Placeholder for further extra params.
+    /// * `placeholder1`: Placeholder for further extra params.
     ///
-    /// * 'placeholder2' (u8):
-    ///     - Placeholder for further extra params.
+    /// * `placeholder2`: Placeholder for further extra params.
     ///
-    /// * 'certificate' (Option<Vec<u8>>):
-    ///     - Certificate for mutual Tls connection between neurons
+    /// * `certificate`: Certificate for mutual Tls connection between neurons.
     ///
     /// # Events
     /// * 'AxonServed': On successfully serving the axon info.
@@ -115,23 +105,17 @@ impl<T: Config> Pallet<T> {
     /// The implementation for the extrinsic serve_prometheus.
     ///
     /// # Arguments
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     - The signature of the caller.
+    /// * `origin`: The signature of the caller.
     ///
-    /// * 'netuid' (u16):
-    ///     - The u16 network identifier.
+    /// * `netuid`: The u16 network identifier.
     ///
-    /// * 'version' (u64):
-    ///     - The bittensor version identifier.
+    /// * `version`: The bittensor version identifier.
     ///
-    /// * 'ip' (u64):
-    ///     - The prometheus ip information as a u128 encoded integer.
+    /// * `ip`: The prometheus ip information as a u128 encoded integer.
     ///
-    /// * 'port' (u16):
-    ///     - The prometheus port information as a u16 encoded integer.
+    /// * `port`: The prometheus port information as a u16 encoded integer.
     ///
-    /// * 'ip_type' (u8):
-    ///     - The prometheus ip version as a u8, 4 or 6.
+    /// * `ip_type`: The prometheus ip version as a u8, 4 or 6.
     ///
     /// # Events
     /// * 'PrometheusServed': On successfully serving the axon info.

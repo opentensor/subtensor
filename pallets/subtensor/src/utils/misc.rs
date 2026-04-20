@@ -825,7 +825,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `duration` - The blocks for dissolve network execution.
+    /// * `duration`: The blocks for dissolve network execution.
     ///
     /// # Note
     ///
@@ -840,8 +840,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `netuid` - The unique identifier for the subnet.
-    /// * `hotkey` - The new hotkey for the subnet owner.
+    /// * `netuid`: The unique identifier for the subnet.
+    /// * `hotkey`: The new hotkey for the subnet owner.
     ///
     /// # Note
     ///
@@ -890,7 +890,7 @@ impl<T: Config> Pallet<T> {
     /// Fetches the max number of subnet
     ///
     /// # Returns
-    /// * 'u16': The max number of subnet
+    /// * `u16`: The max number of subnet.
     ///
     pub fn get_max_subnets() -> u16 {
         SubnetLimit::<T>::get()

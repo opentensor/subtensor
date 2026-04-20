@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
     /// This function checks if a subnetwork with the given UID exists.
     ///
     /// # Returns
-    /// * 'bool': Whether the subnet exists.
+    /// * `bool`: Whether the subnet exists.
     ///
     pub fn if_subnet_exist(netuid: NetUid) -> bool {
         NetworksAdded::<T>::get(netuid)
@@ -35,10 +35,10 @@ impl<T: Config> Pallet<T> {
     /// This checks the Mechanism map for the value, defaults to 0.
     ///
     /// # Arguments
-    /// * 'u16': The subnet netuid
+    /// * `u16`: The subnet netuid.
     ///
     /// # Returns
-    /// * 'u16': The subnet mechanism
+    /// * `u16`: The subnet mechanism.
     ///
     pub fn get_subnet_mechanism(netuid: NetUid) -> u16 {
         SubnetMechanism::<T>::get(netuid)
@@ -50,7 +50,7 @@ impl<T: Config> Pallet<T> {
     /// until it finds an ID that is not currently in use.
     ///
     /// # Returns
-    /// * `u16` - The next available mechanism ID.
+    /// * `u16`: The next available mechanism ID.
     pub fn get_next_netuid() -> NetUid {
         let mut next_netuid = NetUid::from(1); // do not allow creation of root
         let netuids = Self::get_all_subnet_netuids();
@@ -77,11 +77,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `netuid` - The unique identifier of the subnet.
+    /// * `netuid`: The unique identifier of the subnet.
     ///
     /// # Returns
     ///
-    /// * `bool` - `true` if registrations are allowed for the subnet, `false` otherwise.
+    /// * `bool`: `true` if registrations are allowed for the subnet, `false` otherwise.
     pub fn is_registration_allowed(netuid: NetUid) -> bool {
         Self::get_subnet_hyperparams(netuid)
             .map(|params| params.registration_allowed)
@@ -421,9 +421,7 @@ impl<T: Config> Pallet<T> {
     /// Updates [`SubnetOwnerHotkey`] for the given `netuid`. Reads and updates
     /// [`LastRateLimitedBlock`] for rate-limiting, and reads
     /// [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
-    ///
-    /// # Note
-    /// This function is rate-limited to one call per subnet per interval (e.g., one week).
+    /// Rate-limited to one call per subnet per interval (e.g., one week).
     pub fn do_set_sn_owner_hotkey(
         origin: OriginFor<T>,
         netuid: NetUid,

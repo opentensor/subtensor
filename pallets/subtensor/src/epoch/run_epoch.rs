@@ -548,14 +548,11 @@ impl<T: Config> Pallet<T> {
     /// returns the emissions for uids/hotkeys in a given `netuid`.
     ///
     /// # Arguments
-    ///  * 'netuid': ( u16 ):
-    ///     - The network to distribute the emission onto.
+    /// * `netuid`: The network to distribute the emission onto.
     ///
-    ///  * 'rao_emission': ( u64 ):
-    ///     - The total emission for the epoch.
+    /// * `rao_emission`: The total emission for the epoch.
     ///
-    ///  * 'debug' ( bool ):
-    ///     - Print debugging outputs.
+    /// * `debug`: Print debugging outputs.
     ///
     pub fn epoch_mechanism(
         netuid: NetUid,
@@ -1195,9 +1192,9 @@ impl<T: Config> Pallet<T> {
     /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value for a sparse matrix.
     ///
     /// # Arguments
-    /// * `bonds_delta` - A vector of bond deltas.
-    /// * `bonds` - A vector of bonds.
-    /// * `netuid` - The network ID.
+    /// * `bonds_delta`: A vector of bond deltas.
+    /// * `bonds`: A vector of bonds.
+    /// * `netuid`: The network ID.
     ///
     /// # Returns
     /// A vector of EMA bonds.
@@ -1231,9 +1228,9 @@ impl<T: Config> Pallet<T> {
     /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value.
     ///
     /// # Arguments
-    /// * `bonds_delta` - A vector of bond deltas.
-    /// * `bonds` - A vector of bonds.
-    /// * `netuid` - The network ID.
+    /// * `bonds_delta`: A vector of bond deltas.
+    /// * `bonds`: A vector of bonds.
+    /// * `netuid`: The network ID.
     ///
     /// # Returns
     /// A vector of EMA bonds.
@@ -1265,11 +1262,11 @@ impl<T: Config> Pallet<T> {
     /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting
     ///
     /// # Arguments
-    /// * `netuid` - The network ID.
-    /// * `weights` - A vector of weights.
-    /// * `bonds` - A vector of bonds.
-    /// * `consensus` - A vector of consensus values.
-    /// * `active_stake` - A vector of active stake values.
+    /// * `netuid`: The network ID.
+    /// * `weights`: A vector of weights.
+    /// * `bonds`: A vector of bonds.
+    /// * `consensus`: A vector of consensus values.
+    /// * `active_stake`: A vector of active stake values.
     ///
     /// # Returns
     /// A vector of EMA bonds.
@@ -1305,11 +1302,11 @@ impl<T: Config> Pallet<T> {
     /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting for a sparse matrix.
     ///
     /// # Arguments
-    /// * `netuid` - The network ID.
-    /// * `weights` - A vector of weights.
-    /// * `bonds` - A vector of bonds.
-    /// * `consensus` - A vector of consensus values.
-    /// * `active_stake` - A vector of active stake values.
+    /// * `netuid`: The network ID.
+    /// * `weights`: A vector of weights.
+    /// * `bonds`: A vector of bonds.
+    /// * `consensus`: A vector of consensus values.
+    /// * `active_stake`: A vector of active stake values.
     ///
     /// # Returns
     /// A vector of EMA bonds.
@@ -1348,10 +1345,10 @@ impl<T: Config> Pallet<T> {
     /// There is a separate alpha param for each validator-miner binding
     ///
     /// # Arguments
-    /// * `netuid` - The network ID.
-    /// * `weights` - A vector of weights.
-    /// * `bonds` - A vector of bonds.
-    /// * `consensus` - A vector of consensus values.
+    /// * `netuid`: The network ID.
+    /// * `weights`: A vector of weights.
+    /// * `bonds`: A vector of bonds.
+    /// * `consensus`: A vector of consensus values.
     ///
     /// # Returns
     /// A matrix of alphas
@@ -1401,10 +1398,10 @@ impl<T: Config> Pallet<T> {
     /// There is a separate alpha param for each validator-miner binding
     ///
     /// # Arguments
-    /// * `netuid` - The network ID.
-    /// * `weights` - A vector of weights.
-    /// * `bonds` - A vector of bonds.
-    /// * `consensus` - A vector of consensus values.
+    /// * `netuid`: The network ID.
+    /// * `weights`: A vector of weights.
+    /// * `bonds`: A vector of bonds.
+    /// * `consensus`: A vector of consensus values.
     ///
     /// # Returns
     /// A dense matrix of alphas

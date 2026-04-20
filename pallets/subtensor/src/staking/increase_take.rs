@@ -4,14 +4,11 @@ impl<T: Config> Pallet<T> {
     /// The implementation for the extrinsic increase_take
     ///
     /// # Arguments
-    /// * 'origin': (<T as frame_system::Config>::RuntimeOrigin):
-    ///     - The signature of the caller's coldkey.
+    /// * `origin`: The signature of the caller's coldkey.
     ///
-    /// * 'hotkey' (T::AccountId):
-    ///     - The hotkey we are delegating (must be owned by the coldkey.)
+    /// * `hotkey`: The hotkey we are delegating (must be owned by the coldkey.).
     ///
-    /// * 'take' (u16):
-    ///     - The stake proportion that this hotkey takes from delegations for subnet ID.
+    /// * `take`: The stake proportion that this hotkey takes from delegations for subnet ID.
     ///
     /// # Events
     /// * 'TakeIncreased': On successfully setting a increased take for this hotkey.
