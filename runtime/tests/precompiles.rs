@@ -14,9 +14,9 @@ use sp_runtime::traits::Hash;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_precompiles::{
     AddressMappingPrecompile, AlphaPrecompile, BalanceTransferPrecompile, Ed25519Verify,
-    PrecompileExt, Precompiles, UidLookupPrecompile,
+    MetagraphPrecompile, PrecompileExt, Precompiles, UidLookupPrecompile,
 };
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
+use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
@@ -92,6 +92,16 @@ fn call_data_u16(signature: &str, value: u16) -> Vec<u8> {
 /// Encodes a selector plus `(uint16,uint64)` ABI arguments.
 fn call_data_u16_u64(signature: &str, first: u16, second: u64) -> Vec<u8> {
     // 4-byte selector + 2 ABI words for `(uint16,uint64)`.
+    let mut input = Vec::with_capacity(4 + 64);
+    input.extend_from_slice(&selector(signature));
+    push_abi_word(&mut input, U256::from(first));
+    push_abi_word(&mut input, U256::from(second));
+    input
+}
+
+/// Encodes a selector plus `(uint16,uint16)` ABI arguments.
+fn call_data_u16_u16(signature: &str, first: u16, second: u16) -> Vec<u8> {
+    // 4-byte selector + 2 ABI words for `(uint16,uint16)`.
     let mut input = Vec::with_capacity(4 + 64);
     input.extend_from_slice(&selector(signature));
     push_abi_word(&mut input, U256::from(first));
@@ -683,6 +693,170 @@ mod uid_lookup {
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_uid_lookup_output(&expected));
+        });
+    }
+}
+
+mod metagraph {
+    use super::*;
+
+    const NETUID_U16: u16 = 1;
+    const UID: u16 = 0;
+    const EMISSION: u64 = 111;
+    const VTRUST: u16 = 222;
+    const LAST_UPDATE: u64 = 333;
+    const AXON_BLOCK: u64 = 444;
+    const AXON_VERSION: u32 = 555;
+    const AXON_IP: u128 = 666;
+    const AXON_PORT: u16 = 777;
+    const AXON_IP_TYPE: u8 = 4;
+    const AXON_PROTOCOL: u8 = 1;
+
+    fn abi_axon_output(axon: &pallet_subtensor::AxonInfo) -> Vec<u8> {
+        // 6 ABI words for the static AxonInfo fields returned by the precompile.
+        let mut output = Vec::with_capacity(32 * 6);
+        push_abi_word(&mut output, U256::from(axon.block));
+        push_abi_word(&mut output, U256::from(axon.version));
+        push_abi_word(&mut output, U256::from(axon.ip));
+        push_abi_word(&mut output, U256::from(axon.port));
+        push_abi_word(&mut output, U256::from(axon.ip_type));
+        push_abi_word(&mut output, U256::from(axon.protocol));
+        output
+    }
+
+    fn seed_metagraph_test_state() -> (NetUid, AccountId, AccountId, pallet_subtensor::AxonInfo) {
+        let netuid = NetUid::from(NETUID_U16);
+        let hotkey = pallet_subtensor::Keys::<Runtime>::get(netuid, UID);
+        let coldkey = pallet_subtensor::Owner::<Runtime>::get(&hotkey);
+
+        let axon = pallet_subtensor::AxonInfo {
+            block: AXON_BLOCK,
+            version: AXON_VERSION,
+            ip: AXON_IP,
+            port: AXON_PORT,
+            ip_type: AXON_IP_TYPE,
+            protocol: AXON_PROTOCOL,
+            placeholder1: 0,
+            placeholder2: 0,
+        };
+
+        pallet_subtensor::SubnetworkN::<Runtime>::insert(netuid, 1);
+        pallet_subtensor::Emission::<Runtime>::insert(netuid, vec![AlphaBalance::from(EMISSION)]);
+        pallet_subtensor::ValidatorTrust::<Runtime>::insert(netuid, vec![VTRUST]);
+        pallet_subtensor::ValidatorPermit::<Runtime>::insert(netuid, vec![true]);
+        pallet_subtensor::LastUpdate::<Runtime>::insert(
+            NetUidStorageIndex::from(netuid),
+            vec![LAST_UPDATE],
+        );
+        pallet_subtensor::Active::<Runtime>::insert(netuid, vec![true]);
+        pallet_subtensor::Axons::<Runtime>::insert(netuid, &hotkey, axon.clone());
+
+        (netuid, hotkey, coldkey, axon)
+    }
+
+    #[test]
+    fn metagraph_precompile_matches_runtime_values() {
+        new_test_ext().execute_with(|| {
+            let (netuid, hotkey, coldkey, axon) = seed_metagraph_test_state();
+
+            let precompiles = Precompiles::<Runtime>::new();
+            let caller = addr_from_index(1);
+            let precompile_addr = addr_from_index(MetagraphPrecompile::<Runtime>::INDEX);
+
+            let uid_count = pallet_subtensor::SubnetworkN::<Runtime>::get(netuid);
+            let emission =
+                pallet_subtensor::Pallet::<Runtime>::get_emission_for_uid(netuid, UID).to_u64();
+            let vtrust =
+                pallet_subtensor::Pallet::<Runtime>::get_validator_trust_for_uid(netuid, UID);
+            let validator_status =
+                pallet_subtensor::Pallet::<Runtime>::get_validator_permit_for_uid(netuid, UID);
+            let last_update = pallet_subtensor::Pallet::<Runtime>::get_last_update_for_uid(
+                NetUidStorageIndex::from(netuid),
+                UID,
+            );
+            let is_active = pallet_subtensor::Pallet::<Runtime>::get_active_for_uid(netuid, UID);
+            let runtime_axon = pallet_subtensor::Pallet::<Runtime>::get_axon_info(netuid, &hotkey);
+
+            assert_eq!(uid_count, 1);
+            assert_eq!(emission, EMISSION);
+            assert_eq!(vtrust, VTRUST);
+            assert!(validator_status);
+            assert_eq!(last_update, LAST_UPDATE);
+            assert!(is_active);
+            assert_eq!(runtime_axon, axon);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16("getUidCount(uint16)", NETUID_U16),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::from(uid_count)));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getAxon(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_axon_output(&runtime_axon));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getEmission(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::from(emission)));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getVtrust(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::from(vtrust)));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getValidatorStatus(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::from(validator_status as u8)));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getLastUpdate(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::from(last_update)));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getIsActive(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::from(is_active as u8)));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getHotkey(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(H256::from_slice(hotkey.as_ref()).as_bytes().to_vec());
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    call_data_u16_u16("getColdkey(uint16,uint16)", NETUID_U16, UID),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(H256::from_slice(coldkey.as_ref()).as_bytes().to_vec());
         });
     }
 }
