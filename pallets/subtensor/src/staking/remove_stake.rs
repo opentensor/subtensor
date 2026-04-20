@@ -600,6 +600,15 @@ impl<T: Config> Pallet<T> {
             Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
         }
 
+        // 9) Cleanup all subnet stake locks if any.
+        let lock_keys: Vec<(T::AccountId, NetUid)> = Lock::<T>::iter_keys()
+            .filter(|(_, this_netuid)| *this_netuid == netuid)
+            .map(|(coldkey, this_netuid)| (coldkey.clone(), this_netuid))
+            .collect();
+        for (coldkey, netuid) in lock_keys {
+            Lock::<T>::remove(coldkey, netuid);
+        }
+
         Ok(())
     }
 }

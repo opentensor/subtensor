@@ -1416,8 +1416,9 @@ fn test_subnet_dissolution_orphans_locks() {
             AlphaBalance::ZERO
         );
 
-        // BUG: Lock entry is orphaned — still present despite no alpha
-        assert!(Lock::<Test>::get(coldkey, netuid).is_some());
+        // Lock entries are not orphaned
+        let lock = Lock::<Test>::get(coldkey, netuid);
+        assert!(lock.is_none());
     });
 }
 
@@ -1441,8 +1442,7 @@ fn test_subnet_dissolution_and_netuid_reuse() {
 
         // The stale lock from old subnet remains
         let stale_lock = Lock::<Test>::get(coldkey, netuid);
-        assert!(stale_lock.is_some());
-        assert_eq!(stale_lock.unwrap().hotkey, hotkey_old);
+        assert!(stale_lock.is_none());
     });
 }
 
