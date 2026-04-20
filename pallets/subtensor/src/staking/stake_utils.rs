@@ -1049,7 +1049,7 @@ impl<T: Config> Pallet<T> {
         let min_stake = DefaultMinStake::<T>::get();
         let min_amount = {
             let order = GetAlphaForTao::<T>::with_amount(min_stake);
-            let fee = T::SwapInterface::sim_swap(netuid.into(), order)
+            let fee = T::SwapInterface::sim_swap_pure(netuid.into(), order)
                 .map(|res| res.fee_paid)
                 .unwrap_or(T::SwapInterface::approx_fee_amount(
                     netuid.into(),
@@ -1082,7 +1082,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let order = GetAlphaForTao::<T>::with_amount(stake_to_be_added);
-        let swap_result = T::SwapInterface::sim_swap(netuid.into(), order)
+        let swap_result = T::SwapInterface::sim_swap_pure(netuid.into(), order)
             .map_err(|_| Error::<T>::InsufficientLiquidity)?;
 
         // Check that actual withdrawn TAO amount is not lower than the minimum stake

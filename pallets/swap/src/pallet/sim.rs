@@ -506,9 +506,24 @@ where
         let epsilon = U64F64::saturating_from_num(0.000000000001);
         let sqrt_price = price.checked_sqrt(epsilon).unwrap_or(U64F64::from_num(0));
         let current_tick = TickIndex::from_sqrt_price_bounded(sqrt_price);
-        let current_liquidity = helpers_128bit::sqrt(
-            (tao_reserve.to_u64() as u128).saturating_mul(alpha_reserve.to_u64() as u128),
-        ) as u64;
+        // Mirror clamp_sqrt_price: if the tick landed at a boundary, snap the
+        // sqrt_price to the tick's canonical value, matching maybe_initialize_v3.
+        let sqrt_price = if current_tick >= TickIndex::MAX || current_tick <= TickIndex::MIN {
+            current_tick.as_sqrt_price_bounded()
+        } else {
+            sqrt_price
+        };
+        // Mirror update_liquidity_if_needed: the full-range protocol position
+        // [MIN, MAX) only contributes liquidity when current_tick < MAX.
+        // At TickIndex::MAX the condition (current_tick < tick_high) fails, so
+        // CurrentLiquidity stays 0 in the stateful path — match that here.
+        let current_liquidity = if current_tick >= TickIndex::MAX {
+            0u64
+        } else {
+            helpers_128bit::sqrt(
+                (tao_reserve.to_u64() as u128).saturating_mul(alpha_reserve.to_u64() as u128),
+            ) as u64
+        };
 
         SimState {
             sqrt_price,

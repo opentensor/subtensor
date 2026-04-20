@@ -3321,7 +3321,7 @@ fn sim_swap_pure_large_buy_exhausts_virtual_liquidity_agrees() {
         TaoReserve::set_mock_reserve(netuid, 100.into());
         AlphaReserve::set_mock_reserve(netuid, 100.into());
 
-        let order = GetAlphaForTao::with_amount(10_000_000_000);
+        let order = GetAlphaForTao::with_amount(10_000_000_000_u64);
         assert_eq!(
             Pallet::<Test>::sim_swap(netuid, order.clone()),
             Pallet::<Test>::sim_swap_pure(netuid, order),
@@ -3343,7 +3343,7 @@ fn sim_swap_pure_large_sell_exhausts_virtual_liquidity_agrees() {
         TaoReserve::set_mock_reserve(netuid, 100.into());
         AlphaReserve::set_mock_reserve(netuid, 100.into());
 
-        let order = GetTaoForAlpha::with_amount(10_000_000_000);
+        let order = GetTaoForAlpha::with_amount(10_000_000_000_u64);
         assert_eq!(
             Pallet::<Test>::sim_swap(netuid, order.clone()),
             Pallet::<Test>::sim_swap_pure(netuid, order),
@@ -3388,6 +3388,53 @@ fn sim_swap_pure_drop_fees_produces_zero_fee() {
         assert!(
             no_fees.amount_paid_out >= with_fees.amount_paid_out,
             "dropping fees must yield at least as much output"
+        );
+    });
+}
+
+/// sim_swap_pure and sim_swap must agree when the pool price is so extreme that
+/// the initial tick lands exactly at TickIndex::MAX (buy direction). This exercises
+/// the clamp_sqrt_price parity fix in sim_swap_inner_pure.
+#[test]
+fn sim_swap_pure_extreme_price_at_max_tick_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        // Set reserves so tao/alpha ratio is astronomically high → tick clamps to MAX.
+        TaoReserve::set_mock_reserve(netuid, TaoBalance::from(u64::MAX));
+        AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(1u64));
+
+        let order = GetTaoForAlpha::with_amount(AlphaBalance::from(1u64));
+
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "sim_swap and sim_swap_pure must agree at TickIndex::MAX boundary"
+        );
+    });
+}
+
+/// sim_swap_pure and sim_swap must agree when the pool price is so extreme that
+/// the initial tick lands exactly at TickIndex::MIN (sell direction).
+#[test]
+fn sim_swap_pure_extreme_price_at_min_tick_agrees() {
+    use subtensor_swap_interface::SwapHandler;
+
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+
+        // Set reserves so tao/alpha ratio is astronomically low → tick clamps to MIN.
+        TaoReserve::set_mock_reserve(netuid, TaoBalance::from(1u64));
+        AlphaReserve::set_mock_reserve(netuid, AlphaBalance::from(u64::MAX));
+
+        let order = GetAlphaForTao::with_amount(TaoBalance::from(1u64));
+
+        assert_eq!(
+            Pallet::<Test>::sim_swap(netuid, order.clone()),
+            Pallet::<Test>::sim_swap_pure(netuid, order),
+            "sim_swap and sim_swap_pure must agree at TickIndex::MIN boundary"
         );
     });
 }

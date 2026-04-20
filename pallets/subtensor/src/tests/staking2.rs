@@ -6,8 +6,9 @@ use frame_support::{
     weights::Weight,
 };
 use sp_core::U256;
+use frame_system::RawOrigin;
 use subtensor_runtime_common::{AlphaBalance, TaoBalance, Token};
-use subtensor_swap_interface::SwapHandler;
+use subtensor_swap_interface::{Order, SwapHandler};
 
 use super::mock;
 use super::mock::*;
@@ -890,5 +891,52 @@ fn test_stake_fee_calculation() {
         let stake_fee =
             <Test as Config>::SwapInterface::approx_fee_amount(netuid1.into(), stake_amount);
         assert_ne!(stake_fee, default_fee);
+    });
+}
+
+// Verifies that validate_add_stake uses sim_swap_pure correctly: the alpha received after
+// do_add_stake on a V3 subnet matches what sim_swap_pure predicted before the tx.
+// SKIP_WASM_BUILD=1 cargo test --package pallet-subtensor --lib -- tests::staking2::test_validate_add_stake_v3_matches_pure_swap --exact --show-output
+#[test]
+fn test_validate_add_stake_v3_matches_pure_swap() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let netuid = NetUid::from(1);
+        let stake_amount = TaoBalance::from(1_000_000_000_u64); // 1 TAO
+
+        // Set up a V3 subnet with liquidity
+        mock::add_network(netuid, 1, 0);
+        SubnetMechanism::<Test>::insert(netuid, 1);
+        let tao_reserve = TaoBalance::from(10_000_000_000_u64);
+        let alpha_reserve = AlphaBalance::from(10_000_000_000_u64);
+        mock::setup_reserves(netuid, tao_reserve, alpha_reserve);
+        SubnetAlphaOut::<Test>::insert(netuid, alpha_reserve);
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Fund coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, (stake_amount.to_u64() * 2).into());
+
+        // Predict alpha out using sim_swap_pure before the tx
+        let order = GetAlphaForTao::<Test>::with_amount(stake_amount);
+        let predicted = <Test as Config>::SwapInterface::sim_swap_pure(netuid.into(), order)
+            .expect("sim_swap_pure must succeed");
+
+        // Execute the actual stake
+        assert_ok!(SubtensorModule::do_add_stake(
+            RawOrigin::Signed(coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount,
+        ));
+
+        // Alpha on-chain must match the pure-swap prediction
+        let alpha_staked =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        assert_eq!(
+            alpha_staked,
+            predicted.amount_paid_out,
+            "alpha staked must match sim_swap_pure prediction"
+        );
     });
 }

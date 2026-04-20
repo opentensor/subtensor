@@ -1047,11 +1047,21 @@ impl<T: Config> Pallet<T> {
         Self: SwapEngine<O>,
     {
         match T::SubnetInfo::mechanism(netuid) {
-            1 => <Self as PureSwapDispatch<O::PaidIn, O::PaidOut>>::sim_run(
-                netuid,
-                order.amount(),
-                false,
-            ),
+            1 => {
+                // Mirror swap_inner's MinimumReserve guard so the pure path
+                // returns the same error as the stateful path when the output
+                // reserve is below the minimum.
+                ensure!(
+                    O::ReserveOut::reserve(netuid).to_u64()
+                        >= T::MinimumReserve::get().get(),
+                    Error::<T>::ReservesTooLow
+                );
+                <Self as PureSwapDispatch<O::PaidIn, O::PaidOut>>::sim_run(
+                    netuid,
+                    order.amount(),
+                    false,
+                )
+            }
             _ => {
                 let actual_amount = if T::SubnetInfo::exists(netuid) {
                     order.amount()
