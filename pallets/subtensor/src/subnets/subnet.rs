@@ -401,26 +401,26 @@ impl<T: Config> Pallet<T> {
     /// rate-limited to once per configured interval (default: one week) per subnet.
     ///
     /// # Arguments
-    /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
-    /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
-    /// - `hotkey`: The new hotkey account to associate with the subnet owner.
+    ///
+    /// * `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
+    /// * `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
+    /// * `hotkey`: The new hotkey account to associate with the subnet owner.
     ///
     /// # Returns
-    /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
+    ///
+    /// * `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
     ///
     /// # Errors
-    /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
-    /// - `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
+    ///
+    /// * `Error::SubnetNotExists`: If the specified subnet does not exist.
+    /// * `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
     ///
     /// # Note
-    /// Only callable by:
-    /// - Root origin, or
-    /// - The coldkey account that owns the subnet.
     ///
-    /// # Note
-    /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
-    /// - Reads and updates [`LastRateLimitedBlock`] for rate-limiting.
-    /// - Reads [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
+    /// Only callable by the root origin or the coldkey account that owns the subnet.
+    /// Updates [`SubnetOwnerHotkey`] for the given `netuid`. Reads and updates
+    /// [`LastRateLimitedBlock`] for rate-limiting, and reads
+    /// [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
     ///
     /// # Note
     /// This function is rate-limited to one call per subnet per interval (e.g., one week).

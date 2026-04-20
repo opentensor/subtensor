@@ -868,12 +868,14 @@ impl<T: Config> Pallet<T> {
     /// [`Error::<T>::InvalidValue`] and leaves storage unchanged.
     ///
     /// # Arguments
-    /// - `netuid`: Identifier of the subnet to update.
-    /// - `limit`: New inclusive upper bound for the count of owner-immune UIDs on this subnet.
+    ///
+    /// * `netuid`: Identifier of the subnet to update.
+    /// * `limit`: New inclusive upper bound for the count of owner-immune UIDs on this subnet.
     ///
     /// # Returns
-    /// - `Ok(())` on success (value written to storage).
-    /// - `Err(Error::<T>::InvalidValue)` if `limit` is outside `[MinImmuneOwnerUidsLimit, MaxImmuneOwnerUidsLimit]`.
+    ///
+    /// * `Ok(())` on success (value written to storage).
+    /// * `Err(Error::<T>::InvalidValue)` if `limit` is outside `[MinImmuneOwnerUidsLimit, MaxImmuneOwnerUidsLimit]`.
     pub fn set_owner_immune_neuron_limit(netuid: NetUid, limit: u16) -> DispatchResult {
         ensure!(
             limit >= MinImmuneOwnerUidsLimit::<T>::get()

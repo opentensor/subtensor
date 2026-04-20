@@ -180,13 +180,14 @@ impl<T: Config> Pallet<T> {
     /// 2. Updates the TaoWeight storage item with the new value.
     ///
     /// # Arguments
-    /// * `weight` - The new global weight value to be set, as a u64.
+    ///
+    /// * `weight`: The new global weight value to be set, as a u64.
     ///
     /// # Note
+    ///
     /// This function modifies the following storage item:
-    /// - `TaoWeight`: Updates it with the new weight value.
+    /// * `TaoWeight`: Updates it with the new weight value.
     ///
-    /// # Note
     /// The weight is stored as a raw u64 value. To get the normalized weight between 0 and 1,
     /// use the `get_tao_weight()` function.
     pub fn set_tao_weight(weight: u64) {

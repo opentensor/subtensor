@@ -2198,10 +2198,13 @@ mod dispatches {
         ///
         /// The dispatch origin of this call must be the original coldkey that made the announcement.
         ///
-        /// - `new_coldkey_hash`: The hash of the new coldkey using BlakeTwo256.
+        /// # Arguments
         ///
-        /// The `ColdkeySwapAnnounced` event is emitted on successful announcement.
+        /// * `new_coldkey_hash`: The hash of the new coldkey using BlakeTwo256.
         ///
+        /// # Events
+        ///
+        /// * `ColdkeySwapAnnounced`: Emitted on successful announcement.
         #[pallet::call_index(125)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::announce_coldkey_swap())]
         pub fn announce_coldkey_swap(
@@ -2236,10 +2239,14 @@ mod dispatches {
         ///
         /// The dispatch origin of this call must be the original coldkey that made the announcement.
         ///
-        /// - `new_coldkey`: The new coldkey to swap to. The BlakeTwo256 hash of the new coldkey must be
+        /// # Arguments
+        ///
+        /// * `new_coldkey`: The new coldkey to swap to. The BlakeTwo256 hash of the new coldkey must be
         ///   the same as the announced coldkey hash.
         ///
-        /// The `ColdkeySwapped` event is emitted on successful swap.
+        /// # Events
+        ///
+        /// * `ColdkeySwapped`: Emitted on successful swap.
         #[pallet::call_index(126)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced())]
         pub fn swap_coldkey_announced(
@@ -2269,8 +2276,9 @@ mod dispatches {
         /// This will prevent any further actions on the coldkey swap
         /// until triumvirate step in to resolve the issue.
         ///
-        /// - `coldkey`: The coldkey to dispute the swap for.
+        /// # Arguments
         ///
+        /// * `coldkey`: The coldkey to dispute the swap for.
         #[pallet::call_index(127)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::dispute_coldkey_swap())]
         pub fn dispute_coldkey_swap(origin: OriginFor<T>) -> DispatchResult {
@@ -2296,8 +2304,9 @@ mod dispatches {
         ///
         /// The dispatch origin of this call must be root.
         ///
-        /// - `coldkey`: The coldkey to reset the swap for.
+        /// # Arguments
         ///
+        /// * `coldkey`: The coldkey to reset the swap for.
         #[pallet::call_index(128)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::reset_coldkey_swap())]
         pub fn reset_coldkey_swap(origin: OriginFor<T>, coldkey: T::AccountId) -> DispatchResult {
