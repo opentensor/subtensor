@@ -13,7 +13,7 @@ use sp_std::{collections::vec_deque::VecDeque, vec};
 use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex};
 
 impl<T: Config> Pallet<T> {
-    /// ---- The implementation for committing weight hashes.
+    /// The implementation for committing weight hashes.
     ///
     /// # Args:
     /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -142,7 +142,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// ---- The implementation for the extrinsic batch_commit_weights.
+    /// The implementation for the extrinsic batch_commit_weights.
     ///
     /// This call runs a batch of commit weights calls, continuing on errors.
     ///
@@ -213,7 +213,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- Commits a timelocked, encrypted weight payload (Commit-Reveal v3).
+    /// Commits a timelocked, encrypted weight payload (Commit-Reveal v3).
     ///
     /// # Args
     /// * `origin` (`<T as frame_system::Config>::RuntimeOrigin`):  
@@ -381,7 +381,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    /// ---- The implementation for revealing committed weights.
+    /// The implementation for revealing committed weights.
     ///
     /// # Args:
     /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -563,7 +563,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    /// ---- The implementation for batch revealing committed weights.
+    /// The implementation for batch revealing committed weights.
     ///
     /// # Args:
     /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -860,7 +860,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic set_weights.
+    /// The implementation for the extrinsic set_weights.
     ///
     /// # Args:
     ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -926,7 +926,7 @@ impl<T: Config> Pallet<T> {
         Self::internal_set_weights(origin, netuid, MechId::MAIN, uids, values, version_key)
     }
 
-    /// ---- The implementation for the extrinsic set_weights.
+    /// The implementation for the extrinsic set_weights.
     ///
     /// # Args:
     ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -996,7 +996,7 @@ impl<T: Config> Pallet<T> {
         Self::internal_set_weights(origin, netuid, mecid, uids, values, version_key)
     }
 
-    /// ---- The implementation for the extrinsic batch_set_weights.
+    /// The implementation for the extrinsic batch_set_weights.
     ///
     /// This call runs a batch of set weights calls, continuing on errors.
     ///

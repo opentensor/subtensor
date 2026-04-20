@@ -1,7 +1,7 @@
 use super::*;
 
 impl<T: Config> Pallet<T> {
-    /// ---- The implementation for the extrinsic increase_take
+    /// The implementation for the extrinsic increase_take
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>::RuntimeOrigin):

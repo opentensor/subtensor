@@ -446,7 +446,7 @@ impl<T: Config> Pallet<T> {
         Self::persist_child_parent_relations(relations, netuid, weight)
     }
 
-    /// ---- The implementation for the extrinsic do_set_child_singular: Sets a single child.
+    /// The implementation for the extrinsic do_set_child_singular: Sets a single child.
     /// This function allows a coldkey to set children keys.
     ///
     /// Adds a childkey vector to the PendingChildKeys map and performs a few checks:

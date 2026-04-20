@@ -4,7 +4,7 @@ use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 impl<T: Config> Pallet<T> {
-    /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
+    /// The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+    /// The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -180,7 +180,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+    /// The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic remove_stake_limit: Removes stake from
+    /// The implementation for the extrinsic remove_stake_limit: Removes stake from
     /// a hotkey on a subnet with a price limit.
     ///
     /// In case if slippage occurs and the price shall move beyond the limit

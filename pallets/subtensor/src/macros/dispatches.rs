@@ -23,7 +23,7 @@ mod dispatches {
     impl<T: Config> Pallet<T> {
         #![deny(clippy::expect_used)]
 
-        /// --- Sets the caller weights for the incentive mechanism. The call can be
+        /// Sets the caller weights for the incentive mechanism. The call can be
         /// made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
         /// checks that the passed weights meet the requirements. Stored as u16s they represent
@@ -97,7 +97,7 @@ mod dispatches {
             }
         }
 
-        /// --- Sets the caller weights for the incentive mechanism for mechanisms. The call
+        /// Sets the caller weights for the incentive mechanism for mechanisms. The call
         /// can be made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
         /// checks that the passed weights meet the requirements. Stored as u16s they represent
@@ -177,7 +177,7 @@ mod dispatches {
             }
         }
 
-        /// --- Allows a hotkey to set weights for multiple netuids as a batch.
+        /// Allows a hotkey to set weights for multiple netuids as a batch.
         ///
         /// # Args:
         /// * `origin`: (<T as frame_system::Config>Origin):
@@ -213,7 +213,7 @@ mod dispatches {
             Self::do_batch_set_weights(origin, netuids, weights, version_keys)
         }
 
-        /// ---- Used to commit a hash of your weight values to later be revealed.
+        /// Used to commit a hash of your weight values to later be revealed.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -242,7 +242,7 @@ mod dispatches {
             Self::do_commit_weights(origin, netuid, commit_hash)
         }
 
-        /// ---- Used to commit a hash of your weight values to later be revealed for mechanisms.
+        /// Used to commit a hash of your weight values to later be revealed for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -277,7 +277,7 @@ mod dispatches {
             Self::do_commit_mechanism_weights(origin, netuid, mecid, commit_hash)
         }
 
-        /// --- Allows a hotkey to commit weight hashes for multiple netuids as a batch.
+        /// Allows a hotkey to commit weight hashes for multiple netuids as a batch.
         ///
         /// # Args:
         /// * `origin`: (<T as frame_system::Config>Origin):
@@ -309,7 +309,7 @@ mod dispatches {
             Self::do_batch_commit_weights(origin, netuids, commit_hashes)
         }
 
-        /// ---- Used to reveal the weights for a previously committed hash.
+        /// Used to reveal the weights for a previously committed hash.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -359,7 +359,7 @@ mod dispatches {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
-        /// ---- Used to reveal the weights for a previously committed hash for mechanisms.
+        /// Used to reveal the weights for a previously committed hash for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -423,7 +423,7 @@ mod dispatches {
             )
         }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed.
+        /// Used to commit encrypted commit-reveal v3 weight values to later be revealed.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -465,7 +465,7 @@ mod dispatches {
         //     Self::do_commit_timelocked_weights(origin, netuid, commit, reveal_round, 4)
         // }
 
-        /// ---- Used to commit encrypted commit-reveal v3 weight values to later be revealed for mechanisms.
+        /// Used to commit encrypted commit-reveal v3 weight values to later be revealed for mechanisms.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -518,7 +518,7 @@ mod dispatches {
             )
         }
 
-        /// ---- The implementation for batch revealing committed weights.
+        /// The implementation for batch revealing committed weights.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -577,7 +577,7 @@ mod dispatches {
             )
         }
 
-        /// --- Allows delegates to decrease its take value.
+        /// Allows delegates to decrease its take value.
         ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>::Origin):
@@ -620,7 +620,7 @@ mod dispatches {
             Self::do_decrease_take(origin, hotkey, take)
         }
 
-        /// --- Allows delegates to increase its take value. This call is rate-limited.
+        /// Allows delegates to increase its take value. This call is rate-limited.
         ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>::Origin):
@@ -660,7 +660,7 @@ mod dispatches {
             Self::do_increase_take(origin, hotkey, take)
         }
 
-        /// --- Adds stake to a hotkey. The call is made from a coldkey account.
+        /// Adds stake to a hotkey. The call is made from a coldkey account.
         /// This delegates stake to the hotkey.
         ///
         /// Note: the coldkey account may own the hotkey, in which case they are
@@ -909,7 +909,7 @@ mod dispatches {
             )
         }
 
-        /// ---- Set prometheus information for the neuron.
+        /// Set prometheus information for the neuron.
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the calling hotkey.
@@ -942,7 +942,7 @@ mod dispatches {
             Self::do_serve_prometheus(origin, netuid, version, ip, port, ip_type)
         }
 
-        /// ---- Registers a new neuron to the subnetwork.
+        /// Registers a new neuron to the subnetwork.
         ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
@@ -1021,7 +1021,7 @@ mod dispatches {
             Self::do_register(origin, netuid, hotkey)
         }
 
-        /// ---- The extrinsic for user to change its hotkey in subnet or all subnets.
+        /// The extrinsic for user to change its hotkey in subnet or all subnets.
         ///
         /// # Arguments
         /// * `origin` - The origin of the transaction (must be signed by the coldkey).
@@ -1043,7 +1043,7 @@ mod dispatches {
             Self::do_swap_hotkey(origin, &hotkey, &new_hotkey, netuid, false)
         }
 
-        /// ---- The extrinsic for user to change its hotkey in subnet or all subnets. This extrinsic is
+        /// The extrinsic for user to change its hotkey in subnet or all subnets. This extrinsic is
         /// similar to swap_hotkey, but with keep_stake parameter bo be able to keep the stake when swapping
         /// a root key to a child key
         ///
@@ -1317,7 +1317,7 @@ mod dispatches {
             Err(Error::<T>::Deprecated.into())
         }
 
-        /// ---- Set prometheus information for the neuron.
+        /// Set prometheus information for the neuron.
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the calling hotkey.
@@ -1361,7 +1361,7 @@ mod dispatches {
             )
         }
 
-        /// ---- Set the identity information for a subnet.
+        /// Set the identity information for a subnet.
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
         ///     - The signature of the calling coldkey, which must be the owner of the subnet.
@@ -1416,7 +1416,7 @@ mod dispatches {
             Self::do_register_network(origin, &hotkey, 1, identity)
         }
 
-        /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+        /// The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
         ///
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
@@ -1447,7 +1447,7 @@ mod dispatches {
             Self::do_unstake_all(origin, hotkey)
         }
 
-        /// ---- The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
+        /// The implementation for the extrinsic unstake_all: Removes all stake from a hotkey account across all subnets and adds it onto a coldkey.
         ///
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
@@ -1478,7 +1478,7 @@ mod dispatches {
             Self::do_unstake_all_alpha(origin, hotkey)
         }
 
-        /// ---- The implementation for the extrinsic move_stake: Moves specified amount of stake from a hotkey to another across subnets.
+        /// The implementation for the extrinsic move_stake: Moves specified amount of stake from a hotkey to another across subnets.
         ///
         /// # Args:
         /// * `origin` - (<T as frame_system::Config>::Origin):
@@ -1597,7 +1597,7 @@ mod dispatches {
             )
         }
 
-        /// --- Adds stake to a hotkey on a subnet with a price limit.
+        /// Adds stake to a hotkey on a subnet with a price limit.
         /// This extrinsic allows to specify the limit price for alpha token
         /// at which or better (lower) the staking should execute.
         ///
@@ -1660,7 +1660,7 @@ mod dispatches {
             .map(|_| ())
         }
 
-        /// --- Removes stake from a hotkey on a subnet with a price limit.
+        /// Removes stake from a hotkey on a subnet with a price limit.
         /// This extrinsic allows to specify the limit price for alpha token
         /// at which or better (higher) the staking should execute.
         ///
@@ -1994,7 +1994,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed.
+        /// Used to commit timelock encrypted commit-reveal weight values to later be revealed.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -2091,7 +2091,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// ---- Used to commit timelock encrypted commit-reveal weight values to later be revealed for
+        /// Used to commit timelock encrypted commit-reveal weight values to later be revealed for
         /// a mechanism.
         ///
         /// # Args:
@@ -2152,7 +2152,7 @@ mod dispatches {
             Self::do_dissolve_network(netuid)
         }
 
-        /// --- Claims the root emissions for a coldkey.
+        /// Claims the root emissions for a coldkey.
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
@@ -2183,7 +2183,7 @@ mod dispatches {
             Ok((Some(weight), Pays::Yes).into())
         }
 
-        /// --- Sets the root claim type for the coldkey.
+        /// Sets the root claim type for the coldkey.
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
@@ -2210,7 +2210,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// --- Sets root claim number (sudo extrinsic). Zero disables auto-claim.
+        /// Sets root claim number (sudo extrinsic). Zero disables auto-claim.
         #[pallet::call_index(123)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::sudo_set_num_root_claims())]
         pub fn sudo_set_num_root_claims(origin: OriginFor<T>, new_value: u64) -> DispatchResult {
@@ -2226,7 +2226,7 @@ mod dispatches {
             Ok(())
         }
 
-        /// --- Sets root claim threshold for subnet (sudo or owner origin).
+        /// Sets root claim threshold for subnet (sudo or owner origin).
         #[pallet::call_index(124)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::sudo_set_root_claim_threshold())]
         pub fn sudo_set_root_claim_threshold(
@@ -2447,7 +2447,7 @@ mod dispatches {
             Self::do_set_voting_power_ema_alpha(netuid, alpha)
         }
 
-        /// --- The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
+        /// The extrinsic is a combination of add_stake(add_stake_limit) and burn_alpha. We buy
         /// alpha token first and immediately burn the acquired amount of alpha (aka Subnet buyback).
         #[pallet::call_index(132)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake_burn())]
@@ -2507,7 +2507,7 @@ mod dispatches {
             Self::do_register_limit(origin, netuid, hotkey, limit_price)
         }
 
-        /// --- Allows a root validator to toggle auto parent delegation
+        /// Allows a root validator to toggle auto parent delegation
         /// for new subnets owner hotkey
         #[pallet::call_index(135)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_auto_parent_delegation_enabled(), DispatchClass::Normal, Pays::Yes))]

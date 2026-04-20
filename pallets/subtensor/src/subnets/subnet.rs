@@ -90,18 +90,18 @@ impl<T: Config> Pallet<T> {
 
     /// Facilitates user registration of a new subnetwork.
     ///
-    /// ### Args
+    /// # Args
     /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.
     /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.
     /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.
     /// * **`identity`** – `Option<SubnetIdentityOfV3>` &nbsp;Optional metadata for the subnet.
     ///
-    /// ### Events
+    /// # Events
     /// * `NetworkAdded(netuid, mechid)` – always.
     /// * `SubnetIdentitySet(netuid)`   – when a custom identity is supplied.
     /// * `NetworkRemoved(netuid)`      – when a subnet is pruned to make room.
     ///
-    /// ### Errors
+    /// # Errors
     /// * `NonAssociatedColdKey`            – `hotkey` already belongs to another coldkey.
     /// * `MechanismDoesNotExist`           – unsupported `mechid`.
     /// * `NetworkTxRateLimitExceeded`      – caller hit the register-network rate limit.

@@ -5,7 +5,7 @@ use subtensor_swap_interface::{Order, SwapHandler};
 use super::*;
 
 impl<T: Config> Pallet<T> {
-    /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
+    /// The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    /// ---- The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey
+    /// The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey
     /// account on a subnet with price limit.
     ///
     /// # Args:

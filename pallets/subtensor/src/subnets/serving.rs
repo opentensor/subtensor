@@ -2,7 +2,7 @@ use super::*;
 use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
-    /// ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
+    /// The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -118,7 +118,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic serve_prometheus.
+    /// The implementation for the extrinsic serve_prometheus.
     ///
     /// # Args:
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
