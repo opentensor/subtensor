@@ -8,6 +8,7 @@ use std::collections::BTreeSet;
 use fp_evm::{Context, ExitError, PrecompileFailure, PrecompileResult};
 use node_subtensor_runtime::{BuildStorage, Runtime, RuntimeGenesisConfig, System};
 use pallet_evm::{AddressMapping, BalanceConverter, PrecompileSet};
+use precompile_utils::solidity::{codec::Address, encode_return_value, encode_with_selector};
 use precompile_utils::testing::{MockHandle, PrecompileTesterExt};
 use sp_core::{H160, H256, Pair, U256, ed25519};
 use sp_runtime::traits::Hash;
@@ -61,54 +62,15 @@ fn addr_from_index(index: u64) -> H160 {
     H160::from_low_u64_be(index)
 }
 
-/// Appends one 32-byte ABI word to manually encoded precompile input.
-fn push_abi_word(input: &mut Vec<u8>, value: U256) {
-    input.extend_from_slice(&value.to_big_endian());
-}
-
 /// Encodes one 32-byte ABI output word for exact raw return checks.
 fn abi_word(value: U256) -> Vec<u8> {
     value.to_big_endian().to_vec()
 }
 
 /// Builds a 4-byte Solidity selector from a function signature.
-fn selector(signature: &str) -> [u8; 4] {
+fn selector_u32(signature: &str) -> u32 {
     let hash = sp_io::hashing::keccak_256(signature.as_bytes());
-    [hash[0], hash[1], hash[2], hash[3]]
-}
-
-/// Encodes a selector-only call with no arguments.
-fn call_data_no_args(signature: &str) -> Vec<u8> {
-    selector(signature).to_vec()
-}
-
-/// Encodes a selector plus one uint16 ABI argument.
-fn call_data_u16(signature: &str, value: u16) -> Vec<u8> {
-    // 4-byte selector + 1 ABI word for the uint16 argument.
-    let mut input = Vec::with_capacity(4 + 32);
-    input.extend_from_slice(&selector(signature));
-    push_abi_word(&mut input, U256::from(value));
-    input
-}
-
-/// Encodes a selector plus `(uint16,uint64)` ABI arguments.
-fn call_data_u16_u64(signature: &str, first: u16, second: u64) -> Vec<u8> {
-    // 4-byte selector + 2 ABI words for `(uint16,uint64)`.
-    let mut input = Vec::with_capacity(4 + 64);
-    input.extend_from_slice(&selector(signature));
-    push_abi_word(&mut input, U256::from(first));
-    push_abi_word(&mut input, U256::from(second));
-    input
-}
-
-/// Encodes a selector plus `(uint16,uint16)` ABI arguments.
-fn call_data_u16_u16(signature: &str, first: u16, second: u16) -> Vec<u8> {
-    // 4-byte selector + 2 ABI words for `(uint16,uint16)`.
-    let mut input = Vec::with_capacity(4 + 64);
-    input.extend_from_slice(&selector(signature));
-    push_abi_word(&mut input, U256::from(first));
-    push_abi_word(&mut input, U256::from(second));
-    input
+    u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])
 }
 
 /// Matches the alpha precompile conversion from fixed-point price to EVM `uint256`.
@@ -131,17 +93,6 @@ fn precompile_registry_addresses_are_unique() {
 mod address_mapping {
     use super::*;
 
-    fn address_mapping_call_data(target: H160) -> Vec<u8> {
-        // 4-byte selector + 1 ABI word for the address argument.
-        let mut input = Vec::with_capacity(4 + 32);
-        input.extend_from_slice(&selector("addressMapping(address)"));
-        // Left-pad the 20-byte address argument to a 32-byte ABI word.
-        input.extend_from_slice(&[0u8; 12]);
-        // The 20-byte address payload (right-aligned in the 32-byte ABI word).
-        input.extend_from_slice(target.as_bytes());
-        input
-    }
-
     #[test]
     fn address_mapping_precompile_returns_runtime_address_mapping() {
         new_test_ext().execute_with(|| {
@@ -149,7 +100,10 @@ mod address_mapping {
 
             let caller = addr_from_index(1);
             let target_address = addr_from_index(0x1234);
-            let input = address_mapping_call_data(target_address);
+            let input = encode_with_selector(
+                selector_u32("addressMapping(address)"),
+                (Address(target_address),),
+            );
 
             let mapped_account =
                 <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(target_address);
@@ -175,7 +129,10 @@ mod address_mapping {
                 &Precompiles::<Runtime>::new(),
                 precompile_addr,
                 caller,
-                address_mapping_call_data(first_address),
+                encode_with_selector(
+                    selector_u32("addressMapping(address)"),
+                    (Address(first_address),),
+                ),
                 U256::zero(),
             )
             .expect("expected precompile mapping call to be routed to a precompile")
@@ -185,7 +142,10 @@ mod address_mapping {
                 &Precompiles::<Runtime>::new(),
                 precompile_addr,
                 caller,
-                address_mapping_call_data(second_address),
+                encode_with_selector(
+                    selector_u32("addressMapping(address)"),
+                    (Address(second_address),),
+                ),
                 U256::zero(),
             )
             .expect("expected precompile mapping call to be routed to a precompile")
@@ -202,7 +162,10 @@ mod address_mapping {
             let caller = addr_from_index(1);
             let target_address = addr_from_index(0x1234);
             let precompile_addr = addr_from_index(AddressMappingPrecompile::<Runtime>::INDEX);
-            let input = address_mapping_call_data(target_address);
+            let input = encode_with_selector(
+                selector_u32("addressMapping(address)"),
+                (Address(target_address),),
+            );
 
             let first_output = execute_precompile(
                 &Precompiles::<Runtime>::new(),
@@ -343,28 +306,34 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getAlphaPrice(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(selector_u32("getAlphaPrice(uint16)"), (DYNAMIC_NETUID_U16,)),
                 alpha_price_to_evm(alpha_price),
             );
             assert_static_call(
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getMovingAlphaPrice(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getMovingAlphaPrice(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 alpha_price_to_evm(moving_alpha_price),
             );
             assert_static_call(
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getTaoInPool(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(selector_u32("getTaoInPool(uint16)"), (DYNAMIC_NETUID_U16,)),
                 U256::from(pallet_subtensor::SubnetTAO::<Runtime>::get(dynamic_netuid).to_u64()),
             );
             assert_static_call(
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getAlphaInPool(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getAlphaInPool(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(u64::from(pallet_subtensor::SubnetAlphaIn::<Runtime>::get(
                     dynamic_netuid,
                 ))),
@@ -373,7 +342,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getAlphaOutPool(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getAlphaOutPool(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(u64::from(pallet_subtensor::SubnetAlphaOut::<Runtime>::get(
                     dynamic_netuid,
                 ))),
@@ -382,7 +354,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getAlphaIssuance(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getAlphaIssuance(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(u64::from(
                     pallet_subtensor::Pallet::<Runtime>::get_alpha_issuance(dynamic_netuid),
                 )),
@@ -391,7 +366,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getSubnetMechanism(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getSubnetMechanism(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(pallet_subtensor::SubnetMechanism::<Runtime>::get(
                     dynamic_netuid,
                 )),
@@ -400,7 +378,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getEMAPriceHalvingBlocks(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getEMAPriceHalvingBlocks(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(pallet_subtensor::EMAPriceHalvingBlocks::<Runtime>::get(
                     dynamic_netuid,
                 )),
@@ -409,7 +390,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getSubnetVolume(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getSubnetVolume(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(pallet_subtensor::SubnetVolume::<Runtime>::get(
                     dynamic_netuid,
                 )),
@@ -418,7 +402,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getTaoInEmission(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getTaoInEmission(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(
                     pallet_subtensor::SubnetTaoInEmission::<Runtime>::get(dynamic_netuid).to_u64(),
                 ),
@@ -427,7 +414,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getAlphaInEmission(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getAlphaInEmission(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(
                     pallet_subtensor::SubnetAlphaInEmission::<Runtime>::get(dynamic_netuid)
                         .to_u64(),
@@ -437,7 +427,10 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16("getAlphaOutEmission(uint16)", DYNAMIC_NETUID_U16),
+                encode_with_selector(
+                    selector_u32("getAlphaOutEmission(uint16)"),
+                    (DYNAMIC_NETUID_U16,),
+                ),
                 U256::from(
                     pallet_subtensor::SubnetAlphaOutEmission::<Runtime>::get(dynamic_netuid)
                         .to_u64(),
@@ -475,28 +468,28 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_no_args("getCKBurn()"),
+                selector_u32("getCKBurn()").to_be_bytes().to_vec(),
                 U256::from(pallet_subtensor::CKBurn::<Runtime>::get()),
             );
             assert_static_call(
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_no_args("getTaoWeight()"),
+                selector_u32("getTaoWeight()").to_be_bytes().to_vec(),
                 U256::from(pallet_subtensor::TaoWeight::<Runtime>::get()),
             );
             assert_static_call(
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_no_args("getRootNetuid()"),
+                selector_u32("getRootNetuid()").to_be_bytes().to_vec(),
                 U256::from(u16::from(NetUid::ROOT)),
             );
             assert_static_call(
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_no_args("getSumAlphaPrice()"),
+                selector_u32("getSumAlphaPrice()").to_be_bytes().to_vec(),
                 alpha_price_to_evm(sum_alpha_price),
             );
         });
@@ -535,10 +528,9 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16_u64(
-                    "simSwapTaoForAlpha(uint16,uint64)",
-                    DYNAMIC_NETUID_U16,
-                    tao_amount,
+                encode_with_selector(
+                    selector_u32("simSwapTaoForAlpha(uint16,uint64)"),
+                    (DYNAMIC_NETUID_U16, tao_amount),
                 ),
                 U256::from(expected_alpha),
             );
@@ -546,10 +538,9 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16_u64(
-                    "simSwapAlphaForTao(uint16,uint64)",
-                    DYNAMIC_NETUID_U16,
-                    alpha_amount,
+                encode_with_selector(
+                    selector_u32("simSwapAlphaForTao(uint16,uint64)"),
+                    (DYNAMIC_NETUID_U16, alpha_amount),
                 ),
                 U256::from(expected_tao),
             );
@@ -557,14 +548,20 @@ mod alpha {
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16_u64("simSwapTaoForAlpha(uint16,uint64)", DYNAMIC_NETUID_U16, 0),
+                encode_with_selector(
+                    selector_u32("simSwapTaoForAlpha(uint16,uint64)"),
+                    (DYNAMIC_NETUID_U16, 0_u64),
+                ),
                 U256::zero(),
             );
             assert_static_call(
                 &precompiles,
                 caller,
                 precompile_addr,
-                call_data_u16_u64("simSwapAlphaForTao(uint16,uint64)", DYNAMIC_NETUID_U16, 0),
+                encode_with_selector(
+                    selector_u32("simSwapAlphaForTao(uint16,uint64)"),
+                    (DYNAMIC_NETUID_U16, 0_u64),
+                ),
                 U256::zero(),
             );
         });
@@ -573,21 +570,6 @@ mod alpha {
 
 mod ed25519_verify {
     use super::*;
-
-    fn ed25519_verify_call_data(
-        message: [u8; 32],
-        public_key: [u8; 32],
-        signature: [u8; 64],
-    ) -> Vec<u8> {
-        // 4-byte selector + 4 ABI words: message, public key, signature R, signature S.
-        let mut input = Vec::with_capacity(4 + 32 * 4);
-        input.extend_from_slice(&selector("verify(bytes32,bytes32,bytes32,bytes32)"));
-        input.extend_from_slice(&message);
-        input.extend_from_slice(&public_key);
-        input.extend_from_slice(&signature[..32]);
-        input.extend_from_slice(&signature[32..]);
-        input
-    }
 
     #[test]
     fn ed25519_precompile_verifies_valid_and_invalid_signatures() {
@@ -607,12 +589,22 @@ mod ed25519_verify {
             let precompiles = Precompiles::<Runtime>::new();
             let caller = addr_from_index(1);
             let precompile_addr = addr_from_index(Ed25519Verify::<AccountId>::INDEX);
+            let message = H256::from(message);
+            let broken_message = H256::from(broken_message);
+            let public_key = H256::from(public_key);
+            let signature_r = H256::from_slice(&signature[..32]);
+            let signature_s = H256::from_slice(&signature[32..]);
+            let broken_signature_r = H256::from_slice(&broken_signature[..32]);
+            let broken_signature_s = H256::from_slice(&broken_signature[32..]);
 
             precompiles
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    ed25519_verify_call_data(message, public_key, signature),
+                    encode_with_selector(
+                        selector_u32("verify(bytes32,bytes32,bytes32,bytes32)"),
+                        (message, public_key, signature_r, signature_s),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::one()));
@@ -620,7 +612,10 @@ mod ed25519_verify {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    ed25519_verify_call_data(broken_message, public_key, signature),
+                    encode_with_selector(
+                        selector_u32("verify(bytes32,bytes32,bytes32,bytes32)"),
+                        (broken_message, public_key, signature_r, signature_s),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::zero()));
@@ -628,7 +623,10 @@ mod ed25519_verify {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    ed25519_verify_call_data(message, public_key, broken_signature),
+                    encode_with_selector(
+                        selector_u32("verify(bytes32,bytes32,bytes32,bytes32)"),
+                        (message, public_key, broken_signature_r, broken_signature_s),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::zero()));
@@ -638,30 +636,6 @@ mod ed25519_verify {
 
 mod uid_lookup {
     use super::*;
-
-    fn uid_lookup_call_data(netuid: u16, evm_address: H160, limit: u16) -> Vec<u8> {
-        // 4-byte selector + 3 ABI words: netuid, address, limit.
-        let mut input = Vec::with_capacity(4 + 32 * 3);
-        input.extend_from_slice(&selector("uidLookup(uint16,address,uint16)"));
-        push_abi_word(&mut input, U256::from(netuid));
-        input.extend_from_slice(&[0u8; 12]);
-        input.extend_from_slice(evm_address.as_bytes());
-        push_abi_word(&mut input, U256::from(limit));
-        input
-    }
-
-    fn abi_uid_lookup_output(entries: &[(u16, u64)]) -> Vec<u8> {
-        // ABI dynamic array encoding:
-        // head offset word + array length word + 2 words per tuple entry `(uid, block_associated)`.
-        let mut output = Vec::with_capacity(64 + entries.len() * 64);
-        push_abi_word(&mut output, U256::from(32u64));
-        push_abi_word(&mut output, U256::from(entries.len()));
-        for (uid, block_associated) in entries {
-            push_abi_word(&mut output, U256::from(*uid));
-            push_abi_word(&mut output, U256::from(*block_associated));
-        }
-        output
-    }
 
     #[test]
     fn uid_lookup_precompile_returns_associated_uid_and_block() {
@@ -691,10 +665,13 @@ mod uid_lookup {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    uid_lookup_call_data(netuid_u16, evm_address, limit),
+                    encode_with_selector(
+                        selector_u32("uidLookup(uint16,address,uint16)"),
+                        (netuid_u16, Address(evm_address), limit),
+                    ),
                 )
                 .with_static_call(true)
-                .execute_returns_raw(abi_uid_lookup_output(&expected));
+                .execute_returns_raw(encode_return_value(expected));
         });
     }
 }
@@ -712,18 +689,6 @@ mod metagraph {
     const AXON_PORT: u16 = 777;
     const AXON_IP_TYPE: u8 = 4;
     const AXON_PROTOCOL: u8 = 1;
-
-    fn abi_axon_output(axon: &pallet_subtensor::AxonInfo) -> Vec<u8> {
-        // 6 ABI words for the static AxonInfo fields returned by the precompile.
-        let mut output = Vec::with_capacity(32 * 6);
-        push_abi_word(&mut output, U256::from(axon.block));
-        push_abi_word(&mut output, U256::from(axon.version));
-        push_abi_word(&mut output, U256::from(axon.ip));
-        push_abi_word(&mut output, U256::from(axon.port));
-        push_abi_word(&mut output, U256::from(axon.ip_type));
-        push_abi_word(&mut output, U256::from(axon.protocol));
-        output
-    }
 
     fn seed_metagraph_test_state() -> (NetUid, AccountId, AccountId, pallet_subtensor::AxonInfo) {
         let netuid = NetUid::from(TEST_NETUID_U16);
@@ -790,7 +755,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16("getUidCount(uint16)", TEST_NETUID_U16),
+                    encode_with_selector(selector_u32("getUidCount(uint16)"), (TEST_NETUID_U16,)),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(uid_count)));
@@ -798,15 +763,28 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getAxon(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getAxon(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
-                .execute_returns_raw(abi_axon_output(&runtime_axon));
+                .execute_returns_raw(encode_return_value((
+                    runtime_axon.block,
+                    runtime_axon.version,
+                    runtime_axon.ip,
+                    runtime_axon.port,
+                    runtime_axon.ip_type,
+                    runtime_axon.protocol,
+                )));
             precompiles
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getEmission(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getEmission(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(emission)));
@@ -814,7 +792,10 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getVtrust(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getVtrust(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(vtrust)));
@@ -822,7 +803,10 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getValidatorStatus(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getValidatorStatus(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(validator_status as u8)));
@@ -830,7 +814,10 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getLastUpdate(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getLastUpdate(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(last_update)));
@@ -838,7 +825,10 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getIsActive(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getIsActive(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(is_active as u8)));
@@ -846,7 +836,10 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getHotkey(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getHotkey(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(H256::from_slice(hotkey.as_ref()).as_bytes().to_vec());
@@ -854,7 +847,10 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getColdkey(uint16,uint16)", TEST_NETUID_U16, UID),
+                    encode_with_selector(
+                        selector_u32("getColdkey(uint16,uint16)"),
+                        (TEST_NETUID_U16, UID),
+                    ),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(H256::from_slice(coldkey.as_ref()).as_bytes().to_vec());
@@ -868,14 +864,65 @@ mod neuron {
     const REGISTRATION_BURN: u64 = 1_000;
     const RESERVE: u64 = 1_000_000_000;
     const COLDKEY_BALANCE: u64 = 50_000;
+    const TEMPO: u16 = 100;
+    const REVEAL_PERIOD: u64 = 1;
+    const VERSION_KEY: u64 = 0;
+    const REGISTERED_UID: u16 = 1;
+    const REVEAL_UIDS: [u16; 1] = [REGISTERED_UID];
+    const REVEAL_VALUES: [u16; 1] = [5];
+    const REVEAL_SALT: [u16; 1] = [9];
 
-    fn burned_register_call_data(netuid: u16, hotkey: H256) -> Vec<u8> {
-        // 4-byte selector + 2 ABI words for `(uint16,bytes32)`.
-        let mut input = Vec::with_capacity(4 + 64);
-        input.extend_from_slice(&selector("burnedRegister(uint16,bytes32)"));
-        push_abi_word(&mut input, U256::from(netuid));
-        input.extend_from_slice(hotkey.as_bytes());
-        input
+    fn setup_registered_caller(caller: H160) -> (NetUid, AccountId) {
+        let netuid = NetUid::from(TEST_NETUID_U16);
+        let caller_account =
+            <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(caller);
+        let caller_hotkey = H256::from_slice(caller_account.as_ref());
+
+        pallet_subtensor::Pallet::<Runtime>::set_network_registration_allowed(netuid, true);
+        pallet_subtensor::Pallet::<Runtime>::set_burn(netuid, REGISTRATION_BURN.into());
+        pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
+        pallet_subtensor::Pallet::<Runtime>::set_weights_set_rate_limit(netuid, 0);
+        pallet_subtensor::Pallet::<Runtime>::set_tempo(netuid, TEMPO);
+        pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, true);
+        pallet_subtensor::Pallet::<Runtime>::set_reveal_period(netuid, REVEAL_PERIOD)
+            .expect("reveal period setup should succeed");
+        pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
+        pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
+        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
+            &caller_account,
+            COLDKEY_BALANCE.into(),
+        );
+
+        Precompiles::<Runtime>::new()
+            .prepare_test(
+                caller,
+                addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
+                encode_with_selector(
+                    selector_u32("burnedRegister(uint16,bytes32)"),
+                    (TEST_NETUID_U16, caller_hotkey),
+                ),
+            )
+            .execute_returns(());
+
+        let registered_uid = pallet_subtensor::Pallet::<Runtime>::get_uid_for_net_and_hotkey(
+            netuid,
+            &caller_account,
+        )
+        .expect("caller should be registered on subnet");
+        assert_eq!(registered_uid, REGISTERED_UID);
+
+        (netuid, caller_account)
+    }
+
+    fn reveal_commit_hash(caller_account: &AccountId, netuid: NetUid) -> H256 {
+        <Runtime as frame_system::Config>::Hashing::hash_of(&(
+            caller_account.clone(),
+            NetUidStorageIndex::from(netuid),
+            REVEAL_UIDS.as_slice(),
+            REVEAL_VALUES.as_slice(),
+            REVEAL_SALT.as_slice(),
+            VERSION_KEY,
+        ))
     }
 
     #[test]
@@ -906,7 +953,10 @@ mod neuron {
                 .prepare_test(
                     caller,
                     addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
-                    burned_register_call_data(TEST_NETUID_U16, hotkey),
+                    encode_with_selector(
+                        selector_u32("burnedRegister(uint16,bytes32)"),
+                        (TEST_NETUID_U16, hotkey),
+                    ),
                 )
                 .execute_returns(());
 
@@ -922,18 +972,149 @@ mod neuron {
             assert!(balance_after < balance_before);
         });
     }
+
+    #[test]
+    fn neuron_precompile_commit_weights_respects_stake_threshold_and_stores_commit() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x2234);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+            let commit_hash = reveal_commit_hash(&caller_account, netuid);
+            let precompile_addr = addr_from_index(NeuronPrecompile::<Runtime>::INDEX);
+
+            pallet_subtensor::Pallet::<Runtime>::set_stake_threshold(1);
+            let rejected = execute_precompile(
+                &Precompiles::<Runtime>::new(),
+                precompile_addr,
+                caller,
+                encode_with_selector(
+                    selector_u32("commitWeights(uint16,bytes32)"),
+                    (TEST_NETUID_U16, commit_hash),
+                ),
+                U256::zero(),
+            )
+            .expect("commit weights should route to neuron precompile");
+            assert!(rejected.is_err());
+
+            pallet_subtensor::Pallet::<Runtime>::set_stake_threshold(0);
+            Precompiles::<Runtime>::new()
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("commitWeights(uint16,bytes32)"),
+                        (TEST_NETUID_U16, commit_hash),
+                    ),
+                )
+                .execute_returns(());
+
+            let commits = pallet_subtensor::WeightCommits::<Runtime>::get(
+                NetUidStorageIndex::from(netuid),
+                &caller_account,
+            )
+            .expect("weight commits should be stored after successful commit");
+            assert_eq!(commits.len(), 1);
+        });
+    }
+
+    #[test]
+    fn neuron_precompile_reveal_weights_respects_stake_threshold_and_sets_weights() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x3234);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+            let commit_hash = reveal_commit_hash(&caller_account, netuid);
+            let precompile_addr = addr_from_index(NeuronPrecompile::<Runtime>::INDEX);
+
+            Precompiles::<Runtime>::new()
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("commitWeights(uint16,bytes32)"),
+                        (TEST_NETUID_U16, commit_hash),
+                    ),
+                )
+                .execute_returns(());
+
+            let commits = pallet_subtensor::WeightCommits::<Runtime>::get(
+                NetUidStorageIndex::from(netuid),
+                &caller_account,
+            )
+            .expect("weight commit should exist before reveal");
+            let (_, _, first_reveal_block, _) = commits
+                .front()
+                .copied()
+                .expect("weight commit queue should contain the committed hash");
+
+            System::set_block_number(
+                u32::try_from(first_reveal_block)
+                    .expect("first reveal block should fit in runtime block number"),
+            );
+
+            pallet_subtensor::Pallet::<Runtime>::set_stake_threshold(1);
+            let rejected = execute_precompile(
+                &Precompiles::<Runtime>::new(),
+                precompile_addr,
+                caller,
+                encode_with_selector(
+                    selector_u32("revealWeights(uint16,uint16[],uint16[],uint16[],uint64)"),
+                    (
+                        TEST_NETUID_U16,
+                        REVEAL_UIDS.to_vec(),
+                        REVEAL_VALUES.to_vec(),
+                        REVEAL_SALT.to_vec(),
+                        VERSION_KEY,
+                    ),
+                ),
+                U256::zero(),
+            )
+            .expect("reveal weights should route to neuron precompile");
+            assert!(rejected.is_err());
+
+            pallet_subtensor::Pallet::<Runtime>::set_stake_threshold(0);
+            Precompiles::<Runtime>::new()
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("revealWeights(uint16,uint16[],uint16[],uint16[],uint64)"),
+                        (
+                            TEST_NETUID_U16,
+                            REVEAL_UIDS.to_vec(),
+                            REVEAL_VALUES.to_vec(),
+                            REVEAL_SALT.to_vec(),
+                            VERSION_KEY,
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            assert!(
+                pallet_subtensor::WeightCommits::<Runtime>::get(
+                    NetUidStorageIndex::from(netuid),
+                    &caller_account,
+                )
+                .is_none()
+            );
+
+            let neuron_uid = pallet_subtensor::Pallet::<Runtime>::get_uid_for_net_and_hotkey(
+                netuid,
+                &caller_account,
+            )
+            .expect("caller should remain registered after reveal");
+            let weights = pallet_subtensor::Weights::<Runtime>::get(
+                NetUidStorageIndex::from(netuid),
+                neuron_uid,
+            );
+
+            assert_eq!(weights.len(), 1);
+            assert_eq!(weights[0].0, neuron_uid);
+            assert!(weights[0].1 > 0);
+        });
+    }
 }
 
 mod balance_transfer {
     use super::*;
-
-    fn balance_transfer_call_data(target: H256) -> Vec<u8> {
-        // 4-byte selector + 1 ABI word for the bytes32 destination.
-        let mut input = Vec::with_capacity(4 + 32);
-        input.extend_from_slice(&selector("transfer(bytes32)"));
-        input.extend_from_slice(target.as_bytes());
-        input
-    }
 
     #[test]
     fn balance_transfer_precompile_transfers_balance() {
@@ -959,7 +1140,7 @@ mod balance_transfer {
                 &precompiles,
                 precompile_addr,
                 addr_from_index(1),
-                balance_transfer_call_data(destination_raw),
+                encode_with_selector(selector_u32("transfer(bytes32)"), (destination_raw,)),
                 evm_apparent_value_from_substrate(amount),
             );
             let precompile_result =
@@ -1012,7 +1193,7 @@ mod balance_transfer {
                 &precompiles,
                 precompile_addr,
                 addr_from_index(1),
-                balance_transfer_call_data(destination_raw),
+                encode_with_selector(selector_u32("transfer(bytes32)"), (destination_raw,)),
                 evm_apparent_value_from_substrate(amount),
             );
             let precompile_result =
