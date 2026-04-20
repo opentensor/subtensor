@@ -16,7 +16,7 @@ impl<T: Config> Pallet<T> {
     /// * `destination_netuid` - The network ID of the destination subnet.
     ///
     /// # Returns
-    /// * `DispatchResult` - Indicates the success or failure of the operation.
+    /// * 'DispatchResult': Indicates the success or failure of the operation.
     ///
     /// # Errors
     /// * 'BadOrigin': The origin is not signed by the coldkey that owns `origin_hotkey`.
@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
     /// * `toggle` - A boolean value indicating whether to enable (true) or disable (false) transfers.
     ///
     /// # Returns
-    /// * `DispatchResult` - Indicates success or failure of the operation.
+    /// * 'DispatchResult': Indicates success or failure of the operation.
     ///
     /// # Events
     /// Emits a `TransferToggle` event upon successful completion.
@@ -108,7 +108,7 @@ impl<T: Config> Pallet<T> {
     /// * `alpha_amount` - The amount of stake to transfer.
     ///
     /// # Returns
-    /// * `DispatchResult` - Indicates success or failure.
+    /// * 'DispatchResult': Indicates success or failure.
     ///
     /// # Errors
     /// * 'BadOrigin': The transaction is not signed by `origin_coldkey`.
@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
     /// * `alpha_amount` - The amount of stake to swap.
     ///
     /// # Returns
-    /// * `DispatchResult` - Indicates success or failure.
+    /// * 'DispatchResult': Indicates success or failure.
     ///
     /// # Errors
     /// * 'BadOrigin': The transaction is not signed by the coldkey that owns `hotkey`.
@@ -245,7 +245,7 @@ impl<T: Config> Pallet<T> {
     /// * `allow_partial` - Allow partial execution
     ///
     /// # Returns
-    /// * `DispatchResult` - Indicates success or failure.
+    /// * 'DispatchResult': Indicates success or failure.
     ///
     /// # Errors
     /// * 'BadOrigin': The transaction is not signed by the coldkey that owns `hotkey`.

@@ -152,7 +152,7 @@ impl<T: Config> Pallet<T> {
     /// regardless of the actual stored weight value.
     ///
     /// # Returns
-    /// * `U96F32` - The normalized global global weight as a fixed-point number between 0 and 1.
+    /// * 'U96F32': The normalized global global weight as a fixed-point number between 0 and 1.
     ///
     /// # Note
     /// This function uses saturating division to prevent potential overflow errors.

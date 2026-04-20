@@ -21,21 +21,16 @@ impl<T: Config> Pallet<T> {
     ///     -  The amount of stake to be added to the hotkey staking account.
     ///
     /// # Events
-    /// * StakeAdded;
-    ///     -  On the successfully adding stake to a global account.
+    /// * 'StakeAdded': On the successfully adding stake to a global account.
     ///
     /// # Errors
-    /// * 'NotEnoughBalanceToStake':
-    ///     -  Not enough balance on the coldkey to add onto the global account.
+    /// * 'NotEnoughBalanceToStake': Not enough balance on the coldkey to add onto the global account.
     ///
-    /// * 'NonAssociatedColdKey':
-    ///     -  The calling coldkey is not associated with this hotkey.
+    /// * 'NonAssociatedColdKey': The calling coldkey is not associated with this hotkey.
     ///
-    /// * 'BalanceWithdrawalError':
-    ///     -  Errors stemming from transaction pallet.
+    /// * 'BalanceWithdrawalError': Errors stemming from transaction pallet.
     ///
-    /// * 'TxRateLimitExceeded':
-    ///     -  Thrown if key has hit transaction rate limit
+    /// * 'TxRateLimitExceeded': Thrown if key has hit transaction rate limit.
     ///
     pub fn do_add_stake(
         origin: OriginFor<T>,
@@ -104,21 +99,16 @@ impl<T: Config> Pallet<T> {
     ///       fill or kill type or order.
     ///
     /// # Events
-    /// * StakeAdded;
-    ///     -  On the successfully adding stake to a global account.
+    /// * 'StakeAdded': On the successfully adding stake to a global account.
     ///
     /// # Errors
-    /// * 'NotEnoughBalanceToStake':
-    ///     -  Not enough balance on the coldkey to add onto the global account.
+    /// * 'NotEnoughBalanceToStake': Not enough balance on the coldkey to add onto the global account.
     ///
-    /// * 'NonAssociatedColdKey':
-    ///     -  The calling coldkey is not associated with this hotkey.
+    /// * 'NonAssociatedColdKey': The calling coldkey is not associated with this hotkey.
     ///
-    /// * 'BalanceWithdrawalError':
-    ///     -  Errors stemming from transaction pallet.
+    /// * 'BalanceWithdrawalError': Errors stemming from transaction pallet.
     ///
-    /// * 'TxRateLimitExceeded':
-    ///     -  Thrown if key has hit transaction rate limit
+    /// * 'TxRateLimitExceeded': Thrown if key has hit transaction rate limit.
     ///
     pub fn do_add_stake_limit(
         origin: OriginFor<T>,

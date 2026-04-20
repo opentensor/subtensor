@@ -14,7 +14,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
+    /// * 'DispatchResult': Success or error.
     pub(crate) fn do_recycle_alpha(
         origin: OriginFor<T>,
         hotkey: T::AccountId,
@@ -72,7 +72,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
+    /// * 'DispatchResult': Success or error.
     pub(crate) fn do_burn_alpha(
         origin: OriginFor<T>,
         hotkey: T::AccountId,

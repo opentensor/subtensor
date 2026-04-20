@@ -14,21 +14,16 @@ impl<T: Config> Pallet<T> {
     ///     - The stake proportion that this hotkey takes from delegations for subnet ID.
     ///
     /// # Events
-    /// * TakeIncreased;
-    ///     - On successfully setting a increased take for this hotkey.
+    /// * 'TakeIncreased': On successfully setting a increased take for this hotkey.
     ///
     /// # Errors
-    /// * 'NotRegistered':
-    ///     - The hotkey we are delegating is not registered on the network.
+    /// * 'NotRegistered': The hotkey we are delegating is not registered on the network.
     ///
-    /// * 'NonAssociatedColdKey':
-    ///     - The hotkey we are delegating is not owned by the calling coldket.
+    /// * 'NonAssociatedColdKey': The hotkey we are delegating is not owned by the calling coldket.
     ///
-    /// * 'TxRateLimitExceeded':
-    ///     - Thrown if key has hit transaction rate limit
+    /// * 'TxRateLimitExceeded': Thrown if key has hit transaction rate limit.
     ///
-    /// * 'DelegateTakeTooLow':
-    ///     - The delegate is setting a take which is not greater than the previous.
+    /// * 'DelegateTakeTooLow': The delegate is setting a take which is not greater than the previous.
     ///
     pub fn do_increase_take(
         origin: OriginFor<T>,

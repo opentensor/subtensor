@@ -97,18 +97,18 @@ impl<T: Config> Pallet<T> {
     /// * **`identity`** – `Option<SubnetIdentityOfV3>` &nbsp;Optional metadata for the subnet.
     ///
     /// # Events
-    /// * `NetworkAdded(netuid, mechid)` – always.
-    /// * `SubnetIdentitySet(netuid)`   – when a custom identity is supplied.
-    /// * `NetworkRemoved(netuid)`      – when a subnet is pruned to make room.
+    /// * 'NetworkAdded': always.
+    /// * 'SubnetIdentitySet': when a custom identity is supplied.
+    /// * 'NetworkRemoved': when a subnet is pruned to make room.
     ///
     /// # Errors
-    /// * `NonAssociatedColdKey`            – `hotkey` already belongs to another coldkey.
-    /// * `MechanismDoesNotExist`           – unsupported `mechid`.
-    /// * `NetworkTxRateLimitExceeded`      – caller hit the register-network rate limit.
-    /// * `SubnetLimitReached`              – limit hit **and** no eligible subnet to prune.
-    /// * `CannotAffordLockCost`            – caller lacks the lock cost.
-    /// * `BalanceWithdrawalError`          – failed to lock balance.
-    /// * `InvalidIdentity`                 – supplied `identity` failed validation.
+    /// * 'NonAssociatedColdKey': `hotkey` already belongs to another coldkey.
+    /// * 'MechanismDoesNotExist': unsupported `mechid`.
+    /// * 'NetworkTxRateLimitExceeded': caller hit the register-network rate limit.
+    /// * 'SubnetLimitReached': limit hit **and** no eligible subnet to prune.
+    /// * 'CannotAffordLockCost': caller lacks the lock cost.
+    /// * 'BalanceWithdrawalError': failed to lock balance.
+    /// * 'InvalidIdentity': supplied `identity` failed validation.
     ///
     pub fn do_register_network(
         origin: OriginFor<T>,

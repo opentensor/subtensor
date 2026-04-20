@@ -157,16 +157,11 @@ impl<T: Config> Pallet<T> {
     ///    - The commit hashes to be committed, one hash for each netuid in the batch.
     ///
     /// # Events
-    ///  * WeightsCommitted;
-    ///    - On successfully storing the weight hashes.
-    ///  * BatchCompletedWithErrors;
-    ///    - Emitted when at least on of the weight commits has an error.
-    ///  * BatchWeightItemFailed;
-    ///    - Emitted for each error within the batch.
-    ///  * BatchWeightsCompleted
-    ///    - Emitted when the batch of weights is completed.
-    ///  * InputLengthsUnequal;
-    ///    - Emitted when the lengths of the input vectors are not equal.
+    /// * 'WeightsCommitted': On successfully storing the weight hashes.
+    /// * 'BatchCompletedWithErrors': Emitted when at least on of the weight commits has an error.
+    /// * 'BatchWeightItemFailed': Emitted for each error within the batch.
+    /// * 'BatchWeightsCompleted': Emitted when the batch of weights is completed.
+    /// * 'InputLengthsUnequal': Emitted when the lengths of the input vectors are not equal.
     ///
     pub fn do_batch_commit_weights(
         origin: OriginFor<T>,
@@ -249,14 +244,14 @@ impl<T: Config> Pallet<T> {
     ///    commit.
     ///
     /// # Errors
-    /// * `CommitRevealDisabled` – Commit-reveal is disabled on `netuid`.  
-    /// * `IncorrectCommitRevealVersion` – Provided version ≠ runtime version.  
-    /// * `HotKeyNotRegisteredInSubNet` – Caller’s hotkey is not registered.  
-    /// * `CommittingWeightsTooFast` – Caller exceeds commit-rate limit.  
-    /// * `TooManyUnrevealedCommits` – Caller already has 10 unrevealed commits.
+    /// * 'CommitRevealDisabled': Commit-reveal is disabled on `netuid`.
+    /// * 'IncorrectCommitRevealVersion': Provided version ≠ runtime version.
+    /// * 'HotKeyNotRegisteredInSubNet': Caller’s hotkey is not registered.
+    /// * 'CommittingWeightsTooFast': Caller exceeds commit-rate limit.
+    /// * 'TooManyUnrevealedCommits': Caller already has 10 unrevealed commits.
     ///
     /// # Events
-    /// * `TimelockedWeightsCommitted(hotkey, netuid, commit_hash, reveal_round)` – Fired after the commit is successfully stored.
+    /// * 'TimelockedWeightsCommitted': Fired after the commit is successfully stored.
     pub fn do_commit_timelocked_weights(
         origin: OriginFor<T>,
         netuid: NetUid,
@@ -879,42 +874,30 @@ impl<T: Config> Pallet<T> {
     ///    - The network version key.
     ///
     /// # Events
-    ///  * WeightsSet;
-    ///    - On successfully setting the weights on chain.
+    /// * 'WeightsSet': On successfully setting the weights on chain.
     ///
     /// # Errors
-    ///  * 'MechanismDoesNotExist':
-    ///    - Attempting to set weights on a non-existent network.
+    /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
     ///
-    ///  * 'NotRegistered':
-    ///    - Attempting to set weights from a non registered account.
+    /// * 'NotRegistered': Attempting to set weights from a non registered account.
     ///
-    ///  * 'IncorrectWeightVersionKey':
-    ///    - Attempting to set weights without having an up-to-date version_key.
+    /// * 'IncorrectWeightVersionKey': Attempting to set weights without having an up-to-date version_key.
     ///
-    ///  * 'SettingWeightsTooFast':
-    ///    - Attempting to set weights faster than the weights_set_rate_limit.
+    /// * 'SettingWeightsTooFast': Attempting to set weights faster than the weights_set_rate_limit.
     ///
-    ///  * 'NeuronNoValidatorPermit':
-    ///    - Attempting to set non-self weights without a validator permit.
+    /// * 'NeuronNoValidatorPermit': Attempting to set non-self weights without a validator permit.
     ///
-    ///  * 'WeightVecNotEqualSize':
-    ///    - Attempting to set weights with uids not of same length.
+    /// * 'WeightVecNotEqualSize': Attempting to set weights with uids not of same length.
     ///
-    ///  * 'DuplicateUids':
-    ///    - Attempting to set weights with duplicate uids.
+    /// * 'DuplicateUids': Attempting to set weights with duplicate uids.
     ///
-    /// * 'UidsLengthExceedUidsInSubNet':
-    ///    - Attempting to set weights above the max allowed uids.
+    /// * 'UidsLengthExceedUidsInSubNet': Attempting to set weights above the max allowed uids.
     ///
-    /// * 'UidVecContainInvalidOne':
-    ///    - Attempting to set weights with invalid uids.
+    /// * 'UidVecContainInvalidOne': Attempting to set weights with invalid uids.
     ///
-    /// * 'WeightVecLengthIsLow':
-    ///    - Attempting to set weights with fewer weights than min.
+    /// * 'WeightVecLengthIsLow': Attempting to set weights with fewer weights than min.
     ///
-    /// * 'MaxWeightExceeded':
-    ///    - Attempting to set weights with max value exceeding limit.
+    /// * 'MaxWeightExceeded': Attempting to set weights with max value exceeding limit.
     ///
     pub fn do_set_weights(
         origin: OriginFor<T>,
@@ -948,42 +931,30 @@ impl<T: Config> Pallet<T> {
     ///    - The network version key.
     ///
     /// # Events
-    ///  * WeightsSet;
-    ///    - On successfully setting the weights on chain.
+    /// * 'WeightsSet': On successfully setting the weights on chain.
     ///
     /// # Errors
-    ///  * 'MechanismDoesNotExist':
-    ///    - Attempting to set weights on a non-existent network.
+    /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
     ///
-    ///  * 'NotRegistered':
-    ///    - Attempting to set weights from a non registered account.
+    /// * 'NotRegistered': Attempting to set weights from a non registered account.
     ///
-    ///  * 'IncorrectWeightVersionKey':
-    ///    - Attempting to set weights without having an up-to-date version_key.
+    /// * 'IncorrectWeightVersionKey': Attempting to set weights without having an up-to-date version_key.
     ///
-    ///  * 'SettingWeightsTooFast':
-    ///    - Attempting to set weights faster than the weights_set_rate_limit.
+    /// * 'SettingWeightsTooFast': Attempting to set weights faster than the weights_set_rate_limit.
     ///
-    ///  * 'NeuronNoValidatorPermit':
-    ///    - Attempting to set non-self weights without a validator permit.
+    /// * 'NeuronNoValidatorPermit': Attempting to set non-self weights without a validator permit.
     ///
-    ///  * 'WeightVecNotEqualSize':
-    ///    - Attempting to set weights with uids not of same length.
+    /// * 'WeightVecNotEqualSize': Attempting to set weights with uids not of same length.
     ///
-    ///  * 'DuplicateUids':
-    ///    - Attempting to set weights with duplicate uids.
+    /// * 'DuplicateUids': Attempting to set weights with duplicate uids.
     ///
-    /// * 'UidsLengthExceedUidsInSubNet':
-    ///    - Attempting to set weights above the max allowed uids.
+    /// * 'UidsLengthExceedUidsInSubNet': Attempting to set weights above the max allowed uids.
     ///
-    /// * 'UidVecContainInvalidOne':
-    ///    - Attempting to set weights with invalid uids.
+    /// * 'UidVecContainInvalidOne': Attempting to set weights with invalid uids.
     ///
-    /// * 'WeightVecLengthIsLow':
-    ///    - Attempting to set weights with fewer weights than min.
+    /// * 'WeightVecLengthIsLow': Attempting to set weights with fewer weights than min.
     ///
-    /// * 'MaxWeightExceeded':
-    ///    - Attempting to set weights with max value exceeding limit.
+    /// * 'MaxWeightExceeded': Attempting to set weights with max value exceeding limit.
     ///
     pub fn do_set_mechanism_weights(
         origin: OriginFor<T>,
@@ -1015,16 +986,11 @@ impl<T: Config> Pallet<T> {
     ///    - The network version key, one u64 for each netuid in the batch.
     ///
     /// # Events
-    ///  * WeightsSet;
-    ///    - On successfully setting the weights on chain.
-    ///  * BatchCompletedWithErrors;
-    ///    - Emitted when at least on of the weight sets has an error.
-    ///  * BatchWeightItemFailed;
-    ///    - Emitted for each error within the batch.
-    ///  * BatchWeightsCompleted;
-    ///    - Emitted when the batch of weights is completed.
-    ///  * InputLengthsUnequal;
-    ///    - Emitted when the lengths of the input vectors are not equal.
+    /// * 'WeightsSet': On successfully setting the weights on chain.
+    /// * 'BatchCompletedWithErrors': Emitted when at least on of the weight sets has an error.
+    /// * 'BatchWeightItemFailed': Emitted for each error within the batch.
+    /// * 'BatchWeightsCompleted': Emitted when the batch of weights is completed.
+    /// * 'InputLengthsUnequal': Emitted when the lengths of the input vectors are not equal.
     ///
     pub fn do_batch_set_weights(
         origin: OriginFor<T>,

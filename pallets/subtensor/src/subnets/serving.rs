@@ -36,24 +36,18 @@ impl<T: Config> Pallet<T> {
     ///     - Certificate for mutual Tls connection between neurons
     ///
     /// # Events
-    /// * AxonServed;
-    ///     - On successfully serving the axon info.
+    /// * 'AxonServed': On successfully serving the axon info.
     ///
     /// # Errors
-    /// * 'MechanismDoesNotExist':
-    ///     - Attempting to set weights on a non-existent network.
+    /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
     ///
-    /// * 'NotRegistered':
-    ///     - Attempting to set weights from a non registered account.
+    /// * 'NotRegistered': Attempting to set weights from a non registered account.
     ///
-    /// * 'InvalidIpType':
-    ///     - The ip type is not 4 or 6.
+    /// * 'InvalidIpType': The ip type is not 4 or 6.
     ///
-    /// * 'InvalidIpAddress':
-    ///     - The numerically encoded ip address does not resolve to a proper ip.
+    /// * 'InvalidIpAddress': The numerically encoded ip address does not resolve to a proper ip.
     ///
-    /// * 'ServingRateLimitExceeded':
-    ///     - Attempting to set prometheus information withing the rate limit min.
+    /// * 'ServingRateLimitExceeded': Attempting to set prometheus information withing the rate limit min.
     ///
     pub fn do_serve_axon(
         origin: OriginFor<T>,
@@ -140,24 +134,18 @@ impl<T: Config> Pallet<T> {
     ///     - The prometheus ip version as a u8, 4 or 6.
     ///
     /// # Events
-    /// * PrometheusServed;
-    ///     - On successfully serving the axon info.
+    /// * 'PrometheusServed': On successfully serving the axon info.
     ///
     /// # Errors
-    /// * 'MechanismDoesNotExist':
-    ///     - Attempting to set weights on a non-existent network.
+    /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
     ///
-    /// * 'NotRegistered':
-    ///     - Attempting to set weights from a non registered account.
+    /// * 'NotRegistered': Attempting to set weights from a non registered account.
     ///
-    /// * 'InvalidIpType':
-    ///     - The ip type is not 4 or 6.
+    /// * 'InvalidIpType': The ip type is not 4 or 6.
     ///
-    /// * 'InvalidIpAddress':
-    ///     - The numerically encoded ip address does not resolve to a proper ip.
+    /// * 'InvalidIpAddress': The numerically encoded ip address does not resolve to a proper ip.
     ///
-    /// * 'ServingRateLimitExceeded':
-    ///     - Attempting to set prometheus information withing the rate limit min.
+    /// * 'ServingRateLimitExceeded': Attempting to set prometheus information withing the rate limit min.
     ///
     pub fn do_serve_prometheus(
         origin: OriginFor<T>,

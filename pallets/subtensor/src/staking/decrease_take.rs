@@ -14,18 +14,14 @@ impl<T: Config> Pallet<T> {
     ///     - The stake proportion that this hotkey takes from delegations for subnet ID.
     ///
     /// # Events
-    /// * TakeDecreased;
-    ///     - On successfully setting a decreased take for this hotkey.
+    /// * 'TakeDecreased': On successfully setting a decreased take for this hotkey.
     ///
     /// # Errors
-    /// * 'NotRegistered':
-    ///     - The hotkey we are delegating is not registered on the network.
+    /// * 'NotRegistered': The hotkey we are delegating is not registered on the network.
     ///
-    /// * 'NonAssociatedColdKey':
-    ///     - The hotkey we are delegating is not owned by the calling coldket.
+    /// * 'NonAssociatedColdKey': The hotkey we are delegating is not owned by the calling coldket.
     ///
-    /// * 'DelegateTakeTooLow':
-    ///     - The delegate is setting a take which is not lower than the previous.
+    /// * 'DelegateTakeTooLow': The delegate is setting a take which is not lower than the previous.
     ///
     pub fn do_decrease_take(
         origin: OriginFor<T>,

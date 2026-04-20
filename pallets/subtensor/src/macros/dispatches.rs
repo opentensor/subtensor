@@ -54,33 +54,24 @@ mod dispatches {
         /// 	- The network version key to check if the validator is up to date.
         ///
         /// # Events
-        /// * WeightsSet;
-        /// 	- On successfully setting the weights on chain.
+        /// * 'WeightsSet': On successfully setting the weights on chain.
         ///
         /// # Errors
-        /// * 'MechanismDoesNotExist':
-        /// 	- Attempting to set weights on a non-existent network.
+        /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
         ///
-        /// * 'NotRegistered':
-        /// 	- Attempting to set weights from a non registered account.
+        /// * 'NotRegistered': Attempting to set weights from a non registered account.
         ///
-        /// * 'WeightVecNotEqualSize':
-        /// 	- Attempting to set weights with uids not of same length.
+        /// * 'WeightVecNotEqualSize': Attempting to set weights with uids not of same length.
         ///
-        /// * 'DuplicateUids':
-        /// 	- Attempting to set weights with duplicate uids.
+        /// * 'DuplicateUids': Attempting to set weights with duplicate uids.
         ///
-        ///     * 'UidsLengthExceedUidsInSubNet':
-        /// 	- Attempting to set weights above the max allowed uids.
+        /// * 'UidsLengthExceedUidsInSubNet': Attempting to set weights above the max allowed uids.
         ///
-        /// * 'UidVecContainInvalidOne':
-        /// 	- Attempting to set weights with invalid uids.
+        /// * 'UidVecContainInvalidOne': Attempting to set weights with invalid uids.
         ///
-        /// * 'WeightVecLengthIsLow':
-        /// 	- Attempting to set weights with fewer weights than min.
+        /// * 'WeightVecLengthIsLow': Attempting to set weights with fewer weights than min.
         ///
-        /// * 'MaxWeightExceeded':
-        /// 	- Attempting to set weights with max value exceeding limit.
+        /// * 'MaxWeightExceeded': Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_weights(), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
@@ -131,33 +122,24 @@ mod dispatches {
         /// 	- The network version key to check if the validator is up to date.
         ///
         /// # Events
-        /// * WeightsSet;
-        /// 	- On successfully setting the weights on chain.
+        /// * 'WeightsSet': On successfully setting the weights on chain.
         ///
         /// # Errors
-        /// * 'MechanismDoesNotExist':
-        /// 	- Attempting to set weights on a non-existent network.
+        /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
         ///
-        /// * 'NotRegistered':
-        /// 	- Attempting to set weights from a non registered account.
+        /// * 'NotRegistered': Attempting to set weights from a non registered account.
         ///
-        /// * 'WeightVecNotEqualSize':
-        /// 	- Attempting to set weights with uids not of same length.
+        /// * 'WeightVecNotEqualSize': Attempting to set weights with uids not of same length.
         ///
-        /// * 'DuplicateUids':
-        /// 	- Attempting to set weights with duplicate uids.
+        /// * 'DuplicateUids': Attempting to set weights with duplicate uids.
         ///
-        ///     * 'UidsLengthExceedUidsInSubNet':
-        /// 	- Attempting to set weights above the max allowed uids.
+        /// * 'UidsLengthExceedUidsInSubNet': Attempting to set weights above the max allowed uids.
         ///
-        /// * 'UidVecContainInvalidOne':
-        /// 	- Attempting to set weights with invalid uids.
+        /// * 'UidVecContainInvalidOne': Attempting to set weights with invalid uids.
         ///
-        /// * 'WeightVecLengthIsLow':
-        /// 	- Attempting to set weights with fewer weights than min.
+        /// * 'WeightVecLengthIsLow': Attempting to set weights with fewer weights than min.
         ///
-        /// * 'MaxWeightExceeded':
-        /// 	- Attempting to set weights with max value exceeding limit.
+        /// * 'MaxWeightExceeded': Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(119)]
         #[pallet::weight((Weight::from_parts(15_540_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4111))
@@ -193,14 +175,10 @@ mod dispatches {
         /// 	- The network version keys to check if the validator is up to date.
         ///
         /// # Events
-        /// * WeightsSet;
-        /// 	- On successfully setting the weights on chain.
-        /// * BatchWeightsCompleted;
-        /// 	- On success of the batch.
-        /// * BatchCompletedWithErrors;
-        /// 	- On failure of any of the weights in the batch.
-        /// * BatchWeightItemFailed;
-        /// 	- On failure for each failed item in the batch.
+        /// * 'WeightsSet': On successfully setting the weights on chain.
+        /// * 'BatchWeightsCompleted': On success of the batch.
+        /// * 'BatchCompletedWithErrors': On failure of any of the weights in the batch.
+        /// * 'BatchWeightItemFailed': On failure for each failed item in the batch.
         ///
         #[pallet::call_index(80)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::batch_set_weights(), DispatchClass::Normal, Pays::No))]
@@ -290,14 +268,10 @@ mod dispatches {
         /// 	- The commit hashes to commit.
         ///
         /// # Events
-        /// * WeightsSet;
-        /// 	- On successfully setting the weights on chain.
-        /// * BatchWeightsCompleted;
-        /// 	- On success of the batch.
-        /// * BatchCompletedWithErrors;
-        /// 	- On failure of any of the weights in the batch.
-        /// * BatchWeightItemFailed;
-        /// 	- On failure for each failed item in the batch.
+        /// * 'WeightsSet': On successfully setting the weights on chain.
+        /// * 'BatchWeightsCompleted': On success of the batch.
+        /// * 'BatchCompletedWithErrors': On failure of any of the weights in the batch.
+        /// * 'BatchWeightItemFailed': On failure for each failed item in the batch.
         ///
         #[pallet::call_index(100)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::batch_commit_weights(), DispatchClass::Normal, Pays::No))]
@@ -597,18 +571,14 @@ mod dispatches {
         ///        [0.01 * 65535] = [655.35] = 655
         ///
         /// # Events
-        /// * TakeDecreased;
-        /// 	- On successfully setting a decreased take for this hotkey.
+        /// * 'TakeDecreased': On successfully setting a decreased take for this hotkey.
         ///
         /// # Errors
-        /// * 'NotRegistered':
-        /// 	- The hotkey we are delegating is not registered on the network.
+        /// * 'NotRegistered': The hotkey we are delegating is not registered on the network.
         ///
-        /// * 'NonAssociatedColdKey':
-        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        /// * 'NonAssociatedColdKey': The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'DelegateTakeTooLow':
-        /// 	- The delegate is setting a take which is not lower than the previous.
+        /// * 'DelegateTakeTooLow': The delegate is setting a take which is not lower than the previous.
         ///
         #[pallet::call_index(65)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::decrease_take(), DispatchClass::Normal, Pays::No))]
@@ -637,18 +607,14 @@ mod dispatches {
         ///        [0.01 * 65535] = [655.35] = 655
         ///
         /// # Events
-        /// * TakeIncreased;
-        /// 	- On successfully setting a increased take for this hotkey.
+        /// * 'TakeIncreased': On successfully setting a increased take for this hotkey.
         ///
         /// # Errors
-        /// * 'NotRegistered':
-        /// 	- The hotkey we are delegating is not registered on the network.
+        /// * 'NotRegistered': The hotkey we are delegating is not registered on the network.
         ///
-        /// * 'NonAssociatedColdKey':
-        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        /// * 'NonAssociatedColdKey': The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'DelegateTakeTooHigh':
-        /// 	- The delegate is setting a take which is not greater than the previous.
+        /// * 'DelegateTakeTooHigh': The delegate is setting a take which is not greater than the previous.
         ///
         #[pallet::call_index(66)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::increase_take(), DispatchClass::Normal, Pays::No))]
@@ -680,18 +646,14 @@ mod dispatches {
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
         /// # Events
-        ///  * StakeAdded;
-        /// 	- On the successfully adding stake to a global account.
+        /// * 'StakeAdded': On the successfully adding stake to a global account.
         ///
         /// # Errors
-        ///  * 'NotEnoughBalanceToStake':
-        /// 	- Not enough balance on the coldkey to add onto the global account.
+        /// * 'NotEnoughBalanceToStake': Not enough balance on the coldkey to add onto the global account.
         ///
-        ///  * 'NonAssociatedColdKey':
-        /// 	- The calling coldkey is not associated with this hotkey.
+        /// * 'NonAssociatedColdKey': The calling coldkey is not associated with this hotkey.
         ///
-        ///  * 'BalanceWithdrawalError':
-        ///  	- Errors stemming from transaction pallet.
+        /// * 'BalanceWithdrawalError': Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake())]
@@ -722,18 +684,14 @@ mod dispatches {
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
         /// # Events
-        /// * StakeRemoved;
-        /// 	- On the successfully removing stake from the hotkey account.
+        /// * 'StakeRemoved': On the successfully removing stake from the hotkey account.
         ///
         /// # Errors
-        /// * 'NotRegistered':
-        /// 	- Thrown if the account we are attempting to unstake from is non existent.
+        /// * 'NotRegistered': Thrown if the account we are attempting to unstake from is non existent.
         ///
-        /// * 'NonAssociatedColdKey':
-        /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
+        /// * 'NonAssociatedColdKey': Thrown if the coldkey does not own the hotkey we are unstaking from.
         ///
-        /// * 'NotEnoughStakeToWithdraw':
-        /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        /// * 'NotEnoughStakeToWithdraw': Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(3)]
         #[pallet::weight((Weight::from_parts(196_800_000, 0)
@@ -780,24 +738,18 @@ mod dispatches {
         /// 	- Placeholder for further extra params.
         ///
         /// # Events
-        /// * AxonServed;
-        /// 	- On successfully serving the axon info.
+        /// * 'AxonServed': On successfully serving the axon info.
         ///
         /// # Errors
-        /// * 'MechanismDoesNotExist':
-        /// 	- Attempting to set weights on a non-existent network.
+        /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
         ///
-        /// * 'NotRegistered':
-        /// 	- Attempting to set weights from a non registered account.
+        /// * 'NotRegistered': Attempting to set weights from a non registered account.
         ///
-        /// * 'InvalidIpType':
-        /// 	- The ip type is not 4 or 6.
+        /// * 'InvalidIpType': The ip type is not 4 or 6.
         ///
-        /// * 'InvalidIpAddress':
-        /// 	- The numerically encoded ip address does not resolve to a proper ip.
+        /// * 'InvalidIpAddress': The numerically encoded ip address does not resolve to a proper ip.
         ///
-        /// * 'ServingRateLimitExceeded':
-        /// 	- Attempting to set prometheus information withing the rate limit min.
+        /// * 'ServingRateLimitExceeded': Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(4)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::serve_axon(), DispatchClass::Normal, Pays::No))]
@@ -862,24 +814,18 @@ mod dispatches {
         ///     - TLS certificate for inter neuron communitation.
         ///
         /// # Events
-        /// * AxonServed;
-        /// 	- On successfully serving the axon info.
+        /// * 'AxonServed': On successfully serving the axon info.
         ///
         /// # Errors
-        /// * 'MechanismDoesNotExist':
-        /// 	- Attempting to set weights on a non-existent network.
+        /// * 'MechanismDoesNotExist': Attempting to set weights on a non-existent network.
         ///
-        /// * 'NotRegistered':
-        /// 	- Attempting to set weights from a non registered account.
+        /// * 'NotRegistered': Attempting to set weights from a non registered account.
         ///
-        /// * 'InvalidIpType':
-        /// 	- The ip type is not 4 or 6.
+        /// * 'InvalidIpType': The ip type is not 4 or 6.
         ///
-        /// * 'InvalidIpAddress':
-        /// 	- The numerically encoded ip address does not resolve to a proper ip.
+        /// * 'InvalidIpAddress': The numerically encoded ip address does not resolve to a proper ip.
         ///
-        /// * 'ServingRateLimitExceeded':
-        /// 	- Attempting to set prometheus information withing the rate limit min.
+        /// * 'ServingRateLimitExceeded': Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(40)]
         #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::serve_axon_tls(), DispatchClass::Normal, Pays::No))]
@@ -967,27 +913,20 @@ mod dispatches {
         /// 	- Associated coldkey account.
         ///
         /// # Events
-        /// * NeuronRegistered;
-        /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
+        /// * 'NeuronRegistered': On successfully registering a uid to a neuron slot on a subnetwork.
         ///
         /// # Errors
-        /// * 'MechanismDoesNotExist':
-        /// 	- Attempting to register to a non existent network.
+        /// * 'MechanismDoesNotExist': Attempting to register to a non existent network.
         ///
-        /// * 'TooManyRegistrationsThisBlock':
-        /// 	- This registration exceeds the total allowed on this network this block.
+        /// * 'TooManyRegistrationsThisBlock': This registration exceeds the total allowed on this network this block.
         ///
-        /// * 'HotKeyAlreadyRegisteredInSubNet':
-        /// 	- The hotkey is already registered on this network.
+        /// * 'HotKeyAlreadyRegisteredInSubNet': The hotkey is already registered on this network.
         ///
-        /// * 'InvalidWorkBlock':
-        /// 	- The work has been performed on a stale, future, or non existent block.
+        /// * 'InvalidWorkBlock': The work has been performed on a stale, future, or non existent block.
         ///
-        /// * 'InvalidDifficulty':
-        /// 	- The work does not match the difficulty.
+        /// * 'InvalidDifficulty': The work does not match the difficulty.
         ///
-        /// * 'InvalidSeal':
-        /// 	- The seal is incorrect.
+        /// * 'InvalidSeal': The seal is incorrect.
         ///
         #[pallet::call_index(6)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::register())]
@@ -1147,7 +1086,7 @@ mod dispatches {
         /// * `tx_rate_limit` - The new rate limit in blocks.
         ///
         /// # Errors
-        /// * `BadOrigin` - If the origin is not root.
+        /// * 'BadOrigin': If the origin is not root.
         ///
         #[pallet::call_index(69)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::sudo_set_tx_childkey_take_rate_limit())]
@@ -1169,7 +1108,7 @@ mod dispatches {
         /// * `take` - The new minimum childkey take value.
         ///
         /// # Errors
-        /// * `BadOrigin` - If the origin is not root.
+        /// * 'BadOrigin': If the origin is not root.
         ///
         #[pallet::call_index(76)]
         #[pallet::weight(Weight::from_parts(6_000, 0)
@@ -1190,7 +1129,7 @@ mod dispatches {
         /// * `take` - The new maximum childkey take value.
         ///
         /// # Errors
-        /// * `BadOrigin` - If the origin is not root.
+        /// * 'BadOrigin': If the origin is not root.
         ///
         #[pallet::call_index(77)]
         #[pallet::weight(Weight::from_parts(6_000, 0)
@@ -1426,8 +1365,7 @@ mod dispatches {
         ///     - The associated hotkey account.
         ///
         /// # Events
-        /// * StakeRemoved;
-        ///     - On the successfully removing stake from the hotkey account.
+        /// * 'StakeRemoved': On the successfully removing stake from the hotkey account.
         ///
         /// # Errors
         /// * `NotRegistered`:
@@ -1457,8 +1395,7 @@ mod dispatches {
         ///     - The associated hotkey account.
         ///
         /// # Events
-        /// * StakeRemoved;
-        ///     - On the successfully removing stake from the hotkey account.
+        /// * 'StakeRemoved': On the successfully removing stake from the hotkey account.
         ///
         /// # Errors
         /// * `NotRegistered`:
@@ -1631,18 +1568,14 @@ mod dispatches {
         ///       fill or kill type or order.
         ///
         /// # Events
-        ///  * StakeAdded;
-        /// 	- On the successfully adding stake to a global account.
+        /// * 'StakeAdded': On the successfully adding stake to a global account.
         ///
         /// # Errors
-        ///  * 'NotEnoughBalanceToStake':
-        /// 	- Not enough balance on the coldkey to add onto the global account.
+        /// * 'NotEnoughBalanceToStake': Not enough balance on the coldkey to add onto the global account.
         ///
-        ///  * 'NonAssociatedColdKey':
-        /// 	- The calling coldkey is not associated with this hotkey.
+        /// * 'NonAssociatedColdKey': The calling coldkey is not associated with this hotkey.
         ///
-        ///  * 'BalanceWithdrawalError':
-        ///  	- Errors stemming from transaction pallet.
+        /// * 'BalanceWithdrawalError': Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(88)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake_limit())]
@@ -1694,18 +1627,14 @@ mod dispatches {
         ///       fill or kill type or order.
         ///
         /// # Events
-        /// * StakeRemoved;
-        /// 	- On the successfully removing stake from the hotkey account.
+        /// * 'StakeRemoved': On the successfully removing stake from the hotkey account.
         ///
         /// # Errors
-        /// * 'NotRegistered':
-        /// 	- Thrown if the account we are attempting to unstake from is non existent.
+        /// * 'NotRegistered': Thrown if the account we are attempting to unstake from is non existent.
         ///
-        /// * 'NonAssociatedColdKey':
-        /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
+        /// * 'NonAssociatedColdKey': Thrown if the coldkey does not own the hotkey we are unstaking from.
         ///
-        /// * 'NotEnoughStakeToWithdraw':
-        /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        /// * 'NotEnoughStakeToWithdraw': Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(89)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::remove_stake_limit())]
@@ -2166,8 +2095,7 @@ mod dispatches {
         /// 	- The signature of the caller's coldkey.
         ///
         /// # Events
-        /// * RootClaimed;
-        /// 	- On the successfully claiming the root emissions for a coldkey.
+        /// * 'RootClaimed': On the successfully claiming the root emissions for a coldkey.
         ///
         /// # Errors
         ///
@@ -2197,8 +2125,7 @@ mod dispatches {
         /// 	- The signature of the caller's coldkey.
         ///
         /// # Events
-        /// * RootClaimTypeSet;
-        /// 	- On the successfully setting the root claim type for the coldkey.
+        /// * 'RootClaimTypeSet': On the successfully setting the root claim type for the coldkey.
         ///
         #[pallet::call_index(122)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_root_claim_type())]
@@ -2387,8 +2314,8 @@ mod dispatches {
         /// * `netuid` - The subnet to enable voting power tracking for.
         ///
         /// # Errors
-        /// * `SubnetNotExist` - If the subnet does not exist.
-        /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
+        /// * 'SubnetNotExist': If the subnet does not exist.
+        /// * 'NotSubnetOwner': If the caller is not the subnet owner or root.
         #[pallet::call_index(129)]
         #[pallet::weight(Weight::from_parts(10_000, 0)
         .saturating_add(T::DbWeight::get().reads(2))
@@ -2412,9 +2339,9 @@ mod dispatches {
         /// * `netuid` - The subnet to schedule disabling voting power tracking for.
         ///
         /// # Errors
-        /// * `SubnetNotExist` - If the subnet does not exist.
-        /// * `NotSubnetOwner` - If the caller is not the subnet owner or root.
-        /// * `VotingPowerTrackingNotEnabled` - If voting power tracking is not enabled.
+        /// * 'SubnetNotExist': If the subnet does not exist.
+        /// * 'NotSubnetOwner': If the caller is not the subnet owner or root.
+        /// * 'VotingPowerTrackingNotEnabled': If voting power tracking is not enabled.
         #[pallet::call_index(130)]
         #[pallet::weight(Weight::from_parts(10_000, 0)
         .saturating_add(T::DbWeight::get().reads(2))
@@ -2439,9 +2366,9 @@ mod dispatches {
         /// * `alpha` - The new alpha value (u64 with 18 decimal precision).
         ///
         /// # Errors
-        /// * `BadOrigin` - If the origin is not root.
-        /// * `SubnetNotExist` - If the subnet does not exist.
-        /// * `InvalidVotingPowerEmaAlpha` - If alpha is greater than 10^18 (1.0).
+        /// * 'BadOrigin': If the origin is not root.
+        /// * 'SubnetNotExist': If the subnet does not exist.
+        /// * 'InvalidVotingPowerEmaAlpha': If alpha is greater than 10^18 (1.0).
         #[pallet::call_index(131)]
         #[pallet::weight(Weight::from_parts(6_000, 0)
         .saturating_add(T::DbWeight::get().reads(1))

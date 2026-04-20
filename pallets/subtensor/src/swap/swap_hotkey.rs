@@ -19,17 +19,17 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResultWithPostInfo` - The result of the dispatch.
+    /// * 'DispatchResultWithPostInfo': The result of the dispatch.
     ///
     /// # Errors
     ///
-    /// * `NonAssociatedColdKey` - If the coldkey does not own the old hotkey.
-    /// * `HotKeySetTxRateLimitExceeded` - If the transaction rate limit is exceeded.
-    /// * `NewHotKeyIsSameWithOld` - If the new hotkey is the same as the old hotkey.
-    /// * `HotKeyAlreadyRegisteredInSubNet` - If the new hotkey is already registered in the subnet.
-    /// * `NewHotKeyNotCleanForRootSwap` - If the swap touches root and the new hotkey
+    /// * 'NonAssociatedColdKey': If the coldkey does not own the old hotkey.
+    /// * 'HotKeySetTxRateLimitExceeded': If the transaction rate limit is exceeded.
+    /// * 'NewHotKeyIsSameWithOld': If the new hotkey is the same as the old hotkey.
+    /// * 'HotKeyAlreadyRegisteredInSubNet': If the new hotkey is already registered in the subnet.
+    /// * 'NewHotKeyNotCleanForRootSwap': If the swap touches root and the new hotkey.
     ///   has outstanding `RootClaimable` entries or non-zero root stake.
-    /// * `NotEnoughBalanceToPaySwapHotKey` - If there is not enough balance to pay for the swap.
+    /// * 'NotEnoughBalanceToPaySwapHotKey': If there is not enough balance to pay for the swap.
     pub fn do_swap_hotkey(
         origin: OriginFor<T>,
         old_hotkey: &T::AccountId,
@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
     /// * `weight` - A mutable reference to the Weight, updated as operations are performed.
     ///
     /// # Returns
-    /// * `DispatchResult` - Ok(()) if the swap was successful, or an error if any operation failed.
+    /// * 'DispatchResult': Ok(()) if the swap was successful, or an error if any operation failed.
     ///
     /// # Note
     /// This function performs extensive storage reads and writes, which can be computationally expensive.

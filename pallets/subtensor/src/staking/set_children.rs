@@ -712,7 +712,7 @@ impl<T: Config> Pallet<T> {
     ///       where 10000 represents 100%.
     ///
     /// # Returns
-    /// * `DispatchResult` - The result of the operation.
+    /// * 'DispatchResult': The result of the operation.
     ///
     /// # Errors
     /// * `NonAssociatedColdKey`:
@@ -811,7 +811,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The subnet on which to establish relationships.
     ///
     /// # Returns
-    /// * `DispatchResult` - Ok if at least the setup completes; individual
+    /// * 'DispatchResult': Ok if at least the setup completes; individual.
     ///   scheduling failures per validator are logged but do not abort the loop.
     pub fn do_set_root_validators_for_subnet(netuid: NetUid) -> DispatchResult {
         // Cannot set children on root network itself.
