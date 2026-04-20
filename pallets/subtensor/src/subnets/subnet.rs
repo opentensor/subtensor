@@ -235,15 +235,30 @@ impl<T: Config> Pallet<T> {
             Self::increase_total_stake(pool_initial_tao);
         }
 
-        // --- 17. Add the identity if it exists
-        if let Some(identity_value) = identity {
-            ensure!(
-                Self::is_valid_subnet_identity(&identity_value),
-                Error::<T>::InvalidIdentity
-            );
+        // --- 17. Set or reset the subnet identity.
+        //
+        // If the caller provided identity info, validate and store it.
+        // Otherwise clear any identity that may still be attached to this
+        // netuid slot from a previous owner — storage migrations or older
+        // code paths can leave orphaned `SubnetIdentitiesV3` entries which
+        // would otherwise leak into the newly-created subnet and mislead
+        // participants about what the subnet is about (see issue #2572).
+        match identity {
+            Some(identity_value) => {
+                ensure!(
+                    Self::is_valid_subnet_identity(&identity_value),
+                    Error::<T>::InvalidIdentity
+                );
 
-            SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
-            Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
+                SubnetIdentitiesV3::<T>::insert(netuid_to_register, identity_value);
+                Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
+            }
+            None => {
+                if SubnetIdentitiesV3::<T>::contains_key(netuid_to_register) {
+                    SubnetIdentitiesV3::<T>::remove(netuid_to_register);
+                    Self::deposit_event(Event::SubnetIdentityRemoved(netuid_to_register));
+                }
+            }
         }
 
         // --- 18. Emit the NetworkAdded event.
