@@ -2758,6 +2758,64 @@ fn dissolve_network_clears_root_claimed() {
 }
 
 #[test]
+fn dissolve_network_strips_netuid_from_root_claimable() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+        let net = add_dynamic_network(&hot, &cold);
+
+        // Another netuid that should remain in the BTreeMap after dereg.
+        let other_net = NetUid::from(999);
+
+        let mut claimable: BTreeMap<NetUid, I96F32> = BTreeMap::new();
+        claimable.insert(net, I96F32::saturating_from_num(100));
+        claimable.insert(other_net, I96F32::saturating_from_num(200));
+        RootClaimable::<Test>::insert(hot, claimable);
+
+        // Dissolve the network.
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        let remaining = RootClaimable::<Test>::get(hot);
+        assert!(
+            !remaining.contains_key(&net),
+            "RootClaimable BTreeMap still contains dissolved netuid"
+        );
+        assert!(
+            remaining.contains_key(&other_net),
+            "RootClaimable BTreeMap lost unrelated netuid entry"
+        );
+    });
+}
+
+#[test]
+fn dissolve_network_drops_root_claimable_entry_when_empty() {
+    new_test_ext(0).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+        let net = add_dynamic_network(&hot, &cold);
+
+        // Only this netuid in the hotkey's BTreeMap — entry should vanish.
+        let mut claimable: BTreeMap<NetUid, I96F32> = BTreeMap::new();
+        claimable.insert(net, I96F32::saturating_from_num(100));
+        RootClaimable::<Test>::insert(hot, claimable);
+        assert!(RootClaimable::<Test>::contains_key(hot));
+
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::from(0));
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(0));
+        Emission::<Test>::insert(net, Vec::<AlphaBalance>::new());
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        assert!(
+            !RootClaimable::<Test>::contains_key(hot),
+            "RootClaimable entry not dropped once its last netuid was stripped"
+        );
+    });
+}
+
+#[test]
 fn registered_subnet_counter_bumps_on_first_registration() {
     new_test_ext(1).execute_with(|| {
         let cold = U256::from(1);

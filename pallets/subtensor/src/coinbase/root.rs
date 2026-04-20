@@ -379,6 +379,23 @@ impl<T: Config> Pallet<T> {
         VotingPowerDisableAtBlock::<T>::remove(netuid);
         VotingPowerEmaAlpha::<T>::remove(netuid);
 
+        // --- 18c. RootClaimable: outer key is hotkey, but the value is a
+        // BTreeMap<NetUid, _>. Strip this netuid from every entry and drop
+        // entries that become empty so no per-netuid state leaks past dereg.
+        // Note: finalize_all_subnet_root_dividends may have already stripped
+        // the netuid via mutate, leaving empty BTreeMaps — handle both cases.
+        let rc_hotkeys: sp_std::vec::Vec<T::AccountId> =
+            RootClaimable::<T>::iter().map(|(hot, _)| hot).collect();
+        for hot in rc_hotkeys {
+            let mut claimable = RootClaimable::<T>::get(&hot);
+            let had_netuid = claimable.remove(&netuid).is_some();
+            if claimable.is_empty() {
+                RootClaimable::<T>::remove(&hot);
+            } else if had_netuid {
+                RootClaimable::<T>::insert(&hot, claimable);
+            }
+        }
+
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
         let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
