@@ -1531,12 +1531,15 @@ mod dispatches {
         /// * `alpha_amount` - The amount of stake to transfer.
         ///
         /// # Errors
-        /// Returns an error if:
-        /// * The origin is not signed by the correct coldkey.
-        /// * Either subnet does not exist.
-        /// * The hotkey does not exist.
-        /// * There is insufficient stake on `(origin_coldkey, hotkey, origin_netuid)`.
-        /// * The transfer amount is below the minimum stake requirement.
+        /// * 'BadOrigin': The transaction is not signed by `origin_coldkey`.
+        /// * 'SubnetNotExists': Either `origin_netuid` or `destination_netuid` does not exist.
+        /// * 'SubtokenDisabled': The subtoken on either subnet is disabled.
+        /// * 'HotKeyAccountNotExists': The `hotkey` account does not exist.
+        /// * 'NotEnoughStakeToWithdraw': The `(origin_coldkey, hotkey, origin_netuid)` position has less stake than `alpha_amount`.
+        /// * 'AmountTooLow': The resulting TAO-equivalent amount is below `DefaultMinStake`.
+        /// * 'InsufficientLiquidity': Swap simulation or execution fails on the origin/destination subnet.
+        /// * 'TransferDisallowed': Transfers are currently disabled on the origin or destination subnet.
+        /// * 'StakingOperationRateLimitExceeded': The caller hit the per-account staking operation rate limit.
         ///
         /// # Events
         /// May emit a `StakeTransferred` event on success.
@@ -1570,12 +1573,14 @@ mod dispatches {
         /// * `alpha_amount` - The amount of stake to swap.
         ///
         /// # Errors
-        /// Returns an error if:
-        /// * The transaction is not signed by the correct coldkey (i.e., `coldkey_owns_hotkey` fails).
-        /// * Either `origin_netuid` or `destination_netuid` does not exist.
-        /// * The hotkey does not exist.
-        /// * There is insufficient stake on `(coldkey, hotkey, origin_netuid)`.
-        /// * The swap amount is below the minimum stake requirement.
+        /// * 'BadOrigin': The transaction is not signed by the coldkey that owns `hotkey`.
+        /// * 'SubnetNotExists': Either `origin_netuid` or `destination_netuid` does not exist.
+        /// * 'SubtokenDisabled': The subtoken on either subnet is disabled.
+        /// * 'HotKeyAccountNotExists': The specified `hotkey` does not exist.
+        /// * 'NotEnoughStakeToWithdraw': The `(coldkey, hotkey, origin_netuid)` position has less stake than `alpha_amount`.
+        /// * 'AmountTooLow': The resulting TAO-equivalent amount is below `DefaultMinStake`.
+        /// * 'InsufficientLiquidity': Swap simulation or execution fails on the origin/destination subnet.
+        /// * 'StakingOperationRateLimitExceeded': The caller hit the per-account staking operation rate limit.
         ///
         /// # Events
         /// May emit a `StakeSwapped` event on success.
@@ -1734,12 +1739,16 @@ mod dispatches {
         /// * `allow_partial` - Allows partial execution of the amount. If set to false, this becomes fill or kill type or order.
         ///
         /// # Errors
-        /// Returns an error if:
-        /// * The transaction is not signed by the correct coldkey (i.e., `coldkey_owns_hotkey` fails).
-        /// * Either `origin_netuid` or `destination_netuid` does not exist.
-        /// * The hotkey does not exist.
-        /// * There is insufficient stake on `(coldkey, hotkey, origin_netuid)`.
-        /// * The swap amount is below the minimum stake requirement.
+        /// * 'BadOrigin': The transaction is not signed by the coldkey that owns `hotkey`.
+        /// * 'SubnetNotExists': Either `origin_netuid` or `destination_netuid` does not exist.
+        /// * 'SubtokenDisabled': The subtoken on either subnet is disabled.
+        /// * 'HotKeyAccountNotExists': The specified `hotkey` does not exist.
+        /// * 'NotEnoughStakeToWithdraw': The `(coldkey, hotkey, origin_netuid)` position has less stake than `alpha_amount`.
+        /// * 'AmountTooLow': The resulting TAO-equivalent amount is below `DefaultMinStake`.
+        /// * 'InsufficientLiquidity': Swap simulation or execution fails on the origin/destination subnet.
+        /// * 'SlippageTooHigh': `allow_partial` is false and `alpha_amount` would exceed the `limit_price` slippage bound.
+        /// * 'ZeroMaxStakeAmount': `limit_price` forces a zero maximum executable amount.
+        /// * 'StakingOperationRateLimitExceeded': The caller hit the per-account staking operation rate limit.
         ///
         /// # Events
         /// May emit a `StakeSwapped` event on success.
@@ -1815,14 +1824,14 @@ mod dispatches {
         /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed `block_number`.
         ///
         /// # Errors
-        /// Returns an error if:
-        /// * The transaction is not signed.
-        /// * The hotkey does not belong to the subnet identified by the netuid.
-        /// * The EVM key cannot be recovered from the signature.
-        /// * The EVM key recovered from the signature does not match the given EVM key.
+        /// * 'BadOrigin': The transaction is not signed.
+        /// * 'NonAssociatedColdKey': The signing coldkey does not own the provided `hotkey` on `netuid`.
+        /// * 'UnableToRecoverPublicKey': The EVM public key cannot be recovered from the signature.
+        /// * 'InvalidRecoveredPublicKey': The recovered EVM public key does not match `evm_key`.
+        /// * 'EvmKeyAssociateRateLimitExceeded': The caller hit the EVM-key association rate limit.
         ///
         /// # Events
-        /// May emit a `EvmKeyAssociated` event on success
+        /// May emit an `EvmKeyAssociated` event on success.
         #[pallet::call_index(93)]
         #[pallet::weight((
             Weight::from_parts(3_000_000, 0).saturating_add(T::DbWeight::get().reads_writes(2, 1)),
@@ -1969,10 +1978,9 @@ mod dispatches {
         /// * `symbol` - The symbol to set for the subnet.
         ///
         /// # Errors
-        /// Returns an error if:
-        /// * The transaction is not signed by the subnet owner.
-        /// * The symbol does not exist.
-        /// * The symbol is already in use by another subnet.
+        /// * 'BadOrigin': The transaction is not signed by the subnet owner or root.
+        /// * 'SymbolDoesNotExist': The requested `symbol` is not in the canonical symbol table.
+        /// * 'SymbolAlreadyInUse': The `symbol` is already assigned to another subnet.
         ///
         /// # Events
         /// Emits a `SymbolUpdated` event on success.

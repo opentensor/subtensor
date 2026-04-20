@@ -19,11 +19,14 @@ impl<T: Config> Pallet<T> {
     /// * `DispatchResult` - Indicates the success or failure of the operation.
     ///
     /// # Errors
-    /// This function will return an error if:
-    /// * The origin is not signed by the `origin_hotkey`.
-    /// * Either the origin or destination subnet does not exist.
-    /// * The `origin_hotkey` or `destination_hotkey` does not exist.
-    /// * There are locked funds that cannot be moved across subnets.
+    /// * 'BadOrigin': The origin is not signed by the coldkey that owns `origin_hotkey`.
+    /// * 'SubnetNotExists': Either the origin or destination subnet does not exist.
+    /// * 'SubtokenDisabled': The subtoken on either subnet is disabled.
+    /// * 'HotKeyAccountNotExists': The origin or destination hotkey account does not exist.
+    /// * 'NotEnoughStakeToWithdraw': The `(coldkey, origin_hotkey, origin_netuid)` position does not have enough stake.
+    /// * 'AmountTooLow': The resulting TAO-equivalent amount is below `DefaultMinStake`.
+    /// * 'InsufficientLiquidity': The origin/destination swap simulation fails.
+    /// * 'StakingOperationRateLimitExceeded': The caller hit the per-account staking operation rate limit.
     ///
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
@@ -108,13 +111,15 @@ impl<T: Config> Pallet<T> {
     /// * `DispatchResult` - Indicates success or failure.
     ///
     /// # Errors
-    /// This function will return an error if:
-    /// * The transaction is not signed by the `origin_coldkey`.
-    /// * The subnet (`origin_netuid` or `destination_netuid`) does not exist.
-    /// * The `hotkey` does not exist.
-    /// * The `(origin_coldkey, hotkey, origin_netuid)` does not have enough stake for `alpha_amount`.
-    /// * The amount to be transferred is below the minimum stake requirement.
-    /// * There is a failure in staking or unstaking logic.
+    /// * 'BadOrigin': The transaction is not signed by `origin_coldkey`.
+    /// * 'SubnetNotExists': Either `origin_netuid` or `destination_netuid` does not exist.
+    /// * 'SubtokenDisabled': The subtoken on either subnet is disabled.
+    /// * 'HotKeyAccountNotExists': The `hotkey` account does not exist.
+    /// * 'NotEnoughStakeToWithdraw': The `(origin_coldkey, hotkey, origin_netuid)` position has less stake than `alpha_amount`.
+    /// * 'AmountTooLow': The resulting TAO-equivalent amount is below `DefaultMinStake`.
+    /// * 'InsufficientLiquidity': Swap simulation or execution on the origin/destination subnet fails.
+    /// * 'TransferDisallowed': Transfers are currently disabled on the origin or destination subnet.
+    /// * 'StakingOperationRateLimitExceeded': The caller hit the per-account staking operation rate limit.
     ///
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
@@ -175,12 +180,14 @@ impl<T: Config> Pallet<T> {
     /// * `DispatchResult` - Indicates success or failure.
     ///
     /// # Errors
-    /// This function returns an error if:
-    /// * The origin is not signed by the correct coldkey (i.e., not associated with `hotkey`).
-    /// * Either the `origin_netuid` or the `destination_netuid` does not exist.
-    /// * The specified `hotkey` does not exist.
-    /// * The `(coldkey, hotkey, origin_netuid)` does not have enough stake (`alpha_amount`).
-    /// * The unstaked amount is below `DefaultMinStake`.
+    /// * 'BadOrigin': The transaction is not signed by the coldkey that owns `hotkey`.
+    /// * 'SubnetNotExists': Either `origin_netuid` or `destination_netuid` does not exist.
+    /// * 'SubtokenDisabled': The subtoken on either subnet is disabled.
+    /// * 'HotKeyAccountNotExists': The specified `hotkey` does not exist.
+    /// * 'NotEnoughStakeToWithdraw': The `(coldkey, hotkey, origin_netuid)` position has less stake than `alpha_amount`.
+    /// * 'AmountTooLow': The resulting TAO-equivalent amount is below `DefaultMinStake`.
+    /// * 'InsufficientLiquidity': Swap simulation or execution fails on the origin/destination subnet.
+    /// * 'StakingOperationRateLimitExceeded': The caller hit the per-account staking operation rate limit.
     ///
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
@@ -241,12 +248,16 @@ impl<T: Config> Pallet<T> {
     /// * `DispatchResult` - Indicates success or failure.
     ///
     /// # Errors
-    /// This function returns an error if:
-    /// * The origin is not signed by the correct coldkey (i.e., not associated with `hotkey`).
-    /// * Either the `origin_netuid` or the `destination_netuid` does not exist.
-    /// * The specified `hotkey` does not exist.
-    /// * The `(coldkey, hotkey, origin_netuid)` does not have enough stake (`alpha_amount`).
-    /// * The unstaked amount is below `DefaultMinStake`.
+    /// * 'BadOrigin': The transaction is not signed by the coldkey that owns `hotkey`.
+    /// * 'SubnetNotExists': Either `origin_netuid` or `destination_netuid` does not exist.
+    /// * 'SubtokenDisabled': The subtoken on either subnet is disabled.
+    /// * 'HotKeyAccountNotExists': The specified `hotkey` does not exist.
+    /// * 'NotEnoughStakeToWithdraw': The `(coldkey, hotkey, origin_netuid)` position has less stake than `alpha_amount`.
+    /// * 'AmountTooLow': The resulting TAO-equivalent amount is below `DefaultMinStake`.
+    /// * 'InsufficientLiquidity': Swap simulation or execution fails on the origin/destination subnet.
+    /// * 'SlippageTooHigh': `allow_partial` is false and `alpha_amount` would exceed the `limit_price` slippage bound.
+    /// * 'ZeroMaxStakeAmount': `limit_price` forces a zero maximum executable amount.
+    /// * 'StakingOperationRateLimitExceeded': The caller hit the per-account staking operation rate limit.
     ///
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
