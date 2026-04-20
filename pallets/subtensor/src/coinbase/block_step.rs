@@ -137,19 +137,6 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                     #[allow(clippy::comparison_chain)]
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // C. There are not enough registrations this interval and most of them are pow registrations
-                        // this triggers a decrease in the burn cost
-                        // burn_cost --
-                        Self::set_burn(
-                            netuid,
-                            Self::upgraded_burn(
-                                netuid,
-                                current_burn,
-                                registrations_this_interval,
-                                target_registrations_this_interval,
-                            ),
-                        );
-                    } else if pow_registrations_this_interval < burn_registrations_this_interval {
-                        // D. There are not enough registrations this interval and most of them are burn registrations
                         // this triggers a decrease in the pow difficulty
                         // pow_difficulty --
                         Self::set_difficulty(
@@ -157,6 +144,19 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
                             Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
+                                registrations_this_interval,
+                                target_registrations_this_interval,
+                            ),
+                        );
+                    } else if pow_registrations_this_interval < burn_registrations_this_interval {
+                        // D. There are not enough registrations this interval and most of them are burn registrations
+                        // this triggers a decrease in the burn cost
+                        // burn_cost --
+                        Self::set_burn(
+                            netuid,
+                            Self::upgraded_burn(
+                                netuid,
+                                current_burn,
                                 registrations_this_interval,
                                 target_registrations_this_interval,
                             ),
