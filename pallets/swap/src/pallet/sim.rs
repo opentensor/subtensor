@@ -105,12 +105,11 @@ where
         drop_fees: bool,
         state: &SimState,
     ) -> Result<PureStepResult<PaidIn, PaidOut>, Error<T>> {
-        // --- Replicate BasicSwapStep::new ---
         let current_sqrt_price = state.sqrt_price;
         let edge_tick = Self::tick_edge(netuid, state);
         let edge_sqrt_price = edge_tick.as_sqrt_price_bounded();
 
-        let fee =
+        let mut fee =
             Pallet::<T>::calculate_fee_amount(netuid, amount_remaining, drop_fees);
         let possible_delta_in = amount_remaining.saturating_sub(fee);
 
@@ -118,9 +117,6 @@ where
             U64F64::saturating_from_num(state.current_liquidity);
         let target_sqrt_price =
             Self::sqrt_price_target(current_liquidity, current_sqrt_price, possible_delta_in);
-
-        // --- Replicate determine_action ---
-        let mut recalculate_fee = false;
 
         let (mut action, delta_in, final_price) =
             if Self::price_is_closer(&target_sqrt_price, &limit_sqrt_price)
@@ -131,51 +127,42 @@ where
             } else if Self::price_is_closer(&limit_sqrt_price, &target_sqrt_price)
                 && Self::price_is_closer(&limit_sqrt_price, &edge_sqrt_price)
             {
-                // Case 2: limit price is closest
-                recalculate_fee = true;
-                (
-                    SwapStepAction::Stop,
-                    Self::delta_in(current_liquidity, current_sqrt_price, limit_sqrt_price),
-                    limit_sqrt_price,
-                )
+                // Case 2: limit price is closest — recalculate fee against actual delta_in
+                let delta_in =
+                    Self::delta_in(current_liquidity, current_sqrt_price, limit_sqrt_price);
+                let u16_max = U64F64::saturating_from_num(u16::MAX);
+                let fee_rate = if drop_fees {
+                    U64F64::saturating_from_num(0)
+                } else {
+                    U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
+                };
+                fee = U64F64::saturating_from_num(delta_in)
+                    .saturating_mul(fee_rate.safe_div(u16_max.saturating_sub(fee_rate)))
+                    .saturating_to_num::<u64>()
+                    .into();
+                (SwapStepAction::Stop, delta_in, limit_sqrt_price)
             } else {
-                // Case 3: edge price is closest — tick crossing likely
-                recalculate_fee = true;
-                (
-                    SwapStepAction::Crossing,
-                    Self::delta_in(current_liquidity, current_sqrt_price, edge_sqrt_price),
-                    edge_sqrt_price,
-                )
+                // Case 3: edge price is closest — tick crossing likely, recalculate fee
+                let delta_in =
+                    Self::delta_in(current_liquidity, current_sqrt_price, edge_sqrt_price);
+                let u16_max = U64F64::saturating_from_num(u16::MAX);
+                let fee_rate = if drop_fees {
+                    U64F64::saturating_from_num(0)
+                } else {
+                    U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
+                };
+                fee = U64F64::saturating_from_num(delta_in)
+                    .saturating_mul(fee_rate.safe_div(u16_max.saturating_sub(fee_rate)))
+                    .saturating_to_num::<u64>()
+                    .into();
+                (SwapStepAction::Crossing, delta_in, edge_sqrt_price)
             };
-
-        let mut fee = fee;
-
-        if recalculate_fee {
-            let u16_max = U64F64::saturating_from_num(u16::MAX);
-            let fee_rate = if drop_fees {
-                U64F64::saturating_from_num(0)
-            } else {
-                U64F64::saturating_from_num(FeeRate::<T>::get(netuid))
-            };
-            let delta_fixed = U64F64::saturating_from_num(delta_in);
-            fee = delta_fixed
-                .saturating_mul(fee_rate.safe_div(u16_max.saturating_sub(fee_rate)))
-                .saturating_to_num::<u64>()
-                .into();
-        }
 
         // Correct action when stopped exactly at the edge price
-        let natural_reason_stop_price =
-            if Self::price_is_closer(&limit_sqrt_price, &target_sqrt_price) {
-                limit_sqrt_price
-            } else {
-                target_sqrt_price
-            };
-        if natural_reason_stop_price == edge_sqrt_price {
+        if action == SwapStepAction::Stop && final_price == edge_sqrt_price {
             action = Self::action_on_edge_sqrt_price();
         }
 
-        // --- Replicate process_swap (no storage writes for fees/ticks/price) ---
         let delta_out = Self::convert_deltas(state, delta_in);
 
         let mut fee_to_block_author = PaidIn::ZERO;
@@ -188,8 +175,6 @@ where
             fee_to_block_author = fee.saturating_sub(lp_fee);
         }
 
-        // Determine updated state values
-        let new_sqrt_price = final_price;
         let new_tick = TickIndex::from_sqrt_price_bounded(final_price);
         let new_liquidity = if action == SwapStepAction::Crossing {
             // Tick crossing: read liquidity_net from storage (read-only) to
@@ -206,7 +191,7 @@ where
             delta_out,
             fee_to_block_author,
             action,
-            new_sqrt_price,
+            new_sqrt_price: final_price,
             new_tick,
             new_liquidity,
         })

@@ -896,7 +896,6 @@ fn test_stake_fee_calculation() {
 
 // Verifies that validate_add_stake uses sim_swap_pure correctly: the alpha received after
 // do_add_stake on a V3 subnet matches what sim_swap_pure predicted before the tx.
-// SKIP_WASM_BUILD=1 cargo test --package pallet-subtensor --lib -- tests::staking2::test_validate_add_stake_v3_matches_pure_swap --exact --show-output
 #[test]
 fn test_validate_add_stake_v3_matches_pure_swap() {
     new_test_ext(1).execute_with(|| {
