@@ -8,7 +8,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function checks if a subnetwork with the given UID exists.
     ///
-    /// # Returns:
+    /// # Returns
     /// * 'bool': Whether the subnet exists.
     ///
     pub fn if_subnet_exist(netuid: NetUid) -> bool {
@@ -20,7 +20,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// This iterates through all the networks and returns a list of netuids.
     ///
-    /// # Returns:
+    /// # Returns
     /// * 'Vec<u16>': Netuids of all subnets.
     ///
     pub fn get_all_subnet_netuids() -> Vec<NetUid> {
@@ -34,10 +34,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// This checks the Mechanism map for the value, defaults to 0.
     ///
-    /// # Args:
+    /// # Arguments
     /// * 'u16': The subnet netuid
     ///
-    /// # Returns:
+    /// # Returns
     /// * 'u16': The subnet mechanism
     ///
     pub fn get_subnet_mechanism(netuid: NetUid) -> u16 {
@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
 
     /// Facilitates user registration of a new subnetwork.
     ///
-    /// # Args
+    /// # Arguments
     /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.
     /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.
     /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.
@@ -353,12 +353,12 @@ impl<T: Config> Pallet<T> {
     /// and the last emission block number has not been set yet.
     /// It then sets the last emission block number to the current block number.
     ///
-    /// # Parameters
+    /// # Arguments
     ///
     /// * `origin`: The origin of the call, which is used to ensure the caller is the subnet owner.
     /// * `netuid`: The unique identifier of the subnet for which the start call process is being initiated.
     ///
-    /// # Raises
+    /// # Errors
     ///
     /// * `Error::<T>::SubnetNotExists`: If the subnet does not exist.
     /// * `DispatchError::BadOrigin`: If the caller is not the subnet owner.
@@ -400,7 +400,7 @@ impl<T: Config> Pallet<T> {
     /// the hotkey for a given subnet. The subnet must already exist. To prevent abuse, the call is
     /// rate-limited to once per configured interval (default: one week) per subnet.
     ///
-    /// # Parameters
+    /// # Arguments
     /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
     /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
     /// - `hotkey`: The new hotkey account to associate with the subnet owner.
@@ -412,17 +412,17 @@ impl<T: Config> Pallet<T> {
     /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
     /// - `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
     ///
-    /// # Access Control
+    /// # Note
     /// Only callable by:
     /// - Root origin, or
     /// - The coldkey account that owns the subnet.
     ///
-    /// # Storage
+    /// # Note
     /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
     /// - Reads and updates [`LastRateLimitedBlock`] for rate-limiting.
     /// - Reads [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
     ///
-    /// # Rate Limiting
+    /// # Note
     /// This function is rate-limited to one call per subnet per interval (e.g., one week).
     pub fn do_set_sn_owner_hotkey(
         origin: OriginFor<T>,

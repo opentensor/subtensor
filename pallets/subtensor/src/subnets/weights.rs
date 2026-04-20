@@ -15,7 +15,7 @@ use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex};
 impl<T: Config> Pallet<T> {
     /// The implementation for committing weight hashes.
     ///
-    /// # Args:
+    /// # Arguments
     /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
     ///   - The signature of the committing hotkey.
     ///
@@ -25,7 +25,7 @@ impl<T: Config> Pallet<T> {
     /// * `commit_hash` (`H256`):
     ///   - The hash representing the committed weights.
     ///
-    /// # Raises:
+    /// # Errors
     /// * `CommitRevealDisabled`:
     ///   - Raised if commit-reveal is disabled for the specified network.
     ///
@@ -38,7 +38,7 @@ impl<T: Config> Pallet<T> {
     /// * `TooManyUnrevealedCommits`:
     ///   - Raised if the hotkey has reached the maximum number of unrevealed commits.
     ///
-    /// # Events:
+    /// # Events
     /// * `WeightsCommitted`:
     ///   - Emitted upon successfully storing the weight hash.
     pub fn do_commit_weights(
@@ -146,7 +146,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// This call runs a batch of commit weights calls, continuing on errors.
     ///
-    /// # Args:
+    /// # Arguments
     ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///    - The signature of the calling hotkey.
     ///
@@ -156,7 +156,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'commit_hashes' ( Vec<H256> ):
     ///    - The commit hashes to be committed, one hash for each netuid in the batch.
     ///
-    /// # Event:
+    /// # Events
     ///  * WeightsCommitted;
     ///    - On successfully storing the weight hashes.
     ///  * BatchCompletedWithErrors;
@@ -215,7 +215,7 @@ impl<T: Config> Pallet<T> {
 
     /// Commits a timelocked, encrypted weight payload (Commit-Reveal v3).
     ///
-    /// # Args
+    /// # Arguments
     /// * `origin` (`<T as frame_system::Config>::RuntimeOrigin`):  
     ///   The signed origin of the committing hotkey.
     /// * `netuid` (`NetUid` = `u16`):  
@@ -235,7 +235,7 @@ impl<T: Config> Pallet<T> {
     ///   Version tag that **must** match [`get_commit_reveal_weights_version`] for  
     ///   the call to succeed. Used to gate runtime upgrades.
     ///
-    /// # Behaviour
+    /// # Note
     /// 1. Verifies the caller’s signature and registration on `netuid`.  
     /// 2. Ensures commit-reveal is enabled **and** the supplied
     ///    `commit_reveal_version` is current.  
@@ -248,7 +248,7 @@ impl<T: Config> Pallet<T> {
     /// 7. Updates `LastUpdateForUid` so subsequent rate-limit checks include this
     ///    commit.
     ///
-    /// # Raises
+    /// # Errors
     /// * `CommitRevealDisabled` – Commit-reveal is disabled on `netuid`.  
     /// * `IncorrectCommitRevealVersion` – Provided version ≠ runtime version.  
     /// * `HotKeyNotRegisteredInSubNet` – Caller’s hotkey is not registered.  
@@ -383,7 +383,7 @@ impl<T: Config> Pallet<T> {
 
     /// The implementation for revealing committed weights.
     ///
-    /// # Args:
+    /// # Arguments
     /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
     ///   - The signature of the revealing hotkey.
     ///
@@ -402,7 +402,7 @@ impl<T: Config> Pallet<T> {
     /// * `version_key` (`u64`):
     ///   - The network version key.
     ///
-    /// # Raises:
+    /// # Errors
     /// * `CommitRevealDisabled`:
     ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
     ///
@@ -565,7 +565,7 @@ impl<T: Config> Pallet<T> {
 
     /// The implementation for batch revealing committed weights.
     ///
-    /// # Args:
+    /// # Arguments
     /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
     ///   - The signature of the revealing hotkey.
     ///
@@ -584,7 +584,7 @@ impl<T: Config> Pallet<T> {
     /// * `version_keys` (`Vec<u64>`):
     ///   - A list of network version keys.
     ///
-    /// # Raises:
+    /// # Errors
     /// * `CommitRevealDisabled`:
     ///   - Attempting to reveal weights when the commit-reveal mechanism is disabled.
     ///
@@ -862,7 +862,7 @@ impl<T: Config> Pallet<T> {
 
     /// The implementation for the extrinsic set_weights.
     ///
-    /// # Args:
+    /// # Arguments
     ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///    - The signature of the calling hotkey.
     ///
@@ -878,11 +878,11 @@ impl<T: Config> Pallet<T> {
     ///  * 'version_key' ( u64 ):
     ///    - The network version key.
     ///
-    /// # Event:
+    /// # Events
     ///  * WeightsSet;
     ///    - On successfully setting the weights on chain.
     ///
-    /// # Raises:
+    /// # Errors
     ///  * 'MechanismDoesNotExist':
     ///    - Attempting to set weights on a non-existent network.
     ///
@@ -928,7 +928,7 @@ impl<T: Config> Pallet<T> {
 
     /// The implementation for the extrinsic set_weights.
     ///
-    /// # Args:
+    /// # Arguments
     ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///    - The signature of the calling hotkey.
     ///
@@ -947,11 +947,11 @@ impl<T: Config> Pallet<T> {
     ///  * 'version_key' ( u64 ):
     ///    - The network version key.
     ///
-    /// # Event:
+    /// # Events
     ///  * WeightsSet;
     ///    - On successfully setting the weights on chain.
     ///
-    /// # Raises:
+    /// # Errors
     ///  * 'MechanismDoesNotExist':
     ///    - Attempting to set weights on a non-existent network.
     ///
@@ -1000,7 +1000,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// This call runs a batch of set weights calls, continuing on errors.
     ///
-    /// # Args:
+    /// # Arguments
     ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///    - The signature of the calling hotkey.
     ///
@@ -1014,7 +1014,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'version_keys' ( Vec<Compact<u64>> ):
     ///    - The network version key, one u64 for each netuid in the batch.
     ///
-    /// # Event:
+    /// # Events
     ///  * WeightsSet;
     ///    - On successfully setting the weights on chain.
     ///  * BatchCompletedWithErrors;

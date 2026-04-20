@@ -4,7 +4,7 @@ use subtensor_runtime_common::NetUid;
 impl<T: Config> Pallet<T> {
     /// The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
     ///
-    /// # Args:
+    /// # Arguments
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     - The signature of the caller.
     ///
@@ -35,11 +35,11 @@ impl<T: Config> Pallet<T> {
     /// * 'certificate' (Option<Vec<u8>>):
     ///     - Certificate for mutual Tls connection between neurons
     ///
-    /// # Event:
+    /// # Events
     /// * AxonServed;
     ///     - On successfully serving the axon info.
     ///
-    /// # Raises:
+    /// # Errors
     /// * 'MechanismDoesNotExist':
     ///     - Attempting to set weights on a non-existent network.
     ///
@@ -120,7 +120,7 @@ impl<T: Config> Pallet<T> {
 
     /// The implementation for the extrinsic serve_prometheus.
     ///
-    /// # Args:
+    /// # Arguments
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     - The signature of the caller.
     ///
@@ -139,11 +139,11 @@ impl<T: Config> Pallet<T> {
     /// * 'ip_type' (u8):
     ///     - The prometheus ip version as a u8, 4 or 6.
     ///
-    /// # Event:
+    /// # Events
     /// * PrometheusServed;
     ///     - On successfully serving the axon info.
     ///
-    /// # Raises:
+    /// # Errors
     /// * 'MechanismDoesNotExist':
     ///     - Attempting to set weights on a non-existent network.
     ///

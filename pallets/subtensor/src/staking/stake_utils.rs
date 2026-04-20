@@ -182,7 +182,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     /// * `weight` - The new global weight value to be set, as a u64.
     ///
-    /// # Effects
+    /// # Note
     /// This function modifies the following storage item:
     /// - `TaoWeight`: Updates it with the new weight value.
     ///

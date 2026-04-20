@@ -461,11 +461,11 @@ impl<T: Config> Pallet<T> {
     ///    **Proportion check**: Ensure that the sum of the proportions does not exceed u64::MAX.
     ///    **Duplicate check**: Ensure there are no duplicates in the list of children.
     ///
-    /// # Events:
+    /// # Events
     /// * `SetChildrenScheduled`:
     ///     - If all checks pass and setting the childkeys is scheduled.
     ///
-    /// # Errors:
+    /// # Errors
     /// * `MechanismDoesNotExist`:
     ///     - Attempting to register to a non-existent network.
     /// * `RegistrationNotPermittedOnRootSubnet`:
@@ -594,11 +594,11 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` (u16):
     ///     - The u16 network identifier where the child keys will exist.
     ///
-    /// # Events:
+    /// # Events
     /// * `SetChildren`:
     ///     - On successfully registering children to a hotkey.
     ///
-    /// # Errors:
+    /// # Errors
     /// * `MechanismDoesNotExist`:
     ///     - Attempting to register to a non-existent network.
     /// * `RegistrationNotPermittedOnRootSubnet`:
@@ -608,7 +608,7 @@ impl<T: Config> Pallet<T> {
     /// * `HotKeyAccountNotExists`:
     ///     - The hotkey account does not exist.
     ///
-    /// # Detailed Explanation of actions:
+    /// # Note
     /// 1. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
     /// 2. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
     ///
@@ -669,7 +669,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and child account ID.
     ///
-    /// # Example
+    /// # Note
     /// ```
     /// let children = SubtensorModule::get_children(&hotkey, netuid);
      */
@@ -686,7 +686,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and parent account ID.
     ///
-    /// # Example
+    /// # Note
     /// ```
     /// let parents = SubtensorModule::get_parents(&child, netuid);
      */
@@ -700,7 +700,7 @@ impl<T: Config> Pallet<T> {
     /// The childkey take determines the proportion of stake that the hotkey keeps for itself
     /// when distributing stake to its children.
     ///
-    /// # Arguments:
+    /// # Arguments
     /// * `coldkey` (T::AccountId):
     ///     - The coldkey that owns the hotkey.
     ///
@@ -711,10 +711,10 @@ impl<T: Config> Pallet<T> {
     ///     - The new childkey take value. This is a percentage represented as a value between 0 and 10000,
     ///       where 10000 represents 100%.
     ///
-    /// # Returns:
+    /// # Returns
     /// * `DispatchResult` - The result of the operation.
     ///
-    /// # Errors:
+    /// # Errors
     /// * `NonAssociatedColdKey`:
     ///     - The coldkey does not own the hotkey.
     /// * `InvalidChildkeyTake`:
@@ -781,10 +781,10 @@ impl<T: Config> Pallet<T> {
     /// This function retrieves the current childkey take value for a specified hotkey.
     /// If no specific take value has been set, it returns the default childkey take.
     ///
-    /// # Arguments:
+    /// # Arguments
     /// * `hotkey` (&T::AccountId): The hotkey for which to retrieve the childkey take.
     ///
-    /// # Returns:
+    /// # Returns
     /// * `u16`
     ///     - The childkey take value. This is a percentage represented as a value between 0
     ///       and 10000, where 10000 represents 100%.

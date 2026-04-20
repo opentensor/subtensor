@@ -3,7 +3,7 @@ use super::*;
 impl<T: Config> Pallet<T> {
     /// The implementation for the extrinsic decrease_take
     ///
-    /// # Args:
+    /// # Arguments
     /// * 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     ///     - The signature of the caller's coldkey.
     ///
@@ -13,11 +13,11 @@ impl<T: Config> Pallet<T> {
     /// * 'take' (u16):
     ///     - The stake proportion that this hotkey takes from delegations for subnet ID.
     ///
-    /// # Event:
+    /// # Events
     /// * TakeDecreased;
     ///     - On successfully setting a decreased take for this hotkey.
     ///
-    /// # Raises:
+    /// # Errors
     /// * 'NotRegistered':
     ///     - The hotkey we are delegating is not registered on the network.
     ///

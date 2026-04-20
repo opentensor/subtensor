@@ -7,7 +7,7 @@ use super::*;
 impl<T: Config> Pallet<T> {
     /// The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
     ///
-    /// # Args:
+    /// # Arguments
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     -  The signature of the caller's coldkey.
     ///
@@ -20,11 +20,11 @@ impl<T: Config> Pallet<T> {
     /// * 'stake_to_be_added' (u64):
     ///     -  The amount of stake to be added to the hotkey staking account.
     ///
-    /// # Event:
+    /// # Events
     /// * StakeAdded;
     ///     -  On the successfully adding stake to a global account.
     ///
-    /// # Raises:
+    /// # Errors
     /// * 'NotEnoughBalanceToStake':
     ///     -  Not enough balance on the coldkey to add onto the global account.
     ///
@@ -83,7 +83,7 @@ impl<T: Config> Pallet<T> {
     /// The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey
     /// account on a subnet with price limit.
     ///
-    /// # Args:
+    /// # Arguments
     /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
     ///     -  The signature of the caller's coldkey.
     ///
@@ -103,11 +103,11 @@ impl<T: Config> Pallet<T> {
     ///     - Allows partial execution of the amount. If set to false, this becomes
     ///       fill or kill type or order.
     ///
-    /// # Event:
+    /// # Events
     /// * StakeAdded;
     ///     -  On the successfully adding stake to a global account.
     ///
-    /// # Raises:
+    /// # Errors
     /// * 'NotEnoughBalanceToStake':
     ///     -  Not enough balance on the coldkey to add onto the global account.
     ///

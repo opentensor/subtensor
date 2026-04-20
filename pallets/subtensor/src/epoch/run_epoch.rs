@@ -547,7 +547,7 @@ impl<T: Config> Pallet<T> {
     /// Calculates reward consensus values, then updates rank, trust, consensus, incentive, dividend, pruning_score, emission and bonds, and
     /// returns the emissions for uids/hotkeys in a given `netuid`.
     ///
-    /// # Args:
+    /// # Arguments
     ///  * 'netuid': ( u16 ):
     ///     - The network to distribute the emission onto.
     ///
@@ -1194,12 +1194,12 @@ impl<T: Config> Pallet<T> {
 
     /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value for a sparse matrix.
     ///
-    /// # Args:
+    /// # Arguments
     /// * `bonds_delta` - A vector of bond deltas.
     /// * `bonds` - A vector of bonds.
     /// * `netuid` - The network ID.
     ///
-    /// # Returns:
+    /// # Returns
     /// A vector of EMA bonds.
     pub fn compute_ema_bonds_normal_sparse(
         bonds_delta: &[Vec<(u16, I32F32)>],
@@ -1230,12 +1230,12 @@ impl<T: Config> Pallet<T> {
 
     /// Compute the Exponential Moving Average (EMA) of bonds using a normal alpha value.
     ///
-    /// # Args:
+    /// # Arguments
     /// * `bonds_delta` - A vector of bond deltas.
     /// * `bonds` - A vector of bonds.
     /// * `netuid` - The network ID.
     ///
-    /// # Returns:
+    /// # Returns
     /// A vector of EMA bonds.
     pub fn compute_ema_bonds_normal(
         bonds_delta: &[Vec<I32F32>],
@@ -1264,14 +1264,14 @@ impl<T: Config> Pallet<T> {
 
     /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting
     ///
-    /// # Args:
+    /// # Arguments
     /// * `netuid` - The network ID.
     /// * `weights` - A vector of weights.
     /// * `bonds` - A vector of bonds.
     /// * `consensus` - A vector of consensus values.
     /// * `active_stake` - A vector of active stake values.
     ///
-    /// # Returns:
+    /// # Returns
     /// A vector of EMA bonds.
     pub fn compute_bonds(
         netuid: NetUid,
@@ -1304,14 +1304,14 @@ impl<T: Config> Pallet<T> {
 
     /// Compute the Exponential Moving Average (EMA) of bonds based on the Liquid Alpha setting for a sparse matrix.
     ///
-    /// # Args:
+    /// # Arguments
     /// * `netuid` - The network ID.
     /// * `weights` - A vector of weights.
     /// * `bonds` - A vector of bonds.
     /// * `consensus` - A vector of consensus values.
     /// * `active_stake` - A vector of active stake values.
     ///
-    /// # Returns:
+    /// # Returns
     /// A vector of EMA bonds.
     pub fn compute_bonds_sparse(
         netuid_index: NetUidStorageIndex,
@@ -1347,13 +1347,13 @@ impl<T: Config> Pallet<T> {
     /// Compute liquid alphas matrix
     /// There is a separate alpha param for each validator-miner binding
     ///
-    /// # Args:
+    /// # Arguments
     /// * `netuid` - The network ID.
     /// * `weights` - A vector of weights.
     /// * `bonds` - A vector of bonds.
     /// * `consensus` - A vector of consensus values.
     ///
-    /// # Returns:
+    /// # Returns
     /// A matrix of alphas
     pub fn compute_liquid_alpha_values(
         netuid: NetUid,
@@ -1400,13 +1400,13 @@ impl<T: Config> Pallet<T> {
     /// Compute liquid alphas sparse matrix
     /// There is a separate alpha param for each validator-miner binding
     ///
-    /// # Args:
+    /// # Arguments
     /// * `netuid` - The network ID.
     /// * `weights` - A vector of weights.
     /// * `bonds` - A vector of bonds.
     /// * `consensus` - A vector of consensus values.
     ///
-    /// # Returns:
+    /// # Returns
     /// A dense matrix of alphas
     pub fn compute_liquid_alpha_values_sparse(
         netuid: NetUid,

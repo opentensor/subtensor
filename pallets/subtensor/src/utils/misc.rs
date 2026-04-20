@@ -827,7 +827,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `duration` - The blocks for dissolve network execution.
     ///
-    /// # Effects
+    /// # Note
     ///
     /// * Update the DissolveNetworkScheduleDuration storage.
     /// * Emits a DissolveNetworkScheduleDurationSet evnet.
@@ -843,7 +843,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` - The unique identifier for the subnet.
     /// * `hotkey` - The new hotkey for the subnet owner.
     ///
-    /// # Effects
+    /// # Note
     ///
     /// * Update the SubnetOwnerHotkey storage.
     /// * Emits a SubnetOwnerHotkeySet event.
@@ -867,7 +867,7 @@ impl<T: Config> Pallet<T> {
     /// and [`MaxImmuneOwnerUidsLimit`]. If the bound check fails, this returns
     /// [`Error::<T>::InvalidValue`] and leaves storage unchanged.
     ///
-    /// # Parameters
+    /// # Arguments
     /// - `netuid`: Identifier of the subnet to update.
     /// - `limit`: New inclusive upper bound for the count of owner-immune UIDs on this subnet.
     ///
@@ -887,7 +887,7 @@ impl<T: Config> Pallet<T> {
 
     /// Fetches the max number of subnet
     ///
-    /// # Returns:
+    /// # Returns
     /// * 'u16': The max number of subnet
     ///
     pub fn get_max_subnets() -> u16 {
