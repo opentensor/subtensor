@@ -9,12 +9,12 @@ use fp_evm::{Context, ExitError, PrecompileFailure, PrecompileResult};
 use node_subtensor_runtime::{BuildStorage, Runtime, RuntimeGenesisConfig, System};
 use pallet_evm::{AddressMapping, BalanceConverter, PrecompileSet};
 use precompile_utils::testing::{MockHandle, PrecompileTesterExt};
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, H256, Pair, U256, ed25519};
 use sp_runtime::traits::Hash;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_precompiles::{
-    AddressMappingPrecompile, AlphaPrecompile, BalanceTransferPrecompile, PrecompileExt,
-    Precompiles,
+    AddressMappingPrecompile, AlphaPrecompile, BalanceTransferPrecompile, Ed25519Verify,
+    PrecompileExt, Precompiles,
 };
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -552,6 +552,70 @@ mod alpha {
                 call_data_u16_u64("simSwapAlphaForTao(uint16,uint64)", DYNAMIC_NETUID_U16, 0),
                 U256::zero(),
             );
+        });
+    }
+}
+
+mod ed25519_verify {
+    use super::*;
+
+    fn ed25519_verify_call_data(
+        message: [u8; 32],
+        public_key: [u8; 32],
+        signature: [u8; 64],
+    ) -> Vec<u8> {
+        let mut input = Vec::with_capacity(4 + 32 * 4);
+        input.extend_from_slice(&selector("verify(bytes32,bytes32,bytes32,bytes32)"));
+        input.extend_from_slice(&message);
+        input.extend_from_slice(&public_key);
+        input.extend_from_slice(&signature[..32]);
+        input.extend_from_slice(&signature[32..]);
+        input
+    }
+
+    #[test]
+    fn ed25519_precompile_verifies_valid_and_invalid_signatures() {
+        new_test_ext().execute_with(|| {
+            let pair = ed25519::Pair::from_string("//Alice", None)
+                .expect("Alice ed25519 key should be available");
+            let message = sp_io::hashing::keccak_256(b"Sign this message");
+            let signature = pair.sign(&message).0;
+            let public_key = pair.public().0;
+
+            let mut broken_message = message;
+            broken_message[0] ^= 0x01;
+
+            let mut broken_signature = signature;
+            broken_signature[0] ^= 0x01;
+
+            let precompiles = Precompiles::<Runtime>::new();
+            let caller = addr_from_index(1);
+            let precompile_addr = addr_from_index(Ed25519Verify::<AccountId>::INDEX);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    ed25519_verify_call_data(message, public_key, signature),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::one()));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    ed25519_verify_call_data(broken_message, public_key, signature),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::zero()));
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    ed25519_verify_call_data(message, public_key, broken_signature),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_word(U256::zero()));
         });
     }
 }
