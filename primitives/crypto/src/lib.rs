@@ -41,6 +41,9 @@
 //!    check). Ristretto points are always in the prime-order subgroup.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::unwrap_used)]
 
 extern crate alloc;
 
