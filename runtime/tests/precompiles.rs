@@ -14,12 +14,14 @@ use sp_runtime::traits::Hash;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_precompiles::{
     AddressMappingPrecompile, AlphaPrecompile, BalanceTransferPrecompile, Ed25519Verify,
-    MetagraphPrecompile, PrecompileExt, Precompiles, UidLookupPrecompile,
+    MetagraphPrecompile, NeuronPrecompile, PrecompileExt, Precompiles, UidLookupPrecompile,
 };
 use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
+
+const TEST_NETUID_U16: u16 = 1;
 
 fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
@@ -668,7 +670,7 @@ mod uid_lookup {
             let caller = addr_from_index(1);
             let precompile_addr = addr_from_index(UidLookupPrecompile::<Runtime>::INDEX);
 
-            let netuid = NetUid::from(1);
+            let netuid = NetUid::from(TEST_NETUID_U16);
             let netuid_u16: u16 = netuid.into();
             let uid = 0u16;
             let evm_address = H160::from_low_u64_be(0xdead_beef);
@@ -700,7 +702,6 @@ mod uid_lookup {
 mod metagraph {
     use super::*;
 
-    const NETUID_U16: u16 = 1;
     const UID: u16 = 0;
     const EMISSION: u64 = 111;
     const VTRUST: u16 = 222;
@@ -725,7 +726,7 @@ mod metagraph {
     }
 
     fn seed_metagraph_test_state() -> (NetUid, AccountId, AccountId, pallet_subtensor::AxonInfo) {
-        let netuid = NetUid::from(NETUID_U16);
+        let netuid = NetUid::from(TEST_NETUID_U16);
         let hotkey = pallet_subtensor::Keys::<Runtime>::get(netuid, UID);
         let coldkey = pallet_subtensor::Owner::<Runtime>::get(&hotkey);
 
@@ -789,7 +790,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16("getUidCount(uint16)", NETUID_U16),
+                    call_data_u16("getUidCount(uint16)", TEST_NETUID_U16),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(uid_count)));
@@ -797,7 +798,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getAxon(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getAxon(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_axon_output(&runtime_axon));
@@ -805,7 +806,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getEmission(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getEmission(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(emission)));
@@ -813,7 +814,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getVtrust(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getVtrust(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(vtrust)));
@@ -821,7 +822,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getValidatorStatus(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getValidatorStatus(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(validator_status as u8)));
@@ -829,7 +830,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getLastUpdate(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getLastUpdate(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(last_update)));
@@ -837,7 +838,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getIsActive(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getIsActive(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(abi_word(U256::from(is_active as u8)));
@@ -845,7 +846,7 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getHotkey(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getHotkey(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(H256::from_slice(hotkey.as_ref()).as_bytes().to_vec());
@@ -853,10 +854,72 @@ mod metagraph {
                 .prepare_test(
                     caller,
                     precompile_addr,
-                    call_data_u16_u16("getColdkey(uint16,uint16)", NETUID_U16, UID),
+                    call_data_u16_u16("getColdkey(uint16,uint16)", TEST_NETUID_U16, UID),
                 )
                 .with_static_call(true)
                 .execute_returns_raw(H256::from_slice(coldkey.as_ref()).as_bytes().to_vec());
+        });
+    }
+}
+
+mod neuron {
+    use super::*;
+
+    const REGISTRATION_BURN: u64 = 1_000;
+    const RESERVE: u64 = 1_000_000_000;
+    const COLDKEY_BALANCE: u64 = 50_000;
+
+    fn burned_register_call_data(netuid: u16, hotkey: H256) -> Vec<u8> {
+        // 4-byte selector + 2 ABI words for `(uint16,bytes32)`.
+        let mut input = Vec::with_capacity(4 + 64);
+        input.extend_from_slice(&selector("burnedRegister(uint16,bytes32)"));
+        push_abi_word(&mut input, U256::from(netuid));
+        input.extend_from_slice(hotkey.as_bytes());
+        input
+    }
+
+    #[test]
+    fn neuron_precompile_burned_register_adds_a_new_uid_and_key() {
+        new_test_ext().execute_with(|| {
+            let netuid = NetUid::from(TEST_NETUID_U16);
+            let caller = addr_from_index(0x1234);
+            let caller_account =
+                <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(caller);
+            let hotkey_account = AccountId::from([0x42; 32]);
+            let hotkey = H256::from_slice(hotkey_account.as_ref());
+
+            pallet_subtensor::Pallet::<Runtime>::set_network_registration_allowed(netuid, true);
+            pallet_subtensor::Pallet::<Runtime>::set_burn(netuid, REGISTRATION_BURN.into());
+            pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
+            pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
+            pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
+            pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
+                &caller_account,
+                COLDKEY_BALANCE.into(),
+            );
+
+            let uid_before = pallet_subtensor::SubnetworkN::<Runtime>::get(netuid);
+            let balance_before =
+                pallet_subtensor::Pallet::<Runtime>::get_coldkey_balance(&caller_account).to_u64();
+
+            Precompiles::<Runtime>::new()
+                .prepare_test(
+                    caller,
+                    addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
+                    burned_register_call_data(TEST_NETUID_U16, hotkey),
+                )
+                .execute_returns(());
+
+            let uid_after = pallet_subtensor::SubnetworkN::<Runtime>::get(netuid);
+            let registered_hotkey = pallet_subtensor::Keys::<Runtime>::get(netuid, uid_before);
+            let owner = pallet_subtensor::Owner::<Runtime>::get(&hotkey_account);
+            let balance_after =
+                pallet_subtensor::Pallet::<Runtime>::get_coldkey_balance(&caller_account).to_u64();
+
+            assert_eq!(uid_after, uid_before + 1);
+            assert_eq!(registered_hotkey, hotkey_account);
+            assert_eq!(owner, caller_account);
+            assert!(balance_after < balance_before);
         });
     }
 }
