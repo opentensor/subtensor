@@ -6,8 +6,8 @@ import type { TypedApi } from "polkadot-api";
 import type { subtensor } from "@polkadot-api/descriptors";
 import { FixedSizeBinary } from "polkadot-api";
 
-export const ANNOUNCEMENT_DELAY = 10;
-export const REANNOUNCEMENT_DELAY = 10;
+export const ANNOUNCEMENT_DELAY = 20;
+export const REANNOUNCEMENT_DELAY = 20;
 
 /** Compute BLAKE2-256 hash of a keypair's public key as a FixedSizeBinary (used for announcements). */
 export function coldkeyHashBinary(pair: KeyringPair): FixedSizeBinary<32> {

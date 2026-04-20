@@ -67,3 +67,20 @@ std = [
 	"num_enum/std",
 	"substrate-fixed/std",
 ]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks",
+	"pallet-subtensor-swap/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-contracts/runtime-benchmarks",
+	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-drand/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-subtensor-proxy/runtime-benchmarks",
+	"pallet-subtensor-utility/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks"
+]

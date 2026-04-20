@@ -339,14 +339,11 @@ fn dissolve_clears_all_per_subnet_storages() {
         NetworkRegisteredAt::<Test>::insert(net, 0u64);
 
         // Consensus vectors
-        Rank::<Test>::insert(net, vec![1u16]);
-        Trust::<Test>::insert(net, vec![1u16]);
         Active::<Test>::insert(net, vec![true]);
         Emission::<Test>::insert(net, vec![AlphaBalance::from(1)]);
         Incentive::<Test>::insert(NetUidStorageIndex::from(net), vec![1u16]);
         Consensus::<Test>::insert(net, vec![1u16]);
         Dividends::<Test>::insert(net, vec![1u16]);
-        PruningScores::<Test>::insert(net, vec![1u16]);
         LastUpdate::<Test>::insert(NetUidStorageIndex::from(net), vec![0u64]);
         ValidatorPermit::<Test>::insert(net, vec![true]);
         ValidatorTrust::<Test>::insert(net, vec![1u16]);
@@ -488,8 +485,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
 
         // Consensus vectors removed
-        assert!(!Rank::<Test>::contains_key(net));
-        assert!(!Trust::<Test>::contains_key(net));
         assert!(!Active::<Test>::contains_key(net));
         assert!(!Emission::<Test>::contains_key(net));
         assert!(!Incentive::<Test>::contains_key(NetUidStorageIndex::from(
@@ -497,7 +492,6 @@ fn dissolve_clears_all_per_subnet_storages() {
         )));
         assert!(!Consensus::<Test>::contains_key(net));
         assert!(!Dividends::<Test>::contains_key(net));
-        assert!(!PruningScores::<Test>::contains_key(net));
         assert!(!LastUpdate::<Test>::contains_key(NetUidStorageIndex::from(
             net
         )));
@@ -2375,7 +2369,7 @@ fn median_subnet_alpha_price_averages_even_prices_and_ignores_root_zero_and_unad
 }
 
 #[test]
-fn register_network_credits_owner_alpha_using_fallback_price_one_on_first_subnet() {
+fn register_network_seeds_first_subnet_from_fallback_price_one_and_keeps_lock_in_pool() {
     new_test_ext(1).execute_with(|| {
         let new_cold = U256::from(1001);
         let new_hot = U256::from(1002);
@@ -2383,21 +2377,33 @@ fn register_network_credits_owner_alpha_using_fallback_price_one_on_first_subnet
 
         let lock_cost_u64: u64 = SubtensorModule::get_network_lock_cost().into();
         let pre_registration_median = SubtensorModule::get_median_subnet_alpha_price();
-        let expected_owner_alpha_u64 =
-            owner_alpha_from_lock_and_price(lock_cost_u64, pre_registration_median);
-        let expected_owner_alpha: AlphaBalance = expected_owner_alpha_u64.into();
 
         let pool_initial_tao = SubtensorModule::get_network_min_lock();
         let pool_initial_tao_u64 = pool_initial_tao.to_u64();
-        let expected_pool_alpha: AlphaBalance = pool_initial_tao_u64.into();
-        let expected_alpha_issuance: AlphaBalance = pool_initial_tao_u64
+        let total_pool_tao_u64 = lock_cost_u64.max(pool_initial_tao_u64);
+        let owner_alpha_tao_equivalent_u64 =
+            total_pool_tao_u64.saturating_sub(pool_initial_tao_u64);
+
+        let expected_pool_alpha_u64 =
+            owner_alpha_from_lock_and_price(total_pool_tao_u64, pre_registration_median);
+        let expected_pool_alpha: AlphaBalance = expected_pool_alpha_u64.into();
+
+        let expected_owner_alpha_u64 = owner_alpha_from_lock_and_price(
+            owner_alpha_tao_equivalent_u64,
+            pre_registration_median,
+        );
+        let expected_owner_alpha: AlphaBalance = expected_owner_alpha_u64.into();
+
+        let expected_alpha_issuance: AlphaBalance = expected_pool_alpha_u64
             .saturating_add(expected_owner_alpha_u64)
             .into();
-        let expected_recycled: TaoBalance =
-            lock_cost_u64.saturating_sub(pool_initial_tao_u64).into();
+
+        let expected_recycled: TaoBalance = lock_cost_u64.saturating_sub(total_pool_tao_u64).into();
 
         assert_eq!(pre_registration_median, U96F32::from_num(1u64));
-        assert_eq!(expected_owner_alpha_u64, lock_cost_u64);
+        assert_eq!(expected_pool_alpha_u64, total_pool_tao_u64);
+        assert_eq!(expected_owner_alpha_u64, owner_alpha_tao_equivalent_u64);
+        assert_eq!(expected_recycled, TaoBalance::ZERO);
 
         SubtensorModule::add_balance_to_coldkey_account(
             &new_cold,
@@ -2419,7 +2425,11 @@ fn register_network_credits_owner_alpha_using_fallback_price_one_on_first_subnet
             SubtensorModule::get_subnet_locked_balance(new_netuid),
             TaoBalance::from(lock_cost_u64)
         );
-        assert_eq!(SubnetTAO::<Test>::get(new_netuid), pool_initial_tao);
+
+        assert_eq!(
+            SubnetTAO::<Test>::get(new_netuid),
+            TaoBalance::from(total_pool_tao_u64)
+        );
         assert_eq!(SubnetAlphaIn::<Test>::get(new_netuid), expected_pool_alpha);
         assert_eq!(
             SubnetAlphaOut::<Test>::get(new_netuid),
@@ -2448,12 +2458,18 @@ fn register_network_credits_owner_alpha_using_fallback_price_one_on_first_subnet
             SubnetAlphaInProvided::<Test>::get(new_netuid),
             AlphaBalance::ZERO
         );
+
+        assert_eq!(
+            <Test as pallet::Config>::SwapInterface::current_alpha_price(new_netuid.into()),
+            U96F32::from_num(1u64)
+        );
+
         System::assert_last_event(Event::NetworkAdded(new_netuid, 1).into());
     });
 }
 
 #[test]
-fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet_price() {
+fn register_network_seeds_new_subnet_from_even_median_snapshot() {
     new_test_ext(0).execute_with(|| {
         let n1 = add_dynamic_network(&U256::from(1201), &U256::from(1200));
         let n2 = add_dynamic_network(&U256::from(1203), &U256::from(1202));
@@ -2468,11 +2484,24 @@ fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet
         let new_cold = U256::from(1300);
         let new_hot = U256::from(1301);
         let new_netuid = SubtensorModule::get_next_netuid();
-        let lock_cost_u64: u64 = SubtensorModule::get_network_lock_cost().into();
 
-        let expected_owner_alpha_u64 =
-            owner_alpha_from_lock_and_price(lock_cost_u64, pre_registration_median);
+        let lock_cost_u64: u64 = SubtensorModule::get_network_lock_cost().into();
+        let pool_initial_tao_u64 = SubtensorModule::get_network_min_lock().to_u64();
+        let total_pool_tao_u64 = lock_cost_u64.max(pool_initial_tao_u64);
+        let owner_alpha_tao_equivalent_u64 =
+            total_pool_tao_u64.saturating_sub(pool_initial_tao_u64);
+
+        let expected_pool_alpha_u64 =
+            owner_alpha_from_lock_and_price(total_pool_tao_u64, pre_registration_median);
+        let expected_pool_alpha: AlphaBalance = expected_pool_alpha_u64.into();
+
+        let expected_owner_alpha_u64 = owner_alpha_from_lock_and_price(
+            owner_alpha_tao_equivalent_u64,
+            pre_registration_median,
+        );
         let expected_owner_alpha: AlphaBalance = expected_owner_alpha_u64.into();
+
+        let expected_recycled: TaoBalance = lock_cost_u64.saturating_sub(total_pool_tao_u64).into();
 
         SubtensorModule::add_balance_to_coldkey_account(
             &new_cold,
@@ -2486,22 +2515,23 @@ fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet
             None,
         ));
 
-        // After registration, the new subnet exists and is seeded at price 1,
-        // so the live median becomes median({1, 2, 5}) = 2.
         let new_subnet_price =
             <Test as pallet::Config>::SwapInterface::current_alpha_price(new_netuid.into());
         let post_registration_median = SubtensorModule::get_median_subnet_alpha_price();
-        let wrong_post_registration_owner_alpha_u64 =
-            owner_alpha_from_lock_and_price(lock_cost_u64, post_registration_median);
-        let wrong_post_registration_owner_alpha: AlphaBalance =
-            wrong_post_registration_owner_alpha_u64.into();
 
-        assert_eq!(new_subnet_price, U96F32::from_num(1u64));
-        assert_eq!(post_registration_median, U96F32::from_num(2u64));
-        assert_ne!(pre_registration_median, post_registration_median);
+        assert!(SubtensorModule::if_subnet_exist(new_netuid));
+        assert_eq!(SubnetOwner::<Test>::get(new_netuid), new_cold);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(new_netuid), new_hot);
+        assert_eq!(
+            SubtensorModule::get_subnet_locked_balance(new_netuid),
+            TaoBalance::from(lock_cost_u64)
+        );
 
-        // The registration flow must use the pre-registration median snapshot (3.5),
-        // not the post-init median (2).
+        assert_eq!(
+            SubnetTAO::<Test>::get(new_netuid),
+            TaoBalance::from(total_pool_tao_u64)
+        );
+        assert_eq!(SubnetAlphaIn::<Test>::get(new_netuid), expected_pool_alpha);
         assert_eq!(
             SubnetAlphaOut::<Test>::get(new_netuid),
             expected_owner_alpha
@@ -2516,9 +2546,24 @@ fn register_network_credits_owner_alpha_from_even_median_and_excludes_new_subnet
             TotalHotkeyAlpha::<Test>::get(new_hot, new_netuid),
             expected_owner_alpha
         );
+        assert_eq!(
+            RAORecycledForRegistration::<Test>::get(new_netuid),
+            expected_recycled
+        );
+
+        // The new subnet is seeded from the pre-registration median snapshot,
+        // so it is no longer initialized at the old 1:1 seed price.
+        assert_ne!(new_subnet_price, U96F32::from_num(1u64));
+        assert!(new_subnet_price >= pre_registration_median);
+
+        // With prices {2, seeded_price, 5}, the live median becomes the new subnet price.
+        assert_eq!(post_registration_median, new_subnet_price);
+
+        // A 1:1 seed would have alpha_in == tao_in, which should not happen here.
+        let wrong_price_one_pool_alpha: AlphaBalance = total_pool_tao_u64.into();
         assert_ne!(
-            SubnetAlphaOut::<Test>::get(new_netuid),
-            wrong_post_registration_owner_alpha
+            SubnetAlphaIn::<Test>::get(new_netuid),
+            wrong_price_one_pool_alpha
         );
     });
 }
@@ -2635,6 +2680,73 @@ fn register_network_non_associated_hotkey_does_not_withdraw_or_write_owner_alpha
                 would_be_netuid,
             ),
             AlphaBalance::ZERO
+        );
+    });
+}
+
+#[test]
+fn registered_subnet_counter_bumps_on_first_registration() {
+    new_test_ext(1).execute_with(|| {
+        let cold = U256::from(1);
+        let hot = U256::from(2);
+
+        let netuid = add_dynamic_network(&hot, &cold);
+
+        assert_eq!(
+            SubtensorModule::get_registered_subnet_counter(netuid),
+            1,
+            "first registration of a netuid must leave counter == 1"
+        );
+    });
+}
+
+#[test]
+fn registered_subnet_counter_is_independent_per_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let n1 = add_dynamic_network(&U256::from(10), &U256::from(11));
+        let n2 = add_dynamic_network(&U256::from(20), &U256::from(21));
+
+        assert_ne!(n1, n2);
+        assert_eq!(SubtensorModule::get_registered_subnet_counter(n1), 1);
+        assert_eq!(SubtensorModule::get_registered_subnet_counter(n2), 1);
+    });
+}
+
+#[test]
+fn registered_subnet_counter_survives_dissolve_and_bumps_on_reregistration() {
+    new_test_ext(1).execute_with(|| {
+        // Force reuse of the same netuid on re-registration by pinning the
+        // active subnet cap so the next registration must prune.
+        SubtensorModule::set_max_subnets(2);
+
+        let owner_cold = U256::from(100);
+        let owner_hot = U256::from(101);
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+        assert_eq!(SubtensorModule::get_registered_subnet_counter(netuid), 1);
+
+        // Dissolve: counter is intentionally *not* cleared — stale consumers
+        // can still detect the pre-dereg lifetime if they stored the counter
+        // value they observed at approval time.
+        assert_ok!(SubtensorModule::do_dissolve_network(netuid));
+        assert!(!SubtensorModule::if_subnet_exist(netuid));
+        assert_eq!(
+            SubtensorModule::get_registered_subnet_counter(netuid),
+            1,
+            "dissolve must not clear or reset the counter"
+        );
+
+        // Re-register. With the cap pinned, the prune selector reuses the
+        // freed netuid; the counter bumps to 2 so that any state still keyed
+        // to the prior value becomes unreachable under the new registration.
+        let reg_netuid = add_dynamic_network(&owner_hot, &owner_cold);
+        assert_eq!(
+            reg_netuid, netuid,
+            "the pruned netuid should be reused under the subnet cap"
+        );
+        assert_eq!(
+            SubtensorModule::get_registered_subnet_counter(netuid),
+            2,
+            "re-registration must bump counter"
         );
     });
 }

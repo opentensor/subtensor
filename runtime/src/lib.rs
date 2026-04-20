@@ -120,6 +120,7 @@ impl pallet_drand::Config for Runtime {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = pallet_drand::weights::SubstrateWeight<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -149,6 +150,9 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
 impl pallet_shield::Config for Runtime {
     type AuthorityId = AuraId;
     type FindAuthors = FindAuraAuthors;
+    type RuntimeCall = RuntimeCall;
+    type ExtrinsicDecryptor = ();
+    type WeightInfo = pallet_shield::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -268,7 +272,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 395,
+    spec_version: 397,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1197,6 +1201,7 @@ impl pallet_subtensor::Config for Runtime {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
+    type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1218,7 +1223,23 @@ impl pallet_subtensor_swap::Config for Runtime {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     // TODO: set measured weights when the pallet been benchmarked and the type is generated
-    type WeightInfo = pallet_subtensor_swap::weights::DefaultWeight<Runtime>;
+    type WeightInfo = pallet_subtensor_swap::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = SwapBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct SwapBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_subtensor_swap::BenchmarkHelper<AccountId> for SwapBenchmarkHelper {
+    fn setup_subnet(netuid: subtensor_runtime_common::NetUid) {
+        pallet_subtensor::NetworksAdded::<Runtime>::insert(netuid, true);
+        pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+    }
+    fn register_hotkey(hotkey: &AccountId, coldkey: &AccountId) {
+        pallet_subtensor::Owner::<Runtime>::insert(hotkey, coldkey);
+    }
 }
 
 use crate::sudo_wrapper::SudoTransactionExtension;
@@ -1249,6 +1270,7 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
+    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 /// Define the ChainId
@@ -1741,6 +1763,7 @@ mod benches {
         [pallet_subtensor_swap, Swap]
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
+        [pallet_subtensor_utility, Utility]
     );
 }
 
