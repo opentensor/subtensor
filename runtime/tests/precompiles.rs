@@ -14,7 +14,7 @@ use sp_runtime::traits::Hash;
 use substrate_fixed::types::{I96F32, U96F32};
 use subtensor_precompiles::{
     AddressMappingPrecompile, AlphaPrecompile, BalanceTransferPrecompile, Ed25519Verify,
-    PrecompileExt, Precompiles,
+    PrecompileExt, Precompiles, UidLookupPrecompile,
 };
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -82,6 +82,7 @@ fn call_data_no_args(signature: &str) -> Vec<u8> {
 
 /// Encodes a selector plus one uint16 ABI argument.
 fn call_data_u16(signature: &str, value: u16) -> Vec<u8> {
+    // 4-byte selector + 1 ABI word for the uint16 argument.
     let mut input = Vec::with_capacity(4 + 32);
     input.extend_from_slice(&selector(signature));
     push_abi_word(&mut input, U256::from(value));
@@ -90,6 +91,7 @@ fn call_data_u16(signature: &str, value: u16) -> Vec<u8> {
 
 /// Encodes a selector plus `(uint16,uint64)` ABI arguments.
 fn call_data_u16_u64(signature: &str, first: u16, second: u64) -> Vec<u8> {
+    // 4-byte selector + 2 ABI words for `(uint16,uint64)`.
     let mut input = Vec::with_capacity(4 + 64);
     input.extend_from_slice(&selector(signature));
     push_abi_word(&mut input, U256::from(first));
@@ -118,6 +120,7 @@ mod address_mapping {
     use super::*;
 
     fn address_mapping_call_data(target: H160) -> Vec<u8> {
+        // 4-byte selector + 1 ABI word for the address argument.
         let mut input = Vec::with_capacity(4 + 32);
         input.extend_from_slice(&selector("addressMapping(address)"));
         // Left-pad the 20-byte address argument to a 32-byte ABI word.
@@ -564,6 +567,7 @@ mod ed25519_verify {
         public_key: [u8; 32],
         signature: [u8; 64],
     ) -> Vec<u8> {
+        // 4-byte selector + 4 ABI words: message, public key, signature R, signature S.
         let mut input = Vec::with_capacity(4 + 32 * 4);
         input.extend_from_slice(&selector("verify(bytes32,bytes32,bytes32,bytes32)"));
         input.extend_from_slice(&message);
@@ -620,10 +624,74 @@ mod ed25519_verify {
     }
 }
 
+mod uid_lookup {
+    use super::*;
+
+    fn uid_lookup_call_data(netuid: u16, evm_address: H160, limit: u16) -> Vec<u8> {
+        // 4-byte selector + 3 ABI words: netuid, address, limit.
+        let mut input = Vec::with_capacity(4 + 32 * 3);
+        input.extend_from_slice(&selector("uidLookup(uint16,address,uint16)"));
+        push_abi_word(&mut input, U256::from(netuid));
+        input.extend_from_slice(&[0u8; 12]);
+        input.extend_from_slice(evm_address.as_bytes());
+        push_abi_word(&mut input, U256::from(limit));
+        input
+    }
+
+    fn abi_uid_lookup_output(entries: &[(u16, u64)]) -> Vec<u8> {
+        // ABI dynamic array encoding:
+        // head offset word + array length word + 2 words per tuple entry `(uid, block_associated)`.
+        let mut output = Vec::with_capacity(64 + entries.len() * 64);
+        push_abi_word(&mut output, U256::from(32u64));
+        push_abi_word(&mut output, U256::from(entries.len()));
+        for (uid, block_associated) in entries {
+            push_abi_word(&mut output, U256::from(*uid));
+            push_abi_word(&mut output, U256::from(*block_associated));
+        }
+        output
+    }
+
+    #[test]
+    fn uid_lookup_precompile_returns_associated_uid_and_block() {
+        new_test_ext().execute_with(|| {
+            let precompiles = Precompiles::<Runtime>::new();
+            let caller = addr_from_index(1);
+            let precompile_addr = addr_from_index(UidLookupPrecompile::<Runtime>::INDEX);
+
+            let netuid = NetUid::from(1);
+            let netuid_u16: u16 = netuid.into();
+            let uid = 0u16;
+            let evm_address = H160::from_low_u64_be(0xdead_beef);
+            let block_associated = 42u64;
+            let limit = 1024u16;
+
+            pallet_subtensor::AssociatedEvmAddress::<Runtime>::insert(
+                netuid,
+                uid,
+                (evm_address, block_associated),
+            );
+
+            let expected =
+                pallet_subtensor::Pallet::<Runtime>::uid_lookup(netuid, evm_address, limit);
+            assert_eq!(expected, vec![(uid, block_associated)]);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    uid_lookup_call_data(netuid_u16, evm_address, limit),
+                )
+                .with_static_call(true)
+                .execute_returns_raw(abi_uid_lookup_output(&expected));
+        });
+    }
+}
+
 mod balance_transfer {
     use super::*;
 
     fn balance_transfer_call_data(target: H256) -> Vec<u8> {
+        // 4-byte selector + 1 ABI word for the bytes32 destination.
         let mut input = Vec::with_capacity(4 + 32);
         input.extend_from_slice(&selector("transfer(bytes32)"));
         input.extend_from_slice(target.as_bytes());
