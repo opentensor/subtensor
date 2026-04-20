@@ -4,8 +4,6 @@ use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
 
-const DUST_THRESHOLD: u64 = 100;
-
 impl<T: Config> Pallet<T> {
     /// Computes exp(-dt / tau) as a U64F64 decay factor.
     pub fn exp_decay(dt: u64, tau: u64) -> U64F64 {
@@ -165,21 +163,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Clears the lock if both locked_mass and conviction have decayed below the dust threshold.
+    /// Clears the lock. This function will be called if the alpha stake drops below minimum
+    /// threshold.
     pub fn maybe_cleanup_lock(coldkey: &T::AccountId, netuid: NetUid) {
-        if let Some(existing) = Lock::<T>::get(coldkey, netuid) {
-            let now = Self::get_current_block_as_u64();
-            let lock = Self::roll_forward_lock(existing, now);
-            let dust = DUST_THRESHOLD.into();
-
-            if lock.locked_mass < dust
-                && lock.conviction < U64F64::saturating_from_num(DUST_THRESHOLD)
-            {
-                Lock::<T>::remove(coldkey, netuid);
-            } else {
-                Lock::<T>::insert(coldkey, netuid, lock);
-            }
-        }
+        Lock::<T>::remove(coldkey, netuid);
     }
 
     /// Returns the total conviction for a hotkey on a subnet,

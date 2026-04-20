@@ -1128,34 +1128,6 @@ fn test_maybe_cleanup_lock_removes_dust() {
 }
 
 #[test]
-fn test_maybe_cleanup_lock_preserves_active_lock() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
-
-        assert_ok!(SubtensorModule::do_lock_stake(
-            &coldkey,
-            netuid,
-            &hotkey,
-            100_000u64.into(),
-        ));
-
-        step_block(100);
-
-        SubtensorModule::maybe_cleanup_lock(&coldkey, netuid);
-
-        let lock = Lock::<Test>::get(coldkey, netuid);
-        assert!(lock.is_some());
-        // last_update should be rolled forward to current block
-        assert_eq!(
-            lock.unwrap().last_update,
-            SubtensorModule::get_current_block_as_u64()
-        );
-    });
-}
-
-#[test]
 fn test_maybe_cleanup_lock_no_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -1336,11 +1308,11 @@ fn test_lock_stake_extrinsic() {
 }
 
 // =========================================================================
-// GROUP 14: Recycle/burn alpha bypass (BUG: bypasses lock)
+// GROUP 14: Recycle/burn alpha checks against lock
 // =========================================================================
 
 #[test]
-fn test_recycle_alpha_bypasses_lock() {
+fn test_recycle_alpha_checks_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1475,11 +1447,11 @@ fn test_subnet_dissolution_and_netuid_reuse() {
 }
 
 // =========================================================================
-// GROUP 16: Clear small nomination bypass
+// GROUP 16: Clear small nomination checks lock
 // =========================================================================
 
 #[test]
-fn test_clear_small_nomination_bypasses_lock() {
+fn test_clear_small_nomination_checks_lock() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(100);
         let owner_hotkey = U256::from(101);
@@ -1523,7 +1495,7 @@ fn test_clear_small_nomination_bypasses_lock() {
         assert_eq!(nominator_alpha_after, AlphaBalance::ZERO);
 
         // Lock entry still exists, now orphaned
-        assert!(Lock::<Test>::get(nominator, netuid).is_some());
+        assert!(Lock::<Test>::get(nominator, netuid).is_none());
     });
 }
 

@@ -245,6 +245,9 @@ impl<T: Config> Pallet<T> {
                 if let Ok(cleared_stake) = maybe_cleared_stake {
                     // Add the stake to the coldkey account.
                     Self::add_balance_to_coldkey_account(coldkey, cleared_stake.into());
+
+                    // Clear the lock if exists
+                    Self::maybe_cleanup_lock(coldkey, netuid);
                 } else {
                     // Just clear small alpha
                     let alpha =
