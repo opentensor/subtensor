@@ -260,8 +260,8 @@ mod tests {
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        AccountId, Runtime, System, TEST_NETUID_U16, addr_from_index, execute_precompile,
-        new_test_ext, precompiles, selector_u32,
+        AccountId, Runtime, System, addr_from_index, execute_precompile, new_test_ext, precompiles,
+        selector_u32,
     };
     use pallet_evm::AddressMapping;
     use precompile_utils::solidity::encode_with_selector;
@@ -270,6 +270,7 @@ mod tests {
     use sp_runtime::traits::Hash;
     use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
 
+    const TEST_NETUID_U16: u16 = 1;
     const REGISTRATION_BURN: u64 = 1_000;
     const RESERVE: u64 = 1_000_000_000;
     const COLDKEY_BALANCE: u64 = 50_000;
@@ -280,6 +281,13 @@ mod tests {
     const REVEAL_UIDS: [u16; 1] = [REGISTERED_UID];
     const REVEAL_VALUES: [u16; 1] = [5];
     const REVEAL_SALT: [u16; 1] = [9];
+    const SERVE_VERSION: u32 = 0;
+    const SERVE_IP: u128 = 1;
+    const SERVE_PORT: u16 = 2;
+    const SERVE_IP_TYPE: u8 = 4;
+    const SERVE_PROTOCOL: u8 = 0;
+    const SERVE_PLACEHOLDER1: u8 = 8;
+    const SERVE_PLACEHOLDER2: u8 = 9;
 
     fn setup_registered_caller(caller: H160) -> (NetUid, AccountId) {
         let netuid = NetUid::from(TEST_NETUID_U16);
@@ -561,6 +569,131 @@ mod tests {
             assert_eq!(weights.len(), 1);
             assert_eq!(weights[0].0, neuron_uid);
             assert!(weights[0].1 > 0);
+        });
+    }
+
+    #[test]
+    fn neuron_precompile_serve_axon_sets_axon_info() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x5234);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+
+            precompiles::<NeuronPrecompile<Runtime>>()
+                .prepare_test(
+                    caller,
+                    addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
+                    encode_with_selector(
+                        selector_u32(
+                            "serveAxon(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8)",
+                        ),
+                        (
+                            TEST_NETUID_U16,
+                            SERVE_VERSION,
+                            SERVE_IP,
+                            SERVE_PORT,
+                            SERVE_IP_TYPE,
+                            SERVE_PROTOCOL,
+                            SERVE_PLACEHOLDER1,
+                            SERVE_PLACEHOLDER2,
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let axon = pallet_subtensor::Axons::<Runtime>::get(netuid, &caller_account)
+                .expect("axon info should be stored");
+            assert!(axon.block > 0);
+            assert_eq!(axon.version, SERVE_VERSION);
+            assert_eq!(axon.ip, SERVE_IP);
+            assert_eq!(axon.port, SERVE_PORT);
+            assert_eq!(axon.ip_type, SERVE_IP_TYPE);
+            assert_eq!(axon.protocol, SERVE_PROTOCOL);
+            assert_eq!(axon.placeholder1, SERVE_PLACEHOLDER1);
+            assert_eq!(axon.placeholder2, SERVE_PLACEHOLDER2);
+        });
+    }
+
+    #[test]
+    fn neuron_precompile_serve_axon_tls_sets_axon_info_and_certificate() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x6234);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+            let certificate: Vec<u8> = (1u8..=65).collect();
+
+            precompiles::<NeuronPrecompile<Runtime>>()
+                .prepare_test(
+                    caller,
+                    addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
+                    encode_with_selector(
+                        selector_u32(
+                            "serveAxonTls(uint16,uint32,uint128,uint16,uint8,uint8,uint8,uint8,bytes)",
+                        ),
+                        (
+                            TEST_NETUID_U16,
+                            SERVE_VERSION,
+                            SERVE_IP,
+                            SERVE_PORT,
+                            SERVE_IP_TYPE,
+                            SERVE_PROTOCOL,
+                            SERVE_PLACEHOLDER1,
+                            SERVE_PLACEHOLDER2,
+                            UnboundedBytes::from(certificate.clone()),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let axon = pallet_subtensor::Axons::<Runtime>::get(netuid, &caller_account)
+                .expect("axon info should be stored");
+            assert!(axon.block > 0);
+            assert_eq!(axon.version, SERVE_VERSION);
+            assert_eq!(axon.ip, SERVE_IP);
+            assert_eq!(axon.port, SERVE_PORT);
+            assert_eq!(axon.ip_type, SERVE_IP_TYPE);
+            assert_eq!(axon.protocol, SERVE_PROTOCOL);
+            assert_eq!(axon.placeholder1, SERVE_PLACEHOLDER1);
+            assert_eq!(axon.placeholder2, SERVE_PLACEHOLDER2);
+
+            let stored_certificate =
+                pallet_subtensor::NeuronCertificates::<Runtime>::get(netuid, caller_account)
+                    .expect("certificate should be stored");
+            assert_eq!(
+                stored_certificate.public_key.into_inner(),
+                certificate[1..].to_vec()
+            );
+        });
+    }
+
+    #[test]
+    fn neuron_precompile_serve_prometheus_sets_prometheus_info() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x7234);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+
+            precompiles::<NeuronPrecompile<Runtime>>()
+                .prepare_test(
+                    caller,
+                    addr_from_index(NeuronPrecompile::<Runtime>::INDEX),
+                    encode_with_selector(
+                        selector_u32("servePrometheus(uint16,uint32,uint128,uint16,uint8)"),
+                        (
+                            TEST_NETUID_U16,
+                            SERVE_VERSION,
+                            SERVE_IP,
+                            SERVE_PORT,
+                            SERVE_IP_TYPE,
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let prometheus = pallet_subtensor::Prometheus::<Runtime>::get(netuid, caller_account)
+                .expect("prometheus info should be stored");
+            assert!(prometheus.block > 0);
+            assert_eq!(prometheus.version, SERVE_VERSION);
+            assert_eq!(prometheus.ip, SERVE_IP);
+            assert_eq!(prometheus.port, SERVE_PORT);
+            assert_eq!(prometheus.ip_type, SERVE_IP_TYPE);
         });
     }
 }

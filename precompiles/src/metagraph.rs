@@ -195,14 +195,14 @@ mod tests {
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        Runtime, TEST_NETUID_U16, abi_word, addr_from_index, new_test_ext, precompiles,
-        selector_u32,
+        Runtime, abi_word, addr_from_index, new_test_ext, precompiles, selector_u32,
     };
     use precompile_utils::solidity::{encode_return_value, encode_with_selector};
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::H256;
     use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex};
 
+    const TEST_NETUID_U16: u16 = 1;
     const UID: u16 = 0;
     const EMISSION: u64 = 111;
     const VTRUST: u16 = 222;

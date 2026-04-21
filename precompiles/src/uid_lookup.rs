@@ -57,12 +57,12 @@ mod tests {
     #![allow(clippy::expect_used)]
 
     use super::*;
-    use crate::mock::{
-        Runtime, TEST_NETUID_U16, addr_from_index, new_test_ext, precompiles, selector_u32,
-    };
+    use crate::mock::{Runtime, addr_from_index, new_test_ext, precompiles, selector_u32};
     use precompile_utils::solidity::{codec::Address, encode_return_value, encode_with_selector};
     use precompile_utils::testing::PrecompileTesterExt;
     use subtensor_runtime_common::NetUid;
+
+    const TEST_NETUID_U16: u16 = 1;
 
     #[test]
     fn uid_lookup_precompile_returns_associated_uid_and_block() {

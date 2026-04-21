@@ -48,7 +48,6 @@ frame_support::construct_runtime!(
     }
 );
 
-pub(crate) const TEST_NETUID_U16: u16 = 1;
 const EVM_DECIMALS_FACTOR: u64 = 1_000_000_000;
 
 parameter_types! {
