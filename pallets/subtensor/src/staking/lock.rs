@@ -319,4 +319,51 @@ impl<T: Config> Pallet<T> {
         //     }
         // }
     }
+
+    /// Swap all locks made to the old_hotkey to new_hotkey on all netuids
+    ///
+    /// There is no need to roll the locks, they can be just copied "as is":
+    /// The lock relation between coldkeys and hotkey is 1:1, so if old hotkey has a
+    /// coldkey locking to it, then the same coldkey cannot lock to the new hotkey.
+    /// And in reverse: If a coldkey is locking to the new hotkey, it will not appear
+    /// in the transfer list because it does not lock to the old hotkey.
+    pub fn swap_hotkey_locks(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> (u64, u64) {
+        let mut locks_to_transfer: Vec<(T::AccountId, NetUid, LockState<T::AccountId>)> =
+            Vec::new();
+        let mut hotkey_locks_to_transfer: Vec<(NetUid, HotkeyLockState)> = Vec::new();
+        let mut reads = 0;
+        let mut writes = 0;
+
+        // Gather locks for old hotkey
+        for (coldkey, netuid, lock) in Lock::<T>::iter() {
+            if lock.hotkey == *old_hotkey {
+                locks_to_transfer.push((coldkey, netuid, lock));
+            }
+            reads += 1;
+        }
+
+        // Gather hotkey locks for old hotkey
+        for (netuid, hotkey, lock) in HotkeyLock::<T>::iter() {
+            if hotkey == *old_hotkey {
+                hotkey_locks_to_transfer.push((netuid, lock));
+            }
+            reads += 1;
+        }
+
+        // Remove locks for old hotkey and insert for new
+        for (coldkey, netuid, mut lock) in locks_to_transfer {
+            Lock::<T>::remove(&coldkey, netuid);
+            lock.hotkey = new_hotkey.clone();
+            Lock::<T>::insert(coldkey, netuid, lock);
+            writes += 2;
+        }
+
+        // Remove hotkey locks for old hotkey and insert for new
+        for (netuid, lock) in hotkey_locks_to_transfer {
+            HotkeyLock::<T>::remove(netuid, old_hotkey);
+            HotkeyLock::<T>::insert(netuid, new_hotkey, lock);
+            writes += 2;
+        }
+        (reads, writes)
+    }
 }

@@ -1206,7 +1206,7 @@ fn test_coldkey_swap_lock_no_longer_blocks_unstake() {
 // =========================================================================
 
 #[test]
-fn test_hotkey_swap_lock_becomes_stale() {
+fn test_hotkey_swap_swaps_locks() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let old_hotkey = U256::from(2);
@@ -1219,6 +1219,14 @@ fn test_hotkey_swap_lock_becomes_stale() {
             &old_hotkey,
             5000u64.into(),
         ));
+
+        // Mock a non-zero conviction
+        let mut lock = Lock::<Test>::get(coldkey, netuid).unwrap();
+        lock.conviction = U64F64::saturating_from_num(1234);
+        Lock::<Test>::insert(coldkey, netuid, lock);
+        let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, old_hotkey).unwrap();
+        hotkey_lock.conviction = U64F64::saturating_from_num(1234);
+        HotkeyLock::<Test>::insert(netuid, old_hotkey, hotkey_lock);
 
         // Perform hotkey swap
         let mut weight = Weight::zero();
@@ -1230,54 +1238,30 @@ fn test_hotkey_swap_lock_becomes_stale() {
             false
         ));
 
-        // Lock still references old_hotkey
+        // Lock references new_hotkey, conviction is not reset
         let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
-        assert_eq!(lock.hotkey, old_hotkey);
+        assert_eq!(lock.hotkey, new_hotkey);
+        assert_eq!(lock.locked_mass, 5000u64.into());
+        assert!(lock.conviction > U64F64::saturating_from_num(0));
 
-        // Trying to top up to new_hotkey fails with mismatch
-        assert_noop!(
-            SubtensorModule::do_lock_stake(&coldkey, netuid, &new_hotkey, 100u64.into(),),
-            Error::<Test>::LockHotkeyMismatch
-        );
-    });
-}
+        // Hotkey lock data also updated, conviction is not reset
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, new_hotkey).unwrap();
+        assert_eq!(hotkey_lock.locked_mass, 5000u64.into());
+        assert!(hotkey_lock.conviction > U64F64::saturating_from_num(0));
 
-#[test]
-fn test_hotkey_swap_conviction_not_migrated() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let old_hotkey = U256::from(2);
-        let new_hotkey = U256::from(20);
-        let netuid = setup_subnet_with_stake(coldkey, old_hotkey, 100_000_000_000);
-
+        // Trying to top up to new_hotkey works
         assert_ok!(SubtensorModule::do_lock_stake(
             &coldkey,
             netuid,
-            &old_hotkey,
-            5000u64.into(),
-        ));
-
-        step_block(500);
-        let conviction_before = SubtensorModule::hotkey_conviction(&old_hotkey, netuid);
-        assert!(conviction_before > U64F64::saturating_from_num(0));
-
-        // Swap hotkey
-        let mut weight = Weight::zero();
-        assert_ok!(SubtensorModule::perform_hotkey_swap_on_all_subnets(
-            &old_hotkey,
             &new_hotkey,
-            &coldkey,
-            &mut weight,
-            false
+            100u64.into()
         ));
 
-        // New hotkey has no conviction
-        let conviction_new = SubtensorModule::hotkey_conviction(&new_hotkey, netuid);
-        assert_eq!(conviction_new, U64F64::saturating_from_num(0));
-
-        // Old hotkey still has conviction (lock still points there)
-        let conviction_old = SubtensorModule::hotkey_conviction(&old_hotkey, netuid);
-        assert!(conviction_old > U64F64::saturating_from_num(0));
+        // Trying to top up to old_hotkey fails (old_hotkey is no longer associated with coldkey)
+        assert_noop!(
+            SubtensorModule::do_lock_stake(&coldkey, netuid, &old_hotkey, 100u64.into()),
+            Error::<Test>::LockHotkeyMismatch
+        );
     });
 }
 

@@ -279,6 +279,11 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
+
+        // 11. Swap the stake locks
+        let (reads, writes) = Self::swap_hotkey_locks(old_hotkey, new_hotkey);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(reads, writes));
+
         // Return successful after swapping all the relevant terms.
         Ok(())
     }
