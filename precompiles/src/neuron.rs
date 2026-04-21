@@ -522,4 +522,45 @@ mod tests {
             assert!(weights[0].1 > 0);
         });
     }
+
+    #[test]
+    fn neuron_precompile_set_weights_sets_weights_when_commit_reveal_is_disabled() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x4234);
+            let (netuid, caller_account) = setup_registered_caller(caller);
+            let precompile_addr = addr_from_index(NeuronPrecompile::<Runtime>::INDEX);
+
+            pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, false);
+
+            precompiles::<NeuronPrecompile<Runtime>>()
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("setWeights(uint16,uint16[],uint16[],uint64)"),
+                        (
+                            TEST_NETUID_U16,
+                            vec![REGISTERED_UID],
+                            vec![2_u16],
+                            VERSION_KEY,
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let neuron_uid = pallet_subtensor::Pallet::<Runtime>::get_uid_for_net_and_hotkey(
+                netuid,
+                &caller_account,
+            )
+            .expect("caller should remain registered after setting weights");
+            let weights = pallet_subtensor::Weights::<Runtime>::get(
+                NetUidStorageIndex::from(netuid),
+                neuron_uid,
+            );
+
+            assert_eq!(weights.len(), 1);
+            assert_eq!(weights[0].0, neuron_uid);
+            assert!(weights[0].1 > 0);
+        });
+    }
 }
