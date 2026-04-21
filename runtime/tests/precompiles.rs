@@ -8,6 +8,7 @@ use precompile_utils::solidity::encode_with_selector;
 use precompile_utils::testing::MockHandle;
 use sp_core::{H160, H256, U256};
 use sp_runtime::traits::Hash;
+use std::collections::BTreeSet;
 use subtensor_precompiles::{BalanceTransferPrecompile, PrecompileExt, Precompiles};
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
@@ -53,6 +54,13 @@ fn addr_from_index(index: u64) -> H160 {
 fn selector_u32(signature: &str) -> u32 {
     let hash = sp_io::hashing::keccak_256(signature.as_bytes());
     u32::from_be_bytes([hash[0], hash[1], hash[2], hash[3]])
+}
+
+#[test]
+fn precompile_registry_addresses_are_unique() {
+    let addresses = Precompiles::<Runtime>::used_addresses();
+    let unique: BTreeSet<_> = addresses.into_iter().collect();
+    assert_eq!(unique.len(), addresses.len());
 }
 
 #[test]
