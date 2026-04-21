@@ -2559,6 +2559,72 @@ fn test_can_set_self_weight_as_subnet_owner() {
     });
 }
 
+/// Regression test: the dense epoch must preserve the subnet owner's self-weight.
+///
+/// Before the fix, `epoch_dense_mechanism` applied `inplace_mask_diag_except_index`
+/// to keep the owner's self-weight, then immediately re-zeroed the full diagonal
+/// with a second unconditional `inplace_mask_diag` — silently negating the
+/// owner-exception path. This test fails on the buggy code because the owner's
+/// uid receives zero incentive.
+#[test]
+fn test_dense_epoch_preserves_owner_self_weight() {
+    new_test_ext(1).execute_with(|| {
+        let owner_cold: U256 = U256::from(1);
+        let owner_hot: U256 = U256::from(1 + 456);
+        let other_hot: U256 = U256::from(2);
+
+        let stake = 5_000_000_000_000_u64;
+        let to_emit: u64 = 1_000_000_000_u64;
+
+        let netuid = add_dynamic_network(&owner_hot, &owner_cold);
+        register_ok_neuron(netuid, other_hot, owner_cold, 0);
+
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &owner_hot,
+            &owner_cold,
+            netuid,
+            stake.into(),
+        );
+
+        // Only the owner has a validator permit — owner's weights drive consensus.
+        ValidatorPermit::<Test>::insert(netuid, vec![true, false]);
+
+        // Owner weights: 50% self, 50% other. If the owner self-weight is masked,
+        // uid 0 gets no incentive and the two emissions diverge.
+        let half: u16 = u16::MAX / 2;
+        Weights::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            0,
+            vec![(0, half), (1, half)],
+        );
+
+        step_block(1);
+        LastUpdate::<Test>::insert(NetUidStorageIndex::from(netuid), vec![2, 0]);
+
+        let emissions = SubtensorModule::epoch_dense(netuid, to_emit.into());
+
+        assert_eq!(emissions.len(), 2);
+        let owner_incentive = emissions
+            .iter()
+            .find(|(hk, _, _)| *hk == owner_hot)
+            .map(|(_, inc, _)| *inc)
+            .expect("owner hotkey missing from emissions");
+        let other_incentive = emissions
+            .iter()
+            .find(|(hk, _, _)| *hk == other_hot)
+            .map(|(_, inc, _)| *inc)
+            .expect("other hotkey missing from emissions");
+
+        // Owner must still receive incentive — its self-weight was preserved.
+        assert!(
+            owner_incentive > 0.into(),
+            "owner self-weight was zeroed in dense epoch"
+        );
+        // With an equal split and symmetric treatment, both should be equal.
+        assert_eq!(owner_incentive, other_incentive);
+    });
+}
+
 #[test]
 fn test_epoch_outputs_single_staker_registered_no_weights() {
     new_test_ext(1).execute_with(|| {
