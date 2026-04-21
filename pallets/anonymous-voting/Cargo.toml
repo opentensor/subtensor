@@ -1,0 +1,27 @@
+[package]
+name = "pallet-anonymous-voting"
+version = "1.0.0"
+authors = ["Bittensor Nucleus Team"]
+edition.workspace = true
+license = "Apache-2.0"
+homepage = "https://bittensor.com"
+description = "A pallet for managing multiple collectives"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { workspace = true, features = ["max-encoded-len"] }
+scale-info = { workspace = true, features = ["derive"] }
+frame-system = { workspace = true }
+frame-support = { workspace = true }
+
+[features]
+default = ["std"]
+std = []
+runtime-benchmarks = []
+try-runtime = []

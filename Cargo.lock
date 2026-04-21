@@ -8890,6 +8890,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-anonymous-voting"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-asset-conversion"
 version = "23.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=7cc54bf2d50ae3921d718736dfeb0de9468539c7#7cc54bf2d50ae3921d718736dfeb0de9468539c7"
@@ -10107,6 +10117,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-multi-collective"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "num-traits",
+ "parity-scale-codec",
+ "scale-info",
+]
+
+[[package]]
 name = "pallet-multisig"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=7cc54bf2d50ae3921d718736dfeb0de9468539c7#7cc54bf2d50ae3921d718736dfeb0de9468539c7"
@@ -10370,6 +10391,19 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+]
+
+[[package]]
+name = "pallet-referenda"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -10655,6 +10689,17 @@ dependencies = [
  "stc-shield",
  "stp-shield",
  "subtensor-macros",
+ "subtensor-runtime-common",
+]
+
+[[package]]
+name = "pallet-signed-voting"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
  "subtensor-runtime-common",
 ]
 
@@ -12695,7 +12740,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-ranked-collective",
  "pallet-recovery",
- "pallet-referenda",
+ "pallet-referenda 41.0.0",
  "pallet-remark",
  "pallet-revive",
  "pallet-root-offences",
@@ -14098,7 +14143,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-ranked-collective",
  "pallet-recovery",
- "pallet-referenda",
+ "pallet-referenda 41.0.0",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",
@@ -20246,7 +20291,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-proxy",
  "pallet-recovery",
- "pallet-referenda",
+ "pallet-referenda 41.0.0",
  "pallet-root-testing",
  "pallet-scheduler",
  "pallet-session",

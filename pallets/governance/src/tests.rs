@@ -1354,8 +1354,7 @@ mod anonymous_voting {
             let (proposal_hash, proposal_index, sks, ring) = setup_anonymous_vote(3);
 
             // Vote aye first
-            let sig1 =
-                stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
+            let sig1 = stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
             let nonce1 = mine_pow(proposal_hash, true, &sig1);
             assert_ok!(Pallet::<Test>::anonymous_vote_on_scheduled(
                 RuntimeOrigin::none(),
@@ -1368,8 +1367,7 @@ mod anonymous_voting {
             assert_eq!(AnonymousAyeCount::<Test>::get(proposal_hash), 1);
 
             // Change to nay (same key image)
-            let sig2 =
-                stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
+            let sig2 = stp_crypto::sign(&sks[0], &ring, proposal_hash.as_ref(), &mut rng).unwrap();
             assert_eq!(sig1.key_image, sig2.key_image);
             let nonce2 = mine_pow(proposal_hash, false, &sig2);
             assert_ok!(Pallet::<Test>::anonymous_vote_on_scheduled(

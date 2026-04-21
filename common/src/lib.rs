@@ -448,7 +448,16 @@ impl TypeInfo for NetUidStorageIndex {
 }
 
 #[derive(
-    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    TypeInfo,
+    Debug,
 )]
 pub struct VoteTally {
     pub approval: Perbill,

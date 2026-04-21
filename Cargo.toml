@@ -64,6 +64,10 @@ pallet-subtensor-swap = { path = "pallets/swap", default-features = false }
 pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default-features = false }
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
 pallet-governance = { path = "pallets/governance", default-features = false }
+pallet-multi-collective = { path = "pallets/multi-collective", default-features = false }
+pallet-signed-voting = { path = "pallets/signed-voting", default-features = false }
+pallet-anonymous-voting = { path = "pallets/anonymous-voting", default-features = false }
+pallet-referenda = { path = "pallets/referenda", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
 safe-math = { path = "primitives/safe-math", default-features = false }
 share-pool = { path = "primitives/share-pool", default-features = false }

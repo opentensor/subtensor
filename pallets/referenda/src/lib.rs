@@ -6,7 +6,7 @@ use codec::Encode;
 use frame_support::{
     Parameter, Twox64Concat,
     dispatch::DispatchResult,
-    pallet_prelude::{Get, IsType, OptionQuery, StorageMap, StorageValue, ValueQuery},
+    pallet_prelude::{IsType, OptionQuery, StorageMap, StorageValue, ValueQuery},
     sp_runtime::{
         DispatchError, Saturating,
         traits::{BlockNumberProvider, Dispatchable, One},
@@ -177,35 +177,116 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        pub fn nudge_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
+        pub fn advance_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
             let now = T::BlockNumberProvider::current_block_number();
+            let status = ReferendumStatusFor::<T>::get(index).ok_or(Error::<T>::NotFound)?;
 
-            let new_status = match ReferendumStatusFor::<T>::get(index) {
-                Some(ReferendumStatus::Ongoing(info)) => match info.proposal {
-                    Proposal::Action(call) => {
-                        T::Preimages::drop(&call);
-                        Self::deposit_event(Event::<T>::Expired { index });
-                        Some(ReferendumStatus::Expired(now))
+            match status {
+                ReferendumStatus::Ongoing(info) => {
+                    let track = T::Tracks::info(info.track).ok_or(Error::<T>::TrackNotFound)?;
+
+                    match (info.proposal, track.decision_strategy) {
+                        (
+                            Proposal::Action(call),
+                            DecisionStrategy::PassOrFail {
+                                decision_period,
+                                approve_threshold,
+                                reject_threshold,
+                                on_approval,
+                            },
+                        ) => {
+                            if info.tally.approval >= approve_threshold {
+                                match on_approval {
+                                    ApprovalAction::Execute => call.dispatch(),
+                                    ApprovalAction::ScheduleAndReview { review_track } => {
+                                        // Move to new track
+                                    }
+                                };
+                            } else if info.tally.rejection >= reject_threshold {
+                            }
+                        }
+                        (
+                            Proposal::Review,
+                            DecisionStrategy::Adjustable {
+                                initial_delay,
+                                fast_track_threshold,
+                                cancel_threshold,
+                            },
+                        ) => {
+                            if info.tally.approval >= fast_track_threshold {
+                                Self::schedule_enactment(
+                                    index,
+                                    now.saturating_add(One::one()),
+                                    call,
+                                )?;
+                                let new_status = ReferendumStatus::FastTracked(now);
+                                ReferendumStatusFor::<T>::insert(index, new_status);
+                                Self::deposit_event(Event::<T>::FastTracked { index });
+                                // Schedule for next block
+                            } else if info.tally.rejection >= cancel_threshold {
+                                let new_status = ReferendumStatus::Cancelled(now);
+                                ReferendumStatusFor::<T>::insert(index, status);
+                                Self::deposit_event(Event::<T>::Cancelled { index });
+                            } else {
+                                // Adjust the delay
+                            }
+                        }
                     }
-                    Proposal::Review => {
-                        let when = now.saturating_sub(One::one());
-                        Self::deposit_event(Event::<T>::Enacted { index, when });
-                        Some(ReferendumStatus::Enacted(when))
-                    }
-                },
-                Some(ReferendumStatus::Approved(_)) => {
-                    let when = now.saturating_sub(One::one());
-                    Self::deposit_event(Event::<T>::Enacted { index, when });
-                    Some(ReferendumStatus::Enacted(when))
                 }
-                _ => None,
+                ReferendumStatus::Approved(_) | ReferendumStatus::FastTracked(_) => {
+                    // The referendum has been enacted in the last block so we update the
+                    // status accordingly.
+                    let when = now.saturating_sub(One::one());
+                    ReferendumStatusFor::<T>::insert(index, ReferendumStatus::Enacted(when));
+                    Self::deposit_event(Event::<T>::Enacted { index, when });
+                }
+                _ => {}
             };
+            // match (info.proposal, track.decision_strategy) {
+            //     (
+            //         Proposal::Action(call),
+            //         DecisionStrategy::PassOrFail {
+            //             decision_period,
+            //             approve_threshold,
+            //             reject_threshold,
+            //             on_approval,
+            //         },
+            //     ) => {
+            //         if tally.approval >= *approve_threshold {
+            //             match on_approval {
+            //                 ApprovalAction::Execute => {
+            //                     T::Scheduler::cancel_named(alarm_name(index))?;
+            //                     call.dispatch()
+            //                 }
+            //                 ApprovalAction::ScheduleAndReview { review_track } => {
+            //                     // Move to new track
+            //                 }
+            //             };
+            //             Self::deposit_event(Event::<T>::Approved { index });
+            //         } else if tally.rejection >= *reject_threshold {
+            //         }
+            //     }
+            //     (
+            //         Proposal::Review,
+            //         DecisionStrategy::Adjustable {
+            //             initial_delay,
+            //             fast_track_threshold,
+            //             cancel_threshold,
+            //         },
+            //     ) => {
+            //         if tally.approval >= fast_track_threshold {
+            //             // Schedule for next block
+            //         } else if tally.rejection >= cancel_threshold {
 
-            if let Some(new_status) = new_status {
-                ReferendumStatusFor::<T>::insert(index, new_status);
-                T::PollHooks::on_poll_completed(index);
-            }
+            //         } else {
+            //             // Adjust the delay
+            //         }
+            //         None
+            //     }
+            //     // Unreachable, track decision strategy defines proposal type
+            //     _ => None,
+            // };
 
             Ok(())
         }
@@ -233,14 +314,14 @@ impl<T: Config> Pallet<T> {
 
     fn schedule_enactment(
         index: ReferendumIndex,
-        desired: BlockNumberFor<T>,
+        desired: DispatchTime<BlockNumberFor<T>>,
         call: BoundedCallOf<T>,
     ) -> DispatchResult {
         T::Scheduler::schedule_named(
             task_name(index),
-            DispatchTime::At(desired),
+            desired,
             None,
-            Priority::MAX,
+            0,
             frame_system::RawOrigin::Root.into(),
             call,
         )?;
@@ -286,59 +367,10 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
         let now = T::BlockNumberProvider::current_block_number();
 
         info.tally = *tally;
+        ReferendumStatusFor::<T>::insert(index, ReferendumStatus::Ongoing(info));
 
-        let new_status = match (&info.proposal, &track.decision_strategy) {
-            (
-                Proposal::Action(call),
-                DecisionStrategy::PassOrFail {
-                    decision_period,
-                    approve_threshold,
-                    reject_threshold,
-                    on_approval,
-                },
-            ) => {
-                if tally.approval >= *approve_threshold {
-                    match on_approval {
-                        ApprovalAction::Execute => {
-                            let call = call.clone();
-                            let _ = T::Scheduler::cancel_named(alarm_name(index));
-                            let when = now.saturating_add(One::one());
-                            let _ = Self::schedule_enactment(index, when, call);
-                            // Triggers to mark referendum as enacted one block after enactment
-                            let _ = Self::set_alarm(index, when.saturating_add(One::one()));
-                        }
-                        ApprovalAction::ScheduleAndReview { review_track } => {
-                            // Move to new track
-                        }
-                    };
-                    Self::deposit_event(Event::<T>::Approved { index });
-                    Some(ReferendumStatus::Approved(now))
-                } else if tally.rejection >= *reject_threshold {
-                    let _ = T::Scheduler::cancel_named(alarm_name(index));
-                    Self::deposit_event(Event::<T>::Rejected { index });
-                    Some(ReferendumStatus::Rejected(now))
-                } else {
-                    None
-                }
-            }
-            (
-                Proposal::Review,
-                DecisionStrategy::Adjustable {
-                    initial_delay,
-                    fast_track_threshold,
-                    cancel_threshold,
-                },
-            ) => {
-                // Adjust proposal delay and rest
-                None
-            }
-            // Unreachable, track decision strategy defines proposal type
-            _ => None,
-        };
-
-        if let Some(new_status) = new_status {
-            ReferendumStatusFor::<T>::insert(index, new_status);
-        }
+        let _ = T::Scheduler::cancel_named(alarm_name(index));
+        let _ = Self::set_alarm(index, now.saturating_add(One::one()));
     }
 }
 
