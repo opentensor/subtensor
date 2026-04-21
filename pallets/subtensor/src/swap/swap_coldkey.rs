@@ -31,8 +31,11 @@ impl<T: Config> Pallet<T> {
         Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
         Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey);
 
+        // Ensure the new coldkey has no active locks on any subnet before proceeding with the swap.
+        Self::ensure_no_active_locks(new_coldkey)?;
+
         // Transfer stake locks
-        Self::transfer_lock_coldkey(old_coldkey, new_coldkey);
+        Self::swap_coldkey_locks(old_coldkey, new_coldkey);
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);

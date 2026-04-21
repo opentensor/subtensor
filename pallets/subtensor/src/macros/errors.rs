@@ -299,5 +299,7 @@ mod errors {
         InsufficientStakeForLock,
         /// No existing lock found for the given coldkey and subnet.
         NoExistingLock,
+        /// There is already an active lock for the given coldkey.
+        ActiveLockExists,
     }
 }

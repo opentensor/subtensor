@@ -1158,7 +1158,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that unstaked amount is not greater than available to unstake (due to locks)
-        Self::ensure_available_to_unstake(&coldkey, netuid, alpha_unstaked)?;
+        Self::ensure_available_to_unstake(coldkey, netuid, alpha_unstaked)?;
 
         Ok(())
     }

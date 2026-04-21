@@ -1143,7 +1143,7 @@ fn test_maybe_cleanup_lock_no_lock() {
 // =========================================================================
 
 #[test]
-fn test_coldkey_swap_orphans_lock() {
+fn test_coldkey_swap_swaps_lock() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -1160,15 +1160,15 @@ fn test_coldkey_swap_orphans_lock() {
         // Perform coldkey swap
         assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
 
-        // Lock remains on old coldkey (orphaned)
-        assert!(Lock::<Test>::get(old_coldkey, netuid).is_some());
-        // New coldkey has no lock
-        assert!(Lock::<Test>::get(new_coldkey, netuid).is_none());
+        // Lock removed on old coldkey
+        assert!(Lock::<Test>::get(old_coldkey, netuid).is_none());
+        // New coldkey now has the lock
+        assert!(Lock::<Test>::get(new_coldkey, netuid).is_some());
     });
 }
 
 #[test]
-fn test_coldkey_swap_lock_no_longer_blocks_unstake() {
+fn test_coldkey_swap_lock_blocks_unstake() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -1188,16 +1188,18 @@ fn test_coldkey_swap_lock_no_longer_blocks_unstake() {
 
         step_block(1);
 
-        // New coldkey should be able to unstake freely — no lock on new_coldkey
+        // New coldkey should not be able to unstake
         let alpha = get_alpha(&hotkey, &new_coldkey, netuid);
-        if alpha > AlphaBalance::ZERO {
-            assert_ok!(SubtensorModule::do_remove_stake(
+        assert!(alpha > AlphaBalance::ZERO);
+        assert_noop!(
+            SubtensorModule::do_remove_stake(
                 RuntimeOrigin::signed(new_coldkey),
                 hotkey,
                 netuid,
                 alpha,
-            ));
-        }
+            ),
+            Error::<Test>::CannotUnstakeLock
+        );
     });
 }
 
@@ -1471,7 +1473,7 @@ fn test_clear_small_nomination_checks_lock() {
         // Set a high nominator min stake so the current stake is "small"
         SubtensorModule::set_nominator_min_required_stake(u64::MAX);
 
-        // BUG: clear_small_nomination bypasses the lock and removes alpha
+        // clear_small_nomination removes the lock and unstakes alpha
         SubtensorModule::clear_small_nomination_if_required(&owner_hotkey, &nominator, netuid);
 
         // Nominator alpha has been removed despite lock

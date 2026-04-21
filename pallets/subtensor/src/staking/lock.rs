@@ -257,67 +257,44 @@ impl<T: Config> Pallet<T> {
             .map(|(hotkey, _)| hotkey)
     }
 
+    /// Ensure the coldkey does not have an active lock on any subnets.
+    pub fn ensure_no_active_locks(coldkey: &T::AccountId) -> Result<(), Error<T>> {
+        let now = Self::get_current_block_as_u64();
+        let netuids = Self::get_all_subnet_netuids();
+        for netuid in netuids {
+            if let Some(lock) = Lock::<T>::get(coldkey, netuid) {
+                let rolled = Self::roll_forward_lock(lock, now);
+                if rolled.locked_mass > AlphaBalance::ZERO {
+                    return Err(Error::<T>::ActiveLockExists);
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Transfers the lock from one coldkey to another for all subnets. This is used when a
     /// user swaps their coldkey and we want to preserve their locks.
+    ///
     /// The hotkey and netuid remain the same, only the coldkey changes.
     ///
-    /// If the new coldkey already has a lock for the same subnet, the locks are merged by summing
-    /// the locked_mass and conviction after rolling forward both locks to now.
-    pub fn transfer_lock_coldkey(_old_coldkey: &T::AccountId, _new_coldkey: &T::AccountId) {
-        // let now = Self::get_current_block_as_u64();
-        // let mut locks_to_transfer: Vec<(NetUid, LockState<T::AccountId>)> = Vec::new();
+    /// The new coldkey is guaranteed to have no active locks (checked in ensure_no_active_locks),
+    /// so we can simply transfer the locks "as is" without rolling them forward and the
+    /// HotkeyLock map does not change (because it only contains totals, not individual coldkey locks).
+    pub fn swap_coldkey_locks(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+        let mut locks_to_transfer: Vec<(NetUid, LockState<T::AccountId>)> = Vec::new();
 
-        // // Gather locks from old coldkey
-        // for (coldkey, netuid, lock) in Lock::<T>::iter() {
-        //     if coldkey == *old_coldkey {
-        //         locks_to_transfer.push((netuid, lock));
-        //     }
-        // }
+        // Gather locks for old coldkey
+        Lock::<T>::iter()
+            .filter(|(coldkey, _, _)| coldkey == old_coldkey)
+            .for_each(|(_, netuid, lock)| {
+                locks_to_transfer.push((netuid, lock));
+            });
 
-        // // Transfer each lock to new coldkey
-        // for (netuid, old_lock) in locks_to_transfer {
-        //     let rolled_old_lock = Self::roll_forward_lock(old_lock, now);
-        //     match Lock::<T>::get(new_coldkey, netuid) {
-        //         None => {
-        //             // No existing lock for new coldkey, simply transfer
-        //             Lock::<T>::insert(
-        //                 new_coldkey,
-        //                 netuid,
-        //                 LockState {
-        //                     hotkey: rolled_old_lock.hotkey.clone(),
-        //                     locked_mass: rolled_old_lock.locked_mass,
-        //                     conviction: rolled_old_lock.conviction,
-        //                     last_update: now,
-        //                 },
-        //             );
-        //         }
-        //         Some(existing) => {
-        //             // Existing lock for new coldkey, merge them
-        //             let rolled_existing = Self::roll_forward_lock(existing, now);
-        //             ensure!(
-        //                 rolled_old_lock.hotkey == rolled_existing.hotkey,
-        //                 Error::<T>::LockHotkeyMismatch
-        //             );
-        //             let new_locked_mass =
-        //                 rolled_old_lock.locked_mass.saturating_add(rolled_existing.locked_mass);
-        //             let new_conviction =
-        //                 rolled_old_lock.conviction.saturating_add(rolled_existing.conviction);
-        //             Lock::<T>::insert(
-        //                 new_coldkey,
-        //                 netuid,
-        //                 LockState {
-        //                     hotkey: rolled_old_lock.hotkey.clone(),
-        //                     locked_mass: new_locked_mass,
-        //                     conviction: new_conviction,
-        //                     last_update: now,
-        //                 },
-        //             );
-
-        //             // Remove the old lock since it's now merged
-        //             Lock::<T>::remove(old_coldkey, netuid);
-        //         }
-        //     }
-        // }
+        // Remove locks for old coldkey and insert for new
+        for (netuid, lock) in locks_to_transfer {
+            Lock::<T>::remove(old_coldkey, netuid);
+            Lock::<T>::insert(new_coldkey, netuid, lock);
+        }
     }
 
     /// Swap all locks made to the old_hotkey to new_hotkey on all netuids
@@ -331,38 +308,38 @@ impl<T: Config> Pallet<T> {
         let mut locks_to_transfer: Vec<(T::AccountId, NetUid, LockState<T::AccountId>)> =
             Vec::new();
         let mut hotkey_locks_to_transfer: Vec<(NetUid, HotkeyLockState)> = Vec::new();
-        let mut reads = 0;
-        let mut writes = 0;
+        let mut reads: u64 = 0;
+        let mut writes: u64 = 0;
 
         // Gather locks for old hotkey
-        for (coldkey, netuid, lock) in Lock::<T>::iter() {
-            if lock.hotkey == *old_hotkey {
+        Lock::<T>::iter()
+            .filter(|(_, _, lock)| lock.hotkey == *old_hotkey)
+            .for_each(|(coldkey, netuid, lock)| {
                 locks_to_transfer.push((coldkey, netuid, lock));
-            }
-            reads += 1;
-        }
+                reads = reads.saturating_add(1);
+            });
 
         // Gather hotkey locks for old hotkey
-        for (netuid, hotkey, lock) in HotkeyLock::<T>::iter() {
-            if hotkey == *old_hotkey {
+        HotkeyLock::<T>::iter()
+            .filter(|(_, hotkey, _)| hotkey == old_hotkey)
+            .for_each(|(netuid, _, lock)| {
                 hotkey_locks_to_transfer.push((netuid, lock));
-            }
-            reads += 1;
-        }
+                reads = reads.saturating_add(1);
+            });
 
         // Remove locks for old hotkey and insert for new
         for (coldkey, netuid, mut lock) in locks_to_transfer {
             Lock::<T>::remove(&coldkey, netuid);
             lock.hotkey = new_hotkey.clone();
             Lock::<T>::insert(coldkey, netuid, lock);
-            writes += 2;
+            writes = writes.saturating_add(2);
         }
 
         // Remove hotkey locks for old hotkey and insert for new
         for (netuid, lock) in hotkey_locks_to_transfer {
             HotkeyLock::<T>::remove(netuid, old_hotkey);
             HotkeyLock::<T>::insert(netuid, new_hotkey, lock);
-            writes += 2;
+            writes = writes.saturating_add(2);
         }
         (reads, writes)
     }
