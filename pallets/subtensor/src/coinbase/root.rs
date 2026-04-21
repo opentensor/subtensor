@@ -274,8 +274,12 @@ impl<T: Config> Pallet<T> {
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
+        // Strip IsNetworkMember for every hotkey on this subnet and retain a
+        // snapshot for the orphan-hotkey cleanup pass further down.
+        let mut subnet_hotkeys: Vec<T::AccountId> = Vec::with_capacity(keys.len());
         for (_uid, key) in keys {
-            IsNetworkMember::<T>::remove(key, netuid);
+            IsNetworkMember::<T>::remove(&key, netuid);
+            subnet_hotkeys.push(key);
         }
 
         // --- 10. Erase network parameters.
@@ -396,9 +400,43 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // --- 18d. Root prop.
-        RootProp::<T>::remove(netuid);
-        RootClaimableThreshold::<T>::remove(netuid);
+        // --- 18d. Hotkey orphan cleanup. Any hotkey that was registered on
+        // this subnet and has now lost its last IsNetworkMember entry is no
+        // longer reachable via any subnet, so drop its per-hotkey global
+        // bookkeeping (Owner, Delegates, OwnedHotkeys, StakingHotkeys,
+        // LastColdkeyHotkeyStakeBlock) to stop state piling up forever.
+        let mut orphans: sp_std::collections::btree_set::BTreeSet<T::AccountId> =
+            sp_std::collections::btree_set::BTreeSet::new();
+        for hot in &subnet_hotkeys {
+            if IsNetworkMember::<T>::iter_prefix(hot).next().is_none() {
+                orphans.insert(hot.clone());
+            }
+        }
+        for hot in &orphans {
+            let cold = Owner::<T>::get(hot);
+            Owner::<T>::remove(hot);
+            Delegates::<T>::remove(hot);
+            OwnedHotkeys::<T>::mutate(&cold, |v| v.retain(|h| h != hot));
+            if OwnedHotkeys::<T>::get(&cold).is_empty() {
+                OwnedHotkeys::<T>::remove(&cold);
+            }
+        }
+        // StakingHotkeys and LastColdkeyHotkeyStakeBlock are keyed by coldkey;
+        // scan all coldkeys that staked anywhere and strip references to any
+        // orphan hotkey.
+        if !orphans.is_empty() {
+            let staking_colds: Vec<T::AccountId> =
+                StakingHotkeys::<T>::iter().map(|(c, _)| c).collect();
+            for cold in staking_colds {
+                StakingHotkeys::<T>::mutate(&cold, |v| v.retain(|h| !orphans.contains(h)));
+                if StakingHotkeys::<T>::get(&cold).is_empty() {
+                    StakingHotkeys::<T>::remove(&cold);
+                }
+                for hot in &orphans {
+                    LastColdkeyHotkeyStakeBlock::<T>::remove(&cold, hot);
+                }
+            }
+        }
 
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
         let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
@@ -407,7 +445,6 @@ impl<T: Config> Pallet<T> {
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = VotingPower::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);

@@ -2924,22 +2924,17 @@ fn build_global_allowlist() -> sp_std::collections::btree_set::BTreeSet<[u8; 32]
         storage_item_prefix(sm, "NetworkLastRegisteredBlock"),
         storage_item_prefix(sm, "NetworkRegistrationStartBlock"),
         storage_item_prefix(sm, "NetworkMinLockCost"),
+        // Per-subnet version counter kept on purpose: makes prior-registration
+        // state unreachable after re-registration without unbounded iteration.
+        storage_item_prefix(sm, "RegisteredSubnetCounter"),
         // Per-hotkey global maps (not per-subnet) that gain entries.
-        storage_item_prefix(sm, "Owner"),
-        storage_item_prefix(sm, "Delegates"),
-        storage_item_prefix(sm, "OwnedHotkeys"),
-        storage_item_prefix(sm, "StakingHotkeys"),
         storage_item_prefix(sm, "StakingColdkeys"),
         storage_item_prefix(sm, "StakingColdkeysByIndex"),
         storage_item_prefix(sm, "NumStakingColdkeys"),
-        storage_item_prefix(sm, "RootClaimable"),
         storage_item_prefix(sm, "RootClaimType"),
-        storage_item_prefix(sm, "LastColdkeyHotkeyStakeBlock"),
         storage_item_prefix(sm, "HasMigrationRun"),
         // Global iteration cursor / PoW anti-replay / rate limiting (not per-subnet).
-        storage_item_prefix(sm, "AlphaMapLastKey"),
         storage_item_prefix(sm, "AlphaV2MapLastKey"),
-        storage_item_prefix(sm, "UsedWork"),
         storage_item_prefix(sm, "LastRateLimitedBlock"),
         // Swap global state.
         storage_item_prefix("Swap", "LastPositionId"),
@@ -3031,6 +3026,18 @@ fn identify_storage_prefix(prefix_32: &[u8; 32]) -> alloc::string::String {
         ("SubtensorModule", "EffectiveRootProp"),
         ("SubtensorModule", "RootProp"),
         ("SubtensorModule", "RootClaimableThreshold"),
+        ("SubtensorModule", "RootClaimable"),
+        ("SubtensorModule", "RegisteredSubnetCounter"),
+        // Per-hotkey / per-coldkey bookkeeping that remove_network cleans up
+        // when a hotkey becomes orphan. Named here so any regression reports
+        // a readable name instead of a raw hash.
+        ("SubtensorModule", "Owner"),
+        ("SubtensorModule", "Delegates"),
+        ("SubtensorModule", "OwnedHotkeys"),
+        ("SubtensorModule", "StakingHotkeys"),
+        ("SubtensorModule", "LastColdkeyHotkeyStakeBlock"),
+        ("SubtensorModule", "UsedWork"),
+        ("SubtensorModule", "AlphaMapLastKey"),
         ("SubtensorModule", "NetworkRegisteredAt"),
         ("SubtensorModule", "SubnetworkN"),
         ("SubtensorModule", "NetworksAdded"),
@@ -3247,6 +3254,12 @@ fn test_dissolve_network_no_storage_leak() {
 
         // Run 2 epochs to produce vpermit, bonds, dividends, incentives, etc.
         step_epochs(2, netuid);
+
+        // Seed RootClaimable so the dissolution path must strip the netuid
+        // from the BTreeMap hidden inside this global (hotkey → map) store.
+        let mut rc_map: BTreeMap<NetUid, I96F32> = BTreeMap::new();
+        rc_map.insert(netuid, I96F32::saturating_from_num(1u64));
+        RootClaimable::<Test>::insert(hot1, rc_map);
 
         // ====================================================
         // Phase 2: dissolve the subnet
