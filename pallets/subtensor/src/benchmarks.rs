@@ -957,8 +957,6 @@ mod pallet_benchmarks {
 
         let amount_unstaked = AlphaBalance::from(30_000_000_000_u64);
 
-        let current_price = T::SwapInterface::current_alpha_price(netuid);
-
         StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
 
         #[extrinsic_call]
