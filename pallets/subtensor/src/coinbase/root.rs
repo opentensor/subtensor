@@ -293,10 +293,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Remove various network-related parameters.
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-        Rank::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-        Trust::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Active::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Emission::<T>::remove(netuid);
@@ -305,7 +301,6 @@ impl<T: Config> Pallet<T> {
         Consensus::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Dividends::<T>::remove(netuid);
-        PruningScores::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ValidatorPermit::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -399,9 +394,6 @@ impl<T: Config> Pallet<T> {
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxAllowedValidators::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-        AdjustmentInterval::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsMovingAverage::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsPenalty::<T>::remove(netuid);
@@ -415,12 +407,11 @@ impl<T: Config> Pallet<T> {
         ScalingLawPower::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         TargetRegistrationsPerInterval::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-        AdjustmentAlpha::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         CommitRevealWeightsEnabled::<T>::remove(netuid);
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        BurnHalfLife::<T>::remove(netuid);
+        BurnIncreaseMult::<T>::remove(netuid);
+
         Burn::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MinBurn::<T>::remove(netuid);
@@ -518,45 +509,45 @@ impl<T: Config> Pallet<T> {
             Incentive::<T>::remove(netuid_index);
 
             LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            WeightCommits<T>,
-            netuid_index
-        );
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                WeightCommits<T>,
+                netuid_index
+            );
             LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            TimelockedWeightCommits<T>,
-            netuid_index
-        );
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                TimelockedWeightCommits<T>,
+                netuid_index
+            );
 
             LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            CRV3WeightCommits<T>,
-            netuid_index
-        );
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                CRV3WeightCommits<T>,
+                netuid_index
+            );
 
             LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            CRV3WeightCommitsV2<T>,
-            netuid_index
-        );
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                CRV3WeightCommitsV2<T>,
+                netuid_index
+            );
 
             LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            Bonds<T>,
-            netuid_index
-        );
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                Bonds<T>,
+                netuid_index
+            );
 
             LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            Weights<T>,
-            netuid_index
-        );
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                Weights<T>,
+                netuid_index
+            );
         }
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -689,11 +680,11 @@ impl<T: Config> Pallet<T> {
         if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
             // Fixed: Import the macro type to resolve the error
             LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            SubnetLeaseShares<T>,
-            lease_id
-        );
+                weight_meter,
+                T::DbWeight::get().writes(1),
+                SubnetLeaseShares<T>,
+                lease_id
+            );
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             SubnetLeases::<T>::remove(lease_id);
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -755,6 +746,9 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_network_registered_block(netuid: NetUid) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
+    }
+    pub fn get_registered_subnet_counter(netuid: NetUid) -> u64 {
+        RegisteredSubnetCounter::<T>::get(netuid)
     }
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()

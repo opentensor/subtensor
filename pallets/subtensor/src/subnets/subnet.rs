@@ -1,5 +1,7 @@
 use super::*;
+use safe_math::FixedExt;
 use sp_core::Get;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
@@ -187,56 +189,87 @@ impl<T: Config> Pallet<T> {
             None => Self::get_next_netuid(),
         };
 
-        // --- 11. Set initial and custom parameters for the network.
+        // --- 11. Snapshot the current median subnet alpha price before creating the new subnet.
+        let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
+
+        // --- 12. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {netuid_to_register:?}");
 
-        // --- 12. Add the caller to the neuron set.
+        // --- 13. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey);
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
-        // --- 13. Set the mechanism.
+        // --- 14. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
-        // --- 14. Set the creation terms.
+        // --- 15. Set the creation terms.
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
+        RegisteredSubnetCounter::<T>::mutate(netuid_to_register, |c| *c = c.saturating_add(1));
 
-        // --- 15. Set the symbol.
+        // --- 16. Set the symbol.
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // The initial TAO is the locked amount
-        // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha.
+        // Keep the locked TAO in the pool instead of recycling the excess.
+        // Mint the owner alpha separately at the median subnet alpha price.
+        // Size the pool alpha reserve from the total TAO reserve at that same price.
         let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
-        let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
-        let actual_tao_lock_amount_less_pool_tao =
-            actual_tao_lock_amount.saturating_sub(pool_initial_tao);
+        let total_pool_tao: TaoBalance = if actual_tao_lock_amount >= pool_initial_tao {
+            actual_tao_lock_amount
+        } else {
+            pool_initial_tao
+        };
+        let owner_alpha_tao_equivalent: TaoBalance =
+            total_pool_tao.saturating_sub(pool_initial_tao);
+
+        let total_pool_alpha: AlphaBalance = U96F32::saturating_from_num(total_pool_tao.to_u64())
+            .safe_div(median_subnet_alpha_price)
+            .saturating_floor()
+            .saturating_to_num::<u64>()
+            .into();
+
+        let owner_alpha_stake: AlphaBalance =
+            U96F32::saturating_from_num(owner_alpha_tao_equivalent.to_u64())
+                .safe_div(median_subnet_alpha_price)
+                .saturating_floor()
+                .saturating_to_num::<u64>()
+                .into();
+
+        // With the full lock retained in the reserve, this will normally be zero.
+        let tao_recycled_for_registration = actual_tao_lock_amount.saturating_sub(total_pool_tao);
 
         // Core pool + ownership
-        SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
-        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_alpha);
+        SubnetTAO::<T>::insert(netuid_to_register, total_pool_tao);
+        SubnetAlphaIn::<T>::insert(netuid_to_register, total_pool_alpha);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
         SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
         SubnetTaoProvided::<T>::insert(netuid_to_register, TaoBalance::ZERO);
         SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
-        SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
+        SubnetAlphaOut::<T>::insert(netuid_to_register, owner_alpha_stake);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
-        RAORecycledForRegistration::<T>::insert(
-            netuid_to_register,
-            actual_tao_lock_amount_less_pool_tao,
-        );
+        RAORecycledForRegistration::<T>::insert(netuid_to_register, tao_recycled_for_registration);
 
-        if actual_tao_lock_amount_less_pool_tao > TaoBalance::ZERO {
-            Self::recycle_tao(actual_tao_lock_amount_less_pool_tao);
+        if !owner_alpha_stake.is_zero() {
+            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey,
+                &coldkey,
+                netuid_to_register,
+                owner_alpha_stake,
+            );
         }
 
-        if actual_tao_lock_amount > TaoBalance::ZERO && pool_initial_tao > TaoBalance::ZERO {
+        if tao_recycled_for_registration > TaoBalance::ZERO {
+            Self::recycle_tao(tao_recycled_for_registration);
+        }
+
+        if total_pool_tao > TaoBalance::ZERO {
             // Record in TotalStake the initial TAO in the pool.
-            Self::increase_total_stake(pool_initial_tao);
+            Self::increase_total_stake(total_pool_tao);
         }
 
         // --- 17. Add the identity if it exists
@@ -250,11 +283,20 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 18. Emit the NetworkAdded event.
+        // --- 18. Schedule root validators as parents of the subnet owner hotkey.
+        if let Err(e) = Self::do_set_root_validators_for_subnet(netuid_to_register) {
+            log::warn!(
+                "Failed to set root validators for netuid {:?}: {:?}",
+                netuid_to_register,
+                e
+            );
+        }
+
+        // --- 19. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 19. Return success.
+        // --- 20. Return success.
         Ok(())
     }
 
@@ -277,13 +319,9 @@ impl<T: Config> Pallet<T> {
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 64);
         Self::set_min_allowed_weights(netuid, 1);
-        Self::set_adjustment_interval(netuid, 360);
-        Self::set_target_registrations_per_interval(netuid, 1);
-        Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
         Self::set_immunity_period(netuid, 5000);
-        Self::set_min_difficulty(netuid, u64::MAX);
-        Self::set_max_difficulty(netuid, u64::MAX);
         Self::set_yuma3_enabled(netuid, true);
+        Self::set_burn(netuid, DefaultNeuronBurnCost::<T>::get());
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
@@ -291,9 +329,6 @@ impl<T: Config> Pallet<T> {
         }
         if !Kappa::<T>::contains_key(netuid) {
             Kappa::<T>::insert(netuid, Kappa::<T>::get(netuid));
-        }
-        if !Difficulty::<T>::contains_key(netuid) {
-            Difficulty::<T>::insert(netuid, Difficulty::<T>::get(netuid));
         }
         if !MaxAllowedUids::<T>::contains_key(netuid) {
             MaxAllowedUids::<T>::insert(netuid, MaxAllowedUids::<T>::get(netuid));
@@ -311,18 +346,6 @@ impl<T: Config> Pallet<T> {
             RegistrationsThisInterval::<T>::insert(
                 netuid,
                 RegistrationsThisInterval::<T>::get(netuid),
-            );
-        }
-        if !POWRegistrationsThisInterval::<T>::contains_key(netuid) {
-            POWRegistrationsThisInterval::<T>::insert(
-                netuid,
-                POWRegistrationsThisInterval::<T>::get(netuid),
-            );
-        }
-        if !BurnRegistrationsThisInterval::<T>::contains_key(netuid) {
-            BurnRegistrationsThisInterval::<T>::insert(
-                netuid,
-                BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
     }

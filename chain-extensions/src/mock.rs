@@ -7,6 +7,7 @@
 use core::num::NonZeroU64;
 
 use frame_support::dispatch::DispatchResult;
+use frame_support::pallet_prelude::Zero;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
@@ -25,7 +26,9 @@ use sp_runtime::{
     traits::{BlakeTwo256, Convert, IdentityLookup},
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance};
+use subtensor_runtime_common::{
+    AlphaBalance, AuthorshipInfo, NetUid, Saturating, TaoBalance, Token,
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -420,6 +423,7 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type WeightInfo = ();
 }
 
 // Swap-related parameter types
@@ -442,6 +446,8 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -588,6 +594,7 @@ impl pallet_drand::Config for Test {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = ();
 }
 
 impl frame_system::offchain::SigningTypes for Test {
@@ -656,27 +663,69 @@ pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
-    start_nonce: u64,
+    _start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
-    );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
-        hotkey_account_id,
-        coldkey_account_id,
-    );
-    assert_ok!(result);
+    // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
+    let reserve: u64 = 1_000_000_000_000;
+    let tao_reserve = SubnetTAO::<Test>::get(netuid);
+    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)
+        .saturating_add(SubnetAlphaInProvided::<Test>::get(netuid));
+
+    if tao_reserve.is_zero() && alpha_reserve.is_zero() {
+        setup_reserves(netuid, reserve.into(), reserve.into());
+    }
+
+    // Ensure coldkey has enough to pay the current burn AND is not fully drained to zero.
+    // This avoids ZeroBalanceAfterWithdrawn in burned_register.
+    let top_up_for_burn = |netuid: NetUid, cold: U256| {
+        let burn: TaoBalance = SubtensorModule::get_burn(netuid);
+
+        // Make sure something remains after withdrawal even if ED is 0 in tests.
+        let ed: TaoBalance = ExistentialDeposit::get();
+        let min_remaining: TaoBalance = ed.max(1.into());
+
+        // Small buffer for safety (fees / rounding / future changes).
+        let buffer: TaoBalance = 10.into();
+
+        let min_balance_needed: TaoBalance =
+            burn.saturating_add(min_remaining).saturating_add(buffer);
+
+        let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
+        if bal < min_balance_needed {
+            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+        }
+    };
+
+    top_up_for_burn(netuid, coldkey_account_id);
+
+    let origin = <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id);
+    let result = SubtensorModule::burned_register(origin.clone(), netuid, hotkey_account_id);
+
+    match result {
+        Ok(()) => {
+            // success
+        }
+        Err(e)
+            if e == Error::<Test>::TooManyRegistrationsThisInterval.into()
+                || e == Error::<Test>::NotEnoughBalanceToStake.into()
+                || e == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
+        {
+            // Re-top-up and retry once (burn can be state-dependent).
+            top_up_for_burn(netuid, coldkey_account_id);
+
+            assert_ok!(SubtensorModule::burned_register(
+                origin,
+                netuid,
+                hotkey_account_id
+            ));
+        }
+        Err(e) => {
+            panic!("Expected Ok(_). Got Err({e:?})");
+        }
+    }
+
     log::info!(
-        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
 }
 

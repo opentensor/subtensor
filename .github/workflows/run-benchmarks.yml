@@ -18,12 +18,8 @@ jobs:
   validate-benchmarks:
     runs-on: Benchmarking
 
-    env:
-      SKIP_BENCHMARKS: "0"
-
     steps:
       - name: Check out PR branch
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -31,144 +27,56 @@ jobs:
           fetch-depth: 0
 
       - name: Install GitHub CLI
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends \
+            -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh
           echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
-      # (1) — first skip‑label check
-      - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} \
-                         --repo "${{ github.repository }}" \
-                         --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
-
       - name: Install system dependencies
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
         run: |
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
-
-      # (2)
-      - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} \
-                         --repo "${{ github.repository }}" \
-                         --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends \
+            -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+            build-essential clang curl libssl-dev llvm libudev-dev protobuf-compiler pkg-config
 
       - name: Install Rust toolchain
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
 
-      # (3)
-      - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} \
-                         --repo "${{ github.repository }}" \
-                         --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
-
       - name: Cache Rust build
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
         uses: Swatinem/rust-cache@v2
         with:
           key: bench-${{ hashFiles('**/Cargo.lock') }}
           cache-on-failure: true
 
-      # (4)
-      - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
+      - name: Build node with benchmarks + weight tools
         run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} \
-                         --repo "${{ github.repository }}" \
-                         --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
-
-      - name: Build node with benchmarks
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
+          .github/scripts/check-skip-label.sh ${{ github.event.pull_request.number }}
           cargo build --profile production -p node-subtensor --features runtime-benchmarks
-
-      # (5)
-      - name: Check skip label
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} \
-                         --repo "${{ github.repository }}" \
-                         --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label found — skipping benchmarks."
-            echo "SKIP_BENCHMARKS=1" >> "$GITHUB_ENV"
-          fi
-
-      - name: Ensure artifact folder exists
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: mkdir -p .bench_patch
+          .github/scripts/check-skip-label.sh ${{ github.event.pull_request.number }}
+          cargo build --profile production -p subtensor-weight-tools --bin weight-compare
 
       - name: Run & validate benchmarks
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
         timeout-minutes: 180
         run: |
+          .github/scripts/check-skip-label.sh ${{ github.event.pull_request.number }}
+          mkdir -p .bench_patch
           chmod +x scripts/benchmark_action.sh
           scripts/benchmark_action.sh
 
-      - name: List artifact contents (for debugging)
-        if: ${{ always() }}
-        run: |
-          echo "Workspace: $GITHUB_WORKSPACE"
-          if [ -d ".bench_patch" ]; then
-            echo "== .bench_patch =="
-            ls -la .bench_patch || true
-          else
-            echo ".bench_patch directory is missing"
-          fi
-
       - name: Archive bench patch
-        if: ${{ always() }}
+        if: always()
         run: |
           if [ -d ".bench_patch" ]; then
             tar -czf bench-patch.tgz .bench_patch
-            ls -lh bench-patch.tgz
-          else
-            echo "No .bench_patch directory to archive."
           fi
 
-      - name: Upload patch artifact (if prepared)
-        if: ${{ always() }}
+      - name: Upload patch artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bench-patch
           path: bench-patch.tgz
           if-no-files-found: warn
-
-      # (6) — final check after run
-      - name: Check skip label after run
-        if: ${{ env.SKIP_BENCHMARKS != '1' }}
-        run: |
-          labels=$(gh pr view ${{ github.event.pull_request.number }} \
-                         --repo "${{ github.repository }}" \
-                         --json labels --jq '.labels[].name')
-          if echo "$labels" | grep -q "skip-validate-benchmarks"; then
-            echo "skip-validate-benchmarks label was found — but benchmarks already ran."
-          fi

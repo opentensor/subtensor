@@ -25,10 +25,10 @@ frame-system.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 enumflags2.workspace = true
-
-[dev-dependencies]
 sp-core.workspace = true
 sp-io.workspace = true
+pallet-balances.workspace = true
+subtensor-runtime-common.workspace = true
 
 [features]
 default = ["std"]
@@ -41,17 +41,22 @@ std = [
 	"sp-std/std",
 	"sp-runtime/std",
 	"enumflags2/std",
-	"sp-core/std",
 	"sp-io/std",
+	"pallet-balances/std",
+	"subtensor-runtime-common/std",
+	"sp-core/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-balances/try-runtime",
 ]

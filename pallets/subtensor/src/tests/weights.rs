@@ -6870,6 +6870,7 @@ fn test_subnet_owner_can_validate_without_stake_or_manual_permit() {
 
         // Create a real dynamic subnet whose owner hotkey is `owner_hotkey`.
         let netuid = add_dynamic_network_disable_commit_reveal(&owner_hotkey, &owner_coldkey);
+        remove_owner_registration_stake(netuid);
 
         // Add one non-owner neuron with deterministic subnet stake.
         register_ok_neuron(netuid, other_hotkey, other_coldkey, 0);

@@ -17,7 +17,7 @@ NODE_LOG="${BASE_DIR}/node.log"
 
 if [ ! -f "$BINARY" ]; then
   echo "ERROR: Node binary not found at $BINARY"
-  echo "Please build it first, e.g.: pnpm build-node:debug"
+  echo "Please build it first, e.g.: cargo build --release -p node-subtensor"
   exit 1
 fi
 
@@ -34,7 +34,7 @@ if [ "$GENERATE_TYPES" = true ]; then
   echo "==> Starting dev node (logs at $NODE_LOG)..."
   "$BINARY" --one --dev &>"$NODE_LOG" &
   NODE_PID=$!
-  trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null; exit 0" EXIT
+  trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null || true; exit 0" EXIT
 
   TIMEOUT=60
   ELAPSED=0
