@@ -21,7 +21,6 @@ use subtensor_macros::freeze_struct;
 
 pub use currency::*;
 pub use evm_context::*;
-use log;
 pub use transaction_error::*;
 
 mod currency;
@@ -577,7 +576,7 @@ mod tests {
                 return (weight_meter.consumed(), false);
             }
             let result = body.execute(number);
-            weight_meter.consume(weight.saturating_mul(result.backend as u64));
+            weight_meter.consume(weight.saturating_mul(result.backend));
             if result.maybe_cursor.is_none() {
                 break;
             }

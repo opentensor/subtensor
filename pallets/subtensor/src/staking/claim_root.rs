@@ -464,10 +464,10 @@ impl<T: Config> Pallet<T> {
             .ref_time()
             .saturating_div(T::DbWeight::get().writes(1).ref_time());
 
-        let count = RootClaimed::<T>::iter_prefix((netuid.clone(),)).count();
+        let count = RootClaimed::<T>::iter_prefix((netuid,)).count();
         log::error!("=== in loop: count: {count}");
 
-        let result = RootClaimed::<T>::clear_prefix((netuid.clone(),), limit as u32, None);
+        let result = RootClaimed::<T>::clear_prefix((netuid,), limit as u32, None);
 
         weight_meter.consume(T::DbWeight::get().writes(result.backend as u64));
 
