@@ -7,13 +7,15 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
     BoundedVec, parameter_types,
     sp_runtime::Perbill,
-    traits::{AsEnsureOriginWithArg, ConstU32},
+    traits::{AsEnsureOriginWithArg, ConstU32, EnsureOriginWithArg},
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, RawOrigin};
 use pallet_multi_collective::{
     Collective, CollectiveInfo, CollectiveInspect, CollectiveName, CollectivesInfo,
 };
-use pallet_referenda::{DecisionStrategy, Track, TrackInfo, TrackName, TracksInfo};
+use pallet_referenda::{
+    ApprovalAction, DecisionStrategy, Track, TrackInfo, TrackName, TracksInfo,
+};
 use scale_info::TypeInfo;
 use subtensor_runtime_common::SetLike;
 
@@ -40,13 +42,13 @@ use crate::{
     TypeInfo,
 )]
 pub enum CollectiveId {
-    /// Accounts authorized to submit proposals.
+    /// Accounts authorized to submit proposals on track 0.
     Proposers = 0,
-    /// Triumvirate — 3 members; PassOrFail signed voting.
+    /// Triumvirate — 3 members; PassOrFail signed voting on track 0.
     Triumvirate = 1,
-    /// Economic collective — top 16 validators by stake.
+    /// Economic collective — top 16 validators by stake. Votes on track 1.
     Economic = 2,
-    /// Building collective — top 16 subnet owners.
+    /// Building collective — top 16 subnet owners. Votes on track 1.
     Building = 3,
 }
 
@@ -61,7 +63,7 @@ pub enum VotingScheme {
     Anonymous,
 }
 
-/// Voter/proposer set composed of one or two collectives, read at query time.
+/// Voter set composed of one or two collectives, read live from `pallet-multi-collective`.
 #[derive(Clone)]
 pub enum MemberSet {
     One(CollectiveId),
@@ -78,17 +80,15 @@ impl SetLike<AccountId> for MemberSet {
         }
     }
 
-    /// Number of **unique** members. Computed via `members()` to stay consistent with it —
-    /// both `len()` and `members().len()` must agree, otherwise the tally denominator
-    /// (`total`) drifts from the actual eligible voter count.
+    /// Unique member count. Computed via `members()` to stay consistent — both `len()` and
+    /// `members().len()` must agree or the tally denominator drifts from reality.
     fn len(&self) -> u32 {
         self.members().len() as u32
     }
 
-    /// Snapshot of **unique** members. In `MemberSet::Two`, the two collectives may overlap
-    /// (e.g. a top-stake validator who is also a top-price subnet owner); such an account
-    /// must count once, not twice — otherwise `total` inflates and thresholds become
-    /// unreachable even at unanimous support.
+    /// Snapshot of **unique** members. In `MemberSet::Two`, two collectives may overlap
+    /// (e.g. a top-stake validator that's also a top-price subnet owner) — such an account
+    /// must count once, not twice.
     fn members(&self) -> sp_std::vec::Vec<AccountId> {
         match self {
             MemberSet::One(id) => MultiCollective::members_of(*id),
@@ -166,36 +166,41 @@ impl CollectivesInfo<BlockNumber, CollectiveName> for SubtensorCollectives {
 
 /// Static track definitions (v1).
 ///
-/// - Track 0: triumvirate review — Signed PassOrFail, 67% approve threshold.
-/// - Track 1: collective oversight — Signed Adjustable, 75% fast-track / 51% reject.
-///   (Anonymous voting postponed to a later release; track 1 uses Signed for now.)
+/// - **Track 0** (`triumvirate`) — Signed PassOrFail. Proposer submits a call here; the
+///   Triumvirate votes; on approval `on_approval = ScheduleAndReview { review_track: 1 }`
+///   hands execution to track 1 for collective oversight. Threshold: 2/3 rational.
+///
+/// - **Track 1** (`collective`) — Signed Adjustable. Populated automatically by the
+///   pallet's `ScheduleAndReview` path; direct user submits blocked by `SubmitOrigin`.
+///   Economic + Building members adjust the enactment timing via linear delay interpolation,
+///   with `fast_track_threshold = 75%` and `reject_threshold = 51%`.
 pub struct SubtensorTracks;
 
 impl TracksInfo<TrackName, AccountId, RuntimeCall, BlockNumber> for SubtensorTracks {
     type Id = u16;
-    type ProposerSet = MemberSet;
     type VotingScheme = VotingScheme;
     type VoterSet = MemberSet;
 
     fn tracks()
-    -> impl Iterator<Item = Track<Self::Id, TrackName, BlockNumber, MemberSet, MemberSet, VotingScheme>>
+    -> impl Iterator<Item = Track<Self::Id, TrackName, BlockNumber, MemberSet, VotingScheme>>
     {
         [
             Track {
                 id: 0u16,
                 info: TrackInfo {
                     name: fixed_name("triumvirate"),
-                    proposer_set: MemberSet::One(CollectiveId::Proposers),
                     voter_set: MemberSet::One(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::PassOrFail {
                         decision_period: runtime_common::prod_or_fast!(50_400, 50),
                         // Use exact 2/3 rationals — `from_percent(67)` rounds to 670_000_000
-                        // parts, while a 2-of-3 tally is `from_rational(2, 3)` =
-                        // 666_666_666 parts. The latter would be `< threshold` and force
-                        // a full 3/3 vote, contradicting DESIGN.md (worked example: 2/3 passes).
+                        // parts, while a 2-of-3 tally is `from_rational(2, 3)` = 666_666_666
+                        // parts; the latter would be `< threshold` and force full 3/3.
                         approve_threshold: Perbill::from_rational(2u32, 3u32),
                         reject_threshold: Perbill::from_rational(2u32, 3u32),
+                        // Two-phase flow: on approval, schedule the call with the oversight
+                        // track's `initial_delay` and auto-spawn a Review poll on track 1.
+                        on_approval: ApprovalAction::ScheduleAndReview { review_track: 1 },
                     },
                 },
             },
@@ -203,13 +208,11 @@ impl TracksInfo<TrackName, AccountId, RuntimeCall, BlockNumber> for SubtensorTra
                 id: 1u16,
                 info: TrackInfo {
                     name: fixed_name("collective"),
-                    proposer_set: MemberSet::One(CollectiveId::Proposers),
                     voter_set: MemberSet::Two(CollectiveId::Economic, CollectiveId::Building),
-                    // Signed for now — Anonymous (bLSAG) is on the roadmap for a later release.
+                    // Signed for now — Anonymous (bLSAG) is on the roadmap.
                     voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::Adjustable {
-                        // Max extra delay at 0% approval. Dev: ~45s (30 blocks × 1.5s).
-                        // Prod: ~1h (300 blocks × 12s).
+                        // Max extra delay at 0% approval. Dev: 30 blocks. Prod: 300 blocks (~1h).
                         initial_delay: runtime_common::prod_or_fast!(300, 30),
                         fast_track_threshold: Perbill::from_percent(75),
                         reject_threshold: Perbill::from_percent(51),
@@ -218,6 +221,44 @@ impl TracksInfo<TrackName, AccountId, RuntimeCall, BlockNumber> for SubtensorTra
             },
         ]
         .into_iter()
+    }
+}
+
+/// Per-track submission authorization for `pallet-referenda`.
+///
+/// - Track 0 accepts Root (returns `Success = None`) or a Signed account that is a member
+///   of `CollectiveId::Proposers` (returns `Success = Some(who)`).
+/// - Track 1 accepts **only Root**, which in practice means only the pallet itself (via
+///   `ApprovalAction::ScheduleAndReview`) can create polls there. Direct user submits are
+///   rejected with `BadOrigin`.
+/// - Unknown tracks always rejected.
+pub struct GovernanceSubmitOrigin;
+
+impl EnsureOriginWithArg<RuntimeOrigin, u16> for GovernanceSubmitOrigin {
+    type Success = Option<AccountId>;
+
+    fn try_origin(origin: RuntimeOrigin, track: &u16) -> Result<Self::Success, RuntimeOrigin> {
+        let raw: RawOrigin<AccountId> = match origin.clone().into() {
+            Ok(r) => r,
+            Err(o) => return Err(o),
+        };
+        match (track, raw) {
+            (0, RawOrigin::Root) => Ok(None),
+            (0, RawOrigin::Signed(who)) => {
+                if MultiCollective::is_member(CollectiveId::Proposers, &who) {
+                    Ok(Some(who))
+                } else {
+                    Err(origin)
+                }
+            }
+            (1, RawOrigin::Root) => Ok(None),
+            _ => Err(origin),
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin(_track: &u16) -> Result<RuntimeOrigin, ()> {
+        Ok(RawOrigin::Root.into())
     }
 }
 
@@ -263,6 +304,7 @@ impl pallet_referenda::Config for crate::Runtime {
     type RuntimeCall = RuntimeCall;
     type Scheduler = Scheduler;
     type Preimages = Preimage;
+    type SubmitOrigin = GovernanceSubmitOrigin;
     type CancelOrigin = EnsureRoot<AccountId>;
     type Tracks = SubtensorTracks;
     type BlockNumberProvider = System;
@@ -270,7 +312,6 @@ impl pallet_referenda::Config for crate::Runtime {
     type MaxQueued = ReferendaMaxQueuedPerTrack;
 }
 
-// Keep referenced to avoid unused-import warnings when only some items are used.
 #[allow(dead_code)]
 fn _ensure_types_used() {
     let _: BoundedVec<AccountId, ConstU32<3>> = BoundedVec::new();

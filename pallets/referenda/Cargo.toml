@@ -20,6 +20,7 @@ scale-info = { workspace = true, features = ["derive"] }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 sp-runtime = { workspace = true }
+sp-io = { workspace = true }
 subtensor-runtime-common = { workspace = true }
 
 [features]
@@ -30,6 +31,7 @@ std = [
 	"frame-system/std",
 	"frame-support/std",
 	"sp-runtime/std",
+	"sp-io/std",
 	"subtensor-runtime-common/std",
 ]
 runtime-benchmarks = []

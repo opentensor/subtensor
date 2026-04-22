@@ -4,10 +4,14 @@ import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
 
 /**
- * Track 0 PassOrFail flow:
- *   1. Alice (Proposer) submits an `Action` with a Root-only call.
- *   2. Bob and Charlie (Triumvirate) vote aye → 2/3 reaches the approve threshold.
- *   3. Scheduler dispatches the approved call with Root origin in the next block.
+ * Track 0 (PassOrFail) + Track 1 auto-spawn:
+ *   - `referenda.submit(0, call)` takes a plain call; the pallet picks the proposal form
+ *     from `DecisionStrategy`. Track 0 is configured with `on_approval =
+ *     ScheduleAndReview { review_track: 1 }`, so approval auto-spawns a track-1 poll.
+ *   - This suite covers the happy path submission plus two negative origin cases.
+ *
+ * T01 exercises triumvirate approval and verifies the auto-spawned Review poll appears on
+ * track 1 with `submitter = None`. End-to-end balance change is exercised in test-full-flow.
  */
 describeSuite({
     id: "DEV_SUB_GOVV2_TRACK0_01",
@@ -31,15 +35,13 @@ describeSuite({
             const sr = new Keyring({ type: "sr25519" });
             eve = sr.addFromUri("//Eve");
 
-            // Populate collectives via sudo.
-            // Alice is the lone allowed Proposer; Bob/Charlie/Dave form the Triumvirate.
-            const adds = [
+            // Alice = Proposer; Bob/Charlie/Dave = Triumvirate.
+            for (const inner of [
                 api.tx.multiCollective.addMember("Proposers", alice.address),
                 api.tx.multiCollective.addMember("Triumvirate", bob.address),
                 api.tx.multiCollective.addMember("Triumvirate", charlie.address),
                 api.tx.multiCollective.addMember("Triumvirate", dave.address),
-            ];
-            for (const inner of adds) {
+            ]) {
                 await context.createBlock([await api.tx.sudo.sudo(inner).signAsync(alice)]);
             }
 
@@ -47,69 +49,81 @@ describeSuite({
             const proposers = await api.query.multiCollective.members("Proposers");
             log(`Proposers: ${proposers.toJSON()}`);
             log(`Triumvirate: ${triumvirate.toJSON()}`);
-
             expect(triumvirate.toJSON()).to.have.length(3);
             expect(proposers.toJSON()).to.have.length(1);
         });
 
         it({
             id: "T01",
-            title: "submit Action and 2-of-3 triumvirate ayes → approved",
+            title: "submit on track 0; 2-of-3 ayes → Approved + auto-spawned track 1 poll",
             test: async () => {
-                const targetAmount = 1_000_000_000n;
-                const eveBefore = (await api.query.system.account(eve.address)).data.free.toBigInt();
+                const innerCall = api.tx.balances.forceSetBalance(eve.address, 1_000_000_000n);
+                const countBefore = (
+                    await api.query.referenda.referendumCount()
+                ).toNumber();
 
-                const innerCall = api.tx.balances.forceSetBalance(eve.address, targetAmount);
-                const submitTx = api.tx.referenda.submit(0, { Action: innerCall });
+                await context.createBlock([
+                    await api.tx.referenda.submit(0, innerCall).signAsync(alice),
+                ]);
 
-                await context.createBlock([await submitTx.signAsync(alice)]);
-
-                const submittedEvent = (await api.query.system.events()).find(
-                    (e) => e.event.section === "referenda" && e.event.method === "Submitted"
+                const submittedOuter = (await api.query.system.events()).find(
+                    (e) =>
+                        e.event.section === "referenda" && e.event.method === "Submitted",
                 );
-                expect(submittedEvent, "Submitted event").to.exist;
+                expect(submittedOuter, "outer Submitted").to.exist;
 
-                // Bob votes aye → 1/3 = 33%, below threshold.
-                await context.createBlock([await api.tx.signedVoting.vote(0, true).signAsync(bob)]);
-                const tallyAfterBob = await api.query.signedVoting.tallyOf(0);
-                expect(tallyAfterBob.toJSON()).to.deep.contain({ ayes: 1, nays: 0, total: 3 });
+                const outerPoll = countBefore;
 
-                // Charlie votes aye → 2/3 = matches `Perbill::from_rational(2, 3)`.
-                await context.createBlock([await api.tx.signedVoting.vote(0, true).signAsync(charlie)]);
+                // Bob aye → 1/3.
+                await context.createBlock([
+                    await api.tx.signedVoting.vote(outerPoll, true).signAsync(bob),
+                ]);
 
-                const approved = (await api.query.system.events()).find(
-                    (e) => e.event.section === "referenda" && e.event.method === "Approved"
+                // Charlie aye → 2/3 = `Perbill::from_rational(2, 3)` — exact threshold match.
+                await context.createBlock([
+                    await api.tx.signedVoting.vote(outerPoll, true).signAsync(charlie),
+                ]);
+
+                const eventsAfterApprove = await api.query.system.events();
+                const approvedOuter = eventsAfterApprove.find(
+                    (e) => e.event.section === "referenda" && e.event.method === "Approved",
                 );
-                expect(approved, "Approved event").to.exist;
+                expect(approvedOuter, "outer Approved").to.exist;
 
-                // Next block: scheduler dispatches the action with Root.
-                await context.createBlock([]);
+                // ScheduleAndReview fires inline with on_tally_updated → a new Review poll
+                // on track 1 with submitter=None should appear in the SAME block.
+                const innerSubmitted = eventsAfterApprove.find((e) => {
+                    if (e.event.section !== "referenda" || e.event.method !== "Submitted") {
+                        return false;
+                    }
+                    const data = e.event.data as unknown as { track: any; submitter: any };
+                    return data.track.toString() === "1" && data.submitter.isNone;
+                });
+                expect(innerSubmitted, "inner Submitted (track 1, submitter=None)").to.exist;
 
-                const events = await api.query.system.events();
-                const dispatched = events.find(
-                    (e) => e.event.section === "scheduler" && e.event.method === "Dispatched"
-                );
-                expect(dispatched, "scheduler.Dispatched event").to.exist;
-
-                const eveAfter = (await api.query.system.account(eve.address)).data.free.toBigInt();
-                expect(eveAfter).to.equal(targetAmount);
-                expect(eveAfter).not.to.equal(eveBefore);
+                const countAfter = (
+                    await api.query.referenda.referendumCount()
+                ).toNumber();
+                expect(countAfter).to.equal(countBefore + 2);
             },
         });
 
         it({
             id: "T02",
-            title: "non-proposer rejected with NotAllowedProposer",
+            title: "non-proposer submit → BadOrigin via SubmitOrigin",
             test: async () => {
-                // Dave is NOT in Proposers (he's a Triumvirate member).
+                // Dave is in Triumvirate but NOT in Proposers → SubmitOrigin returns Err.
                 const innerCall = api.tx.balances.forceSetBalance(eve.address, 42n);
-                const submitTx = api.tx.referenda.submit(0, { Action: innerCall });
 
-                await context.createBlock([await submitTx.signAsync(dave)]);
+                await context.createBlock([
+                    await api.tx.referenda.submit(0, innerCall).signAsync(dave),
+                ]);
 
-                const events = await api.query.system.events();
-                const failed = events.find((e) => e.event.section === "system" && e.event.method === "ExtrinsicFailed");
-                expect(failed, "ExtrinsicFailed").to.exist;
+                const failed = (await api.query.system.events()).find(
+                    (e) =>
+                        e.event.section === "system" && e.event.method === "ExtrinsicFailed",
+                );
+                expect(failed, "ExtrinsicFailed on non-proposer submit").to.exist;
             },
         });
 
@@ -117,19 +131,23 @@ describeSuite({
             id: "T03",
             title: "non-triumvirate cannot vote on track 0 — NotInVoterSet",
             test: async () => {
-                // Submit a fresh poll first.
                 const innerCall = api.tx.balances.forceSetBalance(eve.address, 7n);
-                await context.createBlock([await api.tx.referenda.submit(0, { Action: innerCall }).signAsync(alice)]);
+                await context.createBlock([
+                    await api.tx.referenda.submit(0, innerCall).signAsync(alice),
+                ]);
 
-                const count = (await api.query.referenda.referendumCount()).toNumber();
-                const newPoll = count - 1;
+                const poll = (await api.query.referenda.referendumCount()).toNumber() - 1;
 
-                // Eve is not in Triumvirate (she's not in any collective for track 0).
-                await context.createBlock([await api.tx.signedVoting.vote(newPoll, true).signAsync(eve)]);
+                // Eve not in Triumvirate → vote rejected.
+                await context.createBlock([
+                    await api.tx.signedVoting.vote(poll, true).signAsync(eve),
+                ]);
 
-                const events = await api.query.system.events();
-                const failed = events.find((e) => e.event.section === "system" && e.event.method === "ExtrinsicFailed");
-                expect(failed, "ExtrinsicFailed").to.exist;
+                const failed = (await api.query.system.events()).find(
+                    (e) =>
+                        e.event.section === "system" && e.event.method === "ExtrinsicFailed",
+                );
+                expect(failed, "ExtrinsicFailed on non-voter").to.exist;
             },
         });
     },

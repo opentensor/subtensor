@@ -10381,6 +10381,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
+ "sp-io",
  "sp-runtime",
  "subtensor-runtime-common",
 ]

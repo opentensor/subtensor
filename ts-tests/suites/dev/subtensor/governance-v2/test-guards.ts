@@ -4,11 +4,12 @@ import type { KeyringPair } from "@moonwall/util";
 import { Keyring } from "@polkadot/keyring";
 
 /**
- * Negative tests covering the validation guards in pallet-referenda and pallet-signed-voting.
- * Each case submits a transaction that should fail, and asserts that a matching
- * `system.ExtrinsicFailed` event is present with the expected module error.
+ * Negative tests covering validation guards after the governance-v2 refactor.
  *
- * Note: moonwall `createBlock` includes the tx even when it reverts; errors surface via events.
+ * With the new API there is no `Proposal` variant at the extrinsic layer — the pallet
+ * derives the proposal shape from `DecisionStrategy`. That removes the need for
+ * `IncompatibleProposalKind` / `TaskNotScheduled` errors; origin gating (`SubmitOrigin`)
+ * now handles track access, and misuse surfaces as `BadOrigin`.
  */
 describeSuite({
     id: "DEV_SUB_GOVV2_GUARDS_01",
@@ -39,89 +40,81 @@ describeSuite({
             }
         });
 
-        /** Look up the last extrinsic's dispatch error and decode it. */
+        /** Decode the last block's dispatch error if any. */
         const extrinsicFailed = async () => {
             const events = await api.query.system.events();
-            const failed = events.find((e) => e.event.section === "system" && e.event.method === "ExtrinsicFailed");
+            const failed = events.find(
+                (e) => e.event.section === "system" && e.event.method === "ExtrinsicFailed",
+            );
             if (!failed) return null;
             const dispatchError = failed.event.data[0] as any;
             if (dispatchError.isModule) {
                 const decoded = api.registry.findMetaError(dispatchError.asModule);
-                return { section: decoded.section, name: decoded.name };
+                return { kind: "module", section: decoded.section, name: decoded.name };
             }
-            return { section: "?", name: dispatchError.toString() };
+            return { kind: dispatchError.type ?? "other", name: dispatchError.toString() };
         };
 
         it({
             id: "T01",
-            title: "direct Review with non-existent task → TaskNotScheduled",
+            title: "direct submit to track 1 by signed user → BadOrigin",
             test: async () => {
-                const phantomTask = "0x" + "FF".repeat(32);
-                const submitTx = api.tx.referenda.submit(1, { Review: phantomTask });
-
-                await context.createBlock([await submitTx.signAsync(alice)]);
+                // Track 1 SubmitOrigin only accepts Root. Alice (Proposer) is rejected.
+                const inner = api.tx.balances.forceSetBalance(eve.address, 1n);
+                await context.createBlock([
+                    await api.tx.referenda.submit(1, inner).signAsync(alice),
+                ]);
 
                 const err = await extrinsicFailed();
                 log(`error: ${JSON.stringify(err)}`);
                 expect(err).not.to.be.null;
-                expect(err?.section).to.equal("referenda");
-                expect(err?.name).to.equal("TaskNotScheduled");
+                // BadOrigin is a top-level dispatch error, not a Module error — its
+                // representation in polkadot-js is `.type === "BadOrigin"`.
+                expect(err?.name).to.match(/BadOrigin/);
             },
         });
 
         it({
             id: "T02",
-            title: "Action on track 1 (Adjustable) → IncompatibleProposalKind",
+            title: "submit on unknown track → BadOrigin via SubmitOrigin",
             test: async () => {
-                const inner = api.tx.balances.forceSetBalance(eve.address, 1n);
-                const submitTx = api.tx.referenda.submit(1, { Action: inner });
-
-                await context.createBlock([await submitTx.signAsync(alice)]);
+                const inner = api.tx.balances.forceSetBalance(eve.address, 2n);
+                await context.createBlock([
+                    await api.tx.referenda.submit(99, inner).signAsync(alice),
+                ]);
 
                 const err = await extrinsicFailed();
-                expect(err?.section).to.equal("referenda");
-                expect(err?.name).to.equal("IncompatibleProposalKind");
+                expect(err).not.to.be.null;
+                expect(err?.name).to.match(/BadOrigin/);
             },
         });
 
         it({
             id: "T03",
-            title: "Review on track 0 (PassOrFail) → IncompatibleProposalKind",
-            test: async () => {
-                const submitTx = api.tx.referenda.submit(0, {
-                    Review: "0x" + "AA".repeat(32),
-                });
-                await context.createBlock([await submitTx.signAsync(alice)]);
-
-                const err = await extrinsicFailed();
-                expect(err?.section).to.equal("referenda");
-                expect(err?.name).to.equal("IncompatibleProposalKind");
-            },
-        });
-
-        it({
-            id: "T04",
             title: "duplicate vote → DuplicateVote; vote switch → ok",
             test: async () => {
-                // Seed a fresh poll.
                 const inner = api.tx.balances.forceSetBalance(eve.address, 3n);
-                await context.createBlock([await api.tx.referenda.submit(0, { Action: inner }).signAsync(alice)]);
-                const count = (await api.query.referenda.referendumCount()).toNumber();
-                const poll = count - 1;
+                await context.createBlock([
+                    await api.tx.referenda.submit(0, inner).signAsync(alice),
+                ]);
+                const poll = (await api.query.referenda.referendumCount()).toNumber() - 1;
 
-                // Bob votes aye.
-                await context.createBlock([await api.tx.signedVoting.vote(poll, true).signAsync(bob)]);
+                await context.createBlock([
+                    await api.tx.signedVoting.vote(poll, true).signAsync(bob),
+                ]);
 
-                // Same aye again → DuplicateVote.
-                await context.createBlock([await api.tx.signedVoting.vote(poll, true).signAsync(bob)]);
+                await context.createBlock([
+                    await api.tx.signedVoting.vote(poll, true).signAsync(bob),
+                ]);
                 const dup = await extrinsicFailed();
                 expect(dup?.section).to.equal("signedVoting");
                 expect(dup?.name).to.equal("DuplicateVote");
 
-                // Switch to nay — must succeed, no DuplicateVote.
-                await context.createBlock([await api.tx.signedVoting.vote(poll, false).signAsync(bob)]);
+                await context.createBlock([
+                    await api.tx.signedVoting.vote(poll, false).signAsync(bob),
+                ]);
                 const afterSwitch = await extrinsicFailed();
-                expect(afterSwitch, "switch aye→nay should succeed").to.be.null;
+                expect(afterSwitch, "vote switch should succeed").to.be.null;
 
                 const tally = await api.query.signedVoting.tallyOf(poll);
                 expect(tally.toJSON()).to.deep.contain({ ayes: 0, nays: 1 });
@@ -129,15 +122,18 @@ describeSuite({
         });
 
         it({
-            id: "T05",
+            id: "T04",
             title: "remove_vote without prior vote → VoteNotFound",
             test: async () => {
                 const inner = api.tx.balances.forceSetBalance(eve.address, 4n);
-                await context.createBlock([await api.tx.referenda.submit(0, { Action: inner }).signAsync(alice)]);
+                await context.createBlock([
+                    await api.tx.referenda.submit(0, inner).signAsync(alice),
+                ]);
                 const poll = (await api.query.referenda.referendumCount()).toNumber() - 1;
 
-                // Charlie hasn't voted.
-                await context.createBlock([await api.tx.signedVoting.removeVote(poll).signAsync(charlie)]);
+                await context.createBlock([
+                    await api.tx.signedVoting.removeVote(poll).signAsync(charlie),
+                ]);
 
                 const err = await extrinsicFailed();
                 expect(err?.section).to.equal("signedVoting");
