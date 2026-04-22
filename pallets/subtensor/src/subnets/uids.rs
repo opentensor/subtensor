@@ -46,6 +46,8 @@ impl<T: Config> Pallet<T> {
         }
         Dividends::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
         StakeWeight::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        ValidatorTrust::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, 0));
+        ValidatorPermit::<T>::mutate(netuid, |v| Self::set_element_at(v, neuron_index, false));
     }
 
     /// Replace the neuron under this uid.
