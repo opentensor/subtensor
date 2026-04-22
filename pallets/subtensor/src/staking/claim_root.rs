@@ -460,6 +460,8 @@ impl<T: Config> Pallet<T> {
     ) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
+        let remaining_ref_time = weight_meter.limit().ref_time();
+
         let limit = remaining_weight
             .ref_time()
             .saturating_div(T::DbWeight::get().writes(1).ref_time());

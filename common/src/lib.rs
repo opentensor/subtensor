@@ -492,23 +492,15 @@ macro_rules! nmap_clear_prefix_by_netuid {
 #[macro_export]
 macro_rules! LoopRemovePrefixWithWeightMeter {
     ( $meter:expr, $weight:expr, $storage:ty, $netuid:expr ) => {{
-        let mut cursor = None;
-        loop {
-            log::error!("=== LoopRemovePrefixWithWeightMeter ====");
-            if !$meter.can_consume($weight.saturating_mul($crate::BATCH_SIZE as u64)) {
-                log::error!("=== LoopRemovePrefixWithWeightMeter: not enough weight ====");
-                return ($meter.consumed(), false);
-            }
-            let result: $crate::MultiRemovalResults =
-                <$storage>::clear_prefix($netuid, $crate::BATCH_SIZE, cursor.as_deref());
-            $meter.consume($weight.saturating_mul(result.backend as u64));
-            if result.maybe_cursor.is_none() {
-                log::error!("=== LoopRemovePrefixWithWeightMeter: no more keys ====");
-                break;
-            }
-            cursor = result.maybe_cursor;
-        }
-        ($meter.consumed(), true)
+        let remaining_ref_time = $meter.limit().ref_time();
+        let write_ref_time = $weight.ref_time();
+
+        let limit = remaining_ref_time.saturating_div(write_ref_time);
+
+        let result: $crate::MultiRemovalResults =
+            <$storage>::clear_prefix($netuid, limit as u32, None);
+
+        ($meter.consumed(), result.maybe_cursor.is_none())
     }};
 }
 
