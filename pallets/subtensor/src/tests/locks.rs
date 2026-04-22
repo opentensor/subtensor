@@ -79,14 +79,18 @@ fn test_lock_stake_creates_new_lock() {
             lock_amount.into(),
         ));
 
-        let lock = Lock::<Test>::get(coldkey, netuid).expect("Lock should exist");
-        assert_eq!(lock.hotkey, hotkey);
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).expect("Lock should exist");
         assert_eq!(lock.locked_mass, lock_amount.into());
-        assert_eq!(lock.conviction, U64F64::saturating_from_num(0));
+        assert_eq!(lock.conviction, U64F64::from_num(0));
         assert_eq!(
             lock.last_update,
             SubtensorModule::get_current_block_as_u64()
         );
+
+        // Hotkey lock should also be created
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey);
+        assert!(hotkey_lock.is_some());
+        assert_eq!(hotkey_lock.unwrap().locked_mass, lock_amount.into());
     });
 }
 
@@ -135,7 +139,7 @@ fn test_lock_stake_full_amount() {
             total_alpha,
         ));
 
-        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).unwrap();
         assert_eq!(lock.locked_mass, total_alpha);
     });
 }
@@ -163,7 +167,7 @@ fn test_get_conviction_no_lock() {
         let netuid = subtensor_runtime_common::NetUid::from(1);
         assert_eq!(
             SubtensorModule::get_conviction(&coldkey, netuid),
-            U64F64::saturating_from_num(0)
+            U64F64::from_num(0)
         );
     });
 }
@@ -248,17 +252,23 @@ fn test_lock_stake_topup() {
             second_lock.into()
         ));
 
-        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).unwrap();
         // locked_mass should be decayed(first_lock) + second_lock
         // Since tau is large (216000), decay over 100 blocks is small; locked_mass ~ 1000 + 500
         assert!(lock.locked_mass > 1490.into());
         assert!(lock.locked_mass < 1501.into());
         // conviction should have grown from the time the first lock was active
-        assert!(lock.conviction > U64F64::saturating_from_num(0));
+        assert!(lock.conviction > U64F64::from_num(0));
         assert_eq!(
             lock.last_update,
             SubtensorModule::get_current_block_as_u64()
         );
+
+        // Hotkey lock should also be created
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey).unwrap();
+        assert!(hotkey_lock.locked_mass > 1490.into());
+        assert_eq!(hotkey_lock.locked_mass, lock.locked_mass);
+        assert!(hotkey_lock.conviction > U64F64::from_num(0));
     });
 }
 
@@ -283,11 +293,17 @@ fn test_lock_stake_topup_multiple_times() {
             &coldkey, netuid, &hotkey, chunk
         ));
 
-        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).unwrap();
         // After three top-ups with small decay, should be close to 1500
         assert!(lock.locked_mass > 1490.into());
         assert!(lock.locked_mass <= 1500.into());
-        assert!(lock.conviction > U64F64::saturating_from_num(0));
+        assert!(lock.conviction > U64F64::from_num(0));
+
+        // Hotkey lock should also be updated
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey).unwrap();
+        assert!(hotkey_lock.locked_mass > 1490.into());
+        assert_eq!(hotkey_lock.locked_mass, lock.locked_mass);
+        assert!(hotkey_lock.conviction > U64F64::from_num(0));
     });
 }
 
@@ -309,10 +325,15 @@ fn test_lock_stake_topup_same_block() {
             &coldkey, netuid, &hotkey, second
         ));
 
-        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).unwrap();
         // dt=0 means no decay, simple addition
         assert_eq!(lock.locked_mass, first + second);
-        assert_eq!(lock.conviction, U64F64::saturating_from_num(0));
+        assert_eq!(lock.conviction, U64F64::from_num(0));
+
+        // Hotkey lock should also be updated
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey).unwrap();
+        assert_eq!(hotkey_lock.locked_mass, first + second);
+        assert_eq!(hotkey_lock.conviction, U64F64::from_num(0));
     });
 }
 
@@ -404,7 +425,7 @@ fn test_lock_stake_topup_exceeds_total() {
 fn test_exp_decay_zero_dt() {
     new_test_ext(1).execute_with(|| {
         let result = SubtensorModule::exp_decay(0, 216000);
-        assert_eq!(result, U64F64::saturating_from_num(1));
+        assert_eq!(result, U64F64::from_num(1));
     });
 }
 
@@ -412,7 +433,7 @@ fn test_exp_decay_zero_dt() {
 fn test_exp_decay_zero_tau() {
     new_test_ext(1).execute_with(|| {
         let result = SubtensorModule::exp_decay(1000, 0);
-        assert_eq!(result, U64F64::saturating_from_num(0));
+        assert_eq!(result, U64F64::from_num(0));
     });
 }
 
@@ -422,13 +443,13 @@ fn test_exp_decay_one_tau() {
         let tau = 216000u64;
         let result = SubtensorModule::exp_decay(tau, tau);
         // exp(-1) ~= 0.36787944
-        let expected = U64F64::saturating_from_num(0.36787944f64);
+        let expected = U64F64::from_num(0.36787944f64);
         let diff = if result > expected {
             result - expected
         } else {
             expected - result
         };
-        assert!(diff < U64F64::saturating_from_num(0.001));
+        assert!(diff < U64F64::from_num(0.001));
     });
 }
 
@@ -445,8 +466,8 @@ fn test_exp_decay_clamps_large_dt_to_min_ratio() {
             clamped_result - oversized_result
         };
 
-        assert!(diff < U64F64::saturating_from_num(0.000000001));
-        assert!(oversized_result > U64F64::saturating_from_num(0));
+        assert!(diff < U64F64::from_num(0.000000001));
+        assert!(oversized_result > U64F64::from_num(0));
     });
 }
 
@@ -499,12 +520,12 @@ fn test_roll_forward_conviction_grows_then_decays() {
 
         // Conviction at t=0 is 0
         let c0 = SubtensorModule::get_conviction(&coldkey, netuid);
-        assert_eq!(c0, U64F64::saturating_from_num(0));
+        assert_eq!(c0, U64F64::from_num(0));
 
         // After some time, conviction should have grown
         step_block(1000);
         let c1 = SubtensorModule::get_conviction(&coldkey, netuid);
-        assert!(c1 > U64F64::saturating_from_num(0));
+        assert!(c1 > U64F64::from_num(0));
 
         // After more time, conviction should be even higher
         step_block(1000);
@@ -524,11 +545,9 @@ fn test_roll_forward_conviction_grows_then_decays() {
 #[test]
 fn test_roll_forward_no_change_when_now_equals_last_update() {
     new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(2);
         let lock = LockState {
-            hotkey,
             locked_mass: 5000.into(),
-            conviction: U64F64::saturating_from_num(1234),
+            conviction: U64F64::from_num(1234),
             last_update: 100,
         };
         let rolled = SubtensorModule::roll_forward_lock(lock.clone(), 100);
@@ -880,12 +899,16 @@ fn test_lock_on_multiple_subnets() {
             2000u64.into(),
         ));
 
-        let lock_a = Lock::<Test>::get(coldkey, netuid_a).unwrap();
-        let lock_b = Lock::<Test>::get(coldkey, netuid_b).unwrap();
-        assert_eq!(lock_a.hotkey, hotkey_a);
-        assert_eq!(lock_b.hotkey, hotkey_b);
+        let lock_a = Lock::<Test>::get((coldkey, netuid_a, hotkey_a)).unwrap();
+        let lock_b = Lock::<Test>::get((coldkey, netuid_b, hotkey_b)).unwrap();
         assert_eq!(lock_a.locked_mass, 1000u64.into());
         assert_eq!(lock_b.locked_mass, 2000u64.into());
+
+        // Hotkey locks should also be separate
+        let hotkey_lock_a = HotkeyLock::<Test>::get(netuid_a, hotkey_a).unwrap();
+        let hotkey_lock_b = HotkeyLock::<Test>::get(netuid_b, hotkey_b).unwrap();
+        assert_eq!(hotkey_lock_a.locked_mass, 1000u64.into());
+        assert_eq!(hotkey_lock_b.locked_mass, 2000u64.into());
     });
 }
 
@@ -937,8 +960,12 @@ fn test_unstake_one_subnet_does_not_affect_other() {
         ));
 
         // Lock on subnet A unaffected
-        let lock_a = Lock::<Test>::get(coldkey, netuid_a).unwrap();
+        let lock_a = Lock::<Test>::get((coldkey, netuid_a, hotkey)).unwrap();
         assert_eq!(lock_a.locked_mass, 5000u64.into());
+
+        // Hotkey lock on subnet A also unaffected
+        let hotkey_lock_a = HotkeyLock::<Test>::get(netuid_a, hotkey).unwrap();
+        assert_eq!(hotkey_lock_a.locked_mass, 5000u64.into());
     });
 }
 
@@ -962,12 +989,12 @@ fn test_hotkey_conviction_single_locker() {
 
         // Initially conviction is 0 (just created)
         let c = SubtensorModule::hotkey_conviction(&hotkey, netuid);
-        assert_eq!(c, U64F64::saturating_from_num(0));
+        assert_eq!(c, U64F64::from_num(0));
 
         // After time, conviction grows
         step_block(1000);
         let c = SubtensorModule::hotkey_conviction(&hotkey, netuid);
-        assert!(c > U64F64::saturating_from_num(0));
+        assert!(c > U64F64::from_num(0));
     });
 }
 
@@ -1018,7 +1045,7 @@ fn test_hotkey_conviction_multiple_lockers() {
         } else {
             (c1 + c2) - total_conviction
         };
-        assert!(diff < U64F64::saturating_from_num(1));
+        assert!(diff < U64F64::from_num(1));
     });
 }
 
@@ -1123,7 +1150,8 @@ fn test_maybe_cleanup_lock_removes_dust() {
 
         SubtensorModule::maybe_cleanup_lock(&coldkey, netuid);
 
-        assert!(Lock::<Test>::get(coldkey, netuid).is_none());
+        assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_none());
+        assert!(HotkeyLock::<Test>::get(netuid, hotkey).is_none());
     });
 }
 
@@ -1134,7 +1162,11 @@ fn test_maybe_cleanup_lock_no_lock() {
         let netuid = subtensor_runtime_common::NetUid::from(1);
         // Should be a no-op, no panic
         SubtensorModule::maybe_cleanup_lock(&coldkey, netuid);
-        assert!(Lock::<Test>::get(coldkey, netuid).is_none());
+        assert!(
+            Lock::<Test>::iter_prefix((coldkey, netuid))
+                .next()
+                .is_none()
+        );
     });
 }
 
@@ -1161,26 +1193,24 @@ fn test_maybe_cleanup_lock_two_coldkeys() {
         .unwrap();
 
         // Mock a non-zero conviction for both coldkeys
-        let lock1 = Lock::<Test>::get(coldkey1, netuid).unwrap_or(LockState {
-            hotkey,
+        let lock1 = Lock::<Test>::get((coldkey1, netuid, hotkey)).unwrap_or(LockState {
             locked_mass: 0.into(),
-            conviction: U64F64::saturating_from_num(1234),
+            conviction: U64F64::from_num(1234),
             last_update: System::block_number(),
         });
-        let lock2 = Lock::<Test>::get(coldkey2, netuid).unwrap_or(LockState {
-            hotkey,
+        let lock2 = Lock::<Test>::get((coldkey2, netuid, hotkey)).unwrap_or(LockState {
             locked_mass: 0.into(),
-            conviction: U64F64::saturating_from_num(1234),
+            conviction: U64F64::from_num(1234),
             last_update: System::block_number(),
         });
-        Lock::<Test>::insert(coldkey1, netuid, lock1);
-        Lock::<Test>::insert(coldkey2, netuid, lock2);
+        Lock::<Test>::insert((coldkey1, netuid, hotkey), lock1);
+        Lock::<Test>::insert((coldkey2, netuid, hotkey), lock2);
         HotkeyLock::<Test>::insert(
             netuid,
             hotkey,
-            HotkeyLockState {
+            LockState {
                 locked_mass: 0.into(),
-                conviction: U64F64::saturating_from_num(1234 * 2),
+                conviction: U64F64::from_num(1234 * 2),
                 last_update: System::block_number(),
             },
         );
@@ -1202,8 +1232,12 @@ fn test_maybe_cleanup_lock_two_coldkeys() {
         SubtensorModule::maybe_cleanup_lock(&coldkey1, netuid);
 
         // Should only clean up coldkey1's lock, not coldkey2's
-        assert!(Lock::<Test>::get(coldkey1, netuid).is_none());
-        assert!(Lock::<Test>::get(coldkey2, netuid).is_some());
+        assert!(
+            Lock::<Test>::iter_prefix((coldkey1, netuid))
+                .next()
+                .is_none()
+        );
+        assert!(Lock::<Test>::get((coldkey2, netuid, hotkey)).is_some());
 
         // Hotkey lock should reduce according to coldkey1 lock
         let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey).unwrap();
@@ -1211,7 +1245,7 @@ fn test_maybe_cleanup_lock_two_coldkeys() {
 
         // Conviction should be reduced by coldkey1's lock conviction,
         // but not fully reset because coldkey2 still has a lock
-        assert!(hotkey_lock.conviction == U64F64::saturating_from_num(1234));
+        assert!(hotkey_lock.conviction == U64F64::from_num(1234));
     });
 }
 
@@ -1238,9 +1272,13 @@ fn test_coldkey_swap_swaps_lock() {
         assert_ok!(SubtensorModule::do_swap_coldkey(&old_coldkey, &new_coldkey));
 
         // Lock removed on old coldkey
-        assert!(Lock::<Test>::get(old_coldkey, netuid).is_none());
+        assert!(
+            Lock::<Test>::iter_prefix((old_coldkey, netuid))
+                .next()
+                .is_none()
+        );
         // New coldkey now has the lock
-        assert!(Lock::<Test>::get(new_coldkey, netuid).is_some());
+        assert!(Lock::<Test>::get((new_coldkey, netuid, hotkey)).is_some());
     });
 }
 
@@ -1302,11 +1340,11 @@ fn test_hotkey_swap_swaps_locks_and_convictions() {
         ));
 
         // Mock a non-zero conviction
-        let mut lock = Lock::<Test>::get(coldkey, netuid).unwrap();
-        lock.conviction = U64F64::saturating_from_num(1234);
-        Lock::<Test>::insert(coldkey, netuid, lock);
+        let mut lock = Lock::<Test>::get((coldkey, netuid, old_hotkey)).unwrap();
+        lock.conviction = U64F64::from_num(1234);
+        Lock::<Test>::insert((coldkey, netuid, old_hotkey), lock);
         let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, old_hotkey).unwrap();
-        hotkey_lock.conviction = U64F64::saturating_from_num(1234);
+        hotkey_lock.conviction = U64F64::from_num(1234);
         HotkeyLock::<Test>::insert(netuid, old_hotkey, hotkey_lock);
 
         // Perform hotkey swap
@@ -1320,15 +1358,14 @@ fn test_hotkey_swap_swaps_locks_and_convictions() {
         ));
 
         // Lock references new_hotkey, conviction is not reset
-        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
-        assert_eq!(lock.hotkey, new_hotkey);
+        let lock = Lock::<Test>::get((coldkey, netuid, new_hotkey)).unwrap();
         assert_eq!(lock.locked_mass, 5000u64.into());
-        assert!(lock.conviction > U64F64::saturating_from_num(0));
+        assert!(lock.conviction > U64F64::from_num(0));
 
         // Hotkey lock data also updated, conviction is not reset
         let hotkey_lock = HotkeyLock::<Test>::get(netuid, new_hotkey).unwrap();
         assert_eq!(hotkey_lock.locked_mass, 5000u64.into());
-        assert!(hotkey_lock.conviction > U64F64::saturating_from_num(0));
+        assert!(hotkey_lock.conviction > U64F64::from_num(0));
 
         // Trying to top up to new_hotkey works
         assert_ok!(SubtensorModule::do_lock_stake(
@@ -1365,10 +1402,15 @@ fn test_lock_stake_extrinsic() {
             lock_amount.into(),
         ));
 
-        let lock = Lock::<Test>::get(coldkey, netuid).expect("Lock should exist");
-        assert_eq!(lock.hotkey, hotkey);
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).expect("Lock should exist");
         assert_eq!(lock.locked_mass, lock_amount.into());
-        assert_eq!(lock.conviction, U64F64::saturating_from_num(0));
+        assert_eq!(lock.conviction, U64F64::from_num(0));
+
+        // Hotkey lock should also be updated
+        let hotkey_lock =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("Hotkey lock should exist");
+        assert_eq!(hotkey_lock.locked_mass, lock_amount.into());
+        assert_eq!(hotkey_lock.conviction, U64F64::from_num(0));
     });
 }
 
@@ -1470,7 +1512,7 @@ fn test_subnet_dissolution_orphans_locks() {
             &hotkey,
             5000u64.into(),
         ));
-        assert!(Lock::<Test>::get(coldkey, netuid).is_some());
+        assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_some());
 
         // Dissolve the subnet
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
@@ -1482,8 +1524,12 @@ fn test_subnet_dissolution_orphans_locks() {
         );
 
         // Lock entries are not orphaned
-        let lock = Lock::<Test>::get(coldkey, netuid);
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey));
         assert!(lock.is_none());
+
+        // Hotkey lock is also removed
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey);
+        assert!(hotkey_lock.is_none());
     });
 }
 
@@ -1505,9 +1551,13 @@ fn test_subnet_dissolution_and_netuid_reuse() {
         // Dissolve old subnet
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
-        // The stale lock from old subnet remains
-        let stale_lock = Lock::<Test>::get(coldkey, netuid);
+        // No stale lock from old subnet remains
+        let stale_lock = Lock::<Test>::get((coldkey, netuid, hotkey_old));
         assert!(stale_lock.is_none());
+
+        // No stale hotkey lock remains
+        let stale_hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey_old);
+        assert!(stale_hotkey_lock.is_none());
     });
 }
 
@@ -1559,8 +1609,16 @@ fn test_clear_small_nomination_checks_lock() {
         let nominator_alpha_after = get_alpha(&owner_hotkey, &nominator, netuid);
         assert_eq!(nominator_alpha_after, AlphaBalance::ZERO);
 
-        // Lock entry still exists, now orphaned
-        assert!(Lock::<Test>::get(nominator, netuid).is_none());
+        // Lock entry doesn't exist anymore
+        assert!(
+            Lock::<Test>::iter_prefix((nominator, netuid))
+                .next()
+                .is_none()
+        );
+
+        // Hotkey lock should also be removed
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, owner_hotkey);
+        assert!(hotkey_lock.is_none());
     });
 }
 
@@ -1645,8 +1703,10 @@ fn test_neuron_replacement_does_not_affect_lock() {
         assert_eq!(locked_after, locked_before);
 
         // Lock still references original hotkey
-        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
-        assert_eq!(lock.hotkey, hotkey);
+        assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_some());
+
+        // Hotkey lock still references original hotkey
+        assert!(HotkeyLock::<Test>::get(netuid, hotkey).is_some());
     });
 }
 
@@ -1671,11 +1731,11 @@ fn test_moving_lock() {
         ));
 
         // Mock a non-zero conviction
-        let mut lock = Lock::<Test>::get(coldkey, netuid).unwrap();
-        lock.conviction = U64F64::saturating_from_num(1234);
-        Lock::<Test>::insert(coldkey, netuid, lock);
+        let mut lock = Lock::<Test>::get((coldkey, netuid, hotkey_origin)).unwrap();
+        lock.conviction = U64F64::from_num(1234);
+        Lock::<Test>::insert((coldkey, netuid, hotkey_origin), lock);
         let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey_origin).unwrap();
-        hotkey_lock.conviction = U64F64::saturating_from_num(1234);
+        hotkey_lock.conviction = U64F64::from_num(1234);
         HotkeyLock::<Test>::insert(netuid, hotkey_origin, hotkey_lock);
 
         assert_ok!(SubtensorModule::move_lock(
@@ -1683,10 +1743,19 @@ fn test_moving_lock() {
             hotkey_destination,
             netuid,
         ));
-        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
-        assert_eq!(lock.hotkey, hotkey_destination);
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey_destination)).unwrap();
         assert_eq!(lock.locked_mass, lock_amount);
         assert_eq!(lock.conviction, U64F64::from_num(0));
+
+        // Hotkey lock is removed on origin and added on destination
+        assert!(HotkeyLock::<Test>::get(netuid, hotkey_origin).is_none());
+        let hotkey_lock_destination_after =
+            HotkeyLock::<Test>::get(netuid, hotkey_destination).unwrap();
+        assert_eq!(hotkey_lock_destination_after.locked_mass, lock_amount);
+        assert_eq!(
+            hotkey_lock_destination_after.conviction,
+            U64F64::from_num(0)
+        );
     });
 }
 
@@ -1731,14 +1800,14 @@ fn test_moving_partial_lock() {
         ));
 
         // Mock a non-zero conviction
-        let mut lock1 = Lock::<Test>::get(coldkey1, netuid).unwrap();
-        lock1.conviction = U64F64::saturating_from_num(1000);
-        Lock::<Test>::insert(coldkey1, netuid, lock1);
-        let mut lock2 = Lock::<Test>::get(coldkey2, netuid).unwrap();
-        lock2.conviction = U64F64::saturating_from_num(1000);
-        Lock::<Test>::insert(coldkey2, netuid, lock2);
+        let mut lock1 = Lock::<Test>::get((coldkey1, netuid, hotkey_origin)).unwrap();
+        lock1.conviction = U64F64::from_num(1000);
+        Lock::<Test>::insert((coldkey1, netuid, hotkey_origin), lock1);
+        let mut lock2 = Lock::<Test>::get((coldkey2, netuid, hotkey_origin)).unwrap();
+        lock2.conviction = U64F64::from_num(1000);
+        Lock::<Test>::insert((coldkey2, netuid, hotkey_origin), lock2);
         let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey_origin).unwrap();
-        hotkey_lock.conviction = U64F64::saturating_from_num(2000);
+        hotkey_lock.conviction = U64F64::from_num(2000);
         HotkeyLock::<Test>::insert(netuid, hotkey_origin, hotkey_lock);
 
         // Move lock for coldkey1 to hotkey_destination, coldkey2's lock should be unaffected
@@ -1747,12 +1816,10 @@ fn test_moving_partial_lock() {
             hotkey_destination,
             netuid,
         ));
-        let lock1_after = Lock::<Test>::get(coldkey1, netuid).unwrap();
-        let lock2_after = Lock::<Test>::get(coldkey2, netuid).unwrap();
-        assert_eq!(lock1_after.hotkey, hotkey_destination);
+        let lock1_after = Lock::<Test>::get((coldkey1, netuid, hotkey_destination)).unwrap();
+        let lock2_after = Lock::<Test>::get((coldkey2, netuid, hotkey_origin)).unwrap();
         assert_eq!(lock1_after.locked_mass, lock_amount);
         assert_eq!(lock1_after.conviction, U64F64::from_num(0));
-        assert_eq!(lock2_after.hotkey, hotkey_origin);
         assert_eq!(lock2_after.locked_mass, lock_amount);
         assert_eq!(lock2_after.conviction, U64F64::from_num(1000));
 
@@ -1811,14 +1878,14 @@ fn test_moving_partial_lock_same_owners() {
         ));
 
         // Mock a non-zero conviction
-        let mut lock1 = Lock::<Test>::get(coldkey1, netuid).unwrap();
-        lock1.conviction = U64F64::saturating_from_num(1000);
-        Lock::<Test>::insert(coldkey1, netuid, lock1);
-        let mut lock2 = Lock::<Test>::get(coldkey2, netuid).unwrap();
-        lock2.conviction = U64F64::saturating_from_num(1000);
-        Lock::<Test>::insert(coldkey2, netuid, lock2);
+        let mut lock1 = Lock::<Test>::get((coldkey1, netuid, hotkey_origin)).unwrap();
+        lock1.conviction = U64F64::from_num(1000);
+        Lock::<Test>::insert((coldkey1, netuid, hotkey_origin), lock1);
+        let mut lock2 = Lock::<Test>::get((coldkey2, netuid, hotkey_origin)).unwrap();
+        lock2.conviction = U64F64::from_num(1000);
+        Lock::<Test>::insert((coldkey2, netuid, hotkey_origin), lock2);
         let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey_origin).unwrap();
-        hotkey_lock.conviction = U64F64::saturating_from_num(2000);
+        hotkey_lock.conviction = U64F64::from_num(2000);
         HotkeyLock::<Test>::insert(netuid, hotkey_origin, hotkey_lock);
 
         // Move lock for coldkey1 to hotkey_destination, coldkey2's lock should be unaffected
@@ -1827,12 +1894,10 @@ fn test_moving_partial_lock_same_owners() {
             hotkey_destination,
             netuid,
         ));
-        let lock1_after = Lock::<Test>::get(coldkey1, netuid).unwrap();
-        let lock2_after = Lock::<Test>::get(coldkey2, netuid).unwrap();
-        assert_eq!(lock1_after.hotkey, hotkey_destination);
+        let lock1_after = Lock::<Test>::get((coldkey1, netuid, hotkey_destination)).unwrap();
+        let lock2_after = Lock::<Test>::get((coldkey2, netuid, hotkey_origin)).unwrap();
         assert_eq!(lock1_after.locked_mass, lock_amount);
         assert_eq!(lock1_after.conviction, U64F64::from_num(1000));
-        assert_eq!(lock2_after.hotkey, hotkey_origin);
         assert_eq!(lock2_after.locked_mass, lock_amount);
         assert_eq!(lock2_after.conviction, U64F64::from_num(1000));
 

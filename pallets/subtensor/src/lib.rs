@@ -1493,11 +1493,9 @@ pub mod pallet {
     >;
 
     /// Exponential lock state for a coldkey on a subnet.
-    #[crate::freeze_struct("cfa10602e0577f6e")]
+    #[crate::freeze_struct("1f6be20a66128b8d")]
     #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
-    pub struct LockState<AccountId> {
-        /// The hotkey this stake is locked to.
-        pub hotkey: AccountId,
+    pub struct LockState {
         /// Exponentially decaying locked amount.
         pub locked_mass: AlphaBalance,
         /// Matured decaying score (integral of locked_mass over time).
@@ -1506,29 +1504,18 @@ pub mod pallet {
         pub last_update: u64,
     }
 
-    /// --- DMAP ( coldkey, netuid ) --> LockState | Exponential lock per coldkey per subnet.
+    /// --- DMAP ( coldkey, netuid, hotkey ) --> LockState | Exponential lock per coldkey per subnet.
     #[pallet::storage]
-    pub type Lock<T: Config> = StorageDoubleMap<
+    pub type Lock<T: Config> = StorageNMap<
         _,
-        Blake2_128Concat,
-        T::AccountId, // coldkey
-        Identity,
-        NetUid, // subnet
-        LockState<T::AccountId>,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // coldkey
+            NMapKey<Identity, NetUid>,               // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hotkey
+        ),
+        LockState,
         OptionQuery,
     >;
-
-    /// Exponential lock state for a hotkey on a subnet.
-    #[crate::freeze_struct("aba5b4d024b9837a")]
-    #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
-    pub struct HotkeyLockState {
-        /// Exponentially decaying locked amount.
-        pub locked_mass: AlphaBalance,
-        /// Matured decaying score (integral of locked_mass over time).
-        pub conviction: U64F64,
-        /// Block number of last roll-forward.
-        pub last_update: u64,
-    }
 
     /// --- DMAP ( netuid, hotkey ) --> LockState | Total lock per hotkey per subnet.
     #[pallet::storage]
@@ -1537,8 +1524,8 @@ pub mod pallet {
         Identity,
         NetUid, // subnet
         Blake2_128Concat,
-        T::AccountId,    // hotkey
-        HotkeyLockState, // Total merged lock
+        T::AccountId, // hotkey
+        LockState,    // Total merged lock
         OptionQuery,
     >;
 
