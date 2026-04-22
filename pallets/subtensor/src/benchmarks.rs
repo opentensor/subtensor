@@ -1443,8 +1443,25 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = whitelisted_caller();
         let hot: T::AccountId = account("A", 0, 1);
 
-        // First associate, then disassociate
+        // Associate the hotkey so the call has work to undo.
         assert_ok!(Pallet::<T>::do_try_associate_hotkey(&coldkey, &hot));
+
+        // Make the hotkey a delegate so the `Delegates` cleanup is exercised.
+        Delegates::<T>::insert(&hot, 1u16);
+
+        // Populate `AutoStakeDestination*` across several subnets and several coldkeys
+        // so the per-subnet cleanup loop is benchmarked under realistic load.
+        for i in 0u16..16u16 {
+            let netuid = NetUid::from(i.saturating_add(1));
+            Subtensor::<T>::init_new_network(netuid, 1);
+            let mut coldkeys = sp_std::vec::Vec::new();
+            for j in 0u32..4u32 {
+                let ck: T::AccountId = account("auto", j, u32::from(i));
+                AutoStakeDestination::<T>::insert(&ck, netuid, hot.clone());
+                coldkeys.push(ck);
+            }
+            AutoStakeDestinationColdkeys::<T>::insert(&hot, netuid, coldkeys);
+        }
 
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hot.clone());

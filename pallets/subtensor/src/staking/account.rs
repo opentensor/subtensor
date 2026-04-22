@@ -31,8 +31,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure the hotkey has no outstanding stake from any coldkey.
+        // Check both the legacy `Alpha` and the new `AlphaV2` storages directly so the
+        // iterator short-circuits on the first entry instead of materializing both maps.
         ensure!(
-            Self::alpha_iter_single_prefix(hotkey).next().is_none(),
+            Alpha::<T>::iter_prefix((hotkey,)).next().is_none()
+                && AlphaV2::<T>::iter_prefix((hotkey,)).next().is_none(),
             Error::<T>::HotkeyHasOutstandingStake
         );
 
