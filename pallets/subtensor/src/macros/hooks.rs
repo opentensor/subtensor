@@ -360,10 +360,7 @@ mod hooks {
                             log::error!("=== weight_used: {:?}", weight_used);
                             log::error!("=== remaining_weight: {:?}", remaining_weight);
                             if done {
-                                DissolvedNetworksCleanupPhase::<T>::insert(
-                                    *netuid,
-                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetwork,
-                                );
+                                DissolvedNetworksCleanupPhase::<T>::remove(*netuid);
                             }
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetwork => {
