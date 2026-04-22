@@ -460,31 +460,12 @@ impl<T: Config> Pallet<T> {
     ) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
-        let remaining_ref_time = weight_meter.limit().ref_time();
-
-        let limit = remaining_weight
-            .ref_time()
-            .saturating_div(T::DbWeight::get().writes(1).ref_time());
-
-        let count = RootClaimed::<T>::iter_prefix((netuid,)).count();
-        log::error!("=== in loop: count: {count}");
-
-        let result = RootClaimed::<T>::clear_prefix((netuid,), limit as u32, None);
-
-        weight_meter.consume(T::DbWeight::get().writes(result.backend as u64));
-
-        log::error!("=== in loop: result backend: {:?}", &result.backend);
-        log::error!(
-            "=== in loop: result maybe_cursor: {:?}",
-            &result.maybe_cursor
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            RootClaimed::<T>,
+            (netuid,)
         );
-
-        // LoopRemovePrefixWithWeightMeter!(
-        //     weight_meter,
-        //     T::DbWeight::get().writes(1),
-        //     RootClaimed::<T>,
-        //     (netuid,)
-        // );
 
         // count = 0;
 
