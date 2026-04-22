@@ -873,6 +873,100 @@ fn test_disassociate_hotkey_cleans_auto_stake() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_cleans_delegate --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_cleans_delegate() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Mark the hotkey as a delegate.
+        Delegates::<Test>::insert(hotkey1, 100u16);
+        assert!(Delegates::<Test>::contains_key(hotkey1));
+
+        assert_ok!(SubtensorModule::disassociate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        assert!(!Delegates::<Test>::contains_key(hotkey1));
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_cleans_auto_stake_multi_subnet --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_cleans_auto_stake_multi_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+        let coldkey3 = U256::from(4);
+        let netuid_a = NetUid::from(1);
+        let netuid_b = NetUid::from(2);
+
+        add_network(netuid_a, 10, 0);
+        add_network(netuid_b, 10, 0);
+
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Two coldkeys auto-stake to hotkey1 on subnet A; one on subnet B.
+        AutoStakeDestination::<Test>::insert(coldkey2, netuid_a, hotkey1);
+        AutoStakeDestination::<Test>::insert(coldkey3, netuid_a, hotkey1);
+        AutoStakeDestination::<Test>::insert(coldkey2, netuid_b, hotkey1);
+        AutoStakeDestinationColdkeys::<Test>::insert(hotkey1, netuid_a, vec![coldkey2, coldkey3]);
+        AutoStakeDestinationColdkeys::<Test>::insert(hotkey1, netuid_b, vec![coldkey2]);
+
+        assert_ok!(SubtensorModule::disassociate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        // All forward entries are gone.
+        assert!(AutoStakeDestination::<Test>::get(coldkey2, netuid_a).is_none());
+        assert!(AutoStakeDestination::<Test>::get(coldkey3, netuid_a).is_none());
+        assert!(AutoStakeDestination::<Test>::get(coldkey2, netuid_b).is_none());
+        // Reverse index is empty for both subnets.
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(hotkey1, netuid_a).is_empty());
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(hotkey1, netuid_b).is_empty());
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::staking2::test_disassociate_hotkey_emits_event --exact --show-output --nocapture
+#[test]
+fn test_disassociate_hotkey_emits_event() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+
+        // Step a block so System::events() captures only post-block events.
+        System::set_block_number(1);
+
+        assert_ok!(SubtensorModule::try_associate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        assert_ok!(SubtensorModule::disassociate_hotkey(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1
+        ));
+
+        assert!(System::events().iter().any(|e| matches!(
+            &e.event,
+            RuntimeEvent::SubtensorModule(Event::HotkeyDisassociated { coldkey, hotkey })
+                if *coldkey == coldkey1 && *hotkey == hotkey1
+        )));
+    });
+}
+
 #[test]
 fn test_stake_fee_api() {
     // The API should match the calculation
