@@ -458,7 +458,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         remaining_weight: Weight,
     ) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let weight_meter = WeightMeter::with_limit(remaining_weight);
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
@@ -467,18 +467,6 @@ impl<T: Config> Pallet<T> {
             (netuid,)
         );
 
-        // count = 0;
-
-        // for ((_, _), _) in RootClaimed::<T>::iter_prefix((netuid,)) {
-        //     count += 1;
-        // }
-
-        log::error!(
-            "=== after loop: count: {}",
-            RootClaimed::<T>::iter_prefix((netuid,)).count()
-        );
-        // println!("=== after loop: count: {count}");
-
-        (weight_meter.consumed(), result.maybe_cursor.is_none())
+        (weight_meter.consumed(), true)
     }
 }
