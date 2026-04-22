@@ -2,32 +2,19 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
-use core::marker::PhantomData;
-use frame_support::{
-    dispatch::{ClassifyDispatch, DispatchClass, DispatchResult, Pays, PaysFee, WeighData},
-    pallet_prelude::TransactionSource,
-    pallet_prelude::*,
-    traits::IsSubType,
-    weights::Weight,
-};
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use log::info;
-use scale_info::TypeInfo;
-use sp_runtime::{
-    impl_tx_ext_default,
-    traits::{
-        Bounded, DispatchInfoOf, DispatchOriginOf, SaturatedConversion, Saturating,
-        TransactionExtension, ValidateResult,
-    },
-    transaction_validity::{InvalidTransaction, ValidTransaction},
-};
+use subtensor_runtime_common::{PollHooks, Polls};
 
 pub use pallet::*;
 
+type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+type PollIndexOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Index;
+type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::VotingScheme;
+
 #[frame_support::pallet]
 pub mod pallet {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
     use super::*;
 
     #[pallet::pallet]
@@ -35,32 +22,45 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent;
+        /// The voting scheme this pallet handles.
+        type Scheme: Get<VotingSchemeOf<Self>>;
+
+        /// The referenda pallet. Provides poll queries and receives tally updates.
+        type Polls: Polls<Self::AccountId>;
+
+        #[pallet::constant]
+        type PowDifficulty: Get<u32>;
+
+        #[pallet::constant]
+        type MaxRingSize: Get<u32>;
     }
 
-    #[pallet::storage]
-    pub(super) type Members<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::CollectiveId,
-        BoundedVec<T::AccountId, T::MaxMembers>,
-        ValueQuery,
-    >;
-
     #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {}
+
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Anonymous voting is not implemented yet.
+        NotImplemented,
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Placeholder extrinsic. Full bLSAG + PoW implementation pending.
         #[pallet::call_index(0)]
-        pub fn anonymous_vote(origin: OriginFor<T>) -> DispatchResult {
-            Ok(())
-        }
-
-        #[pallet::call_index(1)]
-        pub fn remove_anonymous_vote(origin: OriginFor<T>) -> DispatchResult {
-            Ok(())
+        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
+        pub fn anonymous_vote(
+            origin: OriginFor<T>,
+            _poll_index: PollIndexOf<T>,
+            _approve: bool,
+        ) -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+            Err(Error::<T>::NotImplemented.into())
         }
     }
+}
+
+impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
+    fn on_poll_created(_poll_index: PollIndexOf<T>) {}
+    fn on_poll_completed(_poll_index: PollIndexOf<T>) {}
 }

@@ -24,6 +24,13 @@ subtensor-runtime-common = { workspace = true }
 
 [features]
 default = ["std"]
-std = []
+std = [
+	"codec/std",
+	"scale-info/std",
+	"frame-system/std",
+	"frame-support/std",
+	"sp-runtime/std",
+	"subtensor-runtime-common/std",
+]
 runtime-benchmarks = []
 try-runtime = []

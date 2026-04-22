@@ -2,16 +2,21 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::EnsureOriginWithArg};
 use frame_system::pallet_prelude::*;
 use num_traits::ops::checked::CheckedRem;
 pub use pallet::*;
 
-pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
-type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
+#[cfg(test)]
+mod tests;
 
-#[frame_support::pallet(dev_mode)]
+pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
+pub type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
+
+#[frame_support::pallet]
 pub mod pallet {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
     use super::*;
 
     #[pallet::pallet]
@@ -52,7 +57,7 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    pub(super) type Members<T: Config> = StorageMap<
+    pub type Members<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         T::CollectiveId,
@@ -104,10 +109,10 @@ pub mod pallet {
             let mut weight = Weight::zero();
 
             for collective in T::Collectives::collectives() {
-                if let Some(term_duration) = collective.info.term_duration {
-                    if n.checked_rem(&term_duration).unwrap_or(n).is_zero() {
-                        weight.saturating_accrue(T::OnNewTerm::on_new_term(collective.id));
-                    }
+                if let Some(term_duration) = collective.info.term_duration
+                    && n.checked_rem(&term_duration).unwrap_or(n).is_zero()
+                {
+                    weight.saturating_accrue(T::OnNewTerm::on_new_term(collective.id));
                 }
             }
 
@@ -118,52 +123,66 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
+        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
         pub fn add_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
             who: T::AccountId,
         ) -> DispatchResult {
             T::AddOrigin::ensure_origin(origin, &collective_id)?;
-            let info = T::Collectives::info(collective_id)
-                .ok_or(Error::<T>::CollectiveNotFound)?;
+            let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
-            Members::<T>::try_mutate(&collective_id, |members| -> DispatchResult {
+            Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
                 ensure!(!members.contains(&who), Error::<T>::AlreadyMember);
                 if let Some(max) = info.max_members {
                     ensure!(members.len() < max as usize, Error::<T>::TooManyMembers);
                 }
-                members.try_push(who.clone()).map_err(|_| Error::<T>::TooManyMembers)?;
+                members
+                    .try_push(who.clone())
+                    .map_err(|_| Error::<T>::TooManyMembers)?;
                 Ok(())
             })?;
 
-            T::OnMembersChanged::on_members_changed(collective_id, &[who.clone()], &[]);
+            T::OnMembersChanged::on_members_changed(
+                collective_id,
+                core::slice::from_ref(&who),
+                &[],
+            );
             Self::deposit_event(Event::MemberAdded { collective_id, who });
             Ok(())
         }
 
         #[pallet::call_index(1)]
+        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
         pub fn remove_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
             who: T::AccountId,
         ) -> DispatchResult {
             T::RemoveOrigin::ensure_origin(origin, &collective_id)?;
-            let info = T::Collectives::info(collective_id)
-                .ok_or(Error::<T>::CollectiveNotFound)?;
+            let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
-            Members::<T>::try_mutate(&collective_id, |members| -> DispatchResult {
+            Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
                 ensure!(members.contains(&who), Error::<T>::NotMember);
-                ensure!(members.len() > info.min_members as usize, Error::<T>::TooFewMembers);
+                ensure!(
+                    members.len() > info.min_members as usize,
+                    Error::<T>::TooFewMembers
+                );
                 members.retain(|m| m != &who);
                 Ok(())
             })?;
 
-            T::OnMembersChanged::on_members_changed(collective_id, &[], &[who.clone()]);
+            T::OnMembersChanged::on_members_changed(
+                collective_id,
+                &[],
+                core::slice::from_ref(&who),
+            );
             Self::deposit_event(Event::MemberRemoved { collective_id, who });
             Ok(())
         }
 
         #[pallet::call_index(2)]
+        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
         pub fn swap_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -171,36 +190,48 @@ pub mod pallet {
             add: T::AccountId,
         ) -> DispatchResult {
             T::SwapOrigin::ensure_origin(origin, &collective_id)?;
-            T::Collectives::info(collective_id)
-                .ok_or(Error::<T>::CollectiveNotFound)?;
+            T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
-            Members::<T>::try_mutate(&collective_id, |members| -> DispatchResult {
-                let pos = members.iter().position(|m| m == &remove)
+            Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
+                let pos = members
+                    .iter()
+                    .position(|m| m == &remove)
                     .ok_or(Error::<T>::NotMember)?;
                 ensure!(!members.contains(&add), Error::<T>::AlreadyMember);
-                members[pos] = add.clone();
+                if let Some(slot) = members.get_mut(pos) {
+                    *slot = add.clone();
+                }
                 Ok(())
             })?;
 
             T::OnMembersChanged::on_members_changed(
-                collective_id, &[add.clone()], &[remove.clone()],
+                collective_id,
+                core::slice::from_ref(&add),
+                core::slice::from_ref(&remove),
             );
-            Self::deposit_event(Event::MemberSwapped { collective_id, removed: remove, added: add });
+            Self::deposit_event(Event::MemberSwapped {
+                collective_id,
+                removed: remove,
+                added: add,
+            });
             Ok(())
         }
 
         #[pallet::call_index(3)]
+        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
         pub fn reset_members(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
             members: Vec<T::AccountId>,
         ) -> DispatchResult {
             T::ResetOrigin::ensure_origin(origin, &collective_id)?;
-            let info = T::Collectives::info(collective_id)
-                .ok_or(Error::<T>::CollectiveNotFound)?;
+            let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
             // Validate new member list
-            ensure!(members.len() >= info.min_members as usize, Error::<T>::TooFewMembers);
+            ensure!(
+                members.len() >= info.min_members as usize,
+                Error::<T>::TooFewMembers
+            );
             if let Some(max) = info.max_members {
                 ensure!(members.len() <= max as usize, Error::<T>::TooManyMembers);
             }
@@ -211,29 +242,34 @@ pub mod pallet {
             sorted.dedup();
             ensure!(sorted.len() == members.len(), Error::<T>::DuplicateAccounts);
 
-            let old_members = Members::<T>::get(&collective_id);
-            let bounded = BoundedVec::try_from(members.clone())
-                .map_err(|_| Error::<T>::TooManyMembers)?;
-            Members::<T>::insert(&collective_id, bounded);
+            let old_members = Members::<T>::get(collective_id);
+            let bounded =
+                BoundedVec::try_from(members.clone()).map_err(|_| Error::<T>::TooManyMembers)?;
+            Members::<T>::insert(collective_id, bounded);
 
             // Compute incoming/outgoing
-            let incoming: Vec<_> = members.iter()
+            let incoming: Vec<_> = members
+                .iter()
                 .filter(|m| !old_members.contains(m))
                 .cloned()
                 .collect();
-            let outgoing: Vec<_> = old_members.iter()
+            let outgoing: Vec<_> = old_members
+                .iter()
                 .filter(|m| !members.contains(m))
                 .cloned()
                 .collect();
 
             T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
-            Self::deposit_event(Event::MembersReset { collective_id, members });
+            Self::deposit_event(Event::MembersReset {
+                collective_id,
+                members,
+            });
             Ok(())
         }
     }
 }
 
-// Detailed information about a collective.
+/// Detailed information about a collective.
 pub struct CollectiveInfo<Moment, Name> {
     pub name: Name,
     /// Minimum number of members for a collective.
@@ -282,10 +318,20 @@ pub trait OnMembersChanged<CollectiveId, AccountId> {
     );
 }
 
+impl<CollectiveId, AccountId> OnMembersChanged<CollectiveId, AccountId> for () {
+    fn on_members_changed(_: CollectiveId, _: &[AccountId], _: &[AccountId]) {}
+}
+
 /// Handler for when a new term of a collective has started.
 pub trait OnNewTerm<CollectiveId> {
     /// A new term of a collective has started.
     fn on_new_term(collective_id: CollectiveId) -> Weight;
+}
+
+impl<CollectiveId> OnNewTerm<CollectiveId> for () {
+    fn on_new_term(_: CollectiveId) -> Weight {
+        Weight::zero()
+    }
 }
 
 /// Trait for inspecting a collective.
@@ -300,12 +346,12 @@ pub trait CollectiveInspect<AccountId, CollectiveId> {
 
 impl<T: Config> CollectiveInspect<T::AccountId, T::CollectiveId> for Pallet<T> {
     fn members_of(collective_id: T::CollectiveId) -> Vec<T::AccountId> {
-        Members::<T>::get(&collective_id).to_vec()
+        Members::<T>::get(collective_id).to_vec()
     }
     fn is_member(collective_id: T::CollectiveId, who: &T::AccountId) -> bool {
-        Members::<T>::get(&collective_id).contains(who)
+        Members::<T>::get(collective_id).contains(who)
     }
     fn member_count(collective_id: T::CollectiveId) -> u32 {
-        Members::<T>::get(&collective_id).len() as u32
+        Members::<T>::get(collective_id).len() as u32
     }
 }

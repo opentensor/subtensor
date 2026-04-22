@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
+pub mod governance_v2;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
@@ -29,7 +30,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
-use pallet_governance::{BUILDING_COLLECTIVE_SIZE, ECONOMIC_COLLECTIVE_SIZE};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
 pub use pallet_shield;
@@ -59,8 +59,7 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, FixedU128, Percent, generic,
-    impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -1639,59 +1638,9 @@ impl pallet_contracts::Config for Runtime {
     type ApiVersion = ();
 }
 
-parameter_types! {
-    pub const MaxAllowedProposers: u32 = 20;
-    pub MaxProposalWeight: Weight = Perbill::from_percent(20) * BlockWeights::get().max_block;
-    pub const MaxProposals: u32 = 20;
-    pub const MaxScheduled: u32 = 20;
-    pub const MotionDuration: BlockNumber = prod_or_fast!(50_400, 50); // 7 days
-    pub const InitialSchedulingDelay: BlockNumber = prod_or_fast!(300, 30); // 1 hour
-    pub const AdditionalDelayFactor: FixedU128 = FixedU128::from_rational(3, 2); // 1.5
-    pub const CollectiveRotationPeriod: BlockNumber = prod_or_fast!(432_000, 100); // 60 days
-    pub const CleanupPeriod: BlockNumber = prod_or_fast!(21_600, 50); // 3 days
-    pub const FastTrackThreshold: Percent = Percent::from_percent(67);
-    pub const CancellationThreshold: Percent = Percent::from_percent(51);
-}
-
-impl pallet_governance::Config for Runtime {
-    type RuntimeCall = RuntimeCall;
-    type WeightInfo = pallet_governance::weights::SubstrateWeight<Self>;
-    type Currency = Balances;
-    type Preimages = Preimage;
-    type Scheduler = Scheduler;
-    type SetAllowedProposersOrigin = EnsureRoot<AccountId>;
-    type SetTriumvirateOrigin = EnsureRoot<AccountId>;
-    type CollectiveMembersProvider = CollectiveMembersProvider;
-    type MaxAllowedProposers = MaxAllowedProposers;
-    type MaxProposalWeight = MaxProposalWeight;
-    type MaxProposals = MaxProposals;
-    type MaxScheduled = MaxScheduled;
-    type MotionDuration = MotionDuration;
-    type InitialSchedulingDelay = InitialSchedulingDelay;
-    type AdditionalDelayFactor = AdditionalDelayFactor;
-    type CollectiveRotationPeriod = CollectiveRotationPeriod;
-    type CleanupPeriod = CleanupPeriod;
-    type CancellationThreshold = CancellationThreshold;
-    type FastTrackThreshold = FastTrackThreshold;
-}
-
-pub struct CollectiveMembersProvider;
-
-impl pallet_governance::CollectiveMembersProvider<Runtime> for CollectiveMembersProvider {
-    fn get_economic_collective() -> (
-        BoundedVec<AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>,
-        Weight,
-    ) {
-        (BoundedVec::new(), Weight::zero())
-    }
-
-    fn get_building_collective() -> (
-        BoundedVec<AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>,
-        Weight,
-    ) {
-        (BoundedVec::new(), Weight::zero())
-    }
-}
+// pallet-governance (monolith) disabled — superseded by Governance V2 (multi-collective,
+// signed-voting, anonymous-voting, referenda). The crate still lives under
+// `pallets/governance/` for reference but is no longer wired into the runtime.
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1731,7 +1680,13 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
-        Governance: pallet_governance = 31,
+        // Governance (pallet_governance monolith) was 31, now superseded by V2 below.
+
+        // Governance V2 — modular.
+        MultiCollective: pallet_multi_collective = 32,
+        Referenda: pallet_referenda = 33,
+        SignedVoting: pallet_signed_voting = 34,
+        AnonymousVoting: pallet_anonymous_voting = 35,
     }
 );
 

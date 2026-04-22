@@ -21,8 +21,19 @@ frame-system = { workspace = true }
 frame-support = { workspace = true }
 subtensor-runtime-common = { workspace = true }
 
+[dev-dependencies]
+sp-core = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, features = ["std"] }
+sp-runtime = { workspace = true, features = ["std"] }
+
 [features]
 default = ["std"]
-std = []
+std = [
+	"codec/std",
+	"scale-info/std",
+	"frame-system/std",
+	"frame-support/std",
+	"subtensor-runtime-common/std",
+]
 runtime-benchmarks = []
 try-runtime = []

@@ -2,14 +2,14 @@
 
 extern crate alloc;
 
-use frame_support::{
-    pallet_prelude::*,
-    sp_runtime::{Perbill, Saturating},
-};
+use frame_support::{pallet_prelude::*, sp_runtime::Perbill};
 use frame_system::pallet_prelude::*;
 use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
+
+#[cfg(test)]
+mod tests;
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type PollIndexOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Index;
@@ -19,25 +19,26 @@ type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Voting
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
 )]
 pub struct SignedVoteTally {
-    ayes: u32,
-    nays: u32,
-    total: u32,
+    pub ayes: u32,
+    pub nays: u32,
+    pub total: u32,
 }
 
-impl Into<VoteTally> for SignedVoteTally {
-    fn into(self: SignedVoteTally) -> VoteTally {
-        let voted = self.ayes.saturating_add(self.nays);
-        let abstention = self.total.saturating_sub(voted);
+impl From<SignedVoteTally> for VoteTally {
+    fn from(t: SignedVoteTally) -> Self {
+        let voted = t.ayes.saturating_add(t.nays);
+        let abstention = t.total.saturating_sub(voted);
         VoteTally {
-            approval: Perbill::from_rational(self.ayes, self.total),
-            rejection: Perbill::from_rational(self.nays, self.total),
-            abstention: Perbill::from_rational(abstention, self.total),
+            approval: Perbill::from_rational(t.ayes, t.total),
+            rejection: Perbill::from_rational(t.nays, t.total),
+            abstention: Perbill::from_rational(abstention, t.total),
         }
     }
 }
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 pub mod pallet {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
     use super::*;
 
     #[pallet::pallet]
@@ -45,11 +46,21 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// The voting scheme this pallet handles.
         type Scheme: Get<VotingSchemeOf<Self>>;
 
+        /// The referenda pallet. Provides poll queries and receives tally updates.
         type Polls: Polls<Self::AccountId>;
 
+        /// Maximum number of votes to clear in a single `on_poll_completed` cleanup.
+        #[pallet::constant]
         type MaxVotesToClear: Get<u32>;
+
+        /// Upper bound on the number of voters captured in the per-poll snapshot. Must be
+        /// greater than or equal to the largest possible voter set across all tracks using
+        /// the Signed scheme; otherwise the snapshot would silently truncate.
+        #[pallet::constant]
+        type MaxSnapshotMembers: Get<u32>;
     }
 
     #[pallet::storage]
@@ -67,6 +78,18 @@ pub mod pallet {
     pub type TallyOf<T: Config> =
         StorageMap<_, Twox64Concat, PollIndexOf<T>, SignedVoteTally, OptionQuery>;
 
+    /// Snapshot of eligible voters captured at `on_poll_created`. Membership checks for
+    /// `vote`/`remove_vote` use this snapshot, **not** the live collective — so adding
+    /// members to the collective mid-poll cannot fabricate `ayes` past `total`.
+    #[pallet::storage]
+    pub type VoterSnapshot<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        PollIndexOf<T>,
+        BoundedVec<T::AccountId, T::MaxSnapshotMembers>,
+        OptionQuery,
+    >;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -76,7 +99,6 @@ pub mod pallet {
             approve: bool,
             tally: SignedVoteTally,
         },
-
         VoteRemoved {
             who: T::AccountId,
             poll_index: PollIndexOf<T>,
@@ -97,6 +119,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
+        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
         pub fn vote(
             origin: OriginFor<T>,
             poll_index: PollIndexOf<T>,
@@ -120,6 +143,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
+        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
         pub fn remove_vote(origin: OriginFor<T>, poll_index: PollIndexOf<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -145,26 +169,26 @@ impl<T: Config> Pallet<T> {
         who: &T::AccountId,
         approve: bool,
     ) -> Result<SignedVoteTally, DispatchError> {
-        let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
+        let mut tally = TallyOf::<T>::get(poll_index).ok_or(Error::<T>::PollNotFound)?;
 
-        VotingFor::<T>::try_mutate(&poll_index, &who, |vote| -> DispatchResult {
+        VotingFor::<T>::try_mutate(poll_index, who, |vote| -> DispatchResult {
             match vote {
-                Some(vote) => match (vote, approve) {
+                Some(prev) => match (*prev, approve) {
                     (true, false) => {
-                        tally.ayes.saturating_dec();
-                        tally.nays.saturating_inc();
+                        tally.ayes = tally.ayes.saturating_sub(1);
+                        tally.nays = tally.nays.saturating_add(1);
                     }
                     (false, true) => {
-                        tally.nays.saturating_dec();
-                        tally.ayes.saturating_inc();
+                        tally.nays = tally.nays.saturating_sub(1);
+                        tally.ayes = tally.ayes.saturating_add(1);
                     }
                     _ => return Err(Error::<T>::DuplicateVote.into()),
                 },
                 None => {
                     if approve {
-                        tally.ayes.saturating_inc();
+                        tally.ayes = tally.ayes.saturating_add(1);
                     } else {
-                        tally.nays.saturating_inc();
+                        tally.nays = tally.nays.saturating_add(1);
                     }
                 }
             }
@@ -182,15 +206,15 @@ impl<T: Config> Pallet<T> {
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
     ) -> Result<SignedVoteTally, DispatchError> {
-        let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
+        let mut tally = TallyOf::<T>::get(poll_index).ok_or(Error::<T>::PollNotFound)?;
 
-        VotingFor::<T>::try_mutate_exists(&poll_index, &who, |vote| -> DispatchResult {
+        VotingFor::<T>::try_mutate_exists(poll_index, who, |vote| -> DispatchResult {
             match vote {
-                Some(vote) => {
-                    if *vote {
-                        tally.ayes.saturating_dec();
+                Some(prev) => {
+                    if *prev {
+                        tally.ayes = tally.ayes.saturating_sub(1);
                     } else {
-                        tally.nays.saturating_dec();
+                        tally.nays = tally.nays.saturating_sub(1);
                     }
                 }
                 None => return Err(Error::<T>::VoteNotFound.into()),
@@ -212,18 +236,37 @@ impl<T: Config> Pallet<T> {
     }
 
     fn ensure_part_of_voter_set(poll_index: PollIndexOf<T>, who: &T::AccountId) -> DispatchResult {
-        let voter_set = T::Polls::voter_set_of(poll_index).ok_or(Error::<T>::PollNotFound)?;
-        ensure!(voter_set.contains(who), Error::<T>::NotInVoterSet);
+        // Membership is checked against the frozen snapshot — NOT the live collective —
+        // so that mid-poll additions to the collective can't fabricate eligible votes.
+        let snapshot = VoterSnapshot::<T>::get(poll_index).ok_or(Error::<T>::PollNotFound)?;
+        ensure!(snapshot.contains(who), Error::<T>::NotInVoterSet);
         Ok(())
+    }
+
+    fn scheme_matches(poll_index: PollIndexOf<T>) -> bool {
+        T::Polls::voting_scheme_of(poll_index)
+            .map(|s| s == T::Scheme::get())
+            .unwrap_or(false)
     }
 }
 
 impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
     fn on_poll_created(poll_index: PollIndexOf<T>) {
-        let total = T::Polls::voter_set_of(poll_index)
-            .map(|voter_set| voter_set.len())
-            .unwrap_or(0);
+        if !Self::scheme_matches(poll_index) {
+            return;
+        }
+        let voter_set = match T::Polls::voter_set_of(poll_index) {
+            Some(v) => v,
+            None => return,
+        };
+        // Snapshot members at this exact moment — basis of all subsequent eligibility
+        // checks and the `total` denominator in the tally.
+        let members = voter_set.members();
+        let snapshot: BoundedVec<T::AccountId, T::MaxSnapshotMembers> =
+            BoundedVec::try_from(members).unwrap_or_default();
+        let total = snapshot.len() as u32;
 
+        VoterSnapshot::<T>::insert(poll_index, snapshot);
         TallyOf::<T>::insert(
             poll_index,
             SignedVoteTally {
@@ -235,8 +278,11 @@ impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
     }
 
     fn on_poll_completed(poll_index: PollIndexOf<T>) {
-        let max = T::MaxVotesToClear::get().into();
-        let _ = VotingFor::<T>::clear_prefix(poll_index, max, None);
-        TallyOf::<T>::remove(poll_index);
+        if TallyOf::<T>::contains_key(poll_index) {
+            let max = T::MaxVotesToClear::get();
+            let _ = VotingFor::<T>::clear_prefix(poll_index, max, None);
+            TallyOf::<T>::remove(poll_index);
+            VoterSnapshot::<T>::remove(poll_index);
+        }
     }
 }

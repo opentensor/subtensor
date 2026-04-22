@@ -1,3 +1,12 @@
+// TODO: Remove once anonymous voting is done
+#![allow(
+    clippy::all,
+    clippy::arithmetic_side_effects,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::unwrap_used
+)]
+
 //! BLSAG (Back's Linkable Spontaneous Anonymous Group) ring signatures over Ristretto255.
 //!
 //! This crate provides sign, verify, key image generation, and linkability detection

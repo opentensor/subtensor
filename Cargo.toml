@@ -34,7 +34,7 @@ members = [
 	"support/*",
 	"chain-extensions",
 ]
-exclude = ["eco-tests"]
+exclude = ["eco-tests", "pallets/governance"]
 resolver = "2"
 
 [workspace.package]
