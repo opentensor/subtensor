@@ -151,8 +151,6 @@ mod hooks {
                 .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
                 // Remove obsolete map entries
                 .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>())
-                // Remove Trust, Rank, and Pruning Score
-                .saturating_add(migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<T>())
                 // Re-init tao flows
                 .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>())
                 // Migrate pending emissions
@@ -167,6 +165,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>())
                 // Migrate coldkey swap scheduled to announcements
                 .saturating_add(migrations::migrate_coldkey_swap_scheduled_to_announcements::migrate_coldkey_swap_scheduled_to_announcements::<T>())
+                // Migration for new Neuron Registration
+                .saturating_add(migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<T>())
                 // Migrate fix bad hk swap
                 .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>())
                 // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug

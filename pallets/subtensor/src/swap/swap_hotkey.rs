@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::weights::Weight;
+use share_pool::SafeFloat;
 use sp_core::Get;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::U64F64;
@@ -203,8 +204,8 @@ impl<T: Config> Pallet<T> {
         keep_stake: bool,
     ) -> DispatchResult {
         // 1. keep the old hotkey alpha values for the case where hotkey staked by multiple coldkeys.
-        let old_alpha_values: Vec<((T::AccountId, NetUid), U64F64)> =
-            Alpha::<T>::iter_prefix((old_hotkey,)).collect();
+        let old_alpha_values: Vec<(T::AccountId, NetUid, SafeFloat)> =
+            Self::alpha_iter_single_prefix(old_hotkey).collect();
         weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
 
         // 2. Swap owner.
@@ -258,25 +259,26 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
-        // 10. Alpha already update in perform_hotkey_swap_on_one_subnet
+        // 10. Alphas already update in perform_hotkey_swap_on_one_subnet
         // Update the StakingHotkeys for the case where hotkey staked by multiple coldkeys.
         if !keep_stake {
-            for ((coldkey, _netuid), _alpha) in old_alpha_values {
+            for (coldkey, _netuid, alpha_share) in old_alpha_values {
                 // Swap StakingHotkeys.
                 // StakingHotkeys( coldkey ) --> Vec<hotkey> -- the hotkeys that the coldkey stakes.
-                let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
-                weight.saturating_accrue(T::DbWeight::get().reads(1));
-                if staking_hotkeys.contains(old_hotkey) {
-                    staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
-                    if !staking_hotkeys.contains(new_hotkey) {
-                        staking_hotkeys.push(new_hotkey.clone());
+                if !alpha_share.is_zero() {
+                    let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+                    weight.saturating_accrue(T::DbWeight::get().reads(1));
+                    if staking_hotkeys.contains(old_hotkey) {
+                        staking_hotkeys.retain(|hk| *hk != *old_hotkey && *hk != *new_hotkey);
+                        if !staking_hotkeys.contains(new_hotkey) {
+                            staking_hotkeys.push(new_hotkey.clone());
+                        }
+                        StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
+                        weight.saturating_accrue(T::DbWeight::get().writes(1));
                     }
-                    StakingHotkeys::<T>::insert(&coldkey, staking_hotkeys);
-                    weight.saturating_accrue(T::DbWeight::get().writes(1));
                 }
             }
         }
-
         // Return successful after swapping all the relevant terms.
         Ok(())
     }
@@ -543,12 +545,23 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values.len() as u64));
             weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values.len() as u64));
 
+            let old_alpha_values_v2: Vec<((T::AccountId, NetUid), SafeFloat)> =
+                AlphaV2::<T>::iter_prefix((old_hotkey,)).collect();
+            weight.saturating_accrue(T::DbWeight::get().reads(old_alpha_values_v2.len() as u64));
+            weight.saturating_accrue(T::DbWeight::get().writes(old_alpha_values_v2.len() as u64));
+
             // Insert the new alpha values.
             // Deduplicate coldkeys staking to old_hotkey from alpha and alpha_v2
             let unique_coldkeys: BTreeSet<T::AccountId> = old_alpha_values
                 .into_iter()
-                .filter(|((_, netuid_alpha), _)| *netuid_alpha == netuid)
-                .map(|((coldkey, _), _)| coldkey)
+                .map(|((coldkey, netuid_alpha), _)| (coldkey, netuid_alpha))
+                .chain(
+                    old_alpha_values_v2
+                        .into_iter()
+                        .map(|((coldkey, netuid_alpha), _)| (coldkey, netuid_alpha)),
+                )
+                .filter(|(_, netuid_alpha)| *netuid_alpha == netuid)
+                .map(|(coldkey, _)| coldkey)
                 .collect();
 
             // For each coldkey remove their stake from old_hotkey and add to new_hotkey
@@ -561,7 +574,7 @@ impl<T: Config> Pallet<T> {
                 Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
                     new_hotkey, &coldkey, netuid, alpha_old,
                 );
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(7, 7));
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
                 let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
                 weight.saturating_accrue(T::DbWeight::get().reads(1));
@@ -573,10 +586,10 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            // 9. Transfer root claimable and root claimed only for the root subnet
-            // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
-            // otherwise root stakers won't be able to receive dividends.
             if netuid == NetUid::ROOT {
+                // 9. Transfer root claimable and root claimed only for the root subnet
+                // NOTE: we shouldn't transfer root claimable and root claimed for other subnets,
+                // otherwise root stakers won't be able to receive dividends.
                 Self::transfer_root_claimable_for_new_hotkey(old_hotkey, new_hotkey);
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
@@ -602,6 +615,14 @@ impl<T: Config> Pallet<T> {
                         );
                         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
                     }
+                }
+
+                // Transfer AutoParentDelegationEnabled flag from old_hotkey to new_hotkey.
+                // Only migrate if it was explicitly set, to preserve the storage default semantics.
+                if AutoParentDelegationEnabled::<T>::contains_key(old_hotkey) {
+                    let enabled = AutoParentDelegationEnabled::<T>::take(old_hotkey);
+                    AutoParentDelegationEnabled::<T>::insert(new_hotkey, enabled);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
                 }
             }
         }
