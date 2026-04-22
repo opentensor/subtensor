@@ -24,8 +24,8 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{
-    AlphaBalance, LoopRemovePrefixWithWeightMeter, NetUid, TaoBalance, Token,
-    TokenReserve, WeightMeterWrapper,
+    AlphaBalance, LoopRemovePrefixWithWeightMeter, NetUid, TaoBalance, Token, TokenReserve,
+    WeightMeterWrapper,
 };
 
 // ============================
@@ -86,6 +86,7 @@ pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
+    use crate::weights::WeightInfo;
     use frame_support::Twox64Concat;
     use frame_support::{
         BoundedVec,
