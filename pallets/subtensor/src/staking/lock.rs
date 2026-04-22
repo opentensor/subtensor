@@ -342,21 +342,14 @@ impl<T: Config> Pallet<T> {
     /// And in reverse: If a coldkey is locking to the new hotkey, it will not appear
     /// in the transfer list because it does not lock to the old hotkey.
     ///
-    /// If the hotkeys are owned by different coldkeys, the conviction is reset on this
-    /// swap.
+    /// Conviction is not reset because the hotkey ownership does not change, it's still
+    /// the same hotkey owner who will own the new hotkey.
     pub fn swap_hotkey_locks(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> (u64, u64) {
         let mut locks_to_transfer: Vec<(T::AccountId, NetUid, LockState<T::AccountId>)> =
             Vec::new();
         let mut hotkey_locks_to_transfer: Vec<(NetUid, HotkeyLockState)> = Vec::new();
         let mut reads: u64 = 0;
         let mut writes: u64 = 0;
-
-        let old_hotkey_owner = Self::get_owning_coldkey_for_hotkey(old_hotkey);
-        let new_hotkey_owner = Self::get_owning_coldkey_for_hotkey(new_hotkey);
-        let same_owner = old_hotkey_owner != DefaultAccount::<T>::get()
-            && new_hotkey_owner != DefaultAccount::<T>::get()
-            && old_hotkey_owner == new_hotkey_owner;
-        reads = reads.saturating_add(2);
 
         // Gather locks for old hotkey
         Lock::<T>::iter()
@@ -378,21 +371,13 @@ impl<T: Config> Pallet<T> {
         for (coldkey, netuid, mut lock) in locks_to_transfer {
             Lock::<T>::remove(&coldkey, netuid);
             lock.hotkey = new_hotkey.clone();
-            if !same_owner {
-                // Reset conviction if hotkey ownership changes
-                lock.conviction = U64F64::saturating_from_num(0);
-            }
             Lock::<T>::insert(coldkey, netuid, lock);
             writes = writes.saturating_add(2);
         }
 
         // Remove hotkey locks for old hotkey and insert for new
-        for (netuid, mut lock) in hotkey_locks_to_transfer {
+        for (netuid, lock) in hotkey_locks_to_transfer {
             HotkeyLock::<T>::remove(netuid, old_hotkey);
-            if !same_owner {
-                // Reset conviction if hotkey ownership changes
-                lock.conviction = U64F64::saturating_from_num(0);
-            }
             HotkeyLock::<T>::insert(netuid, new_hotkey, lock);
             writes = writes.saturating_add(2);
         }
@@ -403,8 +388,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// The lock is rolled forward to the current block before switching the
     /// associated hotkey so that the lock stays mathematically correct and
-    /// preserves current decayed locked mass. The conviction is
-    /// reset to zero.
+    /// preserves current decayed locked mass.
+    ///
+    /// The conviction is reset to zero if the destination and source hotkeys
+    /// are owned by different coldkeys, otherwise it is preserved.
     pub fn do_move_lock(
         coldkey: &T::AccountId,
         destination_hotkey: &T::AccountId,
@@ -413,27 +400,53 @@ impl<T: Config> Pallet<T> {
         let now = Self::get_current_block_as_u64();
         match Lock::<T>::get(coldkey, netuid) {
             Some(existing) => {
-                let lock = Self::roll_forward_lock(existing, now);
+                let old_hotkey_owner = Self::get_owning_coldkey_for_hotkey(&existing.hotkey);
+                let new_hotkey_owner = Self::get_owning_coldkey_for_hotkey(destination_hotkey);
+                let same_owner = old_hotkey_owner != DefaultAccount::<T>::get()
+                    && new_hotkey_owner != DefaultAccount::<T>::get()
+                    && old_hotkey_owner == new_hotkey_owner;
+
+                let mut existing_rolled = Self::roll_forward_lock(existing, now);
+                let existing_conviction = existing_rolled.conviction;
+                if !same_owner {
+                    existing_rolled.conviction = U64F64::saturating_from_num(0);
+                }
+
                 Lock::<T>::insert(
                     coldkey,
                     netuid,
                     LockState {
                         hotkey: destination_hotkey.clone(),
-                        locked_mass: lock.locked_mass,
-                        conviction: U64F64::saturating_from_num(0),
+                        locked_mass: existing_rolled.locked_mass,
+                        conviction: existing_rolled.conviction,
                         last_update: now,
                     },
                 );
 
                 // Update the total hotkey locks for destination hotkey
-                Self::upsert_hotkey_lock(destination_hotkey, netuid, lock.locked_mass);
+                Self::upsert_hotkey_lock(destination_hotkey, netuid, existing_rolled.locked_mass);
 
-                // Reduce the total hotkey locks for the origin hotkey
-                Self::reduce_hotkey_lock(&lock.hotkey, netuid, lock.locked_mass, lock.conviction);
+                // Reduce the total hotkey locks and conviction for the origin hotkey
+                Self::reduce_hotkey_lock(
+                    &existing_rolled.hotkey,
+                    netuid,
+                    existing_rolled.locked_mass,
+                    existing_conviction,
+                );
+
+                // If the same coldkey owns both the origin and destination hotkeys, also transfer the conviction instead of resetting it
+                if same_owner {
+                    HotkeyLock::<T>::mutate(netuid, destination_hotkey, |dest_lock_opt| {
+                        if let Some(dest_lock) = dest_lock_opt {
+                            dest_lock.conviction =
+                                dest_lock.conviction.saturating_add(existing_conviction);
+                        }
+                    });
+                }
 
                 Self::deposit_event(Event::LockMoved {
                     coldkey: coldkey.clone(),
-                    origin_hotkey: lock.hotkey,
+                    origin_hotkey: existing_rolled.hotkey,
                     destination_hotkey: destination_hotkey.clone(),
                     netuid,
                 });
