@@ -18,11 +18,12 @@ use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::Config;
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64, U96F32};
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
+use subtensor_runtime_common::{AlphaBalance, BATCH_SIZE, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
 #[test]
@@ -2056,5 +2057,138 @@ fn test_claim_root_with_moved_stake() {
 
         assert_abs_diff_eq!(alice_stake_diff2, bob_stake_diff2, epsilon = 100u64,);
         assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
+    });
+}
+
+#[test]
+fn test_clean_up_root_claimed_for_subnet_clears_target_preserves_other_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(5001u64);
+        let c_a = U256::from(5002u64);
+        let c_b = U256::from(5003u64);
+        let c_other = U256::from(5004u64);
+        let netuid_target = NetUid::from(11u16);
+        let netuid_other = NetUid::from(12u16);
+
+        RootClaimed::<Test>::insert((netuid_target, &hotkey, &c_a), 10u128);
+        RootClaimed::<Test>::insert((netuid_target, &hotkey, &c_b), 20u128);
+        RootClaimed::<Test>::insert((netuid_other, &hotkey, &c_other), 99u128);
+
+        let (_consumed, done) = SubtensorModule::clean_up_root_claimed_for_subnet(
+            netuid_target,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
+        assert!(done, "enough weight should complete cleanup");
+
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, &hotkey, &c_a)),
+            0u128
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, &hotkey, &c_b)),
+            0u128
+        );
+        assert!(!RootClaimed::<Test>::contains_key((
+            netuid_target,
+            &hotkey,
+            &c_a
+        )));
+        assert!(!RootClaimed::<Test>::contains_key((
+            netuid_target,
+            &hotkey,
+            &c_b
+        )));
+
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_other, &hotkey, &c_other)),
+            99u128,
+            "other netuid must be untouched"
+        );
+    });
+}
+
+#[test]
+fn test_clean_up_root_claimed_for_subnet_insufficient_weight_returns_not_done() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(6001u64);
+        let cold = U256::from(6002u64);
+        let netuid = NetUid::from(21u16);
+        RootClaimed::<Test>::insert((netuid, &hotkey, &cold), 1u128);
+
+        let w = <Test as Config>::DbWeight::get().writes(1);
+        let head = w.saturating_mul(BATCH_SIZE as u64);
+
+        let (consumed_zero, done_zero) =
+            SubtensorModule::clean_up_root_claimed_for_subnet(netuid, Weight::zero());
+        assert!(!done_zero, "no budget: cannot even reserve a batch head");
+        assert_eq!(consumed_zero, Weight::zero());
+        assert_eq!(RootClaimed::<Test>::get((netuid, &hotkey, &cold)), 1u128);
+
+        let (consumed_just_short, done_short) = SubtensorModule::clean_up_root_claimed_for_subnet(
+            netuid,
+            head.saturating_sub(Weight::from_parts(1, 0)),
+        );
+        assert!(
+            !done_short,
+            "one ref-time unit under head should fail the gate"
+        );
+        assert_eq!(consumed_just_short, Weight::zero());
+        assert_eq!(RootClaimed::<Test>::get((netuid, &hotkey, &cold)), 1u128);
+    });
+}
+
+#[test]
+fn test_clean_up_root_claimed_for_subnet_idempotent_on_empty() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(31u16);
+        let (c1, done1) = SubtensorModule::clean_up_root_claimed_for_subnet(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
+        assert!(done1, "no keys under prefix: still complete");
+        let (c2, done2) = SubtensorModule::clean_up_root_claimed_for_subnet(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
+        assert!(done2, "second call is a no-op and stays complete");
+        assert_eq!(
+            c1, c2,
+            "repeated cleanup should be idempotent in meter output"
+        );
+    });
+}
+
+#[test]
+fn test_clean_up_root_claimed_for_subnet() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(31u16);
+        for i in 0..100000 {
+            let hotkey = U256::from(i as u64);
+            let cold = U256::from(i as u64);
+            RootClaimed::<Test>::insert((netuid, &hotkey, &cold), i as u128);
+        }
+
+        // loop {
+        // let count = RootClaimed::<Test>::iter_prefix((netuid,)).count();
+
+        // println!("=== count: {count}");
+        // let _ = RootClaimed::<Test>::clear_prefix((netuid,), BATCH_SIZE, None);
+
+        // let count = RootClaimed::<Test>::iter_prefix((netuid,)).count();
+
+        // println!("=== count: {count}");
+
+        // }
+
+        // let done = true;
+
+        // let weight = Weight::from_parts(u64::MAX, u64::MAX);
+
+        let (_, done) = SubtensorModule::clean_up_root_claimed_for_subnet(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
+
+        assert!(done, "cleanup with max weight should complete");
     });
 }

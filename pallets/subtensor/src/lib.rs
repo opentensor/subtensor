@@ -24,7 +24,7 @@ use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
 use subtensor_runtime_common::{
-    AlphaBalance, BATCH_SIZE, LoopRemovePrefixWithWeightMeter, NetUid, TaoBalance, Token,
+    AlphaBalance, LoopRemovePrefixWithWeightMeter, NetUid, TaoBalance, Token,
     TokenReserve, WeightMeterWrapper,
 };
 
@@ -350,6 +350,27 @@ pub mod pallet {
             /// Subnets to keep alpha emissions (swap everything else).
             subnets: BTreeSet<NetUid>,
         },
+    }
+    /// Enum for the dissolved networks cleanup phase.
+    #[derive(
+        Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
+    )]
+    pub enum DissolvedNetworksCleanupPhaseEnum {
+        #[default]
+        /// Init phase
+        Init,
+        /// Phase 1: Remove all storage for the network.
+        CleanSubnetRootDividendsRootClaimable,
+        /// Phase 1: Remove all storage for the network.
+        CleanSubnetRootDividendsRootClaimed,
+        /// Phase 2: Clear protocol liquidity for the subnet on the swap layer.
+        ClearProtocolLiquidity,
+        /// Phase 3: Destroy alpha in and out stakes for the subnet.
+        DestroyAlphaInOutStakes,
+        /// Phase 3: Purge commitments and related per-netuid storage.
+        PurgeNetuid,
+        /// Phase 4: Remove the network from the dissolved networks list.
+        RemoveNetwork,
     }
 
     /// Default minimum root claim amount.
@@ -1930,6 +1951,11 @@ pub mod pallet {
     /// --- ITEM ( dissolved_networks ) Networks dissolved but some storage not removed yet
     #[pallet::storage]
     pub type DissolvedNetworks<T> = StorageValue<_, Vec<NetUid>, ValueQuery>;
+
+    /// --- ITEM ( dissolved_networks_cleanup_phase ) Networks dissolved data cleanup phase.
+    #[pallet::storage]
+    pub type DissolvedNetworksCleanupPhase<T> =
+        StorageMap<_, Identity, NetUid, DissolvedNetworksCleanupPhaseEnum, OptionQuery>;
 
     // =======================================
     // ==== VotingPower Storage  ====

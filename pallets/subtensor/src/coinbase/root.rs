@@ -225,6 +225,8 @@ impl<T: Config> Pallet<T> {
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
 
+        DissolvedNetworksCleanupPhase::<T>::insert(netuid, DissolvedNetworksCleanupPhaseEnum::Init);
+
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
 
         // --- Emit the NetworkRemoved event
@@ -251,8 +253,8 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            Uids::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            Uids<T>,
+            netuid
         );
 
         let mut keys_set = BTreeSet::new();
@@ -268,8 +270,8 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            Keys::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            Keys<T>,
+            netuid
         );
 
         // --- 8. Iterate over stored weights and fill the matrix.
@@ -461,44 +463,44 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            BlockAtRegistration::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            BlockAtRegistration<T>,
+            netuid
         );
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            Axons::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            Axons<T>,
+            netuid
         );
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            NeuronCertificates::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            NeuronCertificates<T>,
+            netuid
         );
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            Prometheus::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            Prometheus<T>,
+            netuid
         );
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            AlphaDividendsPerSubnet<T>,
+            netuid
         );
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            PendingChildKeys::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            PendingChildKeys<T>,
+            netuid
         );
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            AssociatedEvmAddress::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            AssociatedEvmAddress<T>,
+            netuid
         );
 
         // Commit-reveal / weights commits (all per-net prefixes):
@@ -516,45 +518,45 @@ impl<T: Config> Pallet<T> {
             Incentive::<T>::remove(netuid_index);
 
             LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                BATCH_SIZE,
-                WeightCommits::<T>::clear_prefix(netuid_index, BATCH_SIZE, None)
-            );
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            WeightCommits<T>,
+            netuid_index
+        );
             LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                BATCH_SIZE,
-                TimelockedWeightCommits::<T>::clear_prefix(netuid_index, BATCH_SIZE, None)
-            );
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            TimelockedWeightCommits<T>,
+            netuid_index
+        );
 
             LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                BATCH_SIZE,
-                CRV3WeightCommits::<T>::clear_prefix(netuid_index, BATCH_SIZE, None)
-            );
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            CRV3WeightCommits<T>,
+            netuid_index
+        );
 
             LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                BATCH_SIZE,
-                CRV3WeightCommitsV2::<T>::clear_prefix(netuid_index, BATCH_SIZE, None)
-            );
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            CRV3WeightCommitsV2<T>,
+            netuid_index
+        );
 
             LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                BATCH_SIZE,
-                Bonds::<T>::clear_prefix(netuid_index, BATCH_SIZE, None)
-            );
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Bonds<T>,
+            netuid_index
+        );
 
             LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                BATCH_SIZE,
-                Weights::<T>::clear_prefix(netuid_index, BATCH_SIZE, None)
-            );
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Weights<T>,
+            netuid_index
+        );
         }
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -568,8 +570,8 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            LastHotkeySwapOnNetuid::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            LastHotkeySwapOnNetuid<T>,
+            netuid
         );
 
         // --- 20. Identity maps across versions (netuid-scoped).
@@ -687,11 +689,11 @@ impl<T: Config> Pallet<T> {
         if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
             // Fixed: Import the macro type to resolve the error
             LoopRemovePrefixWithWeightMeter!(
-                weight_meter,
-                T::DbWeight::get().writes(1),
-                BATCH_SIZE,
-                SubnetLeaseShares::<T>::clear_prefix(lease_id, BATCH_SIZE, None)
-            );
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            SubnetLeaseShares<T>,
+            lease_id
+        );
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             SubnetLeases::<T>::remove(lease_id);
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));

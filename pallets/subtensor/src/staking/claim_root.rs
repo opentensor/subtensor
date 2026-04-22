@@ -2,6 +2,7 @@ use super::*;
 use crate::WeightMeterWrapper;
 use frame_support::weights::{Weight, WeightMeter};
 use sp_core::Get;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
@@ -394,31 +395,107 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(
+    pub fn clean_up_root_claimable_for_subnet(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        log::error!("=== clean_up_root_claimable_for_subnet: step 1");
+
+        let mut read_keys = 0_u64;
+
+        let mut to_remove_map = BTreeMap::<T::AccountId, BTreeMap<NetUid, I96F32>>::new();
+
+        let mut iterate_all = true;
+
+        // Iterate directly without collecting to avoid unnecessary allocation
+        for hotkey in RootClaimable::<T>::iter_keys() {
+            read_keys += 1;
+            // log::error!("=== finalize_all_subnet_root_dividends: step 2");
+            let (_, done) = WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(2));
+            // break from the loop if the weight is not enough
+            if !done {
+                iterate_all = false;
+                break;
+            }
+            let mut claimable = RootClaimable::<T>::get(&hotkey);
+            if claimable.contains_key(&netuid) {
+                claimable.remove(&netuid);
+                let (_, done) = WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+                to_remove_map.insert(hotkey, claimable);
+                if !done {
+                    iterate_all = false;
+                    break;
+                }
+            }
+        }
+
+        log::error!("=== clean_up_root_claimable_for_subnet: read_keys: {read_keys}");
+        log::error!(
+            "=== clean_up_root_claimable_for_subnet: to_remove_map: {}",
+            to_remove_map.len()
+        );
+
+        if to_remove_map.is_empty() && !iterate_all {
+            log::warn!(
+                "not enough weight to iterate all data in RootClaimable, already read {} keys",
+                read_keys
+            );
+            return (weight_meter.consumed(), false);
+        }
+
+        // write weight already consumed in advance
+        for (hotkey, claimable) in to_remove_map.iter() {
+            RootClaimable::<T>::insert(hotkey, claimable);
+        }
+
+        log::debug!("cleaned up {} keys from RootClaimable", to_remove_map.len());
+
+        (weight_meter.consumed(), iterate_all)
+    }
+
+    pub fn clean_up_root_claimed_for_subnet(
         netuid: NetUid,
         remaining_weight: Weight,
     ) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
-        // Iterate directly without collecting to avoid unnecessary allocation
-        for hotkey in RootClaimable::<T>::iter_keys() {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
-            let mut claimable = RootClaimable::<T>::get(&hotkey);
-            if claimable.contains_key(&netuid) {
-                claimable.remove(&netuid);
-                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-                RootClaimable::<T>::insert(&hotkey, claimable);
-            }
+        let limit = remaining_weight
+            .ref_time()
+            .saturating_div(T::DbWeight::get().writes(1).ref_time());
 
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
-        }
+        let count = RootClaimed::<T>::iter_prefix((netuid.clone(),)).count();
+        log::error!("=== in loop: count: {count}");
 
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            RootClaimed::<T>::clear_prefix((netuid,), BATCH_SIZE, None)
+        let result = RootClaimed::<T>::clear_prefix((netuid.clone(),), limit as u32, None);
+
+        weight_meter.consume(T::DbWeight::get().writes(result.backend as u64));
+
+        log::error!("=== in loop: result backend: {:?}", &result.backend);
+        log::error!(
+            "=== in loop: result maybe_cursor: {:?}",
+            &result.maybe_cursor
         );
-        (weight_meter.consumed(), true)
+
+        // LoopRemovePrefixWithWeightMeter!(
+        //     weight_meter,
+        //     T::DbWeight::get().writes(1),
+        //     RootClaimed::<T>,
+        //     (netuid,)
+        // );
+
+        // count = 0;
+
+        // for ((_, _), _) in RootClaimed::<T>::iter_prefix((netuid,)) {
+        //     count += 1;
+        // }
+
+        log::error!(
+            "=== after loop: count: {}",
+            RootClaimed::<T>::iter_prefix((netuid,)).count()
+        );
+        // println!("=== after loop: count: {count}");
+
+        (weight_meter.consumed(), result.maybe_cursor.is_none())
     }
 }

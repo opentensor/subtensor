@@ -24,9 +24,7 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
-use subtensor_runtime_common::{
-    BATCH_SIZE, LoopRemovePrefixWithWeightMeter, NetUid, WeightMeterWrapper,
-};
+use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, NetUid, WeightMeterWrapper};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
@@ -571,36 +569,36 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            CommitmentOf::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            CommitmentOf<T>,
+            netuid
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            LastCommitment::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            LastCommitment<T>,
+            netuid
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            LastBondsReset::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            LastBondsReset<T>,
+            netuid
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            RevealedCommitments::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            RevealedCommitments<T>,
+            netuid
         );
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
-            BATCH_SIZE,
-            UsedSpaceOf::<T>::clear_prefix(netuid, BATCH_SIZE, None)
+            UsedSpaceOf<T>,
+            netuid
         );
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
