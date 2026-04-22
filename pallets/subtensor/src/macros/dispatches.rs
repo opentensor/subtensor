@@ -2561,5 +2561,33 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::do_lock_stake(&coldkey, netuid, &hotkey, amount)
         }
+
+        /// Moves an existing lock for a coldkey on a subnet from one hotkey to another.
+        ///
+        /// The lock is rolled forward to the current block before switching the
+        /// associated hotkey, preserving the decayed locked mass. The conviction is
+        /// reset to zero.
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the coldkey that owns the lock.
+        /// * `destination_hotkey` - The hotkey the lock should target after the move.
+        /// * `netuid` - The subnet on which the lock exists.
+        /// # Errors:
+        /// * `Error::<T>::NoExistingLock` - If no lock exists for the given coldkey and subnet.
+        #[pallet::call_index(137)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4))
+            .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn move_lock(
+            origin: OriginFor<T>,
+            destination_hotkey: T::AccountId,
+            netuid: NetUid,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
+        }
     }
 }

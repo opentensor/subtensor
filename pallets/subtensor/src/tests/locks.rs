@@ -1636,3 +1636,119 @@ fn test_neuron_replacement_does_not_affect_lock() {
         assert_eq!(lock.hotkey, hotkey);
     });
 }
+
+// =========================================================================
+// GROUP 19: Moving lock
+// =========================================================================
+
+#[test]
+fn test_moving_lock() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey_origin = U256::from(2);
+        let hotkey_destination = U256::from(3);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey_origin, 100_000_000_000);
+
+        let lock_amount = 5000u64.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey_origin,
+            lock_amount
+        ));
+
+        // Mock a non-zero conviction
+        let mut lock = Lock::<Test>::get(coldkey, netuid).unwrap();
+        lock.conviction = U64F64::saturating_from_num(1234);
+        Lock::<Test>::insert(coldkey, netuid, lock);
+        let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey_origin).unwrap();
+        hotkey_lock.conviction = U64F64::saturating_from_num(1234);
+        HotkeyLock::<Test>::insert(netuid, hotkey_origin, hotkey_lock);
+
+        assert_ok!(SubtensorModule::move_lock(
+            RuntimeOrigin::signed(coldkey),
+            hotkey_destination,
+            netuid,
+        ));
+        let lock = Lock::<Test>::get(coldkey, netuid).unwrap();
+        assert_eq!(lock.hotkey, hotkey_destination);
+        assert_eq!(lock.locked_mass, lock_amount);
+        assert_eq!(lock.conviction, U64F64::from_num(0));
+    });
+}
+
+#[test]
+fn test_moving_partial_lock() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let hotkey_origin = U256::from(3);
+        let hotkey_destination = U256::from(4);
+        let netuid = setup_subnet_with_stake(coldkey1, hotkey_origin, 100_000_000_000);
+
+        // Add coldkey2 stake
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
+        SubtensorModule::create_account_if_non_existent(&coldkey2, &hotkey_origin);
+        SubtensorModule::stake_into_subnet(
+            &hotkey_origin,
+            &coldkey2,
+            netuid,
+            50_000_000_000u64.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+
+        let lock_amount = 5000u64.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey1,
+            netuid,
+            &hotkey_origin,
+            lock_amount
+        ));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey2,
+            netuid,
+            &hotkey_origin,
+            lock_amount
+        ));
+
+        // Mock a non-zero conviction
+        let mut lock1 = Lock::<Test>::get(coldkey1, netuid).unwrap();
+        lock1.conviction = U64F64::saturating_from_num(1000);
+        Lock::<Test>::insert(coldkey1, netuid, lock1);
+        let mut lock2 = Lock::<Test>::get(coldkey2, netuid).unwrap();
+        lock2.conviction = U64F64::saturating_from_num(1000);
+        Lock::<Test>::insert(coldkey2, netuid, lock2);
+        let mut hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey_origin).unwrap();
+        hotkey_lock.conviction = U64F64::saturating_from_num(2000);
+        HotkeyLock::<Test>::insert(netuid, hotkey_origin, hotkey_lock);
+
+        // Move lock for coldkey1 to hotkey_destination, coldkey2's lock should be unaffected
+        assert_ok!(SubtensorModule::move_lock(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey_destination,
+            netuid,
+        ));
+        let lock1_after = Lock::<Test>::get(coldkey1, netuid).unwrap();
+        let lock2_after = Lock::<Test>::get(coldkey2, netuid).unwrap();
+        assert_eq!(lock1_after.hotkey, hotkey_destination);
+        assert_eq!(lock1_after.locked_mass, lock_amount);
+        assert_eq!(lock1_after.conviction, U64F64::from_num(0));
+        assert_eq!(lock2_after.hotkey, hotkey_origin);
+        assert_eq!(lock2_after.locked_mass, lock_amount);
+        assert_eq!(lock2_after.conviction, U64F64::from_num(1000));
+
+        let hotkey_lock_origin_after = HotkeyLock::<Test>::get(netuid, hotkey_origin).unwrap();
+        let hotkey_lock_destination_after =
+            HotkeyLock::<Test>::get(netuid, hotkey_destination).unwrap();
+        assert_eq!(hotkey_lock_origin_after.locked_mass, lock_amount);
+        assert_eq!(hotkey_lock_origin_after.conviction, U64F64::from_num(1000));
+        assert_eq!(hotkey_lock_destination_after.locked_mass, lock_amount);
+        assert_eq!(
+            hotkey_lock_destination_after.conviction,
+            U64F64::from_num(0)
+        );
+    });
+}
