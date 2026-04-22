@@ -1133,7 +1133,7 @@ impl<T: Config> Pallet<T> {
         let remaining_alpha_stake =
             Self::calculate_reduced_stake_on_subnet(hotkey, coldkey, netuid, alpha_unstaked)?;
         let order = GetTaoForAlpha::<T>::with_amount(alpha_unstaked);
-        match T::SwapInterface::sim_swap(netuid.into(), order) {
+        match T::SwapInterface::sim_swap_pure(netuid.into(), order) {
             Ok(res) => {
                 if !remaining_alpha_stake.is_zero() {
                     ensure!(

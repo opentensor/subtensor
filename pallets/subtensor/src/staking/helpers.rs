@@ -76,7 +76,7 @@ impl<T: Config> Pallet<T> {
                             hotkey, coldkey, netuid,
                         );
                         let order = GetTaoForAlpha::<T>::with_amount(alpha_stake);
-                        T::SwapInterface::sim_swap(netuid.into(), order)
+                        T::SwapInterface::sim_swap_pure(netuid.into(), order)
                             .map(|r| {
                                 let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
                                     .saturating_mul(T::SwapInterface::current_alpha_price(
@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
                                 hotkey, coldkey, netuid,
                             );
                             let order = GetTaoForAlpha::<T>::with_amount(alpha_stake);
-                            T::SwapInterface::sim_swap(netuid.into(), order)
+                            T::SwapInterface::sim_swap_pure(netuid.into(), order)
                                 .map(|r| {
                                     let fee: u64 = U96F32::saturating_from_num(r.fee_paid)
                                         .saturating_mul(T::SwapInterface::current_alpha_price(
