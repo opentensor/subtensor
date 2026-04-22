@@ -298,11 +298,19 @@ impl<T: Config> Pallet<T> {
             let mut alpha_distributed = AlphaBalance::ZERO;
 
             // Distribute the contributors cut to the contributors and accumulate the alpha
-            // distributed so far to obtain how much alpha is left to distribute to the beneficiary
+            // distributed so far to obtain how much alpha is left to distribute to the beneficiary.
+            //
+            // Use `floor` per contributor so that the sum of all per-contributor shares is
+            // guaranteed to be less than or equal to `total_contributors_cut_alpha`. Rounding
+            // up per contributor (as this code previously did) would accumulate over multiple
+            // contributors to more than the total, causing either an over-transfer from the
+            // lease coldkey stake or the beneficiary's leftover calculation on line ~327 to
+            // saturate to zero (so the beneficiary would receive nothing even when there was
+            // legitimately some leftover dust to send to them).
             for (contributor, share) in SubnetLeaseShares::<T>::iter_prefix(lease_id) {
                 let alpha_for_contributor = share
                     .saturating_mul(U64F64::from(total_contributors_cut_alpha.to_u64()))
-                    .ceil()
+                    .floor()
                     .saturating_to_num::<u64>();
 
                 Self::transfer_stake_within_subnet(
