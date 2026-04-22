@@ -304,12 +304,26 @@ impl<T: Config> Pallet<T> {
     /// coldkey locking to it, then the same coldkey cannot lock to the new hotkey.
     /// And in reverse: If a coldkey is locking to the new hotkey, it will not appear
     /// in the transfer list because it does not lock to the old hotkey.
+    ///
+    /// If the hotkeys are owned by different coldkeys, the conviction is reset on this
+    /// swap.
     pub fn swap_hotkey_locks(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> (u64, u64) {
         let mut locks_to_transfer: Vec<(T::AccountId, NetUid, LockState<T::AccountId>)> =
             Vec::new();
         let mut hotkey_locks_to_transfer: Vec<(NetUid, HotkeyLockState)> = Vec::new();
         let mut reads: u64 = 0;
         let mut writes: u64 = 0;
+
+        let old_hotkey_owner = Self::get_owning_coldkey_for_hotkey(old_hotkey);
+        let new_hotkey_owner = Self::get_owning_coldkey_for_hotkey(new_hotkey);
+        let same_owner = old_hotkey_owner != DefaultAccount::<T>::get()
+            && new_hotkey_owner != DefaultAccount::<T>::get()
+            && old_hotkey_owner == new_hotkey_owner;
+        reads = reads.saturating_add(2);
+
+        println!(
+            "same_owner: {same_owner}, old_hotkey_owner: {old_hotkey_owner:?}, new_hotkey_owner: {new_hotkey_owner:?}"
+        );
 
         // Gather locks for old hotkey
         Lock::<T>::iter()
@@ -331,13 +345,21 @@ impl<T: Config> Pallet<T> {
         for (coldkey, netuid, mut lock) in locks_to_transfer {
             Lock::<T>::remove(&coldkey, netuid);
             lock.hotkey = new_hotkey.clone();
+            if !same_owner {
+                // Reset conviction if hotkey ownership changes
+                lock.conviction = U64F64::saturating_from_num(0);
+            }
             Lock::<T>::insert(coldkey, netuid, lock);
             writes = writes.saturating_add(2);
         }
 
         // Remove hotkey locks for old hotkey and insert for new
-        for (netuid, lock) in hotkey_locks_to_transfer {
+        for (netuid, mut lock) in hotkey_locks_to_transfer {
             HotkeyLock::<T>::remove(netuid, old_hotkey);
+            if !same_owner {
+                // Reset conviction if hotkey ownership changes
+                lock.conviction = U64F64::saturating_from_num(0);
+            }
             HotkeyLock::<T>::insert(netuid, new_hotkey, lock);
             writes = writes.saturating_add(2);
         }
