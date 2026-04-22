@@ -253,6 +253,17 @@ impl<T: Config> Pallet<T> {
         // Iterate over all the subnets this hotkey is staked on for root.
         let root_claimable = RootClaimable::<T>::get(hotkey);
         for (netuid, claimable_rate) in root_claimable.iter() {
+            // RootClaimable is keyed by the *emitting* subnet, so NetUid::ROOT
+            // should never appear here under normal coinbase operation
+            // (run_coinbase filters ROOT out before populating this map).
+            // Skip it defensively to stay symmetric with
+            // `remove_stake_adjust_root_claimed_for_hotkey_and_coldkey`;
+            // otherwise a stray ROOT entry would grow RootClaimed on adds
+            // but never shrink on removes.
+            if *netuid == NetUid::ROOT.into() {
+                continue;
+            }
+
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
 

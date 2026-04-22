@@ -2059,3 +2059,56 @@ fn test_claim_root_with_moved_stake() {
         assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
     });
 }
+
+// Symmetric to remove_stake_adjust_root_claimed: an unexpected ROOT entry in
+// RootClaimable should be skipped by the add path as well. Previously only
+// the remove side guarded against it, which meant a stray ROOT entry would
+// grow RootClaimed on adds without ever being drained on removes.
+#[test]
+fn test_add_stake_adjust_root_claimed_skips_root_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let other_netuid = NetUid::from(7);
+
+        let rate = I96F32::saturating_from_num(3);
+
+        // Seed RootClaimable with both a ROOT entry and a non-root entry.
+        // ROOT should not normally be present here, but we want the add path
+        // to tolerate it the same way the remove path already does.
+        let mut claimable = std::collections::BTreeMap::new();
+        claimable.insert(NetUid::ROOT, rate);
+        claimable.insert(other_netuid, rate);
+        RootClaimable::<Test>::insert(hotkey, claimable);
+
+        // Nothing claimed yet.
+        assert_eq!(
+            RootClaimed::<Test>::get((NetUid::ROOT, hotkey, coldkey)),
+            0u128
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((other_netuid, hotkey, coldkey)),
+            0u128
+        );
+
+        let amount: u64 = 100;
+        SubtensorModule::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+            &hotkey, &coldkey, amount,
+        );
+
+        // ROOT entry must stay untouched.
+        assert_eq!(
+            RootClaimed::<Test>::get((NetUid::ROOT, hotkey, coldkey)),
+            0u128
+        );
+
+        // The non-root entry should have been bumped by rate * amount.
+        let expected: u128 = rate
+            .saturating_mul(I96F32::from(amount))
+            .saturating_to_num::<u128>();
+        assert_eq!(
+            RootClaimed::<Test>::get((other_netuid, hotkey, coldkey)),
+            expected
+        );
+    });
+}
