@@ -25,6 +25,7 @@ mod staking;
 mod staking2;
 mod subnet;
 mod subnet_emissions;
+mod symbols;
 mod swap_coldkey;
 mod swap_hotkey;
 mod swap_hotkey_with_subnet;

@@ -467,8 +467,457 @@ pub static SYMBOLS: [&[u8]; 439] = [
     b"\xE0\xB6\xB0", // ධ (Ra, 438)
 ];
 
-/// Returns the Unicode symbol as a Vec<u8> for a given netuid.
+pub static NAMES: [&[u8]; 439] = [
+    b"root",              // Τ (Upper case Tau)
+    b"apex",              // α (Alpha)
+    b"omron",             // β (Beta)
+    b"templar",           // γ (Gamma)
+    b"targon",            // δ (Delta)
+    b"kaito",             // ε (Epsilon)
+    b"infinite",          // ζ (Zeta)
+    b"subvortex",         // η (Eta)
+    b"ptn",               // θ (Theta)
+    b"pretrain",          // ι (Iota)
+    b"sturdy",            // κ (Kappa)
+    b"dippy",             // λ (Lambda)
+    b"horde",             // μ (Mu)
+    b"dataverse",         // ν (Nu)
+    b"palaidn",           // ξ (Xi)
+    b"deval",             // ο (Omicron)
+    b"bitads",            // π (Pi)
+    b"3gen",              // ρ (Rho)
+    b"cortex",            // σ (Sigma)
+    b"inference",         // t (Tau)
+    b"bitagent",          // υ (Upsilon)
+    b"any-any",           // φ (Phi)
+    b"meta",              // χ (Chi)
+    b"social",            // ψ (Psi)
+    b"omega",             // ω (Omega)
+    b"protein",           // א (Aleph)
+    b"alchemy",           // ב (Bet)
+    b"compute",           // ג (Gimel)
+    b"oracle",            // ד (Dalet)
+    b"coldint",           // ה (He)
+    b"bet",               // ו (Vav)
+    b"naschain",          // ז (Zayin)
+    b"itsai",             // ח (Het)
+    b"ready",             // ט (Tet)
+    b"mind",              // י (Yod)
+    b"logic",             // ך (Final Kaf)
+    b"automata",          // כ (Kaf)
+    b"tuning",            // ל (Lamed)
+    b"distributed",       // ם (Final Mem)
+    b"edge",              // מ (Mem)
+    b"chunk",             // ן (Final Nun)
+    b"sportsensor",       // נ (Nun)
+    b"masa",              // ס (Samekh)
+    b"graphite",          // ע (Ayin)
+    b"score",             // ף (Final Pe)
+    b"gen42",             // פ (Pe)
+    b"neural",            // ץ (Final Tsadi)
+    b"condense",          // צ (Tsadi)
+    b"nextplace",         // ק (Qof)
+    b"automl",            // ר (Resh)
+    b"audio",             // ש (Shin)
+    b"celium",            // ת (Tav)
+    b"dojo",              // ا (Alif)
+    b"frontier",          // ب (Ba)
+    b"safescan",          // ت (Ta)
+    b"unknown",           // ث (Tha)
+    b"gradients",         // ج (Jim)
+    b"gaia",              // ح (Ha)
+    b"dippy-speach",      // خ (Kha)
+    b"agent-arena",       // د (Dal)
+    b"unknown",           // ذ (Dhal)
+    b"red team",          // ر (Ra)
+    b"agentao",           // ز (Zay)
+    b"lean-in",           // س (Sin)
+    b"chutes",            // ش (Shin)
+    b"sad",
+    b"dad",
+    b"ta",
+    b"dha",
+    b"ain",
+    b"ghayn",
+    b"fa",
+    b"qaf",
+    b"kaf",
+    b"lam",
+    b"mim",
+    b"nun",
+    b"ha",
+    b"waw",
+    b"ya",
+    b"alef",
+    b"fehu",
+    b"uruz",
+    b"thurisaz",
+    b"ansuz",
+    b"raidho",
+    b"kaunan",
+    b"cyr_yeru",
+    b"algiz",
+    b"berkanan",
+    b"ogham",
+    b"beith",
+    b"luis",
+    b"fearn",
+    b"sail",
+    b"nion",
+    b"forfeda",
+    b"ani",
+    b"bani",
+    b"gani",
+    b"doni",
+    b"eni",
+    b"vini",
+    b"ayp",
+    b"ben",
+    b"gim",
+    b"da",
+    b"ech",
+    b"za",
+    b"armeni",
+    b"grave",
+    b"io",
+    b"dje",
+    b"gje",
+    b"ie",
+    b"dze",
+    b"hard_sign",
+    b"alfa",
+    b"alfas",
+    b"vida",              // Ⲃ (Vida, 119)
+    b"vida_small",        // ⲃ (Small Vida, 120)
+    b"gamma",             // Ⲅ (Gamma, 121)
+    b"gamma_small",       // ⲅ (Small Gamma, 122)
+    b"brahmi_a",          // 𑀀 (A, 123)
+    b"brahmi_aa",         // 𑀁 (Aa, 124)
+    b"brahmi_i",          // 𑀂 (I, 125)
+    b"brahmi_ii",         // 𑀃 (Ii, 126)
+    b"brahmi_u",          // 𑀅 (U, 127)
+    b"la",
+    b"va",
+    b"sha",
+    b"ssa",
+    b"sa",
+    b"ha",
+    b"glagolitic_az",     // Ⰰ (Az, 134)
+    b"glagolitic_buky",   // Ⰱ (Buky, 135)
+    b"glagolitic_vede",   // Ⰲ (Vede, 136)
+    b"glagolitic_glagoli",// Ⰳ (Glagoli, 137)
+    b"glagolitic_dobro",  // Ⰴ (Dobro, 138)
+    b"glagolitic_yest",   // Ⰵ (Yest, 139)
+    b"glagolitic_zhivete",// Ⰶ (Zhivete, 140)
+    b"glagolitic_zemlja", // Ⰷ (Zemlja, 141)
+    b"glagolitic_izhe",   // Ⰸ (Izhe, 142)
+    b"glagolitic_initial_izhe",// Ⰹ (Initial Izhe, 143)
+    b"glagolitic_i",      // Ⰺ (I, 144)
+    b"glagolitic_djerv",  // Ⰻ (Djerv, 145)
+    b"glagolitic_kako",   // Ⰼ (Kako, 146)
+    b"glagolitic_ljudije",// Ⰽ (Ljudije, 147)
+    b"glagolitic_myse",   // Ⰾ (Myse, 148)
+    b"glagolitic_nash",   // Ⰿ (Nash, 149)
+    b"glagolitic_on",     // Ⱀ (On, 150)
+    b"glagolitic_pokoj",  // Ⱁ (Pokoj, 151)
+    b"glagolitic_rtsy",   // Ⱂ (Rtsy, 152)
+    b"glagolitic_slovo",  // Ⱃ (Slovo, 153)
+    b"glagolitic_tvrido", // Ⱄ (Tvrido, 154)
+    b"glagolitic_uku",    // Ⱅ (Uku, 155)
+    b"glagolitic_fert",   // Ⱆ (Fert, 156)
+    b"glagolitic_xrivi",  // Ⱇ (Xrivi, 157)
+    b"glagolitic_ot",     // Ⱈ (Ot, 158)
+    b"glagolitic_cy",     // Ⱉ (Cy, 159)
+    b"glagolitic_shcha",  // Ⱊ (Shcha, 160)
+    b"glagolitic_er",     // Ⱋ (Er, 161)
+    b"glagolitic_yeru",   // Ⱌ (Yeru, 162)
+    b"glagolitic_small_yer",// Ⱍ (Small Yer, 163)
+    b"glagolitic_yo",     // Ⱎ (Yo, 164)
+    b"glagolitic_yu",     // Ⱏ (Yu, 165)
+    b"glagolitic_ja",     // Ⱐ (Ja, 166)
+    b"thai_ko_kai",       // ก (Ko Kai, 167)
+    b"thai_kho_khai",     // ข (Kho Khai, 168)
+    b"thai_kho_khuat",    // ฃ (Kho Khuat, 169)
+    b"thai_kho_khon",     // ค (Kho Khon, 170)
+    b"thai_kho_rakhang",  // ฅ (Kho Rakhang, 171)
+    b"thai_kho_khwai",    // ฆ (Kho Khwai, 172)
+    b"thai_ngo_ngu",      // ง (Ngo Ngu, 173)
+    b"thai_cho_chan",     // จ (Cho Chan, 174)
+    b"thai_cho_ching",    // ฉ (Cho Ching, 175)
+    b"thai_cho_chang",    // ช (Cho Chang, 176)
+    b"thai_so_so",        // ซ (So So, 177)
+    b"thai_cho_choe",     // ฌ (Cho Choe, 178)
+    b"thai_yo_ying",      // ญ (Yo Ying, 179)
+    b"thai_do_chada",     // ฎ (Do Chada, 180)
+    b"thai_to_patak",     // ฏ (To Patak, 181)
+    b"thai_tho_than",     // ฐ (Tho Than, 182)
+    b"thai_tho_nangmontho",// ฑ (Tho Nangmontho, 183)
+    b"thai_tho_phuthao",  // ฒ (Tho Phuthao, 184)
+    b"thai_no_nen",       // ณ (No Nen, 185)
+    b"thai_do_dek",       // ด (Do Dek, 186)
+    b"thai_to_tao",       // ต (To Tao, 187)
+    b"thai_tho_thung",    // ถ (Tho Thung, 188)
+    b"thai_tho_thahan",   // ท (Tho Thahan, 189)
+    b"thai_tho_thong",    // ธ (Tho Thong, 190)
+    b"thai_no_nu",        // น (No Nu, 191)
+    b"thai_bo_baimai",    // บ (Bo Baimai, 192)
+    b"thai_po_pla",       // ป (Po Pla, 193)
+    b"thai_pho_phung",    // ผ (Pho Phung, 194)
+    b"thai_fo_fa",        // ฝ (Fo Fa, 195)
+    b"thai_pho_phan",     // พ (Pho Phan, 196)
+    b"thai_fo_fan",       // ฟ (Fo Fan, 197)
+    b"thai_pho_samphao",  // ภ (Pho Samphao, 198)
+    b"thai_mo_ma",        // ม (Mo Ma, 199)
+    b"thai_yo_yak",       // ย (Yo Yak, 200)
+    b"thai_ro_rua",       // ร (Ro Rua, 201)
+    b"thai_lo_ling",      // ล (Lo Ling, 202)
+    b"thai_wo_waen",      // ว (Wo Waen, 203)
+    b"thai_so_sala",      // ศ (So Sala, 204)
+    b"thai_so_rusi",      // ษ (So Rusi, 205)
+    b"thai_so_sua",       // ส (So Sua, 206)
+    b"thai_ho_hip",       // ห (Ho Hip, 207)
+    b"thai_lo_chula",     // ฬ (Lo Chula, 208)
+    b"thai_o_ang",        // อ (O Ang, 209)
+    b"thai_ho_nokhuk",    // ฮ (Ho Nokhuk, 210)
+    b"hangul_giyeok",     // ㄱ (Giyeok, 211)
+    b"hangul_nieun",      // ㄴ (Nieun, 212)
+    b"hangul_digeut",     // ㄷ (Digeut, 213)
+    b"hangul_rieul",      // ㄹ (Rieul, 214)
+    b"hangul_mieum",      // ㅁ (Mieum, 215)
+    b"hangul_bieup",      // ㅂ (Bieup, 216)
+    b"hangul_siot",       // ㅅ (Siot, 217)
+    b"hangul_ieung",      // ㅇ (Ieung, 218)
+    b"hangul_jieut",      // ㅈ (Jieut, 219)
+    b"hangul_chieut",     // ㅊ (Chieut, 220)
+    b"hangul_kieuk",      // ㅋ (Kieuk, 221)
+    b"hangul_tieut",      // ㅌ (Tieut, 222)
+    b"hangul_pieup",      // ㅍ (Pieup, 223)
+    b"hangul_hieut",      // ㅎ (Hieut, 224)
+    b"hangul_a",          // ㅏ (A, 225)
+    b"hangul_ae",         // ㅐ (Ae, 226)
+    b"hangul_ya",         // ㅑ (Ya, 227)
+    b"hangul_yae",        // ㅒ (Yae, 228)
+    b"hangul_eo",         // ㅓ (Eo, 229)
+    b"hangul_e",          // ㅔ (E, 230)
+    b"hangul_yeo",        // ㅕ (Yeo, 231)
+    b"hangul_ye",         // ㅖ (Ye, 232)
+    b"hangul_o",          // ㅗ (O, 233)
+    b"hangul_wa",         // ㅘ (Wa, 234)
+    b"hangul_wae",        // ㅙ (Wae, 235)
+    b"hangul_oe",         // ㅚ (Oe, 236)
+    b"hangul_yo",         // ㅛ (Yo, 237)
+    b"hangul_u",          // ㅜ (U, 238)
+    b"hangul_weo",        // ㅝ (Weo, 239)
+    b"hangul_we",         // ㅞ (We, 240)
+    b"hangul_wi",         // ㅟ (Wi, 241)
+    b"hangul_yu",         // ㅠ (Yu, 242)
+    b"hangul_eu",         // ㅡ (Eu, 243)
+    b"hangul_ui",         // ㅢ (Ui, 244)
+    b"hangul_i",          // ㅣ (I, 245)
+    b"ethiopic_glottal_a",// አ (Glottal A, 246)
+    b"ethiopic_glottal_u",// ኡ (Glottal U, 247)
+    b"ethiopic_glottal_i",// ኢ (Glottal I, 248)
+    b"ethiopic_glottal_aa",// ኣ (Glottal Aa, 249)
+    b"ethiopic_glottal_e",// ኤ (Glottal E, 250)
+    b"ethiopic_glottal_ie",// እ (Glottal Ie, 251)
+    b"ethiopic_glottal_o",// ኦ (Glottal O, 252)
+    b"ethiopic_glottal_wa",// ኧ (Glottal Wa, 253)
+    b"ethiopic_wa",       // ወ (Wa, 254)
+    b"ethiopic_wu",       // ዉ (Wu, 255)
+    b"ethiopic_wi",       // ዊ (Wi, 256)
+    b"ethiopic_waa",      // ዋ (Waa, 257)
+    b"ethiopic_we",       // ዌ (We, 258)
+    b"ethiopic_wye",      // ው (Wye, 259)
+    b"ethiopic_wo",       // ዎ (Wo, 260)
+    b"ethiopic_ko",       // ኰ (Ko, 261)
+    b"ethiopic_ku",       // ኱ (Ku, 262)
+    b"ethiopic_ki",       // ኲ (Ki, 263)
+    b"ethiopic_kua",      // ኳ (Kua, 264)
+    b"ethiopic_ke",       // ኴ (Ke, 265)
+    b"ethiopic_kwe",      // ኵ (Kwe, 266)
+    b"ethiopic_ko_alt",   // ኶ (Ko, 267)
+    b"ethiopic_go",       // ጐ (Go, 268)
+    b"ethiopic_gu",       // ጑ (Gu, 269)
+    b"ethiopic_gi",       // ጒ (Gi, 270)
+    b"ethiopic_gua",      // መ (Gua, 271)
+    b"ethiopic_ge",       // ጔ (Ge, 272)
+    b"ethiopic_gwe",      // ጕ (Gwe, 273)
+    b"ethiopic_go_alt",   // ጖ (Go, 274)
+    b"devanagari_a",      // अ (A, 275)
+    b"devanagari_aa",     // आ (Aa, 276)
+    b"devanagari_i",      // इ (I, 277)
+    b"devanagari_ii",     // ई (Ii, 278)
+    b"devanagari_u",      // उ (U, 279)
+    b"devanagari_uu",     // ऊ (Uu, 280)
+    b"devanagari_r",      // ऋ (R, 281)
+    b"devanagari_e",      // ए (E, 282)
+    b"devanagari_ai",     // ऐ (Ai, 283)
+    b"devanagari_o",      // ओ (O, 284)
+    b"devanagari_au",     // औ (Au, 285)
+    b"devanagari_ka",     // क (Ka, 286)
+    b"devanagari_kha",    // ख (Kha, 287)
+    b"devanagari_ga",     // ग (Ga, 288)
+    b"devanagari_gha",    // घ (Gha, 289)
+    b"devanagari_nga",    // ङ (Nga, 290)
+    b"devanagari_cha",    // च (Cha, 291)
+    b"devanagari_chha",   // छ (Chha, 292)
+    b"devanagari_ja",     // ज (Ja, 293)
+    b"devanagari_jha",    // झ (Jha, 294)
+    b"devanagari_nya",    // ञ (Nya, 295)
+    b"devanagari_ta",     // ट (Ta, 296)
+    b"devanagari_tha",    // ठ (Tha, 297)
+    b"devanagari_da",     // ड (Da, 298)
+    b"devanagari_dha",    // ढ (Dha, 299)
+    b"devanagari_na",     // ण (Na, 300)
+    b"devanagari_ta_alt", // त (Ta, 301)
+    b"devanagari_tha_alt",// थ (Tha, 302)
+    b"devanagari_da_alt", // द (Da, 303)
+    b"devanagari_dha_alt",// ध (Dha, 304)
+    b"devanagari_na_alt", // न (Na, 305)
+    b"devanagari_pa",     // प (Pa, 306)
+    b"devanagari_pha",    // फ (Pha, 307)
+    b"devanagari_ba",     // ब (Ba, 308)
+    b"devanagari_bha",    // भ (Bha, 309)
+    b"devanagari_ma",     // म (Ma, 310)
+    b"devanagari_ya",     // य (Ya, 311)
+    b"devanagari_ra",     // र (Ra, 312)
+    b"devanagari_la",     // ल (La, 313)
+    b"devanagari_va",     // व (Va, 314)
+    b"devanagari_sha",    // श (Sha, 315)
+    b"devanagari_ssa",    // ष (Ssa, 316)
+    b"devanagari_sa",     // स (Sa, 317)
+    b"devanagari_ha",     // ह (Ha, 318)
+    b"katakana_a",        // ア (A, 319)
+    b"kana_i",
+    b"kana_u",
+    b"kana_e",
+    b"kana_o",
+    b"kana_a",
+    b"kana_ki",
+    b"kana_ku",
+    b"kana_ke",
+    b"kana_ko",
+    b"kana_sa",
+    b"kana_shi",
+    b"kana_su",
+    b"kana_se",
+    b"kana_so",
+    b"kana_ta",
+    b"kana_chi",
+    b"kana_tsu",
+    b"kana_te",
+    b"kana_to",
+    b"kana_na",
+    b"kana_ni",
+    b"kana_nu",
+    b"kana_ne",
+    b"kana_no",
+    b"kana_ha",
+    b"kana_hi",
+    b"kana_fu",
+    b"kana_he",
+    b"kana_ho",
+    b"kana_ma",
+    b"kana_mi",
+    b"kana_mu",
+    b"kana_me",
+    b"kana_mo",
+    b"kana_ya",
+    b"kana_yu",
+    b"kana_yo",
+    b"kana_ra",
+    b"kana_ri",
+    b"kana_ru",
+    b"kana_re",
+    b"kana_ro",
+    b"kana_wa",
+    b"kana_wo",
+    b"kana_n",
+    b"ya",
+    b"yab",
+    b"yabh",
+    b"yag",
+    b"yagh",
+    b"yaj",
+    b"yach",
+    b"yad",
+    b"yadh",
+    b"yadhe",
+    b"yaz",
+    b"yazh",
+    b"yaf",
+    b"yak",
+    b"yakv",
+    b"yaq",
+    b"yah",
+    b"yahh",
+    b"yahl",
+    b"yahm",
+    b"yayn",
+    b"yakh",
+    b"yakl",
+    b"yahq",
+    b"yash",
+    b"yi",
+    b"yij",
+    b"yizh",
+    b"yink",
+    b"yal",
+    b"yam",
+    b"yan",
+    b"yang",
+    b"yany",
+    b"yap",
+    b"yu",
+    b"a",
+    b"aa",
+    b"i",
+    b"ii",
+    b"u",
+    b"uu",
+    b"r",
+    b"rr",
+    b"l",
+    b"ll",
+    b"e",
+    b"ee",
+    b"ai",
+    b"o",
+    b"oo",
+    b"au",
+    b"ka",
+    b"kha",
+    b"ga",
+    b"gha",
+    b"nga",
+    b"cha",
+    b"chha",
+    b"ja",
+    b"jha",
+    b"nya",
+    b"ta",
+    b"tha",
+    b"da",
+    b"dha",
+    b"na",
+    b"pa",
+    b"pha",
+    b"ba",
+    b"bha",
+    b"ma",
+    b"ya",
+    b"ra",
+];
+
 impl<T: Config> Pallet<T> {
+    /// Returns the human-readable name for a subnet as a `Vec<u8>`.
+    ///
+    /// Priority:
+    /// 1. If the subnet has a non-empty `SubnetIdentitiesV3::subnet_name` set by
+    ///    its owner, return that.
+    /// 2. Otherwise fall back to the built-in `NAMES` table, which mirrors
+    ///    `SYMBOLS` by `netuid`.
+    /// 3. Return `b"unknown"` if the netuid is out of range.
     pub fn get_name_for_subnet(netuid: NetUid) -> Vec<u8> {
         SubnetIdentitiesV3::<T>::try_get(netuid)
             .and_then(|identity| {
@@ -479,448 +928,11 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .unwrap_or_else(|_| {
-                match u16::from(netuid) {
-                    0 => b"root".to_vec(),          // Τ (Upper case Tau)
-                    1 => b"apex".to_vec(),          // α (Alpha)
-                    2 => b"omron".to_vec(),         // β (Beta)
-                    3 => b"templar".to_vec(),       // γ (Gamma)
-                    4 => b"targon".to_vec(),        // δ (Delta)
-                    5 => b"kaito".to_vec(),         // ε (Epsilon)
-                    6 => b"infinite".to_vec(),      // ζ (Zeta)
-                    7 => b"subvortex".to_vec(),     // η (Eta)
-                    8 => b"ptn".to_vec(),           // θ (Theta)
-                    9 => b"pretrain".to_vec(),      // ι (Iota)
-                    10 => b"sturdy".to_vec(),       // κ (Kappa)
-                    11 => b"dippy".to_vec(),        // λ (Lambda)
-                    12 => b"horde".to_vec(),        // μ (Mu)
-                    13 => b"dataverse".to_vec(),    // ν (Nu)
-                    14 => b"palaidn".to_vec(),      // ξ (Xi)
-                    15 => b"deval".to_vec(),        // ο (Omicron)
-                    16 => b"bitads".to_vec(),       // π (Pi)
-                    17 => b"3gen".to_vec(),         // ρ (Rho)
-                    18 => b"cortex".to_vec(),       // σ (Sigma)
-                    19 => b"inference".to_vec(),    // t (Tau)
-                    20 => b"bitagent".to_vec(),     // υ (Upsilon)
-                    21 => b"any-any".to_vec(),      // φ (Phi)
-                    22 => b"meta".to_vec(),         // χ (Chi)
-                    23 => b"social".to_vec(),       // ψ (Psi)
-                    24 => b"omega".to_vec(),        // ω (Omega)
-                    25 => b"protein".to_vec(),      // א (Aleph)
-                    26 => b"alchemy".to_vec(),      // ב (Bet)
-                    27 => b"compute".to_vec(),      // ג (Gimel)
-                    28 => b"oracle".to_vec(),       // ד (Dalet)
-                    29 => b"coldint".to_vec(),      // ה (He)
-                    30 => b"bet".to_vec(),          // ו (Vav)
-                    31 => b"naschain".to_vec(),     // ז (Zayin)
-                    32 => b"itsai".to_vec(),        // ח (Het)
-                    33 => b"ready".to_vec(),        // ט (Tet)
-                    34 => b"mind".to_vec(),         // י (Yod)
-                    35 => b"logic".to_vec(),        // ך (Final Kaf)
-                    36 => b"automata".to_vec(),     // כ (Kaf)
-                    37 => b"tuning".to_vec(),       // ל (Lamed)
-                    38 => b"distributed".to_vec(),  // ם (Final Mem)
-                    39 => b"edge".to_vec(),         // מ (Mem)
-                    40 => b"chunk".to_vec(),        // ן (Final Nun)
-                    41 => b"sportsensor".to_vec(),  // נ (Nun)
-                    42 => b"masa".to_vec(),         // ס (Samekh)
-                    43 => b"graphite".to_vec(),     // ע (Ayin)
-                    44 => b"score".to_vec(),        // ף (Final Pe)
-                    45 => b"gen42".to_vec(),        // פ (Pe)
-                    46 => b"neural".to_vec(),       // ץ (Final Tsadi)
-                    47 => b"condense".to_vec(),     // צ (Tsadi)
-                    48 => b"nextplace".to_vec(),    // ק (Qof)
-                    49 => b"automl".to_vec(),       // ר (Resh)
-                    50 => b"audio".to_vec(),        // ש (Shin)
-                    51 => b"celium".to_vec(),       // ת (Tav)
-                    52 => b"dojo".to_vec(),         // ا (Alif)
-                    53 => b"frontier".to_vec(),     // ب (Ba)
-                    54 => b"safescan".to_vec(),     // ت (Ta)
-                    55 => b"unknown".to_vec(),      // ث (Tha)
-                    56 => b"gradients".to_vec(),    // ج (Jim)
-                    57 => b"gaia".to_vec(),         // ح (Ha)
-                    58 => b"dippy-speach".to_vec(), // خ (Kha)
-                    59 => b"agent-arena".to_vec(),  // د (Dal)
-                    60 => b"unknown".to_vec(),      // ذ (Dhal)
-                    61 => b"red team".to_vec(),     // ر (Ra)
-                    62 => b"agentao".to_vec(),      // ز (Zay)
-                    63 => b"lean-in".to_vec(),      // س (Sin)
-                    64 => b"chutes".to_vec(),       // ش (Shin)
-                    65 => b"sad".to_vec(),
-                    66 => b"dad".to_vec(),
-                    67 => b"ta".to_vec(),
-                    68 => b"dha".to_vec(),
-                    69 => b"ain".to_vec(),
-                    70 => b"ghayn".to_vec(),
-                    71 => b"fa".to_vec(),
-                    72 => b"qaf".to_vec(),
-                    73 => b"kaf".to_vec(),
-                    74 => b"lam".to_vec(),
-                    75 => b"mim".to_vec(),
-                    76 => b"nun".to_vec(),
-                    77 => b"ha".to_vec(),
-                    78 => b"waw".to_vec(),
-                    79 => b"ya".to_vec(),
-                    80 => b"alef".to_vec(),
-                    81 => b"fehu".to_vec(),
-                    82 => b"uruz".to_vec(),
-                    83 => b"thurisaz".to_vec(),
-                    84 => b"ansuz".to_vec(),
-                    85 => b"raidho".to_vec(),
-                    86 => b"kaunan".to_vec(),
-                    87 => b"cyr_yeru".to_vec(),
-                    88 => b"algiz".to_vec(),
-                    89 => b"berkanan".to_vec(),
-                    90 => b"ogham".to_vec(),
-                    91 => b"beith".to_vec(),
-                    92 => b"luis".to_vec(),
-                    93 => b"fearn".to_vec(),
-                    94 => b"sail".to_vec(),
-                    95 => b"nion".to_vec(),
-                    96 => b"forfeda".to_vec(),
-                    97 => b"ani".to_vec(),
-                    98 => b"bani".to_vec(),
-                    99 => b"gani".to_vec(),
-                    100 => b"doni".to_vec(),
-                    101 => b"eni".to_vec(),
-                    102 => b"vini".to_vec(),
-                    103 => b"ayp".to_vec(),
-                    104 => b"ben".to_vec(),
-                    105 => b"gim".to_vec(),
-                    106 => b"da".to_vec(),
-                    107 => b"ech".to_vec(),
-                    108 => b"za".to_vec(),
-                    109 => b"armeni".to_vec(),
-                    110 => b"grave".to_vec(),
-                    111 => b"io".to_vec(),
-                    112 => b"dje".to_vec(),
-                    113 => b"gje".to_vec(),
-                    114 => b"ie".to_vec(),
-                    115 => b"dze".to_vec(),
-                    116 => b"hard_sign".to_vec(),
-                    117 => b"alfa".to_vec(),
-                    118 => b"alfas".to_vec(),
-                    119 => b"vida".to_vec(),        // Ⲃ (Vida, 119)
-                    120 => b"vida_small".to_vec(),  // ⲃ (Small Vida, 120)
-                    121 => b"gamma".to_vec(),       // Ⲅ (Gamma, 121)
-                    122 => b"gamma_small".to_vec(), // ⲅ (Small Gamma, 122)
-                    123 => b"brahmi_a".to_vec(),    // 𑀀 (A, 123)
-                    124 => b"brahmi_aa".to_vec(),   // 𑀁 (Aa, 124)
-                    125 => b"brahmi_i".to_vec(),    // 𑀂 (I, 125)
-                    126 => b"brahmi_ii".to_vec(),   // 𑀃 (Ii, 126)
-                    127 => b"brahmi_u".to_vec(),    // 𑀅 (U, 127)
-                    128 => b"la".to_vec(),
-                    129 => b"va".to_vec(),
-                    130 => b"sha".to_vec(),
-                    131 => b"ssa".to_vec(),
-                    132 => b"sa".to_vec(),
-                    133 => b"ha".to_vec(),
-                    134 => b"glagolitic_az".to_vec(), // Ⰰ (Az, 134)
-                    135 => b"glagolitic_buky".to_vec(), // Ⰱ (Buky, 135)
-                    136 => b"glagolitic_vede".to_vec(), // Ⰲ (Vede, 136)
-                    137 => b"glagolitic_glagoli".to_vec(), // Ⰳ (Glagoli, 137)
-                    138 => b"glagolitic_dobro".to_vec(), // Ⰴ (Dobro, 138)
-                    139 => b"glagolitic_yest".to_vec(), // Ⰵ (Yest, 139)
-                    140 => b"glagolitic_zhivete".to_vec(), // Ⰶ (Zhivete, 140)
-                    141 => b"glagolitic_zemlja".to_vec(), // Ⰷ (Zemlja, 141)
-                    142 => b"glagolitic_izhe".to_vec(), // Ⰸ (Izhe, 142)
-                    143 => b"glagolitic_initial_izhe".to_vec(), // Ⰹ (Initial Izhe, 143)
-                    144 => b"glagolitic_i".to_vec(),  // Ⰺ (I, 144)
-                    145 => b"glagolitic_djerv".to_vec(), // Ⰻ (Djerv, 145)
-                    146 => b"glagolitic_kako".to_vec(), // Ⰼ (Kako, 146)
-                    147 => b"glagolitic_ljudije".to_vec(), // Ⰽ (Ljudije, 147)
-                    148 => b"glagolitic_myse".to_vec(), // Ⰾ (Myse, 148)
-                    149 => b"glagolitic_nash".to_vec(), // Ⰿ (Nash, 149)
-                    150 => b"glagolitic_on".to_vec(), // Ⱀ (On, 150)
-                    151 => b"glagolitic_pokoj".to_vec(), // Ⱁ (Pokoj, 151)
-                    152 => b"glagolitic_rtsy".to_vec(), // Ⱂ (Rtsy, 152)
-                    153 => b"glagolitic_slovo".to_vec(), // Ⱃ (Slovo, 153)
-                    154 => b"glagolitic_tvrido".to_vec(), // Ⱄ (Tvrido, 154)
-                    155 => b"glagolitic_uku".to_vec(), // Ⱅ (Uku, 155)
-                    156 => b"glagolitic_fert".to_vec(), // Ⱆ (Fert, 156)
-                    157 => b"glagolitic_xrivi".to_vec(), // Ⱇ (Xrivi, 157)
-                    158 => b"glagolitic_ot".to_vec(), // Ⱈ (Ot, 158)
-                    159 => b"glagolitic_cy".to_vec(), // Ⱉ (Cy, 159)
-                    160 => b"glagolitic_shcha".to_vec(), // Ⱊ (Shcha, 160)
-                    161 => b"glagolitic_er".to_vec(), // Ⱋ (Er, 161)
-                    162 => b"glagolitic_yeru".to_vec(), // Ⱌ (Yeru, 162)
-                    163 => b"glagolitic_small_yer".to_vec(), // Ⱍ (Small Yer, 163)
-                    164 => b"glagolitic_yo".to_vec(), // Ⱎ (Yo, 164)
-                    165 => b"glagolitic_yu".to_vec(), // Ⱏ (Yu, 165)
-                    166 => b"glagolitic_ja".to_vec(), // Ⱐ (Ja, 166)
-                    167 => b"thai_ko_kai".to_vec(),   // ก (Ko Kai, 167)
-                    168 => b"thai_kho_khai".to_vec(), // ข (Kho Khai, 168)
-                    169 => b"thai_kho_khuat".to_vec(), // ฃ (Kho Khuat, 169)
-                    170 => b"thai_kho_khon".to_vec(), // ค (Kho Khon, 170)
-                    171 => b"thai_kho_rakhang".to_vec(), // ฅ (Kho Rakhang, 171)
-                    172 => b"thai_kho_khwai".to_vec(), // ฆ (Kho Khwai, 172)
-                    173 => b"thai_ngo_ngu".to_vec(),  // ง (Ngo Ngu, 173)
-                    174 => b"thai_cho_chan".to_vec(), // จ (Cho Chan, 174)
-                    175 => b"thai_cho_ching".to_vec(), // ฉ (Cho Ching, 175)
-                    176 => b"thai_cho_chang".to_vec(), // ช (Cho Chang, 176)
-                    177 => b"thai_so_so".to_vec(),    // ซ (So So, 177)
-                    178 => b"thai_cho_choe".to_vec(), // ฌ (Cho Choe, 178)
-                    179 => b"thai_yo_ying".to_vec(),  // ญ (Yo Ying, 179)
-                    180 => b"thai_do_chada".to_vec(), // ฎ (Do Chada, 180)
-                    181 => b"thai_to_patak".to_vec(), // ฏ (To Patak, 181)
-                    182 => b"thai_tho_than".to_vec(), // ฐ (Tho Than, 182)
-                    183 => b"thai_tho_nangmontho".to_vec(), // ฑ (Tho Nangmontho, 183)
-                    184 => b"thai_tho_phuthao".to_vec(), // ฒ (Tho Phuthao, 184)
-                    185 => b"thai_no_nen".to_vec(),   // ณ (No Nen, 185)
-                    186 => b"thai_do_dek".to_vec(),   // ด (Do Dek, 186)
-                    187 => b"thai_to_tao".to_vec(),   // ต (To Tao, 187)
-                    188 => b"thai_tho_thung".to_vec(), // ถ (Tho Thung, 188)
-                    189 => b"thai_tho_thahan".to_vec(), // ท (Tho Thahan, 189)
-                    190 => b"thai_tho_thong".to_vec(), // ธ (Tho Thong, 190)
-                    191 => b"thai_no_nu".to_vec(),    // น (No Nu, 191)
-                    192 => b"thai_bo_baimai".to_vec(), // บ (Bo Baimai, 192)
-                    193 => b"thai_po_pla".to_vec(),   // ป (Po Pla, 193)
-                    194 => b"thai_pho_phung".to_vec(), // ผ (Pho Phung, 194)
-                    195 => b"thai_fo_fa".to_vec(),    // ฝ (Fo Fa, 195)
-                    196 => b"thai_pho_phan".to_vec(), // พ (Pho Phan, 196)
-                    197 => b"thai_fo_fan".to_vec(),   // ฟ (Fo Fan, 197)
-                    198 => b"thai_pho_samphao".to_vec(), // ภ (Pho Samphao, 198)
-                    199 => b"thai_mo_ma".to_vec(),    // ม (Mo Ma, 199)
-                    200 => b"thai_yo_yak".to_vec(),   // ย (Yo Yak, 200)
-                    201 => b"thai_ro_rua".to_vec(),   // ร (Ro Rua, 201)
-                    202 => b"thai_lo_ling".to_vec(),  // ล (Lo Ling, 202)
-                    203 => b"thai_wo_waen".to_vec(),  // ว (Wo Waen, 203)
-                    204 => b"thai_so_sala".to_vec(),  // ศ (So Sala, 204)
-                    205 => b"thai_so_rusi".to_vec(),  // ษ (So Rusi, 205)
-                    206 => b"thai_so_sua".to_vec(),   // ส (So Sua, 206)
-                    207 => b"thai_ho_hip".to_vec(),   // ห (Ho Hip, 207)
-                    208 => b"thai_lo_chula".to_vec(), // ฬ (Lo Chula, 208)
-                    209 => b"thai_o_ang".to_vec(),    // อ (O Ang, 209)
-                    210 => b"thai_ho_nokhuk".to_vec(), // ฮ (Ho Nokhuk, 210)
-                    211 => b"hangul_giyeok".to_vec(), // ㄱ (Giyeok, 211)
-                    212 => b"hangul_nieun".to_vec(),  // ㄴ (Nieun, 212)
-                    213 => b"hangul_digeut".to_vec(), // ㄷ (Digeut, 213)
-                    214 => b"hangul_rieul".to_vec(),  // ㄹ (Rieul, 214)
-                    215 => b"hangul_mieum".to_vec(),  // ㅁ (Mieum, 215)
-                    216 => b"hangul_bieup".to_vec(),  // ㅂ (Bieup, 216)
-                    217 => b"hangul_siot".to_vec(),   // ㅅ (Siot, 217)
-                    218 => b"hangul_ieung".to_vec(),  // ㅇ (Ieung, 218)
-                    219 => b"hangul_jieut".to_vec(),  // ㅈ (Jieut, 219)
-                    220 => b"hangul_chieut".to_vec(), // ㅊ (Chieut, 220)
-                    221 => b"hangul_kieuk".to_vec(),  // ㅋ (Kieuk, 221)
-                    222 => b"hangul_tieut".to_vec(),  // ㅌ (Tieut, 222)
-                    223 => b"hangul_pieup".to_vec(),  // ㅍ (Pieup, 223)
-                    224 => b"hangul_hieut".to_vec(),  // ㅎ (Hieut, 224)
-                    225 => b"hangul_a".to_vec(),      // ㅏ (A, 225)
-                    226 => b"hangul_ae".to_vec(),     // ㅐ (Ae, 226)
-                    227 => b"hangul_ya".to_vec(),     // ㅑ (Ya, 227)
-                    228 => b"hangul_yae".to_vec(),    // ㅒ (Yae, 228)
-                    229 => b"hangul_eo".to_vec(),     // ㅓ (Eo, 229)
-                    230 => b"hangul_e".to_vec(),      // ㅔ (E, 230)
-                    231 => b"hangul_yeo".to_vec(),    // ㅕ (Yeo, 231)
-                    232 => b"hangul_ye".to_vec(),     // ㅖ (Ye, 232)
-                    233 => b"hangul_o".to_vec(),      // ㅗ (O, 233)
-                    234 => b"hangul_wa".to_vec(),     // ㅘ (Wa, 234)
-                    235 => b"hangul_wae".to_vec(),    // ㅙ (Wae, 235)
-                    236 => b"hangul_oe".to_vec(),     // ㅚ (Oe, 236)
-                    237 => b"hangul_yo".to_vec(),     // ㅛ (Yo, 237)
-                    238 => b"hangul_u".to_vec(),      // ㅜ (U, 238)
-                    239 => b"hangul_weo".to_vec(),    // ㅝ (Weo, 239)
-                    240 => b"hangul_we".to_vec(),     // ㅞ (We, 240)
-                    241 => b"hangul_wi".to_vec(),     // ㅟ (Wi, 241)
-                    242 => b"hangul_yu".to_vec(),     // ㅠ (Yu, 242)
-                    243 => b"hangul_eu".to_vec(),     // ㅡ (Eu, 243)
-                    244 => b"hangul_ui".to_vec(),     // ㅢ (Ui, 244)
-                    245 => b"hangul_i".to_vec(),      // ㅣ (I, 245)
-                    246 => b"ethiopic_glottal_a".to_vec(), // አ (Glottal A, 246)
-                    247 => b"ethiopic_glottal_u".to_vec(), // ኡ (Glottal U, 247)
-                    248 => b"ethiopic_glottal_i".to_vec(), // ኢ (Glottal I, 248)
-                    249 => b"ethiopic_glottal_aa".to_vec(), // ኣ (Glottal Aa, 249)
-                    250 => b"ethiopic_glottal_e".to_vec(), // ኤ (Glottal E, 250)
-                    251 => b"ethiopic_glottal_ie".to_vec(), // እ (Glottal Ie, 251)
-                    252 => b"ethiopic_glottal_o".to_vec(), // ኦ (Glottal O, 252)
-                    253 => b"ethiopic_glottal_wa".to_vec(), // ኧ (Glottal Wa, 253)
-                    254 => b"ethiopic_wa".to_vec(),   // ወ (Wa, 254)
-                    255 => b"ethiopic_wu".to_vec(),   // ዉ (Wu, 255)
-                    256 => b"ethiopic_wi".to_vec(),   // ዊ (Wi, 256)
-                    257 => b"ethiopic_waa".to_vec(),  // ዋ (Waa, 257)
-                    258 => b"ethiopic_we".to_vec(),   // ዌ (We, 258)
-                    259 => b"ethiopic_wye".to_vec(),  // ው (Wye, 259)
-                    260 => b"ethiopic_wo".to_vec(),   // ዎ (Wo, 260)
-                    261 => b"ethiopic_ko".to_vec(),   // ኰ (Ko, 261)
-                    262 => b"ethiopic_ku".to_vec(),   // ኱ (Ku, 262)
-                    263 => b"ethiopic_ki".to_vec(),   // ኲ (Ki, 263)
-                    264 => b"ethiopic_kua".to_vec(),  // ኳ (Kua, 264)
-                    265 => b"ethiopic_ke".to_vec(),   // ኴ (Ke, 265)
-                    266 => b"ethiopic_kwe".to_vec(),  // ኵ (Kwe, 266)
-                    267 => b"ethiopic_ko_alt".to_vec(), // ኶ (Ko, 267)
-                    268 => b"ethiopic_go".to_vec(),   // ጐ (Go, 268)
-                    269 => b"ethiopic_gu".to_vec(),   // ጑ (Gu, 269)
-                    270 => b"ethiopic_gi".to_vec(),   // ጒ (Gi, 270)
-                    271 => b"ethiopic_gua".to_vec(),  // መ (Gua, 271)
-                    272 => b"ethiopic_ge".to_vec(),   // ጔ (Ge, 272)
-                    273 => b"ethiopic_gwe".to_vec(),  // ጕ (Gwe, 273)
-                    274 => b"ethiopic_go_alt".to_vec(), // ጖ (Go, 274)
-                    275 => b"devanagari_a".to_vec(),  // अ (A, 275)
-                    276 => b"devanagari_aa".to_vec(), // आ (Aa, 276)
-                    277 => b"devanagari_i".to_vec(),  // इ (I, 277)
-                    278 => b"devanagari_ii".to_vec(), // ई (Ii, 278)
-                    279 => b"devanagari_u".to_vec(),  // उ (U, 279)
-                    280 => b"devanagari_uu".to_vec(), // ऊ (Uu, 280)
-                    281 => b"devanagari_r".to_vec(),  // ऋ (R, 281)
-                    282 => b"devanagari_e".to_vec(),  // ए (E, 282)
-                    283 => b"devanagari_ai".to_vec(), // ऐ (Ai, 283)
-                    284 => b"devanagari_o".to_vec(),  // ओ (O, 284)
-                    285 => b"devanagari_au".to_vec(), // औ (Au, 285)
-                    286 => b"devanagari_ka".to_vec(), // क (Ka, 286)
-                    287 => b"devanagari_kha".to_vec(), // ख (Kha, 287)
-                    288 => b"devanagari_ga".to_vec(), // ग (Ga, 288)
-                    289 => b"devanagari_gha".to_vec(), // घ (Gha, 289)
-                    290 => b"devanagari_nga".to_vec(), // ङ (Nga, 290)
-                    291 => b"devanagari_cha".to_vec(), // च (Cha, 291)
-                    292 => b"devanagari_chha".to_vec(), // छ (Chha, 292)
-                    293 => b"devanagari_ja".to_vec(), // ज (Ja, 293)
-                    294 => b"devanagari_jha".to_vec(), // झ (Jha, 294)
-                    295 => b"devanagari_nya".to_vec(), // ञ (Nya, 295)
-                    296 => b"devanagari_ta".to_vec(), // ट (Ta, 296)
-                    297 => b"devanagari_tha".to_vec(), // ठ (Tha, 297)
-                    298 => b"devanagari_da".to_vec(), // ड (Da, 298)
-                    299 => b"devanagari_dha".to_vec(), // ढ (Dha, 299)
-                    300 => b"devanagari_na".to_vec(), // ण (Na, 300)
-                    301 => b"devanagari_ta_alt".to_vec(), // त (Ta, 301)
-                    302 => b"devanagari_tha_alt".to_vec(), // थ (Tha, 302)
-                    303 => b"devanagari_da_alt".to_vec(), // द (Da, 303)
-                    304 => b"devanagari_dha_alt".to_vec(), // ध (Dha, 304)
-                    305 => b"devanagari_na_alt".to_vec(), // न (Na, 305)
-                    306 => b"devanagari_pa".to_vec(), // प (Pa, 306)
-                    307 => b"devanagari_pha".to_vec(), // फ (Pha, 307)
-                    308 => b"devanagari_ba".to_vec(), // ब (Ba, 308)
-                    309 => b"devanagari_bha".to_vec(), // भ (Bha, 309)
-                    310 => b"devanagari_ma".to_vec(), // म (Ma, 310)
-                    311 => b"devanagari_ya".to_vec(), // य (Ya, 311)
-                    312 => b"devanagari_ra".to_vec(), // र (Ra, 312)
-                    313 => b"devanagari_la".to_vec(), // ल (La, 313)
-                    314 => b"devanagari_va".to_vec(), // व (Va, 314)
-                    315 => b"devanagari_sha".to_vec(), // श (Sha, 315)
-                    316 => b"devanagari_ssa".to_vec(), // ष (Ssa, 316)
-                    317 => b"devanagari_sa".to_vec(), // स (Sa, 317)
-                    318 => b"devanagari_ha".to_vec(), // ह (Ha, 318)
-                    319 => b"katakana_a".to_vec(),    // ア (A, 319)
-                    320 => b"kana_i".to_vec(),
-                    321 => b"kana_u".to_vec(),
-                    322 => b"kana_e".to_vec(),
-                    323 => b"kana_o".to_vec(),
-                    324 => b"kana_a".to_vec(),
-                    325 => b"kana_ki".to_vec(),
-                    326 => b"kana_ku".to_vec(),
-                    327 => b"kana_ke".to_vec(),
-                    328 => b"kana_ko".to_vec(),
-                    329 => b"kana_sa".to_vec(),
-                    330 => b"kana_shi".to_vec(),
-                    331 => b"kana_su".to_vec(),
-                    332 => b"kana_se".to_vec(),
-                    333 => b"kana_so".to_vec(),
-                    334 => b"kana_ta".to_vec(),
-                    335 => b"kana_chi".to_vec(),
-                    336 => b"kana_tsu".to_vec(),
-                    337 => b"kana_te".to_vec(),
-                    338 => b"kana_to".to_vec(),
-                    339 => b"kana_na".to_vec(),
-                    340 => b"kana_ni".to_vec(),
-                    341 => b"kana_nu".to_vec(),
-                    342 => b"kana_ne".to_vec(),
-                    343 => b"kana_no".to_vec(),
-                    344 => b"kana_ha".to_vec(),
-                    345 => b"kana_hi".to_vec(),
-                    346 => b"kana_fu".to_vec(),
-                    347 => b"kana_he".to_vec(),
-                    348 => b"kana_ho".to_vec(),
-                    349 => b"kana_ma".to_vec(),
-                    350 => b"kana_mi".to_vec(),
-                    351 => b"kana_mu".to_vec(),
-                    352 => b"kana_me".to_vec(),
-                    353 => b"kana_mo".to_vec(),
-                    354 => b"kana_ya".to_vec(),
-                    355 => b"kana_yu".to_vec(),
-                    356 => b"kana_yo".to_vec(),
-                    357 => b"kana_ra".to_vec(),
-                    358 => b"kana_ri".to_vec(),
-                    359 => b"kana_ru".to_vec(),
-                    360 => b"kana_re".to_vec(),
-                    361 => b"kana_ro".to_vec(),
-                    362 => b"kana_wa".to_vec(),
-                    363 => b"kana_wo".to_vec(),
-                    364 => b"kana_n".to_vec(),
-                    365 => b"ya".to_vec(),
-                    366 => b"yab".to_vec(),
-                    367 => b"yabh".to_vec(),
-                    368 => b"yag".to_vec(),
-                    369 => b"yagh".to_vec(),
-                    370 => b"yaj".to_vec(),
-                    371 => b"yach".to_vec(),
-                    372 => b"yad".to_vec(),
-                    373 => b"yadh".to_vec(),
-                    374 => b"yadhe".to_vec(),
-                    375 => b"yaz".to_vec(),
-                    376 => b"yazh".to_vec(),
-                    377 => b"yaf".to_vec(),
-                    378 => b"yak".to_vec(),
-                    379 => b"yakv".to_vec(),
-                    380 => b"yaq".to_vec(),
-                    381 => b"yah".to_vec(),
-                    382 => b"yahh".to_vec(),
-                    383 => b"yahl".to_vec(),
-                    384 => b"yahm".to_vec(),
-                    385 => b"yayn".to_vec(),
-                    386 => b"yakh".to_vec(),
-                    387 => b"yakl".to_vec(),
-                    388 => b"yahq".to_vec(),
-                    389 => b"yash".to_vec(),
-                    390 => b"yi".to_vec(),
-                    391 => b"yij".to_vec(),
-                    392 => b"yizh".to_vec(),
-                    393 => b"yink".to_vec(),
-                    394 => b"yal".to_vec(),
-                    395 => b"yam".to_vec(),
-                    396 => b"yan".to_vec(),
-                    397 => b"yang".to_vec(),
-                    398 => b"yany".to_vec(),
-                    399 => b"yap".to_vec(),
-                    400 => b"yu".to_vec(),
-                    401 => b"a".to_vec(),
-                    402 => b"aa".to_vec(),
-                    403 => b"i".to_vec(),
-                    404 => b"ii".to_vec(),
-                    405 => b"u".to_vec(),
-                    406 => b"uu".to_vec(),
-                    407 => b"r".to_vec(),
-                    408 => b"rr".to_vec(),
-                    409 => b"l".to_vec(),
-                    410 => b"ll".to_vec(),
-                    411 => b"e".to_vec(),
-                    412 => b"ee".to_vec(),
-                    413 => b"ai".to_vec(),
-                    414 => b"o".to_vec(),
-                    415 => b"oo".to_vec(),
-                    416 => b"au".to_vec(),
-                    417 => b"ka".to_vec(),
-                    418 => b"kha".to_vec(),
-                    419 => b"ga".to_vec(),
-                    420 => b"gha".to_vec(),
-                    421 => b"nga".to_vec(),
-                    422 => b"cha".to_vec(),
-                    423 => b"chha".to_vec(),
-                    424 => b"ja".to_vec(),
-                    425 => b"jha".to_vec(),
-                    426 => b"nya".to_vec(),
-                    427 => b"ta".to_vec(),
-                    428 => b"tha".to_vec(),
-                    429 => b"da".to_vec(),
-                    430 => b"dha".to_vec(),
-                    431 => b"na".to_vec(),
-                    432 => b"pa".to_vec(),
-                    433 => b"pha".to_vec(),
-                    434 => b"ba".to_vec(),
-                    435 => b"bha".to_vec(),
-                    436 => b"ma".to_vec(),
-                    437 => b"ya".to_vec(),
-                    438 => b"ra".to_vec(),
-                    _ => b"unknown".to_vec(),
-                }
+                NAMES
+                    .get(u16::from(netuid) as usize)
+                    .copied()
+                    .unwrap_or(b"unknown")
+                    .to_vec()
             })
     }
 
