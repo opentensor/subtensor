@@ -194,7 +194,19 @@ impl<T: Config> Pallet<T> {
     /// Clears the lock. This function will be called if the alpha stake drops below minimum
     /// threshold.
     pub fn maybe_cleanup_lock(coldkey: &T::AccountId, netuid: NetUid) {
-        Lock::<T>::remove(coldkey, netuid);
+        if let Some(lock) = Lock::<T>::get(coldkey, netuid) {
+            let now = Self::get_current_block_as_u64();
+            let rolled = Self::roll_forward_lock(lock, now);
+            Lock::<T>::remove(coldkey, netuid);
+
+            // Reduce the total hotkey lock by the rolled locked mass and conviction
+            Self::reduce_hotkey_lock(
+                &rolled.hotkey,
+                netuid,
+                rolled.locked_mass,
+                rolled.conviction,
+            );
+        }
     }
 
     /// Update the total lock for a hotkey on a subnet or create one if

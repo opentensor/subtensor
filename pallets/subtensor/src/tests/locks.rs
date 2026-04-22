@@ -1138,6 +1138,83 @@ fn test_maybe_cleanup_lock_no_lock() {
     });
 }
 
+#[test]
+fn test_maybe_cleanup_lock_two_coldkeys() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey1 = U256::from(1001);
+        let coldkey2 = U256::from(1002);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey1, hotkey, 100_000_000_000);
+
+        // Add stake on coldkey 2
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
+        SubtensorModule::create_account_if_non_existent(&coldkey2, &hotkey);
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &coldkey2,
+            netuid,
+            100_000_000_000u64.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+
+        // Mock a non-zero conviction for both coldkeys
+        let lock1 = Lock::<Test>::get(coldkey1, netuid).unwrap_or(LockState {
+            hotkey,
+            locked_mass: 0.into(),
+            conviction: U64F64::saturating_from_num(1234),
+            last_update: System::block_number(),
+        });
+        let lock2 = Lock::<Test>::get(coldkey2, netuid).unwrap_or(LockState {
+            hotkey,
+            locked_mass: 0.into(),
+            conviction: U64F64::saturating_from_num(1234),
+            last_update: System::block_number(),
+        });
+        Lock::<Test>::insert(coldkey1, netuid, lock1);
+        Lock::<Test>::insert(coldkey2, netuid, lock2);
+        HotkeyLock::<Test>::insert(
+            netuid,
+            hotkey,
+            HotkeyLockState {
+                locked_mass: 0.into(),
+                conviction: U64F64::saturating_from_num(1234 * 2),
+                last_update: System::block_number(),
+            },
+        );
+
+        // Lock a small amount from both coldkeys
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey1,
+            netuid,
+            &hotkey,
+            50u64.into(),
+        ));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey2,
+            netuid,
+            &hotkey,
+            50u64.into(),
+        ));
+
+        SubtensorModule::maybe_cleanup_lock(&coldkey1, netuid);
+
+        // Should only clean up coldkey1's lock, not coldkey2's
+        assert!(Lock::<Test>::get(coldkey1, netuid).is_none());
+        assert!(Lock::<Test>::get(coldkey2, netuid).is_some());
+
+        // Hotkey lock should reduce according to coldkey1 lock
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey).unwrap();
+        assert_eq!(hotkey_lock.locked_mass, 50u64.into());
+
+        // Conviction should be reduced by coldkey1's lock conviction,
+        // but not fully reset because coldkey2 still has a lock
+        assert!(hotkey_lock.conviction == U64F64::saturating_from_num(1234));
+    });
+}
+
 // =========================================================================
 // GROUP 11: Coldkey swap interaction
 // =========================================================================
