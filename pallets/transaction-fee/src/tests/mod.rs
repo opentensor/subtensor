@@ -187,7 +187,7 @@ fn test_rejects_multi_subnet_alpha_fee_deduction() {
                 &alpha_vec,
                 1.into(),
             ),
-            (0.into(), 0.into())
+            (0.into(), 0.into(), NetUid::ROOT)
         );
 
         let alpha_after_0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -300,9 +300,10 @@ fn test_remove_stake_fees_alpha() {
                     &event_record.event,
                     RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha {
                         who,
+                        netuid,
                         alpha_fee,
                         tao_amount: _,
-                    }) if who == &sn.coldkey && *alpha_fee == actual_alpha_fee
+                    }) if who == &sn.coldkey && *alpha_fee == actual_alpha_fee && *netuid == sn.subnets[0].netuid
                 )
             })
             .expect("expected TransactionFeePaidWithAlpha event");
