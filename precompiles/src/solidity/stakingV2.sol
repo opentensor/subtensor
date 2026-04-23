@@ -387,14 +387,14 @@ interface IStaking {
      * (spender) to spend at least the `amount` (allowance). The allowance towards that spender will be
      * decreased by this amount.
      *
-     * This function allows external accounts and contracts to transfer staked TAO to another coldkey,
-     * which effectively calls `transfer_stake` on the subtensor pallet with specified destination
-     * coldkey as a parameter being the hashed address mapping of H160 sender address to Substrate ss58
-     * address as implemented in Frontier HashedAddressMapping:
+     * This function allows external accounts and contracts to transfer staked TAO to another EVM
+     * address, which effectively calls `transfer_stake` on the subtensor pallet. Both the source and
+     * destination EVM addresses are converted to their Substrate ss58 representation using Frontier
+     * HashedAddressMapping:
      * https://github.com/polkadot-evm/frontier/blob/2e219e17a526125da003e64ef22ec037917083fa/frame/evm/src/lib.rs#L739
      *
      * @param source_address The source address (20 bytes).
-     * @param destination_coldkey The destination coldkey public key (32 bytes).
+     * @param destination_address The destination EVM address (20 bytes).
      * @param hotkey The hotkey public key (32 bytes).
      * @param origin_netuid The subnet to move stake from (uint256).
      * @param destination_netuid The subnet to move stake to (uint256).
@@ -406,7 +406,7 @@ interface IStaking {
      */
     function transferStakeFrom(
         address source_address,
-        bytes32 destination_coldkey,
+        address destination_address,
         bytes32 hotkey,
         uint256 origin_netuid,
         uint256 destination_netuid,
