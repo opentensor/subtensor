@@ -1987,7 +1987,20 @@ mod pallet_benchmarks {
         let amount = AlphaBalance::from(60_000_000);
 
         seed_swap_reserves::<T>(netuid);
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, total_stake.into());
+        let burn = Subtensor::<T>::get_burn(netuid);
+        Subtensor::<T>::add_balance_to_coldkey_account(
+            &coldkey,
+            total_stake
+                .saturating_mul(2.into())
+                .saturating_add(burn.saturating_mul(2.into()))
+                .into(),
+        );
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
 
         assert_ok!(Subtensor::<T>::add_stake(
             RawOrigin::Signed(coldkey.clone()).into(),
@@ -2028,6 +2041,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::add_balance_to_coldkey_account(
             &coldkey,
             total_stake
+                .saturating_mul(2.into())
                 .saturating_add(burn.saturating_mul(2.into()))
                 .into(),
         );
