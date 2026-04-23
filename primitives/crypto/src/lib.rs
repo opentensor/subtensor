@@ -495,7 +495,7 @@ pub fn verify(
     let responses: Vec<Scalar> = signature
         .responses
         .iter()
-        .map(|bytes| deserialize_scalar(bytes))
+        .map(deserialize_scalar)
         .collect::<Result<_, _>>()?;
 
     // ADDED (not in ZtM2): Pre-compute the ring binding digest.
