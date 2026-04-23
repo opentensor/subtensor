@@ -11,6 +11,7 @@ pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
 type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
 
 #[frame_support::pallet(dev_mode)]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -104,14 +105,72 @@ pub mod pallet {
             let mut weight = Weight::zero();
 
             for collective in T::Collectives::collectives() {
-                if let Some(term_duration) = collective.info.term_duration {
-                    if n.checked_rem(&term_duration).unwrap_or(n).is_zero() {
-                        weight.saturating_accrue(T::OnNewTerm::on_new_term(collective.id));
-                    }
+                // Conservative upper bound for the iteration cost. Matches the
+                // storage-backed case; static `CollectivesInfo` impls pay a
+                // smaller CPU cost, so this is a safe overestimate.
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+                if collective.info.term_duration.is_some_and(|td| n.checked_rem(&td).unwrap_or(n).is_zero()) {
+                    weight.saturating_accrue(T::OnNewTerm::on_new_term(collective.id));
                 }
             }
 
             weight
+        }
+
+
+        fn integrity_test() {
+            // Guards against `CollectiveInfo` / `T::MaxMembers` mismatch: a runtime
+            // declaring `max_members` (or `min_members`) greater than
+            // `T::MaxMembers` would pass the per-collective cap check in
+            // `add_member` / `reset_members` but then fail the `BoundedVec` bound
+            // with a confusing `TooManyMembers` at the storage ceiling. Failing
+            // construction here makes the inconsistent config unreachable at
+            // runtime.
+            //
+            // Alternative structural fix (not taken): drop `max_members` from
+            // `CollectiveInfo` and expose it via a per-collective method on
+            // `CollectivesInfo` computed against `T::MaxMembers` (e.g.
+            // `fn max_members_of(id) -> u32`). That eliminates the field mismatch
+            // by construction at the cost of a `CollectivesInfo` trait-shape change.
+            let storage_max = T::MaxMembers::get();
+            for collective in T::Collectives::collectives() {
+                let info = collective.info;
+
+                assert!(
+                    info.min_members <= storage_max,
+                    "CollectiveInfo::min_members ({}) exceeds T::MaxMembers ({}) — collective cannot reach its min",
+                    info.min_members,
+                    storage_max,
+                );
+
+                if let Some(max) = info.max_members {
+                    assert!(
+                        max <= storage_max,
+                        "CollectiveInfo::max_members ({}) exceeds T::MaxMembers ({}) — storage cannot hold this many",
+                        max,
+                        storage_max,
+                    );
+                    assert!(
+                        info.min_members <= max,
+                        "CollectiveInfo::min_members ({}) exceeds max_members ({}) — collective is unreachable",
+                        info.min_members,
+                        max,
+                    );
+                }
+
+                // `Some(0)` for term_duration is indistinguishable from "rotate
+                // every block" at the type level, but the `n % td` check in
+                // `on_initialize` short-circuits via `checked_rem` and never
+                // fires. Reject it here rather than let a misconfigured runtime
+                // silently disable rotations. Use `None` to opt out.
+                if let Some(td) = info.term_duration {
+                    assert!(
+                        !td.is_zero(),
+                        "CollectiveInfo::term_duration = Some(0) silently disables rotations; use None to opt out",
+                    );
+                }
+            }
         }
     }
 
@@ -127,7 +186,7 @@ pub mod pallet {
             let info = T::Collectives::info(collective_id)
                 .ok_or(Error::<T>::CollectiveNotFound)?;
 
-            Members::<T>::try_mutate(&collective_id, |members| -> DispatchResult {
+            Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
                 ensure!(!members.contains(&who), Error::<T>::AlreadyMember);
                 if let Some(max) = info.max_members {
                     ensure!(members.len() < max as usize, Error::<T>::TooManyMembers);
@@ -136,7 +195,7 @@ pub mod pallet {
                 Ok(())
             })?;
 
-            T::OnMembersChanged::on_members_changed(collective_id, &[who.clone()], &[]);
+            T::OnMembersChanged::on_members_changed(collective_id, core::slice::from_ref(&who), &[]);
             Self::deposit_event(Event::MemberAdded { collective_id, who });
             Ok(())
         }
@@ -151,14 +210,14 @@ pub mod pallet {
             let info = T::Collectives::info(collective_id)
                 .ok_or(Error::<T>::CollectiveNotFound)?;
 
-            Members::<T>::try_mutate(&collective_id, |members| -> DispatchResult {
+            Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
                 ensure!(members.contains(&who), Error::<T>::NotMember);
                 ensure!(members.len() > info.min_members as usize, Error::<T>::TooFewMembers);
                 members.retain(|m| m != &who);
                 Ok(())
             })?;
 
-            T::OnMembersChanged::on_members_changed(collective_id, &[], &[who.clone()]);
+            T::OnMembersChanged::on_members_changed(collective_id, &[], core::slice::from_ref(&who));
             Self::deposit_event(Event::MemberRemoved { collective_id, who });
             Ok(())
         }
@@ -174,16 +233,16 @@ pub mod pallet {
             T::Collectives::info(collective_id)
                 .ok_or(Error::<T>::CollectiveNotFound)?;
 
-            Members::<T>::try_mutate(&collective_id, |members| -> DispatchResult {
+            Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
                 let pos = members.iter().position(|m| m == &remove)
                     .ok_or(Error::<T>::NotMember)?;
                 ensure!(!members.contains(&add), Error::<T>::AlreadyMember);
-                members[pos] = add.clone();
+                *members.get_mut(pos).ok_or(Error::<T>::NotMember)? = add.clone();
                 Ok(())
             })?;
 
             T::OnMembersChanged::on_members_changed(
-                collective_id, &[add.clone()], &[remove.clone()],
+                collective_id, core::slice::from_ref(&add), core::slice::from_ref(&remove),
             );
             Self::deposit_event(Event::MemberSwapped { collective_id, removed: remove, added: add });
             Ok(())
@@ -211,10 +270,10 @@ pub mod pallet {
             sorted.dedup();
             ensure!(sorted.len() == members.len(), Error::<T>::DuplicateAccounts);
 
-            let old_members = Members::<T>::get(&collective_id);
+            let old_members = Members::<T>::get(collective_id);
             let bounded = BoundedVec::try_from(members.clone())
                 .map_err(|_| Error::<T>::TooManyMembers)?;
-            Members::<T>::insert(&collective_id, bounded);
+            Members::<T>::insert(collective_id, bounded);
 
             // Compute incoming/outgoing
             let incoming: Vec<_> = members.iter()
@@ -282,10 +341,20 @@ pub trait OnMembersChanged<CollectiveId, AccountId> {
     );
 }
 
+impl<CollectiveId, AccountId> OnMembersChanged<CollectiveId, AccountId> for () {
+    fn on_members_changed(_: CollectiveId, _: &[AccountId], _: &[AccountId]) {}
+}
+
 /// Handler for when a new term of a collective has started.
 pub trait OnNewTerm<CollectiveId> {
     /// A new term of a collective has started.
     fn on_new_term(collective_id: CollectiveId) -> Weight;
+}
+
+impl<CollectiveId> OnNewTerm<CollectiveId> for () {
+    fn on_new_term(_: CollectiveId) -> Weight {
+        Weight::zero()
+    }
 }
 
 /// Trait for inspecting a collective.
@@ -300,12 +369,12 @@ pub trait CollectiveInspect<AccountId, CollectiveId> {
 
 impl<T: Config> CollectiveInspect<T::AccountId, T::CollectiveId> for Pallet<T> {
     fn members_of(collective_id: T::CollectiveId) -> Vec<T::AccountId> {
-        Members::<T>::get(&collective_id).to_vec()
+        Members::<T>::get(collective_id).to_vec()
     }
     fn is_member(collective_id: T::CollectiveId, who: &T::AccountId) -> bool {
-        Members::<T>::get(&collective_id).contains(who)
+        Members::<T>::get(collective_id).contains(who)
     }
     fn member_count(collective_id: T::CollectiveId) -> u32 {
-        Members::<T>::get(&collective_id).len() as u32
+        Members::<T>::get(collective_id).len() as u32
     }
 }
