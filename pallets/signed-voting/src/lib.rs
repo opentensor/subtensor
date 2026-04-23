@@ -11,6 +11,11 @@ use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type PollIndexOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Index;
 type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::VotingScheme;
@@ -26,6 +31,12 @@ pub struct SignedVoteTally {
 
 impl Into<VoteTally> for SignedVoteTally {
     fn into(self: SignedVoteTally) -> VoteTally {
+        // Empty voter set → everyone implicitly abstains. Bypass
+        // `Perbill::from_rational(_, 0)` which substrate returns as 100% and
+        // would otherwise yield 300% total across approval+rejection+abstention.
+        if self.total == 0 {
+            return VoteTally::default();
+        }
         let voted = self.ayes.saturating_add(self.nays);
         let abstention = self.total.saturating_sub(voted);
         VoteTally {
@@ -49,8 +60,6 @@ pub mod pallet {
 
         type Polls: Polls<Self::AccountId>;
 
-        type MaxVotesToClear: Get<u32>;
-
         /// Maximum number of active polls this pallet can track simultaneously.
         type MaxActivePolls: Get<u32>;
     }
@@ -71,11 +80,8 @@ pub mod pallet {
         StorageMap<_, Twox64Concat, PollIndexOf<T>, SignedVoteTally, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActivePolls<T: Config> = StorageValue<
-        _,
-        BoundedVec<PollIndexOf<T>, T::MaxActivePolls>,
-        ValueQuery,
-    >;
+    pub type ActivePolls<T: Config> =
+        StorageValue<_, BoundedVec<PollIndexOf<T>, T::MaxActivePolls>, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -236,6 +242,16 @@ impl<T: Config> Pallet<T> {
 
     /// Remove all votes by `who` across all active polls, adjusting tallies.
     /// Called when a member is rotated out of a collective.
+    ///
+    /// `total` is intentionally left unchanged: the runtime is expected to
+    /// replace departing voters via `swap_member` or `reset_members`, which
+    /// preserve voter-set size. The `outgoing`-only iteration in typical
+    /// `OnMembersChanged` wiring (e.g. referenda's `VoteCleanup`) has no
+    /// symmetric counterpart for incoming members, so decrementing `total`
+    /// here would make the denominator diverge from the actual voter-set
+    /// size on swap or reset. Pure `remove_member` of a voter in an active
+    /// poll is therefore a known operational limitation — leaves `total`
+    /// stale (denominator too high, conservative for thresholds).
     pub fn remove_votes_for(who: &T::AccountId) {
         for poll_index in ActivePolls::<T>::get().iter() {
             if let Some(approve) = VotingFor::<T>::take(poll_index, who) {
@@ -281,9 +297,9 @@ impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
     }
 
     fn on_poll_completed(poll_index: PollIndexOf<T>) {
-        let max = T::MaxVotesToClear::get().into();
-        // TODO: potential cursor loss and storage leak
-        let _ = VotingFor::<T>::clear_prefix(poll_index, max, None);
+        // `u32::MAX` is effectively unbounded. `VotingFor` entries per poll
+        // are bounded by the voter-set size, so one call clears everything.
+        let _ = VotingFor::<T>::clear_prefix(poll_index, u32::MAX, None);
         TallyOf::<T>::remove(poll_index);
 
         ActivePolls::<T>::mutate(|polls| {
