@@ -21,9 +21,28 @@ frame-system = { workspace = true }
 frame-support = { workspace = true }
 sp-runtime = { workspace = true }
 subtensor-runtime-common = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+pallet-balances = { workspace = true, default-features = true }
+pallet-preimage = { workspace = true, default-features = true }
+pallet-scheduler = { workspace = true, default-features = true }
+pallet-signed-voting = { path = "../signed-voting", default-features = true }
+pallet-multi-collective = { path = "../multi-collective", default-features = true }
+sp-io = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = []
+std = [
+    "codec/std",
+    "scale-info/std",
+    "frame-system/std",
+    "frame-support/std",
+    "sp-runtime/std",
+    "subtensor-runtime-common/std",
+    "log/std",
+]
 runtime-benchmarks = []
 try-runtime = []
