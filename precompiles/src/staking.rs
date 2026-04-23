@@ -916,3 +916,471 @@ fn try_u64_from_u256(value: U256) -> Result<u64, PrecompileFailure> {
         exit_status: ExitError::Other("the value is outside of u64 bounds".into()),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used, clippy::arithmetic_side_effects)]
+
+    use super::*;
+    use crate::PrecompileExt;
+    use crate::mock::{
+        AccountId, Proxy, Runtime, RuntimeCall, RuntimeOrigin, addr_from_index, assert_static_call,
+        execute_precompile, new_test_ext, precompiles, selector_u32,
+    };
+    use pallet_evm::AddressMapping;
+    use precompile_utils::solidity::encode_with_selector;
+    use precompile_utils::testing::PrecompileTesterExt;
+    use sp_core::{H160, H256};
+    use substrate_fixed::types::U64F64;
+    use subtensor_runtime_common::{AlphaBalance, TaoBalance};
+
+    const TEST_NETUID_U16: u16 = 1;
+    const INVALID_NETUID_U16: u16 = 12_345;
+    const TEMPO: u16 = 100;
+    const RESERVE_TAO: u64 = 200_000_000_000;
+    const RESERVE_ALPHA: u64 = 100_000_000_000;
+    const INITIAL_STAKE_RAO: u64 = 20_000_000_000;
+    const REMOVE_STAKE_RAO: u64 = 10_000_000_000;
+    const PROXY_STAKE_RAO: u64 = 1_000_000_000;
+    const COLDKEY_BALANCE: u64 = 100_000_000_000;
+
+    fn setup_staking_subnet() -> NetUid {
+        let netuid = NetUid::from(TEST_NETUID_U16);
+        pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, TEMPO);
+        pallet_subtensor::Pallet::<Runtime>::set_network_registration_allowed(netuid, true);
+        pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
+        pallet_subtensor::FirstEmissionBlockNumber::<Runtime>::insert(netuid, 0);
+        pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
+        pallet_subtensor::BurnHalfLife::<Runtime>::insert(netuid, 1);
+        pallet_subtensor::BurnIncreaseMult::<Runtime>::insert(netuid, U64F64::from_num(1));
+        pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE_TAO));
+        pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(
+            netuid,
+            AlphaBalance::from(RESERVE_ALPHA),
+        );
+        netuid
+    }
+
+    fn mapped_account(address: H160) -> AccountId {
+        <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
+    }
+
+    fn fund_account(account: &AccountId, amount: u64) {
+        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(account, amount.into());
+    }
+
+    fn hotkey() -> AccountId {
+        AccountId::from([0x11; 32])
+    }
+
+    fn delegate() -> AccountId {
+        AccountId::from([0x22; 32])
+    }
+
+    fn ensure_hotkey_exists(hotkey: &AccountId) {
+        pallet_subtensor::Owner::<Runtime>::insert(hotkey, hotkey.clone());
+    }
+
+    fn substrate_to_evm(amount: u64) -> U256 {
+        <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(amount.into())
+            .expect("balance conversion should work")
+            .into_u256()
+    }
+
+    fn stake_for(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> u64 {
+        u64::from(
+            pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                hotkey, coldkey, netuid,
+            ),
+        )
+    }
+
+    fn total_coldkey_stake_on_subnet(coldkey: &AccountId, netuid: NetUid) -> u64 {
+        pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_coldkey_on_subnet(coldkey, netuid)
+            .to_u64()
+    }
+
+    fn add_stake_v1(caller: H160, hotkey: &AccountId, netuid: u16, amount_rao: u64) {
+        ensure_hotkey_exists(hotkey);
+        fund_account(&StakingPrecompile::<Runtime>::account_id(), amount_rao);
+
+        let result = execute_precompile(
+            &precompiles::<StakingPrecompile<Runtime>>(),
+            addr_from_index(StakingPrecompile::<Runtime>::INDEX),
+            caller,
+            encode_with_selector(
+                selector_u32("addStake(bytes32,uint256)"),
+                (H256::from_slice(hotkey.as_ref()), U256::from(netuid)),
+            ),
+            substrate_to_evm(amount_rao),
+        )
+        .expect("staking v1 add stake should route to the precompile");
+
+        assert!(result.is_ok());
+    }
+
+    fn add_stake_v2(caller: H160, hotkey: &AccountId, netuid: u16, amount_rao: u64) {
+        ensure_hotkey_exists(hotkey);
+        precompiles::<StakingPrecompileV2<Runtime>>()
+            .prepare_test(
+                caller,
+                addr_from_index(StakingPrecompileV2::<Runtime>::INDEX),
+                encode_with_selector(
+                    selector_u32("addStake(bytes32,uint256,uint256)"),
+                    (
+                        H256::from_slice(hotkey.as_ref()),
+                        U256::from(amount_rao),
+                        U256::from(netuid),
+                    ),
+                ),
+            )
+            .execute_returns(());
+    }
+
+    fn assert_proxy_effects(caller: H160, netuid: NetUid) {
+        let caller_account = mapped_account(caller);
+        let hotkey = hotkey();
+        let delegate = delegate();
+
+        ensure_hotkey_exists(&hotkey);
+
+        let proxies = pallet_subtensor_proxy::Proxies::<Runtime>::get(&caller_account).0;
+        assert_eq!(proxies.len(), 1);
+        assert_eq!(proxies[0].delegate, delegate);
+
+        let stake_before = stake_for(&hotkey, &caller_account, netuid);
+        let proxied_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
+            hotkey: hotkey.clone(),
+            netuid,
+            amount_staked: PROXY_STAKE_RAO.into(),
+        });
+        let proxy_result = Proxy::proxy(
+            RuntimeOrigin::signed(delegate.clone()),
+            caller_account.clone().into(),
+            Some(ProxyType::Staking),
+            Box::new(proxied_call),
+        );
+        assert!(proxy_result.is_ok());
+
+        let stake_after = stake_for(&hotkey, &caller_account, netuid);
+        assert!(stake_after > stake_before);
+    }
+
+    #[test]
+    fn staking_precompile_v1_add_stake_and_reads_match_runtime_state() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x1001);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+
+            let stake_before = stake_for(&hotkey, &caller_account, netuid);
+            add_stake_v1(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
+
+            let stake_after = stake_for(&hotkey, &caller_account, netuid);
+            assert!(stake_after > stake_before);
+
+            assert_static_call(
+                &precompiles::<StakingPrecompile<Runtime>>(),
+                caller,
+                addr_from_index(StakingPrecompile::<Runtime>::INDEX),
+                encode_with_selector(
+                    selector_u32("getStake(bytes32,bytes32,uint256)"),
+                    (
+                        H256::from_slice(hotkey.as_ref()),
+                        H256::from_slice(caller_account.as_ref()),
+                        U256::from(TEST_NETUID_U16),
+                    ),
+                ),
+                substrate_to_evm(stake_after),
+            );
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_add_stake_and_reads_match_runtime_state() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x1002);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+
+            let stake_before = stake_for(&hotkey, &caller_account, netuid);
+            add_stake_v2(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
+
+            let stake_after = stake_for(&hotkey, &caller_account, netuid);
+            let total_coldkey_stake = total_coldkey_stake_on_subnet(&caller_account, netuid);
+
+            assert!(stake_after > stake_before);
+            assert!(total_coldkey_stake >= stake_after);
+
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            assert_static_call(
+                &precompiles,
+                caller,
+                precompile_addr,
+                encode_with_selector(
+                    selector_u32("getStake(bytes32,bytes32,uint256)"),
+                    (
+                        H256::from_slice(hotkey.as_ref()),
+                        H256::from_slice(caller_account.as_ref()),
+                        U256::from(TEST_NETUID_U16),
+                    ),
+                ),
+                U256::from(stake_after),
+            );
+            assert_static_call(
+                &precompiles,
+                caller,
+                precompile_addr,
+                encode_with_selector(
+                    selector_u32("getTotalColdkeyStakeOnSubnet(bytes32,uint256)"),
+                    (
+                        H256::from_slice(caller_account.as_ref()),
+                        U256::from(TEST_NETUID_U16),
+                    ),
+                ),
+                U256::from(total_coldkey_stake),
+            );
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v1_rejects_missing_subnet() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x1003);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            ensure_hotkey_exists(&hotkey);
+            fund_account(
+                &StakingPrecompile::<Runtime>::account_id(),
+                INITIAL_STAKE_RAO,
+            );
+
+            let rejected = execute_precompile(
+                &precompiles::<StakingPrecompile<Runtime>>(),
+                addr_from_index(StakingPrecompile::<Runtime>::INDEX),
+                caller,
+                encode_with_selector(
+                    selector_u32("addStake(bytes32,uint256)"),
+                    (
+                        H256::from_slice(hotkey.as_ref()),
+                        U256::from(INVALID_NETUID_U16),
+                    ),
+                ),
+                substrate_to_evm(INITIAL_STAKE_RAO),
+            )
+            .expect("staking v1 add stake should route to the precompile");
+
+            assert!(rejected.is_err());
+            assert_eq!(
+                stake_for(&hotkey, &caller_account, NetUid::from(INVALID_NETUID_U16)),
+                0,
+            );
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_rejects_missing_subnet() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x1004);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            ensure_hotkey_exists(&hotkey);
+
+            let rejected = execute_precompile(
+                &precompiles::<StakingPrecompileV2<Runtime>>(),
+                addr_from_index(StakingPrecompileV2::<Runtime>::INDEX),
+                caller,
+                encode_with_selector(
+                    selector_u32("addStake(bytes32,uint256,uint256)"),
+                    (
+                        H256::from_slice(hotkey.as_ref()),
+                        U256::from(INITIAL_STAKE_RAO),
+                        U256::from(INVALID_NETUID_U16),
+                    ),
+                ),
+                U256::zero(),
+            )
+            .expect("staking v2 add stake should route to the precompile");
+
+            assert!(rejected.is_err());
+            assert_eq!(
+                stake_for(&hotkey, &caller_account, NetUid::from(INVALID_NETUID_U16)),
+                0,
+            );
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v1_remove_stake_reduces_stake() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x1005);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            add_stake_v1(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
+            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
+                hotkey.clone(),
+                caller_account.clone(),
+                netuid,
+            ));
+
+            let precompiles = precompiles::<StakingPrecompile<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompile::<Runtime>::INDEX);
+            let stake_before = stake_for(&hotkey, &caller_account, netuid);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("removeStake(bytes32,uint256,uint256)"),
+                        (
+                            H256::from_slice(hotkey.as_ref()),
+                            substrate_to_evm(REMOVE_STAKE_RAO),
+                            U256::from(TEST_NETUID_U16),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let stake_after = stake_for(&hotkey, &caller_account, netuid);
+            assert_eq!(stake_after, stake_before - REMOVE_STAKE_RAO);
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_remove_stake_reduces_stake() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x1006);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            add_stake_v2(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
+            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
+                hotkey.clone(),
+                caller_account.clone(),
+                netuid,
+            ));
+
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+            let stake_before = stake_for(&hotkey, &caller_account, netuid);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("removeStake(bytes32,uint256,uint256)"),
+                        (
+                            H256::from_slice(hotkey.as_ref()),
+                            U256::from(REMOVE_STAKE_RAO),
+                            U256::from(TEST_NETUID_U16),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let stake_after = stake_for(&hotkey, &caller_account, netuid);
+            assert_eq!(stake_after, stake_before - REMOVE_STAKE_RAO);
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v1_adds_and_removes_proxy() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x1007);
+            let caller_account = mapped_account(caller);
+            let delegate = delegate();
+            let precompiles = precompiles::<StakingPrecompile<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompile::<Runtime>::INDEX);
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            fund_account(&delegate, COLDKEY_BALANCE);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("addProxy(bytes32)"),
+                        (H256::from_slice(delegate.as_ref()),),
+                    ),
+                )
+                .execute_returns(());
+            assert_proxy_effects(caller, netuid);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("removeProxy(bytes32)"),
+                        (H256::from_slice(delegate.as_ref()),),
+                    ),
+                )
+                .execute_returns(());
+
+            let proxies = pallet_subtensor_proxy::Proxies::<Runtime>::get(&caller_account).0;
+            assert!(proxies.is_empty());
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_adds_and_removes_proxy() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x1008);
+            let caller_account = mapped_account(caller);
+            let delegate = delegate();
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            fund_account(&delegate, COLDKEY_BALANCE);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("addProxy(bytes32)"),
+                        (H256::from_slice(delegate.as_ref()),),
+                    ),
+                )
+                .execute_returns(());
+            assert_proxy_effects(caller, netuid);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("removeProxy(bytes32)"),
+                        (H256::from_slice(delegate.as_ref()),),
+                    ),
+                )
+                .execute_returns(());
+
+            let proxies = pallet_subtensor_proxy::Proxies::<Runtime>::get(&caller_account).0;
+            assert!(proxies.is_empty());
+        });
+    }
+}
