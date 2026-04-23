@@ -1647,4 +1647,142 @@ mod tests {
             assert_allowance(source, spender, source, U256::zero());
         });
     }
+
+    #[test]
+    fn staking_precompile_v2_burn_alpha_reduces_stake() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x3001);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+            let burn_amount = 20_000_000_000_u64;
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            add_stake_v2(caller, &hotkey, TEST_NETUID_U16, 50_000_000_000);
+
+            let stake_before = stake_for(&hotkey, &caller_account, netuid);
+            assert!(stake_before > 0);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("burnAlpha(bytes32,uint256,uint256)"),
+                        (
+                            H256::from_slice(hotkey.as_ref()),
+                            U256::from(burn_amount),
+                            U256::from(TEST_NETUID_U16),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let stake_after = stake_for(&hotkey, &caller_account, netuid);
+            assert_eq!(stake_after, stake_before - burn_amount);
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_burn_alpha_caps_to_available_stake() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x3002);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            add_stake_v2(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
+
+            let stake_before = stake_for(&hotkey, &caller_account, netuid);
+            assert!(stake_before > 0);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("burnAlpha(bytes32,uint256,uint256)"),
+                        (
+                            H256::from_slice(hotkey.as_ref()),
+                            U256::from(stake_before + 10_000_000_000_u64),
+                            U256::from(TEST_NETUID_U16),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let stake_after = stake_for(&hotkey, &caller_account, netuid);
+            assert_eq!(stake_after, 0);
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_burn_alpha_rejects_missing_subnet() {
+        new_test_ext().execute_with(|| {
+            let caller = addr_from_index(0x3003);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            ensure_hotkey_exists(&hotkey);
+
+            let rejected = execute_precompile(
+                &precompiles::<StakingPrecompileV2<Runtime>>(),
+                addr_from_index(StakingPrecompileV2::<Runtime>::INDEX),
+                caller,
+                encode_with_selector(
+                    selector_u32("burnAlpha(bytes32,uint256,uint256)"),
+                    (
+                        H256::from_slice(hotkey.as_ref()),
+                        U256::from(10_000_000_000_u64),
+                        U256::from(INVALID_NETUID_U16),
+                    ),
+                ),
+                U256::zero(),
+            )
+            .expect("burnAlpha should route to the staking v2 precompile");
+
+            assert!(rejected.is_err());
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_burn_zero_alpha_is_noop() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_staking_subnet();
+            let caller = addr_from_index(0x3004);
+            let caller_account = mapped_account(caller);
+            let hotkey = hotkey();
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            fund_account(&caller_account, COLDKEY_BALANCE);
+            add_stake_v2(caller, &hotkey, TEST_NETUID_U16, 10_000_000_000);
+
+            let stake_before = stake_for(&hotkey, &caller_account, netuid);
+
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("burnAlpha(bytes32,uint256,uint256)"),
+                        (
+                            H256::from_slice(hotkey.as_ref()),
+                            U256::zero(),
+                            U256::from(TEST_NETUID_U16),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let stake_after = stake_for(&hotkey, &caller_account, netuid);
+            assert_eq!(stake_after, stake_before);
+        });
+    }
 }
