@@ -10125,6 +10125,9 @@ dependencies = [
  "num-traits",
  "parity-scale-codec",
  "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
