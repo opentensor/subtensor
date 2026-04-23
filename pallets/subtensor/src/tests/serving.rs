@@ -1242,3 +1242,118 @@ fn test_serve_axon_validate() {
         assert_ok!(result_ok);
     });
 }
+
+/// serve_axon must reject a hotkey registered on a different subnet, not the target one.
+#[test]
+fn test_serve_axon_rejects_hotkey_registered_on_other_network() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(42);
+        let netuid_registered = NetUid::from(1);
+        let netuid_target = NetUid::from(2);
+        let tempo: u16 = 13;
+
+        // Register the hotkey on netuid 1 only.
+        add_network(netuid_registered, tempo, 0);
+        add_network(netuid_target, tempo, 0);
+        register_ok_neuron(netuid_registered, hotkey, U256::from(99), 0);
+
+        // Trying to serve on netuid 2 (not registered there) must fail.
+        assert_noop!(
+            SubtensorModule::serve_axon(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+                netuid_target,
+                2,
+                1676056785,
+                128,
+                4,
+                0,
+                0,
+                0,
+            ),
+            Error::<Test>::HotKeyNotRegisteredInNetwork
+        );
+    });
+}
+
+/// serve_axon succeeds only when the hotkey is registered on the exact target subnet.
+#[test]
+fn test_serve_axon_requires_registration_on_target_network() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(7);
+        let netuid = NetUid::from(3);
+
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, U256::from(8), 0);
+
+        assert_ok!(SubtensorModule::serve_axon(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+            netuid,
+            2,
+            1676056785,
+            128,
+            4,
+            0,
+            0,
+            0,
+        ));
+    });
+}
+
+/// serve_prometheus must reject a hotkey registered on a different subnet.
+#[test]
+fn test_serve_prometheus_rejects_hotkey_registered_on_other_network() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(55);
+        let netuid_registered = NetUid::from(5);
+        let netuid_target = NetUid::from(6);
+
+        add_network(netuid_registered, 13, 0);
+        add_network(netuid_target, 13, 0);
+        register_ok_neuron(netuid_registered, hotkey, U256::from(56), 0);
+
+        assert_noop!(
+            SubtensorModule::serve_prometheus(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+                netuid_target,
+                2,
+                1676056785,
+                9090,
+                4,
+            ),
+            Error::<Test>::HotKeyNotRegisteredInNetwork
+        );
+    });
+}
+
+/// serve_axon must not write a NeuronCertificate when the hotkey is not registered on the target subnet.
+#[test]
+fn test_serve_axon_with_cert_rejects_unregistered_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(100);
+        let netuid_registered = NetUid::from(1);
+        let netuid_target = NetUid::from(2);
+
+        add_network(netuid_registered, 13, 0);
+        add_network(netuid_target, 13, 0);
+        register_ok_neuron(netuid_registered, hotkey, U256::from(101), 0);
+
+        assert_noop!(
+            SubtensorModule::serve_axon(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+                netuid_target,
+                2,
+                1676056785,
+                128,
+                4,
+                0,
+                0,
+                0,
+            ),
+            Error::<Test>::HotKeyNotRegisteredInNetwork
+        );
+        assert!(
+            !NeuronCertificates::<Test>::contains_key(netuid_target, hotkey),
+            "no certificate should be written when registration check fails"
+        );
+    });
+}

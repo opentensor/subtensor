@@ -170,7 +170,10 @@ mod hooks {
                 // Migrate fix bad hk swap
                 .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>())
                 // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
-                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>());
+                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
+                // Remove orphaned axon/prometheus/certificate entries (follow-up to v1,
+                // accumulated while serve_axon checked registration on any network)
+                .saturating_add(migrations::migrate_remove_orphan_axon_prom_cert_v2::migrate_remove_orphan_axon_prom_cert_v2::<T>());
             weight
         }
 

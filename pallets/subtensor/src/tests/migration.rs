@@ -4302,3 +4302,68 @@ fn test_migrate_fix_root_claimed_incorrect_genesis() {
         );
     });
 }
+
+#[test]
+fn test_migrate_remove_orphan_axon_prom_cert_v2() {
+    use crate::migrations::migrate_remove_orphan_axon_prom_cert_v2::*;
+    const MIGRATION_NAME: &[u8] = b"migrate_remove_orphan_axon_prom_cert_v2";
+
+    new_test_ext(1).execute_with(|| {
+        setup_for(NetUid::from(10), 4, 7);
+        setup_for(NetUid::from(20), 8, 10);
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME));
+
+        let w = migrate_remove_orphan_axon_prom_cert_v2::<Test>();
+        assert!(!w.is_zero(), "Weight must be non-zero");
+
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME));
+        // Only uids entries remain; extra orphan entries (uid+1..items) are gone.
+        assert_for(NetUid::from(10), 4, 7);
+        assert_for(NetUid::from(20), 8, 10);
+
+        // Running again is a no-op (returns early).
+        let w2 = migrate_remove_orphan_axon_prom_cert_v2::<Test>();
+        assert!(!w2.is_zero());
+    });
+
+    fn setup_for(netuid: NetUid, uids: u32, items: u32) {
+        NetworksAdded::<Test>::insert(netuid, true);
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Uids::<Test>::insert(netuid, hk, i as u16);
+        }
+        for i in 1u32..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            Axons::<Test>::insert(netuid, hk, AxonInfo::default());
+            NeuronCertificates::<Test>::insert(netuid, hk, NeuronCertificate::default());
+            Prometheus::<Test>::insert(netuid, hk, PrometheusInfo::default());
+        }
+    }
+
+    fn assert_for(netuid: NetUid, uids: u32, items: u32) {
+        assert_eq!(
+            Axons::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            NeuronCertificates::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        assert_eq!(
+            Prometheus::<Test>::iter_key_prefix(netuid).count(),
+            uids as usize
+        );
+        for i in 1u32..=uids {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(Axons::<Test>::contains_key(netuid, hk));
+            assert!(NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(Prometheus::<Test>::contains_key(netuid, hk));
+        }
+        for i in (uids + 1)..=items {
+            let hk = U256::from(netuid.inner() as u32 * 1000 + i);
+            assert!(!Axons::<Test>::contains_key(netuid, hk));
+            assert!(!NeuronCertificates::<Test>::contains_key(netuid, hk));
+            assert!(!Prometheus::<Test>::contains_key(netuid, hk));
+        }
+    }
+}
