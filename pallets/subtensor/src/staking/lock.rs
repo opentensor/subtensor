@@ -1,4 +1,5 @@
 use super::*;
+use safe_math::FixedExt;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::ops::Neg;
 use substrate_fixed::transcendental::exp;
@@ -58,12 +59,14 @@ impl<T: Config> Pallet<T> {
         let decay = Self::exp_decay(dt, tau);
         let dt_fixed = U64F64::saturating_from_num(dt);
         let mass_fixed = U64F64::saturating_from_num(locked_mass);
+        let tau_fixed = U64F64::saturating_from_num(tau);
         let new_locked_mass = decay
             .saturating_mul(mass_fixed)
             .saturating_to_num::<u64>()
             .into();
-        let new_conviction =
-            decay.saturating_mul(conviction.saturating_add(dt_fixed.saturating_mul(mass_fixed)));
+        let new_conviction = decay.saturating_mul(
+            conviction.saturating_add(dt_fixed.safe_div(tau_fixed).saturating_mul(mass_fixed)),
+        );
         (new_locked_mass, new_conviction)
     }
 
