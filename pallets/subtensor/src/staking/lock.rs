@@ -6,6 +6,27 @@ use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
 
 impl<T: Config> Pallet<T> {
+    pub fn insert_lock_state(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        hotkey: &T::AccountId,
+        lock_state: LockState,
+    ) {
+        if !lock_state.locked_mass.is_zero() {
+            Lock::<T>::insert((coldkey, netuid, hotkey), lock_state);
+        } else {
+            Lock::<T>::remove((coldkey, netuid, hotkey));
+        }
+    }
+
+    pub fn insert_hotkey_lock_state(netuid: NetUid, hotkey: &T::AccountId, lock_state: LockState) {
+        if !lock_state.locked_mass.is_zero() {
+            HotkeyLock::<T>::insert(netuid, hotkey, lock_state);
+        } else {
+            HotkeyLock::<T>::remove(netuid, hotkey);
+        }
+    }
+
     /// Computes exp(-dt / tau) as a U64F64 decay factor.
     pub fn exp_decay(dt: u64, tau: u64) -> U64F64 {
         if tau == 0 || dt == 0 {
@@ -134,9 +155,10 @@ impl<T: Config> Pallet<T> {
         match existing {
             None => {
                 ensure!(total >= amount, Error::<T>::InsufficientStakeForLock);
-
-                Lock::<T>::insert(
-                    (coldkey.clone(), netuid, hotkey.clone()),
+                Self::insert_lock_state(
+                    coldkey,
+                    netuid,
+                    hotkey,
                     LockState {
                         locked_mass: amount,
                         conviction: U64F64::saturating_from_num(0),
@@ -150,8 +172,10 @@ impl<T: Config> Pallet<T> {
                 let lock = Self::roll_forward_lock(existing, now);
                 let new_locked = lock.locked_mass.saturating_add(amount);
                 ensure!(total >= new_locked, Error::<T>::InsufficientStakeForLock);
-                Lock::<T>::insert(
-                    (coldkey.clone(), netuid, hotkey.clone()),
+                Self::insert_lock_state(
+                    coldkey,
+                    netuid,
+                    hotkey,
                     LockState {
                         locked_mass: new_locked,
                         conviction: lock.conviction,
@@ -176,7 +200,7 @@ impl<T: Config> Pallet<T> {
 
     /// Clears the lock. This function will be called if the alpha stake drops below minimum
     /// threshold.
-    pub fn maybe_cleanup_lock(coldkey: &T::AccountId, netuid: NetUid) {
+    pub fn cleanup_lock(coldkey: &T::AccountId, netuid: NetUid) {
         if let Some((existing_hotkey, lock)) = Lock::<T>::iter_prefix((coldkey, netuid)).next() {
             let now = Self::get_current_block_as_u64();
             let rolled = Self::roll_forward_lock(lock, now);
@@ -189,6 +213,28 @@ impl<T: Config> Pallet<T> {
                 rolled.locked_mass,
                 rolled.conviction,
             );
+        }
+    }
+
+    /// Rolls the lock forward to now and persists it if the locked mass is zero. This is used when we want to
+    /// update the lock when a user stakes or unstakes.
+    pub fn cleanup_lock_if_zero(coldkey: &T::AccountId, netuid: NetUid) {
+        let now = Self::get_current_block_as_u64();
+
+        // Cleanup locks for the specific coldkey and hotkey
+        if let Some((hotkey, lock)) = Lock::<T>::iter_prefix((coldkey.clone(), netuid)).next() {
+            let rolled = Self::roll_forward_lock(lock, now);
+            if rolled.locked_mass.is_zero() {
+                Lock::<T>::remove((coldkey.clone(), netuid, hotkey.clone()));
+            }
+
+            // Also cleanup the hotkey lock
+            if let Some(lock) = HotkeyLock::<T>::get(netuid, &hotkey) {
+                let rolled = Self::roll_forward_lock(lock, now);
+                if rolled.locked_mass.is_zero() {
+                    HotkeyLock::<T>::remove(netuid, hotkey);
+                }
+            }
         }
     }
 
@@ -219,7 +265,7 @@ impl<T: Config> Pallet<T> {
             conviction: rolled_hotkey_lock.conviction,
             last_update: now,
         };
-        HotkeyLock::<T>::insert(netuid, hotkey, new_hotkey_lock);
+        Self::insert_hotkey_lock_state(netuid, hotkey, new_hotkey_lock);
     }
 
     /// Reduce the total lock for a hotkey on a subnet. This is called when a lock is removed or reduced.
@@ -234,16 +280,15 @@ impl<T: Config> Pallet<T> {
             let rolled_hotkey_lock = Self::roll_forward_lock(lock, now);
             let new_locked_mass = rolled_hotkey_lock.locked_mass.saturating_sub(amount);
             let new_conviction = rolled_hotkey_lock.conviction.saturating_sub(conviction);
-            if new_locked_mass.is_zero() {
-                HotkeyLock::<T>::remove(netuid, hotkey);
-            } else {
-                let new_hotkey_lock = LockState {
+            Self::insert_hotkey_lock_state(
+                netuid,
+                hotkey,
+                LockState {
                     locked_mass: new_locked_mass,
                     conviction: new_conviction,
                     last_update: now,
-                };
-                HotkeyLock::<T>::insert(netuid, hotkey, new_hotkey_lock);
-            }
+                },
+            );
         }
     }
 
@@ -310,7 +355,7 @@ impl<T: Config> Pallet<T> {
         // Remove locks for old coldkey and insert for new
         for (netuid, hotkey, lock) in locks_to_transfer {
             Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
-            Lock::<T>::insert((new_coldkey.clone(), netuid, hotkey), lock);
+            Self::insert_lock_state(new_coldkey, netuid, &hotkey, lock);
         }
     }
 
@@ -354,14 +399,14 @@ impl<T: Config> Pallet<T> {
         // Remove locks for old hotkey and insert for new
         for (coldkey, netuid, _hotkey, lock) in locks_to_transfer {
             Lock::<T>::remove((coldkey.clone(), netuid, old_hotkey.clone()));
-            Lock::<T>::insert((coldkey, netuid, new_hotkey.clone()), lock);
+            Self::insert_lock_state(&coldkey, netuid, new_hotkey, lock);
             writes = writes.saturating_add(2);
         }
 
         // Remove hotkey locks for old hotkey and insert for new
         for (netuid, lock) in hotkey_locks_to_transfer {
             HotkeyLock::<T>::remove(netuid, old_hotkey);
-            HotkeyLock::<T>::insert(netuid, new_hotkey, lock);
+            Self::insert_hotkey_lock_state(netuid, new_hotkey, lock);
             writes = writes.saturating_add(2);
         }
         (reads, writes)
@@ -397,8 +442,10 @@ impl<T: Config> Pallet<T> {
                 }
 
                 Lock::<T>::remove((coldkey.clone(), netuid, origin_hotkey.clone()));
-                Lock::<T>::insert(
-                    (coldkey.clone(), netuid, destination_hotkey.clone()),
+                Self::insert_lock_state(
+                    coldkey,
+                    netuid,
+                    destination_hotkey,
                     LockState {
                         locked_mass: existing_rolled.locked_mass,
                         conviction: existing_rolled.conviction,

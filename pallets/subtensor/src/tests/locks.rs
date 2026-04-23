@@ -1129,7 +1129,7 @@ fn test_subnet_king_no_locks() {
 // =========================================================================
 
 #[test]
-fn test_maybe_cleanup_lock_removes_dust() {
+fn test_cleanup_lock_removes_dust() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1148,7 +1148,7 @@ fn test_maybe_cleanup_lock_removes_dust() {
         let target = System::block_number() + tau * 50;
         System::set_block_number(target);
 
-        SubtensorModule::maybe_cleanup_lock(&coldkey, netuid);
+        SubtensorModule::cleanup_lock(&coldkey, netuid);
 
         assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_none());
         assert!(HotkeyLock::<Test>::get(netuid, hotkey).is_none());
@@ -1156,12 +1156,12 @@ fn test_maybe_cleanup_lock_removes_dust() {
 }
 
 #[test]
-fn test_maybe_cleanup_lock_no_lock() {
+fn test_cleanup_lock_no_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = subtensor_runtime_common::NetUid::from(1);
         // Should be a no-op, no panic
-        SubtensorModule::maybe_cleanup_lock(&coldkey, netuid);
+        SubtensorModule::cleanup_lock(&coldkey, netuid);
         assert!(
             Lock::<Test>::iter_prefix((coldkey, netuid))
                 .next()
@@ -1171,7 +1171,7 @@ fn test_maybe_cleanup_lock_no_lock() {
 }
 
 #[test]
-fn test_maybe_cleanup_lock_two_coldkeys() {
+fn test_cleanup_lock_two_coldkeys() {
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1001);
         let coldkey2 = U256::from(1002);
@@ -1229,7 +1229,7 @@ fn test_maybe_cleanup_lock_two_coldkeys() {
             50u64.into(),
         ));
 
-        SubtensorModule::maybe_cleanup_lock(&coldkey1, netuid);
+        SubtensorModule::cleanup_lock(&coldkey1, netuid);
 
         // Should only clean up coldkey1's lock, not coldkey2's
         assert!(

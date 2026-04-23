@@ -806,6 +806,9 @@ impl<T: Config> Pallet<T> {
                 .saturating_add(fee_outflow.into()),
         );
 
+        // Cleanup locks if needed
+        Self::cleanup_lock_if_zero(coldkey, netuid);
+
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Deposit and log the unstaking event.
@@ -892,6 +895,9 @@ impl<T: Config> Pallet<T> {
 
         // Record TAO inflow
         Self::record_tao_inflow(netuid, swap_result.amount_paid_in.into());
+
+        // Cleanup locks if needed
+        Self::cleanup_lock_if_zero(coldkey, netuid);
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
@@ -1187,6 +1193,10 @@ impl<T: Config> Pallet<T> {
 
             // Get user's stake in this subnet
             let alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, *netuid);
+
+            // Ensure that unstaked amount is not greater than available to unstake (due to locks)
+            // for this subnet.
+            Self::ensure_available_to_unstake(coldkey, *netuid, alpha)?;
 
             if Self::validate_remove_stake(coldkey, hotkey, *netuid, alpha, alpha, false).is_ok() {
                 unstaking_any = true;
