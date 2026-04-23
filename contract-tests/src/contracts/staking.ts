@@ -557,12 +557,12 @@ export const IStakingV2ABI = [
         "inputs": [
             {
                 "internalType": "address",
-                "name": "source_address",
+                "name": "sourceAddress",
                 "type": "address"
             },
             {
                 "internalType": "address",
-                "name": "destination_address",
+                "name": "destinationAddress",
                 "type": "address"
             },
             {
@@ -572,12 +572,12 @@ export const IStakingV2ABI = [
             },
             {
                 "internalType": "uint256",
-                "name": "origin_netuid",
+                "name": "originNetuid",
                 "type": "uint256"
             },
             {
                 "internalType": "uint256",
-                "name": "destination_netuid",
+                "name": "destinationNetuid",
                 "type": "uint256"
             },
             {

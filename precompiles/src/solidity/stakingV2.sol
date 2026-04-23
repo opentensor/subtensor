@@ -382,8 +382,8 @@ interface IStaking {
     ) external;
 
     /**
-     * @dev Transfer a subtensor stake `amount` associated with the `source_address` to a different coldkey
-     * `destination_coldkey`. The `source_address` must have approved beforehand the transaction signer
+     * @dev Transfer a subtensor stake `amount` associated with the `sourceAddress` to a different
+     * destination address. The `sourceAddress` must have approved beforehand the transaction signer
      * (spender) to spend at least the `amount` (allowance). The allowance towards that spender will be
      * decreased by this amount.
      *
@@ -393,11 +393,11 @@ interface IStaking {
      * HashedAddressMapping:
      * https://github.com/polkadot-evm/frontier/blob/2e219e17a526125da003e64ef22ec037917083fa/frame/evm/src/lib.rs#L739
      *
-     * @param source_address The source address (20 bytes).
-     * @param destination_address The destination EVM address (20 bytes).
+     * @param sourceAddress The source address (20 bytes).
+     * @param destinationAddress The destination EVM address (20 bytes).
      * @param hotkey The hotkey public key (32 bytes).
-     * @param origin_netuid The subnet to move stake from (uint256).
-     * @param destination_netuid The subnet to move stake to (uint256).
+     * @param originNetuid The subnet to move stake from (uint256).
+     * @param destinationNetuid The subnet to move stake to (uint256).
      * @param amount The amount to move in rao.
      *
      * Requirements:
@@ -405,11 +405,11 @@ interface IStaking {
      * that the stake is correctly attributed.
      */
     function transferStakeFrom(
-        address source_address,
-        address destination_address,
+        address sourceAddress,
+        address destinationAddress,
         bytes32 hotkey,
-        uint256 origin_netuid,
-        uint256 destination_netuid,
+        uint256 originNetuid,
+        uint256 destinationNetuid,
         uint256 amount
     ) external;
 }
