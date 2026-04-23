@@ -19,9 +19,9 @@ type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Voting
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
 )]
 pub struct SignedVoteTally {
-    ayes: u32,
-    nays: u32,
-    total: u32,
+    pub ayes: u32,
+    pub nays: u32,
+    pub total: u32,
 }
 
 impl Into<VoteTally> for SignedVoteTally {
@@ -50,6 +50,9 @@ pub mod pallet {
         type Polls: Polls<Self::AccountId>;
 
         type MaxVotesToClear: Get<u32>;
+
+        /// Maximum number of active polls this pallet can track simultaneously.
+        type MaxActivePolls: Get<u32>;
     }
 
     #[pallet::storage]
@@ -67,6 +70,13 @@ pub mod pallet {
     pub type TallyOf<T: Config> =
         StorageMap<_, Twox64Concat, PollIndexOf<T>, SignedVoteTally, OptionQuery>;
 
+    #[pallet::storage]
+    pub type ActivePolls<T: Config> = StorageValue<
+        _,
+        BoundedVec<PollIndexOf<T>, T::MaxActivePolls>,
+        ValueQuery,
+    >;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -78,6 +88,12 @@ pub mod pallet {
         },
 
         VoteRemoved {
+            who: T::AccountId,
+            poll_index: PollIndexOf<T>,
+            tally: SignedVoteTally,
+        },
+
+        VoteInvalidated {
             who: T::AccountId,
             poll_index: PollIndexOf<T>,
             tally: SignedVoteTally,
@@ -125,6 +141,7 @@ pub mod pallet {
 
             ensure!(T::Polls::is_ongoing(poll_index), Error::<T>::PollNotOngoing);
             Self::ensure_valid_voting_scheme(poll_index)?;
+            // TODO: blocks self-removal post-rotation
             Self::ensure_part_of_voter_set(poll_index, &who)?;
 
             let tally = Self::try_remove_vote(poll_index, &who)?;
@@ -216,6 +233,30 @@ impl<T: Config> Pallet<T> {
         ensure!(voter_set.contains(who), Error::<T>::NotInVoterSet);
         Ok(())
     }
+
+    /// Remove all votes by `who` across all active polls, adjusting tallies.
+    /// Called when a member is rotated out of a collective.
+    pub fn remove_votes_for(who: &T::AccountId) {
+        for poll_index in ActivePolls::<T>::get().iter() {
+            if let Some(approve) = VotingFor::<T>::take(poll_index, who) {
+                if let Some(mut tally) = TallyOf::<T>::get(poll_index) {
+                    if approve {
+                        tally.ayes.saturating_dec();
+                    } else {
+                        tally.nays.saturating_dec();
+                    }
+                    TallyOf::<T>::insert(poll_index, tally.clone());
+                    T::Polls::on_tally_updated(*poll_index, &tally.clone().into());
+
+                    Self::deposit_event(Event::<T>::VoteInvalidated {
+                        who: who.clone(),
+                        poll_index: *poll_index,
+                        tally,
+                    });
+                }
+            }
+        }
+    }
 }
 
 impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
@@ -232,11 +273,21 @@ impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
                 total,
             },
         );
+
+        // TODO: silent error
+        ActivePolls::<T>::mutate(|polls| {
+            let _ = polls.try_push(poll_index);
+        });
     }
 
     fn on_poll_completed(poll_index: PollIndexOf<T>) {
         let max = T::MaxVotesToClear::get().into();
+        // TODO: potential cursor loss and storage leak
         let _ = VotingFor::<T>::clear_prefix(poll_index, max, None);
         TallyOf::<T>::remove(poll_index);
+
+        ActivePolls::<T>::mutate(|polls| {
+            polls.retain(|idx| *idx != poll_index);
+        });
     }
 }
