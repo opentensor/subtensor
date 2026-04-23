@@ -1529,10 +1529,10 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// Default decay timescale: ~30 days at 12s blocks.
+    /// Default decay timescale: ~365.25 days at 12s blocks.
     #[pallet::type_value]
     pub fn DefaultTauBlocks<T: Config>() -> u64 {
-        7200 * 30
+        7200 * 365 + 1800
     }
 
     /// --- ITEM( tau_blocks ) | Decay timescale in blocks for exponential lock.
