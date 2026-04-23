@@ -21,3 +21,19 @@ pub trait PollHooks<PollIndex> {
     fn on_poll_created(poll_index: PollIndex);
     fn on_poll_completed(poll_index: PollIndex);
 }
+
+impl<PollIndex> PollHooks<PollIndex> for () {
+    fn on_poll_created(_poll_index: PollIndex) {}
+    fn on_poll_completed(_poll_index: PollIndex) {}
+}
+
+impl<A: PollHooks<I>, B: PollHooks<I>, I: Copy> PollHooks<I> for (A, B) {
+    fn on_poll_created(poll_index: I) {
+        A::on_poll_created(poll_index);
+        B::on_poll_created(poll_index);
+    }
+    fn on_poll_completed(poll_index: I) {
+        A::on_poll_completed(poll_index);
+        B::on_poll_completed(poll_index);
+    }
+}
