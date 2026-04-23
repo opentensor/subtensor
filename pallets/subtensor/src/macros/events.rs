@@ -542,6 +542,8 @@ mod events {
         TransactionFeePaidWithAlpha {
             /// Account that paid the transaction fee.
             who: T::AccountId,
+            /// Netuid
+            netuid: NetUid,
             /// Exact fee deducted in Alpha units.
             alpha_fee: AlphaBalance,
             /// Resulting swapped TAO amount
