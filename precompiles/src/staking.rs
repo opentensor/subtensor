@@ -943,6 +943,9 @@ mod tests {
     const REMOVE_STAKE_RAO: u64 = 10_000_000_000;
     const PROXY_STAKE_RAO: u64 = 1_000_000_000;
     const COLDKEY_BALANCE: u64 = 100_000_000_000;
+    const APPROVED_ALLOWANCE_RAO: u64 = 10_000_000_000;
+    const TRANSFERRED_ALLOWANCE_RAO: u64 = 5_000_000_000;
+    const ALLOWANCE_DECREASE_RAO: u64 = 2_000_000_000;
 
     fn setup_staking_subnet() -> NetUid {
         let netuid = NetUid::from(TEST_NETUID_U16);
@@ -1064,6 +1067,49 @@ mod tests {
 
         let stake_after = stake_for(&hotkey, &caller_account, netuid);
         assert!(stake_after > stake_before);
+    }
+
+    fn setup_approval_state() -> (NetUid, H160, H160, AccountId, AccountId, AccountId) {
+        let netuid = setup_staking_subnet();
+        let source = addr_from_index(0x2001);
+        let spender = addr_from_index(0x2002);
+        let source_account = mapped_account(source);
+        let spender_account = mapped_account(spender);
+        let hotkey = hotkey();
+
+        fund_account(&source_account, COLDKEY_BALANCE);
+        add_stake_v2(source, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
+        pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
+            hotkey.clone(),
+            source_account.clone(),
+            netuid,
+        ));
+
+        (
+            netuid,
+            source,
+            spender,
+            source_account,
+            spender_account,
+            hotkey,
+        )
+    }
+
+    fn assert_allowance(source: H160, spender: H160, caller: H160, expected: U256) {
+        assert_static_call(
+            &precompiles::<StakingPrecompileV2<Runtime>>(),
+            caller,
+            addr_from_index(StakingPrecompileV2::<Runtime>::INDEX),
+            encode_with_selector(
+                selector_u32("allowance(address,address,uint256)"),
+                (
+                    precompile_utils::solidity::codec::Address(source),
+                    precompile_utils::solidity::codec::Address(spender),
+                    U256::from(TEST_NETUID_U16),
+                ),
+            ),
+            expected,
+        );
     }
 
     #[test]
@@ -1381,6 +1427,224 @@ mod tests {
 
             let proxies = pallet_subtensor_proxy::Proxies::<Runtime>::get(&caller_account).0;
             assert!(proxies.is_empty());
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_transfer_stake_from_requires_allowance() {
+        new_test_ext().execute_with(|| {
+            let (_, source, spender, _, spender_account, hotkey) = setup_approval_state();
+            precompiles::<StakingPrecompileV2<Runtime>>()
+                .prepare_test(
+                    spender,
+                    addr_from_index(StakingPrecompileV2::<Runtime>::INDEX),
+                    encode_with_selector(
+                        selector_u32(
+                            "transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)",
+                        ),
+                        (
+                            precompile_utils::solidity::codec::Address(source),
+                            H256::from_slice(spender_account.as_ref()),
+                            H256::from_slice(hotkey.as_ref()),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(1_u64),
+                        ),
+                    ),
+                )
+                .execute_reverts(|output| output == b"trying to spend more than allowed");
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_transfer_stake_from_consumes_allowance_and_moves_stake() {
+        new_test_ext().execute_with(|| {
+            let (netuid, source, spender, source_account, spender_account, hotkey) =
+                setup_approval_state();
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            precompiles
+                .prepare_test(
+                    source,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("approve(address,uint256,uint256)"),
+                        (
+                            precompile_utils::solidity::codec::Address(spender),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(APPROVED_ALLOWANCE_RAO),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            let source_stake_before = stake_for(&hotkey, &source_account, netuid);
+            let spender_stake_before = stake_for(&hotkey, &spender_account, netuid);
+
+            precompiles
+                .prepare_test(
+                    spender,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32(
+                            "transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)",
+                        ),
+                        (
+                            precompile_utils::solidity::codec::Address(source),
+                            H256::from_slice(spender_account.as_ref()),
+                            H256::from_slice(hotkey.as_ref()),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(TRANSFERRED_ALLOWANCE_RAO),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            assert_allowance(
+                source,
+                spender,
+                source,
+                U256::from(APPROVED_ALLOWANCE_RAO - TRANSFERRED_ALLOWANCE_RAO),
+            );
+            assert_eq!(
+                stake_for(&hotkey, &source_account, netuid),
+                source_stake_before - TRANSFERRED_ALLOWANCE_RAO,
+            );
+            assert_eq!(
+                stake_for(&hotkey, &spender_account, netuid),
+                spender_stake_before + TRANSFERRED_ALLOWANCE_RAO,
+            );
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_transfer_stake_from_rejects_amount_above_allowance() {
+        new_test_ext().execute_with(|| {
+            let (_, source, spender, _, spender_account, hotkey) = setup_approval_state();
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            precompiles
+                .prepare_test(
+                    source,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("approve(address,uint256,uint256)"),
+                        (
+                            precompile_utils::solidity::codec::Address(spender),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(TRANSFERRED_ALLOWANCE_RAO),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+
+            precompiles
+                .prepare_test(
+                    spender,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32(
+                            "transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)",
+                        ),
+                        (
+                            precompile_utils::solidity::codec::Address(source),
+                            H256::from_slice(spender_account.as_ref()),
+                            H256::from_slice(hotkey.as_ref()),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(TRANSFERRED_ALLOWANCE_RAO + 1),
+                        ),
+                    ),
+                )
+                .execute_reverts(|output| output == b"trying to spend more than allowed");
+        });
+    }
+
+    #[test]
+    fn staking_precompile_v2_approval_functions_update_allowance() {
+        new_test_ext().execute_with(|| {
+            let (_, source, spender, _, _, _) = setup_approval_state();
+            let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
+            let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
+
+            assert_allowance(source, spender, source, U256::zero());
+
+            precompiles
+                .prepare_test(
+                    source,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("approve(address,uint256,uint256)"),
+                        (
+                            precompile_utils::solidity::codec::Address(spender),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(APPROVED_ALLOWANCE_RAO),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+            assert_allowance(source, spender, source, U256::from(APPROVED_ALLOWANCE_RAO));
+
+            precompiles
+                .prepare_test(
+                    source,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("increaseAllowance(address,uint256,uint256)"),
+                        (
+                            precompile_utils::solidity::codec::Address(spender),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(APPROVED_ALLOWANCE_RAO),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+            assert_allowance(
+                source,
+                spender,
+                source,
+                U256::from(APPROVED_ALLOWANCE_RAO * 2),
+            );
+
+            precompiles
+                .prepare_test(
+                    source,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("decreaseAllowance(address,uint256,uint256)"),
+                        (
+                            precompile_utils::solidity::codec::Address(spender),
+                            U256::from(TEST_NETUID_U16),
+                            U256::from(ALLOWANCE_DECREASE_RAO),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+            assert_allowance(
+                source,
+                spender,
+                source,
+                U256::from(APPROVED_ALLOWANCE_RAO * 2 - ALLOWANCE_DECREASE_RAO),
+            );
+
+            precompiles
+                .prepare_test(
+                    source,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("approve(address,uint256,uint256)"),
+                        (
+                            precompile_utils::solidity::codec::Address(spender),
+                            U256::from(TEST_NETUID_U16),
+                            U256::zero(),
+                        ),
+                    ),
+                )
+                .execute_returns(());
+            assert_allowance(source, spender, source, U256::zero());
         });
     }
 }
