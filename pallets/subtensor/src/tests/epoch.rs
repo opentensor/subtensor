@@ -3599,7 +3599,10 @@ fn test_do_reset_bonds_removes_target_uid_from_all_bond_vecs() {
 
         // Every entry referring to uid 1 is gone; all other entries preserved.
         assert_eq!(Bonds::<Test>::get(idx, 0u16), vec![(2u16, 200u16)]);
-        assert_eq!(Bonds::<Test>::get(idx, 1u16), vec![(0u16, 300u16), (2u16, 400u16)]);
+        assert_eq!(
+            Bonds::<Test>::get(idx, 1u16),
+            vec![(0u16, 300u16), (2u16, 400u16)]
+        );
         assert_eq!(Bonds::<Test>::get(idx, 2u16), vec![(0u16, 500u16)]);
     });
 }
