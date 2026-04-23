@@ -634,11 +634,11 @@ where
         Ok(())
     }
 
-    #[precompile::public("transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::public("transferStakeFrom(address,address,bytes32,uint256,uint256,uint256)")]
     fn transfer_stake_from(
         handle: &mut impl PrecompileHandle,
         source_address: Address,
-        destination_coldkey: H256,
+        destination_address: Address,
         hotkey: H256,
         origin_netuid: U256,
         destination_netuid: U256,
@@ -646,7 +646,8 @@ where
     ) -> EvmResult<()> {
         let spender = handle.context().caller;
         let source_address = source_address.0;
-        let destination_coldkey = R::AccountId::from(destination_coldkey.0);
+        let destination_coldkey =
+            <R as pallet_evm::Config>::AddressMapping::into_account_id(destination_address.0);
         let hotkey = R::AccountId::from(hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
