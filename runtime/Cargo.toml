@@ -156,9 +156,6 @@ stp-shield.workspace = true
 
 ethereum.workspace = true
 
-# pallet-governance (monolith) disabled — superseded by Governance V2 modular pallets below.
-# pallet-governance.workspace = true
-
 # Governance V2 (modular)
 pallet-multi-collective.workspace = true
 pallet-signed-voting.workspace = true

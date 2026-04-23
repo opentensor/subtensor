@@ -31,7 +31,7 @@ pub const REFERENDA_ID: LockIdentifier = *b"referend";
 
 #[frame_support::pallet]
 pub mod pallet {
-    #![allow(clippy::expect_used, clippy::unwrap_used)]
+    #![allow(clippy::expect_used)]
     use super::*;
 
     #[pallet::pallet]

@@ -1638,10 +1638,6 @@ impl pallet_contracts::Config for Runtime {
     type ApiVersion = ();
 }
 
-// pallet-governance (monolith) disabled — superseded by Governance V2 (multi-collective,
-// signed-voting, anonymous-voting, referenda). The crate still lives under
-// `pallets/governance/` for reference but is no longer wired into the runtime.
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1680,9 +1676,8 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
-        // Governance (pallet_governance monolith) was 31, now superseded by V2 below.
 
-        // Governance V2 — modular.
+        // Governance V2
         MultiCollective: pallet_multi_collective = 32,
         Referenda: pallet_referenda = 33,
         SignedVoting: pallet_signed_voting = 34,
