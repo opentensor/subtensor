@@ -245,25 +245,24 @@ impl<T: Config> Pallet<T> {
         weight
     }
 
+    // Invariant: `RootClaimable[hotkey]` never carries a `NetUid::ROOT` key.
+    // `increase_root_claimable_for_hotkey_and_subnet` is the only writer, and
+    // its sole caller `run_coinbase` filters ROOT out of the distribution loop
+    // before populating the map (see `run_coinbase.rs:31`).
+    // `transfer_root_claimable_for_new_hotkey` and
+    // `finalize_all_subnet_root_dividends` only propagate or remove existing
+    // keys, so they can't introduce a ROOT key either. The two functions
+    // below therefore iterate the full map without a ROOT special-case; if a
+    // ROOT entry ever does appear through a future code path, add and remove
+    // will stay symmetric rather than drifting.
+
     pub fn add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         amount: u64,
     ) {
-        // Iterate over all the subnets this hotkey is staked on for root.
         let root_claimable = RootClaimable::<T>::get(hotkey);
         for (netuid, claimable_rate) in root_claimable.iter() {
-            // RootClaimable is keyed by the *emitting* subnet, so NetUid::ROOT
-            // should never appear here under normal coinbase operation
-            // (run_coinbase filters ROOT out before populating this map).
-            // Skip it defensively to stay symmetric with
-            // `remove_stake_adjust_root_claimed_for_hotkey_and_coldkey`;
-            // otherwise a stray ROOT entry would grow RootClaimed on adds
-            // but never shrink on removes.
-            if *netuid == NetUid::ROOT.into() {
-                continue;
-            }
-
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
 
@@ -284,13 +283,8 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: AlphaBalance,
     ) {
-        // Iterate over all the subnets this hotkey is staked on for root.
         let root_claimable = RootClaimable::<T>::get(hotkey);
         for (netuid, claimable_rate) in root_claimable.iter() {
-            if *netuid == NetUid::ROOT.into() {
-                continue; // Skip the root netuid.
-            }
-
             // Get current staker root claimed value.
             let root_claimed: u128 = RootClaimed::<T>::get((netuid, hotkey, coldkey));
 

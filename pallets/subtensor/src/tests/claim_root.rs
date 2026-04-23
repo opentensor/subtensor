@@ -2060,12 +2060,14 @@ fn test_claim_root_with_moved_stake() {
     });
 }
 
-// Symmetric to remove_stake_adjust_root_claimed: an unexpected ROOT entry in
-// RootClaimable should be skipped by the add path as well. Previously only
-// the remove side guarded against it, which meant a stray ROOT entry would
-// grow RootClaimed on adds without ever being drained on removes.
+// RootClaimable should never carry a NetUid::ROOT key under current code
+// paths, so this scenario isn't reachable today. The test pins the
+// symmetric-iteration property: if a ROOT entry ever does sneak in through
+// a future code path, add and remove both process it the same way so the
+// pair stays balanced rather than drifting as it would if only one side
+// handled it specially.
 #[test]
-fn test_add_stake_adjust_root_claimed_skips_root_netuid() {
+fn test_add_and_remove_stake_adjust_root_claimed_are_symmetric() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
@@ -2074,41 +2076,46 @@ fn test_add_stake_adjust_root_claimed_skips_root_netuid() {
         let rate = I96F32::saturating_from_num(3);
 
         // Seed RootClaimable with both a ROOT entry and a non-root entry.
-        // ROOT should not normally be present here, but we want the add path
-        // to tolerate it the same way the remove path already does.
+        // ROOT should not normally be here; we seed it to verify the two
+        // functions stay symmetric regardless.
         let mut claimable = std::collections::BTreeMap::new();
         claimable.insert(NetUid::ROOT, rate);
         claimable.insert(other_netuid, rate);
         RootClaimable::<Test>::insert(hotkey, claimable);
-
-        // Nothing claimed yet.
-        assert_eq!(
-            RootClaimed::<Test>::get((NetUid::ROOT, hotkey, coldkey)),
-            0u128
-        );
-        assert_eq!(
-            RootClaimed::<Test>::get((other_netuid, hotkey, coldkey)),
-            0u128
-        );
 
         let amount: u64 = 100;
         SubtensorModule::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
             &hotkey, &coldkey, amount,
         );
 
-        // ROOT entry must stay untouched.
+        let expected: u128 = rate
+            .saturating_mul(I96F32::from(amount))
+            .saturating_to_num::<u128>();
+
+        // Both entries got bumped the same way by the add path.
+        assert_eq!(
+            RootClaimed::<Test>::get((NetUid::ROOT, hotkey, coldkey)),
+            expected
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((other_netuid, hotkey, coldkey)),
+            expected
+        );
+
+        // Remove the same amount and check both entries drain back to 0.
+        SubtensorModule::remove_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+            &hotkey,
+            &coldkey,
+            AlphaBalance::from(amount),
+        );
+
         assert_eq!(
             RootClaimed::<Test>::get((NetUid::ROOT, hotkey, coldkey)),
             0u128
         );
-
-        // The non-root entry should have been bumped by rate * amount.
-        let expected: u128 = rate
-            .saturating_mul(I96F32::from(amount))
-            .saturating_to_num::<u128>();
         assert_eq!(
             RootClaimed::<Test>::get((other_netuid, hotkey, coldkey)),
-            expected
+            0u128
         );
     });
 }
