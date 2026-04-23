@@ -2560,12 +2560,13 @@ mod dispatches {
         /// * `HotkeyIsStillRegistered` - The hotkey is still a member of at least one subnet.
         /// * `HotkeyHasOutstandingStake` - The hotkey still has an `Alpha` or `AlphaV2` entry.
         #[pallet::call_index(136)]
-        // FIXME: weight is hand-tuned to cover the per-subnet `AutoStakeDestination*` cleanup
-        // loop (read + up to a few writes per subnet). Replace with
+        // FIXME: hand-tuned worst-case bound. The cleanup loop now iterates the inverse
+        // index (`AutoStakeDestinationColdkeys::iter_prefix`) so only subnets where this
+        // hotkey was actually an auto-stake destination are touched. Replace with
         // `WeightInfo::disassociate_hotkey()` once benchmarks are regenerated.
         #[pallet::weight((
-            Weight::from_parts(500_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads_writes(300, 250)),
+            Weight::from_parts(80_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads_writes(40, 30)),
             DispatchClass::Normal,
             Pays::Yes
         ))]

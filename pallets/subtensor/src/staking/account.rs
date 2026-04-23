@@ -12,17 +12,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_disassociate_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> DispatchResult {
-        // Ensure the hotkey exists.
-        ensure!(
-            Self::hotkey_account_exists(hotkey),
-            Error::<T>::HotKeyAccountNotExists
-        );
-
-        // Ensure the coldkey owns the hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(coldkey, hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
+        // Fetch the owner once: missing entry => hotkey doesn't exist; mismatch => not owned.
+        let owner =
+            Owner::<T>::try_get(hotkey).map_err(|_| Error::<T>::HotKeyAccountNotExists)?;
+        ensure!(&owner == coldkey, Error::<T>::NonAssociatedColdKey);
 
         // Ensure the hotkey is not registered on any subnet.
         ensure!(
@@ -63,10 +56,12 @@ impl<T: Config> Pallet<T> {
         // Remove Delegates entry if present.
         Delegates::<T>::remove(hotkey);
 
-        // Clean up AutoStakeDestination references.
-        // Other coldkeys may have set this hotkey as their auto-stake destination.
-        for netuid in Self::get_all_subnet_netuids() {
-            let coldkeys = AutoStakeDestinationColdkeys::<T>::get(hotkey, netuid);
+        // Clean up AutoStakeDestination references via the inverse index so we only
+        // touch subnets where this hotkey was actually an auto-stake destination
+        // (instead of scanning every subnet).
+        let auto_stake_entries: Vec<(NetUid, Vec<T::AccountId>)> =
+            AutoStakeDestinationColdkeys::<T>::iter_prefix(hotkey).collect();
+        for (netuid, coldkeys) in auto_stake_entries {
             for ck in &coldkeys {
                 AutoStakeDestination::<T>::remove(ck, netuid);
             }
