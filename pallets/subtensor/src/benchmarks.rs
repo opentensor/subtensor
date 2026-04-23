@@ -852,6 +852,7 @@ mod pallet_benchmarks {
 
         let initial_balance = TaoBalance::from(900_000_000_000_u64);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), initial_balance);
+        add_lock::<T>(&coldkey, netuid);
 
         let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
         let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);

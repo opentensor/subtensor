@@ -2546,12 +2546,7 @@ mod dispatches {
         /// * `netuid` - The subnet on which to lock.
         /// * `amount` - The alpha amount to lock.
         #[pallet::call_index(136)]
-        #[pallet::weight((Weight::from_parts(46_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(4))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::lock_stake())]
         pub fn lock_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2575,12 +2570,7 @@ mod dispatches {
         /// # Errors:
         /// * `Error::<T>::NoExistingLock` - If no lock exists for the given coldkey and subnet.
         #[pallet::call_index(137)]
-        #[pallet::weight((Weight::from_parts(46_000_000, 0)
-            .saturating_add(T::DbWeight::get().reads(4))
-            .saturating_add(T::DbWeight::get().writes(1)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::move_lock())]
         pub fn move_lock(
             origin: OriginFor<T>,
             destination_hotkey: T::AccountId,
