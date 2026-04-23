@@ -78,7 +78,7 @@ describe("Test approval in staking precompile", () => {
             const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
             const tx = await contract.transferStakeFrom(
                 wallet1.address, // source
-                convertH160ToPublicKey(wallet2.address), // distination
+                wallet2.address, // destination
                 hotkey.publicKey,
                 stakeNetuid,
                 stakeNetuid,
@@ -133,7 +133,7 @@ describe("Test approval in staking precompile", () => {
         // wallet2 transfer from wallet1
         const tx = await contract.transferStakeFrom(
             wallet1.address, // source
-            convertH160ToPublicKey(wallet2.address), // destination
+            wallet2.address, // destination
             hotkey.publicKey,
             stakeNetuid,
             stakeNetuid,
@@ -161,7 +161,7 @@ describe("Test approval in staking precompile", () => {
             const contract = new ethers.Contract(ISTAKING_V2_ADDRESS, IStakingV2ABI, wallet2);
             const tx = await contract.transferStakeFrom(
                 wallet1.address, // source
-                convertH160ToPublicKey(wallet2.address), // distination
+                wallet2.address, // destination
                 hotkey.publicKey,
                 stakeNetuid,
                 stakeNetuid,

@@ -561,9 +561,9 @@ export const IStakingV2ABI = [
                 "type": "address"
             },
             {
-                "internalType": "bytes32",
-                "name": "destination_coldkey",
-                "type": "bytes32"
+                "internalType": "address",
+                "name": "destination_address",
+                "type": "address"
             },
             {
                 "internalType": "bytes32",
