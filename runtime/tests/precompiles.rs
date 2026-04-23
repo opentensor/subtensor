@@ -79,10 +79,7 @@ fn balance_transfer_precompile_transfers_balance() {
         let destination_account: AccountId = destination_raw.0.into();
 
         let amount = 123_456;
-        add_balance_to_coldkey_account(
-            &dispatch_account,
-            (amount * 2).into(),
-        );
+        add_balance_to_coldkey_account(&dispatch_account, (amount * 2).into());
 
         let source_balance_before =
             pallet_balances::Pallet::<Runtime>::free_balance(&dispatch_account);
@@ -123,10 +120,7 @@ fn balance_transfer_precompile_respects_dispatch_guard_policy() {
         let destination_account: AccountId = destination_raw.0.into();
 
         let amount = 100;
-        add_balance_to_coldkey_account(
-            &dispatch_account,
-            1_000_000_u64.into(),
-        );
+        add_balance_to_coldkey_account(&dispatch_account, 1_000_000_u64.into());
 
         let replacement_coldkey = AccountId::from([9u8; 32]);
         let replacement_hash =

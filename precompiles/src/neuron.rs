@@ -311,10 +311,7 @@ mod tests {
             .expect("reveal period setup should succeed");
         pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
         pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
-        add_balance_to_coldkey_account(
-            &caller_account,
-            COLDKEY_BALANCE.into(),
-        );
+        add_balance_to_coldkey_account(&caller_account, COLDKEY_BALANCE.into());
 
         precompiles::<NeuronPrecompile<Runtime>>()
             .prepare_test(
@@ -364,10 +361,7 @@ mod tests {
             pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
             pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
             pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
-            add_balance_to_coldkey_account(
-                &caller_account,
-                COLDKEY_BALANCE.into(),
-            );
+            add_balance_to_coldkey_account(&caller_account, COLDKEY_BALANCE.into());
 
             let uid_before = pallet_subtensor::SubnetworkN::<Runtime>::get(netuid);
             let balance_before =
