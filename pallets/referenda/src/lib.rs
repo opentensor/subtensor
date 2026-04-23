@@ -388,8 +388,7 @@ impl<T: Config> Pallet<T> {
             ApprovalAction::Execute => {
                 let now = Self::now();
                 let when = now.saturating_add(1u32.into());
-                let _ =
-                    Self::schedule_enactment(index, DispatchTime::At(when), bounded);
+                let _ = Self::schedule_enactment(index, DispatchTime::At(when), bounded);
             }
             ApprovalAction::ScheduleAndReview { review_track } => {
                 // Auto-spawn a Review referendum on the configured review track.
@@ -569,11 +568,8 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
 
                 if tally.approval >= *fast_track_threshold {
                     let when = Self::now().saturating_add(1u32.into());
-                    if T::Scheduler::reschedule_named(
-                        enactment_name(index),
-                        DispatchTime::At(when),
-                    )
-                    .is_err()
+                    if T::Scheduler::reschedule_named(enactment_name(index), DispatchTime::At(when))
+                        .is_err()
                     {
                         Self::finalize(index, FinalState::Stale);
                         return;
@@ -597,11 +593,8 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
                     let earliest = Self::now().saturating_add(1u32.into());
                     let target = baseline.saturating_add(additional);
                     let when = if target < earliest { earliest } else { target };
-                    if T::Scheduler::reschedule_named(
-                        enactment_name(index),
-                        DispatchTime::At(when),
-                    )
-                    .is_err()
+                    if T::Scheduler::reschedule_named(enactment_name(index), DispatchTime::At(when))
+                        .is_err()
                     {
                         Self::finalize(index, FinalState::Stale);
                         return;

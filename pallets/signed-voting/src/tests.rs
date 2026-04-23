@@ -70,7 +70,7 @@ fn set_voters(v: Vec<u64>) {
 }
 
 fn last_tally() -> Option<VoteTally> {
-    LAST_TALLY.with(|t| t.borrow().clone())
+    LAST_TALLY.with(|t| *t.borrow())
 }
 
 pub struct MockVoters;
@@ -104,7 +104,7 @@ impl Polls<u64> for MockPolls {
         Some(MockVoters)
     }
     fn on_tally_updated(_: u32, tally: &VoteTally) {
-        LAST_TALLY.with(|t| *t.borrow_mut() = Some(tally.clone()));
+        LAST_TALLY.with(|t| *t.borrow_mut() = Some(*tally));
     }
 }
 

@@ -13,8 +13,8 @@ type PollIndexOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Index;
 type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::VotingScheme;
 
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
-    #![allow(clippy::expect_used, clippy::unwrap_used)]
     use super::*;
 
     #[pallet::pallet]

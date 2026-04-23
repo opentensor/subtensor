@@ -13,9 +13,7 @@ use frame_system::{EnsureRoot, RawOrigin};
 use pallet_multi_collective::{
     Collective, CollectiveInfo, CollectiveInspect, CollectiveName, CollectivesInfo,
 };
-use pallet_referenda::{
-    ApprovalAction, DecisionStrategy, Track, TrackInfo, TrackName, TracksInfo,
-};
+use pallet_referenda::{ApprovalAction, DecisionStrategy, Track, TrackInfo, TrackName, TracksInfo};
 use scale_info::TypeInfo;
 use subtensor_runtime_common::SetLike;
 
@@ -182,8 +180,7 @@ impl TracksInfo<TrackName, AccountId, RuntimeCall, BlockNumber> for SubtensorTra
     type VoterSet = MemberSet;
 
     fn tracks()
-    -> impl Iterator<Item = Track<Self::Id, TrackName, BlockNumber, MemberSet, VotingScheme>>
-    {
+    -> impl Iterator<Item = Track<Self::Id, TrackName, BlockNumber, MemberSet, VotingScheme>> {
         [
             Track {
                 id: 0u16,
@@ -238,10 +235,9 @@ impl EnsureOriginWithArg<RuntimeOrigin, u16> for GovernanceSubmitOrigin {
     type Success = Option<AccountId>;
 
     fn try_origin(origin: RuntimeOrigin, track: &u16) -> Result<Self::Success, RuntimeOrigin> {
-        let raw: RawOrigin<AccountId> = match origin.clone().into() {
-            Ok(r) => r,
-            Err(o) => return Err(o),
-        };
+        let raw: RawOrigin<AccountId> = <RuntimeOrigin as Into<
+            Result<RawOrigin<AccountId>, RuntimeOrigin>,
+        >>::into(origin.clone())?;
         match (track, raw) {
             (0, RawOrigin::Root) => Ok(None),
             (0, RawOrigin::Signed(who)) => {

@@ -15,8 +15,8 @@ pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
 pub type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
 
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
-    #![allow(clippy::expect_used, clippy::unwrap_used)]
     use super::*;
 
     #[pallet::pallet]
