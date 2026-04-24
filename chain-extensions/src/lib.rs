@@ -104,7 +104,8 @@ where
             .map_err(|_| DispatchError::Other("Failed to decode input parameters"))?;
 
         // weight for remove_stake is not defined in the Subtensor pallet's WeightInfo
-        let weight = <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake();
+        let weight =
+            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake();
 
         env.charge_weight(weight)?;
 
