@@ -598,3 +598,9 @@ pub(crate) fn alpha_price_to_evm(price: U96F32) -> U256 {
         .expect("runtime balance conversion should work for alpha price")
         .into_u256()
 }
+
+pub(crate) fn substrate_to_evm(amount: u64) -> U256 {
+    <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(amount.into())
+        .expect("runtime balance conversion should work")
+        .into_u256()
+}
