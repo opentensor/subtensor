@@ -2882,7 +2882,6 @@ fn registered_subnet_counter_survives_dissolve_and_bumps_on_reregistration() {
     });
 }
 
-
 // ---------------------------------------------------------------------------
 // Storage-leak detection test: catches any per-subnet storage left behind
 // after a full subnet lifecycle + dissolution.

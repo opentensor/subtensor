@@ -77,10 +77,10 @@ pub type AllowancesStorage = StorageDoubleMap<
 
 /// Remove all AllowancesStorage entries whose key contains the given netuid.
 pub fn purge_netuid_allowances(netuid: u16) {
-    let to_remove: Vec<(H160, (H160, u16))> = AllowancesStorage::iter()
-        .filter_map(|(approver, (spender, n), _)| {
+    let to_remove: Vec<(H160, (H160, u16, u64))> = AllowancesStorage::iter()
+        .filter_map(|(approver, (spender, n, counter), _)| {
             if n == netuid {
-                Some((approver, (spender, n)))
+                Some((approver, (spender, n, counter)))
             } else {
                 None
             }
@@ -945,17 +945,18 @@ mod tests {
             let netuid_a: u16 = 5;
             let netuid_b: u16 = 7;
 
-            AllowancesStorage::insert(approver, (spender, netuid_a), U256::from(100));
-            AllowancesStorage::insert(approver, (spender, netuid_b), U256::from(200));
+            let counter: u64 = 0;
+            AllowancesStorage::insert(approver, (spender, netuid_a, counter), U256::from(100));
+            AllowancesStorage::insert(approver, (spender, netuid_b, counter), U256::from(200));
 
             purge_netuid_allowances(netuid_a);
 
             assert_eq!(
-                AllowancesStorage::get(approver, (spender, netuid_a)),
+                AllowancesStorage::get(approver, (spender, netuid_a, counter)),
                 U256::zero(),
             );
             assert_eq!(
-                AllowancesStorage::get(approver, (spender, netuid_b)),
+                AllowancesStorage::get(approver, (spender, netuid_b, counter)),
                 U256::from(200),
             );
         });
