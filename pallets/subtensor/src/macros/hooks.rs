@@ -353,22 +353,182 @@ mod hooks {
                         }
                         DissolvedNetworksCleanupPhaseEnum::PurgeNetuid => {
                             let (weight_used, done) =
-                                Self::remove_network(*netuid, remaining_weight);
+                                Self::remove_network_parameters(*netuid, remaining_weight);
                             phase_done = done;
                             remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: final step");
+                            log::error!("=== dissolved_networks: purge_netuid / remove_network_parameters");
                             log::error!("=== weight_used: {:?}", weight_used);
                             log::error!("=== remaining_weight: {:?}", remaining_weight);
                             if done {
-                                DissolvedNetworksCleanupPhase::<T>::remove(*netuid);
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters,
+                                );
                             }
                         }
-                        DissolvedNetworksCleanupPhaseEnum::RemoveNetwork => {
-                            phase_done = true;
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParameters => {
                             let (weight_used, done) =
-                                Self::remove_network(*netuid, remaining_weight);
+                                Self::remove_network_parameters(*netuid, remaining_weight);
+                            phase_done = done;
                             remaining_weight = remaining_weight.saturating_sub(weight_used);
-
+                            log::error!("=== dissolved_networks: remove_network_parameters (recovery)");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters => {
+                            let (weight_used, done) =
+                                Self::remove_network_map_parameters(*netuid, remaining_weight);
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!("=== dissolved_networks: remove_network_map_parameters");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkWeights,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkWeights => {
+                            let (weight_used, done) =
+                                Self::remove_network_weights(*netuid, remaining_weight);
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!("=== dissolved_networks: remove_network_weights");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeyTake,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeyTake => {
+                            let (weight_used, done) =
+                                Self::remove_network_childkey_take(*netuid, remaining_weight);
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!("=== dissolved_networks: remove_network_childkey_take");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeys,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeys => {
+                            let (weight_used, done) =
+                                Self::remove_network_childkeys(*netuid, remaining_weight);
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!("=== dissolved_networks: remove_network_childkeys");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParentkeys,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParentkeys => {
+                            let (weight_used, done) =
+                                Self::remove_network_parentkeys(*netuid, remaining_weight);
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!("=== dissolved_networks: remove_network_parentkeys");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkLastHotkeyEmissionOnNetuid,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkLastHotkeyEmissionOnNetuid => {
+                            let (weight_used, done) =
+                                Self::remove_network_last_hotkey_emission_on_netuid(
+                                    *netuid,
+                                    remaining_weight,
+                                );
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!(
+                                "=== dissolved_networks: remove_network_last_hotkey_emission_on_netuid"
+                            );
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTotalHotkeyAlphaLastEpoch,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTotalHotkeyAlphaLastEpoch => {
+                            let (weight_used, done) =
+                                Self::remove_network_total_hotkey_alpha_last_epoch(
+                                    *netuid,
+                                    remaining_weight,
+                                );
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!(
+                                "=== dissolved_networks: remove_network_total_hotkey_alpha_last_epoch"
+                            );
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTransactionKeyLastBlock,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTransactionKeyLastBlock => {
+                            let (weight_used, done) =
+                                Self::remove_network_transaction_key_last_block(
+                                    *netuid,
+                                    remaining_weight,
+                                );
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!(
+                                "=== dissolved_networks: remove_network_transaction_key_last_block"
+                            );
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkStakingOperationRateLimiter,
+                                );
+                            }
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkStakingOperationRateLimiter => {
+                            let (weight_used, done) =
+                                Self::remove_network_staking_operation_rate_limiter(
+                                    *netuid,
+                                    remaining_weight,
+                                );
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            log::error!(
+                                "=== dissolved_networks: remove_network_staking_operation_rate_limiter"
+                            );
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::remove(*netuid);
                             }

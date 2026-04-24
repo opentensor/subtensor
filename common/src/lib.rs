@@ -497,9 +497,9 @@ macro_rules! LoopRemovePrefixWithWeightMeter {
 
         let limit = remaining_ref_time.saturating_div(write_ref_time);
 
-        let result: $crate::MultiRemovalResults =
-            <$storage>::clear_prefix($netuid, limit as u32, None);
+        let limit = u32::try_from(limit).unwrap_or(u32::MAX);
 
+        let result: $crate::MultiRemovalResults = <$storage>::clear_prefix($netuid, limit, None);
         ($meter.consumed(), result.maybe_cursor.is_none())
     }};
 }

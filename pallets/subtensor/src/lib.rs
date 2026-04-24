@@ -369,10 +369,28 @@ pub mod pallet {
         ClearProtocolLiquidity,
         /// Phase 3: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakes,
-        /// Phase 3: Purge commitments and related per-netuid storage.
+        /// Phase 3: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
         PurgeNetuid,
-        /// Phase 4: Remove the network from the dissolved networks list.
-        RemoveNetwork,
+        /// Phase 4: Scalar `Network*` removal (recovery / legacy); the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
+        RemoveNetworkParameters,
+        /// Phase 5: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
+        RemoveNetworkMapParameters,
+        /// Phase 6: Clear root-network weight entries referencing this netuid.
+        RemoveNetworkWeights,
+        /// Phase 7: Remove childkey take entries for this netuid.
+        RemoveNetworkChildkeyTake,
+        /// Phase 8: Remove child key bindings for this netuid.
+        RemoveNetworkChildkeys,
+        /// Phase 9: Remove parent key bindings for this netuid.
+        RemoveNetworkParentkeys,
+        /// Phase 10: Remove last hotkey emission records for this netuid.
+        RemoveNetworkLastHotkeyEmissionOnNetuid,
+        /// Phase 11: Remove total hotkey alpha last epoch entries for this netuid.
+        RemoveNetworkTotalHotkeyAlphaLastEpoch,
+        /// Phase 12: Remove transaction key last-block rate limit entries for this netuid.
+        RemoveNetworkTransactionKeyLastBlock,
+        /// Phase 13: Remove staking operation rate limiter entries for this netuid.
+        RemoveNetworkStakingOperationRateLimiter,
     }
 
     /// The Max Burn HalfLife Settable
@@ -2000,6 +2018,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type DissolvedNetworksCleanupPhase<T> =
         StorageMap<_, Identity, NetUid, DissolvedNetworksCleanupPhaseEnum, OptionQuery>;
+
+    /// --- ITEM ( last_kept_raw_key ) Last kept raw key for the next iteration.
+    /// It is only used during clean the data for dissolved networks.
+    #[pallet::storage]
+    pub type LastKeptRawKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
 
     // =======================================
     // ==== VotingPower Storage  ====

@@ -1,5 +1,4 @@
 use super::*;
-use crate::WeightMeterWrapper;
 use frame_support::weights::{Weight, WeightMeter};
 use sp_core::Get;
 use sp_std::collections::btree_map::BTreeMap;
@@ -400,48 +399,42 @@ impl<T: Config> Pallet<T> {
         remaining_weight: Weight,
     ) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-        log::error!("=== clean_up_root_claimable_for_subnet: step 1");
-
-        let mut read_keys = 0_u64;
 
         let mut to_remove_map = BTreeMap::<T::AccountId, BTreeMap<NetUid, I96F32>>::new();
 
-        let mut iterate_all = true;
+        let mut read_all = true;
+
+        let iter = match LastKeptRawKey::<T>::get() {
+            Some(raw_key) => RootClaimable::<T>::iter_from(raw_key),
+            None => RootClaimable::<T>::iter(),
+        };
 
         // Iterate directly without collecting to avoid unnecessary allocation
-        for hotkey in RootClaimable::<T>::iter_keys() {
-            read_keys += 1;
-            // log::error!("=== finalize_all_subnet_root_dividends: step 2");
-            let (_, done) = WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(2));
-            // break from the loop if the weight is not enough
-            if !done {
-                iterate_all = false;
+        for (hotkey, _) in iter {
+            let can_consume = weight_meter.can_consume(T::DbWeight::get().reads(2));
+            if !can_consume {
+                read_all = false;
+                LastKeptRawKey::<T>::set(Some(RootClaimable::<T>::hashed_key_for(&hotkey)));
                 break;
             }
+            weight_meter.consume(T::DbWeight::get().reads(2));
+
             let mut claimable = RootClaimable::<T>::get(&hotkey);
             if claimable.contains_key(&netuid) {
-                claimable.remove(&netuid);
-                let (_, done) = WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-                to_remove_map.insert(hotkey, claimable);
-                if !done {
-                    iterate_all = false;
+                let can_consume = weight_meter.can_consume(T::DbWeight::get().writes(1));
+                if !can_consume {
+                    read_all = false;
+                    LastKeptRawKey::<T>::set(Some(RootClaimable::<T>::hashed_key_for(&hotkey)));
                     break;
                 }
+
+                claimable.remove(&netuid);
+                to_remove_map.insert(hotkey.clone(), claimable);
             }
         }
 
-        log::error!("=== clean_up_root_claimable_for_subnet: read_keys: {read_keys}");
-        log::error!(
-            "=== clean_up_root_claimable_for_subnet: to_remove_map: {}",
-            to_remove_map.len()
-        );
-
-        if to_remove_map.is_empty() && !iterate_all {
-            log::warn!(
-                "not enough weight to iterate all data in RootClaimable, already read {} keys",
-                read_keys
-            );
-            return (weight_meter.consumed(), false);
+        if read_all {
+            LastKeptRawKey::<T>::set(None);
         }
 
         // write weight already consumed in advance
@@ -449,9 +442,7 @@ impl<T: Config> Pallet<T> {
             RootClaimable::<T>::insert(hotkey, claimable);
         }
 
-        log::debug!("cleaned up {} keys from RootClaimable", to_remove_map.len());
-
-        (weight_meter.consumed(), iterate_all)
+        (weight_meter.consumed(), read_all)
     }
 
     pub fn clean_up_root_claimed_for_subnet(
