@@ -920,13 +920,17 @@ fn try_u64_from_u256(value: U256) -> Result<u64, PrecompileFailure> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::arithmetic_side_effects)]
+    #![allow(
+        clippy::arithmetic_side_effects,
+        clippy::expect_used,
+        clippy::indexing_slicing
+    )]
 
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
         AccountId, Proxy, Runtime, RuntimeCall, RuntimeOrigin, addr_from_index, assert_static_call,
-        execute_precompile, new_test_ext, precompiles, selector_u32,
+        execute_precompile, new_test_ext, precompiles, selector_u32, substrate_to_evm,
     };
     use pallet_evm::AddressMapping;
     use precompile_utils::solidity::{encode_return_value, encode_with_selector};
@@ -985,23 +989,16 @@ mod tests {
         pallet_subtensor::Owner::<Runtime>::insert(hotkey, hotkey.clone());
     }
 
-    fn substrate_to_evm(amount: u64) -> U256 {
-        <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(amount.into())
-            .expect("balance conversion should work")
-            .into_u256()
-    }
-
     fn stake_for(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> u64 {
-        u64::from(
-            pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey, coldkey, netuid,
-            ),
+        pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey, coldkey, netuid,
         )
+        .into()
     }
 
     fn total_coldkey_stake_on_subnet(coldkey: &AccountId, netuid: NetUid) -> u64 {
         pallet_subtensor::Pallet::<Runtime>::get_total_stake_for_coldkey_on_subnet(coldkey, netuid)
-            .to_u64()
+            .into()
     }
 
     fn add_stake_v1(caller: H160, hotkey: &AccountId, netuid: u16, amount_rao: u64) {
