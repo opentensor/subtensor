@@ -973,8 +973,13 @@ mod tests {
         <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
     }
 
+    fn add_balance_to_coldkey_account(coldkey: &sp_core::crypto::AccountId32, tao: TaoBalance) {
+        let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(tao);
+        let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(coldkey, credit, tao).unwrap();
+    }
+
     fn fund_account(account: &AccountId, amount: u64) {
-        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(account, amount.into());
+        add_balance_to_coldkey_account(account, amount.into());
     }
 
     fn hotkey() -> AccountId {
@@ -1956,6 +1961,7 @@ mod tests {
         });
     }
 
+    // cargo test --package subtensor-precompiles --lib -- staking::tests::staking_precompile_v2_burn_alpha_caps_to_available_stake --exact --nocapture
     #[test]
     fn staking_precompile_v2_burn_alpha_caps_to_available_stake() {
         new_test_ext().execute_with(|| {
