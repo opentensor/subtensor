@@ -2780,3 +2780,8 @@ impl<T> ProxyInterface<T> for () {
 pub trait CommitmentsInterface {
     fn purge_netuid(netuid: NetUid);
 }
+
+/// EVM precompiles that hold per-subnet state implement this to clean up on subnet deregistration.
+pub trait PrecompileCleanupInterface {
+    fn purge_netuid(netuid: NetUid);
+}

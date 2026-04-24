@@ -16,7 +16,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::CommitmentsInterface;
+use crate::{CommitmentsInterface, PrecompileCleanupInterface};
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
@@ -218,6 +218,7 @@ impl<T: Config> Pallet<T> {
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
+        T::PrecompileCleanupInterface::purge_netuid(netuid);
 
         // --- Remove the network
         Self::remove_network(netuid);
@@ -282,9 +283,14 @@ impl<T: Config> Pallet<T> {
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
         MaxAllowedUids::<T>::remove(netuid);
+        MinAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
+        MaxWeightsLimit::<T>::remove(netuid);
+        AdjustmentAlpha::<T>::remove(netuid);
+        AdjustmentInterval::<T>::remove(netuid);
+        MinNonImmuneUids::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
@@ -299,6 +305,11 @@ impl<T: Config> Pallet<T> {
         SubnetTaoFlow::<T>::remove(netuid);
         SubnetEmaTaoFlow::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
+
+        // --- 12. Root / emission split parameters.
+        RootProp::<T>::remove(netuid);
+        RecycleOrBurn::<T>::remove(netuid);
+        RootClaimableThreshold::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
@@ -362,12 +373,19 @@ impl<T: Config> Pallet<T> {
         StakeWeight::<T>::remove(netuid);
         LoadedEmission::<T>::remove(netuid);
 
+        // --- 18b. Voting power.
+        let _ = VotingPower::<T>::clear_prefix(netuid, u32::MAX, None);
+        VotingPowerTrackingEnabled::<T>::remove(netuid);
+        VotingPowerDisableAtBlock::<T>::remove(netuid);
+        VotingPowerEmaAlpha::<T>::remove(netuid);
+
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
         let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 

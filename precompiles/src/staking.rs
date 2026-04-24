@@ -75,6 +75,25 @@ pub type AllowancesStorage = StorageDoubleMap<
     ValueQuery,
 >;
 
+/// Remove all allowance entries for the given `netuid`.
+///
+/// Because `netuid` is embedded in the second key `(spender, netuid)`, we must iterate
+/// all entries and filter. Called during subnet deregistration.
+pub fn purge_allowances_for_netuid(netuid: u16) {
+    let to_rm: Vec<(H160, H160)> = AllowancesStorage::iter()
+        .filter_map(|(approver, (spender, n), _)| {
+            if n == netuid {
+                Some((approver, spender))
+            } else {
+                None
+            }
+        })
+        .collect();
+    for (approver, spender) in to_rm {
+        AllowancesStorage::remove(approver, (spender, netuid));
+    }
+}
+
 // Old StakingPrecompile had ETH-precision in values, which was not alligned with Substrate API. So
 // it's kinda deprecated, but exists for backward compatibility. Eventually, we should remove it
 // to stop supporting both precompiles.
@@ -916,4 +935,44 @@ fn try_u64_from_u256(value: U256) -> Result<u64, PrecompileFailure> {
     value.try_into().map_err(|_| PrecompileFailure::Error {
         exit_status: ExitError::Other("the value is outside of u64 bounds".into()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sp_core::H160;
+
+    fn addr(n: u64) -> H160 {
+        H160::from_low_u64_be(n)
+    }
+
+    #[test]
+    fn purge_allowances_for_netuid_removes_matching_entries() {
+        sp_io::TestExternalities::default().execute_with(|| {
+            let approver1 = addr(1);
+            let approver2 = addr(2);
+            let spender1 = addr(10);
+            let spender2 = addr(20);
+
+            // Insert entries for netuid 1 and netuid 2.
+            AllowancesStorage::insert(approver1, (spender1, 1u16), U256::from(100u64));
+            AllowancesStorage::insert(approver1, (spender2, 1u16), U256::from(200u64));
+            AllowancesStorage::insert(approver2, (spender1, 1u16), U256::from(300u64));
+            // This one belongs to a different netuid and must not be touched.
+            AllowancesStorage::insert(approver1, (spender1, 2u16), U256::from(999u64));
+
+            purge_allowances_for_netuid(1u16);
+
+            // All netuid-1 entries should be gone.
+            assert!(AllowancesStorage::get(approver1, (spender1, 1u16)).is_zero());
+            assert!(AllowancesStorage::get(approver1, (spender2, 1u16)).is_zero());
+            assert!(AllowancesStorage::get(approver2, (spender1, 1u16)).is_zero());
+
+            // Netuid-2 entry should be untouched.
+            assert_eq!(
+                AllowancesStorage::get(approver1, (spender1, 2u16)),
+                U256::from(999u64)
+            );
+        });
+    }
 }
