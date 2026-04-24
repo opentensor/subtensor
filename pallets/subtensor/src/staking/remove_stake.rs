@@ -602,7 +602,7 @@ impl<T: Config> Pallet<T> {
 
         // 9) Recycle TAO remaining on the subnet account, forgive errors.
         if let Some(subnet_account) = Self::get_subnet_account_id(netuid) {
-            let remaining_subnet_balance = Self::get_coldkey_balance(&subnet_account);
+            let remaining_subnet_balance = Self::get_keep_alive_balance(&subnet_account);
             if Self::recycle_tao(&subnet_account, remaining_subnet_balance).is_ok() {
                 RAORecycledForRegistration::<T>::insert(netuid, remaining_subnet_balance);
             }

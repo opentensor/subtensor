@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
         // Only allow to register non-system hotkeys
         ensure!(
             Self::is_subnet_account_id(hotkey).is_none(),
-            Error::<T>::NonAssociatedColdKey
+            Error::<T>::CannotUseSystemAccount
         );
 
         if !Self::hotkey_account_exists(hotkey) {
@@ -159,7 +159,7 @@ impl<T: Config> Pallet<T> {
         // Only allow to register non-system hotkeys
         ensure!(
             Self::is_subnet_account_id(hotkey).is_none(),
-            Error::<T>::NonAssociatedColdKey
+            Error::<T>::CannotUseSystemAccount
         );
         Owner::<T>::insert(hotkey, coldkey);
         Ok(())

@@ -201,8 +201,8 @@ impl<T: Config> Pallet<T> {
                     *total = total.saturating_add(owed_tao.amount_paid_out.into());
                 });
 
-                // Increase root `SubnetAlphaOut
-                SubnetAlphaOut::<T>::mutate(netuid, |total| {
+                // Increase root SubnetAlphaOut
+                SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
                     *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
                 });
 

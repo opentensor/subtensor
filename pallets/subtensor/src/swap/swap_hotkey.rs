@@ -300,6 +300,12 @@ impl<T: Config> Pallet<T> {
         );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 0));
 
+        // Check that new hotkey is a non-system hotkey
+        ensure!(
+            Self::is_subnet_account_id(new_hotkey).is_none(),
+            Error::<T>::CannotUseSystemAccount
+        );
+
         // 2. Ensure the hotkey not registered on the network before.
         ensure!(
             !Self::is_hotkey_registered_on_specific_network(new_hotkey, netuid),
@@ -326,7 +332,7 @@ impl<T: Config> Pallet<T> {
         // 7. Swap owner.
         // Owner( hotkey ) -> coldkey -- the coldkey that owns the hotkey.
         // Owner::<T>::remove(old_hotkey);
-        Self::create_account_if_non_existent(coldkey, new_hotkey)?;
+        Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // 8. Swap OwnedHotkeys.

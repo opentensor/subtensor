@@ -837,7 +837,7 @@ impl<T: Config> Pallet<T> {
         // Ensure that hotkey is not a special account
         ensure!(
             Self::is_subnet_account_id(hotkey).is_none(),
-            Error::<T>::NonAssociatedColdKey
+            Error::<T>::CannotUseSystemAccount
         );
 
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());

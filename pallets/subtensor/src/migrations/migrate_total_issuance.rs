@@ -19,7 +19,11 @@ pub mod deprecated_loaded_emission_format {
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
 
-/// Note: Disabled as dangerous.
+/// Note: This migration is now disabled. We needed it to sync up two different total issuance counters:
+///   1. Balances pallet
+///   2. Subtensor pallet
+/// Now that two total issuances are naturally synched, it is not needed anymore, and it will lead to an 
+/// incorrect state if it runs.
 /// 
 /// Performs migration to update the total issuance based on the sum of stakes and total balances.
 ///

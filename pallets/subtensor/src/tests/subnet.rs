@@ -970,7 +970,7 @@ fn test_cannot_register_system_hotkey() {
             let account_id = SubtensorModule::get_subnet_account_id(netuid).unwrap();
             assert_err!(
                 SubtensorModule::create_account_if_non_existent(&coldkey, &account_id),
-                Error::<Test>::NonAssociatedColdKey
+                Error::<Test>::CannotUseSystemAccount
             );
             assert!(!SubtensorModule::coldkey_owns_hotkey(&coldkey, &account_id),);
         }

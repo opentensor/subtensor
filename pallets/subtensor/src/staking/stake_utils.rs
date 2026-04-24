@@ -737,11 +737,11 @@ impl<T: Config> Pallet<T> {
     /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
-    /// Credits the unstaked TAO to the benefitiary account
+    /// Credits the unstaked TAO to the beneficiary account
     pub fn unstake_from_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
-        benefitiary: &T::AccountId,
+        beneficiary: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaBalance,
         price_limit: TaoBalance,
@@ -765,7 +765,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // Transfer unstaked TAO from subnet account to the coldkey.
-        Self::transfer_tao_from_subnet(netuid, benefitiary, swap_result.amount_paid_out.into())?;
+        Self::transfer_tao_from_subnet(netuid, beneficiary, swap_result.amount_paid_out.into())?;
 
         // Swap (in a fee-less way) the block builder alpha fee
         let mut fee_outflow = 0_u64;

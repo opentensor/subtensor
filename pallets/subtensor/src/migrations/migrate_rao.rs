@@ -91,8 +91,12 @@ pub fn migrate_rao<T: Config>() -> Weight {
         //         .checked_div(I96F32::from_num(1_000_000_000))
         //         .unwrap_or(I96F32::from_num(0.0)),
         // );
+
+        // This code mimics what used to be here previously (add_balance_to_coldkey_account) as
+        // close as reasonably possible.
         let credit = Pallet::<T>::mint_tao(remaining_lock.into());
         let _ = Pallet::<T>::spend_tao(&owner, credit, remaining_lock.into());
+
         SubnetLocked::<T>::insert(netuid, TaoBalance::ZERO); // Clear lock amount.
         SubnetTAO::<T>::insert(netuid, pool_initial_tao);
         TotalStake::<T>::mutate(|total| {

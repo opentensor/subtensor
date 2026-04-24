@@ -216,10 +216,20 @@ impl<T: Config> Pallet<T> {
         amount <= Self::get_coldkey_balance(coldkey)
     }
 
+    /// Returns the full coldkey balance including existential deposit
     pub fn get_coldkey_balance(coldkey: &T::AccountId) -> BalanceOf<T> {
         <T as Config>::Currency::reducible_balance(
             coldkey,
             Preservation::Expendable,
+            Fortitude::Polite,
+        )
+    }
+
+    /// Returns the balance that can be transfered without killing account
+    pub fn get_keep_alive_balance(coldkey: &T::AccountId) -> BalanceOf<T> {
+        <T as Config>::Currency::reducible_balance(
+            coldkey,
+            Preservation::Preserve,
             Fortitude::Polite,
         )
     }
