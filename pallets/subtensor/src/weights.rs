@@ -193,8 +193,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `13600`
 		// Minimum execution time: 348_900_000 picoseconds.
 		Weight::from_parts(371_883_000, 13600)
-			.saturating_add(T::DbWeight::get().reads(46_u64))
-			.saturating_add(T::DbWeight::get().writes(38_u64))
+			.saturating_add(T::DbWeight::get().reads(47_u64))
+			.saturating_add(T::DbWeight::get().writes(39_u64))
 	}
 	/// Storage: `SubtensorModule::CommitRevealWeightsEnabled` (r:1 w:0)
 	/// Proof: `SubtensorModule::CommitRevealWeightsEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -299,8 +299,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `8556`
 		// Minimum execution time: 332_138_000 picoseconds.
 		Weight::from_parts(340_254_000, 8556)
-			.saturating_add(T::DbWeight::get().reads(27_u64))
-			.saturating_add(T::DbWeight::get().writes(15_u64))
+			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().writes(16_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
 	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -430,8 +430,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `13600`
 		// Minimum execution time: 341_517_000 picoseconds.
 		Weight::from_parts(343_359_000, 13600)
-			.saturating_add(T::DbWeight::get().reads(46_u64))
-			.saturating_add(T::DbWeight::get().writes(38_u64))
+			.saturating_add(T::DbWeight::get().reads(47_u64))
+			.saturating_add(T::DbWeight::get().writes(39_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -604,7 +604,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `9874`
 		// Minimum execution time: 253_543_000 picoseconds.
 		Weight::from_parts(259_162_000, 9874)
-			.saturating_add(T::DbWeight::get().reads(41_u64))
+			.saturating_add(T::DbWeight::get().reads(42_u64))
 			.saturating_add(T::DbWeight::get().writes(47_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
@@ -1027,8 +1027,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `8556`
 		// Minimum execution time: 367_735_000 picoseconds.
 		Weight::from_parts(372_424_000, 8556)
-			.saturating_add(T::DbWeight::get().reads(27_u64))
-			.saturating_add(T::DbWeight::get().writes(15_u64))
+			.saturating_add(T::DbWeight::get().reads(28_u64))
+			.saturating_add(T::DbWeight::get().writes(16_u64))
 	}
 	/// Storage: `SubtensorModule::Alpha` (r:2 w:0)
 	/// Proof: `SubtensorModule::Alpha` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1125,8 +1125,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `10626`
 		// Minimum execution time: 347_237_000 picoseconds.
 		Weight::from_parts(367_354_000, 10626)
-			.saturating_add(T::DbWeight::get().reads(31_u64))
-			.saturating_add(T::DbWeight::get().writes(13_u64))
+			.saturating_add(T::DbWeight::get().reads(32_u64))
+			.saturating_add(T::DbWeight::get().writes(14_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
 	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1572,7 +1572,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `9758`
 		// Minimum execution time: 247_121_000 picoseconds.
 		Weight::from_parts(250_386_000, 9758)
-			.saturating_add(T::DbWeight::get().reads(40_u64))
+			.saturating_add(T::DbWeight::get().reads(41_u64))
 			.saturating_add(T::DbWeight::get().writes(46_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
@@ -1987,7 +1987,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(288_591_956, 10183)
 			// Standard Error: 49_874
 			.saturating_add(Weight::from_parts(46_601_875, 0).saturating_mul(k.into()))
-			.saturating_add(T::DbWeight::get().reads(50_u64))
+			.saturating_add(T::DbWeight::get().reads(51_u64))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(k.into())))
 			.saturating_add(T::DbWeight::get().writes(52_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(k.into())))
@@ -2349,8 +2349,8 @@ impl WeightInfo for () {
 		//  Estimated: `13600`
 		// Minimum execution time: 348_900_000 picoseconds.
 		Weight::from_parts(371_883_000, 13600)
-			.saturating_add(RocksDbWeight::get().reads(46_u64))
-			.saturating_add(RocksDbWeight::get().writes(38_u64))
+			.saturating_add(RocksDbWeight::get().reads(47_u64))
+			.saturating_add(RocksDbWeight::get().writes(39_u64))
 	}
 	/// Storage: `SubtensorModule::CommitRevealWeightsEnabled` (r:1 w:0)
 	/// Proof: `SubtensorModule::CommitRevealWeightsEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -2760,7 +2760,7 @@ impl WeightInfo for () {
 		//  Estimated: `10091`
 		// Minimum execution time: 259_162_000 picoseconds.
 		Weight::from_parts(259_162_000, 10091)
-			.saturating_add(RocksDbWeight::get().reads(41_u64))
+			.saturating_add(RocksDbWeight::get().reads(42_u64))
 			.saturating_add(RocksDbWeight::get().writes(46_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
@@ -3281,8 +3281,8 @@ impl WeightInfo for () {
 		//  Estimated: `10626`
 		// Minimum execution time: 347_237_000 picoseconds.
 		Weight::from_parts(367_354_000, 10626)
-			.saturating_add(RocksDbWeight::get().reads(31_u64))
-			.saturating_add(RocksDbWeight::get().writes(13_u64))
+			.saturating_add(RocksDbWeight::get().reads(32_u64))
+			.saturating_add(RocksDbWeight::get().writes(14_u64))
 	}
 	/// Storage: `SubtensorModule::SubnetMechanism` (r:2 w:0)
 	/// Proof: `SubtensorModule::SubnetMechanism` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -3728,7 +3728,7 @@ impl WeightInfo for () {
 		//  Estimated: `9758`
 		// Minimum execution time: 247_121_000 picoseconds.
 		Weight::from_parts(250_386_000, 9758)
-			.saturating_add(RocksDbWeight::get().reads(40_u64))
+			.saturating_add(RocksDbWeight::get().reads(41_u64))
 			.saturating_add(RocksDbWeight::get().writes(46_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
@@ -4143,7 +4143,7 @@ impl WeightInfo for () {
 		Weight::from_parts(288_591_956, 10183)
 			// Standard Error: 49_874
 			.saturating_add(Weight::from_parts(46_601_875, 0).saturating_mul(k.into()))
-			.saturating_add(RocksDbWeight::get().reads(50_u64))
+			.saturating_add(RocksDbWeight::get().reads(51_u64))
 			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(k.into())))
 			.saturating_add(RocksDbWeight::get().writes(52_u64))
 			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(k.into())))
