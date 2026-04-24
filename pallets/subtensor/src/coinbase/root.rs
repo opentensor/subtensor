@@ -265,14 +265,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 9. Remove various network-related parameters.
-        Rank::<T>::remove(netuid);
-        Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
 
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
-        PruningScores::<T>::remove(netuid);
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
@@ -536,6 +533,9 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_network_registered_block(netuid: NetUid) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
+    }
+    pub fn get_registered_subnet_counter(netuid: NetUid) -> u64 {
+        RegisteredSubnetCounter::<T>::get(netuid)
     }
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()

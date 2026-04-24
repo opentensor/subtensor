@@ -67,7 +67,7 @@ pub trait AlphaFeeHandler<T: frame_system::Config> {
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: TaoBalance,
-    ) -> (AlphaBalance, TaoBalance);
+    ) -> (AlphaBalance, TaoBalance, NetUid);
     fn get_all_netuids_for_coldkey_and_hotkey(
         coldkey: &AccountIdOf<T>,
         hotkey: &AccountIdOf<T>,
@@ -154,9 +154,9 @@ where
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: TaoBalance,
-    ) -> (AlphaBalance, TaoBalance) {
+    ) -> (AlphaBalance, TaoBalance, NetUid) {
         if alpha_vec.len() != 1 {
-            return (0.into(), 0.into());
+            return (0.into(), 0.into(), NetUid::ROOT);
         }
 
         if let Some((hotkey, netuid)) = alpha_vec.first() {
@@ -184,12 +184,12 @@ where
             );
 
             if let Ok(tao_amount) = swap_result {
-                (alpha_fee, tao_amount)
+                (alpha_fee, tao_amount, *netuid)
             } else {
-                (0.into(), 0.into())
+                (0.into(), 0.into(), NetUid::ROOT)
             }
         } else {
-            (0.into(), 0.into())
+            (0.into(), 0.into(), NetUid::ROOT)
         }
     }
 
@@ -215,7 +215,7 @@ pub enum WithdrawnFee<T: frame_system::Config, F: Balanced<AccountIdOf<T>>> {
     // Contains withdrawn TAO amount
     Tao(Credit<AccountIdOf<T>, F>),
     // Contains withdrawn Alpha amount and resulting swapped TAO
-    Alpha((AlphaBalance, TaoBalance)),
+    Alpha((AlphaBalance, TaoBalance, NetUid)),
 }
 
 /// Custom OnChargeTransaction implementation based on standard FungibleAdapter from transaction_payment
@@ -336,9 +336,9 @@ where
                 let alpha_vec = Self::fees_in_alpha::<T>(who, call);
                 if !alpha_vec.is_empty() {
                     let fee_u64: u64 = fee.saturated_into::<u64>();
-                    let (alpha_fee, tao_amount) =
+                    let (alpha_fee, tao_amount, netuid) =
                         OU::withdraw_in_alpha(who, &alpha_vec, fee_u64.into());
-                    return Ok(Some(WithdrawnFee::Alpha((alpha_fee, tao_amount))));
+                    return Ok(Some(WithdrawnFee::Alpha((alpha_fee, tao_amount, netuid))));
                 }
                 Err(InvalidTransaction::Payment.into())
             }
@@ -405,7 +405,7 @@ where
                     let (tip, fee) = adjusted_paid.split(tip);
                     OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
                 }
-                WithdrawnFee::Alpha((alpha_fee, tao_amount)) => {
+                WithdrawnFee::Alpha((alpha_fee, tao_amount, netuid)) => {
                     if let Some(author) = T::author() {
                         // Pay block author
                         let _ = F::deposit(&author, tao_amount.into(), Precision::BestEffort)
@@ -416,6 +416,7 @@ where
                     frame_system::Pallet::<T>::deposit_event(
                         pallet_subtensor::Event::<T>::TransactionFeePaidWithAlpha {
                             who: who.clone(),
+                            netuid,
                             alpha_fee,
                             tao_amount,
                         },

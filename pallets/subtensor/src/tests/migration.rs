@@ -36,7 +36,7 @@ use sp_runtime::{
 use sp_std::marker::PhantomData;
 use substrate_fixed::types::{I96F32, U64F64};
 use substrate_fixed::{traits::ToFixed, types::extra::U2};
-use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -2432,121 +2432,6 @@ fn test_migrate_remove_tao_dividends() {
     );
 }
 
-#[test]
-fn test_migrate_clear_rank_trust_pruning_maps_removes_entries() {
-    new_test_ext(1).execute_with(|| {
-        // ------------------------------
-        // 0) Constants
-        // ------------------------------
-        const MIG_NAME: &[u8] = b"clear_rank_trust_pruning_maps";
-        let empty: Vec<u16> = EmptyU16Vec::<Test>::get();
-
-        // ------------------------------
-        // 1) Pre-state: seed using the correct key type (NetUid)
-        // ------------------------------
-        let n0: NetUid = 0u16.into();
-        let n1: NetUid = 1u16.into();
-        let n2: NetUid = 42u16.into();
-
-        // Rank: n0 non-empty, n1 explicitly empty, n2 absent
-        Rank::<Test>::insert(n0, vec![10, 20, 30]);
-        Rank::<Test>::insert(n1, Vec::<u16>::new());
-
-        // Trust: n0 non-empty, n2 non-empty
-        Trust::<Test>::insert(n0, vec![7]);
-        Trust::<Test>::insert(n2, vec![1, 2, 3]);
-
-        // PruningScores: n0 non-empty, n1 empty, n2 non-empty
-        PruningScores::<Test>::insert(n0, vec![5, 5, 5]);
-        PruningScores::<Test>::insert(n1, Vec::<u16>::new());
-        PruningScores::<Test>::insert(n2, vec![9]);
-
-        // Sanity: preconditions (keys should exist where inserted)
-        assert!(Rank::<Test>::contains_key(n0));
-        assert!(Rank::<Test>::contains_key(n1));
-        assert!(!Rank::<Test>::contains_key(n2));
-
-        assert!(Trust::<Test>::contains_key(n0));
-        assert!(!Trust::<Test>::contains_key(n1));
-        assert!(Trust::<Test>::contains_key(n2));
-
-        assert!(PruningScores::<Test>::contains_key(n0));
-        assert!(PruningScores::<Test>::contains_key(n1));
-        assert!(PruningScores::<Test>::contains_key(n2));
-
-        assert!(
-            !HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
-            "migration flag should be false before run"
-        );
-
-        // ------------------------------
-        // 2) Run migration
-        // ------------------------------
-        let w = crate::migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<Test>();
-        assert!(!w.is_zero(), "weight must be non-zero");
-
-        // ------------------------------
-        // 3) Verify: all entries removed (no keys present)
-        // ------------------------------
-        assert!(
-            HasMigrationRun::<Test>::get(MIG_NAME.to_vec()),
-            "migration flag not set"
-        );
-
-        // Rank: all removed
-        assert!(
-            !Rank::<Test>::contains_key(n0),
-            "Rank[n0] should be removed"
-        );
-        assert!(
-            !Rank::<Test>::contains_key(n1),
-            "Rank[n1] should be removed"
-        );
-        assert!(
-            !Rank::<Test>::contains_key(n2),
-            "Rank[n2] should remain absent"
-        );
-        // ValueQuery still returns empty default
-        assert_eq!(Rank::<Test>::get(n0), empty);
-        assert_eq!(Rank::<Test>::get(n1), empty);
-        assert_eq!(Rank::<Test>::get(n2), empty);
-
-        // Trust: all removed
-        assert!(
-            !Trust::<Test>::contains_key(n0),
-            "Trust[n0] should be removed"
-        );
-        assert!(
-            !Trust::<Test>::contains_key(n1),
-            "Trust[n1] should remain absent"
-        );
-        assert!(
-            !Trust::<Test>::contains_key(n2),
-            "Trust[n2] should be removed"
-        );
-        assert_eq!(Trust::<Test>::get(n0), empty);
-        assert_eq!(Trust::<Test>::get(n1), empty);
-        assert_eq!(Trust::<Test>::get(n2), empty);
-
-        // PruningScores: all removed
-        assert!(
-            !PruningScores::<Test>::contains_key(n0),
-            "PruningScores[n0] should be removed"
-        );
-        assert!(
-            !PruningScores::<Test>::contains_key(n1),
-            "PruningScores[n1] should be removed"
-        );
-        assert!(
-            !PruningScores::<Test>::contains_key(n2),
-            "PruningScores[n2] should be removed"
-        );
-        assert_eq!(PruningScores::<Test>::get(n0), empty);
-        assert_eq!(PruningScores::<Test>::get(n1), empty);
-        assert_eq!(PruningScores::<Test>::get(n2), empty);
-
-    });
-}
 fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
     // Register some subnets
     let netuid0 = add_dynamic_network_without_emission_block(&U256::from(0), &U256::from(0));
@@ -4257,109 +4142,104 @@ fn decode_account_id32_test(ss58_string: &str) -> U256 {
 fn test_migrate_fix_root_claimed_overclaim() {
     use crate::migrations::migrate_fix_root_claimed_overclaim::*;
 
-    let old_hotkey = decode_account_id32_test("5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA");
     let new_hotkey = decode_account_id32_test("5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw");
-    let coldkey = U256::from(42_u64);
+    let untouched_hotkey = U256::from(7777_u64);
+    let coldkey_a = U256::from(42_u64);
+    let coldkey_b = U256::from(43_u64);
 
-    let netuid_target = NetUid::from(27_u16);
-    let netuid_other = NetUid::from(1_u16);
+    let root_netuid = NetUid::from(0_u16);
+    let netuid_a = NetUid::from(27_u16);
+    let netuid_b = NetUid::from(1_u16);
 
     let mainnet_genesis =
         hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
     const MIGRATION_NAME: &[u8] = b"migrate_fix_root_claimed_overclaim";
 
+    // CASE 1: new hotkey has no root stake → RootClaimable is cleared
     new_test_ext(1).execute_with(|| {
         frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
 
-        // Simulate post-bug state:
-        // transfer_root_claimable_for_new_hotkey wiped ALL subnets from old_hotkey
-        // and moved them to new_hotkey
-        let claimable_value_27 = I96F32::from_num(500_000_u64);
-        let claimable_value_other = I96F32::from_num(300_000_u64);
-
         RootClaimable::<Test>::mutate(new_hotkey, |map| {
-            map.insert(netuid_target, claimable_value_27);
-            map.insert(netuid_other, claimable_value_other);
+            map.insert(netuid_a, I96F32::from_num(500_000_u64));
+            map.insert(netuid_b, I96F32::from_num(300_000_u64));
         });
-        // old_hotkey RootClaimable is empty (wiped by bug)
+        RootClaimed::<Test>::insert((netuid_a, new_hotkey, coldkey_a), 999u128);
+        RootClaimed::<Test>::insert((netuid_b, new_hotkey, coldkey_b), 111u128);
 
-        // RootClaimed watermark lives on new_hotkey for netuid=27
-        let claimed_val: u128 = 999_999;
-        RootClaimed::<Test>::insert((netuid_target, new_hotkey, coldkey), claimed_val);
-
-        // RootClaimed for netuid_other should not be touched (no Alpha entry)
-        let other_claimed_val: u128 = 111_111;
-        RootClaimed::<Test>::insert((netuid_other, new_hotkey, coldkey), other_claimed_val);
-
-        // Alpha entry for new_hotkey on netuid=27 triggers transfer_root_claimed in the loop
-        Alpha::<Test>::insert(
-            (new_hotkey, coldkey, netuid_target),
-            U64F64::from_num(1_000_u64),
-        );
-
-        Alpha::<Test>::insert(
-            (old_hotkey, coldkey, NetUid::from(0)),
-            U64F64::from_num(1_000_u64),
-        );
-        // No Alpha entry for netuid_other — loop should not touch it
+        // Unrelated hotkey's claimed entry must stay intact
+        RootClaimable::<Test>::mutate(untouched_hotkey, |map| {
+            map.insert(netuid_a, I96F32::from_num(42_u64));
+        });
+        RootClaimed::<Test>::insert((netuid_a, untouched_hotkey, coldkey_a), 555u128);
 
         assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
 
         let w = migrate_fix_root_claimed_overclaim::<Test>();
-        assert!(!w.is_zero(), "weight must be non-zero");
+        assert!(!w.is_zero());
         assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
 
-        // old_hotkey should have gotten back RootClaimable for both subnets
-        // (transfer_root_claimable_for_new_hotkey moves the entire map)
-        let old_claimable = RootClaimable::<Test>::get(old_hotkey);
-        assert!(
-            old_claimable.contains_key(&netuid_target),
-            "old_hotkey should have claimable restored for netuid=27"
-        );
-        assert!(
-            old_claimable.contains_key(&netuid_other),
-            "old_hotkey should have claimable restored for netuid_other"
-        );
-        assert_eq!(
-            old_claimable.get(&netuid_target).copied(),
-            Some(claimable_value_27),
-        );
-        assert_eq!(
-            old_claimable.get(&netuid_other).copied(),
-            Some(claimable_value_other),
-        );
-
-        // new_hotkey should have lost its RootClaimable entirely
         assert!(
             RootClaimable::<Test>::get(new_hotkey).is_empty(),
-            "new_hotkey should have no claimable after migration"
+            "new hotkey RootClaimable must be cleared"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_a, new_hotkey, coldkey_a)),
+            999u128,
+            "RootClaimed entries must be left intact"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_b, new_hotkey, coldkey_b)),
+            111u128,
+            "RootClaimed entries must be left intact"
         );
 
-        // RootClaimed for netuid=27: watermark transferred from new_hotkey to old_hotkey
         assert_eq!(
-            RootClaimed::<Test>::get((netuid_target, old_hotkey, coldkey)),
-            claimed_val,
+            RootClaimable::<Test>::get(untouched_hotkey)
+                .get(&netuid_a)
+                .copied(),
+            Some(I96F32::from_num(42_u64))
         );
         assert_eq!(
-            RootClaimed::<Test>::get((netuid_target, new_hotkey, coldkey)),
-            0u128,
-            "RootClaimed for (netuid=27, new_hotkey, coldkey) should be cleared"
-        );
-
-        // RootClaimed for netuid_other on new_hotkey must be untouched (no Alpha entry)
-        assert_eq!(
-            RootClaimed::<Test>::get((netuid_other, new_hotkey, coldkey)),
-            other_claimed_val,
+            RootClaimed::<Test>::get((netuid_a, untouched_hotkey, coldkey_a)),
+            555u128
         );
     });
 
-    // Check idempotency, already run -> no-op
+    // CASE 2: new hotkey has root stake → state is preserved
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_a, I96F32::from_num(500_000_u64));
+        });
+        RootClaimed::<Test>::insert((netuid_a, new_hotkey, coldkey_a), 999u128);
+
+        TotalHotkeyAlpha::<Test>::insert(new_hotkey, root_netuid, AlphaBalance::from(1_000u64));
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert!(!w.is_zero());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        assert_eq!(
+            RootClaimable::<Test>::get(new_hotkey)
+                .get(&netuid_a)
+                .copied(),
+            Some(I96F32::from_num(500_000_u64)),
+            "must not clear when new hotkey still holds root stake"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_a, new_hotkey, coldkey_a)),
+            999u128
+        );
+    });
+
+    // CASE 3: idempotency — second run is a no-op
     new_test_ext(1).execute_with(|| {
         frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
         HasMigrationRun::<Test>::insert(MIGRATION_NAME.to_vec(), true);
 
         RootClaimable::<Test>::mutate(new_hotkey, |map| {
-            map.insert(netuid_target, I96F32::from_num(777_u64));
+            map.insert(netuid_a, I96F32::from_num(777_u64));
         });
 
         let w = migrate_fix_root_claimed_overclaim::<Test>();
@@ -4368,12 +4248,12 @@ fn test_migrate_fix_root_claimed_overclaim() {
             <Test as frame_system::Config>::DbWeight::get().reads(1),
             "second run should only read the migration flag"
         );
-
-        assert!(
-            RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
-            "second run must not modify new_hotkey data"
+        assert_eq!(
+            RootClaimable::<Test>::get(new_hotkey)
+                .get(&netuid_a)
+                .copied(),
+            Some(I96F32::from_num(777_u64))
         );
-        assert!(RootClaimable::<Test>::get(old_hotkey).is_empty(),);
     });
 }
 
