@@ -8423,7 +8423,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-preimage",
- "pallet-referenda 1.0.0",
+ "pallet-referenda 4.0.0-dev",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
@@ -8894,7 +8894,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-anonymous-voting"
-version = "1.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10095,7 +10095,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-multi-collective"
-version = "1.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10375,7 +10375,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-referenda"
-version = "1.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10674,7 +10674,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-signed-voting"
-version = "1.0.0"
+version = "4.0.0-dev"
 dependencies = [
  "frame-support",
  "frame-system",

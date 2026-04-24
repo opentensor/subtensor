@@ -1,11 +1,13 @@
 [package]
 name = "pallet-anonymous-voting"
-version = "1.0.0"
+version = "4.0.0-dev"
 authors = ["Bittensor Nucleus Team"]
 edition.workspace = true
-license = "Apache-2.0"
+license = "Unlicense"
+publish = false
 homepage = "https://bittensor.com"
-description = "A pallet for managing multiple collectives"
+description = "A pallet for anonymous voting"
+repository = "https://github.com/opentensor/subtensor"
 readme = "README.md"
 
 [lints]

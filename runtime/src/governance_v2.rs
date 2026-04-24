@@ -5,9 +5,9 @@
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
-    BoundedVec, parameter_types,
+    parameter_types,
     sp_runtime::Perbill,
-    traits::{AsEnsureOriginWithArg, ConstU32, EnsureOriginWithArg},
+    traits::{AsEnsureOriginWithArg, EnsureOriginWithArg},
 };
 use frame_system::{EnsureRoot, RawOrigin};
 use pallet_multi_collective::{
@@ -306,10 +306,4 @@ impl pallet_referenda::Config for crate::Runtime {
     type BlockNumberProvider = System;
     type PollHooks = (crate::SignedVoting, crate::AnonymousVoting);
     type MaxQueued = ReferendaMaxQueuedPerTrack;
-}
-
-#[allow(dead_code)]
-fn _ensure_types_used() {
-    let _: BoundedVec<AccountId, ConstU32<3>> = BoundedVec::new();
-    let _ = RuntimeOrigin::none();
 }
