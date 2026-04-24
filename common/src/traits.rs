@@ -14,7 +14,7 @@ pub trait SetLike<T> {
 }
 
 pub trait Polls<AccountId> {
-    type Index: Parameter + Copy + MaxEncodedLen;
+    type Index: Parameter + Copy + MaxEncodedLen + Default;
     type VotingScheme: PartialEq;
     type VoterSet: SetLike<AccountId>;
 

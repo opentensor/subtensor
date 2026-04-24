@@ -7,6 +7,10 @@ use frame_system::pallet_prelude::*;
 use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
+pub use weights::WeightInfo;
+
+mod benchmarking;
+pub mod weights;
 
 #[cfg(test)]
 mod tests;
@@ -61,6 +65,9 @@ pub mod pallet {
         /// the Signed scheme; otherwise the snapshot would silently truncate.
         #[pallet::constant]
         type MaxSnapshotMembers: Get<u32>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::storage]
@@ -119,7 +126,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
+        #[pallet::weight(T::WeightInfo::vote())]
         pub fn vote(
             origin: OriginFor<T>,
             poll_index: PollIndexOf<T>,
@@ -143,7 +150,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
+        #[pallet::weight(T::WeightInfo::remove_vote())]
         pub fn remove_vote(origin: OriginFor<T>, poll_index: PollIndexOf<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -164,7 +171,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn try_vote(
+    pub(crate) fn try_vote(
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
         approve: bool,
@@ -202,7 +209,7 @@ impl<T: Config> Pallet<T> {
         Ok(tally)
     }
 
-    fn try_remove_vote(
+    pub(crate) fn try_remove_vote(
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
     ) -> Result<SignedVoteTally, DispatchError> {

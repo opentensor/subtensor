@@ -117,6 +117,7 @@ impl pallet_signed_voting::Config for Test {
     type Polls = MockPolls;
     type MaxVotesToClear = ConstU32<100>;
     type MaxSnapshotMembers = ConstU32<32>;
+    type WeightInfo = ();
 }
 
 fn new_test_ext() -> sp_io::TestExternalities {

@@ -281,6 +281,7 @@ impl pallet_multi_collective::Config for crate::Runtime {
     type OnMembersChanged = ();
     type OnNewTerm = ();
     type MaxMembers = MaxCollectiveMembers;
+    type WeightInfo = pallet_multi_collective::weights::SubstrateWeight<crate::Runtime>;
 }
 
 impl pallet_signed_voting::Config for crate::Runtime {
@@ -288,6 +289,7 @@ impl pallet_signed_voting::Config for crate::Runtime {
     type Polls = Referenda;
     type MaxVotesToClear = MaxVotesToClear;
     type MaxSnapshotMembers = MaxSnapshotMembers;
+    type WeightInfo = pallet_signed_voting::weights::SubstrateWeight<crate::Runtime>;
 }
 
 impl pallet_anonymous_voting::Config for crate::Runtime {
@@ -307,4 +309,5 @@ impl pallet_referenda::Config for crate::Runtime {
     type BlockNumberProvider = System;
     type PollHooks = (crate::SignedVoting, crate::AnonymousVoting);
     type MaxQueued = ReferendaMaxQueuedPerTrack;
+    type WeightInfo = pallet_referenda::weights::SubstrateWeight<crate::Runtime>;
 }

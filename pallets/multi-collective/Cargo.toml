@@ -19,9 +19,11 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
+frame-benchmarking = { workspace = true, optional = true }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 num-traits = { workspace = true }
+sp-std = { workspace = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, features = ["std"] }
@@ -33,9 +35,18 @@ default = ["std"]
 std = [
 	"codec/std",
 	"scale-info/std",
+	"frame-benchmarking?/std",
 	"frame-system/std",
 	"frame-support/std",
 	"num-traits/std",
+	"sp-std/std",
 ]
-runtime-benchmarks = []
-try-runtime = []
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+]

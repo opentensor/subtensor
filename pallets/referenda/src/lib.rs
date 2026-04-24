@@ -24,8 +24,11 @@ use subtensor_runtime_common::{PollHooks, Polls, VoteTally};
 
 pub use pallet::*;
 pub use types::*;
+pub use weights::WeightInfo;
 
+mod benchmarking;
 mod types;
+pub mod weights;
 
 pub const REFERENDA_ID: LockIdentifier = *b"referend";
 
@@ -77,6 +80,9 @@ pub mod pallet {
         /// Maximum simultaneously `Ongoing` referenda per track. Spam guard.
         #[pallet::constant]
         type MaxQueued: Get<u32>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::storage]
@@ -166,7 +172,7 @@ pub mod pallet {
         /// - `Adjustable`: schedules the call at `now + initial_delay` immediately so the
         ///   collective can adjust timing; stores `Proposal::Review` as a marker.
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::zero())] // TODO: benchmarks
+        #[pallet::weight(T::WeightInfo::submit())]
         pub fn submit(
             origin: OriginFor<T>,
             track: TrackIdOf<T>,
@@ -178,7 +184,7 @@ pub mod pallet {
 
         /// Cancel an ongoing referendum. Also cancels any scheduled enactment task.
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::zero())] // TODO: benchmarks
+        #[pallet::weight(T::WeightInfo::cancel())]
         pub fn cancel(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             T::CancelOrigin::ensure_origin(origin)?;
             Self::do_cancel(index)
@@ -188,7 +194,7 @@ pub mod pallet {
         /// `decision_period` deadline to mark the referendum as `Expired` (or to apply a
         /// last-minute threshold check).
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::zero())] // TODO: benchmarks
+        #[pallet::weight(T::WeightInfo::nudge_referendum())]
         pub fn nudge_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_nudge(index)

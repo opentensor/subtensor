@@ -7,6 +7,10 @@ use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::EnsureO
 use frame_system::pallet_prelude::*;
 use num_traits::ops::checked::CheckedRem;
 pub use pallet::*;
+pub use weights::WeightInfo;
+
+mod benchmarking;
+pub mod weights;
 
 #[cfg(test)]
 mod tests;
@@ -54,6 +58,9 @@ pub mod pallet {
         /// This is enforced in the code; the membership size can not exceed this limit.
         #[pallet::constant]
         type MaxMembers: Get<u32>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::storage]
@@ -123,7 +130,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
+        #[pallet::weight(T::WeightInfo::add_member())]
         pub fn add_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -153,7 +160,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
+        #[pallet::weight(T::WeightInfo::remove_member())]
         pub fn remove_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -182,7 +189,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
+        #[pallet::weight(T::WeightInfo::swap_member())]
         pub fn swap_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -218,7 +225,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::zero())] // TODO: add benchmarks
+        #[pallet::weight(T::WeightInfo::reset_members(members.len() as u32))]
         pub fn reset_members(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,

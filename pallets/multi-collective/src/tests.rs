@@ -117,6 +117,7 @@ impl pallet_multi_collective::Config for Test {
     type OnMembersChanged = ();
     type OnNewTerm = ();
     type MaxMembers = MaxMembers;
+    type WeightInfo = ();
 }
 
 fn new_test_ext() -> sp_io::TestExternalities {

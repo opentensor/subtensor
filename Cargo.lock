@@ -10097,6 +10097,7 @@ dependencies = [
 name = "pallet-multi-collective"
 version = "4.0.0-dev"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "num-traits",
@@ -10105,6 +10106,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -10377,6 +10379,7 @@ dependencies = [
 name = "pallet-referenda"
 version = "4.0.0-dev"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -10676,8 +10679,10 @@ dependencies = [
 name = "pallet-signed-voting"
 version = "4.0.0-dev"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "pallet-referenda 4.0.0-dev",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
