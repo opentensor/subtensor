@@ -634,11 +634,11 @@ where
         Ok(())
     }
 
-    #[precompile::public("transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)")]
+    #[precompile::public("transferStakeFrom(address,address,bytes32,uint256,uint256,uint256)")]
     fn transfer_stake_from(
         handle: &mut impl PrecompileHandle,
         source_address: Address,
-        destination_coldkey: H256,
+        destination_address: Address,
         hotkey: H256,
         origin_netuid: U256,
         destination_netuid: U256,
@@ -646,7 +646,8 @@ where
     ) -> EvmResult<()> {
         let spender = handle.context().caller;
         let source_address = source_address.0;
-        let destination_coldkey = R::AccountId::from(destination_coldkey.0);
+        let destination_coldkey =
+            <R as pallet_evm::Config>::AddressMapping::into_account_id(destination_address.0);
         let hotkey = R::AccountId::from(hotkey.0);
         let origin_netuid = try_u16_from_u256(origin_netuid)?;
         let destination_netuid = try_u16_from_u256(destination_netuid)?;
@@ -1706,18 +1707,18 @@ mod tests {
     #[test]
     fn staking_precompile_v2_transfer_stake_from_requires_allowance() {
         new_test_ext().execute_with(|| {
-            let (_, source, spender, _, spender_account, hotkey) = setup_approval_state();
+            let (_, source, spender, _, _, hotkey) = setup_approval_state();
             precompiles::<StakingPrecompileV2<Runtime>>()
                 .prepare_test(
                     spender,
                     addr_from_index(StakingPrecompileV2::<Runtime>::INDEX),
                     encode_with_selector(
                         selector_u32(
-                            "transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)",
+                            "transferStakeFrom(address,address,bytes32,uint256,uint256,uint256)",
                         ),
                         (
                             precompile_utils::solidity::codec::Address(source),
-                            H256::from_slice(spender_account.as_ref()),
+                            precompile_utils::solidity::codec::Address(spender),
                             H256::from_slice(hotkey.as_ref()),
                             U256::from(TEST_NETUID_U16),
                             U256::from(TEST_NETUID_U16),
@@ -1761,11 +1762,11 @@ mod tests {
                     precompile_addr,
                     encode_with_selector(
                         selector_u32(
-                            "transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)",
+                            "transferStakeFrom(address,address,bytes32,uint256,uint256,uint256)",
                         ),
                         (
                             precompile_utils::solidity::codec::Address(source),
-                            H256::from_slice(spender_account.as_ref()),
+                            precompile_utils::solidity::codec::Address(spender),
                             H256::from_slice(hotkey.as_ref()),
                             U256::from(TEST_NETUID_U16),
                             U256::from(TEST_NETUID_U16),
@@ -1795,7 +1796,7 @@ mod tests {
     #[test]
     fn staking_precompile_v2_transfer_stake_from_rejects_amount_above_allowance() {
         new_test_ext().execute_with(|| {
-            let (_, source, spender, _, spender_account, hotkey) = setup_approval_state();
+            let (_, source, spender, _, _, hotkey) = setup_approval_state();
             let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
             let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
 
@@ -1820,11 +1821,11 @@ mod tests {
                     precompile_addr,
                     encode_with_selector(
                         selector_u32(
-                            "transferStakeFrom(address,bytes32,bytes32,uint256,uint256,uint256)",
+                            "transferStakeFrom(address,address,bytes32,uint256,uint256,uint256)",
                         ),
                         (
                             precompile_utils::solidity::codec::Address(source),
-                            H256::from_slice(spender_account.as_ref()),
+                            precompile_utils::solidity::codec::Address(spender),
                             H256::from_slice(hotkey.as_ref()),
                             U256::from(TEST_NETUID_U16),
                             U256::from(TEST_NETUID_U16),
