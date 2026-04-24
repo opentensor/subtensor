@@ -209,8 +209,9 @@ impl TracksInfo<TrackName, AccountId, RuntimeCall, BlockNumber> for SubtensorTra
                     // Signed for now — Anonymous (bLSAG) is on the roadmap.
                     voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::Adjustable {
-                        // Max extra delay at 0% approval — 1 hour in prod, ~7.5s in fast-runtime.
-                        initial_delay: runtime_common::prod_or_fast!(HOURS, 30),
+                        // Max extra delay at 0% approval — 24 hours in prod (full-day
+                        // oversight window across timezones), ~7.5s in fast-runtime.
+                        initial_delay: runtime_common::prod_or_fast!(24 * HOURS, 30),
                         fast_track_threshold: Perbill::from_percent(75),
                         reject_threshold: Perbill::from_percent(51),
                     },
