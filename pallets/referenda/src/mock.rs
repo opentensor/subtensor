@@ -5,11 +5,9 @@
     clippy::expect_used
 )]
 
-use frame_support::{
-    derive_impl, parameter_types,
-    pallet_prelude::*,
-    traits::EqualPrivilegeOnly,
-};
+use core::cell::RefCell;
+
+use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::EqualPrivilegeOnly};
 use frame_system::{EnsureRoot, limits};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, Perbill, traits::IdentityLookup};
@@ -37,8 +35,18 @@ frame_support::construct_runtime!(
 // --- CollectiveId enum ---
 
 #[derive(
-    Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug,
-    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo,
 )]
 pub enum CollectiveId {
     Proposers,
@@ -50,7 +58,15 @@ pub enum CollectiveId {
 // --- VotingScheme enum ---
 
 #[derive(
-    Copy, Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
     TypeInfo,
 )]
 pub enum VotingScheme {
@@ -68,23 +84,31 @@ pub enum MemberSet {
 impl subtensor_runtime_common::SetLike<U256> for MemberSet {
     fn contains(&self, who: &U256) -> bool {
         match self {
-            MemberSet::Single(id) => {
-                <pallet_multi_collective::Pallet<Test> as CollectiveInspect<U256, CollectiveId>>::is_member(*id, who)
-            }
+            MemberSet::Single(id) => <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                U256,
+                CollectiveId,
+            >>::is_member(*id, who),
             MemberSet::Union(ids) => ids.iter().any(|id| {
-                <pallet_multi_collective::Pallet<Test> as CollectiveInspect<U256, CollectiveId>>::is_member(*id, who)
+                <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                        U256,
+                        CollectiveId,
+                    >>::is_member(*id, who)
             }),
         }
     }
     fn len(&self) -> u32 {
         match self {
-            MemberSet::Single(id) => {
-                <pallet_multi_collective::Pallet<Test> as CollectiveInspect<U256, CollectiveId>>::member_count(*id)
-            }
+            MemberSet::Single(id) => <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                U256,
+                CollectiveId,
+            >>::member_count(*id),
             MemberSet::Union(ids) => ids
                 .iter()
                 .map(|id| {
-                    <pallet_multi_collective::Pallet<Test> as CollectiveInspect<U256, CollectiveId>>::member_count(*id)
+                    <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                        U256,
+                        CollectiveId,
+                    >>::member_count(*id)
                 })
                 .sum(),
         }
@@ -154,7 +178,14 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
     type VoterSet = MemberSet;
 
     fn tracks() -> impl Iterator<
-        Item = Track<Self::Id, TrackName, u64, Self::ProposerSet, Self::VoterSet, Self::VotingScheme>,
+        Item = Track<
+            Self::Id,
+            TrackName,
+            u64,
+            Self::ProposerSet,
+            Self::VoterSet,
+            Self::VotingScheme,
+        >,
     > {
         let mut triumvirate_name = [0u8; 32];
         triumvirate_name[..11].copy_from_slice(b"triumvirate");
@@ -196,8 +227,17 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
     }
 
     fn authorize_proposal(_id: Self::Id, _proposal: &RuntimeCall) -> bool {
-        true
+        AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow())
     }
+}
+
+thread_local! {
+    static AUTHORIZE_PROPOSAL_RESULT: RefCell<bool> = const { RefCell::new(true) };
+}
+
+/// Set the value returned by `TestTracks::authorize_proposal` for the current thread.
+pub fn set_authorize_proposal(result: bool) {
+    AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow_mut() = result);
 }
 
 // --- CollectivesInfo implementation ---
@@ -327,6 +367,7 @@ impl TestState {
 
         ext.execute_with(|| {
             System::set_block_number(1);
+            set_authorize_proposal(true);
 
             // Set up collectives via root origin
             for p in &self.proposers {
@@ -353,4 +394,15 @@ impl TestState {
 
 pub fn run_to_block(n: u64) {
     System::run_to_block::<AllPalletsWithSystem>(n);
+}
+
+/// Events emitted by `pallet_referenda` in insertion order.
+pub fn referenda_events() -> Vec<crate::Event<Test>> {
+    System::events()
+        .into_iter()
+        .filter_map(|r| match r.event {
+            RuntimeEvent::Referenda(e) => Some(e),
+            _ => None,
+        })
+        .collect()
 }

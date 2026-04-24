@@ -130,7 +130,14 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
     type VoterSet: SetLike<AccountId>;
 
     fn tracks() -> impl Iterator<
-        Item = Track<Self::Id, Name, BlockNumber, Self::ProposerSet, Self::VoterSet, Self::VotingScheme>,
+        Item = Track<
+            Self::Id,
+            Name,
+            BlockNumber,
+            Self::ProposerSet,
+            Self::VoterSet,
+            Self::VotingScheme,
+        >,
     >;
 
     fn track_ids() -> impl Iterator<Item = Self::Id> {
@@ -328,13 +335,13 @@ pub mod pallet {
 
             // 4. Schedule finalization for PassOrFail deadline
             let now = T::BlockNumberProvider::current_block_number();
-            let scheduled_task = if let DecisionStrategy::PassOrFail { decision_period, .. } =
-                &track_info.decision_strategy
+            let scheduled_task = if let DecisionStrategy::PassOrFail {
+                decision_period, ..
+            } = &track_info.decision_strategy
             {
                 let when = now.saturating_add(*decision_period);
                 let call: CallOf<T> = Call::<T>::finalize_referendum { index }.into();
-                let bounded = T::Preimages::bound(call)
-                    .map_err(|_| Error::<T>::SchedulerError)?;
+                let bounded = T::Preimages::bound(call).map_err(|_| Error::<T>::SchedulerError)?;
                 let address = T::Scheduler::schedule(
                     DispatchTime::At(when),
                     None,
@@ -376,8 +383,8 @@ pub mod pallet {
         pub fn cancel(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             T::CancelOrigin::ensure_origin(origin)?;
 
-            let status = ReferendumStatusFor::<T>::get(index)
-                .ok_or(Error::<T>::ReferendumNotFound)?;
+            let status =
+                ReferendumStatusFor::<T>::get(index).ok_or(Error::<T>::ReferendumNotFound)?;
 
             let ReferendumStatus::Ongoing(info) = status else {
                 return Err(Error::<T>::ReferendumFinalized.into());
@@ -390,21 +397,22 @@ pub mod pallet {
                 }
             }
 
-            Self::conclude(index, ReferendumStatusOf::<T>::Cancelled, Event::<T>::Cancelled { index });
+            Self::conclude(
+                index,
+                ReferendumStatusOf::<T>::Cancelled,
+                Event::<T>::Cancelled { index },
+            );
             Ok(())
         }
 
         /// Called by the scheduler when a PassOrFail referendum's decision_period expires.
         #[pallet::call_index(2)]
-        pub fn finalize_referendum(
-            origin: OriginFor<T>,
-            index: ReferendumIndex,
-        ) -> DispatchResult {
+        pub fn finalize_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
 
-            let status = ReferendumStatusFor::<T>::get(index)
-                .ok_or(Error::<T>::ReferendumNotFound)?;
-            
+            let status =
+                ReferendumStatusFor::<T>::get(index).ok_or(Error::<T>::ReferendumNotFound)?;
+
             let ReferendumStatus::Ongoing(info) = status else {
                 return Err(Error::<T>::ReferendumFinalized.into());
             };
@@ -420,8 +428,7 @@ pub mod pallet {
                 return Err(Error::<T>::InvalidConfiguration.into());
             };
 
-            let tally = ReferendumTallyOf::<T>::get(index)
-                .unwrap_or_default();
+            let tally = ReferendumTallyOf::<T>::get(index).unwrap_or_default();
 
             if tally.approval >= approve_threshold {
                 Self::do_approve(index, &info);
@@ -478,8 +485,12 @@ impl<T: Config> Pallet<T> {
     fn update_tally(index: ReferendumIndex, tally: &VoteTally) {
         ReferendumTallyOf::<T>::insert(index, tally);
 
-        let Some(info) = Self::ongoing_referendum_info(index) else { return };
-        let Some(track_info) = T::Tracks::info(info.track) else { return };
+        let Some(info) = Self::ongoing_referendum_info(index) else {
+            return;
+        };
+        let Some(track_info) = T::Tracks::info(info.track) else {
+            return;
+        };
 
         match &info.proposal {
             Proposal::Action(_) => {
@@ -560,7 +571,11 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::conclude(index, ReferendumStatusOf::<T>::Approved, Event::<T>::Approved { index });
+        Self::conclude(
+            index,
+            ReferendumStatusOf::<T>::Approved,
+            Event::<T>::Approved { index },
+        );
     }
 
     /// Reject a referendum, cancelling any associated scheduled task.
@@ -578,24 +593,35 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::conclude(index, ReferendumStatusOf::<T>::Rejected, Event::<T>::Rejected { index });
+        Self::conclude(
+            index,
+            ReferendumStatusOf::<T>::Rejected,
+            Event::<T>::Rejected { index },
+        );
     }
 
     /// Expire a referendum that reached its deadline without meeting any threshold.
     fn do_expire(index: ReferendumIndex) {
-        Self::conclude(index, ReferendumStatusOf::<T>::Expired, Event::<T>::Expired { index });
+        Self::conclude(
+            index,
+            ReferendumStatusOf::<T>::Expired,
+            Event::<T>::Expired { index },
+        );
     }
 
     /// Fast-track a Review referendum: reschedule its task to execute immediately.
     fn do_fast_track(index: ReferendumIndex, task_name: &ProposalTaskName) {
-        if let Err(err) = T::Scheduler::reschedule_named(
-            *task_name,
-            DispatchTime::After(Zero::zero()),
-        ) {
+        if let Err(err) =
+            T::Scheduler::reschedule_named(*task_name, DispatchTime::After(Zero::zero()))
+        {
             Self::handle_scheduler_error(index, "reschedule_named", err);
         }
 
-        Self::conclude(index, ReferendumStatusOf::<T>::Approved, Event::<T>::Approved { index });
+        Self::conclude(
+            index,
+            ReferendumStatusOf::<T>::Approved,
+            Event::<T>::Approved { index },
+        );
     }
 
     /// Adjust the delay of a scheduled task based on the tally.
@@ -615,10 +641,8 @@ impl<T: Config> Pallet<T> {
         fast_track_threshold: Perbill,
     ) {
         let gap = fast_track_threshold.saturating_sub(tally.approval);
-        let fraction = Perbill::from_rational(
-            gap.deconstruct(),
-            fast_track_threshold.deconstruct(),
-        );
+        let fraction =
+            Perbill::from_rational(gap.deconstruct(), fast_track_threshold.deconstruct());
         let computed_delay: BlockNumberFor<T> = fraction * initial_delay;
         let target = submitted.saturating_add(computed_delay);
 
@@ -646,7 +670,10 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        Self::deposit_event(Event::<T>::DelayAdjusted { index, new_when: target });
+        Self::deposit_event(Event::<T>::DelayAdjusted {
+            index,
+            new_when: target,
+        });
     }
 }
 
