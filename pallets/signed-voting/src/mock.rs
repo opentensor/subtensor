@@ -1,4 +1,3 @@
-#![cfg(test)]
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::unwrap_used,

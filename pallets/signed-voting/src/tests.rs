@@ -1,5 +1,4 @@
-#![cfg(test)]
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing)]
 
 use frame_support::{assert_noop, assert_ok, sp_runtime::Perbill};
 use sp_core::U256;

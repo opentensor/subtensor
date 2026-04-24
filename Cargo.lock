@@ -8413,20 +8413,22 @@ dependencies = [
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
  "pallet-fast-unstake",
- "pallet-governance",
  "pallet-grandpa",
  "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
+ "pallet-multi-collective",
  "pallet-multisig",
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-preimage",
+ "pallet-referenda 1.0.0",
  "pallet-registry",
  "pallet-safe-mode",
  "pallet-scheduler",
  "pallet-session",
  "pallet-shield",
+ "pallet-signed-voting",
  "pallet-staking",
  "pallet-staking-reward-curve",
  "pallet-staking-reward-fn",
@@ -8887,16 +8889,6 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=7cc54bf2d50ae3921d718736dfeb0de9468539c7)",
  "sp-io",
  "sp-runtime",
-]
-
-[[package]]
-name = "pallet-anonymous-voting"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
 ]
 
 [[package]]
@@ -9881,33 +9873,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-governance"
-version = "1.0.0"
-dependencies = [
- "blake2 0.10.6",
- "curve25519-dalek",
- "digest 0.10.7",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "pallet-preimage",
- "pallet-scheduler",
- "parity-scale-codec",
- "polkadot-sdk-frame",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "stp-crypto",
- "subtensor-macros",
-]
-
-[[package]]
 name = "pallet-grandpa"
 version = "41.0.0"
 source = "git+https://github.com/opentensor/polkadot-sdk.git?rev=7cc54bf2d50ae3921d718736dfeb0de9468539c7#7cc54bf2d50ae3921d718736dfeb0de9468539c7"
@@ -10413,6 +10378,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-macros",
  "subtensor-runtime-common",
 ]
 
@@ -10713,6 +10679,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-macros",
  "subtensor-runtime-common",
 ]
 
@@ -18032,6 +17999,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_core 0.6.4",
  "scale-info",
+ "subtensor-macros",
  "zeroize",
 ]
 

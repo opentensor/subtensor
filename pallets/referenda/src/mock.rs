@@ -1,4 +1,3 @@
-#![cfg(test)]
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::unwrap_used,
@@ -16,7 +15,6 @@ use crate::{self as pallet_referenda, *};
 use pallet_multi_collective::{
     self, Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo, OnMembersChanged,
 };
-use pallet_signed_voting;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

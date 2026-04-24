@@ -23,31 +23,33 @@ type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Voting
 #[derive(
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
 )]
+#[subtensor_macros::freeze_struct("635a41a083f013e5")]
 pub struct SignedVoteTally {
     pub ayes: u32,
     pub nays: u32,
     pub total: u32,
 }
 
-impl Into<VoteTally> for SignedVoteTally {
-    fn into(self: SignedVoteTally) -> VoteTally {
+impl From<SignedVoteTally> for VoteTally {
+    fn from(value: SignedVoteTally) -> Self {
         // Empty voter set → everyone implicitly abstains. Bypass
         // `Perbill::from_rational(_, 0)` which substrate returns as 100% and
         // would otherwise yield 300% total across approval+rejection+abstention.
-        if self.total == 0 {
+        if value.total == 0 {
             return VoteTally::default();
         }
-        let voted = self.ayes.saturating_add(self.nays);
-        let abstention = self.total.saturating_sub(voted);
+        let voted = value.ayes.saturating_add(value.nays);
+        let abstention = value.total.saturating_sub(voted);
         VoteTally {
-            approval: Perbill::from_rational(self.ayes, self.total),
-            rejection: Perbill::from_rational(self.nays, self.total),
-            abstention: Perbill::from_rational(abstention, self.total),
+            approval: Perbill::from_rational(value.ayes, value.total),
+            rejection: Perbill::from_rational(value.nays, value.total),
+            abstention: Perbill::from_rational(abstention, value.total),
         }
     }
 }
 
 #[frame_support::pallet(dev_mode)]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -168,9 +170,9 @@ impl<T: Config> Pallet<T> {
         who: &T::AccountId,
         approve: bool,
     ) -> Result<SignedVoteTally, DispatchError> {
-        let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
+        let mut tally = TallyOf::<T>::get(poll_index).ok_or(Error::<T>::PollNotFound)?;
 
-        VotingFor::<T>::try_mutate(&poll_index, &who, |vote| -> DispatchResult {
+        VotingFor::<T>::try_mutate(poll_index, who, |vote| -> DispatchResult {
             match vote {
                 Some(vote) => match (vote, approve) {
                     (true, false) => {
@@ -205,9 +207,9 @@ impl<T: Config> Pallet<T> {
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
     ) -> Result<SignedVoteTally, DispatchError> {
-        let mut tally = TallyOf::<T>::get(&poll_index).ok_or(Error::<T>::PollNotFound)?;
+        let mut tally = TallyOf::<T>::get(poll_index).ok_or(Error::<T>::PollNotFound)?;
 
-        VotingFor::<T>::try_mutate_exists(&poll_index, &who, |vote| -> DispatchResult {
+        VotingFor::<T>::try_mutate_exists(poll_index, who, |vote| -> DispatchResult {
             match vote {
                 Some(vote) => {
                     if *vote {
@@ -254,22 +256,22 @@ impl<T: Config> Pallet<T> {
     /// stale (denominator too high, conservative for thresholds).
     pub fn remove_votes_for(who: &T::AccountId) {
         for poll_index in ActivePolls::<T>::get().iter() {
-            if let Some(approve) = VotingFor::<T>::take(poll_index, who) {
-                if let Some(mut tally) = TallyOf::<T>::get(poll_index) {
-                    if approve {
-                        tally.ayes.saturating_dec();
-                    } else {
-                        tally.nays.saturating_dec();
-                    }
-                    TallyOf::<T>::insert(poll_index, tally.clone());
-                    T::Polls::on_tally_updated(*poll_index, &tally.clone().into());
-
-                    Self::deposit_event(Event::<T>::VoteInvalidated {
-                        who: who.clone(),
-                        poll_index: *poll_index,
-                        tally,
-                    });
+            if let Some(approve) = VotingFor::<T>::take(poll_index, who)
+                && let Some(mut tally) = TallyOf::<T>::get(poll_index)
+            {
+                if approve {
+                    tally.ayes.saturating_dec();
+                } else {
+                    tally.nays.saturating_dec();
                 }
+                TallyOf::<T>::insert(poll_index, tally.clone());
+                T::Polls::on_tally_updated(*poll_index, &tally.clone().into());
+
+                Self::deposit_event(Event::<T>::VoteInvalidated {
+                    who: who.clone(),
+                    poll_index: *poll_index,
+                    tally,
+                });
             }
         }
     }

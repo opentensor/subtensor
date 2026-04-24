@@ -1,5 +1,4 @@
-#![cfg(test)]
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
 use sp_core::U256;

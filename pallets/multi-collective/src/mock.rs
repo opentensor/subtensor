@@ -1,8 +1,8 @@
-#![cfg(test)]
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::unwrap_used,
-    clippy::expect_used
+    clippy::expect_used,
+    clippy::indexing_slicing
 )]
 
 use core::cell::RefCell;

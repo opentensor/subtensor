@@ -117,6 +117,7 @@ pub enum BlsagError {
     codec::DecodeWithMemTracking,
     scale_info::TypeInfo,
 )]
+#[subtensor_macros::freeze_struct("b0388239913a8b1")]
 pub struct BlsagSignature {
     /// Initial challenge scalar c_0 (32 bytes, canonical encoding).
     /// Called `c_1` in ZtM2 §3.4 (1-indexed), we use 0-indexed.

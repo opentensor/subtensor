@@ -4,6 +4,9 @@ use frame_support::pallet_prelude::*;
 pub trait SetLike<T> {
     fn contains(&self, item: &T) -> bool;
     fn len(&self) -> u32;
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 pub trait Polls<AccountId> {

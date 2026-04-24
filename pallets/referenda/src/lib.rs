@@ -159,6 +159,7 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
 #[derive(
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
 )]
+#[subtensor_macros::freeze_struct("722bd128d396b3fa")]
 pub struct ReferendumInfo<AccountId, TrackId, Call, BlockNumber, ScheduleId> {
     pub track: TrackId,
     pub proposal: Proposal<Call>,
@@ -181,6 +182,7 @@ pub enum ReferendumStatus<AccountId, Id, Call, BlockNumber, ScheduleId> {
 // --- Pallet ---
 
 #[frame_support::pallet(dev_mode)]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -330,8 +332,8 @@ pub mod pallet {
             ensure!(active < T::MaxQueued::get(), Error::<T>::QueueFull);
 
             let index = ReferendumCount::<T>::get();
-            ReferendumCount::<T>::put(index + 1);
-            ActiveCount::<T>::put(active + 1);
+            ReferendumCount::<T>::put(index.saturating_add(1));
+            ActiveCount::<T>::put(active.saturating_add(1));
 
             // 4. Schedule finalization for PassOrFail deadline
             let now = T::BlockNumberProvider::current_block_number();
@@ -391,10 +393,10 @@ pub mod pallet {
             };
 
             // Cancel any scheduled task
-            if let Some((_when, address)) = info.scheduled_task {
-                if let Err(err) = T::Scheduler::cancel(address) {
-                    Self::handle_scheduler_error(index, "cancel", err);
-                }
+            if let Some((_when, address)) = info.scheduled_task
+                && let Err(err) = T::Scheduler::cancel(address)
+            {
+                Self::handle_scheduler_error(index, "cancel", err);
             }
 
             Self::conclude(
@@ -553,22 +555,22 @@ impl<T: Config> Pallet<T> {
 
     /// Approve a referendum: dispatch its Action call for execution.
     fn do_approve(index: ReferendumIndex, info: &ReferendumInfoOf<T>) {
-        if let Some((_when, ref address)) = info.scheduled_task {
-            if let Err(err) = T::Scheduler::cancel(address.clone()) {
-                Self::handle_scheduler_error(index, "cancel", err);
-            }
+        if let Some((_when, ref address)) = info.scheduled_task
+            && let Err(err) = T::Scheduler::cancel(address.clone())
+        {
+            Self::handle_scheduler_error(index, "cancel", err);
         }
 
-        if let Proposal::Action(ref bounded_call) = info.proposal {
-            if let Err(err) = T::Scheduler::schedule(
+        if let Proposal::Action(ref bounded_call) = info.proposal
+            && let Err(err) = T::Scheduler::schedule(
                 DispatchTime::After(Zero::zero()),
                 None,
                 128u8,
                 RawOrigin::Root.into(),
                 bounded_call.clone(),
-            ) {
-                Self::handle_scheduler_error(index, "schedule", err);
-            }
+            )
+        {
+            Self::handle_scheduler_error(index, "schedule", err);
         }
 
         Self::conclude(
@@ -581,15 +583,15 @@ impl<T: Config> Pallet<T> {
     /// Reject a referendum, cancelling any associated scheduled task.
     fn do_reject(index: ReferendumIndex) {
         if let Some(info) = Self::ongoing_referendum_info(index) {
-            if let Some((_when, address)) = info.scheduled_task {
-                if let Err(err) = T::Scheduler::cancel(address) {
-                    Self::handle_scheduler_error(index, "cancel", err);
-                }
+            if let Some((_when, address)) = info.scheduled_task
+                && let Err(err) = T::Scheduler::cancel(address)
+            {
+                Self::handle_scheduler_error(index, "cancel", err);
             }
-            if let Proposal::Review(task_name) = info.proposal {
-                if let Err(err) = T::Scheduler::cancel_named(task_name) {
-                    Self::handle_scheduler_error(index, "cancel_named", err);
-                }
+            if let Proposal::Review(task_name) = info.proposal
+                && let Err(err) = T::Scheduler::cancel_named(task_name)
+            {
+                Self::handle_scheduler_error(index, "cancel_named", err);
             }
         }
 
@@ -643,7 +645,7 @@ impl<T: Config> Pallet<T> {
         let gap = fast_track_threshold.saturating_sub(tally.approval);
         let fraction =
             Perbill::from_rational(gap.deconstruct(), fast_track_threshold.deconstruct());
-        let computed_delay: BlockNumberFor<T> = fraction * initial_delay;
+        let computed_delay: BlockNumberFor<T> = fraction.mul_floor(initial_delay);
         let target = submitted.saturating_add(computed_delay);
 
         let now = T::BlockNumberProvider::current_block_number();
@@ -659,10 +661,9 @@ impl<T: Config> Pallet<T> {
             CallOf<T>,
             PalletsOriginOf<T>,
         >>::next_dispatch_time(*task_name)
+            && current == target
         {
-            if current == target {
-                return;
-            }
+            return;
         }
 
         if let Err(err) = T::Scheduler::reschedule_named(*task_name, DispatchTime::At(target)) {
