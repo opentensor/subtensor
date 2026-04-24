@@ -736,9 +736,7 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(3)]
-        #[pallet::weight((Weight::from_parts(196_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(19))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::remove_stake())]
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
