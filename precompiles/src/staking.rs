@@ -923,6 +923,7 @@ mod tests {
     #![allow(
         clippy::arithmetic_side_effects,
         clippy::expect_used,
+        clippy::unwrap_used,
         clippy::indexing_slicing
     )]
 
