@@ -1456,6 +1456,123 @@ fn register_network_fails_before_prune_keeps_existing() {
     });
 }
 
+// Regression for https://github.com/opentensor/subtensor/issues/2572:
+// a stale `SubnetIdentitiesV3` entry on a netuid slot that is about to be
+// assigned to a new subnet must be cleared when the new owner does not
+// provide identity information of their own.
+#[test]
+fn register_network_with_none_identity_clears_stale_entry() {
+    new_test_ext(0).execute_with(|| {
+        let expected_netuid = SubtensorModule::get_next_netuid();
+
+        let stale_identity = SubnetIdentityOfV3 {
+            subnet_name: b"Previous Owner".to_vec(),
+            github_repo: b"https://github.com/previous/subnet".to_vec(),
+            subnet_contact: b"previous@example.com".to_vec(),
+            subnet_url: b"https://previous.example.com".to_vec(),
+            discord: b"previous#1234".to_vec(),
+            description: b"left over from a prior owner".to_vec(),
+            logo_url: b"https://previous.example.com/logo.png".to_vec(),
+            additional: b"stale".to_vec(),
+        };
+        SubnetIdentitiesV3::<Test>::insert(expected_netuid, stale_identity);
+        assert!(SubnetIdentitiesV3::<Test>::contains_key(expected_netuid));
+
+        let caller_cold = U256::from(61);
+        let caller_hot = U256::from(62);
+        let lock_cost: u64 = SubtensorModule::get_network_lock_cost().into();
+        SubtensorModule::add_balance_to_coldkey_account(&caller_cold, lock_cost.into());
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(caller_cold),
+            &caller_hot,
+            1,
+            None,
+        ));
+
+        assert_eq!(SubnetOwner::<Test>::get(expected_netuid), caller_cold);
+        assert!(
+            !SubnetIdentitiesV3::<Test>::contains_key(expected_netuid),
+            "stale identity must be cleared when the new owner provides None",
+        );
+    });
+}
+
+// Companion to `register_network_with_none_identity_clears_stale_entry`:
+// when the new owner *does* provide identity info, it must simply replace
+// the stale entry (not be treated as a no-op, not panic).
+#[test]
+fn register_network_with_some_identity_overwrites_stale_entry() {
+    new_test_ext(0).execute_with(|| {
+        let expected_netuid = SubtensorModule::get_next_netuid();
+
+        let stale_identity = SubnetIdentityOfV3 {
+            subnet_name: b"Previous Owner".to_vec(),
+            github_repo: b"https://github.com/previous/subnet".to_vec(),
+            subnet_contact: b"previous@example.com".to_vec(),
+            subnet_url: b"https://previous.example.com".to_vec(),
+            discord: b"previous#1234".to_vec(),
+            description: b"left over from a prior owner".to_vec(),
+            logo_url: b"https://previous.example.com/logo.png".to_vec(),
+            additional: b"stale".to_vec(),
+        };
+        SubnetIdentitiesV3::<Test>::insert(expected_netuid, stale_identity);
+
+        let new_identity = SubnetIdentityOfV3 {
+            subnet_name: b"Brand New Subnet".to_vec(),
+            github_repo: b"https://github.com/new/subnet".to_vec(),
+            subnet_contact: b"new@example.com".to_vec(),
+            subnet_url: b"https://new.example.com".to_vec(),
+            discord: b"new#5678".to_vec(),
+            description: b"a fresh subnet".to_vec(),
+            logo_url: b"https://new.example.com/logo.png".to_vec(),
+            additional: b"fresh".to_vec(),
+        };
+
+        let caller_cold = U256::from(71);
+        let caller_hot = U256::from(72);
+        let lock_cost: u64 = SubtensorModule::get_network_lock_cost().into();
+        SubtensorModule::add_balance_to_coldkey_account(&caller_cold, lock_cost.into());
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(caller_cold),
+            &caller_hot,
+            1,
+            Some(new_identity.clone()),
+        ));
+
+        let stored = SubnetIdentitiesV3::<Test>::get(expected_netuid)
+            .expect("new identity should be stored");
+        assert_eq!(stored, new_identity);
+    });
+}
+
+// Complement to `register_network_with_none_identity_clears_stale_entry`:
+// if the netuid slot had no stale identity to begin with, registering
+// with `None` must leave the storage map untouched (and must not emit
+// a spurious `SubnetIdentityRemoved` event).
+#[test]
+fn register_network_with_none_identity_no_op_when_slot_empty() {
+    new_test_ext(0).execute_with(|| {
+        let expected_netuid = SubtensorModule::get_next_netuid();
+        assert!(!SubnetIdentitiesV3::<Test>::contains_key(expected_netuid));
+
+        let caller_cold = U256::from(81);
+        let caller_hot = U256::from(82);
+        let lock_cost: u64 = SubtensorModule::get_network_lock_cost().into();
+        SubtensorModule::add_balance_to_coldkey_account(&caller_cold, lock_cost.into());
+
+        assert_ok!(SubtensorModule::do_register_network(
+            RuntimeOrigin::signed(caller_cold),
+            &caller_hot,
+            1,
+            None,
+        ));
+
+        assert!(!SubnetIdentitiesV3::<Test>::contains_key(expected_netuid));
+    });
+}
+
 #[test]
 fn test_migrate_network_immunity_period() {
     new_test_ext(0).execute_with(|| {
