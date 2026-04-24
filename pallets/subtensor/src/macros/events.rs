@@ -572,5 +572,13 @@ mod events {
             /// Whether delegation is now enabled.
             enabled: bool,
         },
+
+        /// A hotkey has been disassociated from its coldkey.
+        HotkeyDisassociated {
+            /// The account ID of the coldkey.
+            coldkey: T::AccountId,
+            /// The account ID of the hotkey.
+            hotkey: T::AccountId,
+        },
     }
 }

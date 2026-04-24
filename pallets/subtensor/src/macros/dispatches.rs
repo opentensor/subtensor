@@ -2531,5 +2531,46 @@ mod dispatches {
             Self::deposit_event(Event::AutoParentDelegationEnabledSet { hotkey, enabled });
             Ok(())
         }
+
+        /// Disassociates a hotkey from the calling coldkey.
+        ///
+        /// The reverse of `try_associate_hotkey`. Removes the ownership link between
+        /// the coldkey and hotkey. The hotkey must not be registered on any subnet
+        /// and must have no outstanding stake (in either `Alpha` or `AlphaV2`).
+        ///
+        /// On success the following side state is also cleaned up:
+        /// * `Owner`, `OwnedHotkeys`, `StakingHotkeys` — the entries inserted by
+        ///   `create_account_if_non_existent` are removed.
+        /// * `Delegates` — the delegate take entry, if the hotkey was a delegate.
+        /// * `AutoStakeDestination` / `AutoStakeDestinationColdkeys` — any coldkey
+        ///   (not just the owner) that had this hotkey as their auto-stake destination
+        ///   is purged across every subnet.
+        ///
+        /// Emits `HotkeyDisassociated` on success.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the transaction, which must be signed by the coldkey that owns the `hotkey`.
+        /// * `hotkey` - The hotkey to disassociate from the coldkey.
+        ///
+        /// # Errors
+        /// * `HotKeyAccountNotExists` - The hotkey has no `Owner` entry.
+        /// * `NonAssociatedColdKey` - The signing coldkey does not own the hotkey.
+        /// * `HotkeyIsStillRegistered` - The hotkey is still a member of at least one subnet.
+        /// * `HotkeyHasOutstandingStake` - The hotkey still has an `Alpha` or `AlphaV2` entry.
+        #[pallet::call_index(136)]
+        // FIXME: hand-tuned worst-case bound. The cleanup loop now iterates the inverse
+        // index (`AutoStakeDestinationColdkeys::iter_prefix`) so only subnets where this
+        // hotkey was actually an auto-stake destination are touched. Replace with
+        // `WeightInfo::disassociate_hotkey()` once benchmarks are regenerated.
+        #[pallet::weight((
+            Weight::from_parts(80_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads_writes(40, 30)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn disassociate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_disassociate_hotkey(&coldkey, &hotkey)
+        }
     }
 }
