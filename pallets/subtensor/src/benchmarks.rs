@@ -945,7 +945,7 @@ mod pallet_benchmarks {
         set_reserves::<T>(netuid, tao_reserve, alpha_in);
 
         let wallet_bal = 1000000u32.into();
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
+        add_balance_to_coldkey_account::<T>(&coldkey.clone(), wallet_bal);
 
         assert_ok!(Subtensor::<T>::burned_register(
             RawOrigin::Signed(coldkey.clone()).into(),
@@ -954,7 +954,7 @@ mod pallet_benchmarks {
         ));
 
         let staked_amt = TaoBalance::from(100_000_000_000_u64);
-        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
+        add_balance_to_coldkey_account::<T>(&coldkey.clone(), staked_amt);
 
         assert_ok!(Subtensor::<T>::add_stake(
             RawOrigin::Signed(coldkey.clone()).into(),
