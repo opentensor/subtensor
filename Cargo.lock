@@ -10386,6 +10386,7 @@ dependencies = [
  "scale-info",
  "sp-io",
  "sp-runtime",
+ "subtensor-macros",
  "subtensor-runtime-common",
 ]
 
@@ -10688,6 +10689,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-macros",
  "subtensor-runtime-common",
 ]
 
@@ -18007,6 +18009,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_core 0.6.4",
  "scale-info",
+ "subtensor-macros",
  "zeroize",
 ]
 

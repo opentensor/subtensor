@@ -16,6 +16,7 @@ curve25519-dalek = { version = "4", default-features = false, features = [
 digest = { version = "0.10", default-features = false }
 rand_core = { version = "0.6", default-features = false, optional = true }
 scale-info = { version = "2", default-features = false, features = ["derive"] }
+subtensor-macros.workspace = true
 zeroize = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]

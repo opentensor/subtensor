@@ -57,6 +57,7 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::Vec;
 use blake2::Blake2b512;
+use subtensor_macros::freeze_struct;
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT,
     ristretto::{CompressedRistretto, RistrettoPoint},
@@ -113,6 +114,7 @@ pub enum BlsagError {
 /// Corresponds to ZtM2 §3.4: `sigma(m) = (c_1, r_1, ..., r_n)` with key image `K_tilde`.
 ///
 /// The ring R is NOT included — it must be provided separately for verification.
+#[freeze_struct("e49d378dc38bbcc6")]
 #[derive(
     Clone,
     Debug,

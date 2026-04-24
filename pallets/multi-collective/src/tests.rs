@@ -14,8 +14,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
     pub enum Test {
-        System: frame_system,
-        MultiCollective: pallet_multi_collective,
+        System: frame_system = 0,
+        MultiCollective: pallet_multi_collective = 1,
     }
 );
 

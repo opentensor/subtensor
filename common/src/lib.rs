@@ -460,6 +460,7 @@ impl TypeInfo for NetUidStorageIndex {
     Debug,
     Default,
 )]
+#[freeze_struct("51505f4d98347bff")]
 pub struct VoteTally {
     pub approval: Perbill,
     pub rejection: Perbill,

@@ -19,8 +19,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
     pub enum Test {
-        System: frame_system,
-        SignedVoting: pallet_signed_voting,
+        System: frame_system = 0,
+        SignedVoting: pallet_signed_voting = 1,
     }
 );
 

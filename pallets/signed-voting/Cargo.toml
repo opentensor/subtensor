@@ -23,6 +23,7 @@ frame-benchmarking = { workspace = true, optional = true }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 pallet-referenda = { workspace = true, optional = true }
+subtensor-macros.workspace = true
 subtensor-runtime-common = { workspace = true }
 
 [dev-dependencies]

@@ -45,7 +45,11 @@ mod benchmarks {
         let remove_origin = T::RemoveOrigin::try_successful_origin(&collective_id).unwrap();
 
         #[extrinsic_call]
-        _(remove_origin as T::RuntimeOrigin, collective_id, who.clone());
+        _(
+            remove_origin as T::RuntimeOrigin,
+            collective_id,
+            who.clone(),
+        );
     }
 
     #[benchmark]
@@ -60,19 +64,27 @@ mod benchmarks {
         let swap_origin = T::SwapOrigin::try_successful_origin(&collective_id).unwrap();
 
         #[extrinsic_call]
-        _(swap_origin as T::RuntimeOrigin, collective_id, old.clone(), new.clone());
+        _(
+            swap_origin as T::RuntimeOrigin,
+            collective_id,
+            old.clone(),
+            new.clone(),
+        );
     }
 
     #[benchmark]
     fn reset_members(m: Linear<1, { T::MaxMembers::get() }>) {
         let collective_id = first_collective_id::<T>();
-        let new_members: Vec<T::AccountId> = (0..m)
-            .map(|i| account("reset_member", i, SEED))
-            .collect();
+        let new_members: Vec<T::AccountId> =
+            (0..m).map(|i| account("reset_member", i, SEED)).collect();
 
         let origin = T::ResetOrigin::try_successful_origin(&collective_id).unwrap();
 
         #[extrinsic_call]
-        _(origin as T::RuntimeOrigin, collective_id, new_members.clone());
+        _(
+            origin as T::RuntimeOrigin,
+            collective_id,
+            new_members.clone(),
+        );
     }
 }

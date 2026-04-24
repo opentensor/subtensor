@@ -7,6 +7,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::TypeInfo;
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{SetLike, VoteTally};
 
 pub const MAX_TRACK_NAME_LEN: usize = 32;
@@ -96,6 +97,7 @@ pub enum DecisionStrategy<TrackId, Moment> {
     },
 }
 
+#[freeze_struct("ecca13e8b4554b5d")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]

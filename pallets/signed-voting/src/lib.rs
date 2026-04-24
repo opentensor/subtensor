@@ -4,6 +4,7 @@ extern crate alloc;
 
 use frame_support::{pallet_prelude::*, sp_runtime::Perbill};
 use frame_system::pallet_prelude::*;
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
@@ -19,6 +20,7 @@ type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type PollIndexOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Index;
 type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::VotingScheme;
 
+#[freeze_struct("769f064d4b346846")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
 )]
