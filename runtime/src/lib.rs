@@ -1673,6 +1673,8 @@ impl pallet_governance::Config for Runtime {
     type CleanupPeriod = CleanupPeriod;
     type CancellationThreshold = CancellationThreshold;
     type FastTrackThreshold = FastTrackThreshold;
+
+    type AnonymousVotePowDifficulty = ();
 }
 
 pub struct CollectiveMembersProvider;
