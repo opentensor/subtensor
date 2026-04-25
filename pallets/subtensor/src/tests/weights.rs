@@ -244,9 +244,9 @@ fn test_set_weights_validate() {
             version_key: 0,
         });
 
-        // Create netuid
-        add_network(netuid, 1, 0);
-        mock::setup_reserves(
+        // Create netuid (commit-reveal off so `set_weights` matches extension / extrinsic)
+        add_network_disable_commit_reveal(netuid, 1, 0);
+        setup_reserves(
             netuid,
             1_000_000_000_000_u64.into(),
             1_000_000_000_000_u64.into(),
