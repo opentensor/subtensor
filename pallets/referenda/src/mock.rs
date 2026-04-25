@@ -224,7 +224,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
         .into_iter()
     }
 
-    fn authorize_proposal(_id: Self::Id, _proposal: &RuntimeCall) -> bool {
+    fn authorize_proposal(_id: Self::Id, _call: &RuntimeCall) -> bool {
         AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow())
     }
 }

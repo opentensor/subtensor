@@ -7,7 +7,7 @@ use frame_support::{
     pallet_prelude::*,
     sp_runtime::{
         Perbill, Saturating,
-        traits::{BlockNumberProvider, Dispatchable, Zero},
+        traits::{BlockNumberProvider, Dispatchable, One, Zero},
     },
     traits::{
         Bounded, QueryPreimage, StorePreimage,
@@ -151,7 +151,10 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
         Self::tracks().find(|t| t.id == id).map(|t| t.info)
     }
 
-    fn authorize_proposal(id: Self::Id, proposal: &Call) -> bool;
+    /// Optional per-track authorization of a proposed call. Default allows all.
+    fn authorize_proposal(_id: Self::Id, _call: &Call) -> bool {
+        true
+    }
 }
 
 // --- Referendum types ---
@@ -249,7 +252,8 @@ pub mod pallet {
             track: TrackIdOf<T>,
             proposer: T::AccountId,
         },
-        /// A referendum was approved.
+        /// A PassOrFail referendum reached its approve threshold and the call
+        /// was scheduled for execution.
         Approved { index: ReferendumIndex },
         /// A referendum was rejected.
         Rejected { index: ReferendumIndex },
@@ -257,11 +261,19 @@ pub mod pallet {
         Cancelled { index: ReferendumIndex },
         /// A referendum expired without reaching any threshold.
         Expired { index: ReferendumIndex },
-        /// A Review referendum adjusted the delay of a scheduled task.
-        DelayAdjusted {
+        /// An Adjustable Review referendum reached its fast-track threshold.
+        /// The underlying task has been rescheduled to the next block; status
+        /// concludes as `Approved`.
+        FastTracked { index: ReferendumIndex },
+        /// A vote-driven reschedule of a Review's underlying task. Emitted on
+        /// every linear-interpolation update and on fast-track.
+        TaskRescheduled {
             index: ReferendumIndex,
-            new_when: BlockNumberFor<T>,
+            at: BlockNumberFor<T>,
         },
+        /// A Review's underlying scheduled task was cancelled (currently fires
+        /// only when the Review is rejected).
+        TaskCancelled { index: ReferendumIndex },
         /// A scheduler operation failed for a referendum.
         SchedulerOperationFailed { index: ReferendumIndex },
     }
@@ -321,6 +333,18 @@ pub mod pallet {
                 );
             }
 
+            // 2c. Per-track call authorization. Only `Action` proposals carry
+            //     a call payload; `Review` proposals reference an external
+            //     task and have no payload to authorize.
+            if let Proposal::Action(bounded_call) = &proposal {
+                let (call, _) = T::Preimages::peek(bounded_call)
+                    .map_err(|_| Error::<T>::ProposalNotAuthorized)?;
+                ensure!(
+                    T::Tracks::authorize_proposal(track, &call),
+                    Error::<T>::ProposalNotAuthorized
+                );
+            }
+
             // 3. Validate proposer
             ensure!(
                 track_info.proposer_set.contains(&submitter),
@@ -335,13 +359,24 @@ pub mod pallet {
             ReferendumCount::<T>::put(index.saturating_add(1));
             ActiveCount::<T>::put(active.saturating_add(1));
 
-            // 4. Schedule finalization for PassOrFail deadline
+            // 4. Schedule a finalize_referendum alarm.
+            //    PassOrFail: fires at the decision_period deadline to evaluate
+            //    the cached tally.
+            //    Adjustable (Review): fires at submitted + initial_delay + 1
+            //    as a reaper, since Adjustable polls have no built-in timeout
+            //    and would otherwise leak storage if no votes arrive before
+            //    the named task executes naturally.
             let now = T::BlockNumberProvider::current_block_number();
-            let scheduled_task = if let DecisionStrategy::PassOrFail {
-                decision_period, ..
-            } = &track_info.decision_strategy
-            {
-                let when = now.saturating_add(*decision_period);
+            let alarm_when = match &track_info.decision_strategy {
+                DecisionStrategy::PassOrFail {
+                    decision_period, ..
+                } => Some(now.saturating_add(*decision_period)),
+                DecisionStrategy::Adjustable { initial_delay, .. } => Some(
+                    now.saturating_add(*initial_delay)
+                        .saturating_add(One::one()),
+                ),
+            };
+            let scheduled_task = if let Some(when) = alarm_when {
                 let call: CallOf<T> = Call::<T>::finalize_referendum { index }.into();
                 let bounded = T::Preimages::bound(call).map_err(|_| Error::<T>::SchedulerError)?;
                 let address = T::Scheduler::schedule(
@@ -407,7 +442,15 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Called by the scheduler when a PassOrFail referendum's decision_period expires.
+        /// Called by the scheduler when a referendum's alarm fires.
+        ///
+        /// PassOrFail: evaluates the cached tally against the decision_period
+        /// thresholds (Approved / Rejected / Expired).
+        ///
+        /// Adjustable: acts as a reaper for Review polls that received no
+        /// votes — by the time this fires the named task has either executed
+        /// or been cancelled externally, so the Review must conclude either
+        /// way.
         #[pallet::call_index(2)]
         pub fn finalize_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
@@ -421,23 +464,45 @@ pub mod pallet {
 
             let track_info = T::Tracks::info(info.track).ok_or(Error::<T>::BadTrack)?;
 
-            let DecisionStrategy::PassOrFail {
-                approve_threshold,
-                reject_threshold,
-                ..
-            } = track_info.decision_strategy
-            else {
-                return Err(Error::<T>::InvalidConfiguration.into());
-            };
+            match track_info.decision_strategy {
+                DecisionStrategy::PassOrFail {
+                    approve_threshold,
+                    reject_threshold,
+                    ..
+                } => {
+                    let tally = ReferendumTallyOf::<T>::get(index).unwrap_or_default();
 
-            let tally = ReferendumTallyOf::<T>::get(index).unwrap_or_default();
-
-            if tally.approval >= approve_threshold {
-                Self::do_approve(index, &info);
-            } else if tally.rejection >= reject_threshold {
-                Self::do_reject(index);
-            } else {
-                Self::do_expire(index);
+                    if tally.approval >= approve_threshold {
+                        Self::do_approve(index, &info);
+                    } else if tally.rejection >= reject_threshold {
+                        Self::do_reject(index);
+                    } else {
+                        Self::do_expire(index);
+                    }
+                }
+                DecisionStrategy::Adjustable { .. } => {
+                    // Conclude as Approved if the named task is no longer in
+                    // the scheduler (it ran or was cancelled with effect),
+                    // Expired if it's still queued (something pushed it out
+                    // past the reaper deadline — unusual, treat as no-result).
+                    if let Proposal::Review(task_name) = &info.proposal {
+                        let task_alive = <T::Scheduler as ScheduleNamed<
+                            BlockNumberFor<T>,
+                            CallOf<T>,
+                            PalletsOriginOf<T>,
+                        >>::next_dispatch_time(*task_name)
+                        .is_ok();
+                        if task_alive {
+                            Self::do_expire(index);
+                        } else {
+                            Self::do_approve(index, &info);
+                        }
+                    } else {
+                        // Unreachable: is_valid_configuration enforces
+                        // Adjustable + Review pairing at submit time.
+                        Self::do_expire(index);
+                    }
+                }
             }
 
             Ok(())
@@ -588,10 +653,11 @@ impl<T: Config> Pallet<T> {
             {
                 Self::handle_scheduler_error(index, "cancel", err);
             }
-            if let Proposal::Review(task_name) = info.proposal
-                && let Err(err) = T::Scheduler::cancel_named(task_name)
-            {
-                Self::handle_scheduler_error(index, "cancel_named", err);
+            if let Proposal::Review(task_name) = info.proposal {
+                match T::Scheduler::cancel_named(task_name) {
+                    Ok(()) => Self::deposit_event(Event::<T>::TaskCancelled { index }),
+                    Err(err) => Self::handle_scheduler_error(index, "cancel_named", err),
+                }
             }
         }
 
@@ -613,16 +679,28 @@ impl<T: Config> Pallet<T> {
 
     /// Fast-track a Review referendum: reschedule its task to execute immediately.
     fn do_fast_track(index: ReferendumIndex, task_name: &ProposalTaskName) {
-        if let Err(err) =
-            T::Scheduler::reschedule_named(*task_name, DispatchTime::After(Zero::zero()))
+        // Cancel the reaper alarm before concluding; otherwise it would fire
+        // later on a concluded referendum and emit a SchedulerOperationFailed
+        // event. Cleanup is best-effort.
+        if let Some(info) = Self::ongoing_referendum_info(index)
+            && let Some((_when, address)) = info.scheduled_task
+            && let Err(err) = T::Scheduler::cancel(address)
         {
-            Self::handle_scheduler_error(index, "reschedule_named", err);
+            Self::handle_scheduler_error(index, "cancel", err);
+        }
+
+        match T::Scheduler::reschedule_named(*task_name, DispatchTime::After(Zero::zero())) {
+            Ok(_) => {
+                let at = T::BlockNumberProvider::current_block_number().saturating_add(One::one());
+                Self::deposit_event(Event::<T>::TaskRescheduled { index, at });
+            }
+            Err(err) => Self::handle_scheduler_error(index, "reschedule_named", err),
         }
 
         Self::conclude(
             index,
             ReferendumStatusOf::<T>::Approved,
-            Event::<T>::Approved { index },
+            Event::<T>::FastTracked { index },
         );
     }
 
@@ -671,10 +749,7 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        Self::deposit_event(Event::<T>::DelayAdjusted {
-            index,
-            new_when: target,
-        });
+        Self::deposit_event(Event::<T>::TaskRescheduled { index, at: target });
     }
 }
 

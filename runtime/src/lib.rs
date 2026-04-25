@@ -1883,12 +1883,10 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
         .into_iter()
     }
 
-    fn authorize_proposal(_id: Self::Id, _proposal: &RuntimeCall) -> bool {
-        // V1 did not authorize per-track beyond the MaxProposalWeight bound,
-        // which the referenda path enforces via the scheduler's own weight
-        // limits. Leave open until a per-track policy is defined.
-        true
-    }
+    // Default `authorize_proposal` (returns true) is sufficient — V1 did not
+    // authorize per-track beyond the MaxProposalWeight bound, which the
+    // scheduler's weight limits already enforce. Override here when a
+    // per-track policy is defined.
 }
 
 /// Routes membership removals from `pallet-multi-collective` into

@@ -368,7 +368,7 @@ fn adjustable_interpolates_delay_anchored_at_submission() {
         let fast_track = Perbill::from_percent(75);
         let gap = fast_track.saturating_sub(approval);
         let fraction = Perbill::from_rational(gap.deconstruct(), fast_track.deconstruct());
-        let expected_delay: u64 = fraction * 100u64;
+        let expected_delay: u64 = fraction.mul_floor(100u64);
         let submitted = 10u64;
         assert_eq!(
             task_scheduled_at(task_name),
@@ -501,11 +501,10 @@ fn submit_fails_for_action_on_adjustable_track() {
     });
 }
 
-/// Pinned to surface the dead `authorize_proposal` gap: the trait method is
-/// defined on `TracksInfo` but `submit` never invokes it, so rejections from
-/// the runtime-side hook are ignored.
+/// Locks in that `submit` invokes `TracksInfo::authorize_proposal` for
+/// `Action` proposals and rejects with `ProposalNotAuthorized` when the
+/// runtime-side hook returns false.
 #[test]
-#[ignore = "known gap: submit does not call TracksInfo::authorize_proposal"]
 fn submit_rejects_when_authorize_proposal_returns_false() {
     TestState::default().build_and_execute(|| {
         set_authorize_proposal(false);
@@ -590,9 +589,11 @@ fn submit_populates_referendum_status_as_ongoing() {
     });
 }
 
-/// Adjustable tracks have no deadline — submit must not schedule a timeout.
+/// Adjustable tracks schedule a reaper alarm at submitted + initial_delay + 1
+/// so Review polls cannot leak storage when no votes arrive before the named
+/// task executes naturally.
 #[test]
-fn submit_skips_scheduler_for_adjustable_track() {
+fn submit_schedules_reaper_for_adjustable_track() {
     TestState::default().build_and_execute(|| {
         let proposer = U256::from(1);
         let task_name: [u8; 32] = *b"review_task_skipaaaaaaaaaaaaaaaa";
@@ -612,10 +613,51 @@ fn submit_skips_scheduler_for_adjustable_track() {
             panic!("expected Ongoing status");
         };
 
-        assert!(
-            info.scheduled_task.is_none(),
-            "Adjustable submit must not schedule a timeout"
-        );
+        // initial_delay = 100 in mock, submitted at block 10, reaper at 111.
+        let (when, _address) = info
+            .scheduled_task
+            .expect("Adjustable submit schedules a reaper alarm");
+        assert_eq!(when, 111);
+    });
+}
+
+/// Regression for Bug #2: a Review referendum that receives no votes is
+/// reaped after `submitted + initial_delay` instead of leaking forever.
+#[test]
+fn adjustable_review_concludes_via_reaper_when_no_votes_arrive() {
+    TestState::default().build_and_execute(|| {
+        let proposer = U256::from(1);
+        let task_name: [u8; 32] = *b"review_reapeaaaaaaaaaaaaaaaaaaaa";
+
+        // Schedule the reviewed task at a block earlier than the reaper.
+        // submitted = 10, initial_delay = 100, reaper at 111.
+        // Task at 50 will fire before the reaper; the Review then has no
+        // task to watch, but no vote ever called update_tally to clean up.
+        System::set_block_number(10);
+        schedule_named_task(task_name, 50);
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(proposer),
+            1u8,
+            Proposal::Review(task_name),
+        ));
+
+        assert_eq!(ActiveCount::<Test>::get(), 1);
+        assert!(matches!(
+            ReferendumStatusFor::<Test>::get(0),
+            Some(ReferendumStatus::Ongoing(_))
+        ));
+
+        // Run past the task (50) and the reaper (111).
+        run_to_block(112);
+
+        // Reaper fired; referendum is concluded.
+        assert!(!matches!(
+            ReferendumStatusFor::<Test>::get(0),
+            Some(ReferendumStatus::Ongoing(_))
+        ));
+        assert_eq!(ActiveCount::<Test>::get(), 0);
+        assert!(pallet_signed_voting::TallyOf::<Test>::get(0u32).is_none());
     });
 }
 
@@ -983,11 +1025,11 @@ fn finalize_with_neither_threshold_expires() {
     });
 }
 
-/// Defensive: finalize_referendum invoked on an Adjustable-track referendum
-/// (an unreachable path in normal flow — Adjustable doesn't schedule finalize)
-/// returns `InvalidConfiguration`.
+/// finalize_referendum on an Adjustable Review concludes as Approved if the
+/// named task is no longer in the scheduler (it has run or was cancelled),
+/// Expired if the task is still queued.
 #[test]
-fn finalize_on_adjustable_returns_invalid_configuration() {
+fn finalize_on_adjustable_approves_when_task_gone() {
     TestState::default().build_and_execute(|| {
         let proposer = U256::from(1);
         let task_name: [u8; 32] = *b"review_adjustaaaaaaaaaaaaaaaaaaa";
@@ -1000,10 +1042,41 @@ fn finalize_on_adjustable_returns_invalid_configuration() {
             Proposal::Review(task_name),
         ));
 
-        assert_noop!(
-            Referenda::finalize_referendum(RuntimeOrigin::root(), 0),
-            Error::<Test>::InvalidConfiguration
-        );
+        // Cancel the named task so finalize sees it as gone.
+        assert_ok!(<Scheduler as ScheduleNamed<
+            u64,
+            RuntimeCall,
+            OriginCaller,
+        >>::cancel_named(task_name,));
+
+        assert_ok!(Referenda::finalize_referendum(RuntimeOrigin::root(), 0));
+        assert!(matches!(
+            ReferendumStatusFor::<Test>::get(0),
+            Some(ReferendumStatus::Approved(_))
+        ));
+    });
+}
+
+#[test]
+fn finalize_on_adjustable_expires_when_task_still_queued() {
+    TestState::default().build_and_execute(|| {
+        let proposer = U256::from(1);
+        let task_name: [u8; 32] = *b"review_adjust_alive_aaaaaaaaaaaa";
+
+        System::set_block_number(10);
+        schedule_named_task(task_name, 5000);
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(proposer),
+            1u8,
+            Proposal::Review(task_name),
+        ));
+
+        // Task still queued at block 5000 → finalize expires the Review.
+        assert_ok!(Referenda::finalize_referendum(RuntimeOrigin::root(), 0));
+        assert!(matches!(
+            ReferendumStatusFor::<Test>::get(0),
+            Some(ReferendumStatus::Expired(_))
+        ));
     });
 }
 
@@ -1224,10 +1297,10 @@ fn adjustable_zero_approval_uses_full_initial_delay() {
     });
 }
 
-/// A tally update that moves the target emits a DelayAdjusted event with the
-/// newly-computed dispatch block.
+/// A tally update that moves the target emits a TaskRescheduled event with
+/// the newly-computed dispatch block.
 #[test]
-fn adjustable_vote_emits_delay_adjusted_event() {
+fn adjustable_vote_emits_task_rescheduled_event() {
     TestState::default().build_and_execute(|| {
         let task_name: [u8; 32] = *b"adj_event_emitaaaaaaaaaaaaaaaaaa";
         System::set_block_number(10);
@@ -1240,17 +1313,100 @@ fn adjustable_vote_emits_delay_adjusted_event() {
         ));
 
         let new_when = task_scheduled_at(task_name).expect("rescheduled");
-        let adjusted_events: Vec<_> = referenda_events()
+        let rescheduled_events: Vec<_> = referenda_events()
             .into_iter()
             .filter_map(|e| match e {
-                Event::DelayAdjusted {
-                    index: i,
-                    new_when: w,
-                } => Some((i, w)),
+                Event::TaskRescheduled { index: i, at } => Some((i, at)),
                 _ => None,
             })
             .collect();
-        assert_eq!(adjusted_events, vec![(index, new_when)]);
+        assert_eq!(rescheduled_events, vec![(index, new_when)]);
+    });
+}
+
+/// Fast-tracking emits both a `TaskRescheduled` event (carrying the next-block
+/// dispatch target) and a `FastTracked` event (distinct from `Approved`,
+/// which is reserved for PassOrFail approval). Status concludes as `Approved`.
+#[test]
+fn adjustable_fast_track_emits_task_rescheduled_and_fast_tracked() {
+    TestState::default().build_and_execute(|| {
+        let task_name: [u8; 32] = *b"adj_ft_eventaaaaaaaaaaaaaaaaaaaa";
+        System::set_block_number(10);
+        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
+
+        // Three ayes out of three voters → 100% ≥ 75% fast_track_threshold.
+        for voter in [U256::from(101), U256::from(102), U256::from(103)] {
+            assert_ok!(SignedVoting::vote(
+                RuntimeOrigin::signed(voter),
+                index,
+                true
+            ));
+        }
+
+        let next_block = System::block_number().saturating_add(1);
+        let events = referenda_events();
+
+        let rescheduled: Vec<_> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::TaskRescheduled { index: i, at } if *i == index => Some(*at),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            rescheduled.last().copied(),
+            Some(next_block),
+            "expected final TaskRescheduled at next block"
+        );
+
+        let fast_tracked: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, Event::FastTracked { index: i } if *i == index))
+            .collect();
+        assert_eq!(fast_tracked.len(), 1, "expected exactly one FastTracked");
+
+        let approved: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, Event::Approved { index: i } if *i == index))
+            .collect();
+        assert!(
+            approved.is_empty(),
+            "fast-track must not emit Approved (reserved for PassOrFail)"
+        );
+    });
+}
+
+/// Rejection of an Adjustable Review cancels the underlying named task and
+/// emits a `TaskCancelled` event in addition to the terminal `Rejected`
+/// event.
+#[test]
+fn adjustable_rejection_emits_task_cancelled() {
+    TestState::default().build_and_execute(|| {
+        let task_name: [u8; 32] = *b"adj_rej_evtaaaaaaaaaaaaaaaaaaaaa";
+        System::set_block_number(10);
+        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
+
+        // Two nays out of three → 66.7% > 51% reject_threshold.
+        for voter in [U256::from(101), U256::from(102)] {
+            assert_ok!(SignedVoting::vote(
+                RuntimeOrigin::signed(voter),
+                index,
+                false
+            ));
+        }
+
+        let events = referenda_events();
+        let task_cancelled: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, Event::TaskCancelled { index: i } if *i == index))
+            .collect();
+        assert_eq!(task_cancelled.len(), 1, "expected one TaskCancelled");
+
+        let rejected: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, Event::Rejected { index: i } if *i == index))
+            .collect();
+        assert_eq!(rejected.len(), 1, "expected one Rejected");
     });
 }
 
