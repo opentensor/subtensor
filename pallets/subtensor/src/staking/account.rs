@@ -13,8 +13,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn do_disassociate_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> DispatchResult {
         // Fetch the owner once: missing entry => hotkey doesn't exist; mismatch => not owned.
-        let owner =
-            Owner::<T>::try_get(hotkey).map_err(|_| Error::<T>::HotKeyAccountNotExists)?;
+        let owner = Owner::<T>::try_get(hotkey).map_err(|_| Error::<T>::HotKeyAccountNotExists)?;
         ensure!(&owner == coldkey, Error::<T>::NonAssociatedColdKey);
 
         // Ensure the hotkey is not registered on any subnet.
