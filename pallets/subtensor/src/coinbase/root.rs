@@ -383,20 +383,15 @@ impl<T: Config> Pallet<T> {
         VotingPowerDisableAtBlock::<T>::remove(netuid);
         VotingPowerEmaAlpha::<T>::remove(netuid);
 
-        // --- 18c. RootClaimable: outer key is hotkey, but the value is a
-        // BTreeMap<NetUid, _>. Strip this netuid from every entry and drop
-        // entries that become empty so no per-netuid state leaks past dereg.
-        // Note: finalize_all_subnet_root_dividends may have already stripped
-        // the netuid via mutate, leaving empty BTreeMaps — handle both cases.
+        // --- 18c. Drop RootClaimable hotkey entries whose BTreeMap is now
+        // empty. finalize_all_subnet_root_dividends (called above) already
+        // stripped this netuid from every map via mutate, leaving some maps
+        // empty; here we just garbage-collect those entries.
         let rc_hotkeys: sp_std::vec::Vec<T::AccountId> =
             RootClaimable::<T>::iter().map(|(hot, _)| hot).collect();
         for hot in rc_hotkeys {
-            let mut claimable = RootClaimable::<T>::get(&hot);
-            let had_netuid = claimable.remove(&netuid).is_some();
-            if claimable.is_empty() {
+            if RootClaimable::<T>::get(&hot).is_empty() {
                 RootClaimable::<T>::remove(&hot);
-            } else if had_netuid {
-                RootClaimable::<T>::insert(&hot, claimable);
             }
         }
 
@@ -445,7 +440,7 @@ impl<T: Config> Pallet<T> {
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+        // RootClaimed is already cleared by finalize_all_subnet_root_dividends above.
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 
