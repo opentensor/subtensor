@@ -302,11 +302,68 @@ mod hooks {
 
                         DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimed => {
                             let (weight_used, done) =
-                                Self::destroy_alpha_in_out_stakes(*netuid, remaining_weight);
+                                Self::destroy_alpha_in_out_stakes_settle_stakes(*netuid, remaining_weight);
                             phase_done = done;
                             remaining_weight = remaining_weight.saturating_sub(weight_used);
 
                             log::error!("=== dissolved_networks step 2");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesSettleStakes,
+                                );
+                            }
+                        }
+
+                        DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesSettleStakes => {
+                            let (weight_used, done) = Self::destroy_alpha_in_out_stakes_clean_alpha(
+                                *netuid,
+                                remaining_weight,
+                            );
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                            log::error!("=== dissolved_networks step 3");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesCleanAlpha,
+                                );
+                            }
+                        }
+
+                        DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesCleanAlpha => {
+                            let (weight_used, done) = Self::destroy_alpha_in_out_stakes_clear_hotkey_totals(
+                                *netuid,
+                                remaining_weight,
+                            );
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                            log::error!("=== dissolved_networks step 3");
+                            log::error!("=== weight_used: {:?}", weight_used);
+                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesClearHotkeyTotals,
+                                );
+                            }
+                        }
+
+                        DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesClearHotkeyTotals => {
+                            let (weight_used, done) = Self::destroy_alpha_in_out_stakes(
+                                *netuid,
+                                remaining_weight,
+                            );
+                            phase_done = done;
+                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+
+                            log::error!("=== dissolved_networks step 3");
                             log::error!("=== weight_used: {:?}", weight_used);
                             log::error!("=== remaining_weight: {:?}", remaining_weight);
                             if done {
@@ -335,6 +392,7 @@ mod hooks {
                                 );
                             }
                         }
+
                         DissolvedNetworksCleanupPhaseEnum::ClearProtocolLiquidity => {
                             let (weight_used, done) =
                                 T::CommitmentsInterface::purge_netuid(*netuid, remaining_weight);

@@ -368,6 +368,12 @@ pub mod pallet {
         /// Phase 2: Clear protocol liquidity for the subnet on the swap layer.
         ClearProtocolLiquidity,
         /// Phase 3: Destroy alpha in and out stakes for the subnet.
+        DestroyAlphaInOutStakesSettleStakes,
+        /// Phase 4: Clean alpha entries for the subnet.
+        DestroyAlphaInOutStakesCleanAlpha,
+        /// Phase 5: Clear hotkey totals for the subnet.
+        DestroyAlphaInOutStakesClearHotkeyTotals,
+        /// Phase 6: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakes,
         /// Phase 3: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
         PurgeNetuid,
