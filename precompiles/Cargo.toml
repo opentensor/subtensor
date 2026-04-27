@@ -57,6 +57,7 @@ std = [
 	"pallet-crowdloan/std",
 	"pallet-drand/std",
 	"pallet-evm-precompile-bn128/std",
+	"pallet-evm-chain-id/std",
 	"pallet-evm-precompile-dispatch/std",
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-sha3fips/std",
