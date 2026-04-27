@@ -160,6 +160,7 @@ ethereum.workspace = true
 pallet-multi-collective.workspace = true
 pallet-signed-voting.workspace = true
 pallet-referenda.workspace = true
+pallet-governance-policy.workspace = true
 
 [dev-dependencies]
 frame-metadata.workspace = true
@@ -208,6 +209,7 @@ std = [
 	"pallet-multi-collective/std",
 	"pallet-signed-voting/std",
 	"pallet-referenda/std",
+	"pallet-governance-policy/std",
 	"precompile-utils/std",
 	"sp-api/std",
 	"sp-block-builder/std",
@@ -376,6 +378,7 @@ try-runtime = [
 	"pallet-multi-collective/try-runtime",
 	"pallet-signed-voting/try-runtime",
 	"pallet-referenda/try-runtime",
+	"pallet-governance-policy/try-runtime",
 
 	# EVM + Frontier
 	"fp-self-contained/try-runtime",

@@ -67,6 +67,7 @@ pallet-multi-collective = { path = "pallets/multi-collective", default-features 
 pallet-signed-voting = { path = "pallets/signed-voting", default-features = false }
 pallet-anonymous-voting = { path = "pallets/anonymous-voting", default-features = false }
 pallet-referenda = { path = "pallets/referenda", default-features = false }
+pallet-governance-policy = { path = "pallets/governance-policy", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
 safe-math = { path = "primitives/safe-math", default-features = false }
 share-pool = { path = "primitives/share-pool", default-features = false }

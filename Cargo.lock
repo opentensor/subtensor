@@ -8413,6 +8413,7 @@ dependencies = [
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
  "pallet-fast-unstake",
+ "pallet-governance-policy",
  "pallet-grandpa",
  "pallet-hotfix-sufficients",
  "pallet-insecure-randomness-collective-flip",
@@ -9870,6 +9871,33 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-governance-policy"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "pallet-multi-collective",
+ "pallet-preimage",
+ "pallet-referenda 1.0.0",
+ "pallet-scheduler",
+ "pallet-signed-voting",
+ "pallet-subtensor",
+ "pallet-subtensor-utility",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "substrate-fixed",
+ "subtensor-macros",
+ "subtensor-runtime-common",
+ "subtensor-swap-interface",
 ]
 
 [[package]]

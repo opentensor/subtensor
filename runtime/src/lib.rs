@@ -1756,6 +1756,16 @@ parameter_types! {
     pub const GovernanceTriumvirateDecisionPeriod: BlockNumber = prod_or_fast!(50_400, 50);
     /// 1 hour mainnet / 30 blocks fast-runtime — collective Review delay.
     pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(300, 30);
+    /// Target size of each ranked collective (Economic + Building).
+    /// Matches the per-collective `max_members` declared in
+    /// `SubtensorCollectives`.
+    pub const GovernanceRankedCollectiveSize: u32 = 16;
+    /// Minimum subnet age required for its owner to be eligible for the
+    /// Building collective: 180 days mainnet / 100 blocks fast-runtime.
+    pub const GovernanceMinSubnetAge: BlockNumber = prod_or_fast!(180 * DAYS, 100);
+    /// Track ids — must match the indices declared in `SubtensorTracks`.
+    pub const GovernanceTriumvirateTrack: u8 = 0;
+    pub const GovernanceReviewTrack: u8 = 1;
 }
 
 /// Static list of collectives. Adding a variant to `GovernanceCollectiveId`
@@ -1914,7 +1924,10 @@ impl pallet_multi_collective::Config for Runtime {
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type ResetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type OnMembersChanged = GovernanceVoteCleanup;
-    type OnNewTerm = ();
+    /// Term-bound collectives (Economic, Building) get repopulated by
+    /// `pallet-governance-policy` from on-chain stake / subnet data
+    /// every `term_duration` blocks.
+    type OnNewTerm = GovernancePolicy;
     type MaxMembers = MultiCollectiveMaxMembers;
 }
 
@@ -1933,6 +1946,27 @@ impl pallet_referenda::Config for Runtime {
     type Tracks = SubtensorTracks;
     type BlockNumberProvider = System;
     type PollHooks = SignedVoting;
+}
+
+impl pallet_governance_policy::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type TriumvirateTrack = GovernanceTriumvirateTrack;
+    type ReviewTrack = GovernanceReviewTrack;
+    /// Reuse the same delay as `Adjustable::initial_delay` on the Review
+    /// track — that is the window the collectives have to fast-track or
+    /// cancel between triumvirate approval and execution.
+    type InitialSchedulingDelay = GovernanceCollectiveInitialDelay;
+    type EconomicCollective = GovernanceEconomicCollective;
+    type BuildingCollective = GovernanceBuildingCollective;
+    type CollectiveSize = GovernanceRankedCollectiveSize;
+    type MinSubnetAge = GovernanceMinSubnetAge;
+}
+
+parameter_types! {
+    pub const GovernanceEconomicCollective: GovernanceCollectiveId =
+        GovernanceCollectiveId::Economic;
+    pub const GovernanceBuildingCollective: GovernanceCollectiveId =
+        GovernanceCollectiveId::Building;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1978,6 +2012,7 @@ construct_runtime!(
         MultiCollective: pallet_multi_collective = 31,
         SignedVoting: pallet_signed_voting = 32,
         Referenda: pallet_referenda = 33,
+        GovernancePolicy: pallet_governance_policy = 34,
     }
 );
 
