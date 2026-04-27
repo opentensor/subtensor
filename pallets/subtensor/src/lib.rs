@@ -359,13 +359,11 @@ pub mod pallet {
     )]
     pub enum DissolvedNetworksCleanupPhaseEnum {
         #[default]
-        /// Init phase
-        Init,
-        /// Phase 1: Remove all storage for the network.
+        /// Phase 1: Remove root dividend claimable entries for the subnet.
         CleanSubnetRootDividendsRootClaimable,
-        /// Phase 1: Remove all storage for the network.
+        /// Phase 2: Remove root dividend claimed entries for the subnet.
         CleanSubnetRootDividendsRootClaimed,
-        /// Phase 2: Clear protocol liquidity for the subnet on the swap layer.
+        /// Phase 7: Clear protocol liquidity for the subnet on the swap layer.
         ClearProtocolLiquidity,
         /// Phase 3: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakesSettleStakes,
@@ -375,27 +373,27 @@ pub mod pallet {
         DestroyAlphaInOutStakesClearHotkeyTotals,
         /// Phase 6: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakes,
-        /// Phase 3: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
+        /// Phase 8: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
         PurgeNetuid,
-        /// Phase 4: Scalar `Network*` removal (recovery / legacy); the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
+        /// Recovery / legacy: scalar `Network*` removal; the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
         RemoveNetworkParameters,
-        /// Phase 5: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
+        /// Phase 9: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
         RemoveNetworkMapParameters,
-        /// Phase 6: Clear root-network weight entries referencing this netuid.
+        /// Phase 10: Clear root-network weight entries referencing this netuid.
         RemoveNetworkWeights,
-        /// Phase 7: Remove childkey take entries for this netuid.
+        /// Phase 11: Remove childkey take entries for this netuid.
         RemoveNetworkChildkeyTake,
-        /// Phase 8: Remove child key bindings for this netuid.
+        /// Phase 12: Remove child key bindings for this netuid.
         RemoveNetworkChildkeys,
-        /// Phase 9: Remove parent key bindings for this netuid.
+        /// Phase 13: Remove parent key bindings for this netuid.
         RemoveNetworkParentkeys,
-        /// Phase 10: Remove last hotkey emission records for this netuid.
+        /// Phase 14: Remove last hotkey emission records for this netuid.
         RemoveNetworkLastHotkeyEmissionOnNetuid,
-        /// Phase 11: Remove total hotkey alpha last epoch entries for this netuid.
+        /// Phase 15: Remove total hotkey alpha last epoch entries for this netuid.
         RemoveNetworkTotalHotkeyAlphaLastEpoch,
-        /// Phase 12: Remove transaction key last-block rate limit entries for this netuid.
+        /// Phase 16: Remove transaction key last-block rate limit entries for this netuid.
         RemoveNetworkTransactionKeyLastBlock,
-        /// Phase 13: Remove staking operation rate limiter entries for this netuid.
+        /// Phase 17: Remove staking operation rate limiter entries for this netuid.
         RemoveNetworkStakingOperationRateLimiter,
     }
 

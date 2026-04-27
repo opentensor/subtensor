@@ -226,7 +226,10 @@ impl<T: Config> Pallet<T> {
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
 
-        DissolvedNetworksCleanupPhase::<T>::insert(netuid, DissolvedNetworksCleanupPhaseEnum::Init);
+        DissolvedNetworksCleanupPhase::<T>::insert(
+            netuid,
+            DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimable,
+        );
 
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
 
