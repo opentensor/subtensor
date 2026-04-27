@@ -112,7 +112,8 @@ pub fn migrate_rao<T: Config>() -> Weight {
         if let Ok(owner_coldkey) = SubnetOwner::<T>::try_get(netuid) {
             // Set Owner as the coldkey.
             SubnetOwnerHotkey::<T>::insert(netuid, owner_coldkey.clone());
-            // Associate the coldkey to coldkey.
+            // Associate the coldkey to coldkey. The function only fails if hotkey is a system 
+            // account, which is never the case in this migration. Hence, the result can be ignored.
             let _ = Pallet::<T>::create_account_if_non_existent(&owner_coldkey, &owner_coldkey);
 
             // Only register the owner coldkey if it's not already a hotkey on the subnet.

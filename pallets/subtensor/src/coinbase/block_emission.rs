@@ -1,7 +1,7 @@
 use super::*;
 // use frame_support::traits::{Currency as BalancesCurrency, Get, Imbalance};
 use crate::coinbase::tao::CreditOf;
-use frame_support::traits::Get;
+use frame_support::traits::{Get, Imbalance};
 use safe_math::*;
 use substrate_fixed::{transcendental::log2, types::I96F32};
 
@@ -21,10 +21,11 @@ impl<T: Config> Pallet<T> {
     pub fn get_block_emission() -> CreditOf<T> {
         let maybe_tao_to_mint = Self::calculate_block_emission();
         if let Ok(tao_to_mint) = maybe_tao_to_mint {
-            Self::mint_tao(tao_to_mint.into())
-        } else {
-            Self::mint_tao(0.into())
+            if !tao_to_mint.is_zero() {
+                return Self::mint_tao(tao_to_mint.into())
+            }
         }
+        CreditOf::<T>::zero()
     }
 
     /// Calculates the block emission based on the total issuance only, no minting happens.

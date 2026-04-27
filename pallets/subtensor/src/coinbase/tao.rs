@@ -50,15 +50,10 @@ impl<T: Config> Pallet<T> {
 
         ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);
 
-        // If remainder drops below ED, then account is killed, balance is lost, and we
-        // need to reduce total issuance
-        let remainder = max_transferrable.saturating_sub(amount);
-        if remainder < <T as Config>::Currency::minimum_balance() {
-            // Decrease subtensor pallet total issuance
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total.saturating_sub(remainder);
-            });
-        }
+        // If account balance remainder drops below ED, then account is killed, balance 
+        // is lost, and we need to reduce total issuance in subtensor pallet. Measure 
+        // balance TI before and after to detect the dust.
+        let balances_ti_before = <T as pallet::Config>::Currency::total_issuance();
 
         <T as pallet::Config>::Currency::transfer(
             origin_coldkey,
@@ -66,6 +61,15 @@ impl<T: Config> Pallet<T> {
             amount,
             Preservation::Expendable,
         )?;
+
+        let balances_ti_after = <T as pallet::Config>::Currency::total_issuance();
+        if balances_ti_after < balances_ti_before {
+            let burned = balances_ti_before.saturating_sub(balances_ti_after);
+            TotalIssuance::<T>::mutate(|total| {
+                *total = total.saturating_sub(burned);
+            });
+        }
+
         Ok(())
     }
 
