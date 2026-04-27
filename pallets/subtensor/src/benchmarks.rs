@@ -914,6 +914,61 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
+    fn remove_stake() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000_u64.into());
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+
+        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_000_u64);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
+
+        let wallet_bal = 1000000u32.into();
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let staked_amt = TaoBalance::from(100_000_000_000_u64);
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), staked_amt);
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            staked_amt
+        ));
+
+        let amount_unstaked = AlphaBalance::from(30_000_000_000_u64);
+
+        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey.clone(),
+            netuid,
+            amount_unstaked,
+        );
+    }
+
+    #[benchmark]
     fn remove_stake_limit() {
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
