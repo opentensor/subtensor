@@ -54,4 +54,5 @@ std = [
 	"sp-rpc",
 	"substrate-fixed/std",
 	"runtime-common/std",
+	"log/std"
 ]

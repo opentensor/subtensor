@@ -140,6 +140,7 @@ std = [
 	"serde_json/std",
 	"sha2/std",
 	"rand/std",
+	"sp-debug-derive/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
