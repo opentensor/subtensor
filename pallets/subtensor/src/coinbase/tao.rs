@@ -50,8 +50,8 @@ impl<T: Config> Pallet<T> {
 
         ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);
 
-        // If account balance remainder drops below ED, then account is killed, balance 
-        // is lost, and we need to reduce total issuance in subtensor pallet. Measure 
+        // If account balance remainder drops below ED, then account is killed, balance
+        // is lost, and we need to reduce total issuance in subtensor pallet. Measure
         // balance TI before and after to detect the dust.
         let balances_ti_before = <T as pallet::Config>::Currency::total_issuance();
 

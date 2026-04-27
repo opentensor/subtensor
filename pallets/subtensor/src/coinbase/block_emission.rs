@@ -20,10 +20,10 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_block_emission() -> CreditOf<T> {
         let maybe_tao_to_mint = Self::calculate_block_emission();
-        if let Ok(tao_to_mint) = maybe_tao_to_mint {
-            if !tao_to_mint.is_zero() {
-                return Self::mint_tao(tao_to_mint.into())
-            }
+        if let Ok(tao_to_mint) = maybe_tao_to_mint
+            && !tao_to_mint.is_zero()
+        {
+            return Self::mint_tao(tao_to_mint.into());
         }
         CreditOf::<T>::zero()
     }

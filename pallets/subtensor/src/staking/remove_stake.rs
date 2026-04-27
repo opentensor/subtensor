@@ -597,7 +597,7 @@ impl<T: Config> Pallet<T> {
         {
             // Transfer maximum transferrable up to refund to owner
             let transferrable = Self::get_coldkey_balance(&subnet_account);
-            // We do our best effort to refund owner to as full amount of refund as possible, but 
+            // We do our best effort to refund owner to as full amount of refund as possible, but
             // we cannot fail new subnet registration, so the result is ignored.
             let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund.min(transferrable));
         }
