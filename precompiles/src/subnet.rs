@@ -785,7 +785,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::arithmetic_side_effects)]
+    #![allow(
+        clippy::arithmetic_side_effects,
+        clippy::expect_used,
+        clippy::unwrap_used
+    )]
 
     use super::*;
     use crate::PrecompileExt;
@@ -797,6 +801,7 @@ mod tests {
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256, U256};
+    use subtensor_runtime_common::TaoBalance;
 
     const TEST_NETUID_U16: u16 = 1;
     const TEST_TEMPO: u16 = 100;
@@ -819,6 +824,11 @@ mod tests {
         netuid
     }
 
+    fn add_balance_to_coldkey_account(coldkey: &sp_core::crypto::AccountId32, tao: TaoBalance) {
+        let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(tao);
+        let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(coldkey, credit, tao).unwrap();
+    }
+
     #[test]
     fn subnet_precompile_registers_network_without_identity() {
         new_test_ext().execute_with(|| {
@@ -828,10 +838,7 @@ mod tests {
             let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
             let precompile_addr = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
 
-            pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
-                &caller_account,
-                1_000_000_000_000_u64.into(),
-            );
+            add_balance_to_coldkey_account(&caller_account, 1_000_000_000_000_u64.into());
 
             let total_before = pallet_subtensor::TotalNetworks::<Runtime>::get();
             let netuid = pallet_subtensor::Pallet::<Runtime>::get_next_netuid();
@@ -865,7 +872,7 @@ mod tests {
             let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
             let precompile_addr = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
 
-            pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &caller_account,
                 1_000_000_000_000_u64.into(),
             );
