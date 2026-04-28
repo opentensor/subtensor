@@ -20,6 +20,7 @@ scale-info = { workspace = true, features = ["derive"] }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 sp-runtime = { workspace = true }
+sp-io = { workspace = true }
 subtensor-macros.workspace = true
 subtensor-runtime-common = { workspace = true }
 log = { workspace = true }
