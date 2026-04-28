@@ -1746,9 +1746,6 @@ parameter_types! {
     pub const MultiCollectiveMaxMembers: u32 = 20;
     /// Maximum number of active referenda across all tracks.
     pub const ReferendaMaxQueued: u32 = 20;
-    /// Matches `ReferendaMaxQueued` — signed-voting tracks every ongoing poll
-    /// it sees, so the bound must cover all active referenda.
-    pub const SignedVotingMaxActivePolls: u32 = 20;
     pub const GovernanceSignedScheme: GovernanceVotingScheme = GovernanceVotingScheme::Signed;
     /// 60 days mainnet / 100 blocks fast-runtime.
     pub const GovernanceCollectiveTermDuration: BlockNumber = prod_or_fast!(432_000, 100);
@@ -1921,7 +1918,6 @@ impl pallet_multi_collective::Config for Runtime {
 impl pallet_signed_voting::Config for Runtime {
     type Scheme = GovernanceSignedScheme;
     type Polls = Referenda;
-    type MaxActivePolls = SignedVotingMaxActivePolls;
 }
 
 impl pallet_referenda::Config for Runtime {

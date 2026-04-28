@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::{
     pallet_prelude::*,
     sp_runtime::{Perbill, Saturating},
@@ -61,9 +62,6 @@ pub mod pallet {
         type Scheme: Get<VotingSchemeOf<Self>>;
 
         type Polls: Polls<Self::AccountId>;
-
-        /// Maximum number of active polls this pallet can track simultaneously.
-        type MaxActivePolls: Get<u32>;
     }
 
     #[pallet::storage]
@@ -77,13 +75,16 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// Per-poll tally. Doubles as the index of *active* polls — every
+    /// poll has an entry between `on_poll_created` and `on_poll_completed`,
+    /// and nowhere else. `remove_votes_for` iterates `TallyOf::iter_keys()`
+    /// to find the polls a member voted on, so we don't need a parallel
+    /// `ActivePolls` list. The cap on simultaneously-live polls comes from
+    /// the `Polls` provider — `pallet-referenda::MaxQueued` in the runtime —
+    /// which is the only producer of `on_poll_created` events.
     #[pallet::storage]
     pub type TallyOf<T: Config> =
         StorageMap<_, Twox64Concat, PollIndexOf<T>, SignedVoteTally, OptionQuery>;
-
-    #[pallet::storage]
-    pub type ActivePolls<T: Config> =
-        StorageValue<_, BoundedVec<PollIndexOf<T>, T::MaxActivePolls>, ValueQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -149,7 +150,7 @@ pub mod pallet {
 
             ensure!(T::Polls::is_ongoing(poll_index), Error::<T>::PollNotOngoing);
             Self::ensure_valid_voting_scheme(poll_index)?;
-            // TODO: blocks self-removal post-rotation
+
             Self::ensure_part_of_voter_set(poll_index, &who)?;
 
             let tally = Self::try_remove_vote(poll_index, &who)?;
@@ -255,7 +256,15 @@ impl<T: Config> Pallet<T> {
     /// poll is therefore a known operational limitation — leaves `total`
     /// stale (denominator too high, conservative for thresholds).
     pub fn remove_votes_for(who: &T::AccountId) {
-        for poll_index in ActivePolls::<T>::get().iter() {
+        // Snapshot keys first: `T::Polls::on_tally_updated` could in
+        // principle reach back into us via `on_poll_completed` (e.g. if
+        // a vote-driven hook concluded the poll), and modifying a
+        // storage map during iteration is unsafe. Today removal can
+        // only *decrease* approval / rejection so no threshold gets
+        // crossed downward, but we don't want correctness to depend on
+        // that invariant holding through future hook changes.
+        let polls: Vec<PollIndexOf<T>> = TallyOf::<T>::iter_keys().collect();
+        for poll_index in polls {
             if let Some(approve) = VotingFor::<T>::take(poll_index, who)
                 && let Some(mut tally) = TallyOf::<T>::get(poll_index)
             {
@@ -265,11 +274,11 @@ impl<T: Config> Pallet<T> {
                     tally.nays.saturating_dec();
                 }
                 TallyOf::<T>::insert(poll_index, tally.clone());
-                T::Polls::on_tally_updated(*poll_index, &tally.clone().into());
+                T::Polls::on_tally_updated(poll_index, &tally.clone().into());
 
                 Self::deposit_event(Event::<T>::VoteInvalidated {
                     who: who.clone(),
-                    poll_index: *poll_index,
+                    poll_index,
                     tally,
                 });
             }
@@ -291,11 +300,6 @@ impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
                 total,
             },
         );
-
-        // TODO: silent error
-        ActivePolls::<T>::mutate(|polls| {
-            let _ = polls.try_push(poll_index);
-        });
     }
 
     fn on_poll_completed(poll_index: PollIndexOf<T>) {
@@ -303,9 +307,5 @@ impl<T: Config> PollHooks<PollIndexOf<T>> for Pallet<T> {
         // are bounded by the voter-set size, so one call clears everything.
         let _ = VotingFor::<T>::clear_prefix(poll_index, u32::MAX, None);
         TallyOf::<T>::remove(poll_index);
-
-        ActivePolls::<T>::mutate(|polls| {
-            polls.retain(|idx| *idx != poll_index);
-        });
     }
 }

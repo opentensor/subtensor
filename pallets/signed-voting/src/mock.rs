@@ -176,14 +176,11 @@ impl frame_system::Config for Test {
 
 parameter_types! {
     pub const TestScheme: VotingScheme = VotingScheme::Signed;
-    /// Intentionally small so Section 5/7 tests can exercise overflow.
-    pub const MaxActivePolls: u32 = 3;
 }
 
 impl pallet_signed_voting::Config for Test {
     type Scheme = TestScheme;
     type Polls = MockPolls;
-    type MaxActivePolls = MaxActivePolls;
 }
 
 // --- Test externality builder ---

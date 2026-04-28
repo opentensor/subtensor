@@ -6,8 +6,8 @@ use sp_runtime::DispatchError;
 use subtensor_runtime_common::VoteTally;
 
 use crate::{
-    ActivePolls, Error, Event as SignedVotingEvent, Pallet as SignedVotingPallet, SignedVoteTally,
-    TallyOf, VotingFor, mock::*,
+    Error, Event as SignedVotingEvent, Pallet as SignedVotingPallet, SignedVoteTally, TallyOf,
+    VotingFor, mock::*,
 };
 
 // -------- Section 1: Environment --------
@@ -24,9 +24,6 @@ fn environment_works() {
         assert_eq!(tally.ayes, 0);
         assert_eq!(tally.nays, 0);
         assert_eq!(tally.total, 3);
-
-        // ActivePolls contains the new poll.
-        assert_eq!(ActivePolls::<Test>::get().to_vec(), vec![0u32]);
 
         // No votes, no events, no tally updates yet.
         assert!(signed_voting_events().is_empty());
@@ -443,43 +440,26 @@ fn on_poll_created_initializes_tally_with_voter_set_size() {
     });
 }
 
+/// Active-poll tracking is implicit: every started poll has a `TallyOf`
+/// entry until `on_poll_completed` removes it. There is no separate
+/// `ActivePolls` cap to mismatch against the producer's queue limit.
 #[test]
-fn on_poll_created_tracks_in_active_polls() {
+fn on_poll_created_tracks_polls_in_tally() {
     TestState::build_and_execute(|| {
         start_poll(0, VotingScheme::Signed, vec![U256::from(1)]);
         start_poll(1, VotingScheme::Signed, vec![U256::from(2)]);
         start_poll(2, VotingScheme::Signed, vec![U256::from(3)]);
 
-        assert_eq!(ActivePolls::<Test>::get().to_vec(), vec![0u32, 1, 2]);
-    });
-}
-
-/// Documents bug D3 (start side): when `ActivePolls` is at `MaxActivePolls`,
-/// `on_poll_created` silently drops new polls from the tracking list via
-/// `let _ = polls.try_push(poll_index);`. The poll's TallyOf is still
-/// inserted and voting works — but the poll is invisible to
-/// `remove_votes_for`. An ideal fix would either refuse to start the poll
-/// or unbound the tracking.
-#[test]
-#[ignore = "D3 start-side bug: 4th poll silently dropped from ActivePolls (MaxActivePolls=3)"]
-fn on_poll_created_tracks_poll_beyond_max_active_polls() {
-    TestState::build_and_execute(|| {
-        start_poll(0, VotingScheme::Signed, vec![U256::from(1)]);
-        start_poll(1, VotingScheme::Signed, vec![U256::from(2)]);
-        start_poll(2, VotingScheme::Signed, vec![U256::from(3)]);
-        // MaxActivePolls = 3; 4th exceeds.
-        start_poll(3, VotingScheme::Signed, vec![U256::from(4)]);
-
-        // IDEAL: all four are tracked.
-        // ACTUAL: ActivePolls contains [0, 1, 2]; poll 3 is absent.
-        assert_eq!(ActivePolls::<Test>::get().to_vec(), vec![0u32, 1, 2, 3]);
+        let mut keys: Vec<u32> = TallyOf::<Test>::iter_keys().collect();
+        keys.sort();
+        assert_eq!(keys, vec![0u32, 1, 2]);
     });
 }
 
 // -------- Section 6: PollHooks::on_poll_completed --------
 
 #[test]
-fn on_poll_completed_clears_votes_tally_and_active_polls() {
+fn on_poll_completed_clears_votes_and_tally() {
     TestState::build_and_execute(|| {
         let alice = U256::from(1);
         let bob = U256::from(2);
@@ -503,7 +483,9 @@ fn on_poll_completed_clears_votes_tally_and_active_polls() {
         assert!(TallyOf::<Test>::get(0u32).is_none());
         assert_eq!(VotingFor::<Test>::get(0u32, alice), None);
         assert_eq!(VotingFor::<Test>::get(0u32, bob), None);
-        assert!(ActivePolls::<Test>::get().is_empty());
+        // No active polls left — `TallyOf` is the implicit index and
+        // `on_poll_completed` removes the entry.
+        assert_eq!(TallyOf::<Test>::iter_keys().count(), 0);
     });
 }
 
@@ -686,16 +668,15 @@ fn remove_votes_for_preserves_total() {
     });
 }
 
-/// Documents bug D3 (cleanup side): `remove_votes_for` iterates `ActivePolls`,
-/// so polls dropped on `on_poll_created` (when the bound was full) are
-/// invisible to the cleanup and their stale votes remain.
+/// `remove_votes_for` walks `TallyOf` directly, so it scales with the
+/// number of *actually live* polls — there's no separate cap that could
+/// silently drop entries from the cleanup set.
 #[test]
-#[ignore = "D3 cleanup-side bug: polls beyond MaxActivePolls bypass remove_votes_for cleanup"]
-fn remove_votes_for_skips_polls_beyond_active_polls_bound() {
+fn remove_votes_for_clears_all_live_polls_regardless_of_count() {
     TestState::build_and_execute(|| {
         let alice = U256::from(1);
-        // Fill ActivePolls (MaxActivePolls=3) and then add one more.
-        for idx in 0u32..4 {
+        // Far more polls than the old `MaxActivePolls = 3` cap allowed.
+        for idx in 0u32..6 {
             start_poll(
                 idx,
                 VotingScheme::Signed,
@@ -703,7 +684,7 @@ fn remove_votes_for_skips_polls_beyond_active_polls_bound() {
             );
         }
 
-        for idx in 0u32..4 {
+        for idx in 0u32..6 {
             assert_ok!(SignedVotingPallet::<Test>::vote(
                 RuntimeOrigin::signed(alice),
                 idx,
@@ -713,10 +694,7 @@ fn remove_votes_for_skips_polls_beyond_active_polls_bound() {
 
         SignedVotingPallet::<Test>::remove_votes_for(&alice);
 
-        // IDEAL: all four polls see alice's vote cleared.
-        // ACTUAL: polls 0–2 are cleared; poll 3 (dropped from ActivePolls)
-        //         still has alice's stale vote.
-        for idx in 0u32..4 {
+        for idx in 0u32..6 {
             assert_eq!(VotingFor::<Test>::get(idx, alice), None);
         }
     });

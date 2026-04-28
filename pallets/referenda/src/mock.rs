@@ -311,13 +311,11 @@ impl pallet_multi_collective::Config for Test {
 
 parameter_types! {
     pub const SignedScheme: VotingScheme = VotingScheme::Signed;
-    pub const MaxActivePolls: u32 = 10;
 }
 
 impl pallet_signed_voting::Config for Test {
     type Scheme = SignedScheme;
     type Polls = Referenda;
-    type MaxActivePolls = MaxActivePolls;
 }
 
 // --- pallet_referenda config ---
