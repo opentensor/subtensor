@@ -12,7 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
-pub mod collective_management;
+pub mod governance;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
@@ -1649,11 +1649,6 @@ use pallet_multi_collective::{
     CollectiveInspect as McCollectiveInspect, CollectivesInfo as McCollectivesInfo,
     OnMembersChanged as McOnMembersChanged,
 };
-use pallet_referenda::{
-    DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack, TrackInfo as RefTrackInfo,
-    TracksInfo as RefTracksInfo,
-};
-
 /// Identifier of a collective managed by `pallet-multi-collective`.
 #[derive(
     Copy,
@@ -1684,7 +1679,7 @@ impl pallet_multi_collective::CanRotate for GovernanceCollectiveId {
     fn can_rotate(&self) -> bool {
         match self {
             // Ranked by on-chain stake / subnet data — rotated by
-            // `collective_management::CollectiveManagement::on_new_term`.
+            // `governance::collective_management::CollectiveManagement::on_new_term`.
             Self::Economic | Self::Building => true,
             // Curated by Root via the membership extrinsics; no ranking
             // source, so `force_rotate` would be a no-op.
@@ -1836,79 +1831,6 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
     }
 }
 
-/// Static list of referenda tracks. Track 0 is the triumvirate approval track;
-/// track 1 is the collective oversight (Review) track.
-pub struct SubtensorTracks;
-
-impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber>
-    for SubtensorTracks
-{
-    type Id = u8;
-    type ProposerSet = GovernanceMemberSet;
-    type VotingScheme = GovernanceVotingScheme;
-    type VoterSet = GovernanceMemberSet;
-
-    fn tracks() -> impl Iterator<
-        Item = RefTrack<
-            Self::Id,
-            [u8; MAX_TRACK_NAME_LEN],
-            BlockNumber,
-            Self::ProposerSet,
-            Self::VoterSet,
-            Self::VotingScheme,
-        >,
-    > {
-        fn name(s: &[u8]) -> [u8; MAX_TRACK_NAME_LEN] {
-            let mut out = [0u8; MAX_TRACK_NAME_LEN];
-            out.iter_mut()
-                .zip(s.iter())
-                .for_each(|(dst, src)| *dst = *src);
-            out
-        }
-
-        [
-            RefTrack {
-                id: 0u8,
-                info: RefTrackInfo {
-                    name: name(b"triumvirate"),
-                    proposer_set: GovernanceMemberSet::Single(GovernanceCollectiveId::Proposers),
-                    voter_set: GovernanceMemberSet::Single(GovernanceCollectiveId::Triumvirate),
-                    voting_scheme: GovernanceVotingScheme::Signed,
-                    decision_strategy: DecisionStrategy::PassOrFail {
-                        decision_period: GovernanceTriumvirateDecisionPeriod::get(),
-                        // 2/3 approval / rejection matches V1 triumvirate semantics.
-                        approve_threshold: Perbill::from_rational(2u32, 3u32),
-                        reject_threshold: Perbill::from_rational(2u32, 3u32),
-                    },
-                },
-            },
-            RefTrack {
-                id: 1u8,
-                info: RefTrackInfo {
-                    name: name(b"review"),
-                    proposer_set: GovernanceMemberSet::Single(GovernanceCollectiveId::Proposers),
-                    voter_set: GovernanceMemberSet::Union(alloc::vec![
-                        GovernanceCollectiveId::Economic,
-                        GovernanceCollectiveId::Building,
-                    ]),
-                    voting_scheme: GovernanceVotingScheme::Signed,
-                    decision_strategy: DecisionStrategy::Adjustable {
-                        initial_delay: GovernanceCollectiveInitialDelay::get(),
-                        fast_track_threshold: Perbill::from_percent(67),
-                        reject_threshold: Perbill::from_percent(51),
-                    },
-                },
-            },
-        ]
-        .into_iter()
-    }
-
-    // Default `authorize_proposal` (returns true) is sufficient — V1 did not
-    // authorize per-track beyond the MaxProposalWeight bound, which the
-    // scheduler's weight limits already enforce. Override here when a
-    // per-track policy is defined.
-}
-
 /// Routes membership removals from `pallet-multi-collective` into
 /// `pallet-signed-voting` so a member leaving a collective mid-referendum
 /// has their vote reverted.
@@ -1934,7 +1856,7 @@ impl pallet_multi_collective::Config for Runtime {
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type ResetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type OnMembersChanged = GovernanceVoteCleanup;
-    type OnNewTerm = collective_management::CollectiveManagement;
+    type OnNewTerm = governance::collective_management::CollectiveManagement;
     type MaxMembers = MultiCollectiveMaxMembers;
 }
 
@@ -1949,7 +1871,7 @@ impl pallet_referenda::Config for Runtime {
     type Preimages = Preimage;
     type MaxQueued = ReferendaMaxQueued;
     type CancelOrigin = EnsureRoot<AccountId>;
-    type Tracks = SubtensorTracks;
+    type Tracks = governance::tracks::SubtensorTracks;
     type BlockNumberProvider = System;
     type PollHooks = SignedVoting;
 }
