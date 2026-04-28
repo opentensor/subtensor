@@ -45,6 +45,8 @@ frame_support::construct_runtime!(
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 10,
         Proxy: pallet_subtensor_proxy = 11,
         Evm: pallet_evm = 12,
+        AdminUtils: pallet_admin_utils = 13,
+        EVMChainId: pallet_evm_chain_id = 14,
     }
 );
 
@@ -338,6 +340,17 @@ mod test_crypto {
             AccountId::new(bytes)
         }
     }
+}
+
+impl pallet_evm_chain_id::Config for Runtime {}
+
+impl pallet_admin_utils::Config for Runtime {
+    type Aura = ();
+    type Grandpa = ();
+    type AuthorityId = test_crypto::Public;
+    type MaxAuthorities = MaxAuthorities;
+    type Balance = TaoBalance;
+    type WeightInfo = ();
 }
 
 impl pallet_drand::Config for Runtime {
