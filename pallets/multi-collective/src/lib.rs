@@ -26,7 +26,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type CollectiveId: Parameter + MaxEncodedLen + Copy;
+        type CollectiveId: Parameter + MaxEncodedLen + Copy + CanRotate;
 
         /// Provides per-collective information.
         type Collectives: CollectivesInfo<BlockNumberFor<Self>, CollectiveName, Id = Self::CollectiveId>;
@@ -103,6 +103,11 @@ pub mod pallet {
         CollectiveNotFound,
         /// Duplicate accounts in member list.
         DuplicateAccounts,
+        /// `force_rotate` was called for a collective whose
+        /// `CollectiveId::can_rotate()` is false. Such collectives are
+        /// managed by Root directly via the membership extrinsics and
+        /// have no rotation hook to trigger.
+        CollectiveDoesNotRotate,
     }
 
     #[pallet::hooks]
@@ -325,12 +330,34 @@ pub mod pallet {
         }
 
         /// Manually trigger the `OnNewTerm` hook for `collective_id`,
+        /// outside of the natural `n % term_duration == 0` schedule in
+        /// `on_initialize`. Used for the very first population (the
+        /// natural rotation only fires after the first term boundary,
+        /// which can be days or months in) and as a Root override
+        /// during incidents.
+        ///
+        /// Restricted to collectives whose `CollectiveId::can_rotate()`
+        /// is true. Curated collectives (Triumvirate, Proposers) are
+        /// managed directly via `add_member` / `remove_member` /
+        /// `swap_member` / `reset_members` and have no rotation hook
+        /// — refusing the call here surfaces a misconfigured Root
+        /// extrinsic as `CollectiveDoesNotRotate` instead of silently
+        /// consuming weight.
+        ///
+        /// Origin: Root.
         #[pallet::call_index(4)]
         pub fn force_rotate(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
+            ensure!(
+                collective_id.can_rotate(),
+                Error::<T>::CollectiveDoesNotRotate
+            );
+            // Existence check after the rotatability gate, so a typo'd
+            // id still surfaces `CollectiveNotFound` if it was meant to
+            // be rotatable.
             T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
             let weight = T::OnNewTerm::on_new_term(collective_id);
             Ok(Some(weight).into())
@@ -347,6 +374,18 @@ pub struct CollectiveInfo<Moment, Name> {
     pub max_members: Option<u32>,
     /// The duration of the term for a collective.
     pub term_duration: Option<Moment>,
+}
+
+/// Whether a `CollectiveId` represents a rotatable collective. Implemented
+/// by the runtime on its concrete `CollectiveId` enum and consumed by
+/// `force_rotate` to refuse calls for collectives that have no rotation
+/// source (e.g. Triumvirate / Proposers — managed by Root directly).
+///
+/// Kept as a property of the *id* rather than `CollectiveInfo` so the
+/// rotatability of each collective is documented at the variant
+/// definition site, not in a separate config table.
+pub trait CanRotate {
+    fn can_rotate(&self) -> bool;
 }
 
 /// Collective groups the information of a collective with its corresponding identifier.

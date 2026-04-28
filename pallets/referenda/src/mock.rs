@@ -53,6 +53,12 @@ pub enum CollectiveId {
     Building,
 }
 
+impl pallet_multi_collective::CanRotate for CollectiveId {
+    fn can_rotate(&self) -> bool {
+        matches!(self, Self::Economic | Self::Building)
+    }
+}
+
 // --- VotingScheme enum ---
 
 #[derive(

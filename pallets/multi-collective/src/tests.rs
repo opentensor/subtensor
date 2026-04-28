@@ -1016,16 +1016,14 @@ fn force_rotate_requires_root() {
 }
 
 #[test]
-fn force_rotate_works_for_collective_without_term_duration() {
+fn force_rotate_rejects_non_rotating_collective() {
     TestState::build_and_execute(|| {
-        // Alpha has term_duration = None — `force_rotate` still routes
-        // through `OnNewTerm`, leaving the runtime impl to decide
-        // whether it's a no-op for this kind of collective.
-        assert_ok!(MultiCollective::<Test>::force_rotate(
-            RuntimeOrigin::root(),
-            CollectiveId::Alpha,
-        ));
-        assert_eq!(take_new_term_log(), vec![CollectiveId::Alpha]);
+        // Alpha's `CanRotate` impl returns false.
+        assert_noop!(
+            MultiCollective::<Test>::force_rotate(RuntimeOrigin::root(), CollectiveId::Alpha,),
+            Error::<Test>::CollectiveDoesNotRotate,
+        );
+        assert!(take_new_term_log().is_empty());
     });
 }
 
@@ -1033,10 +1031,7 @@ fn force_rotate_works_for_collective_without_term_duration() {
 fn force_rotate_rejects_unknown_collective() {
     TestState::build_and_execute(|| {
         assert_noop!(
-            MultiCollective::<Test>::force_rotate(
-                RuntimeOrigin::root(),
-                CollectiveId::Unknown,
-            ),
+            MultiCollective::<Test>::force_rotate(RuntimeOrigin::root(), CollectiveId::Unknown,),
             Error::<Test>::CollectiveNotFound,
         );
         assert!(take_new_term_log().is_empty());

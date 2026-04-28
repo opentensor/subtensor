@@ -18,7 +18,8 @@ use frame_system::EnsureRoot;
 use sp_core::U256;
 
 use crate::{
-    self as pallet_multi_collective, Collective, CollectiveInfo, CollectivesInfo, OnNewTerm,
+    self as pallet_multi_collective, CanRotate, Collective, CollectiveInfo, CollectivesInfo,
+    OnNewTerm,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -54,6 +55,21 @@ pub enum CollectiveId {
     /// Intentionally NOT returned by `TestCollectives::collectives()` — used to
     /// exercise the `CollectiveNotFound` error path in extrinsics.
     Unknown,
+}
+
+/// Beta and Delta have `term_duration: Some(_)` and are the rotating
+/// pair the rotation tests exercise. Alpha / Gamma have `None`. `Unknown`
+/// is reported as rotatable so a `force_rotate` call against it hits the
+/// `CollectiveNotFound` path rather than short-circuiting on
+/// `CollectiveDoesNotRotate` — keeps the two error cases independently
+/// testable.
+impl CanRotate for CollectiveId {
+    fn can_rotate(&self) -> bool {
+        match self {
+            Self::Beta | Self::Delta | Self::Unknown => true,
+            Self::Alpha | Self::Gamma => false,
+        }
+    }
 }
 
 // --- CollectivesInfo impl ---

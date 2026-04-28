@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
+pub mod collective_management;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
@@ -1679,6 +1680,19 @@ pub enum GovernanceCollectiveId {
     Building,
 }
 
+impl pallet_multi_collective::CanRotate for GovernanceCollectiveId {
+    fn can_rotate(&self) -> bool {
+        match self {
+            // Ranked by on-chain stake / subnet data — rotated by
+            // `collective_management::CollectiveManagement::on_new_term`.
+            Self::Economic | Self::Building => true,
+            // Curated by Root via the membership extrinsics; no ranking
+            // source, so `force_rotate` would be a no-op.
+            Self::Proposers | Self::Triumvirate => false,
+        }
+    }
+}
+
 /// Voting scheme for each referenda track. Only `Signed` is supported; the
 /// V1 "anonymous" scheme is replaced with signed voting in V2 per design.
 #[derive(
@@ -1753,6 +1767,15 @@ parameter_types! {
     pub const GovernanceTriumvirateDecisionPeriod: BlockNumber = prod_or_fast!(50_400, 50);
     /// 1 hour mainnet / 30 blocks fast-runtime — collective Review delay.
     pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(300, 30);
+    /// Target size of each ranked collective (Economic + Building).
+    /// Matches the `max_members` declared in `SubtensorCollectives`.
+    pub const GovernanceRankedCollectiveSize: u32 = 16;
+    /// Minimum subnet age for its owner to be eligible for the Building
+    /// collective: 180 days mainnet / 100 blocks fast-runtime.
+    pub const GovernanceMinSubnetAge: BlockNumber = prod_or_fast!(180 * DAYS, 100);
+    /// Track ids — must match the indices declared in `SubtensorTracks`.
+    pub const GovernanceTriumvirateTrack: u8 = 0;
+    pub const GovernanceReviewTrack: u8 = 1;
 }
 
 /// Static list of collectives. Adding a variant to `GovernanceCollectiveId`
@@ -1911,7 +1934,7 @@ impl pallet_multi_collective::Config for Runtime {
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type ResetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type OnMembersChanged = GovernanceVoteCleanup;
-    type OnNewTerm = ();
+    type OnNewTerm = collective_management::CollectiveManagement;
     type MaxMembers = MultiCollectiveMaxMembers;
 }
 
