@@ -33,23 +33,13 @@ impl<T: Config> Pallet<T> {
         SubnetTAO::<T>::get(netuid)
     }
 
-    /// Transfer TAO from one coldkey account to another.
-    ///
-    /// This is a plain transfer and may reap the origin account if `amount` reduces
-    /// its balance below the existential deposit (ED).    
-    pub fn transfer_tao(
+    /// Internal function that transfers and updates subtensor pallet total issuance
+    /// in case of dust collection.
+    fn transfer_allow_death_update_ti(
         origin_coldkey: &T::AccountId,
         destination_coldkey: &T::AccountId,
         amount: BalanceOf<T>,
     ) -> DispatchResult {
-        let max_transferrable = <T as pallet::Config>::Currency::reducible_balance(
-            origin_coldkey,
-            Preservation::Expendable,
-            Fortitude::Polite,
-        );
-
-        ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);
-
         // If account balance remainder drops below ED, then account is killed, balance
         // is lost, and we need to reduce total issuance in subtensor pallet. Measure
         // balance TI before and after to detect the dust.
@@ -71,6 +61,22 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    /// Transfer TAO from one coldkey account to another.
+    ///
+    /// This is a plain transfer and may reap the origin account if `amount` reduces
+    /// its balance below the existential deposit (ED).    
+    pub fn transfer_tao(
+        origin_coldkey: &T::AccountId,
+        destination_coldkey: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        // Get full balance including ED
+        let max_transferrable = Self::get_coldkey_balance(origin_coldkey);
+        ensure!(amount <= max_transferrable, Error::<T>::InsufficientBalance);
+
+        Self::transfer_allow_death_update_ti(origin_coldkey, destination_coldkey, amount)
     }
 
     /// Transfer all transferable TAO from `origin_coldkey` to `destination_coldkey`,
@@ -96,11 +102,10 @@ impl<T: Config> Pallet<T> {
         );
 
         if !amount_to_transfer.is_zero() {
-            <T as pallet::Config>::Currency::transfer(
+            Self::transfer_allow_death_update_ti(
                 origin_coldkey,
                 destination_coldkey,
                 amount_to_transfer,
-                Preservation::Expendable,
             )?;
         }
 
