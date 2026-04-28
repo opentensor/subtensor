@@ -1,5 +1,4 @@
 #![allow(
-    dead_code,
     clippy::arithmetic_side_effects,
     clippy::expect_used,
     clippy::unwrap_used
@@ -7,25 +6,24 @@
 
 use core::num::NonZeroU64;
 
-use frame_support::dispatch::DispatchResult;
-use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth, InstanceFilter};
+use crate::*;
+use frame_support::traits::{Everything, InherentBuilder, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
 use frame_support::{parameter_types, traits::PrivilegeCmp};
 use frame_system as system;
 use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
-use pallet_subtensor::*;
 use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
-    Percent,
+    BuildStorage, Percent,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
+use sp_std::{cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -37,36 +35,34 @@ frame_support::construct_runtime!(
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         Shield: pallet_shield = 3,
-        SubtensorModule: pallet_subtensor::pallet = 4,
-        Utility: pallet_utility = 5,
-        Scheduler: pallet_scheduler = 6,
-        Preimage: pallet_preimage = 7,
-        Drand: pallet_drand = 8,
-        Swap: pallet_subtensor_swap = 9,
-        Crowdloan: pallet_crowdloan = 10,
-        Proxy: pallet_subtensor_proxy = 11,
+        SubtensorModule: crate = 4,
+        Scheduler: pallet_scheduler = 5,
+        Preimage: pallet_preimage = 6,
+        Drand: pallet_drand = 7,
+        Swap: pallet_subtensor_swap = 8,
+        Crowdloan: pallet_crowdloan = 9,
+        Proxy: pallet_subtensor_proxy = 10,
     }
 );
 
-pub type SubtensorCall = pallet_subtensor::Call<Test>;
-
-pub type SubtensorEvent = pallet_subtensor::Event<Test>;
-
-pub type BalanceCall = pallet_balances::Call<Test>;
-
+#[allow(dead_code)]
 pub type TestRuntimeCall = frame_system::Call<Test>;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
+#[allow(dead_code)]
 pub type AccountId = U256;
 
 // The address format for describing accounts.
+#[allow(dead_code)]
 pub type Address = AccountId;
 
 // Balance of an account.
+#[allow(dead_code)]
 pub type Balance = TaoBalance;
 
 // An index to a block.
+#[allow(dead_code)]
 pub type BlockNumber = u64;
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -93,31 +89,9 @@ impl pallet_shield::Config for Test {
     type WeightInfo = ();
 }
 
-pub struct NoNestingCallFilter;
-
-impl Contains<RuntimeCall> for NoNestingCallFilter {
-    fn contains(call: &RuntimeCall) -> bool {
-        match call {
-            RuntimeCall::Utility(inner) => {
-                let calls = match inner {
-                    pallet_utility::Call::force_batch { calls } => calls,
-                    pallet_utility::Call::batch { calls } => calls,
-                    pallet_utility::Call::batch_all { calls } => calls,
-                    _ => &Vec::new(),
-                };
-
-                !calls.iter().any(|call| {
-                    matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
-                })
-            }
-            _ => true,
-        }
-    }
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
-    type BaseCallFilter = InsideBoth<Everything, NoNestingCallFilter>;
+    type BaseCallFilter = Everything;
     type BlockWeights = BlockWeights;
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
@@ -140,7 +114,7 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
-    type DispatchExtension = pallet_subtensor::CheckColdkeySwap<Test>;
+    type DispatchExtension = crate::CheckColdkeySwap<Test>;
 }
 
 parameter_types! {
@@ -165,7 +139,7 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = TaoBalance::new(1);
+    pub const ExistentialDeposit: Balance = TaoBalance::new(100);
     pub const TransactionByteFee: Balance = TaoBalance::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
@@ -237,7 +211,7 @@ parameter_types! {
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
-impl pallet_subtensor::Config for Test {
+impl crate::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
@@ -303,7 +277,7 @@ impl pallet_subtensor::Config for Test {
     type SwapInterface = pallet_subtensor_swap::Pallet<Self>;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-    type ProxyInterface = FakeProxier;
+    type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
@@ -335,6 +309,8 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -371,12 +347,6 @@ impl pallet_scheduler::Config for Test {
     type BlockNumberProvider = System;
 }
 
-impl pallet_utility::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type PalletsOrigin = OriginCaller;
-    type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
-}
-
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
     pub const PreimageBaseDeposit: Balance = TaoBalance::new(1);
@@ -389,31 +359,6 @@ impl pallet_preimage::Config for Test {
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
     type Consideration = ();
-}
-
-thread_local! {
-    pub static PROXIES: RefCell<FakeProxier> = const { RefCell::new(FakeProxier(vec![])) };
-}
-
-pub struct FakeProxier(pub Vec<(U256, U256)>);
-
-impl ProxyInterface<U256> for FakeProxier {
-    fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult {
-        PROXIES.with_borrow_mut(|proxies| {
-            proxies.0.push((*beneficiary, *lease));
-        });
-        Ok(())
-    }
-
-    fn remove_lease_beneficiary_proxy(
-        beneficiary: &AccountId,
-        lease: &AccountId,
-    ) -> DispatchResult {
-        PROXIES.with_borrow_mut(|proxies| {
-            proxies.0.retain(|(b, l)| b != beneficiary && l != lease);
-        });
-        Ok(())
-    }
 }
 
 parameter_types! {
@@ -596,7 +541,34 @@ pub fn init_logs_for_tests() {
 }
 
 #[allow(dead_code)]
+// Build genesis storage according to the mock runtime.
+pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
+    init_logs_for_tests();
+    let t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(block_number));
+    ext
+}
+
+#[allow(dead_code)]
+pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+    SubtokenEnabled::<Test>::insert(netuid, true);
+
+    // make interval 1 block so tests can register by stepping 1 block.
+    BurnHalfLife::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
+}
+
+#[allow(dead_code)]
 pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
-    let credit = SubtensorModule::mint_tao(tao);
-    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+    let ed = ExistentialDeposit::get();
+    if tao >= ed {
+        let credit = SubtensorModule::mint_tao(tao);
+        let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+    }
 }

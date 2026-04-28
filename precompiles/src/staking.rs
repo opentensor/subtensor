@@ -923,6 +923,7 @@ mod tests {
     #![allow(
         clippy::arithmetic_side_effects,
         clippy::expect_used,
+        clippy::unwrap_used,
         clippy::indexing_slicing
     )]
 
@@ -1948,6 +1949,7 @@ mod tests {
         });
     }
 
+    // cargo test --package subtensor-precompiles --lib -- staking::tests::staking_precompile_v2_burn_alpha_caps_to_available_stake --exact --nocapture
     #[test]
     fn staking_precompile_v2_burn_alpha_caps_to_available_stake() {
         new_test_ext().execute_with(|| {

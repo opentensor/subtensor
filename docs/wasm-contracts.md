@@ -85,6 +85,7 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 17 | `ProxyDuplicate` | Proxy already exists |
 | 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
 | 19 | `ProxyNotFound` | Proxy relationship not found |
+| 20 | `CannotUseSystemAccount` | A system account cannot be used in this operation |
 
 ### Call Filter
 

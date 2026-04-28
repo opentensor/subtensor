@@ -150,6 +150,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -482,6 +484,8 @@ impl pallet_subtensor::Config for Runtime {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 
@@ -582,7 +586,10 @@ pub(crate) fn mapped_account(address: H160) -> AccountId {
 }
 
 pub(crate) fn fund_account(account: &AccountId, amount: u64) {
-    pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(account, amount.into());
+    let amount = TaoBalance::from(amount);
+    let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(amount);
+    let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(account, credit, amount)
+        .expect("test account funding should work");
 }
 
 pub(crate) fn abi_word(value: U256) -> Vec<u8> {

@@ -255,7 +255,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
     use super::*;
     use crate::PrecompileExt;
@@ -288,6 +288,11 @@ mod tests {
     const SERVE_PLACEHOLDER1: u8 = 8;
     const SERVE_PLACEHOLDER2: u8 = 9;
 
+    fn add_balance_to_coldkey_account(coldkey: &sp_core::crypto::AccountId32, tao: TaoBalance) {
+        let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(tao);
+        let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(coldkey, credit, tao).unwrap();
+    }
+
     fn setup_registered_caller(caller: H160) -> (NetUid, AccountId) {
         let netuid = NetUid::from(TEST_NETUID_U16);
         let caller_account = mapped_account(caller);
@@ -304,10 +309,7 @@ mod tests {
             .expect("reveal period setup should succeed");
         pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
         pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
-        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
-            &caller_account,
-            COLDKEY_BALANCE.into(),
-        );
+        add_balance_to_coldkey_account(&caller_account, COLDKEY_BALANCE.into());
 
         precompiles::<NeuronPrecompile<Runtime>>()
             .prepare_test(
@@ -356,10 +358,7 @@ mod tests {
             pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
             pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
             pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
-            pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
-                &caller_account,
-                COLDKEY_BALANCE.into(),
-            );
+            add_balance_to_coldkey_account(&caller_account, COLDKEY_BALANCE.into());
 
             let uid_before = pallet_subtensor::SubnetworkN::<Runtime>::get(netuid);
             let balance_before =
