@@ -323,6 +323,18 @@ pub mod pallet {
             });
             Ok(())
         }
+
+        /// Manually trigger the `OnNewTerm` hook for `collective_id`,
+        #[pallet::call_index(4)]
+        pub fn force_rotate(
+            origin: OriginFor<T>,
+            collective_id: T::CollectiveId,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
+            let weight = T::OnNewTerm::on_new_term(collective_id);
+            Ok(Some(weight).into())
+        }
     }
 }
 

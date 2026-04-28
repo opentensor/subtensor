@@ -987,6 +987,62 @@ fn on_initialize_fires_all_matching_collectives() {
     });
 }
 
+// -------- Section 6b: force_rotate --------
+
+#[test]
+fn force_rotate_routes_through_on_new_term() {
+    TestState::build_and_execute(|| {
+        // Beta has term_duration = Some(100), so it's eligible.
+        assert_ok!(MultiCollective::<Test>::force_rotate(
+            RuntimeOrigin::root(),
+            CollectiveId::Beta,
+        ));
+        assert_eq!(take_new_term_log(), vec![CollectiveId::Beta]);
+    });
+}
+
+#[test]
+fn force_rotate_requires_root() {
+    TestState::build_and_execute(|| {
+        assert_noop!(
+            MultiCollective::<Test>::force_rotate(
+                RuntimeOrigin::signed(U256::from(1)),
+                CollectiveId::Beta,
+            ),
+            DispatchError::BadOrigin,
+        );
+        assert!(take_new_term_log().is_empty());
+    });
+}
+
+#[test]
+fn force_rotate_works_for_collective_without_term_duration() {
+    TestState::build_and_execute(|| {
+        // Alpha has term_duration = None — `force_rotate` still routes
+        // through `OnNewTerm`, leaving the runtime impl to decide
+        // whether it's a no-op for this kind of collective.
+        assert_ok!(MultiCollective::<Test>::force_rotate(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+        ));
+        assert_eq!(take_new_term_log(), vec![CollectiveId::Alpha]);
+    });
+}
+
+#[test]
+fn force_rotate_rejects_unknown_collective() {
+    TestState::build_and_execute(|| {
+        assert_noop!(
+            MultiCollective::<Test>::force_rotate(
+                RuntimeOrigin::root(),
+                CollectiveId::Unknown,
+            ),
+            Error::<Test>::CollectiveNotFound,
+        );
+        assert!(take_new_term_log().is_empty());
+    });
+}
+
 // -------- Section 7: CollectiveInspect --------
 
 #[test]
