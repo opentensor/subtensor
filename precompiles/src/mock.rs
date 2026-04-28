@@ -45,6 +45,8 @@ frame_support::construct_runtime!(
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 10,
         Proxy: pallet_subtensor_proxy = 11,
         Evm: pallet_evm = 12,
+        AdminUtils: pallet_admin_utils = 13,
+        EVMChainId: pallet_evm_chain_id = 14,
     }
 );
 
@@ -338,6 +340,17 @@ mod test_crypto {
     }
 }
 
+impl pallet_evm_chain_id::Config for Runtime {}
+
+impl pallet_admin_utils::Config for Runtime {
+    type Aura = ();
+    type Grandpa = ();
+    type AuthorityId = test_crypto::Public;
+    type MaxAuthorities = MaxAuthorities;
+    type Balance = TaoBalance;
+    type WeightInfo = ();
+}
+
 impl pallet_drand::Config for Runtime {
     type AuthorityId = test_crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
@@ -592,5 +605,11 @@ pub(crate) fn alpha_price_to_evm(price: U96F32) -> U256 {
     let scaled_price = (price * U96F32::from_num(EVM_DECIMALS_FACTOR)).to_num::<u64>();
     <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(scaled_price.into())
         .expect("runtime balance conversion should work for alpha price")
+        .into_u256()
+}
+
+pub(crate) fn substrate_to_evm(amount: u64) -> U256 {
+    <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(amount.into())
+        .expect("runtime balance conversion should work")
         .into_u256()
 }
