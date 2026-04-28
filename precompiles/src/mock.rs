@@ -12,8 +12,8 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
 use pallet_evm::{
-    BalanceConverter, EnsureAddressNever, EnsureAddressRoot, EvmBalance, PrecompileHandle,
-    PrecompileSet, SubstrateBalance,
+    AddressMapping, BalanceConverter, EnsureAddressNever, EnsureAddressRoot, EvmBalance,
+    PrecompileHandle, PrecompileSet, SubstrateBalance,
 };
 use precompile_utils::testing::MockHandle;
 use sp_core::{ConstU64, H160, H256, U256, crypto::AccountId32};
@@ -575,6 +575,14 @@ pub(crate) fn execute_precompile<PSet: PrecompileSet>(
 
 pub(crate) fn addr_from_index(index: u64) -> H160 {
     H160::from_low_u64_be(index)
+}
+
+pub(crate) fn mapped_account(address: H160) -> AccountId {
+    <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
+}
+
+pub(crate) fn fund_account(account: &AccountId, amount: u64) {
+    pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(account, amount.into());
 }
 
 pub(crate) fn abi_word(value: U256) -> Vec<u8> {

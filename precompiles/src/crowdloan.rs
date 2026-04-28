@@ -266,10 +266,9 @@ mod tests {
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        AccountId, Runtime, RuntimeOrigin, System, addr_from_index, new_test_ext, precompiles,
-        selector_u32,
+        AccountId, Runtime, RuntimeOrigin, System, addr_from_index, fund_account, mapped_account,
+        new_test_ext, precompiles, selector_u32,
     };
-    use pallet_evm::AddressMapping;
     use precompile_utils::solidity::{codec::Address, encode_return_value, encode_with_selector};
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::H160;
@@ -279,14 +278,6 @@ mod tests {
     const CAP: u64 = 300;
     const END: u32 = 50;
     const ACCOUNT_BALANCE: u64 = 1_000;
-
-    fn mapped_account(address: H160) -> AccountId {
-        <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
-    }
-
-    fn fund_account(account: &AccountId, amount: u64) {
-        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(account, amount.into());
-    }
 
     fn get_crowdloan(caller: H160, crowdloan_id: u32, expected: CrowdloanInfo) {
         let precompile_addr = addr_from_index(CrowdloanPrecompile::<Runtime>::INDEX);

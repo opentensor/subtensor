@@ -930,9 +930,9 @@ mod tests {
     use crate::PrecompileExt;
     use crate::mock::{
         AccountId, Proxy, Runtime, RuntimeCall, RuntimeOrigin, addr_from_index, assert_static_call,
-        execute_precompile, new_test_ext, precompiles, selector_u32, substrate_to_evm,
+        execute_precompile, fund_account, mapped_account, new_test_ext, precompiles, selector_u32,
+        substrate_to_evm,
     };
-    use pallet_evm::AddressMapping;
     use precompile_utils::solidity::{encode_return_value, encode_with_selector};
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256};
@@ -967,14 +967,6 @@ mod tests {
             AlphaBalance::from(RESERVE_ALPHA),
         );
         netuid
-    }
-
-    fn mapped_account(address: H160) -> AccountId {
-        <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
-    }
-
-    fn fund_account(account: &AccountId, amount: u64) {
-        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(account, amount.into());
     }
 
     fn hotkey() -> AccountId {

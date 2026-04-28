@@ -790,20 +790,15 @@ mod tests {
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        AccountId, Runtime, addr_from_index, assert_static_call, new_test_ext, precompiles,
-        selector_u32,
+        AccountId, Runtime, addr_from_index, assert_static_call, mapped_account, new_test_ext,
+        precompiles, selector_u32,
     };
-    use pallet_evm::AddressMapping;
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256, U256};
 
     const TEST_NETUID_U16: u16 = 1;
     const TEST_TEMPO: u16 = 100;
-
-    fn mapped_account(address: H160) -> AccountId {
-        <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
-    }
 
     fn setup_owner_subnet(caller: H160) -> NetUid {
         let netuid = NetUid::from(TEST_NETUID_U16);
