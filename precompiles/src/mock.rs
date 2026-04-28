@@ -45,6 +45,8 @@ frame_support::construct_runtime!(
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 10,
         Proxy: pallet_subtensor_proxy = 11,
         Evm: pallet_evm = 12,
+        AdminUtils: pallet_admin_utils = 13,
+        EVMChainId: pallet_evm_chain_id = 14,
     }
 );
 
@@ -148,6 +150,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -338,6 +342,17 @@ mod test_crypto {
     }
 }
 
+impl pallet_evm_chain_id::Config for Runtime {}
+
+impl pallet_admin_utils::Config for Runtime {
+    type Aura = ();
+    type Grandpa = ();
+    type AuthorityId = test_crypto::Public;
+    type MaxAuthorities = MaxAuthorities;
+    type Balance = TaoBalance;
+    type WeightInfo = ();
+}
+
 impl pallet_drand::Config for Runtime {
     type AuthorityId = test_crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
@@ -475,6 +490,8 @@ impl pallet_subtensor::Config for Runtime {
     type PrecompileCleanupInterface = PrecompileCleanupI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 

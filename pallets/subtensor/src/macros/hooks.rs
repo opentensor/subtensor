@@ -170,7 +170,9 @@ mod hooks {
                 // Migrate fix bad hk swap
                 .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>())
                 // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
-                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>());
+                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
+                // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
+                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>());
             weight
         }
 

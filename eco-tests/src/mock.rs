@@ -233,6 +233,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 10;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -309,6 +311,8 @@ impl pallet_subtensor::Config for Test {
     type PrecompileCleanupInterface = PrecompileCleanupI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 
@@ -595,4 +599,10 @@ pub fn init_logs_for_tests() {
         .try_init();
 
     let _ = TEST_LOGS_INIT.set(());
+}
+
+#[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
 }
