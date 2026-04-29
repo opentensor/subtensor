@@ -6,7 +6,7 @@ In Subtensor, transaction priority is determined by custom transaction extension
 - **`ChargeTransactionPaymentWrapper`** (wraps `ChargeTransactionPayment`)
 - **`DrandPriority`**
 
-Substrate SDK combines priorities from all transaction extensions using addition. 
+Substrate SDK combines priorities from all transaction extensions using addition.
 
 ---
 
@@ -16,7 +16,7 @@ In the Substrate SDK, `ChargeTransactionPayment` normally calculates transaction
 - **Weight** — computational complexity of the transaction.
 - **Dispatch class** — category of the transaction (`Normal`, `Operational`, `Mandatory`).
 
-However, in Subtensor, `ChargeTransactionPaymentWrapper` **overrides** this logic.  
+However, in Subtensor, `ChargeTransactionPaymentWrapper` **overrides** this logic.
 It replaces the dynamic calculation with a **flat priority scale** based only on the dispatch class.
 
 #### Current priority values:

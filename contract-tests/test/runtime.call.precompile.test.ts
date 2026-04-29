@@ -76,7 +76,7 @@ describe("Test the dispatch precompile", () => {
             await api.query.Multisig.Multisigs.getKey(),
             await api.query.Timestamp.Now.getKey(),
         ];
-        
+
         for (const key of authorizedKeys) {
             await assert.doesNotReject(
                 publicClient.call({

@@ -26,7 +26,7 @@ If the crowdloan fails to reach the cap, the creator can decide to refund all co
 
 The following functions are only callable by the creator of the crowdloan:
 
-- `finalize`: Finalize a successful crowdloan. The call will transfer the raised amount to the target address if it was provided when the crowdloan was created and dispatch the call that was provided using the creator origin. 
+- `finalize`: Finalize a successful crowdloan. The call will transfer the raised amount to the target address if it was provided when the crowdloan was created and dispatch the call that was provided using the creator origin.
 
 - `dissolve`: Dissolve a crowdloan. The crowdloan will be removed from the storage. All contributions must have been refunded before the crowdloan can be dissolved (except the creator's one).
 

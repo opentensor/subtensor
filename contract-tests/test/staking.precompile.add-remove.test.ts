@@ -169,7 +169,7 @@ describe("Test neuron precompile add remove stake", () => {
 
         // check the value is not undefined and is greater than or equal to the stake from contract V2
         assert.ok(totalColdkeyStakeOnSubnet != undefined)
-        // is greater than or equal to the stake from contract V2 because of emission 
+        // is greater than or equal to the stake from contract V2 because of emission
         assert.ok(totalColdkeyStakeOnSubnet >= stakeFromContractV2)
 
     })

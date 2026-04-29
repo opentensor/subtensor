@@ -262,8 +262,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimable => {
                             let (weight_used, done) =
                                 Self::clean_up_root_claimable_for_subnet(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -276,7 +275,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimed => {
                             let (weight_used, done) =
                                 Self::clean_up_root_claimed_for_subnet(*netuid, remaining_weight);
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -333,7 +332,7 @@ mod hooks {
                                 *netuid,
                                 remaining_weight,
                             );
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -360,7 +359,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::ClearProtocolLiquidity => {
                             let (weight_used, done) =
                                 T::SwapInterface::clear_protocol_liquidity(*netuid, remaining_weight);
-                        
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -372,8 +371,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::PurgeNetuid => {
                             let (weight_used, done) =
                             T::CommitmentsInterface::purge_netuid(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -385,8 +383,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParameters => {
                             let (weight_used, done) =
                                 Self::remove_network_parameters(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -398,8 +395,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters => {
                             let (weight_used, done) =
                                 Self::remove_network_map_parameters(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -411,8 +407,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkWeights => {
                             let (weight_used, done) =
                                 Self::remove_network_weights(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -424,8 +419,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeyTake => {
                             let (weight_used, done) =
                                 Self::remove_network_childkey_take(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -437,8 +431,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeys => {
                             let (weight_used, done) =
                                 Self::remove_network_childkeys(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -450,8 +443,7 @@ mod hooks {
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParentkeys => {
                             let (weight_used, done) =
                                 Self::remove_network_parentkeys(*netuid, remaining_weight);
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -466,8 +458,7 @@ mod hooks {
                                     *netuid,
                                     remaining_weight,
                                 );
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -482,8 +473,7 @@ mod hooks {
                                     *netuid,
                                     remaining_weight,
                                 );
-                            
-                            
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -497,7 +487,7 @@ mod hooks {
                                 Self::remove_network_transaction_key_last_block(
                                     *netuid,
                                     remaining_weight,
-                                );            
+                                );
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
@@ -512,8 +502,7 @@ mod hooks {
                                     *netuid,
                                     remaining_weight,
                                 );
-                            
-                                    
+
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::remove(*netuid);
                             }

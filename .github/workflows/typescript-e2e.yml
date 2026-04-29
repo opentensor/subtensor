@@ -50,7 +50,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - variant: release 
+          - variant: release
             flags: ""
           - variant: fast
             flags: "--features fast-runtime"
@@ -138,6 +138,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: | 
+        run: |
           cd ts-tests
           pnpm moonwall test ${{ matrix.test }}

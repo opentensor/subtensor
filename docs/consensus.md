@@ -71,12 +71,12 @@ $$B_{ij}^{(t)} = \alpha\cdot\Delta B_{ij} + (1-\alpha)\cdot B_{ij}^{(t-1)}\tag{6
 
 
 #### Reward distribution
-Emission ratio $\xi$ decides the ratio of emission for validation rewards, and $1-\xi$ the ratio for server incentive, typically $\xi=0.5$. 
+Emission ratio $\xi$ decides the ratio of emission for validation rewards, and $1-\xi$ the ratio for server incentive, typically $\xi=0.5$.
 $$E_i = \xi \cdot D_i + (1-\xi) \cdot I_i\tag{7}$$
 
 Subnet server incentive $I_j = R_j / \sum_k R_k$ is normalized server rank $R_j = \sum_i S_i \cdot \overline{W_{ij}}$ (sum of consensus-clipped weighted stake).
 
-Validation reward $D_i = \sum_j B_{ij} \cdot I_j$ is the subnet validator's EMA bond with server $j$ multiplied with server $j$ incentive. 
+Validation reward $D_i = \sum_j B_{ij} \cdot I_j$ is the subnet validator's EMA bond with server $j$ multiplied with server $j$ incentive.
 
 
 #### Mathematical definitions
@@ -306,7 +306,7 @@ ssh -L 8888:localhost:8888 root@<your_vps_ip_address> -p <your_vps_port> -i ~/.s
 3. **Clone the Subtensor repository and checkout the relevant branch:**
 
    ```bash
-   git clone https://github.com/opentensor/subtensor.git 
+   git clone https://github.com/opentensor/subtensor.git
    cd subtensor
    git checkout main
 
