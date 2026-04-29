@@ -5317,10 +5317,7 @@ fn test_add_stake_payable_is_ok() {
 
         // add network
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        add_balance_to_coldkey_account(
-            &subnet_owner_coldkey,
-            owner_balance_before,
-        );
+        add_balance_to_coldkey_account(&subnet_owner_coldkey, owner_balance_before);
         add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
         add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
@@ -5392,10 +5389,7 @@ fn test_add_stake_payable_actor_insufficient_balance() {
 
         // add network
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        add_balance_to_coldkey_account(
-            &subnet_owner_coldkey,
-            owner_balance_before,
-        );
+        add_balance_to_coldkey_account(&subnet_owner_coldkey, owner_balance_before);
         add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
         add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
