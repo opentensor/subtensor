@@ -748,9 +748,7 @@ mod dispatches {
 
         /// --- The extrinsic is a combination of remove_stake and fees token transfer
         #[pallet::call_index(137)]
-        #[pallet::weight((Weight::from_parts(252_000_000, 2289)
-        .saturating_add(T::DbWeight::get().reads(30))
-        .saturating_add(T::DbWeight::get().writes(15)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::remove_stake_payable())]
         pub fn remove_stake_payable(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -2558,13 +2556,7 @@ mod dispatches {
 
         /// --- The extrinsic is a combination of add_stake and fees token transfer
         #[pallet::call_index(136)]
-        #[pallet::weight((
-            Weight::from_parts(273_000_000, 2_500)
-                .saturating_add(T::DbWeight::get().reads(26_u64))
-                .saturating_add(T::DbWeight::get().writes(17_u64)),
-            DispatchClass::Normal,
-            Pays::Yes
-        ))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake_payable())]
         pub fn add_stake_payable(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
