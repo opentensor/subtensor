@@ -53,8 +53,7 @@ fn current_block() -> u64 {
 
 fn scheduler_alarm_block(index: ReferendumIndex) -> Option<u64> {
     use frame_support::traits::schedule::v3::Named;
-    <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::next_dispatch_time(alarm_name(index))
-        .ok()
+    <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::next_dispatch_time(alarm_name(index)).ok()
 }
 
 fn signed_tally_exists(index: ReferendumIndex) -> bool {
@@ -139,7 +138,10 @@ fn submit_adjustable_records_state_and_schedules_task_with_reaper() {
 
         assert!(matches!(
             status_of(index),
-            ReferendumStatus::Ongoing(ReferendumInfo { proposal: Proposal::Review, .. })
+            ReferendumStatus::Ongoing(ReferendumInfo {
+                proposal: Proposal::Review,
+                ..
+            })
         ));
         assert_eq!(
             Pallet::<Test>::next_task_dispatch_time(index),
@@ -175,7 +177,11 @@ fn submit_rejects_invalid_origins_and_tracks() {
         );
         // Root and unsigned both fail; submit takes a signed origin only.
         assert_noop!(
-            Referenda::submit(RuntimeOrigin::root(), TRACK_PASS_OR_FAIL, Box::new(make_call())),
+            Referenda::submit(
+                RuntimeOrigin::root(),
+                TRACK_PASS_OR_FAIL,
+                Box::new(make_call())
+            ),
             DispatchError::BadOrigin
         );
         // Caller is not in the proposer set.
@@ -516,11 +522,17 @@ fn delegation_creates_child_review_and_keeps_active_count_net_zero() {
         )));
         // No Submitted for the child, no Approved for the parent.
         assert_eq!(
-            events.iter().filter(|e| matches!(e, Event::Submitted { .. })).count(),
+            events
+                .iter()
+                .filter(|e| matches!(e, Event::Submitted { .. }))
+                .count(),
             1
         );
         assert_eq!(
-            events.iter().filter(|e| matches!(e, Event::Approved { .. })).count(),
+            events
+                .iter()
+                .filter(|e| matches!(e, Event::Approved { .. }))
+                .count(),
             0
         );
     });
@@ -568,20 +580,16 @@ fn schedule_for_review_returns_none_for_invalid_targets() {
         let bounded = <Test as Config>::Preimages::bound(make_call()).unwrap();
 
         // Unknown track id.
-        assert!(Pallet::<Test>::schedule_for_review(
-            bounded.clone(),
-            U256::from(PROPOSER),
-            99u8
-        )
-        .is_none());
+        assert!(
+            Pallet::<Test>::schedule_for_review(bounded.clone(), U256::from(PROPOSER), 99u8)
+                .is_none()
+        );
 
         // PassOrFail track (Review handoff requires Adjustable).
-        assert!(Pallet::<Test>::schedule_for_review(
-            bounded,
-            U256::from(PROPOSER),
-            TRACK_PASS_OR_FAIL,
-        )
-        .is_none());
+        assert!(
+            Pallet::<Test>::schedule_for_review(bounded, U256::from(PROPOSER), TRACK_PASS_OR_FAIL,)
+                .is_none()
+        );
     });
 }
 
@@ -597,14 +605,13 @@ fn adjustable_lapses_to_enacted_when_no_decisive_votes() {
         assert_concluded(index, 0);
 
         let events = referenda_events();
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, Event::Enacted { index: i, .. } if *i == index)));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::Enacted { index: i, .. } if *i == index))
+        );
         // Lapse skips the Approved/FastTracked intermediate state.
-        for kind in [
-            "Approved",
-            "FastTracked",
-        ] {
+        for kind in ["Approved", "FastTracked"] {
             let count = events
                 .iter()
                 .filter(|e| match e {
@@ -630,12 +637,16 @@ fn adjustable_fast_tracks_at_threshold_and_reaches_enacted() {
 
         assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
         let events = referenda_events();
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, Event::FastTracked { index: i } if *i == index)));
-        assert!(events
-            .iter()
-            .any(|e| matches!(e, Event::Enacted { index: i, .. } if *i == index)));
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::FastTracked { index: i } if *i == index))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::Enacted { index: i, .. } if *i == index))
+        );
     });
 }
 
@@ -764,7 +775,10 @@ fn polls_returns_some_for_ongoing_and_none_for_every_terminal_status() {
         // Ongoing: the trait returns Some.
         let ongoing = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
         assert!(Referenda::is_ongoing(ongoing));
-        assert_eq!(Referenda::voting_scheme_of(ongoing), Some(VotingScheme::Signed));
+        assert_eq!(
+            Referenda::voting_scheme_of(ongoing),
+            Some(VotingScheme::Signed)
+        );
         assert!(Referenda::voter_set_of(ongoing).is_some());
 
         // Helper closures that drive a fresh referendum to each terminal state.
@@ -827,8 +841,15 @@ fn polls_returns_some_for_ongoing_and_none_for_every_terminal_status() {
             },
         );
 
-        for terminal in [killed, approved_or_enacted, rejected, expired, cancelled, lapsed, delegated]
-        {
+        for terminal in [
+            killed,
+            approved_or_enacted,
+            rejected,
+            expired,
+            cancelled,
+            lapsed,
+            delegated,
+        ] {
             assert!(!Referenda::is_ongoing(terminal));
             assert!(Referenda::voting_scheme_of(terminal).is_none());
             assert!(Referenda::voter_set_of(terminal).is_none());
@@ -925,9 +946,8 @@ fn set_alarm_replaces_existing_or_arms_fresh() {
 
         // Cancel manually, then arm again.
         use frame_support::traits::schedule::v3::Named;
-        let _ = <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::cancel_named(alarm_name(
-            index,
-        ));
+        let _ =
+            <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::cancel_named(alarm_name(index));
         assert!(scheduler_alarm_block(index).is_none());
 
         assert_ok!(Pallet::<Test>::set_alarm(index, current_block() + 10));

@@ -624,8 +624,7 @@ impl<T: Config> Pallet<T> {
         // Run the failable scheduler operations first. Commit storage only
         // after both succeed so a partial failure cannot leave a child
         // referendum stuck `Ongoing`.
-        if let Err(err) =
-            Self::schedule_enactment(new_index, DispatchTime::At(when), bounded_call)
+        if let Err(err) = Self::schedule_enactment(new_index, DispatchTime::At(when), bounded_call)
         {
             Self::report_scheduler_error(new_index, "schedule_enactment", err);
             return None;
@@ -872,4 +871,3 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
         }
     }
 }
-
