@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         stake_to_be_added: TaoBalance,
         coldkey_fees_tank: T::AccountId,
-        amount_fees: TaoBalance
+        amount_fees: TaoBalance,
     ) -> Result<AlphaBalance, DispatchError> {
         let coldkey = ensure_signed(origin.clone())?;
 

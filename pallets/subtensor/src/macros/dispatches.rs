@@ -2571,9 +2571,17 @@ mod dispatches {
             netuid: NetUid,
             amount_staked: TaoBalance,
             coldkey_fees_tank: T::AccountId,
-            amount_fees: TaoBalance
+            amount_fees: TaoBalance,
         ) -> DispatchResult {
-            Self::do_add_stake_payable(origin, hotkey, netuid, amount_staked, coldkey_fees_tank, amount_fees).map(|_| ())
+            Self::do_add_stake_payable(
+                origin,
+                hotkey,
+                netuid,
+                amount_staked,
+                coldkey_fees_tank,
+                amount_fees,
+            )
+            .map(|_| ())
         }
     }
 }

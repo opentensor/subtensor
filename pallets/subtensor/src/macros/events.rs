@@ -297,11 +297,7 @@ mod events {
         /// Fees for the stake has been transferred from actor cold key to the app coldkey.
         /// Parameters:
         /// (origin_coldkey, destination_coldkey, amount)
-        FeesTransferred(
-            T::AccountId,
-            T::AccountId,
-            TaoBalance,
-        ),
+        FeesTransferred(T::AccountId, T::AccountId, TaoBalance),
 
         /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.
         ///
