@@ -10,8 +10,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function checks if a subnetwork with the given UID exists.
     ///
-    /// # Returns:
-    /// * 'bool': Whether the subnet exists.
+    /// # Returns
+    /// * `bool`: Whether the subnet exists.
     ///
     pub fn if_subnet_exist(netuid: NetUid) -> bool {
         NetworksAdded::<T>::get(netuid)
@@ -22,7 +22,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// This iterates through all the networks and returns a list of netuids.
     ///
-    /// # Returns:
+    /// # Returns
     /// * 'Vec<u16>': Netuids of all subnets.
     ///
     pub fn get_all_subnet_netuids() -> Vec<NetUid> {
@@ -36,11 +36,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// This checks the Mechanism map for the value, defaults to 0.
     ///
-    /// # Args:
-    /// * 'u16': The subnet netuid
+    /// # Arguments
+    /// * `u16`: The subnet netuid.
     ///
-    /// # Returns:
-    /// * 'u16': The subnet mechanism
+    /// # Returns
+    /// * `u16`: The subnet mechanism.
     ///
     pub fn get_subnet_mechanism(netuid: NetUid) -> u16 {
         SubnetMechanism::<T>::get(netuid)
@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
     /// until it finds an ID that is not currently in use.
     ///
     /// # Returns
-    /// * `u16` - The next available mechanism ID.
+    /// * `u16`: The next available mechanism ID.
     pub fn get_next_netuid() -> NetUid {
         let mut next_netuid = NetUid::from(1); // do not allow creation of root
         let netuids = Self::get_all_subnet_netuids();
@@ -79,11 +79,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `netuid` - The unique identifier of the subnet.
+    /// * `netuid`: The unique identifier of the subnet.
     ///
     /// # Returns
     ///
-    /// * `bool` - `true` if registrations are allowed for the subnet, `false` otherwise.
+    /// * `bool`: `true` if registrations are allowed for the subnet, `false` otherwise.
     pub fn is_registration_allowed(netuid: NetUid) -> bool {
         Self::get_subnet_hyperparams(netuid)
             .map(|params| params.registration_allowed)
@@ -92,25 +92,25 @@ impl<T: Config> Pallet<T> {
 
     /// Facilitates user registration of a new subnetwork.
     ///
-    /// ### Args
+    /// # Arguments
     /// * **`origin`** – `T::RuntimeOrigin` &nbsp;Must be **signed** by the coldkey.
     /// * **`hotkey`** – `&T::AccountId` &nbsp;First neuron of the new subnet.
     /// * **`mechid`** – `u16` &nbsp;Only the dynamic mechanism (`1`) is currently supported.
     /// * **`identity`** – `Option<SubnetIdentityOfV3>` &nbsp;Optional metadata for the subnet.
     ///
-    /// ### Events
-    /// * `NetworkAdded(netuid, mechid)` – always.
-    /// * `SubnetIdentitySet(netuid)`   – when a custom identity is supplied.
-    /// * `NetworkRemoved(netuid)`      – when a subnet is pruned to make room.
+    /// # Events
+    /// * 'NetworkAdded': always.
+    /// * 'SubnetIdentitySet': when a custom identity is supplied.
+    /// * 'NetworkRemoved': when a subnet is pruned to make room.
     ///
-    /// ### Errors
-    /// * `NonAssociatedColdKey`            – `hotkey` already belongs to another coldkey.
-    /// * `MechanismDoesNotExist`           – unsupported `mechid`.
-    /// * `NetworkTxRateLimitExceeded`      – caller hit the register-network rate limit.
-    /// * `SubnetLimitReached`              – limit hit **and** no eligible subnet to prune.
-    /// * `CannotAffordLockCost`            – caller lacks the lock cost.
-    /// * `BalanceWithdrawalError`          – failed to lock balance.
-    /// * `InvalidIdentity`                 – supplied `identity` failed validation.
+    /// # Errors
+    /// * 'NonAssociatedColdKey': `hotkey` already belongs to another coldkey.
+    /// * 'MechanismDoesNotExist': unsupported `mechid`.
+    /// * 'NetworkTxRateLimitExceeded': caller hit the register-network rate limit.
+    /// * 'SubnetLimitReached': limit hit **and** no eligible subnet to prune.
+    /// * 'CannotAffordLockCost': caller lacks the lock cost.
+    /// * 'BalanceWithdrawalError': failed to lock balance.
+    /// * 'InvalidIdentity': supplied `identity` failed validation.
     ///
     pub fn do_register_network(
         origin: OriginFor<T>,
@@ -353,12 +353,12 @@ impl<T: Config> Pallet<T> {
     /// and the last emission block number has not been set yet.
     /// It then sets the last emission block number to the current block number.
     ///
-    /// # Parameters
+    /// # Arguments
     ///
     /// * `origin`: The origin of the call, which is used to ensure the caller is the subnet owner.
     /// * `netuid`: The unique identifier of the subnet for which the start call process is being initiated.
     ///
-    /// # Raises
+    /// # Errors
     ///
     /// * `Error::<T>::SubnetNotExists`: If the subnet does not exist.
     /// * `DispatchError::BadOrigin`: If the caller is not the subnet owner.
@@ -400,30 +400,28 @@ impl<T: Config> Pallet<T> {
     /// the hotkey for a given subnet. The subnet must already exist. To prevent abuse, the call is
     /// rate-limited to once per configured interval (default: one week) per subnet.
     ///
-    /// # Parameters
-    /// - `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
-    /// - `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
-    /// - `hotkey`: The new hotkey account to associate with the subnet owner.
+    /// # Arguments
+    ///
+    /// * `origin`: The dispatch origin of the call. Must be either root or the current owner of the subnet.
+    /// * `netuid`: The unique identifier of the subnet whose owner hotkey is being set.
+    /// * `hotkey`: The new hotkey account to associate with the subnet owner.
     ///
     /// # Returns
-    /// - `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
+    ///
+    /// * `DispatchResult`: Returns `Ok(())` if the hotkey was successfully set, or an appropriate error otherwise.
     ///
     /// # Errors
-    /// - `Error::SubnetNotExists`: If the specified subnet does not exist.
-    /// - `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
     ///
-    /// # Access Control
-    /// Only callable by:
-    /// - Root origin, or
-    /// - The coldkey account that owns the subnet.
+    /// * `Error::SubnetNotExists`: If the specified subnet does not exist.
+    /// * `Error::TxRateLimitExceeded`: If the function is called more frequently than the allowed rate limit.
     ///
-    /// # Storage
-    /// - Updates [`SubnetOwnerHotkey`] for the given `netuid`.
-    /// - Reads and updates [`LastRateLimitedBlock`] for rate-limiting.
-    /// - Reads [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
+    /// # Note
     ///
-    /// # Rate Limiting
-    /// This function is rate-limited to one call per subnet per interval (e.g., one week).
+    /// Only callable by the root origin or the coldkey account that owns the subnet.
+    /// Updates [`SubnetOwnerHotkey`] for the given `netuid`. Reads and updates
+    /// [`LastRateLimitedBlock`] for rate-limiting, and reads
+    /// [`DefaultSetSNOwnerHotkeyRateLimit`] to determine the interval between allowed updates.
+    /// Rate-limited to one call per subnet per interval (e.g., one week).
     pub fn do_set_sn_owner_hotkey(
         origin: OriginFor<T>,
         netuid: NetUid,

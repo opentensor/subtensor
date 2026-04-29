@@ -811,9 +811,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `duration` - The blocks for dissolve network execution.
+    /// * `duration`: The blocks for dissolve network execution.
     ///
-    /// # Effects
+    /// # Note
     ///
     /// * Update the DissolveNetworkScheduleDuration storage.
     /// * Emits a DissolveNetworkScheduleDurationSet evnet.
@@ -826,10 +826,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `netuid` - The unique identifier for the subnet.
-    /// * `hotkey` - The new hotkey for the subnet owner.
+    /// * `netuid`: The unique identifier for the subnet.
+    /// * `hotkey`: The new hotkey for the subnet owner.
     ///
-    /// # Effects
+    /// # Note
     ///
     /// * Update the SubnetOwnerHotkey storage.
     /// * Emits a SubnetOwnerHotkeySet event.
@@ -860,13 +860,15 @@ impl<T: Config> Pallet<T> {
     /// and [`MaxImmuneOwnerUidsLimit`]. If the bound check fails, this returns
     /// [`Error::<T>::InvalidValue`] and leaves storage unchanged.
     ///
-    /// # Parameters
-    /// - `netuid`: Identifier of the subnet to update.
-    /// - `limit`: New inclusive upper bound for the count of owner-immune UIDs on this subnet.
+    /// # Arguments
+    ///
+    /// * `netuid`: Identifier of the subnet to update.
+    /// * `limit`: New inclusive upper bound for the count of owner-immune UIDs on this subnet.
     ///
     /// # Returns
-    /// - `Ok(())` on success (value written to storage).
-    /// - `Err(Error::<T>::InvalidValue)` if `limit` is outside `[MinImmuneOwnerUidsLimit, MaxImmuneOwnerUidsLimit]`.
+    ///
+    /// * `Ok(())` on success (value written to storage).
+    /// * `Err(Error::<T>::InvalidValue)` if `limit` is outside `[MinImmuneOwnerUidsLimit, MaxImmuneOwnerUidsLimit]`.
     pub fn set_owner_immune_neuron_limit(netuid: NetUid, limit: u16) -> DispatchResult {
         ensure!(
             limit >= MinImmuneOwnerUidsLimit::<T>::get()
@@ -880,8 +882,8 @@ impl<T: Config> Pallet<T> {
 
     /// Fetches the max number of subnet
     ///
-    /// # Returns:
-    /// * 'u16': The max number of subnet
+    /// # Returns
+    /// * `u16`: The max number of subnet.
     ///
     pub fn get_max_subnets() -> u16 {
         SubnetLimit::<T>::get()

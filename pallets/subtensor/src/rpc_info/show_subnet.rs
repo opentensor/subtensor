@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `hotkeys` - A vector of hotkeys (account IDs) for which the emission history is to be retrieved.
+    /// * `hotkeys`: A vector of hotkeys (account IDs) for which the emission history is to be retrieved.
     ///
     /// # Returns
     ///
@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `netuid` - The unique identifier of the subnet for which the state is to be retrieved.
+    /// * `netuid`: The unique identifier of the subnet for which the state is to be retrieved.
     ///
     /// # Returns
     ///
