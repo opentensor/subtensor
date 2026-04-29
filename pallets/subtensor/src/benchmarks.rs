@@ -208,9 +208,9 @@ mod pallet_benchmarks {
         let coldkey: T::AccountId = account("Test", 0, seed);
         let app_coldkey: T::AccountId = account("cold", 0, seed);
         let hotkey: T::AccountId = account("Alice", 0, seed);
-        let total_stake = TaoCurrency::from(1_000_000_000);
-        let amount = TaoCurrency::from(60_000_000);
-        let amount_fees = TaoCurrency::from(1000);
+        let total_stake = TaoBalance::from(1_000_000_000);
+        let amount = TaoBalance::from(60_000_000);
+        let amount_fees = TaoBalance::from(1000);
 
         seed_swap_reserves::<T>(netuid);
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey, total_stake.into());

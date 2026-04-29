@@ -2533,7 +2533,7 @@ mod dispatches {
         }
 
         /// --- The extrinsic is a combination of add_stake and fees token transfer
-        #[pallet::call_index(133)]
+        #[pallet::call_index(136)]
         #[pallet::weight((
             Weight::from_parts(273_000_000, 2_500)
                 .saturating_add(T::DbWeight::get().reads(26_u64))
@@ -2545,9 +2545,9 @@ mod dispatches {
             origin: OriginFor<T>,
             hotkey: T::AccountId,
             netuid: NetUid,
-            amount_staked: TaoCurrency,
+            amount_staked: TaoBalance,
             coldkey_fees_tank: T::AccountId,
-            amount_fees: TaoCurrency
+            amount_fees: TaoBalance
         ) -> DispatchResult {
             Self::do_add_stake_payable(origin, hotkey, netuid, amount_staked, coldkey_fees_tank, amount_fees).map(|_| ())
         }

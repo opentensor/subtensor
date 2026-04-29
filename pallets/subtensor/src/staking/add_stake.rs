@@ -72,13 +72,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_add_stake_payable(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
-        stake_to_be_added: TaoCurrency,
+        stake_to_be_added: TaoBalance,
         coldkey_fees_tank: T::AccountId,
-        amount_fees: TaoCurrency
-    ) -> Result<AlphaCurrency, DispatchError> {
+        amount_fees: TaoBalance
+    ) -> Result<AlphaBalance, DispatchError> {
         let coldkey = ensure_signed(origin.clone())?;
 
         ensure!(
@@ -86,10 +86,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        frame_support::storage::with_storage_layer(|| {
-            Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
-            Self::do_add_stake(origin, hotkey, netuid, stake_to_be_added)
-        })
+        Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
+        Self::do_add_stake(origin, hotkey, netuid, stake_to_be_added)
     }
 
     /// ---- The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey

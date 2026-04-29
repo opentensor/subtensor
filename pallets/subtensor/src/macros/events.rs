@@ -300,7 +300,7 @@ mod events {
         FeesTransferred(
             T::AccountId,
             T::AccountId,
-            TaoCurrency,
+            TaoBalance,
         ),
 
         /// Stake has been swapped from one subnet to another for the same coldkey-hotkey pair.

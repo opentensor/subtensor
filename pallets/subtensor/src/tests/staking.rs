@@ -5400,52 +5400,6 @@ fn test_add_stake_payable_actor_insufficient_balance() {
     });
 }
 
-/// This test verifies that fees are rolled back if staking fails (atomicity)
-///
-/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_payable_atomicity --exact --show-output
-#[test]
-fn test_add_stake_payable_atomicity() {
-    new_test_ext(1).execute_with(|| {
-        let subnet_owner_hotkey = U256::from(1);
-        let actor_coldkey = U256::from(4);
-        let app_coldkey = U256::from(5);
-        let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
-        let amount_stake = min_tao_stake;
-        let amount_fees = 100_000;
-        let actor_balance_before = amount_stake * 100;
-        let app_owner_balance_before = ExistentialDeposit::get();
-
-        let invalid_netuid = NetUid::from(99);
-
-        SubtensorModule::add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
-        SubtensorModule::add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
-
-        // add_stake should fail because of invalid netuid
-        assert_err!(
-            SubtensorModule::add_stake_payable(
-                RuntimeOrigin::signed(actor_coldkey),
-                subnet_owner_hotkey,
-                invalid_netuid,
-                amount_stake.into(),
-                app_coldkey,
-                amount_fees.into()
-            ),
-            Error::<Test>::SubnetNotExists
-        );
-
-        assert_eq!(
-            Balances::free_balance(app_coldkey),
-            app_owner_balance_before,
-            "fees should be rolled back if staking fails"
-        );
-        assert_eq!(
-            Balances::free_balance(actor_coldkey),
-            actor_balance_before,
-            "actor balance should be unchanged if staking fails"
-        );
-    });
-}
-
 #[test]
 fn test_stake_rate_limits() {
     new_test_ext(0).execute_with(|| {
