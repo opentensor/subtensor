@@ -106,7 +106,7 @@ impl Polls<U256> for MockPolls {
     }
 
     fn on_tally_updated(index: Self::Index, tally: &VoteTally) {
-        TALLY_UPDATES.with(|t| t.borrow_mut().push((index, tally.clone())));
+        TALLY_UPDATES.with(|t| t.borrow_mut().push((index, *tally)));
     }
 }
 

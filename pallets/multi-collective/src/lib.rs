@@ -445,6 +445,8 @@ pub trait OnNewTerm<CollectiveId> {
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 impl<CollectiveId: Clone> OnNewTerm<CollectiveId> for Tuple {
+    // `for_tuples!` mutates `weight` inline; clippy can't see the expansion.
+    #[allow(clippy::let_and_return)]
     fn on_new_term(collective_id: CollectiveId) -> Weight {
         let mut weight = Weight::zero();
         for_tuples!( #( weight = weight.saturating_add(Tuple::on_new_term(collective_id.clone())); )* );
