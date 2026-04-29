@@ -4,1831 +4,971 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
-use sp_runtime::Perbill;
-use subtensor_runtime_common::{Polls, VoteTally};
+use sp_runtime::DispatchError;
+use subtensor_runtime_common::Polls;
 
-/// Test that the mock environment is correctly set up with collectives.
-#[test]
-fn environment_works() {
-    TestState::default().build_and_execute(|| {
-        // Proposers collective has 2 members
-        assert!(MemberSet::Single(CollectiveId::Proposers).contains(&U256::from(1)));
-        assert!(MemberSet::Single(CollectiveId::Proposers).contains(&U256::from(2)));
-        assert!(!MemberSet::Single(CollectiveId::Proposers).contains(&U256::from(99)));
+const PROPOSER: u128 = 1;
+const PROPOSER_B: u128 = 2;
+const VOTER_A: u128 = 101;
+const VOTER_B: u128 = 102;
+const VOTER_C: u128 = 103;
 
-        // Triumvirate has 3 members
-        assert_eq!(MemberSet::Single(CollectiveId::Triumvirate).len(), 3);
-        assert!(MemberSet::Single(CollectiveId::Triumvirate).contains(&U256::from(101)));
-        assert!(MemberSet::Single(CollectiveId::Triumvirate).contains(&U256::from(102)));
-        assert!(MemberSet::Single(CollectiveId::Triumvirate).contains(&U256::from(103)));
-    });
+const TRACK_PASS_OR_FAIL: u8 = 0;
+const TRACK_ADJUSTABLE: u8 = 1;
+const TRACK_DELEGATING: u8 = 2;
+const TRACK_NO_PROPOSER_SET: u8 = 3;
+
+const DECISION_PERIOD: u64 = 20;
+const INITIAL_DELAY: u64 = 100;
+
+fn make_call() -> RuntimeCall {
+    RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] })
 }
 
-/// Test: non-proposer cannot submit.
-#[test]
-fn submit_fails_for_non_proposer() {
-    TestState::default().build_and_execute(|| {
-        let non_proposer = U256::from(999);
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        let proposal = Proposal::Action(bounded);
-
-        assert_noop!(
-            Referenda::submit(RuntimeOrigin::signed(non_proposer), 0u8, proposal),
-            Error::<Test>::NotProposer
-        );
-    });
+fn submit_on(track: u8, proposer: U256) -> ReferendumIndex {
+    let index = ReferendumCount::<Test>::get();
+    assert_ok!(Referenda::submit(
+        RuntimeOrigin::signed(proposer),
+        track,
+        Box::new(make_call()),
+    ));
+    index
 }
 
-/// Test: submit on invalid track fails.
-#[test]
-fn submit_fails_for_bad_track() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        let proposal = Proposal::Action(bounded);
-
-        assert_noop!(
-            Referenda::submit(RuntimeOrigin::signed(proposer), 99u8, proposal),
-            Error::<Test>::BadTrack
-        );
-    });
-}
-
-/// Full cycle integration test: submit Action, triumvirate votes 2/3 aye, approved.
-#[test]
-fn full_proposal_cycle_action_approved() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let alice = U256::from(101); // triumvirate member
-        let bob = U256::from(102); // triumvirate member
-
-        // 1. Submit an Action proposal on track 0 (triumvirate, PassOrFail)
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark {
-            remark: vec![1, 2, 3],
-        });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        let proposal = Proposal::Action(bounded);
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            proposal,
-        ));
-
-        // Verify referendum was created
-        assert_eq!(ReferendumCount::<Test>::get(), 1);
-        assert!(Referenda::is_ongoing(0));
-
-        // Verify signed-voting initialized the tally
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(0u32).is_some());
-        let tally = pallet_signed_voting::TallyOf::<Test>::get(0u32).unwrap();
-        assert_eq!(tally.ayes, 0);
-        assert_eq!(tally.nays, 0);
-
-        // 2. Alice votes aye
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(alice), 0u32, true,));
-
-        // After 1/3 approval: 33% < 67% threshold, still ongoing
-        assert!(Referenda::is_ongoing(0));
-
-        // 3. Bob votes aye
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(bob), 0u32, true,));
-
-        // After 2/3 approval: 67% >= 67% threshold, should be approved
-        assert!(!Referenda::is_ongoing(0));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Approved(_))
-        ));
-
-        // Verify signed-voting cleaned up
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(0u32).is_none());
-
-        // 4. Advance blocks to let the scheduled call execute
-        run_to_block(5);
-    });
-}
-
-/// Test: PassOrFail referendum expires when no threshold is reached.
-#[test]
-fn passorfail_expires_on_timeout() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-
-        // Submit a proposal
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        assert!(Referenda::is_ongoing(0));
-
-        // No one votes. Advance past the decision_period (20 blocks).
-        // The scheduler should fire nudge_referendum which marks it as Expired.
-        run_to_block(25);
-
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Expired(_))
-        ));
-
-        // Verify cleanup
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(0u32).is_none());
-    });
-}
-
-/// Test: cancel a referendum.
-#[test]
-fn cancel_ongoing_referendum() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        assert!(Referenda::is_ongoing(0));
-
-        // Cancel requires root (CancelOrigin = EnsureRoot)
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), 0));
-
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Cancelled(_))
-        ));
-
-        // Verify cleanup
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(0u32).is_none());
-    });
-}
-
-/// Test: cancel fails for non-root.
-#[test]
-fn cancel_fails_for_non_root() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        assert_noop!(
-            Referenda::cancel(RuntimeOrigin::signed(U256::from(999)), 0),
-            DispatchError::BadOrigin
-        );
-    });
-}
-
-/// Test: PassOrFail rejection when nays reach threshold.
-#[test]
-fn passorfail_rejected_on_nay_threshold() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let alice = U256::from(101);
-        let bob = U256::from(102);
-
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        // Alice votes nay
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(alice),
-            0u32,
-            false,
-        ));
-
-        // 33% rejection, still ongoing
-        assert!(Referenda::is_ongoing(0));
-
-        // Bob votes nay
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(bob), 0u32, false,));
-
-        // 67% rejection >= 67% threshold: rejected
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Rejected(_))
-        ));
-    });
-}
-
-/// Test: member rotation removes votes.
-#[test]
-fn member_rotation_removes_votes() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let alice = U256::from(101);
-
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        // Alice votes aye
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(alice), 0u32, true,));
-
-        // Verify tally: 1 aye
-        let tally = pallet_signed_voting::TallyOf::<Test>::get(0u32).unwrap();
-        assert_eq!(tally.ayes, 1);
-        assert_eq!(tally.nays, 0);
-
-        // Remove Alice from triumvirate (root origin)
-        assert_ok!(pallet_multi_collective::Pallet::<Test>::remove_member(
-            RuntimeOrigin::root(),
-            CollectiveId::Triumvirate,
-            alice,
-        ));
-
-        // Alice's vote should be removed via OnMembersChanged -> VoteCleanup
-        let tally = pallet_signed_voting::TallyOf::<Test>::get(0u32).unwrap();
-        assert_eq!(tally.ayes, 0);
-        assert_eq!(tally.nays, 0);
-
-        // Referendum should still be ongoing
-        assert!(Referenda::is_ongoing(0));
-    });
-}
-
-/// Test: vote change during active referendum.
-#[test]
-fn vote_change_updates_tally() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let alice = U256::from(101);
-
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        // Alice votes aye
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(alice), 0u32, true,));
-        let tally = pallet_signed_voting::TallyOf::<Test>::get(0u32).unwrap();
-        assert_eq!(tally.ayes, 1);
-        assert_eq!(tally.nays, 0);
-
-        // Alice changes vote to nay
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(alice),
-            0u32,
-            false,
-        ));
-        let tally = pallet_signed_voting::TallyOf::<Test>::get(0u32).unwrap();
-        assert_eq!(tally.ayes, 0);
-        assert_eq!(tally.nays, 1);
-    });
-}
-
-/// Helper: pre-schedule a named task (the target of a Review referendum).
-fn schedule_named_task(name: [u8; 32], when: u64) {
-    let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![9] });
-    assert_ok!(pallet_scheduler::Pallet::<Test>::schedule_named(
-        RuntimeOrigin::root(),
-        name,
-        when,
-        None,
-        128,
-        Box::new(call),
+fn vote(voter: u128, index: ReferendumIndex, aye: bool) {
+    assert_ok!(SignedVoting::vote(
+        RuntimeOrigin::signed(U256::from(voter)),
+        index,
+        aye,
     ));
 }
 
-fn task_scheduled_at(name: [u8; 32]) -> Option<u64> {
-    pallet_scheduler::Lookup::<Test>::get(name).map(|(block, _)| block)
+fn status_of(index: ReferendumIndex) -> ReferendumStatusOf<Test> {
+    ReferendumStatusFor::<Test>::get(index).expect("referendum should exist")
 }
 
-/// Test: Submitting a Review proposal that references a task not in the
-/// scheduler fails with `ReviewTaskNotFound`, with no state mutation.
-#[test]
-fn submit_fails_for_review_of_nonexistent_task() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let ghost_task: [u8; 32] = [0u8; 32];
+fn current_block() -> u64 {
+    System::block_number()
+}
 
-        assert_noop!(
-            Referenda::submit(
-                RuntimeOrigin::signed(proposer),
-                1u8,
-                Proposal::Review(ghost_task),
-            ),
-            Error::<Test>::ReviewTaskNotFound
-        );
+fn scheduler_alarm_block(index: ReferendumIndex) -> Option<u64> {
+    use frame_support::traits::schedule::v3::Named;
+    <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::next_dispatch_time(alarm_name(index))
+        .ok()
+}
+
+fn signed_tally_exists(index: ReferendumIndex) -> bool {
+    pallet_signed_voting::TallyOf::<Test>::get(index).is_some()
+}
+
+fn has_event(matcher: impl Fn(&Event<Test>) -> bool) -> bool {
+    referenda_events().iter().any(matcher)
+}
+
+/// Assert the standard "concluded and cleaned up" invariants for a terminal
+/// referendum: not Ongoing, no tally, no pending alarm, and the slot has
+/// been released from `ActiveCount`.
+fn assert_concluded(index: ReferendumIndex, expected_active_after: u32) {
+    assert!(!Referenda::is_ongoing(index));
+    assert!(!signed_tally_exists(index));
+    assert_eq!(ActiveCount::<Test>::get(), expected_active_after);
+    // Conclude cancels the alarm; only Approved/FastTracked re-arm a new
+    // one for the Enacted transition.
+    if !matches!(
+        ReferendumStatusFor::<Test>::get(index),
+        Some(ReferendumStatus::Approved(_)) | Some(ReferendumStatus::FastTracked(_))
+    ) {
+        assert!(scheduler_alarm_block(index).is_none());
+    }
+}
+
+/// Drive the referendum forward up to `max_blocks` or until it leaves
+/// `Ongoing`.
+fn drive_to_terminal(index: ReferendumIndex, max_blocks: u64) {
+    let stop = current_block() + max_blocks;
+    while current_block() < stop && Referenda::is_ongoing(index) {
+        run_to_block(current_block() + 1);
+    }
+}
+
+#[test]
+fn environment_is_initialized() {
+    TestState::default().build_and_execute(|| {
+        assert!(MemberSet::Single(CollectiveId::Proposers).contains(&U256::from(PROPOSER)));
+        assert_eq!(MemberSet::Single(CollectiveId::Triumvirate).len(), 3);
     });
 }
 
-/// Test: Adjustable delay interpolates linearly between `initial_delay` (at
-/// approval = 0) and 0 (at approval = fast_track_threshold), anchored at the
-/// submission block.
 #[test]
-fn adjustable_interpolates_delay_anchored_at_submission() {
+fn submit_pass_or_fail_records_state_and_schedules_deadline_alarm() {
     TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let alice = U256::from(101);
-        let task_name: [u8; 32] = *b"review_task_1aaaaaaaaaaaaaaaaaaa";
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let now = current_block();
 
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
+        assert_eq!(ReferendumCount::<Test>::get(), 1);
+        assert_eq!(ActiveCount::<Test>::get(), 1);
+        assert!(signed_tally_exists(index));
+        assert_eq!(scheduler_alarm_block(index), Some(now + DECISION_PERIOD));
+        assert!(Pallet::<Test>::next_task_dispatch_time(index).is_none());
 
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
-        ));
+        match status_of(index) {
+            ReferendumStatus::Ongoing(info) => {
+                assert_eq!(info.track, TRACK_PASS_OR_FAIL);
+                assert_eq!(info.proposer, U256::from(PROPOSER));
+                assert_eq!(info.submitted, now);
+                assert!(matches!(info.proposal, Proposal::Action(_)));
+            }
+            _ => panic!("expected Ongoing"),
+        }
 
-        // No votes yet → original schedule untouched.
-        assert_eq!(task_scheduled_at(task_name), Some(5000));
-
-        // One aye out of three: approval = 1/3, with fast_track = 75% and
-        // initial_delay = 100, delay ≈ ((75% − 33%) / 75%) × 100 ≈ 55-56 blocks.
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(alice), 0u32, true));
-
-        let approval = Perbill::from_rational(1u32, 3u32);
-        let fast_track = Perbill::from_percent(75);
-        let gap = fast_track.saturating_sub(approval);
-        let fraction = Perbill::from_rational(gap.deconstruct(), fast_track.deconstruct());
-        let expected_delay: u64 = fraction.mul_floor(100u64);
-        let submitted = 10u64;
-        assert_eq!(
-            task_scheduled_at(task_name),
-            Some(submitted + expected_delay)
-        );
-
-        // Sanity: delay is strictly between 0 and initial_delay.
-        assert!(expected_delay > 0);
-        assert!(expected_delay < 100);
+        assert!(has_event(|e| matches!(
+            e,
+            Event::Submitted { index: i, track, proposer }
+                if *i == index
+                    && *track == TRACK_PASS_OR_FAIL
+                    && *proposer == U256::from(PROPOSER)
+        )));
     });
 }
 
-/// Test: Delay depends only on approval; nay votes leave the target untouched.
-/// Target is anchored at `submitted`, so advancing `now` between votes does
-/// not push the dispatch block forward.
 #[test]
-fn adjustable_target_stable_across_nay_votes_and_time() {
+fn submit_adjustable_records_state_and_schedules_task_with_reaper() {
     TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let alice = U256::from(101);
-        let bob = U256::from(102);
-        let task_name: [u8; 32] = *b"review_task_2aaaaaaaaaaaaaaaaaaa";
-
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
-        ));
-
-        // Alice aye at block 10: approval = 1/3 → target = submitted + delay.
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(alice), 0u32, true));
-        let target_after_aye = task_scheduled_at(task_name).expect("rescheduled");
-        assert!(target_after_aye > 10);
-
-        // Bob nay at block 30: approval unchanged, rejection = 1/3 (below 51%).
-        // Target must be identical — not 30 + delay, since anchor is `submitted`.
-        System::set_block_number(30);
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(bob), 0u32, false));
-        assert_eq!(task_scheduled_at(task_name), Some(target_after_aye));
-        assert!(Referenda::is_ongoing(0));
-    });
-}
-
-/// Test: When `now` exceeds the interpolated target, the next tally update
-/// fast-tracks the task and concludes the referendum as Approved.
-#[test]
-fn adjustable_fast_tracks_when_elapsed_catches_up() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let alice = U256::from(101);
-        let task_name: [u8; 32] = *b"review_task_3aaaaaaaaaaaaaaaaaaa";
-
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
-        ));
-
-        // Advance past the would-be target (10 + 55 = 65).
-        System::set_block_number(200);
-
-        // Alice votes aye. Computed target = 65, but now = 200 → fast-track.
-        assert_ok!(SignedVoting::vote(RuntimeOrigin::signed(alice), 0u32, true));
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let now = current_block();
 
         assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Approved(_))
+            status_of(index),
+            ReferendumStatus::Ongoing(ReferendumInfo { proposal: Proposal::Review, .. })
         ));
-
-        // do_fast_track reschedules to DispatchTime::After(0), i.e. now + 1.
-        assert_eq!(task_scheduled_at(task_name), Some(201));
+        assert_eq!(
+            Pallet::<Test>::next_task_dispatch_time(index),
+            Some(now + INITIAL_DELAY)
+        );
+        assert_eq!(scheduler_alarm_block(index), Some(now + INITIAL_DELAY + 1));
     });
 }
 
-// ============================================================================
-// Section 1: submit extrinsic edge cases
-// ============================================================================
-
-/// Review proposals are only valid on Adjustable tracks. Submitting one on a
-/// PassOrFail track must fail with InvalidConfiguration and leave no state.
 #[test]
-fn submit_fails_for_review_on_passorfail_track() {
+fn submit_assigns_monotonic_indices() {
     TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let task_name: [u8; 32] = *b"some_taskaaaaaaaaaaaaaaaaaaaaaaa";
+        let i0 = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let i1 = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let i2 = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER_B));
+        assert_eq!((i0, i1, i2), (0, 1, 2));
+        assert_eq!(ReferendumCount::<Test>::get(), 3);
+        assert_eq!(ActiveCount::<Test>::get(), 3);
+    });
+}
 
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
-
+#[test]
+fn submit_rejects_invalid_origins_and_tracks() {
+    TestState::default().build_and_execute(|| {
+        // Bad track id.
         assert_noop!(
             Referenda::submit(
-                RuntimeOrigin::signed(proposer),
-                0u8, // track 0 is PassOrFail
-                Proposal::Review(task_name),
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                99u8,
+                Box::new(make_call()),
             ),
-            Error::<Test>::InvalidConfiguration
+            Error::<Test>::BadTrack
         );
-
-        assert_eq!(ReferendumCount::<Test>::get(), 0);
-        assert_eq!(ActiveCount::<Test>::get(), 0);
-    });
-}
-
-/// Action proposals are only valid on PassOrFail tracks. Submitting one on an
-/// Adjustable track must fail with InvalidConfiguration and leave no state.
-#[test]
-fn submit_fails_for_action_on_adjustable_track() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-
+        // Root and unsigned both fail; submit takes a signed origin only.
+        assert_noop!(
+            Referenda::submit(RuntimeOrigin::root(), TRACK_PASS_OR_FAIL, Box::new(make_call())),
+            DispatchError::BadOrigin
+        );
+        // Caller is not in the proposer set.
         assert_noop!(
             Referenda::submit(
-                RuntimeOrigin::signed(proposer),
-                1u8, // track 1 is Adjustable
-                Proposal::Action(bounded),
+                RuntimeOrigin::signed(U256::from(999)),
+                TRACK_PASS_OR_FAIL,
+                Box::new(make_call()),
             ),
-            Error::<Test>::InvalidConfiguration
+            Error::<Test>::NotProposer
         );
-
-        assert_eq!(ReferendumCount::<Test>::get(), 0);
-        assert_eq!(ActiveCount::<Test>::get(), 0);
+        // Track has no proposer set.
+        assert_noop!(
+            Referenda::submit(
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                TRACK_NO_PROPOSER_SET,
+                Box::new(make_call()),
+            ),
+            Error::<Test>::TrackNotSubmittable
+        );
     });
 }
 
-/// Locks in that `submit` invokes `TracksInfo::authorize_proposal` for
-/// `Action` proposals and rejects with `ProposalNotAuthorized` when the
-/// runtime-side hook returns false.
 #[test]
-fn submit_rejects_when_authorize_proposal_returns_false() {
+fn submit_rejects_call_when_authorize_proposal_returns_false() {
     TestState::default().build_and_execute(|| {
         set_authorize_proposal(false);
-
-        let proposer = U256::from(1);
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-
         assert_noop!(
             Referenda::submit(
-                RuntimeOrigin::signed(proposer),
-                0u8,
-                Proposal::Action(bounded),
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                TRACK_PASS_OR_FAIL,
+                Box::new(make_call()),
             ),
             Error::<Test>::ProposalNotAuthorized
         );
     });
 }
 
-/// A successful submit emits exactly one `Submitted` event with the expected
-/// index, track, and proposer.
 #[test]
-fn submit_emits_submitted_event_with_correct_fields() {
+fn submit_caps_at_max_queued_and_recycles_after_kill() {
     TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        let submitted_events: Vec<_> = referenda_events()
-            .into_iter()
-            .filter(|e| matches!(e, Event::Submitted { .. }))
-            .collect();
-        assert_eq!(submitted_events.len(), 1);
-        assert_eq!(
-            submitted_events[0],
-            Event::Submitted {
-                index: 0,
-                track: 0u8,
-                proposer,
-            }
-        );
-    });
-}
-
-/// Submit on a PassOrFail track produces an `Ongoing` status with:
-/// - the submitter recorded
-/// - `submitted` equal to the current block
-/// - `scheduled_task = Some((decision_period_end, address))`
-#[test]
-fn submit_populates_referendum_status_as_ongoing() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        System::set_block_number(42);
-
-        let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-        let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            0u8,
-            Proposal::Action(bounded),
-        ));
-
-        let status = ReferendumStatusFor::<Test>::get(0).expect("status exists");
-        let ReferendumStatus::Ongoing(info) = status else {
-            panic!("expected Ongoing status, got {:?}", status);
-        };
-
-        assert_eq!(info.track, 0u8);
-        assert_eq!(info.submitter, proposer);
-        assert_eq!(info.submitted, 42);
-
-        // PassOrFail: decision_period = 20, so scheduled task fires at 42 + 20 = 62.
-        let (when, _address) = info.scheduled_task.expect("PassOrFail schedules timeout");
-        assert_eq!(when, 62);
-    });
-}
-
-/// Adjustable tracks schedule a reaper alarm at submitted + initial_delay + 1
-/// so Review polls cannot leak storage when no votes arrive before the named
-/// task executes naturally.
-#[test]
-fn submit_schedules_reaper_for_adjustable_track() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let task_name: [u8; 32] = *b"review_task_skipaaaaaaaaaaaaaaaa";
-
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
-        ));
-
-        let ReferendumStatus::Ongoing(info) =
-            ReferendumStatusFor::<Test>::get(0).expect("status exists")
-        else {
-            panic!("expected Ongoing status");
-        };
-
-        // initial_delay = 100 in mock, submitted at block 10, reaper at 111.
-        let (when, _address) = info
-            .scheduled_task
-            .expect("Adjustable submit schedules a reaper alarm");
-        assert_eq!(when, 111);
-    });
-}
-
-/// Regression for Bug #2: a Review referendum that receives no votes is
-/// reaped after `submitted + initial_delay` instead of leaking forever.
-#[test]
-fn adjustable_review_concludes_via_reaper_when_no_votes_arrive() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let task_name: [u8; 32] = *b"review_reapeaaaaaaaaaaaaaaaaaaaa";
-
-        // Schedule the reviewed task at a block earlier than the reaper.
-        // submitted = 10, initial_delay = 100, reaper at 111.
-        // Task at 50 will fire before the reaper; the Review then has no
-        // task to watch, but no vote ever called update_tally to clean up.
-        System::set_block_number(10);
-        schedule_named_task(task_name, 50);
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
-        ));
-
-        assert_eq!(ActiveCount::<Test>::get(), 1);
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Ongoing(_))
-        ));
-
-        // Run past the task (50) and the reaper (111).
-        run_to_block(112);
-
-        // Reaper fired; referendum is concluded.
-        assert!(!matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Ongoing(_))
-        ));
-        assert_eq!(ActiveCount::<Test>::get(), 0);
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(0u32).is_none());
-    });
-}
-
-/// Concurrent submits on the same block produce monotonically-increasing
-/// indexes with no gaps and no recycling. `ActiveCount` reflects the live set.
-#[test]
-fn submit_assigns_monotonic_ids_across_concurrent_submits() {
-    TestState::default().build_and_execute(|| {
-        let proposer_a = U256::from(1);
-        let proposer_b = U256::from(2);
-
-        let submit_as = |who: U256| {
-            let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-            let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-            Referenda::submit(RuntimeOrigin::signed(who), 0u8, Proposal::Action(bounded))
-        };
-
-        assert_ok!(submit_as(proposer_a));
-        assert_ok!(submit_as(proposer_b));
-        assert_ok!(submit_as(proposer_a));
-
-        assert_eq!(ReferendumCount::<Test>::get(), 3);
-        assert_eq!(ActiveCount::<Test>::get(), 3);
-
-        for (idx, expected_submitter) in [proposer_a, proposer_b, proposer_a].iter().enumerate() {
-            let ReferendumStatus::Ongoing(info) =
-                ReferendumStatusFor::<Test>::get(idx as u32).expect("exists")
-            else {
-                panic!("expected Ongoing for index {}", idx);
-            };
-            assert_eq!(info.submitter, *expected_submitter);
+        // Fill exactly to MaxQueued = 10.
+        for _ in 0..10 {
+            assert_ok!(Referenda::submit(
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                TRACK_PASS_OR_FAIL,
+                Box::new(make_call()),
+            ));
         }
-    });
-}
+        assert_eq!(ActiveCount::<Test>::get(), 10);
 
-// ============================================================================
-// Section 2: cancel extrinsic edge cases
-// ============================================================================
-
-/// Cancel on a never-submitted index must fail with `ReferendumNotFound`.
-#[test]
-fn cancel_nonexistent_returns_referendum_not_found() {
-    TestState::default().build_and_execute(|| {
+        // 11th submission rejected.
         assert_noop!(
-            Referenda::cancel(RuntimeOrigin::root(), 999),
-            Error::<Test>::ReferendumNotFound
-        );
-    });
-}
-
-/// Helper: submit a PassOrFail Action proposal on track 0 and return its index.
-fn submit_action_on_track_0(proposer: U256) -> ReferendumIndex {
-    let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-    let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
-    let index = ReferendumCount::<Test>::get();
-    assert_ok!(Referenda::submit(
-        RuntimeOrigin::signed(proposer),
-        0u8,
-        Proposal::Action(bounded),
-    ));
-    index
-}
-
-/// Cancelling a referendum already approved (via 2/3 ayes) must fail with
-/// `ReferendumFinalized` and leave the stored Approved status untouched.
-#[test]
-fn cancel_approved_referendum_returns_referendum_finalized() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Approved(_))
-        ));
-
-        assert_noop!(
-            Referenda::cancel(RuntimeOrigin::root(), index),
-            Error::<Test>::ReferendumFinalized
-        );
-    });
-}
-
-/// Cancelling a referendum already rejected (via 2/3 nays) must fail with
-/// `ReferendumFinalized`.
-#[test]
-fn cancel_rejected_referendum_returns_referendum_finalized() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            false
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Rejected(_))
-        ));
-
-        assert_noop!(
-            Referenda::cancel(RuntimeOrigin::root(), index),
-            Error::<Test>::ReferendumFinalized
-        );
-    });
-}
-
-/// Cancelling a referendum that expired on timeout must fail with
-/// `ReferendumFinalized`.
-#[test]
-fn cancel_expired_referendum_returns_referendum_finalized() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-
-        // decision_period for track 0 = 20; submitted at block 1, alarm at 21.
-        run_to_block(25);
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Expired(_))
-        ));
-
-        assert_noop!(
-            Referenda::cancel(RuntimeOrigin::root(), index),
-            Error::<Test>::ReferendumFinalized
-        );
-    });
-}
-
-/// Cancelling a referendum twice: second call must fail with
-/// `ReferendumFinalized`.
-#[test]
-fn cancel_already_cancelled_returns_referendum_finalized() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-
-        assert_noop!(
-            Referenda::cancel(RuntimeOrigin::root(), index),
-            Error::<Test>::ReferendumFinalized
-        );
-    });
-}
-
-/// A successful cancel emits exactly one `Cancelled` event for the correct index.
-#[test]
-fn cancel_emits_cancelled_event() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-
-        let cancelled_events: Vec<_> = referenda_events()
-            .into_iter()
-            .filter(|e| matches!(e, Event::Cancelled { .. }))
-            .collect();
-        assert_eq!(cancelled_events.len(), 1);
-        assert_eq!(cancelled_events[0], Event::Cancelled { index });
-    });
-}
-
-/// Cancel must remove the finalize-referendum alarm from the scheduler.
-/// After cancel, the slot at `submitted + decision_period` holds no live task.
-#[test]
-fn cancel_removes_scheduled_finalize_task() {
-    TestState::default().build_and_execute(|| {
-        // Submitted at block 1, decision_period = 20 → alarm at block 21.
-        let index = submit_action_on_track_0(U256::from(1));
-        let alarm_block = 1u64 + 20u64;
-
-        let live_before = pallet_scheduler::Agenda::<Test>::get(alarm_block)
-            .iter()
-            .filter(|x| x.is_some())
-            .count();
-        assert_eq!(live_before, 1, "alarm present before cancel");
-
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-
-        let live_after = pallet_scheduler::Agenda::<Test>::get(alarm_block)
-            .iter()
-            .filter(|x| x.is_some())
-            .count();
-        assert_eq!(live_after, 0, "alarm cleared after cancel");
-    });
-}
-
-/// Cancelling a Review referendum is a no-op on the scheduler side (no alarm,
-/// and the named task it references is intentionally left scheduled — cancel
-/// is administrative and does not kill the target task).
-#[test]
-fn cancel_of_review_referendum_concludes_without_touching_named_task() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let task_name: [u8; 32] = *b"review_task_cancaaaaaaaaaaaaaaaa";
-
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
-
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
-        ));
-
-        assert_eq!(task_scheduled_at(task_name), Some(5000));
-
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), 0));
-
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Cancelled(_))
-        ));
-        // The named task is unaffected — cancel() does not call cancel_named.
-        assert_eq!(task_scheduled_at(task_name), Some(5000));
-    });
-}
-
-/// Test: MaxQueued bounds active referenda, not total submissions.
-/// Finalized referenda (cancelled, rejected, approved, expired) free up capacity.
-#[test]
-fn max_queued_bounds_active_referenda() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let max = <Test as crate::Config>::MaxQueued::get();
-
-        let submit_one = || {
-            let call = RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] });
-            let bounded = <Test as crate::Config>::Preimages::bound(call).unwrap();
             Referenda::submit(
-                RuntimeOrigin::signed(proposer),
-                0u8,
-                Proposal::Action(bounded),
-            )
-        };
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                TRACK_PASS_OR_FAIL,
+                Box::new(make_call()),
+            ),
+            Error::<Test>::QueueFull
+        );
 
-        for _ in 0..max {
-            assert_ok!(submit_one());
-        }
-        assert_eq!(ActiveCount::<Test>::get(), max);
-
-        assert_noop!(submit_one(), Error::<Test>::QueueFull);
-
-        // Cancelling a referendum frees one slot.
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), 0));
-        assert_eq!(ActiveCount::<Test>::get(), max - 1);
-
-        assert_ok!(submit_one());
-        assert_eq!(ActiveCount::<Test>::get(), max);
-
-        // IDs remain monotonic — no recycling.
-        assert_eq!(ReferendumCount::<Test>::get(), max + 1);
+        // Killing one frees the slot for reuse.
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), 5));
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(make_call()),
+        ));
+        assert_eq!(ActiveCount::<Test>::get(), 10);
     });
 }
 
-// ============================================================================
-// Section 3: finalize_referendum direct tests
-// ============================================================================
-
-/// finalize_referendum requires root origin.
 #[test]
-fn finalize_non_root_fails() {
+fn kill_concludes_with_killed_status_and_full_cleanup() {
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        run_to_block(current_block() + 5);
+        let killed_at = current_block();
+
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), index));
+
+        assert!(matches!(status_of(index), ReferendumStatus::Killed(b) if b == killed_at));
+        assert_concluded(index, 0);
+        assert!(Pallet::<Test>::next_task_dispatch_time(index).is_none());
+        assert!(has_event(
+            |e| matches!(e, Event::Killed { index: i } if *i == index)
+        ));
+    });
+}
+
+#[test]
+fn kill_rejects_non_kill_origin_and_unknown_index() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
         assert_noop!(
-            Referenda::finalize_referendum(RuntimeOrigin::signed(U256::from(1)), index),
+            Referenda::kill(RuntimeOrigin::signed(U256::from(PROPOSER)), index),
             DispatchError::BadOrigin
         );
-    });
-}
-
-/// finalize_referendum on an index that was never submitted fails with
-/// `ReferendumNotFound`.
-#[test]
-fn finalize_nonexistent_fails() {
-    TestState::default().build_and_execute(|| {
         assert_noop!(
-            Referenda::finalize_referendum(RuntimeOrigin::root(), 999),
+            Referenda::kill(RuntimeOrigin::root(), 999),
             Error::<Test>::ReferendumNotFound
         );
     });
 }
 
-/// finalize_referendum on an already-concluded referendum fails with
-/// `ReferendumFinalized`.
 #[test]
-fn finalize_already_concluded_fails() {
+fn kill_rejects_already_finalized_referendum_for_every_terminal_status() {
+    // Drive each conclusion path, then attempt to kill: must always fail
+    // with `ReferendumFinalized`.
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
+        // Killed.
+        let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), i));
         assert_noop!(
-            Referenda::finalize_referendum(RuntimeOrigin::root(), index),
+            Referenda::kill(RuntimeOrigin::root(), i),
+            Error::<Test>::ReferendumFinalized
+        );
+
+        // Approved.
+        let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, i, true);
+        vote(VOTER_B, i, true);
+        run_to_block(current_block() + 2);
+        assert!(matches!(status_of(i), ReferendumStatus::Approved(_)));
+        assert_noop!(
+            Referenda::kill(RuntimeOrigin::root(), i),
+            Error::<Test>::ReferendumFinalized
+        );
+
+        // Rejected.
+        let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, i, false);
+        vote(VOTER_B, i, false);
+        run_to_block(current_block() + 2);
+        assert!(matches!(status_of(i), ReferendumStatus::Rejected(_)));
+        assert_noop!(
+            Referenda::kill(RuntimeOrigin::root(), i),
+            Error::<Test>::ReferendumFinalized
+        );
+
+        // Expired.
+        let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        run_to_block(current_block() + DECISION_PERIOD + 1);
+        assert!(matches!(status_of(i), ReferendumStatus::Expired(_)));
+        assert_noop!(
+            Referenda::kill(RuntimeOrigin::root(), i),
+            Error::<Test>::ReferendumFinalized
+        );
+
+        // Cancelled.
+        let i = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        vote(VOTER_A, i, false);
+        vote(VOTER_B, i, false);
+        run_to_block(current_block() + 2);
+        assert!(matches!(status_of(i), ReferendumStatus::Cancelled(_)));
+        assert_noop!(
+            Referenda::kill(RuntimeOrigin::root(), i),
             Error::<Test>::ReferendumFinalized
         );
     });
 }
 
-/// When the cached tally is at/above `approve_threshold`, finalize approves.
-/// Tally is injected directly to exercise the branch — normal voting
-/// auto-approves before finalize fires.
 #[test]
-fn finalize_with_approval_threshold_approves() {
+fn pass_or_fail_below_threshold_stays_ongoing() {
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        ReferendumTallyOf::<Test>::insert(
-            index,
-            VoteTally {
-                approval: Perbill::from_percent(80),
-                rejection: Perbill::zero(),
-                abstention: Perbill::from_percent(20),
-            },
-        );
+        let aye_only = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, aye_only, true);
+        run_to_block(current_block() + 2);
+        assert!(Referenda::is_ongoing(aye_only));
 
-        assert_ok!(Referenda::finalize_referendum(RuntimeOrigin::root(), index));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Approved(_))
-        ));
+        let nay_only = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, nay_only, false);
+        run_to_block(current_block() + 2);
+        assert!(Referenda::is_ongoing(nay_only));
     });
 }
 
-/// When the cached tally is at/above `reject_threshold`, finalize rejects.
 #[test]
-fn finalize_with_rejection_threshold_rejects() {
+fn pass_or_fail_approves_at_threshold_and_reaches_enacted() {
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        ReferendumTallyOf::<Test>::insert(
-            index,
-            VoteTally {
-                approval: Perbill::zero(),
-                rejection: Perbill::from_percent(80),
-                abstention: Perbill::from_percent(20),
-            },
-        );
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
 
-        assert_ok!(Referenda::finalize_referendum(RuntimeOrigin::root(), index));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Rejected(_))
-        ));
-    });
-}
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        run_to_block(current_block() + 2);
 
-/// When neither threshold is reached (default/missing tally), finalize expires.
-#[test]
-fn finalize_with_neither_threshold_expires() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        // No cached tally → default zeros → neither threshold met.
-        assert_ok!(Referenda::finalize_referendum(RuntimeOrigin::root(), index));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Expired(_))
-        ));
-    });
-}
-
-/// finalize_referendum on an Adjustable Review concludes as Approved if the
-/// named task is no longer in the scheduler (it has run or was cancelled),
-/// Expired if the task is still queued.
-#[test]
-fn finalize_on_adjustable_approves_when_task_gone() {
-    TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let task_name: [u8; 32] = *b"review_adjustaaaaaaaaaaaaaaaaaaa";
-
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
+        // Intermediate state: Approved with follow-up alarm.
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+        assert_concluded(index, 0);
+        assert!(scheduler_alarm_block(index).is_some());
+        assert!(has_event(
+            |e| matches!(e, Event::Approved { index: i } if *i == index)
         ));
 
-        // Cancel the named task so finalize sees it as gone.
-        assert_ok!(<Scheduler as ScheduleNamed<
-            u64,
-            RuntimeCall,
-            OriginCaller,
-        >>::cancel_named(task_name,));
-
-        assert_ok!(Referenda::finalize_referendum(RuntimeOrigin::root(), 0));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Approved(_))
+        // Run forward: Enacted is reached after the task dispatches.
+        run_to_block(current_block() + 5);
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert!(has_event(
+            |e| matches!(e, Event::Enacted { index: i, .. } if *i == index)
         ));
     });
 }
 
 #[test]
-fn finalize_on_adjustable_expires_when_task_still_queued() {
+fn pass_or_fail_unanimous_aye_also_approves() {
     TestState::default().build_and_execute(|| {
-        let proposer = U256::from(1);
-        let task_name: [u8; 32] = *b"review_adjust_alive_aaaaaaaaaaaa";
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        vote(VOTER_C, index, true);
+        run_to_block(current_block() + 2);
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+    });
+}
 
-        System::set_block_number(10);
-        schedule_named_task(task_name, 5000);
-        assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(proposer),
-            1u8,
-            Proposal::Review(task_name),
-        ));
+#[test]
+fn pass_or_fail_rejects_at_threshold_with_full_cleanup() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
 
-        // Task still queued at block 5000 → finalize expires the Review.
-        assert_ok!(Referenda::finalize_referendum(RuntimeOrigin::root(), 0));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(0),
-            Some(ReferendumStatus::Expired(_))
+        vote(VOTER_A, index, false);
+        vote(VOTER_B, index, false);
+        run_to_block(current_block() + 2);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Rejected(_)));
+        assert_concluded(index, 0);
+        assert!(has_event(
+            |e| matches!(e, Event::Rejected { index: i } if *i == index)
         ));
     });
 }
 
-// ============================================================================
-// Section 4: PassOrFail state transitions
-// ============================================================================
-
-/// Approval exactly at the threshold approves (>= semantics).
-/// Track 0 threshold = 2/3. 2 ayes of 3 triumvirate members = 66.67%.
 #[test]
-fn approval_at_exact_threshold_approves() {
+fn pass_or_fail_expires_at_deadline_with_full_cleanup() {
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let submitted = current_block();
+
+        run_to_block(submitted + DECISION_PERIOD - 1);
         assert!(Referenda::is_ongoing(index));
 
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Approved(_))
+        run_to_block(submitted + DECISION_PERIOD);
+        assert!(matches!(status_of(index), ReferendumStatus::Expired(_)));
+        assert_concluded(index, 0);
+        assert!(has_event(
+            |e| matches!(e, Event::Expired { index: i } if *i == index)
         ));
     });
 }
 
-/// Rejection exactly at the threshold rejects (>= semantics).
 #[test]
-fn rejection_at_exact_threshold_rejects() {
+fn pass_or_fail_non_decisive_vote_does_not_prematurely_expire() {
+    // Regression: a single non-decisive vote used to schedule a next-block
+    // alarm that then expired the referendum despite the deadline being
+    // far away. The fix restores the deadline alarm in the no-decision
+    // branch.
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let submitted = current_block();
+
+        vote(VOTER_A, index, true);
+        run_to_block(current_block() + 5);
+
         assert!(Referenda::is_ongoing(index));
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            false
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Rejected(_))
-        ));
-    });
-}
-
-/// On approval, the decision-period timeout alarm is cancelled and an
-/// execution task is scheduled for the next block.
-#[test]
-fn approval_cancels_timeout_alarm_and_schedules_execution() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        let alarm_block = 1u64 + 20u64;
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-
-        let alarm_slots = pallet_scheduler::Agenda::<Test>::get(alarm_block)
-            .iter()
-            .filter(|x| x.is_some())
-            .count();
-        assert_eq!(alarm_slots, 0, "timeout alarm cancelled on approval");
-
-        // Approved Action is scheduled at DispatchTime::After(0) → next block.
-        let exec_slots = pallet_scheduler::Agenda::<Test>::get(2)
-            .iter()
-            .filter(|x| x.is_some())
-            .count();
-        assert_eq!(exec_slots, 1, "approved call scheduled for execution");
-    });
-}
-
-/// On rejection, the decision-period timeout alarm is cancelled.
-#[test]
-fn rejection_cancels_timeout_alarm() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        let alarm_block = 1u64 + 20u64;
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            false
-        ));
-
-        let alarm_slots = pallet_scheduler::Agenda::<Test>::get(alarm_block)
-            .iter()
-            .filter(|x| x.is_some())
-            .count();
-        assert_eq!(alarm_slots, 0, "timeout alarm cancelled on rejection");
-    });
-}
-
-// ============================================================================
-// Section 5: Adjustable state transitions
-// ============================================================================
-
-/// Helper: schedule `task_name` and submit a Review on track 1.
-fn submit_review_on_track_1(proposer: U256, task_name: [u8; 32], when: u64) -> ReferendumIndex {
-    schedule_named_task(task_name, when);
-    let index = ReferendumCount::<Test>::get();
-    assert_ok!(Referenda::submit(
-        RuntimeOrigin::signed(proposer),
-        1u8,
-        Proposal::Review(task_name),
-    ));
-    index
-}
-
-/// Approval at/above the fast_track_threshold fast-tracks the named task to
-/// the next block and concludes as Approved.
-#[test]
-fn adjustable_fast_tracks_above_approval_threshold() {
-    TestState::default().build_and_execute(|| {
-        let task_name: [u8; 32] = *b"adj_fast_trackaaaaaaaaaaaaaaaaaa";
-        System::set_block_number(10);
-        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert!(Referenda::is_ongoing(index));
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-        // 66.67% < 75%, still ongoing.
-        assert!(Referenda::is_ongoing(index));
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(103)),
-            index,
-            true
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Approved(_))
-        ));
-        // do_fast_track reschedules to After(0) = next block = 11.
-        assert_eq!(task_scheduled_at(task_name), Some(11));
-    });
-}
-
-/// Rejection at/above reject_threshold (51%) cancels the named task and
-/// concludes as Rejected.
-#[test]
-fn adjustable_rejection_cancels_named_task() {
-    TestState::default().build_and_execute(|| {
-        let task_name: [u8; 32] = *b"adj_rejectaaaaaaaaaaaaaaaaaaaaaa";
-        System::set_block_number(10);
-        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
-        assert!(Referenda::is_ongoing(index));
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            false
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Rejected(_))
-        ));
-        assert_eq!(task_scheduled_at(task_name), None);
-    });
-}
-
-/// With zero approval and 1/3 nay (sub-reject), the interpolated delay
-/// equals the full `initial_delay`: target = submitted + initial_delay.
-#[test]
-fn adjustable_zero_approval_uses_full_initial_delay() {
-    TestState::default().build_and_execute(|| {
-        let task_name: [u8; 32] = *b"adj_zero_appaaaaaaaaaaaaaaaaaaaa";
-        System::set_block_number(10);
-        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
-
-        // submitted(10) + initial_delay(100) = 110.
-        assert_eq!(task_scheduled_at(task_name), Some(110));
-        assert!(Referenda::is_ongoing(index));
-    });
-}
-
-/// A tally update that moves the target emits a TaskRescheduled event with
-/// the newly-computed dispatch block.
-#[test]
-fn adjustable_vote_emits_task_rescheduled_event() {
-    TestState::default().build_and_execute(|| {
-        let task_name: [u8; 32] = *b"adj_event_emitaaaaaaaaaaaaaaaaaa";
-        System::set_block_number(10);
-        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
-
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-
-        let new_when = task_scheduled_at(task_name).expect("rescheduled");
-        let rescheduled_events: Vec<_> = referenda_events()
-            .into_iter()
-            .filter_map(|e| match e {
-                Event::TaskRescheduled { index: i, at } => Some((i, at)),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(rescheduled_events, vec![(index, new_when)]);
-    });
-}
-
-/// Fast-tracking emits both a `TaskRescheduled` event (carrying the next-block
-/// dispatch target) and a `FastTracked` event (distinct from `Approved`,
-/// which is reserved for PassOrFail approval). Status concludes as `Approved`.
-#[test]
-fn adjustable_fast_track_emits_task_rescheduled_and_fast_tracked() {
-    TestState::default().build_and_execute(|| {
-        let task_name: [u8; 32] = *b"adj_ft_eventaaaaaaaaaaaaaaaaaaaa";
-        System::set_block_number(10);
-        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
-
-        // Three ayes out of three voters → 100% ≥ 75% fast_track_threshold.
-        for voter in [U256::from(101), U256::from(102), U256::from(103)] {
-            assert_ok!(SignedVoting::vote(
-                RuntimeOrigin::signed(voter),
-                index,
-                true
-            ));
-        }
-
-        let next_block = System::block_number().saturating_add(1);
-        let events = referenda_events();
-
-        let rescheduled: Vec<_> = events
-            .iter()
-            .filter_map(|e| match e {
-                Event::TaskRescheduled { index: i, at } if *i == index => Some(*at),
-                _ => None,
-            })
-            .collect();
         assert_eq!(
-            rescheduled.last().copied(),
-            Some(next_block),
-            "expected final TaskRescheduled at next block"
+            scheduler_alarm_block(index),
+            Some(submitted + DECISION_PERIOD),
+            "deadline alarm should be restored"
         );
 
-        let fast_tracked: Vec<_> = events
-            .iter()
-            .filter(|e| matches!(e, Event::FastTracked { index: i } if *i == index))
-            .collect();
-        assert_eq!(fast_tracked.len(), 1, "expected exactly one FastTracked");
-
-        let approved: Vec<_> = events
-            .iter()
-            .filter(|e| matches!(e, Event::Approved { index: i } if *i == index))
-            .collect();
-        assert!(
-            approved.is_empty(),
-            "fast-track must not emit Approved (reserved for PassOrFail)"
-        );
+        // Without further votes, the deadline alarm still fires the expiry.
+        run_to_block(submitted + DECISION_PERIOD + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Expired(_)));
     });
 }
 
-/// Rejection of an Adjustable Review cancels the underlying named task and
-/// emits a `TaskCancelled` event in addition to the terminal `Rejected`
-/// event.
 #[test]
-fn adjustable_rejection_emits_task_cancelled() {
+fn pass_or_fail_decisive_vote_at_last_block_of_deadline_approves() {
     TestState::default().build_and_execute(|| {
-        let task_name: [u8; 32] = *b"adj_rej_evtaaaaaaaaaaaaaaaaaaaaa";
-        System::set_block_number(10);
-        let index = submit_review_on_track_1(U256::from(1), task_name, 5000);
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let submitted = current_block();
 
-        // Two nays out of three → 66.7% > 51% reject_threshold.
-        for voter in [U256::from(101), U256::from(102)] {
-            assert_ok!(SignedVoting::vote(
-                RuntimeOrigin::signed(voter),
-                index,
-                false
-            ));
+        run_to_block(submitted + DECISION_PERIOD - 1);
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        run_to_block(current_block() + 2);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+    });
+}
+
+#[test]
+fn pass_or_fail_vote_change_can_flip_outcome_before_alarm_fires() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        // Voter B changes mind before the alarm fires; tally drops below
+        // approval threshold.
+        vote(VOTER_B, index, false);
+
+        run_to_block(current_block() + 2);
+        assert!(Referenda::is_ongoing(index));
+    });
+}
+
+#[test]
+fn delegation_creates_child_review_and_keeps_active_count_net_zero() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+        assert_eq!(ActiveCount::<Test>::get(), 1);
+
+        vote(VOTER_A, parent, true);
+        vote(VOTER_B, parent, true);
+        run_to_block(current_block() + 2);
+
+        let child = parent + 1;
+
+        assert!(matches!(status_of(parent), ReferendumStatus::Delegated(_)));
+        match status_of(child) {
+            ReferendumStatus::Ongoing(info) => {
+                assert_eq!(info.track, TRACK_ADJUSTABLE);
+                assert!(matches!(info.proposal, Proposal::Review));
+                assert_eq!(info.proposer, U256::from(PROPOSER));
+            }
+            _ => panic!("child should be Ongoing"),
         }
+
+        // ActiveCount: parent -1, child +1, net unchanged.
+        assert_eq!(ActiveCount::<Test>::get(), 1);
 
         let events = referenda_events();
-        let task_cancelled: Vec<_> = events
+        assert!(events.iter().any(|e| matches!(
+            e,
+            Event::Delegated { index, review, track }
+                if *index == parent && *review == child && *track == TRACK_ADJUSTABLE
+        )));
+        // No Submitted for the child, no Approved for the parent.
+        assert_eq!(
+            events.iter().filter(|e| matches!(e, Event::Submitted { .. })).count(),
+            1
+        );
+        assert_eq!(
+            events.iter().filter(|e| matches!(e, Event::Approved { .. })).count(),
+            0
+        );
+    });
+}
+
+#[test]
+fn delegated_parent_is_terminal_and_child_progresses_independently() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+        vote(VOTER_A, parent, true);
+        vote(VOTER_B, parent, true);
+        run_to_block(current_block() + 2);
+        let child = parent + 1;
+
+        // Manual advance does not promote Delegated.
+        let snapshot = status_of(parent);
+        assert_ok!(Referenda::advance_referendum(RuntimeOrigin::root(), parent));
+        assert_eq!(status_of(parent), snapshot);
+
+        // Child reaches Enacted via natural execution. Parent unchanged.
+        run_to_block(current_block() + INITIAL_DELAY + 5);
+        assert!(matches!(status_of(child), ReferendumStatus::Enacted(_)));
+        assert!(matches!(status_of(parent), ReferendumStatus::Delegated(_)));
+    });
+}
+
+#[test]
+fn killing_child_does_not_change_parent_delegated_status() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+        vote(VOTER_A, parent, true);
+        vote(VOTER_B, parent, true);
+        run_to_block(current_block() + 2);
+        let child = parent + 1;
+
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), child));
+        assert!(matches!(status_of(parent), ReferendumStatus::Delegated(_)));
+        assert!(matches!(status_of(child), ReferendumStatus::Killed(_)));
+    });
+}
+
+#[test]
+fn schedule_for_review_returns_none_for_invalid_targets() {
+    TestState::default().build_and_execute(|| {
+        let bounded = <Test as Config>::Preimages::bound(make_call()).unwrap();
+
+        // Unknown track id.
+        assert!(Pallet::<Test>::schedule_for_review(
+            bounded.clone(),
+            U256::from(PROPOSER),
+            99u8
+        )
+        .is_none());
+
+        // PassOrFail track (Review handoff requires Adjustable).
+        assert!(Pallet::<Test>::schedule_for_review(
+            bounded,
+            U256::from(PROPOSER),
+            TRACK_PASS_OR_FAIL,
+        )
+        .is_none());
+    });
+}
+
+#[test]
+fn adjustable_lapses_to_enacted_when_no_decisive_votes() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let submitted = current_block();
+
+        run_to_block(submitted + INITIAL_DELAY + 5);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert_concluded(index, 0);
+
+        let events = referenda_events();
+        assert!(events
             .iter()
-            .filter(|e| matches!(e, Event::TaskCancelled { index: i } if *i == index))
-            .collect();
-        assert_eq!(task_cancelled.len(), 1, "expected one TaskCancelled");
-
-        let rejected: Vec<_> = events
-            .iter()
-            .filter(|e| matches!(e, Event::Rejected { index: i } if *i == index))
-            .collect();
-        assert_eq!(rejected.len(), 1, "expected one Rejected");
-    });
-}
-
-// ============================================================================
-// Section 6: Polls trait conformance
-// ============================================================================
-
-/// is_ongoing returns false for an index that was never submitted.
-#[test]
-fn polls_is_ongoing_false_for_nonexistent() {
-    TestState::default().build_and_execute(|| {
-        assert!(!<Referenda as Polls<U256>>::is_ongoing(999));
-    });
-}
-
-/// is_ongoing returns false after each finalized state variant.
-#[test]
-fn polls_is_ongoing_false_for_cancelled() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-        assert!(!<Referenda as Polls<U256>>::is_ongoing(index));
-    });
-}
-
-#[test]
-fn polls_is_ongoing_false_for_approved() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-        assert!(!<Referenda as Polls<U256>>::is_ongoing(index));
-    });
-}
-
-#[test]
-fn polls_is_ongoing_false_for_rejected() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            false
-        ));
-        assert!(!<Referenda as Polls<U256>>::is_ongoing(index));
-    });
-}
-
-#[test]
-fn polls_is_ongoing_false_for_expired() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        run_to_block(25);
-        assert!(!<Referenda as Polls<U256>>::is_ongoing(index));
-    });
-}
-
-/// voting_scheme_of returns Some for an ongoing referendum and None once
-/// concluded.
-#[test]
-fn polls_voting_scheme_of_returns_none_after_conclusion() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert!(<Referenda as Polls<U256>>::voting_scheme_of(index).is_some());
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-        assert!(<Referenda as Polls<U256>>::voting_scheme_of(index).is_none());
-    });
-}
-
-/// voter_set_of returns Some for an ongoing referendum and None once concluded.
-#[test]
-fn polls_voter_set_of_returns_none_after_conclusion() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert!(<Referenda as Polls<U256>>::voter_set_of(index).is_some());
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-        assert!(<Referenda as Polls<U256>>::voter_set_of(index).is_none());
-    });
-}
-
-/// on_tally_updated caches the pushed tally in `ReferendumTallyOf` so that
-/// `finalize_referendum` can evaluate it at timeout.
-#[test]
-fn polls_on_tally_updated_caches_tally() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        let tally = VoteTally {
-            approval: Perbill::from_percent(10),
-            rejection: Perbill::from_percent(20),
-            abstention: Perbill::from_percent(70),
-        };
-        <Referenda as Polls<U256>>::on_tally_updated(index, &tally);
-        assert_eq!(ReferendumTallyOf::<Test>::get(index), Some(tally));
-    });
-}
-
-/// on_tally_updated on a concluded referendum must not change its status
-/// and must not emit a new transition event.
-#[test]
-fn polls_on_tally_updated_noop_when_concluded() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-
-        let events_before = referenda_events().len();
-        let tally = VoteTally {
-            approval: Perbill::from_percent(99),
-            rejection: Perbill::zero(),
-            abstention: Perbill::from_percent(1),
-        };
-        <Referenda as Polls<U256>>::on_tally_updated(index, &tally);
-
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Cancelled(_))
-        ));
-        assert_eq!(referenda_events().len(), events_before);
-    });
-}
-
-// ============================================================================
-// Section 7: PollHooks lifecycle contract
-// ============================================================================
-//
-// The hook is wired to SignedVoting; we observe the hook firing through
-// SignedVoting's internal `TallyOf` storage: present after on_poll_created,
-// absent after on_poll_completed.
-
-#[test]
-fn pollhooks_on_poll_created_initializes_signed_voting_tally() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(index).is_some());
-    });
-}
-
-#[test]
-fn pollhooks_on_poll_completed_clears_tally_on_approve() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(index).is_none());
-    });
-}
-
-#[test]
-fn pollhooks_on_poll_completed_clears_tally_on_reject() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            false
-        ));
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(index).is_none());
-    });
-}
-
-#[test]
-fn pollhooks_on_poll_completed_clears_tally_on_cancel() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(index).is_none());
-    });
-}
-
-#[test]
-fn pollhooks_on_poll_completed_clears_tally_on_expire() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        run_to_block(25);
-        assert!(pallet_signed_voting::TallyOf::<Test>::get(index).is_none());
-    });
-}
-
-// ============================================================================
-// Section 8: Storage invariants
-// ============================================================================
-
-#[test]
-fn active_count_decrements_on_approve() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_eq!(ActiveCount::<Test>::get(), 1);
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-        assert_eq!(ActiveCount::<Test>::get(), 0);
-    });
-}
-
-#[test]
-fn active_count_decrements_on_reject() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_eq!(ActiveCount::<Test>::get(), 1);
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            false
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            false
-        ));
-        assert_eq!(ActiveCount::<Test>::get(), 0);
-    });
-}
-
-#[test]
-fn active_count_decrements_on_expire() {
-    TestState::default().build_and_execute(|| {
-        submit_action_on_track_0(U256::from(1));
-        assert_eq!(ActiveCount::<Test>::get(), 1);
-        run_to_block(25);
-        assert_eq!(ActiveCount::<Test>::get(), 0);
-    });
-}
-
-/// Finalized entries are NOT removed from `ReferendumStatusFor`; the pallet
-/// keeps them as history across every conclusion path.
-#[test]
-fn referendum_status_preserved_post_conclusion() {
-    TestState::default().build_and_execute(|| {
-        // Approved
-        let i1 = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            i1,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            i1,
-            true
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(i1),
-            Some(ReferendumStatus::Approved(_))
-        ));
-
-        // Rejected
-        let i2 = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            i2,
-            false
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            i2,
-            false
-        ));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(i2),
-            Some(ReferendumStatus::Rejected(_))
-        ));
-
-        // Cancelled
-        let i3 = submit_action_on_track_0(U256::from(1));
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), i3));
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(i3),
-            Some(ReferendumStatus::Cancelled(_))
-        ));
-
-        // Expired
-        let i4 = submit_action_on_track_0(U256::from(1));
-        run_to_block(50);
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(i4),
-            Some(ReferendumStatus::Expired(_))
-        ));
-    });
-}
-
-/// `ReferendumTallyOf` is cleared on each conclusion path.
-#[test]
-fn referendum_tally_cleared_on_approve() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
-        assert!(ReferendumTallyOf::<Test>::get(index).is_none());
-    });
-}
-
-#[test]
-fn referendum_tally_cleared_on_cancel() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
-        assert!(ReferendumTallyOf::<Test>::get(index).is_none());
-    });
-}
-
-#[test]
-fn referendum_tally_cleared_on_expire() {
-    TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        run_to_block(25);
-        assert!(ReferendumTallyOf::<Test>::get(index).is_none());
-    });
-}
-
-// ============================================================================
-// Section 9: Scheduler error handling
-// ============================================================================
-//
-// Scheduler-side errors in the post-submit flow (cancel, approve, reject,
-// fast-track, adjust-delay) must not unwind the caller — they are logged and
-// surfaced via `SchedulerOperationFailed`. We force the error by clearing
-// the Agenda slot holding the referendum's alarm, so `Scheduler::cancel`
-// returns NotFound on the next attempt.
-
-fn clear_agenda_slot(block: u64) {
-    pallet_scheduler::Agenda::<Test>::mutate(block, |agenda| {
-        for slot in agenda.iter_mut() {
-            *slot = None;
+            .any(|e| matches!(e, Event::Enacted { index: i, .. } if *i == index)));
+        // Lapse skips the Approved/FastTracked intermediate state.
+        for kind in [
+            "Approved",
+            "FastTracked",
+        ] {
+            let count = events
+                .iter()
+                .filter(|e| match e {
+                    Event::Approved { .. } => kind == "Approved",
+                    Event::FastTracked { .. } => kind == "FastTracked",
+                    _ => false,
+                })
+                .count();
+            assert_eq!(count, 0, "lapse should not emit {}", kind);
         }
     });
 }
 
-/// Cancel still concludes the referendum when the scheduler cancel of the
-/// alarm fails; a `SchedulerOperationFailed` event is emitted.
 #[test]
-fn cancel_with_failed_scheduler_emits_operation_failed_event() {
+fn adjustable_fast_tracks_at_threshold_and_reaches_enacted() {
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        clear_agenda_slot(1u64 + 20u64);
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
 
-        assert_ok!(Referenda::cancel(RuntimeOrigin::root(), index));
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        vote(VOTER_C, index, true);
+        run_to_block(current_block() + 5);
 
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Cancelled(_))
-        ));
-
-        let failed: Vec<_> = referenda_events()
-            .into_iter()
-            .filter(|e| matches!(e, Event::SchedulerOperationFailed { .. }))
-            .collect();
-        assert_eq!(failed, vec![Event::SchedulerOperationFailed { index }]);
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        let events = referenda_events();
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, Event::FastTracked { index: i } if *i == index)));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, Event::Enacted { index: i, .. } if *i == index)));
     });
 }
 
-/// Approval still concludes the referendum and emits Approved, even when
-/// do_approve's attempt to cancel the alarm fails. A SchedulerOperationFailed
-/// is additionally emitted.
 #[test]
-fn approve_with_failed_alarm_cancel_still_concludes() {
+fn adjustable_cancels_at_threshold_and_cleans_up_task() {
     TestState::default().build_and_execute(|| {
-        let index = submit_action_on_track_0(U256::from(1));
-        clear_agenda_slot(1u64 + 20u64);
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
 
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(101)),
-            index,
-            true
-        ));
-        assert_ok!(SignedVoting::vote(
-            RuntimeOrigin::signed(U256::from(102)),
-            index,
-            true
-        ));
+        vote(VOTER_A, index, false);
+        vote(VOTER_B, index, false);
+        run_to_block(current_block() + 2);
 
-        assert!(matches!(
-            ReferendumStatusFor::<Test>::get(index),
-            Some(ReferendumStatus::Approved(_))
+        assert!(matches!(status_of(index), ReferendumStatus::Cancelled(_)));
+        assert_concluded(index, 0);
+        assert!(Pallet::<Test>::next_task_dispatch_time(index).is_none());
+        assert!(has_event(
+            |e| matches!(e, Event::Cancelled { index: i } if *i == index)
         ));
+    });
+}
 
-        let failed_count = referenda_events()
-            .into_iter()
-            .filter(|e| matches!(e, Event::SchedulerOperationFailed { index: i } if *i == index))
-            .count();
-        assert!(
-            failed_count >= 1,
-            "expected at least one SchedulerOperationFailed"
+#[test]
+fn adjustable_zero_approval_keeps_full_initial_delay() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let submitted = current_block();
+        assert_eq!(
+            Pallet::<Test>::next_task_dispatch_time(index),
+            Some(submitted + INITIAL_DELAY)
         );
+    });
+}
+
+#[test]
+fn adjustable_partial_approval_pulls_target_earlier() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let submitted = current_block();
+
+        vote(VOTER_A, index, true);
+        run_to_block(current_block() + 2);
+
+        let new_target = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert!(new_target < submitted + INITIAL_DELAY);
+        assert!(
+            new_target >= submitted,
+            "target cannot move earlier than submission block"
+        );
+    });
+}
+
+#[test]
+fn adjustable_target_is_stable_across_elapsed_blocks() {
+    // The interpolation is anchored at `submitted`, so sitting through
+    // blocks without new votes does not drift the target forward.
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+
+        vote(VOTER_A, index, true);
+        run_to_block(current_block() + 2);
+        let target_after_vote = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+
+        run_to_block(current_block() + 10);
+        let target_later = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert_eq!(target_after_vote, target_later);
+    });
+}
+
+#[test]
+fn adjustable_late_vote_when_target_is_in_the_past_fast_tracks() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let submitted = current_block();
+
+        // Run forward past where the partial-approval target would land.
+        run_to_block(submitted + INITIAL_DELAY / 2 + 10);
+
+        vote(VOTER_A, index, true);
+        run_to_block(current_block() + 5);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert!(has_event(
+            |e| matches!(e, Event::FastTracked { index: i } if *i == index)
+        ));
+    });
+}
+
+#[test]
+fn adjustable_reaper_alarm_restored_after_non_decisive_vote() {
+    // Regression: a non-decisive vote on an Adjustable referendum used to
+    // leave the alarm at `now + 1`. After that alarm fired, no further
+    // alarm was scheduled and the referendum could sit Ongoing past the
+    // natural execution time. The fix restores the reaper alarm in
+    // `do_adjust_delay`.
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let submitted = current_block();
+
+        vote(VOTER_A, index, true);
+        run_to_block(current_block() + 3);
+        assert!(Referenda::is_ongoing(index));
+        assert_eq!(
+            scheduler_alarm_block(index),
+            Some(submitted + INITIAL_DELAY + 1),
+            "reaper alarm must be restored"
+        );
+
+        // No further votes; should still reach Enacted.
+        run_to_block(submitted + INITIAL_DELAY + 5);
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+    });
+}
+
+fn drive_to_status<F: Fn() -> ReferendumIndex>(
+    submit: F,
+    drive: impl Fn(ReferendumIndex),
+) -> ReferendumIndex {
+    let i = submit();
+    drive(i);
+    i
+}
+
+#[test]
+fn polls_returns_some_for_ongoing_and_none_for_every_terminal_status() {
+    TestState::default().build_and_execute(|| {
+        // Ongoing: the trait returns Some.
+        let ongoing = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        assert!(Referenda::is_ongoing(ongoing));
+        assert_eq!(Referenda::voting_scheme_of(ongoing), Some(VotingScheme::Signed));
+        assert!(Referenda::voter_set_of(ongoing).is_some());
+
+        // Helper closures that drive a fresh referendum to each terminal state.
+        let killed = drive_to_status(
+            || submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER)),
+            |i| {
+                assert_ok!(Referenda::kill(RuntimeOrigin::root(), i));
+            },
+        );
+
+        let approved_or_enacted = drive_to_status(
+            || submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER)),
+            |i| {
+                vote(VOTER_A, i, true);
+                vote(VOTER_B, i, true);
+                drive_to_terminal(i, 50);
+            },
+        );
+
+        let rejected = drive_to_status(
+            || submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER)),
+            |i| {
+                vote(VOTER_A, i, false);
+                vote(VOTER_B, i, false);
+                drive_to_terminal(i, 50);
+            },
+        );
+
+        let expired = drive_to_status(
+            || submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER)),
+            |i| {
+                run_to_block(current_block() + DECISION_PERIOD + 1);
+                let _ = i;
+            },
+        );
+
+        let cancelled = drive_to_status(
+            || submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER)),
+            |i| {
+                vote(VOTER_A, i, false);
+                vote(VOTER_B, i, false);
+                drive_to_terminal(i, 50);
+            },
+        );
+
+        let lapsed = drive_to_status(
+            || submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER)),
+            |i| {
+                run_to_block(current_block() + INITIAL_DELAY + 5);
+                let _ = i;
+            },
+        );
+
+        let delegated = drive_to_status(
+            || submit_on(TRACK_DELEGATING, U256::from(PROPOSER)),
+            |i| {
+                vote(VOTER_A, i, true);
+                vote(VOTER_B, i, true);
+                run_to_block(current_block() + 2);
+            },
+        );
+
+        for terminal in [killed, approved_or_enacted, rejected, expired, cancelled, lapsed, delegated]
+        {
+            assert!(!Referenda::is_ongoing(terminal));
+            assert!(Referenda::voting_scheme_of(terminal).is_none());
+            assert!(Referenda::voter_set_of(terminal).is_none());
+        }
+    });
+}
+
+#[test]
+fn polls_returns_none_for_unknown_index() {
+    TestState::default().build_and_execute(|| {
+        assert!(!Referenda::is_ongoing(999));
+        assert!(Referenda::voting_scheme_of(999).is_none());
+        assert!(Referenda::voter_set_of(999).is_none());
+    });
+}
+
+#[test]
+fn advance_referendum_origin_and_index_validation() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        assert_noop!(
+            Referenda::advance_referendum(RuntimeOrigin::signed(U256::from(PROPOSER)), index),
+            DispatchError::BadOrigin
+        );
+        assert_noop!(
+            Referenda::advance_referendum(RuntimeOrigin::root(), 999),
+            Error::<Test>::ReferendumNotFound
+        );
+    });
+}
+
+#[test]
+fn advance_referendum_on_ongoing_runs_the_decision_logic() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        // Manual advance instead of waiting for the alarm.
+        assert_ok!(Referenda::advance_referendum(RuntimeOrigin::root(), index));
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+    });
+}
+
+#[test]
+fn advance_referendum_is_a_noop_for_every_terminal_status() {
+    TestState::default().build_and_execute(|| {
+        // Killed.
+        let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), i));
+        let snapshot = status_of(i);
+        assert_ok!(Referenda::advance_referendum(RuntimeOrigin::root(), i));
+        assert_eq!(status_of(i), snapshot);
+
+        // Rejected.
+        let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, i, false);
+        vote(VOTER_B, i, false);
+        run_to_block(current_block() + 2);
+        let snapshot = status_of(i);
+        assert_ok!(Referenda::advance_referendum(RuntimeOrigin::root(), i));
+        assert_eq!(status_of(i), snapshot);
+
+        // Enacted.
+        let i = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        run_to_block(current_block() + INITIAL_DELAY + 5);
+        let snapshot = status_of(i);
+        assert_ok!(Referenda::advance_referendum(RuntimeOrigin::root(), i));
+        assert_eq!(status_of(i), snapshot);
+
+        // Delegated.
+        let i = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+        vote(VOTER_A, i, true);
+        vote(VOTER_B, i, true);
+        run_to_block(current_block() + 2);
+        let snapshot = status_of(i);
+        assert_ok!(Referenda::advance_referendum(RuntimeOrigin::root(), i));
+        assert_eq!(status_of(i), snapshot);
+    });
+}
+
+#[test]
+fn set_alarm_replaces_existing_or_arms_fresh() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let submitted = current_block();
+        assert_eq!(
+            scheduler_alarm_block(index),
+            Some(submitted + DECISION_PERIOD)
+        );
+
+        // Replace.
+        assert_ok!(Pallet::<Test>::set_alarm(index, current_block() + 5));
+        assert_eq!(scheduler_alarm_block(index), Some(current_block() + 5));
+
+        // Cancel manually, then arm again.
+        use frame_support::traits::schedule::v3::Named;
+        let _ = <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::cancel_named(alarm_name(
+            index,
+        ));
+        assert!(scheduler_alarm_block(index).is_none());
+
+        assert_ok!(Pallet::<Test>::set_alarm(index, current_block() + 10));
+        assert_eq!(scheduler_alarm_block(index), Some(current_block() + 10));
+    });
+}
+
+#[test]
+fn parallel_referenda_have_independent_lifecycles() {
+    TestState::default().build_and_execute(|| {
+        let pf = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let adj = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let submitted = current_block();
+        assert_eq!(ActiveCount::<Test>::get(), 2);
+
+        // Approve pf; adj must keep its scheduling untouched.
+        vote(VOTER_A, pf, true);
+        vote(VOTER_B, pf, true);
+        run_to_block(current_block() + 5);
+
+        assert!(matches!(status_of(pf), ReferendumStatus::Enacted(_)));
+        assert!(Referenda::is_ongoing(adj));
+        assert_eq!(
+            Pallet::<Test>::next_task_dispatch_time(adj),
+            Some(submitted + INITIAL_DELAY)
+        );
+    });
+}
+
+#[test]
+fn vote_after_termination_does_not_mutate_referenda_state() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), index));
+
+        let active_before = ActiveCount::<Test>::get();
+        let status_before = status_of(index);
+        let _ = SignedVoting::vote(RuntimeOrigin::signed(U256::from(VOTER_A)), index, true);
+
+        assert_eq!(ActiveCount::<Test>::get(), active_before);
+        assert_eq!(status_of(index), status_before);
+        assert!(scheduler_alarm_block(index).is_none());
     });
 }

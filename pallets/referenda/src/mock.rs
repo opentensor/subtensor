@@ -30,8 +30,6 @@ frame_support::construct_runtime!(
     }
 );
 
-// --- CollectiveId enum ---
-
 #[derive(
     Copy,
     Clone,
@@ -59,8 +57,6 @@ impl pallet_multi_collective::CanRotate for CollectiveId {
     }
 }
 
-// --- VotingScheme enum ---
-
 #[derive(
     Copy,
     Clone,
@@ -76,8 +72,6 @@ impl pallet_multi_collective::CanRotate for CollectiveId {
 pub enum VotingScheme {
     Signed,
 }
-
-// --- MemberSet: implements SetLike by reading from MultiCollective ---
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MemberSet {
@@ -119,8 +113,6 @@ impl subtensor_runtime_common::SetLike<U256> for MemberSet {
     }
 }
 
-// --- frame_system config ---
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type Block = Block;
@@ -129,14 +121,10 @@ impl frame_system::Config for Test {
     type Lookup = IdentityLookup<Self::AccountId>;
 }
 
-// --- pallet_balances config ---
-
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type AccountStore = System;
 }
-
-// --- pallet_preimage config ---
 
 impl pallet_preimage::Config for Test {
     type WeightInfo = pallet_preimage::weights::SubstrateWeight<Test>;
@@ -145,8 +133,6 @@ impl pallet_preimage::Config for Test {
     type ManagerOrigin = EnsureRoot<U256>;
     type Consideration = ();
 }
-
-// --- pallet_scheduler config ---
 
 parameter_types! {
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
@@ -170,8 +156,6 @@ impl pallet_scheduler::Config for Test {
     type Preimages = Preimage;
     type BlockNumberProvider = System;
 }
-
-// --- TracksInfo implementation ---
 
 pub struct TestTracks;
 
@@ -197,32 +181,73 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
         let mut review_name = [0u8; 32];
         review_name[..6].copy_from_slice(b"review");
 
+        let mut delegating_name = [0u8; 32];
+        delegating_name[..10].copy_from_slice(b"delegating");
+
+        let mut closed_name = [0u8; 32];
+        closed_name[..6].copy_from_slice(b"closed");
+
         vec![
+            // Track 0: PassOrFail with Execute on approval.
             Track {
                 id: 0,
                 info: TrackInfo {
                     name: triumvirate_name,
-                    proposer_set: MemberSet::Single(CollectiveId::Proposers),
+                    proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::PassOrFail {
                         decision_period: 20,
                         approve_threshold: Perbill::from_rational(2u32, 3u32),
                         reject_threshold: Perbill::from_rational(2u32, 3u32),
+                        on_approval: ApprovalAction::Execute,
                     },
                 },
             },
+            // Track 1: Adjustable.
             Track {
                 id: 1,
                 info: TrackInfo {
                     name: review_name,
-                    proposer_set: MemberSet::Single(CollectiveId::Proposers),
+                    proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::Adjustable {
                         initial_delay: 100,
                         fast_track_threshold: Perbill::from_percent(75),
-                        reject_threshold: Perbill::from_percent(51),
+                        cancel_threshold: Perbill::from_percent(51),
+                    },
+                },
+            },
+            // Track 2: PassOrFail with Review handoff to track 1.
+            Track {
+                id: 2,
+                info: TrackInfo {
+                    name: delegating_name,
+                    proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
+                    voter_set: MemberSet::Single(CollectiveId::Triumvirate),
+                    voting_scheme: VotingScheme::Signed,
+                    decision_strategy: DecisionStrategy::PassOrFail {
+                        decision_period: 20,
+                        approve_threshold: Perbill::from_rational(2u32, 3u32),
+                        reject_threshold: Perbill::from_rational(2u32, 3u32),
+                        on_approval: ApprovalAction::Review { track: 1 },
+                    },
+                },
+            },
+            // Track 3: PassOrFail with no proposer set (not submittable).
+            Track {
+                id: 3,
+                info: TrackInfo {
+                    name: closed_name,
+                    proposer_set: None,
+                    voter_set: MemberSet::Single(CollectiveId::Triumvirate),
+                    voting_scheme: VotingScheme::Signed,
+                    decision_strategy: DecisionStrategy::PassOrFail {
+                        decision_period: 20,
+                        approve_threshold: Perbill::from_rational(2u32, 3u32),
+                        reject_threshold: Perbill::from_rational(2u32, 3u32),
+                        on_approval: ApprovalAction::Execute,
                     },
                 },
             },
@@ -230,7 +255,17 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
         .into_iter()
     }
 
-    fn authorize_proposal(_id: Self::Id, _call: &RuntimeCall) -> bool {
+    fn authorize_proposal(
+        _track_info: &TrackInfo<
+            Self::Id,
+            TrackName,
+            u64,
+            Self::ProposerSet,
+            Self::VoterSet,
+            Self::VotingScheme,
+        >,
+        _call: &RuntimeCall,
+    ) -> bool {
         AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow())
     }
 }
@@ -243,8 +278,6 @@ thread_local! {
 pub fn set_authorize_proposal(result: bool) {
     AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow_mut() = result);
 }
-
-// --- CollectivesInfo implementation ---
 
 pub struct TestCollectives;
 
@@ -284,8 +317,6 @@ impl CollectivesInfo<u64, [u8; 32]> for TestCollectives {
     }
 }
 
-// --- VoteCleanup: routes OnMembersChanged to signed-voting ---
-
 pub struct VoteCleanup;
 impl OnMembersChanged<CollectiveId, U256> for VoteCleanup {
     fn on_members_changed(_id: CollectiveId, _incoming: &[U256], outgoing: &[U256]) {
@@ -294,8 +325,6 @@ impl OnMembersChanged<CollectiveId, U256> for VoteCleanup {
         }
     }
 }
-
-// --- pallet_multi_collective config ---
 
 parameter_types! {
     pub const MaxMembers: u32 = 32;
@@ -313,8 +342,6 @@ impl pallet_multi_collective::Config for Test {
     type MaxMembers = MaxMembers;
 }
 
-// --- pallet_signed_voting config ---
-
 parameter_types! {
     pub const SignedScheme: VotingScheme = VotingScheme::Signed;
 }
@@ -323,8 +350,6 @@ impl pallet_signed_voting::Config for Test {
     type Scheme = SignedScheme;
     type Polls = Referenda;
 }
-
-// --- pallet_referenda config ---
 
 parameter_types! {
     pub const MaxQueued: u32 = 10;
@@ -335,13 +360,11 @@ impl pallet_referenda::Config for Test {
     type Scheduler = Scheduler;
     type Preimages = Preimage;
     type MaxQueued = MaxQueued;
-    type CancelOrigin = EnsureRoot<U256>;
+    type KillOrigin = EnsureRoot<U256>;
     type Tracks = TestTracks;
     type BlockNumberProvider = System;
     type PollHooks = SignedVoting;
 }
-
-// --- Test state builder ---
 
 pub struct TestState {
     pub proposers: Vec<U256>,
