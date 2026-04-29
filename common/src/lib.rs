@@ -251,8 +251,6 @@ pub trait TokenReserve<C: Token> {
 pub trait BalanceOps<AccountId> {
     fn tao_balance(account_id: &AccountId) -> TaoBalance;
     fn alpha_balance(netuid: NetUid, coldkey: &AccountId, hotkey: &AccountId) -> AlphaBalance;
-    fn increase_balance(coldkey: &AccountId, tao: TaoBalance);
-    fn decrease_balance(coldkey: &AccountId, tao: TaoBalance) -> Result<TaoBalance, DispatchError>;
     fn increase_stake(
         coldkey: &AccountId,
         hotkey: &AccountId,

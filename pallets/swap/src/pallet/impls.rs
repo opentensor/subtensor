@@ -17,7 +17,7 @@ use crate::{
     position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
 };
-use sp_runtime::{Vec, traits::AccountIdConversion};
+use sp_runtime::traits::AccountIdConversion;
 use substrate_fixed::types::{I64F64, U64F64, U96F32};
 use subtensor_runtime_common::{
     AlphaBalance, BalanceOps, LoopRemovePrefixWithWeightMeter, NetUid, SubnetInfo, TaoBalance,
@@ -833,133 +833,10 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Dissolve all LPs and clean state.
-    pub fn do_dissolve_all_liquidity_providers(netuid: NetUid) -> DispatchResultWithPostInfo {
-        let mut weight = Weight::default();
-        if SwapV3Initialized::<T>::get(netuid) {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // 1) Snapshot only *non‑protocol* positions: (owner, position_id).
-            struct CloseItem<A> {
-                owner: A,
-                pos_id: PositionId,
-            }
-            let protocol_account = Self::protocol_account_id();
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-            let mut to_close: sp_std::vec::Vec<CloseItem<T::AccountId>> = sp_std::vec::Vec::new();
-            for ((owner, pos_id), _pos) in Positions::<T>::iter_prefix((netuid,)) {
-                weight.saturating_accrue(T::DbWeight::get().reads(1));
-                if owner != protocol_account {
-                    to_close.push(CloseItem { owner, pos_id });
-                }
-            }
-
-            if to_close.is_empty() {
-                log::debug!(
-                    "dissolve_all_lp: no user positions; netuid={netuid:?}, protocol liquidity untouched"
-                );
-                return Ok(Some(weight).into());
-            }
-
-            let mut user_refunded_tao = TaoBalance::ZERO;
-            let mut user_staked_alpha = AlphaBalance::ZERO;
-
-            let trust: Vec<u16> = T::SubnetInfo::get_validator_trust(netuid.into());
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            let permit: Vec<bool> = T::SubnetInfo::get_validator_permit(netuid.into());
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-            // Helper: pick target validator uid, only among permitted validators, by highest trust.
-            let pick_target_uid = |trust: &Vec<u16>, permit: &Vec<bool>| -> Option<u16> {
-                let mut best_uid: Option<usize> = None;
-                let mut best_trust: u16 = 0;
-                for (i, (&t, &p)) in trust.iter().zip(permit.iter()).enumerate() {
-                    if p && (best_uid.is_none() || t > best_trust) {
-                        best_uid = Some(i);
-                        best_trust = t;
-                    }
-                }
-                best_uid.map(|i| i as u16)
-            };
-
-            for CloseItem { owner, pos_id } in to_close.into_iter() {
-                match Self::do_remove_liquidity(netuid, &owner, pos_id) {
-                    Ok(rm) => {
-                        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 6));
-                        // α withdrawn from the pool = principal + accrued fees
-                        let alpha_total_from_pool: AlphaBalance =
-                            rm.alpha.saturating_add(rm.fee_alpha);
-
-                        // ---------------- USER: refund τ and convert α → stake ----------------
-
-                        // 1) Refund τ principal directly.
-                        let tao_total_from_pool: TaoBalance = rm.tao.saturating_add(rm.fee_tao);
-                        if tao_total_from_pool > TaoBalance::ZERO {
-                            T::BalanceOps::increase_balance(&owner, tao_total_from_pool);
-                            weight.saturating_accrue(T::DbWeight::get().writes(1));
-                            user_refunded_tao =
-                                user_refunded_tao.saturating_add(tao_total_from_pool);
-                            T::TaoReserve::decrease_provided(netuid, tao_total_from_pool);
-                            weight.saturating_accrue(T::DbWeight::get().writes(1));
-                        }
-
-                        // 2) Stake ALL withdrawn α (principal + fees) to the best permitted validator.
-                        if alpha_total_from_pool > AlphaBalance::ZERO {
-                            if let Some(target_uid) = pick_target_uid(&trust, &permit) {
-                                let validator_hotkey: T::AccountId =
-                                    T::SubnetInfo::hotkey_of_uid(netuid.into(), target_uid).ok_or(
-                                        sp_runtime::DispatchError::Other(
-                                            "validator_hotkey_missing",
-                                        ),
-                                    )?;
-                                weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-                                // Stake α from LP owner (coldkey) to chosen validator (hotkey).
-                                T::BalanceOps::increase_stake(
-                                    &owner,
-                                    &validator_hotkey,
-                                    netuid,
-                                    alpha_total_from_pool,
-                                )?;
-                                weight.saturating_accrue(T::DbWeight::get().writes(1));
-                                user_staked_alpha =
-                                    user_staked_alpha.saturating_add(alpha_total_from_pool);
-
-                                log::debug!(
-                                    "dissolve_all_lp: user dissolved & staked α: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_staked={alpha_total_from_pool:?}, target_uid={target_uid}"
-                                );
-                            } else {
-                                // No permitted validators; burn to avoid balance drift.
-                                log::debug!(
-                                    "dissolve_all_lp: no permitted validators; α burned: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, α_total={alpha_total_from_pool:?}"
-                                );
-                            }
-
-                            T::AlphaReserve::decrease_provided(netuid, alpha_total_from_pool);
-                            weight.saturating_accrue(T::DbWeight::get().writes(1));
-                        }
-                    }
-                    Err(e) => {
-                        log::debug!(
-                            "dissolve_all_lp: force-close failed: netuid={netuid:?}, owner={owner:?}, pos_id={pos_id:?}, err={e:?}"
-                        );
-                        weight.saturating_accrue(T::DbWeight::get().reads(1));
-                        continue;
-                    }
-                }
-            }
-
-            log::debug!(
-                "dissolve_all_liquidity_providers (users-only): netuid={netuid:?}, users_refunded_total_τ={user_refunded_tao:?}, users_staked_total_α={user_staked_alpha:?}; protocol liquidity untouched"
-            );
-
-            return Ok(Some(weight).into());
-        }
-
-        log::debug!(
-            "dissolve_all_liquidity_providers: netuid={netuid:?}, mode=V2-or-nonV3, leaving all liquidity/state intact"
-        );
-
-        Ok(Some(weight).into())
+    pub fn do_dissolve_all_liquidity_providers(_netuid: NetUid) -> DispatchResultWithPostInfo {
+        // Deprecated in balancer, also we do not have any active liquidity providers
+        // or any ways to provide liquidity.
+        Ok(Some(Weight::default()).into())
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.

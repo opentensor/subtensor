@@ -6,57 +6,56 @@
 
 use core::num::NonZeroU64;
 
-use frame_support::dispatch::DispatchResult;
-use frame_support::pallet_prelude::Zero;
-use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
+use crate::*;
+use frame_support::traits::{Everything, InherentBuilder, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
-use frame_support::{assert_ok, parameter_types, traits::PrivilegeCmp};
+use frame_support::{parameter_types, traits::PrivilegeCmp};
 use frame_system as system;
-use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
-use pallet_contracts::HoldReason as ContractsHoldReason;
-use pallet_subtensor::*;
+use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
-use pallet_subtensor_utility as pallet_utility;
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
     BuildStorage, Percent,
-    traits::{BlakeTwo256, Convert, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
-use subtensor_runtime_common::{
-    AlphaBalance, AuthorshipInfo, NetUid, Saturating, TaoBalance, Token,
-};
-
+use sp_std::{cmp::Ordering, sync::OnceLock};
+use sp_tracing::tracing_subscriber;
+use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 type Block = frame_system::mocking::MockBlock<Test>;
 
+// Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
     pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
-        Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 7,
-        Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 10,
-        Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 11,
-        Swap: pallet_subtensor_swap::{Pallet, Call, Storage, Event<T>} = 12,
-        Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 13,
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage} = 14,
-        Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 15,
-        Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 16,
+        System: frame_system = 1,
+        Balances: pallet_balances = 2,
+        Shield: pallet_shield = 3,
+        SubtensorModule: crate = 4,
+        Scheduler: pallet_scheduler = 5,
+        Preimage: pallet_preimage = 6,
+        Drand: pallet_drand = 7,
+        Swap: pallet_subtensor_swap = 8,
+        Crowdloan: pallet_crowdloan = 9,
+        Proxy: pallet_subtensor_proxy = 10,
     }
 );
-
-pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
 
 #[allow(dead_code)]
 pub type TestRuntimeCall = frame_system::Call<Test>;
 
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"test");
+
 #[allow(dead_code)]
 pub type AccountId = U256;
+
+// The address format for describing accounts.
+#[allow(dead_code)]
+pub type Address = AccountId;
 
 // Balance of an account.
 #[allow(dead_code)]
@@ -65,22 +64,6 @@ pub type Balance = TaoBalance;
 // An index to a block.
 #[allow(dead_code)]
 pub type BlockNumber = u64;
-
-pub struct DummyContractsRandomness;
-
-impl frame_support::traits::Randomness<H256, BlockNumber> for DummyContractsRandomness {
-    fn random(_subject: &[u8]) -> (H256, BlockNumber) {
-        (H256::zero(), 0)
-    }
-}
-
-pub struct WeightToBalance;
-
-impl Convert<Weight, Balance> for WeightToBalance {
-    fn convert(weight: Weight) -> Balance {
-        weight.ref_time().into()
-    }
-}
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
@@ -93,126 +76,22 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
-    type RuntimeHoldReason = ContractsHoldReason;
+    type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
 }
 
-#[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
-impl pallet_timestamp::Config for Test {
-    type MinimumPeriod = ConstU64<1>;
-}
-
-#[derive_impl(pallet_contracts::config_preludes::TestDefaultConfig)]
-impl pallet_contracts::Config for Test {
-    type Time = Timestamp;
-    type Randomness = DummyContractsRandomness;
-    type Currency = Balances;
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeHoldReason = ContractsHoldReason;
+impl pallet_shield::Config for Test {
+    type AuthorityId = sp_core::sr25519::Public;
+    type FindAuthors = ();
     type RuntimeCall = RuntimeCall;
-    type CallFilter = Everything;
-    type WeightPrice = WeightToBalance;
+    type ExtrinsicDecryptor = ();
     type WeightInfo = ();
-    type ChainExtension = crate::SubtensorChainExtension<Self>;
-    type Schedule = ContractsSchedule;
-    type CallStack = [pallet_contracts::Frame<Self>; 5];
-    type DepositPerByte = ContractsDepositPerByte;
-    type DepositPerItem = ContractsDepositPerItem;
-    type DefaultDepositLimit = ContractsDefaultDepositLimit;
-    type AddressGenerator = pallet_contracts::DefaultAddressGenerator;
-    type UnsafeUnstableInterface = ContractsUnstableInterface;
-    type UploadOrigin = frame_system::EnsureSigned<AccountId>;
-    type InstantiateOrigin = frame_system::EnsureSigned<AccountId>;
-    type CodeHashLockupDepositPercent = ContractsCodeHashLockupDepositPercent;
-    type MaxDelegateDependencies = ContractsMaxDelegateDependencies;
-    type MaxCodeLen = ContractsMaxCodeLen;
-    type MaxStorageKeyLen = ContractsMaxStorageKeyLen;
-    type MaxTransientStorageSize = ContractsMaxTransientStorageSize;
-    type MaxDebugBufferLen = ContractsMaxDebugBufferLen;
-    type Migrations = ();
-    type Debug = ();
-    type Environment = ();
-    type ApiVersion = ();
-    type Xcm = ();
-}
-
-impl frame_support::traits::InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
-    fn filter(&self, c: &RuntimeCall) -> bool {
-        match self {
-            subtensor_runtime_common::ProxyType::Any => true,
-            subtensor_runtime_common::ProxyType::Staking => matches!(
-                c,
-                RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake_limit { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_limit { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::remove_stake_full_limit { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::unstake_all { .. })
-                    | RuntimeCall::SubtensorModule(
-                        pallet_subtensor::Call::unstake_all_alpha { .. }
-                    )
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::swap_stake_limit { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::move_stake { .. })
-                    | RuntimeCall::SubtensorModule(pallet_subtensor::Call::transfer_stake { .. })
-            ),
-            _ => false,
-        }
-    }
-
-    fn is_superset(&self, o: &Self) -> bool {
-        match (self, o) {
-            (subtensor_runtime_common::ProxyType::Any, _) => true,
-            _ => self == o,
-        }
-    }
-}
-
-impl pallet_proxy::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type Currency = Balances;
-    type ProxyType = subtensor_runtime_common::ProxyType;
-    type ProxyDepositBase = ProxyDepositBase;
-    type ProxyDepositFactor = ProxyDepositFactor;
-    type MaxProxies = MaxProxies;
-    type WeightInfo = ();
-    type MaxPending = MaxPending;
-    type CallHasher = BlakeTwo256;
-    type AnnouncementDepositBase = AnnouncementDepositBase;
-    type AnnouncementDepositFactor = AnnouncementDepositFactor;
-    type BlockNumberProvider = System;
-}
-
-pub struct NoNestingCallFilter;
-
-impl Contains<RuntimeCall> for NoNestingCallFilter {
-    fn contains(call: &RuntimeCall) -> bool {
-        match call {
-            RuntimeCall::Utility(inner) => {
-                let calls = match inner {
-                    pallet_utility::Call::force_batch { calls } => calls,
-                    pallet_utility::Call::batch { calls } => calls,
-                    pallet_utility::Call::batch_all { calls } => calls,
-                    _ => &Vec::new(),
-                };
-
-                !calls.iter().any(|call| {
-					matches!(call, RuntimeCall::Utility(inner) if matches!(inner, pallet_utility::Call::force_batch { .. } | pallet_utility::Call::batch_all { .. } | pallet_utility::Call::batch { .. }))
-				})
-            }
-            _ => true,
-        }
-    }
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
-    type BaseCallFilter = InsideBoth<Everything, NoNestingCallFilter>;
+    type BaseCallFilter = Everything;
     type BlockWeights = BlockWeights;
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
@@ -235,6 +114,7 @@ impl system::Config for Test {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = u64;
     type Block = Block;
+    type DispatchExtension = crate::CheckColdkeySwap<Test>;
 }
 
 parameter_types! {
@@ -242,34 +122,13 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
-parameter_types! {
-    pub ContractsSchedule: pallet_contracts::Schedule<Test> = Default::default();
-    pub const ContractsDepositPerByte: Balance = TaoBalance::new(1);
-    pub const ContractsDepositPerItem: Balance = TaoBalance::new(10);
-    pub const ContractsDefaultDepositLimit: Balance = TaoBalance::new(1_000_000_000);
-    pub const ContractsCodeHashLockupDepositPercent: Perbill = Perbill::from_percent(0);
-    pub const ContractsMaxDelegateDependencies: u32 = 32;
-    pub const ContractsMaxCodeLen: u32 = 120_000;
-    pub const ContractsMaxStorageKeyLen: u32 = 256;
-    pub const ContractsMaxTransientStorageSize: u32 = 1024 * 1024;
-    pub const ContractsMaxDebugBufferLen: u32 = 2 * 1024 * 1024;
-    pub const ContractsUnstableInterface: bool = true;
-}
-
-parameter_types! {
-    pub const ProxyDepositBase: Balance = TaoBalance::new(1);
-    pub const ProxyDepositFactor: Balance = TaoBalance::new(1);
-    pub const MaxProxies: u32 = 32;
-    pub const MaxPending: u32 = 32;
-    pub const AnnouncementDepositBase: Balance = TaoBalance::new(1);
-    pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
-}
+pub const MOCK_BLOCK_BUILDER: u64 = 12345u64;
 
 pub struct MockAuthorshipProvider;
 
 impl AuthorshipInfo<U256> for MockAuthorshipProvider {
     fn author() -> Option<U256> {
-        Some(U256::from(12345u64))
+        Some(U256::from(MOCK_BLOCK_BUILDER))
     }
 }
 
@@ -280,7 +139,7 @@ parameter_types! {
         Weight::from_parts(2_000_000_000_000, u64::MAX),
         Perbill::from_percent(75),
     );
-    pub const ExistentialDeposit: Balance = TaoBalance::new(1);
+    pub const ExistentialDeposit: Balance = TaoBalance::new(100);
     pub const TransactionByteFee: Balance = TaoBalance::new(100);
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
@@ -290,7 +149,7 @@ parameter_types! {
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMinAllowedUids: u16 = 2;
-    pub const InitialMaxAllowedUids: u16 = 4;
+    pub const InitialMaxAllowedUids: u16 = 256;
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialBondsPenalty:u16 = u16::MAX;
     pub const InitialBondsResetOn: bool = false;
@@ -336,13 +195,13 @@ parameter_types! {
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
     pub const InitialYuma3On: bool = false; // Default value for Yuma3On
-    pub const InitialColdkeySwapAnnouncementDelay: u64 =  50;
+    pub const InitialColdkeySwapAnnouncementDelay: u64 = 50;
     pub const InitialColdkeySwapReannouncementDelay: u64 = 10;
     pub const InitialDissolveNetworkScheduleDuration: u64 =  5 * 24 * 60 * 60 / 12; // Default as 5 days
     pub const InitialTaoWeight: u64 = 0; // 100% global weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    pub const InitialStartCallDelay: u64 =  7 * 24 * 60 * 60 / 12; // Default as 7 days
-    pub const InitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(10_000_000);
+    pub const InitialStartCallDelay: u64 =  0; // 0 days
+    pub const InitialKeySwapOnSubnetCost: u64 = 10_000_000;
     pub const HotkeySwapOnSubnetInterval: u64 = 15; // 15 block, should be bigger than subnet number, then trigger clean up for all subnets
     pub const MaxContributorsPerLeaseToRemove: u32 = 3;
     pub const LeaseDividendsDistributionInterval: u32 = 100;
@@ -352,7 +211,7 @@ parameter_types! {
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
-impl pallet_subtensor::Config for Test {
+impl crate::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
@@ -418,7 +277,7 @@ impl pallet_subtensor::Config for Test {
     type SwapInterface = pallet_subtensor_swap::Pallet<Self>;
     type KeySwapOnSubnetCost = InitialKeySwapOnSubnetCost;
     type HotkeySwapOnSubnetInterval = HotkeySwapOnSubnetInterval;
-    type ProxyInterface = FakeProxier;
+    type ProxyInterface = ();
     type LeaseDividendsDistributionInterval = LeaseDividendsDistributionInterval;
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
@@ -464,9 +323,7 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(_netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
-        (remaining_weight, true)
-    }
+    fn purge_netuid(_netuid: NetUid) {}
 }
 
 parameter_types! {
@@ -490,12 +347,6 @@ impl pallet_scheduler::Config for Test {
     type BlockNumberProvider = System;
 }
 
-impl pallet_utility::Config for Test {
-    type RuntimeCall = RuntimeCall;
-    type PalletsOrigin = OriginCaller;
-    type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
-}
-
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
     pub const PreimageBaseDeposit: Balance = TaoBalance::new(1);
@@ -508,31 +359,6 @@ impl pallet_preimage::Config for Test {
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
     type Consideration = ();
-}
-
-thread_local! {
-    pub static PROXIES: RefCell<FakeProxier> = const { RefCell::new(FakeProxier(vec![])) };
-}
-
-pub struct FakeProxier(pub Vec<(U256, U256)>);
-
-impl ProxyInterface<U256> for FakeProxier {
-    fn add_lease_beneficiary_proxy(beneficiary: &AccountId, lease: &AccountId) -> DispatchResult {
-        PROXIES.with_borrow_mut(|proxies| {
-            proxies.0.push((*beneficiary, *lease));
-        });
-        Ok(())
-    }
-
-    fn remove_lease_beneficiary_proxy(
-        beneficiary: &AccountId,
-        lease: &AccountId,
-    ) -> DispatchResult {
-        PROXIES.with_borrow_mut(|proxies| {
-            proxies.0.retain(|(b, l)| b != beneficiary && l != lease);
-        });
-        Ok(())
-    }
 }
 
 parameter_types! {
@@ -557,6 +383,51 @@ impl pallet_crowdloan::Config for Test {
     type MaximumBlockDuration = MaximumBlockDuration;
     type RefundContributorsLimit = RefundContributorsLimit;
     type MaxContributors = MaxContributors;
+}
+
+// Proxy Pallet config
+parameter_types! {
+    // Set as 1 for testing purposes
+    pub const ProxyDepositBase: Balance = TaoBalance::new(1);
+    // Set as 1 for testing purposes
+    pub const ProxyDepositFactor: Balance = TaoBalance::new(1);
+    // Set as 20 for testing purposes
+    pub const MaxProxies: u32 = 20; // max num proxies per acct
+    // Set as 15 for testing purposes
+    pub const MaxPending: u32 = 15; // max blocks pending ~15min
+    // Set as 1 for testing purposes
+    pub const AnnouncementDepositBase: Balance =  TaoBalance::new(1);
+    // Set as 1 for testing purposes
+    pub const AnnouncementDepositFactor: Balance = TaoBalance::new(1);
+}
+
+impl pallet_proxy::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type ProxyType = subtensor_runtime_common::ProxyType;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type MaxProxies = MaxProxies;
+    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Test>;
+    type MaxPending = MaxPending;
+    type CallHasher = BlakeTwo256;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type BlockNumberProvider = System;
+}
+
+impl InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
+    fn filter(&self, _c: &RuntimeCall) -> bool {
+        // In tests, allow all proxy types to pass through
+        true
+    }
+    fn is_superset(&self, o: &Self) -> bool {
+        match (self, o) {
+            (x, y) if x == y => true,
+            (subtensor_runtime_common::ProxyType::Any, _) => true,
+            _ => false,
+        }
+    }
 }
 
 mod test_crypto {
@@ -647,6 +518,25 @@ pub fn init_logs_for_tests() {
     if TEST_LOGS_INIT.get().is_some() {
         return;
     }
+
+    // RUST_LOG (full syntax) or "off" if unset
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("off"));
+
+    // Bridge log -> tracing (ok if already set)
+    let _ = tracing_log::LogTracer::init();
+
+    // Simple formatter
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(false)
+        .with_target(true)
+        .with_level(true)
+        .without_time();
+
+    let _ = tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt_layer)
+        .try_init();
+
     let _ = TEST_LOGS_INIT.set(());
 }
 
@@ -663,111 +553,22 @@ pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
 }
 
 #[allow(dead_code)]
-pub fn register_ok_neuron(
-    netuid: NetUid,
-    hotkey_account_id: U256,
-    coldkey_account_id: U256,
-    _start_nonce: u64,
-) {
-    // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
-    let reserve: u64 = 1_000_000_000_000;
-    let tao_reserve = SubnetTAO::<Test>::get(netuid);
-    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid)
-        .saturating_add(SubnetAlphaInProvided::<Test>::get(netuid));
+pub fn add_network(netuid: NetUid, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+    SubtokenEnabled::<Test>::insert(netuid, true);
 
-    if tao_reserve.is_zero() && alpha_reserve.is_zero() {
-        setup_reserves(netuid, reserve.into(), reserve.into());
-    }
-
-    // Ensure coldkey has enough to pay the current burn AND is not fully drained to zero.
-    // This avoids ZeroBalanceAfterWithdrawn in burned_register.
-    let top_up_for_burn = |netuid: NetUid, cold: U256| {
-        let burn: TaoBalance = SubtensorModule::get_burn(netuid);
-
-        // Make sure something remains after withdrawal even if ED is 0 in tests.
-        let ed: TaoBalance = ExistentialDeposit::get();
-        let min_remaining: TaoBalance = ed.max(1.into());
-
-        // Small buffer for safety (fees / rounding / future changes).
-        let buffer: TaoBalance = 10.into();
-
-        let min_balance_needed: TaoBalance =
-            burn.saturating_add(min_remaining).saturating_add(buffer);
-
-        let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
-        if bal < min_balance_needed {
-            add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
-        }
-    };
-
-    top_up_for_burn(netuid, coldkey_account_id);
-
-    let origin = <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id);
-    let result = SubtensorModule::burned_register(origin.clone(), netuid, hotkey_account_id);
-
-    match result {
-        Ok(()) => {
-            // success
-        }
-        Err(e)
-            if e == Error::<Test>::TooManyRegistrationsThisInterval.into()
-                || e == Error::<Test>::NotEnoughBalanceToStake.into()
-                || e == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
-        {
-            // Re-top-up and retry once (burn can be state-dependent).
-            top_up_for_burn(netuid, coldkey_account_id);
-
-            assert_ok!(SubtensorModule::burned_register(
-                origin,
-                netuid,
-                hotkey_account_id
-            ));
-        }
-        Err(e) => {
-            panic!("Expected Ok(_). Got Err({e:?})");
-        }
-    }
-
-    log::info!(
-        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
-    );
+    // make interval 1 block so tests can register by stepping 1 block.
+    BurnHalfLife::<Test>::insert(netuid, 1);
+    BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
 }
 
 #[allow(dead_code)]
 pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
-    let credit = SubtensorModule::mint_tao(tao);
-    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
-}
-
-#[allow(dead_code)]
-pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
-    let _ = SubtensorModule::burn_tao(coldkey, tao);
-}
-
-#[allow(dead_code)]
-pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
-    let netuid = SubtensorModule::get_next_netuid();
-    let lock_cost = SubtensorModule::get_network_lock_cost();
-    add_balance_to_coldkey_account(coldkey, lock_cost.into());
-
-    assert_ok!(SubtensorModule::register_network(
-        RawOrigin::Signed(*coldkey).into(),
-        *hotkey
-    ));
-    NetworkRegistrationAllowed::<Test>::insert(netuid, true);
-    NetworkPowRegistrationAllowed::<Test>::insert(netuid, true);
-    FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
-    SubtokenEnabled::<Test>::insert(netuid, true);
-    netuid
-}
-
-#[allow(dead_code)]
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
-}
-
-#[allow(dead_code)]
-pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
-    SubnetTAO::<Test>::set(netuid, tao);
-    SubnetAlphaIn::<Test>::set(netuid, alpha);
+    let ed = ExistentialDeposit::get();
+    if tao >= ed {
+        let credit = SubtensorModule::mint_tao(tao);
+        let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+    }
 }

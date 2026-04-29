@@ -68,17 +68,15 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 3. Swap the alpba to tao and update counters for this subnet.
-        let tao_unstaked = Self::unstake_from_subnet(
+        Self::unstake_from_subnet(
             &hotkey,
+            &coldkey,
             &coldkey,
             netuid,
             alpha_unstaked,
             T::SwapInterface::min_price(),
             false,
         )?;
-
-        // 4. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
 
         // 5. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -160,17 +158,15 @@ impl<T: Config> Pallet<T> {
 
             if !alpha_unstaked.is_zero() {
                 // Swap the alpha to tao and update counters for this subnet.
-                let tao_unstaked = Self::unstake_from_subnet(
+                Self::unstake_from_subnet(
                     &hotkey,
+                    &coldkey,
                     &coldkey,
                     netuid,
                     alpha_unstaked,
                     T::SwapInterface::min_price(),
                     false,
                 )?;
-
-                // Add the balance to the coldkey. If the above fails we will not credit this coldkey.
-                Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
 
                 // If the stake is below the minimum, we clear the nomination from storage.
                 Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
@@ -255,6 +251,7 @@ impl<T: Config> Pallet<T> {
                     // Swap the alpha to tao and update counters for this subnet.
                     let tao_unstaked = Self::unstake_from_subnet(
                         &hotkey,
+                        &coldkey,
                         &coldkey,
                         netuid,
                         alpha_unstaked,
@@ -359,8 +356,9 @@ impl<T: Config> Pallet<T> {
         )?;
 
         // 4. Swap the alpha to tao and update counters for this subnet.
-        let tao_unstaked = Self::unstake_from_subnet(
+        Self::unstake_from_subnet(
             &hotkey,
+            &coldkey,
             &coldkey,
             netuid,
             possible_alpha,
@@ -368,13 +366,10 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 5. We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked.into());
-
-        // 6. If the stake is below the minimum, we clear the nomination from storage.
+        // 5. If the stake is below the minimum, we clear the nomination from storage.
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
 
-        // 7. Check if stake lowered below MinStake and remove Pending children if it did
+        // 6. Check if stake lowered below MinStake and remove Pending children if it did
         if Self::get_total_stake_for_hotkey(&hotkey) < StakeThreshold::<T>::get().into() {
             Self::get_all_subnet_netuids().iter().for_each(|netuid| {
                 PendingChildKeys::<T>::remove(netuid, &hotkey);
@@ -506,7 +501,7 @@ impl<T: Config> Pallet<T> {
 
         if !refund.is_zero() {
             WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(1, 1));
-            Self::add_balance_to_coldkey_account(&owner_coldkey, refund);
+            let _ = Self::transfer_tao_from_subnet(netuid, &owner_coldkey, refund);
         }
 
         (weight_meter.consumed(), true)
@@ -749,7 +744,10 @@ impl<T: Config> Pallet<T> {
 
             // Credit each share directly to coldkey free balance.
             for p in portions {
-                Self::add_balance_to_coldkey_account(&p.cold, p.share.into());
+                if p.share > 0 {
+                    // Cannot fail the whole transaction if this transfer fails
+                    let _ = Self::transfer_tao_from_subnet(netuid, &p.cold, p.share.into());
+                }
             }
         }
 
@@ -763,7 +761,7 @@ impl<T: Config> Pallet<T> {
 
                 if final_leftover > 0 {
                     let owner = SubnetOwner::<T>::get(netuid);
-                    Self::add_balance_to_coldkey_account(&owner, final_leftover.into());
+                    let _ = Self::transfer_tao_from_subnet(netuid, &owner, final_leftover.into());
                 }
 
                 DissolvedSubnetSettledAlphaValue::<T>::set(Some(settled_alpha_value_u128));

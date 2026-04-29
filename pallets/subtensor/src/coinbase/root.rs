@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Create a network account for the user if it doesn't exist.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey)?;
 
         // --- 7. Fetch the current size of the subnetwork.
         let current_num_root_validators: u16 = Self::get_num_root_validators();
@@ -1031,7 +1031,7 @@ impl<T: Config> Pallet<T> {
         let interval: I64F64 =
             I64F64::saturating_from_num(NetworkLockReductionInterval::<T>::get());
         let block_emission: I64F64 = I64F64::saturating_from_num(
-            Self::get_block_emission()
+            Self::calculate_block_emission()
                 .unwrap_or(1_000_000_000.into())
                 .to_u64(),
         );

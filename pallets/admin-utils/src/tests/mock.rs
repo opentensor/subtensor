@@ -157,6 +157,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -232,6 +234,8 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 
@@ -531,10 +535,7 @@ pub fn register_ok_neuron(
     let bal = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
 
     if bal < burn_u64 {
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            burn_u64 - bal + 10.into(),
-        );
+        add_balance_to_coldkey_account(&coldkey_account_id, burn_u64 - bal + 10.into());
     }
 
     let result = SubtensorModule::burned_register(
@@ -571,4 +572,15 @@ pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalanc
 pub fn step_block(n: u64) {
     let current: u64 = frame_system::Pallet::<Test>::block_number().into();
     run_to_block(current + n);
+}
+
+#[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let _ = SubtensorModule::burn_tao(coldkey, tao);
 }

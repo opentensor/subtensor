@@ -267,15 +267,6 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         .into()
     }
 
-    fn increase_balance(_coldkey: &AccountId, _tao: TaoBalance) {}
-
-    fn decrease_balance(
-        _coldkey: &AccountId,
-        tao: TaoBalance,
-    ) -> Result<TaoBalance, DispatchError> {
-        Ok(tao)
-    }
-
     fn increase_stake(
         _coldkey: &AccountId,
         _hotkey: &AccountId,

@@ -297,5 +297,7 @@ mod errors {
         DisabledTemporarily,
         /// Registration Price Limit Exceeded
         RegistrationPriceLimitExceeded,
+        /// A system account cannot be used in this operation
+        CannotUseSystemAccount,
     }
 }
