@@ -14,7 +14,7 @@ use frame_support::{
     sp_runtime::{BuildStorage, traits::IdentityLookup},
 };
 use sp_core::U256;
-use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
+use subtensor_runtime_common::{OnPollCompleted, OnPollCreated, Polls, SetLike, VoteTally};
 
 use crate::{self as pallet_signed_voting};
 
@@ -108,6 +108,10 @@ impl Polls<U256> for MockPolls {
     fn on_tally_updated(index: Self::Index, tally: &VoteTally) {
         TALLY_UPDATES.with(|t| t.borrow_mut().push((index, *tally)));
     }
+
+    fn on_tally_updated_weight() -> Weight {
+        Weight::zero()
+    }
 }
 
 // --- Helpers ---
@@ -125,7 +129,7 @@ pub fn start_poll(index: u32, scheme: VotingScheme, voter_set: Vec<U256>) {
             },
         );
     });
-    <SignedVoting as PollHooks<u32>>::on_poll_created(index);
+    <SignedVoting as OnPollCreated<u32>>::on_poll_created(index);
 }
 
 /// Mark the poll inactive and fire `on_poll_completed` to clean up storage.
@@ -135,7 +139,7 @@ pub fn complete_poll(index: u32) {
             s.is_ongoing = false;
         }
     });
-    <SignedVoting as PollHooks<u32>>::on_poll_completed(index);
+    <SignedVoting as OnPollCompleted<u32>>::on_poll_completed(index);
 }
 
 /// Simulate membership rotation by removing `who` from a poll's voter set

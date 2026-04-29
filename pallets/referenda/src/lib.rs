@@ -22,7 +22,7 @@
 //! `submit` records a referendum, schedules the relevant scheduler entries
 //! (an alarm for `PassOrFail`; an enactment task plus a reaper alarm for
 //! `Adjustable`), and notifies subscribers via
-//! [`PollHooks::on_poll_created`].
+//! [`OnPollCreated::on_poll_created`].
 //!
 //! Tally updates arrive through [`Polls::on_tally_updated`]. The hook is
 //! intentionally side-effect-light: it stores the new tally and arms an
@@ -140,7 +140,7 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
-use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
+use subtensor_runtime_common::{OnPollCompleted, OnPollCreated, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
 pub use types::*;
@@ -201,10 +201,14 @@ pub mod pallet {
         /// expose a different block-number authority.
         type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
-        /// Lifecycle hooks invoked when a referendum is created or
-        /// completed. Notifies any subscriber that needs to react to those
-        /// events.
-        type PollHooks: PollHooks<ReferendumIndex>;
+        /// Subscriber notified when a new referendum is created. The hook
+        /// returns its actual weight; the pallet pre-charges
+        /// `OnPollCreated::weight()` and refunds the unused portion.
+        type OnPollCreated: OnPollCreated<ReferendumIndex>;
+
+        /// Subscriber notified when a referendum reaches a terminal status.
+        /// Same weight contract as [`OnPollCreated`].
+        type OnPollCompleted: OnPollCompleted<ReferendumIndex>;
     }
 
     /// Monotonic referendum id generator. Incremented by `submit`; never
@@ -368,7 +372,7 @@ pub mod pallet {
             };
             ReferendumStatusFor::<T>::insert(index, ReferendumStatus::Ongoing(info));
 
-            T::PollHooks::on_poll_created(index);
+            T::OnPollCreated::on_poll_created(index);
 
             Self::deposit_event(Event::<T>::Submitted {
                 index,
@@ -421,7 +425,7 @@ pub mod pallet {
                     // Terminal state: nothing further to do. Reached when an
                     // alarm fires after a manual kill or a delegated handoff.
                 }
-            };
+            }
 
             Ok(())
         }
@@ -537,16 +541,17 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Move a referendum to a terminal status: cancel any pending alarm,
-    /// store the new status, decrement `ActiveCount`, notify voting pallets,
-    /// and emit `event`. Callers that need a follow-up alarm (the
-    /// `Approved -> Enacted` and `FastTracked -> Enacted` transitions) must
-    /// call `set_alarm` AFTER this function, since `conclude` cancels
-    /// whatever alarm is currently scheduled.
+    /// store the new status, decrement `ActiveCount`, notify subscribers
+    /// via `OnPollCompleted`, and emit `event`. Callers that need a
+    /// follow-up alarm (the `Approved -> Enacted` and
+    /// `FastTracked -> Enacted` transitions) must call `set_alarm` AFTER
+    /// this function, since `conclude` cancels whatever alarm is currently
+    /// scheduled.
     fn conclude(index: ReferendumIndex, status: ReferendumStatusOf<T>, event: Event<T>) {
         let _ = T::Scheduler::cancel_named(alarm_name(index));
         ReferendumStatusFor::<T>::insert(index, status);
         ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
-        T::PollHooks::on_poll_completed(index);
+        T::OnPollCompleted::on_poll_completed(index);
         Self::deposit_event(event);
     }
 
@@ -662,7 +667,7 @@ impl<T: Config> Pallet<T> {
         };
         ReferendumStatusFor::<T>::insert(new_index, ReferendumStatus::Ongoing(new_info));
 
-        T::PollHooks::on_poll_created(new_index);
+        T::OnPollCreated::on_poll_created(new_index);
 
         Some(new_index)
     }
@@ -883,5 +888,9 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
         if let Err(err) = Self::set_alarm(index, now.saturating_add(One::one())) {
             Self::report_scheduler_error(index, "set_alarm", err);
         }
+    }
+
+    fn on_tally_updated_weight() -> Weight {
+        T::WeightInfo::on_tally_updated()
     }
 }

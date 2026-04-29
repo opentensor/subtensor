@@ -1873,7 +1873,8 @@ impl pallet_referenda::Config for Runtime {
     type KillOrigin = EnsureRoot<AccountId>;
     type Tracks = governance::tracks::SubtensorTracks;
     type BlockNumberProvider = System;
-    type PollHooks = SignedVoting;
+    type OnPollCreated = SignedVoting;
+    type OnPollCompleted = SignedVoting;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

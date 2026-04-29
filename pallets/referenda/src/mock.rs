@@ -363,7 +363,8 @@ impl pallet_referenda::Config for Test {
     type KillOrigin = EnsureRoot<U256>;
     type Tracks = TestTracks;
     type BlockNumberProvider = System;
-    type PollHooks = SignedVoting;
+    type OnPollCreated = SignedVoting;
+    type OnPollCompleted = SignedVoting;
 }
 
 pub struct TestState {
