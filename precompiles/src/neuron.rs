@@ -260,10 +260,9 @@ mod tests {
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        AccountId, Runtime, System, addr_from_index, execute_precompile, new_test_ext, precompiles,
-        selector_u32,
+        AccountId, Runtime, System, addr_from_index, execute_precompile, mapped_account,
+        new_test_ext, precompiles, selector_u32,
     };
-    use pallet_evm::AddressMapping;
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256, U256};
@@ -296,8 +295,7 @@ mod tests {
 
     fn setup_registered_caller(caller: H160) -> (NetUid, AccountId) {
         let netuid = NetUid::from(TEST_NETUID_U16);
-        let caller_account =
-            <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(caller);
+        let caller_account = mapped_account(caller);
         let caller_hotkey = H256::from_slice(caller_account.as_ref());
 
         pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, TEMPO);
@@ -350,8 +348,7 @@ mod tests {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(TEST_NETUID_U16);
             let caller = addr_from_index(0x1234);
-            let caller_account =
-                <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(caller);
+            let caller_account = mapped_account(caller);
             let hotkey_account = AccountId::from([0x42; 32]);
             let hotkey = H256::from_slice(hotkey_account.as_ref());
 
