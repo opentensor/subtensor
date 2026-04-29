@@ -240,6 +240,50 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
     ) -> bool {
         true
     }
+
+    /// Validate the runtime track table once at startup.
+    ///
+    /// Returns `Err` with a static message if either invariant is broken:
+    ///
+    /// 1. Track ids are unique. Lookups by id silently pick the first
+    ///    match, so duplicates would mask later entries.
+    /// 2. Every `ApprovalAction::Review { track }` references a track
+    ///    that exists and uses the `Adjustable` strategy. Otherwise an
+    ///    approval that delegates would either find no track or hand off
+    ///    to a track that cannot model a review.
+    fn check_integrity() -> Result<(), &'static str> {
+        let tracks: alloc::vec::Vec<_> = Self::tracks().collect();
+
+        let mut ids: alloc::vec::Vec<_> = tracks.iter().map(|t| t.id).collect();
+        let total = ids.len();
+        ids.sort_unstable();
+        ids.dedup();
+        if ids.len() != total {
+            return Err("track ids must be unique");
+        }
+
+        for track in &tracks {
+            if let DecisionStrategy::PassOrFail {
+                on_approval:
+                    ApprovalAction::Review {
+                        track: review_track,
+                    },
+                ..
+            } = &track.info.decision_strategy
+            {
+                let referenced = Self::info(*review_track)
+                    .ok_or("ApprovalAction::Review references unknown track")?;
+                if !matches!(
+                    referenced.decision_strategy,
+                    DecisionStrategy::Adjustable { .. }
+                ) {
+                    return Err("ApprovalAction::Review target track must be Adjustable");
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Per-referendum data captured at submit time and updated as votes arrive.

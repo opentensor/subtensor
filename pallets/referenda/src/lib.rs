@@ -104,57 +104,6 @@ pub mod pallet {
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        /// Validate the runtime track configuration once at startup.
-        ///
-        /// Two invariants the runtime must uphold for the pallet to be
-        /// well-formed:
-        ///
-        /// 1. Track ids are unique. The pallet looks tracks up by id and
-        ///    silently picks the first match, so duplicate ids would mask
-        ///    later entries.
-        /// 2. Every `ApprovalAction::Review { track }` references a track
-        ///    that exists and uses the `Adjustable` strategy. Otherwise an
-        ///    approval that delegates would either find no track or hand
-        ///    off to a track that cannot model a review.
-        fn integrity_test() {
-            let tracks: alloc::vec::Vec<_> = T::Tracks::tracks().collect();
-
-            let mut ids: alloc::vec::Vec<_> = tracks.iter().map(|t| t.id).collect();
-            let total = ids.len();
-            ids.sort_unstable();
-            ids.dedup();
-            assert_eq!(
-                ids.len(),
-                total,
-                "pallet-referenda: track ids must be unique"
-            );
-
-            for track in &tracks {
-                if let DecisionStrategy::PassOrFail {
-                    on_approval:
-                        ApprovalAction::Review {
-                            track: review_track,
-                        },
-                    ..
-                } = &track.info.decision_strategy
-                {
-                    let referenced = T::Tracks::info(*review_track).unwrap_or_else(|| {
-                        panic!("pallet-referenda: ApprovalAction::Review references unknown track")
-                    });
-                    assert!(
-                        matches!(
-                            referenced.decision_strategy,
-                            DecisionStrategy::Adjustable { .. }
-                        ),
-                        "pallet-referenda: ApprovalAction::Review target track must be Adjustable",
-                    );
-                }
-            }
-        }
-    }
-
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// The aggregate runtime call type. Submitted calls and the
@@ -286,6 +235,16 @@ pub mod pallet {
         /// invariants. Indicates a configuration mismatch (typically a
         /// track's strategy changed under live referenda via runtime upgrade).
         Unreachable,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        /// Validate the runtime track table once at startup. Delegates to
+        /// [`TracksInfo::check_integrity`]; a misconfiguration panics with
+        /// the trait's diagnostic.
+        fn integrity_test() {
+            T::Tracks::check_integrity().expect("pallet-referenda: invalid track configuration");
+        }
     }
 
     #[pallet::call]
