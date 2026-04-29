@@ -144,15 +144,19 @@ use subtensor_runtime_common::{OnPollCompleted, OnPollCreated, Polls, SetLike, V
 
 pub use pallet::*;
 pub use types::*;
+pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod types;
+pub mod weights;
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
@@ -209,6 +213,36 @@ pub mod pallet {
         /// Subscriber notified when a referendum reaches a terminal status.
         /// Same weight contract as [`OnPollCreated`].
         type OnPollCompleted: OnPollCompleted<ReferendumIndex>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
+
+        /// Helper for setting up cross-pallet state needed by benchmarks.
+        /// The runtime provides track ids of each strategy variant plus a
+        /// proposer guaranteed to be in those tracks' proposer sets.
+        #[cfg(feature = "runtime-benchmarks")]
+        type BenchmarkHelper: BenchmarkHelper<TrackIdOf<Self>, Self::AccountId, CallOf<Self>>;
+    }
+
+    /// Benchmark setup helper. The runtime wires this with track ids and a
+    /// proposer that match its track table; the mock provides defaults
+    /// matching `pallet-referenda::mock::TestTracks`.
+    ///
+    /// Note: only a `PassOrFail` track is needed for the approve benchmark
+    /// because the `Review` outcome is the worst case and bounds `Execute`
+    /// from above (see [`weights::WeightInfo`]).
+    #[cfg(feature = "runtime-benchmarks")]
+    pub trait BenchmarkHelper<TrackId, AccountId, Call> {
+        /// Track id of a `PassOrFail` track. The benchmark drives both the
+        /// approve and reject paths through it.
+        fn track_passorfail() -> TrackId;
+        /// Track id of an `Adjustable` track.
+        fn track_adjustable() -> TrackId;
+        /// Account in the proposer set of both tracks returned above.
+        fn proposer() -> AccountId;
+        /// A call that `T::Tracks::authorize_proposal` accepts. Should be
+        /// cheap to bound (e.g. `frame_system::remark`).
+        fn call() -> Call;
     }
 
     /// Monotonic referendum id generator. Incremented by `submit`; never
@@ -314,6 +348,9 @@ pub mod pallet {
         /// `PassOrFail`, `Review` for `Adjustable` (with the call scheduled
         /// for dispatch after `initial_delay`).
         #[pallet::call_index(0)]
+        #[pallet::weight(
+            T::WeightInfo::submit().saturating_add(T::OnPollCreated::weight())
+        )]
         pub fn submit(
             origin: OriginFor<T>,
             track: TrackIdOf<T>,
@@ -386,6 +423,9 @@ pub mod pallet {
         /// Privileged termination of an ongoing referendum. Cancels any
         /// pending scheduler entries and concludes as `Killed`.
         #[pallet::call_index(1)]
+        #[pallet::weight(
+            T::WeightInfo::kill().saturating_add(T::OnPollCompleted::weight())
+        )]
         pub fn kill(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             T::KillOrigin::ensure_origin(origin)?;
 
@@ -409,6 +449,12 @@ pub mod pallet {
         /// Drive the state machine for `index`. Invoked by the alarm and
         /// available as a privileged extrinsic for manual recovery.
         #[pallet::call_index(2)]
+        #[pallet::weight(
+            // Worst-case bound: the approve-with-`Review` branch fires both hooks.
+            T::WeightInfo::advance_referendum()
+                .saturating_add(T::OnPollCreated::weight())
+                .saturating_add(T::OnPollCompleted::weight())
+        )]
         pub fn advance_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
 

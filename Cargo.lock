@@ -10366,6 +10366,7 @@ dependencies = [
 name = "pallet-referenda"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",

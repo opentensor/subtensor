@@ -1875,6 +1875,41 @@ impl pallet_referenda::Config for Runtime {
     type BlockNumberProvider = System;
     type OnPollCreated = SignedVoting;
     type OnPollCompleted = SignedVoting;
+    type WeightInfo = pallet_referenda::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ReferendaBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ReferendaBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_referenda::BenchmarkHelper<u8, AccountId, RuntimeCall> for ReferendaBenchmarkHelper {
+    /// Track 0: `triumvirate` (PassOrFail with `Review { track: 1 }`).
+    fn track_passorfail() -> u8 {
+        0
+    }
+    /// Track 1: `review` (Adjustable).
+    fn track_adjustable() -> u8 {
+        1
+    }
+    /// Adds a fresh account to the `Proposers` collective on every call so
+    /// `submit` finds it in the proposer set. Idempotent failures (already
+    /// a member) are ignored so multiple benchmarks can call it.
+    fn proposer() -> AccountId {
+        let proposer: AccountId = sp_core::crypto::AccountId32::new([1u8; 32]).into();
+        let _ = pallet_multi_collective::Pallet::<Runtime>::add_member(
+            frame_system::RawOrigin::Root.into(),
+            GovernanceCollectiveId::Proposers,
+            proposer.clone(),
+        );
+        proposer
+    }
+    fn call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::remark {
+            remark: alloc::vec![],
+        })
+    }
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -2005,6 +2040,7 @@ mod benches {
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
+        [pallet_referenda, Referenda]
     );
 }
 

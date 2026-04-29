@@ -365,6 +365,30 @@ impl pallet_referenda::Config for Test {
     type BlockNumberProvider = System;
     type OnPollCreated = SignedVoting;
     type OnPollCompleted = SignedVoting;
+    type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = TestBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TestBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_referenda::BenchmarkHelper<u8, U256, RuntimeCall> for TestBenchmarkHelper {
+    /// Track 2: `PassOrFail` with `Review { track: 1 }`. Worst case for
+    /// the approve benchmark (creates a child referendum).
+    fn track_passorfail() -> u8 {
+        2
+    }
+    fn track_adjustable() -> u8 {
+        1
+    }
+    fn proposer() -> U256 {
+        U256::from(1)
+    }
+    fn call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::remark { remark: vec![] })
+    }
 }
 
 pub struct TestState {
@@ -383,6 +407,14 @@ impl Default for TestState {
 
 impl TestState {
     pub fn build_and_execute(self, test: impl FnOnce()) {
+        let mut ext = self.into_test_ext();
+        ext.execute_with(test);
+    }
+
+    /// Build the externalities object pre-populated with collectives.
+    /// Exposed for `impl_benchmark_test_suite!`, which expects a builder
+    /// that returns `sp_io::TestExternalities` rather than a `FnOnce`.
+    pub fn into_test_ext(self) -> sp_io::TestExternalities {
         let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
             system: frame_system::GenesisConfig::default(),
             balances: pallet_balances::GenesisConfig::default(),
@@ -412,10 +444,16 @@ impl TestState {
                 )
                 .unwrap();
             }
-
-            test();
         });
+
+        ext
     }
+}
+
+/// Externalities builder for `impl_benchmark_test_suite!`.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    TestState::default().into_test_ext()
 }
 
 pub fn run_to_block(n: u64) {

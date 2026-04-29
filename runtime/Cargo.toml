@@ -333,7 +333,8 @@ runtime-benchmarks = [
 	# Smart Tx fees pallet
 	"subtensor-transaction-fee/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
-	
+	"pallet-referenda/runtime-benchmarks",
+
 	"subtensor-runtime-common/runtime-benchmarks",
 	"subtensor-chain-extensions/runtime-benchmarks"
 ]

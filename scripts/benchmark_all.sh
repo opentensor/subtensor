@@ -16,6 +16,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${0}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+export PATH="$HOME/.cargo/bin:$PATH"
+
 RUNTIME_WASM="$ROOT_DIR/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 NODE_BIN="$ROOT_DIR/target/production/node-subtensor"
 TEMPLATE="$ROOT_DIR/.maintain/frame-weight-template.hbs"
@@ -27,8 +29,8 @@ die() { echo "ERROR: $1" >&2; exit 1; }
 
 # ── Auto-discover pallets ────────────────────────────────────────────────────
 typeset -A PALLET_OUTPUTS
-while read -r name path; do
-  PALLET_OUTPUTS[$name]="$path"
+while read -r name out; do
+  PALLET_OUTPUTS[$name]="$out"
 done < <("$SCRIPT_DIR/discover_pallets.sh")
 
 (( ${#PALLET_OUTPUTS} > 0 )) || die "no benchmarked pallets found"
