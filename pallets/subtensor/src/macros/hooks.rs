@@ -184,22 +184,16 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-            log::error!("+++ on_idle, weight: {:?}", limit);
 
-            // let limit = Weight::from_parts(u64::MAX, u64::MAX);
-
-            let read_weight = T::DbWeight::get().reads(1);
-            let write_weight = T::DbWeight::get().writes(1);
-
-            log::error!(
-                "=== on_idle, read weight: {:?}, write weight: {:?}",
-                read_weight.ref_time(),
-                write_weight.ref_time()
-            );
-
-            let used = limit.saturating_sub(Self::remove_data_for_dissolved_networks(limit));
-            log::error!("=== on_idle, used weight: {:?}", used);
-            used
+            let dissolved_networks = DissolvedNetworks::<T>::get();
+            match dissolved_networks.get(0) {
+                Some(netuid) => {
+                    let used = limit
+                        .saturating_sub(Self::remove_data_for_dissolved_networks(limit, netuid));
+                    used
+                }
+                None => Weight::from_parts(0, 0),
+            }
         }
     }
 
@@ -241,63 +235,70 @@ mod hooks {
             weight
         }
 
-        // Clean the data for dissolved networks
+        // Cleans data for a dissolved network within the available block weight.
+        //
+        // The cleanup runs one stored phase at a time for the provided subnet. If a phase
+        // completes, the next cleanup phase is stored. Once all phases complete, the subnet
+        // is removed from `DissolvedNetworks` and `DissolvedNetworkDataCleaned` is emitted.
         //
         // # Args:
         // 	* 'remaining_weight': (Weight):
-        // 		- The remaining weight for the function.
+        // 		- The weight available for this cleanup step.
+        // 	* 'netuid': (&NetUid):
+        // 		- The subnet to clean dissolved-network data for.
         //
         // # Returns:
-        // 	* 'Weight': The weight remaining after the function.
+        // 	* 'Weight': The weight remaining after the cleanup step.
         //
-        fn remove_data_for_dissolved_networks(remaining_weight: Weight) -> Weight {
-            // --- Perform the cleanup before removing the network.
-            // Will handle it in dissolve network PR.
-            // T::SwapInterface::dissolve_all_liquidity_providers(netuid).map_err(|e| e.error)?;
-
+        fn remove_data_for_dissolved_networks(remaining_weight: Weight, netuid: &NetUid) -> Weight {
             let mut remaining_weight = remaining_weight;
-            let dissolved_networks = DissolvedNetworks::<T>::get();
 
-            log::error!("=== dissolved_networks: {:?}", dissolved_networks);
-
-            for netuid in dissolved_networks.iter() {
-                // if one phase is done or exit because of weight limit
-                let mut phase_done = false;
+            // if one phase is done or exit because of weight limit
+            let mut phase_done = true;
+            // only reason for phase_done to be false is if the weight limit is reached
+            while phase_done {
                 if let Some(phase) = DissolvedNetworksCleanupPhase::<T>::get(*netuid) {
                     log::error!("=== dissolved_networks phase: {:?}", phase);
-                    match phase {
+                    let (weight_used, done) =match phase {
                         DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimable => {
                             let (weight_used, done) =
                                 Self::clean_up_root_claimable_for_subnet(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-
-                            log::error!("=== dissolved_networks step 1");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimed,
                                 );
                             }
+                            (weight_used, done)
                         }
 
                         DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimed => {
                             let (weight_used, done) =
                                 Self::clean_up_root_claimed_for_subnet(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
+                            
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesGetTotalAlphaValue,
+                                );
+                            }
+                            (weight_used, done)
+                        }
 
-                            log::error!("=== dissolved_networks step 2");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                        DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesGetTotalAlphaValue => {
+                            let (weight_used, done) = Self::destroy_alpha_in_out_stakes_get_total_alpha_value(
+                                *netuid,
+                                remaining_weight,
+                            );
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesSettleStakes,
                                 );
                             }
+                            (weight_used, done)
                         }
 
                         DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesSettleStakes => {
@@ -305,18 +306,13 @@ mod hooks {
                                 *netuid,
                                 remaining_weight,
                             );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-
-                            log::error!("=== dissolved_networks step 3");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesCleanAlpha,
                                 );
                             }
+                            (weight_used, done)
                         }
 
                         DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesCleanAlpha => {
@@ -324,18 +320,13 @@ mod hooks {
                                 *netuid,
                                 remaining_weight,
                             );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-
-                            log::error!("=== dissolved_networks step 4");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesClearHotkeyTotals,
                                 );
                             }
+                            (weight_used, done)
                         }
 
                         DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesClearHotkeyTotals => {
@@ -343,18 +334,14 @@ mod hooks {
                                 *netuid,
                                 remaining_weight,
                             );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-
-                            log::error!("=== dissolved_networks step 5");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakes,
                                 );
                             }
+                            (weight_used, done)
                         }
 
                         DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakes => {
@@ -362,140 +349,117 @@ mod hooks {
                                 *netuid,
                                 remaining_weight,
                             );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-
-                            log::error!("=== dissolved_networks step 6");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::ClearProtocolLiquidity,
                                 );
                             }
+                            (weight_used, done)
                         }
 
                         DissolvedNetworksCleanupPhaseEnum::ClearProtocolLiquidity => {
                             let (weight_used, done) =
                                 T::SwapInterface::clear_protocol_liquidity(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-
-                            log::error!("=== dissolved_networks step 7");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                        
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::PurgeNetuid,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::PurgeNetuid => {
                             let (weight_used, done) =
                             T::CommitmentsInterface::purge_netuid(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: purge_netuid / remove_network_parameters");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParameters => {
                             let (weight_used, done) =
                                 Self::remove_network_parameters(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: remove_network_parameters (recovery)");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters => {
                             let (weight_used, done) =
                                 Self::remove_network_map_parameters(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: remove_network_map_parameters");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkWeights,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkWeights => {
                             let (weight_used, done) =
                                 Self::remove_network_weights(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: remove_network_weights");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeyTake,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeyTake => {
                             let (weight_used, done) =
                                 Self::remove_network_childkey_take(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: remove_network_childkey_take");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeys,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkChildkeys => {
                             let (weight_used, done) =
                                 Self::remove_network_childkeys(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: remove_network_childkeys");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParentkeys,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParentkeys => {
                             let (weight_used, done) =
                                 Self::remove_network_parentkeys(*netuid, remaining_weight);
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!("=== dissolved_networks: remove_network_parentkeys");
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkLastHotkeyEmissionOnNetuid,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkLastHotkeyEmissionOnNetuid => {
                             let (weight_used, done) =
@@ -503,19 +467,15 @@ mod hooks {
                                     *netuid,
                                     remaining_weight,
                                 );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!(
-                                "=== dissolved_networks: remove_network_last_hotkey_emission_on_netuid"
-                            );
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTotalHotkeyAlphaLastEpoch,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTotalHotkeyAlphaLastEpoch => {
                             let (weight_used, done) =
@@ -523,39 +483,29 @@ mod hooks {
                                     *netuid,
                                     remaining_weight,
                                 );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!(
-                                "=== dissolved_networks: remove_network_total_hotkey_alpha_last_epoch"
-                            );
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTransactionKeyLastBlock,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkTransactionKeyLastBlock => {
                             let (weight_used, done) =
                                 Self::remove_network_transaction_key_last_block(
                                     *netuid,
                                     remaining_weight,
-                                );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!(
-                                "=== dissolved_networks: remove_network_transaction_key_last_block"
-                            );
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                                );            
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkStakingOperationRateLimiter,
                                 );
                             }
+                            (weight_used, done)
                         }
                         DissolvedNetworksCleanupPhaseEnum::RemoveNetworkStakingOperationRateLimiter => {
                             let (weight_used, done) =
@@ -563,39 +513,28 @@ mod hooks {
                                     *netuid,
                                     remaining_weight,
                                 );
-                            phase_done = done;
-                            remaining_weight = remaining_weight.saturating_sub(weight_used);
-                            log::error!(
-                                "=== dissolved_networks: remove_network_staking_operation_rate_limiter"
-                            );
-                            log::error!("=== weight_used: {:?}", weight_used);
-                            log::error!("=== remaining_weight: {:?}", remaining_weight);
+                            
+                                    
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::remove(*netuid);
                             }
+                            (weight_used, done)
                         }
+                    };
+                    if DissolvedNetworksCleanupPhase::<T>::get(*netuid).is_none() {
+                        DissolvedNetworks::<T>::mutate(|networks| networks.retain(|n| *n != *netuid));
+                        Self::deposit_event(Event::DissolvedNetworkDataCleaned { netuid: *netuid });
+                        break;
                     }
-                }
+                    phase_done = done;
+                    remaining_weight = remaining_weight.saturating_sub(weight_used);
 
-                log::error!("=== dissolved_networks: phase_done: {:?}", phase_done);
-                // if the phase is not done, break the loop
-                if !phase_done {
+                } else {
+                    log::warn!("phase not set for dissolved network: {:?} in clean up phase", *netuid);
                     break;
-                }
-
-                if DissolvedNetworksCleanupPhase::<T>::get(*netuid).is_none() {
-                    log::error!("=== dissolved_networks: remove network done");
-
-                    DissolvedNetworks::<T>::mutate(|networks| networks.retain(|n| *n != *netuid));
-
-                    Self::deposit_event(Event::DissolvedNetworkDataCleaned { netuid: *netuid });
                 }
             }
 
-            log::error!(
-                "=== dissolved_networks: remaining_weight: {:?}",
-                remaining_weight
-            );
             remaining_weight
         }
     }

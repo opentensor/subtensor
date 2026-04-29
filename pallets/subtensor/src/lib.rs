@@ -365,6 +365,8 @@ pub mod pallet {
         CleanSubnetRootDividendsRootClaimed,
         /// Phase 7: Clear protocol liquidity for the subnet on the swap layer.
         ClearProtocolLiquidity,
+        /// Phase 3: Get the total alpha value for the subnet.
+        DestroyAlphaInOutStakesGetTotalAlphaValue,
         /// Phase 3: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakesSettleStakes,
         /// Phase 4: Clean alpha entries for the subnet.
@@ -2027,6 +2029,12 @@ pub mod pallet {
     /// It is only used during clean the data for dissolved networks.
     #[pallet::storage]
     pub type LastKeptRawKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+    #[pallet::storage]
+    pub type DissolvedSubnetTotalAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
+
+    #[pallet::storage]
+    pub type DissolvedSubnetSettledAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
 
     // =======================================
     // ==== VotingPower Storage  ====
