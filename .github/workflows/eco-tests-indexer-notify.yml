@@ -72,7 +72,7 @@ jobs:
               '### eco-tests changed — indexer review required',
               '',
               'This PR modifies files under `eco-tests/`. and may affect downstream indexing.',
-              `**cc ${ccLine}** — please review manually',
+              `**cc ${ccLine}** — please review manually`,
               '',
               '<details><summary>Changed files</summary>',
               '',
