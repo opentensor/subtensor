@@ -12,7 +12,7 @@
 //!
 //! * `PassOrFail`: a binary decision before a deadline. Submitters provide a
 //!   call. On approval the call is dispatched (either directly, or handed off
-//!   to a review track via `ApprovalAction::Review`).
+//!   to an `Adjustable` review track via `ApprovalAction::Review`).
 //! * `Adjustable`: a timing decision over an already-scheduled call. The call
 //!   runs after `initial_delay` by default. Voters can fast-track it sooner,
 //!   cancel it entirely, or shift the dispatch time via linear interpolation.
@@ -20,57 +20,113 @@
 //! ## Lifecycle
 //!
 //! `submit` records a referendum, schedules the relevant scheduler entries
-//! (an alarm for PassOrFail; an enactment task plus a reaper alarm for
-//! Adjustable), and notifies voting pallets via [`PollHooks::on_poll_created`].
+//! (an alarm for `PassOrFail`; an enactment task plus a reaper alarm for
+//! `Adjustable`), and notifies subscribers via
+//! [`PollHooks::on_poll_created`].
 //!
-//! Voting pallets push tally updates through [`Polls::on_tally_updated`]. The
-//! hook is intentionally side-effect-light: it stores the new tally and arms
-//! an alarm at `now + 1`. All decision logic runs from the alarm via
-//! `advance_referendum`, which keeps voting hooks free of re-entrancy.
+//! Tally updates arrive through [`Polls::on_tally_updated`]. The hook is
+//! intentionally side-effect-light: it stores the new tally and arms an
+//! alarm at `now + 1`. All decision logic runs from the alarm via
+//! `advance_referendum`, which keeps the tally hook free of re-entrancy.
 //!
 //! `advance_referendum` is the single state-machine entry point. For an
 //! `Ongoing` referendum it dispatches into the appropriate threshold or
-//! timing logic; for a referendum already in `Approved` or `FastTracked` it
-//! transitions to `Enacted` once the underlying scheduled task has actually
-//! run (deferring if it has not).
+//! timing logic; for a referendum already in `Approved` or `FastTracked`
+//! it transitions to `Enacted` once the underlying scheduled task has
+//! actually run (deferring if it has not).
+//!
+//! ## State machine
+//!
+//! `PassOrFail` track:
+//!
+//! ```text
+//!                            submit
+//!                              │
+//!                              ▼
+//!     vote re-arms alarm   ┌───────┐   kill
+//!     (now + 1)         ┌─►│Ongoing│───────────────────────────► Killed    (terminal)
+//!                       │  └───┬───┘
+//!                       │      │
+//!                       │      │ alarm fires:
+//!                       │      ├─ approve_threshold + Execute  ─► Approved ─► Enacted
+//!                       │      ├─ approve_threshold + Review   ─► Delegated (terminal)
+//!                       │      ├─ reject_threshold             ─► Rejected  (terminal)
+//!                       │      ├─ deadline reached             ─► Expired   (terminal)
+//!                       │      └─ no decision, before deadline ─► re-arm at deadline,
+//!                       └──────┘                                  stay Ongoing
+//! ```
+//!
+//! `Adjustable` track:
+//!
+//! ```text
+//!                            submit
+//!                              │
+//!                              │ schedule task at  submitted + initial_delay
+//!                              │ schedule reaper at submitted + initial_delay + 1
+//!                              ▼
+//!     vote re-arms alarm   ┌───────┐   kill
+//!     (now + 1)         ┌─►│Ongoing│───────────────────────────► Killed    (terminal)
+//!                       │  └───┬───┘
+//!                       │      │
+//!                       │      │ alarm fires:
+//!                       │      ├─ task already ran (lapse)    ─► Enacted     (terminal)
+//!                       │      ├─ fast_track_threshold        ─► FastTracked ─► Enacted
+//!                       │      ├─ cancel_threshold            ─► Cancelled   (terminal)
+//!                       │      └─ otherwise: do_adjust_delay  ─► move task earlier,
+//!                       └──────┘                                 restore reaper alarm
+//! ```
 //!
 //! ## Status taxonomy
 //!
-//! Terminal states are distinct so the lifecycle is auditable:
-//!
-//! * `Approved`: PassOrFail vote passed and the call has been scheduled on
-//!   this index (transitions to `Enacted` after dispatch).
-//! * `Delegated`: PassOrFail vote passed with `ApprovalAction::Review`. The
-//!   call now lives on a fresh referendum on the configured review track;
-//!   this index becomes a terminal audit trail.
-//! * `Rejected`: PassOrFail vote rejected (no scheduled call to undo).
-//! * `Expired`: PassOrFail decision period elapsed without a decision.
-//! * `FastTracked`: Adjustable vote crossed `fast_track_threshold`; the
-//!   scheduled task was rescheduled to run next block (transitions to
-//!   `Enacted`).
-//! * `Cancelled`: Adjustable vote crossed `cancel_threshold`; the scheduled
-//!   task was cancelled.
-//! * `Enacted`: The referendum's call has been dispatched.
-//! * `Killed`: Privileged termination via `KillOrigin`.
+//! * `Ongoing`: voting in progress.
+//! * `Approved`: vote crossed `approve_threshold` on a `PassOrFail` track
+//!   with `ApprovalAction::Execute`. Call scheduled on this index;
+//!   transitions to `Enacted` once it has dispatched.
+//! * `Delegated`: vote crossed `approve_threshold` on a `PassOrFail` track
+//!   with `ApprovalAction::Review`. The call now lives on a fresh
+//!   referendum on the configured review track; this index is a terminal
+//!   audit trail.
+//! * `Rejected`: vote crossed `reject_threshold` on a `PassOrFail` track.
+//! * `Expired`: `PassOrFail` decision period elapsed without crossing
+//!   either threshold.
+//! * `FastTracked`: vote crossed `fast_track_threshold` on an `Adjustable`
+//!   track. Scheduled task moved to next block; transitions to `Enacted`.
+//! * `Cancelled`: vote crossed `cancel_threshold` on an `Adjustable`
+//!   track. Scheduled task cancelled.
+//! * `Enacted`: the referendum's call has dispatched. Reached either
+//!   from `Approved` / `FastTracked` after dispatch, or directly when an
+//!   `Adjustable` task ran on its own schedule with no vote-driven
+//!   decision (the lapse path).
+//! * `Killed`: privileged termination via `KillOrigin`.
 //!
 //! ## Alarm and task discipline
 //!
-//! Each referendum has at most one alarm (`alarm_name(index)`) and at most
-//! one enactment task (`task_name(index)`). [`set_alarm`] is idempotent: it
-//! cancels any prior alarm with the same name before scheduling a new one.
-//! [`conclude`] cancels the alarm so terminal-state referenda do not waste
-//! scheduler dispatches. Callers that need a follow-up alarm (the
-//! `Approved -> Enacted` and `FastTracked -> Enacted` transitions) call
-//! `set_alarm` after `conclude`.
+//! Each referendum has at most one alarm (`alarm_name(index)`) and at
+//! most one enactment task (`task_name(index)`). [`set_alarm`] is
+//! idempotent: it cancels any prior alarm with the same name before
+//! scheduling a new one. `conclude` cancels the alarm so terminal-state
+//! referenda do not waste scheduler dispatches. Callers that need a
+//! follow-up alarm (the `Approved -> Enacted` and
+//! `FastTracked -> Enacted` transitions) call `set_alarm` after
+//! `conclude`.
 //!
-//! Enactment tasks for `Adjustable` proposals can move earlier (fast-track,
-//! linear interpolation) but never later than `submitted + initial_delay`.
-//! The reaper alarm is anchored at `submitted + initial_delay + 1` so it
+//! `Adjustable` enactment tasks can move earlier (fast-track, linear
+//! interpolation) but never later than `submitted + initial_delay`. The
+//! reaper alarm is anchored at `submitted + initial_delay + 1` so it
 //! always fires after the natural execution time, catching any path that
 //! reaches the deadline without a vote-driven decision.
+//!
+//! ## Runtime configuration check
+//!
+//! [`Pallet::integrity_test`] runs at startup and asserts that the track
+//! table is well-formed: track ids are unique, and every
+//! `ApprovalAction::Review { track }` references a track that exists and
+//! uses the `Adjustable` strategy. A misconfigured runtime panics at boot
+//! with a precise cause.
 
 extern crate alloc;
 
+use alloc::boxed::Box;
 use frame_support::{
     dispatch::DispatchResult,
     pallet_prelude::*,

@@ -14,6 +14,7 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{SetLike, VoteTally};
 
 use crate::Config;
@@ -287,6 +288,7 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
 }
 
 /// Per-referendum data captured at submit time and updated as votes arrive.
+#[freeze_struct("8ac1985db9ed5344")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
 )]
