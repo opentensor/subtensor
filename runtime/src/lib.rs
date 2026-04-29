@@ -1760,8 +1760,8 @@ parameter_types! {
     pub const GovernanceCollectiveTermDuration: BlockNumber = prod_or_fast!(432_000, 100);
     /// 7 days mainnet / 50 blocks fast-runtime — triumvirate voting window.
     pub const GovernanceTriumvirateDecisionPeriod: BlockNumber = prod_or_fast!(50_400, 50);
-    /// 1 hour mainnet / 30 blocks fast-runtime — collective Review delay.
-    pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(300, 30);
+    /// 24 hours mainnet / 30 blocks fast-runtime — collective Review delay.
+    pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(7200, 30);
     /// Target size of each ranked collective (Economic + Building).
     /// Matches the `max_members` declared in `SubtensorCollectives`.
     pub const GovernanceRankedCollectiveSize: u32 = 16;
