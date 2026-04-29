@@ -958,6 +958,17 @@ fn parallel_referenda_have_independent_lifecycles() {
 }
 
 #[test]
+fn integrity_test_passes_for_valid_track_table() {
+    // The mock's track table satisfies both invariants: ids are unique and
+    // the only `ApprovalAction::Review { track: 1 }` points at track 1
+    // which uses the Adjustable strategy.
+    TestState::default().build_and_execute(|| {
+        use frame_support::traits::Hooks;
+        Pallet::<Test>::integrity_test();
+    });
+}
+
+#[test]
 fn vote_after_termination_does_not_mutate_referenda_state() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
