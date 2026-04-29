@@ -184,7 +184,6 @@ mod hooks {
         }
 
         fn on_idle(_block: BlockNumberFor<T>, limit: Weight) -> Weight {
-
             let dissolved_networks = DissolvedNetworks::<T>::get();
             match dissolved_networks.get(0) {
                 Some(netuid) => {
@@ -522,15 +521,19 @@ mod hooks {
                         }
                     };
                     if DissolvedNetworksCleanupPhase::<T>::get(*netuid).is_none() {
-                        DissolvedNetworks::<T>::mutate(|networks| networks.retain(|n| *n != *netuid));
+                        DissolvedNetworks::<T>::mutate(|networks| {
+                            networks.retain(|n| *n != *netuid)
+                        });
                         Self::deposit_event(Event::DissolvedNetworkDataCleaned { netuid: *netuid });
                         break;
                     }
                     phase_done = done;
                     remaining_weight = remaining_weight.saturating_sub(weight_used);
-
                 } else {
-                    log::warn!("phase not set for dissolved network: {:?} in clean up phase", *netuid);
+                    log::warn!(
+                        "phase not set for dissolved network: {:?} in clean up phase",
+                        *netuid
+                    );
                     break;
                 }
             }

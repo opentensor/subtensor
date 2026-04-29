@@ -728,13 +728,13 @@ impl<T: Config> Pallet<T> {
                 });
             }
 
-            settled_alpha_value_u128 += distributed;
+            settled_alpha_value_u128 = settled_alpha_value_u128.saturating_add(distributed);
 
             let leftover: u128 = total_rem
                 .checked_div(total_alpha_value_u128)
                 .unwrap_or_default();
             if leftover > 0 {
-                settled_alpha_value_u128 += leftover;
+                settled_alpha_value_u128 = settled_alpha_value_u128.saturating_add(leftover);
                 portions.sort_by(|a, b| b.rem.cmp(&a.rem));
                 let give: usize = core::cmp::min(leftover, portions.len() as u128) as usize;
                 for p in portions.iter_mut().take(give) {
