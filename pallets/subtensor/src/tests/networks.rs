@@ -1499,7 +1499,11 @@ fn register_network_skips_dissolved_netuid() {
         let cold = U256::from(60);
         let hot = U256::from(61);
         let needed: u64 = SubtensorModule::get_network_lock_cost().into();
-        SubtensorModule::add_balance_to_coldkey_account(&cold, needed.saturating_mul(10).into());
+        SubtensorModule::transfer_tao_from_subnet(
+            dissolved,
+            &cold.into(),
+            needed.saturating_mul(10).into(),
+        );
 
         assert_ok!(SubtensorModule::do_register_network(
             RuntimeOrigin::signed(cold),
