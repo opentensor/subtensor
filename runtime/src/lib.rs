@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
+pub mod governance;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
@@ -29,7 +30,6 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
-use pallet_governance::{BUILDING_COLLECTIVE_SIZE, ECONOMIC_COLLECTIVE_SIZE};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
 pub use pallet_shield;
@@ -59,8 +59,7 @@ use sp_core::{
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
 use sp_runtime::{
-    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, FixedU128, Percent, generic,
-    impl_opaque_keys,
+    AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, One,
         PostDispatchInfoOf, UniqueSaturatedInto, Verify,
@@ -1639,58 +1638,242 @@ impl pallet_contracts::Config for Runtime {
     type ApiVersion = ();
 }
 
+// ============================================================================
+// Governance V2: multi-collective + signed-voting + referenda
+// ============================================================================
+
+use codec::{DecodeWithMemTracking, MaxEncodedLen};
+use frame_support::traits::AsEnsureOriginWithArg;
+use pallet_multi_collective::{
+    Collective as McCollective, CollectiveInfo as McCollectiveInfo,
+    CollectiveInspect as McCollectiveInspect, CollectivesInfo as McCollectivesInfo,
+    OnMembersChanged as McOnMembersChanged,
+};
+/// Identifier of a collective managed by `pallet-multi-collective`.
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo,
+)]
+pub enum GovernanceCollectiveId {
+    /// Accounts authorized to submit proposals on the triumvirate track.
+    Proposers,
+    /// Three-member approval body for track 0.
+    Triumvirate,
+    /// Top validators — one half of the collective oversight voter set.
+    Economic,
+    /// Top subnet owners — one half of the collective oversight voter set.
+    Building,
+}
+
+impl pallet_multi_collective::CanRotate for GovernanceCollectiveId {
+    fn can_rotate(&self) -> bool {
+        match self {
+            // Ranked by on-chain stake / subnet data — rotated by
+            // `governance::collective_management::CollectiveManagement::on_new_term`.
+            Self::Economic | Self::Building => true,
+            // Curated by Root via the membership extrinsics; no ranking
+            // source, so `force_rotate` would be a no-op.
+            Self::Proposers | Self::Triumvirate => false,
+        }
+    }
+}
+
+/// Voting scheme for each referenda track. Only `Signed` is supported; the
+/// V1 "anonymous" scheme is replaced with signed voting in V2 per design.
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo,
+)]
+pub enum GovernanceVotingScheme {
+    Signed,
+}
+
+/// A voter or proposer set composed of one or more collectives, evaluated by
+/// reading `pallet-multi-collective` storage on demand.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GovernanceMemberSet {
+    Single(GovernanceCollectiveId),
+    Union(Vec<GovernanceCollectiveId>),
+}
+
+impl SetLike<AccountId> for GovernanceMemberSet {
+    fn contains(&self, who: &AccountId) -> bool {
+        match self {
+            Self::Single(id) => <MultiCollective as McCollectiveInspect<
+                AccountId,
+                GovernanceCollectiveId,
+            >>::is_member(*id, who),
+            Self::Union(ids) => ids.iter().any(|id| {
+                <MultiCollective as McCollectiveInspect<
+                    AccountId,
+                    GovernanceCollectiveId,
+                >>::is_member(*id, who)
+            }),
+        }
+    }
+
+    fn len(&self) -> u32 {
+        match self {
+            Self::Single(id) => <MultiCollective as McCollectiveInspect<
+                AccountId,
+                GovernanceCollectiveId,
+            >>::member_count(*id),
+            Self::Union(ids) => ids
+                .iter()
+                .map(|id| {
+                    <MultiCollective as McCollectiveInspect<
+                        AccountId,
+                        GovernanceCollectiveId,
+                    >>::member_count(*id)
+                })
+                .sum(),
+        }
+    }
+}
+
 parameter_types! {
-    pub const MaxAllowedProposers: u32 = 20;
-    pub MaxProposalWeight: Weight = Perbill::from_percent(20) * BlockWeights::get().max_block;
-    pub const MaxProposals: u32 = 20;
-    pub const MaxScheduled: u32 = 20;
-    pub const MotionDuration: BlockNumber = prod_or_fast!(50_400, 50); // 7 days
-    pub const InitialSchedulingDelay: BlockNumber = prod_or_fast!(300, 30); // 1 hour
-    pub const AdditionalDelayFactor: FixedU128 = FixedU128::from_rational(3, 2); // 1.5
-    pub const CollectiveRotationPeriod: BlockNumber = prod_or_fast!(432_000, 100); // 60 days
-    pub const CleanupPeriod: BlockNumber = prod_or_fast!(21_600, 50); // 3 days
-    pub const FastTrackThreshold: Percent = Percent::from_percent(67);
-    pub const CancellationThreshold: Percent = Percent::from_percent(51);
+    /// Storage bound on `pallet-multi-collective::Members<_>`. Must be ≥ the
+    /// largest `max_members` declared in `SubtensorCollectives`.
+    pub const MultiCollectiveMaxMembers: u32 = 20;
+    /// Maximum number of active referenda across all tracks.
+    pub const ReferendaMaxQueued: u32 = 20;
+    pub const GovernanceSignedScheme: GovernanceVotingScheme = GovernanceVotingScheme::Signed;
+    /// 60 days mainnet / 100 blocks fast-runtime.
+    pub const GovernanceCollectiveTermDuration: BlockNumber = prod_or_fast!(432_000, 100);
+    /// 7 days mainnet / 50 blocks fast-runtime — triumvirate voting window.
+    pub const GovernanceTriumvirateDecisionPeriod: BlockNumber = prod_or_fast!(50_400, 50);
+    /// 1 hour mainnet / 30 blocks fast-runtime — collective Review delay.
+    pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(300, 30);
+    /// Target size of each ranked collective (Economic + Building).
+    /// Matches the `max_members` declared in `SubtensorCollectives`.
+    pub const GovernanceRankedCollectiveSize: u32 = 16;
+    /// Minimum subnet age for its owner to be eligible for the Building
+    /// collective: 180 days mainnet / 100 blocks fast-runtime.
+    pub const GovernanceMinSubnetAge: BlockNumber = prod_or_fast!(180 * DAYS, 100);
+    /// Track ids — must match the indices declared in `SubtensorTracks`.
+    pub const GovernanceTriumvirateTrack: u8 = 0;
+    pub const GovernanceReviewTrack: u8 = 1;
 }
 
-impl pallet_governance::Config for Runtime {
+/// Static list of collectives. Adding a variant to `GovernanceCollectiveId`
+/// forces an update here via exhaustive `match` in runtime tests.
+pub struct SubtensorCollectives;
+
+impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
+    type Id = GovernanceCollectiveId;
+
+    fn collectives() -> impl Iterator<Item = McCollective<Self::Id, BlockNumber, [u8; 32]>> {
+        fn name(s: &[u8]) -> [u8; 32] {
+            let mut out = [0u8; 32];
+            out.iter_mut()
+                .zip(s.iter())
+                .for_each(|(dst, src)| *dst = *src);
+            out
+        }
+
+        [
+            McCollective {
+                id: GovernanceCollectiveId::Proposers,
+                info: McCollectiveInfo {
+                    name: name(b"proposers"),
+                    min_members: 0,
+                    max_members: Some(20),
+                    term_duration: None,
+                },
+            },
+            McCollective {
+                id: GovernanceCollectiveId::Triumvirate,
+                info: McCollectiveInfo {
+                    name: name(b"triumvirate"),
+                    min_members: 0,
+                    max_members: Some(3),
+                    term_duration: None,
+                },
+            },
+            McCollective {
+                id: GovernanceCollectiveId::Economic,
+                info: McCollectiveInfo {
+                    name: name(b"economic"),
+                    min_members: 0,
+                    max_members: Some(16),
+                    term_duration: Some(GovernanceCollectiveTermDuration::get()),
+                },
+            },
+            McCollective {
+                id: GovernanceCollectiveId::Building,
+                info: McCollectiveInfo {
+                    name: name(b"building"),
+                    min_members: 0,
+                    max_members: Some(16),
+                    term_duration: Some(GovernanceCollectiveTermDuration::get()),
+                },
+            },
+        ]
+        .into_iter()
+    }
+}
+
+/// Routes membership removals from `pallet-multi-collective` into
+/// `pallet-signed-voting` so a member leaving a collective mid-referendum
+/// has their vote reverted.
+pub struct GovernanceVoteCleanup;
+
+impl McOnMembersChanged<GovernanceCollectiveId, AccountId> for GovernanceVoteCleanup {
+    fn on_members_changed(
+        _collective_id: GovernanceCollectiveId,
+        _incoming: &[AccountId],
+        outgoing: &[AccountId],
+    ) {
+        for who in outgoing {
+            SignedVoting::remove_votes_for(who);
+        }
+    }
+}
+
+impl pallet_multi_collective::Config for Runtime {
+    type CollectiveId = GovernanceCollectiveId;
+    type Collectives = SubtensorCollectives;
+    type AddOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type ResetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type OnMembersChanged = GovernanceVoteCleanup;
+    type OnNewTerm = governance::collective_management::CollectiveManagement;
+    type MaxMembers = MultiCollectiveMaxMembers;
+}
+
+impl pallet_signed_voting::Config for Runtime {
+    type Scheme = GovernanceSignedScheme;
+    type Polls = Referenda;
+}
+
+impl pallet_referenda::Config for Runtime {
     type RuntimeCall = RuntimeCall;
-    type WeightInfo = pallet_governance::weights::SubstrateWeight<Self>;
-    type Currency = Balances;
-    type Preimages = Preimage;
     type Scheduler = Scheduler;
-    type SetAllowedProposersOrigin = EnsureRoot<AccountId>;
-    type SetTriumvirateOrigin = EnsureRoot<AccountId>;
-    type CollectiveMembersProvider = CollectiveMembersProvider;
-    type MaxAllowedProposers = MaxAllowedProposers;
-    type MaxProposalWeight = MaxProposalWeight;
-    type MaxProposals = MaxProposals;
-    type MaxScheduled = MaxScheduled;
-    type MotionDuration = MotionDuration;
-    type InitialSchedulingDelay = InitialSchedulingDelay;
-    type AdditionalDelayFactor = AdditionalDelayFactor;
-    type CollectiveRotationPeriod = CollectiveRotationPeriod;
-    type CleanupPeriod = CleanupPeriod;
-    type CancellationThreshold = CancellationThreshold;
-    type FastTrackThreshold = FastTrackThreshold;
-}
-
-pub struct CollectiveMembersProvider;
-
-impl pallet_governance::CollectiveMembersProvider<Runtime> for CollectiveMembersProvider {
-    fn get_economic_collective() -> (
-        BoundedVec<AccountId, ConstU32<ECONOMIC_COLLECTIVE_SIZE>>,
-        Weight,
-    ) {
-        (BoundedVec::new(), Weight::zero())
-    }
-
-    fn get_building_collective() -> (
-        BoundedVec<AccountId, ConstU32<BUILDING_COLLECTIVE_SIZE>>,
-        Weight,
-    ) {
-        (BoundedVec::new(), Weight::zero())
-    }
+    type Preimages = Preimage;
+    type MaxQueued = ReferendaMaxQueued;
+    type KillOrigin = EnsureRoot<AccountId>;
+    type Tracks = governance::tracks::SubtensorTracks;
+    type BlockNumberProvider = System;
+    type PollHooks = SignedVoting;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1731,7 +1914,11 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
-        Governance: pallet_governance = 31,
+
+        // Governance
+        MultiCollective: pallet_multi_collective = 31,
+        SignedVoting: pallet_signed_voting = 32,
+        Referenda: pallet_referenda = 33,
     }
 );
 

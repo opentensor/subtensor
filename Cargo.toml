@@ -34,7 +34,7 @@ members = [
 	"support/*",
 	"chain-extensions",
 ]
-exclude = ["eco-tests"]
+exclude = ["eco-tests", "pallets/anonymous-voting", "pallets/governance"]
 resolver = "2"
 
 [workspace.package]
@@ -63,7 +63,6 @@ pallet-subtensor = { path = "pallets/subtensor", default-features = false }
 pallet-subtensor-swap = { path = "pallets/swap", default-features = false }
 pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default-features = false }
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
-pallet-governance = { path = "pallets/governance", default-features = false }
 pallet-multi-collective = { path = "pallets/multi-collective", default-features = false }
 pallet-signed-voting = { path = "pallets/signed-voting", default-features = false }
 pallet-anonymous-voting = { path = "pallets/anonymous-voting", default-features = false }
@@ -92,6 +91,7 @@ enumflags2 = "0.7.9"
 futures = "0.3.30"
 hex = { version = "0.4", default-features = false }
 hex-literal = "0.4.1"
+impl-trait-for-tuples = "0.2.3"
 jsonrpsee = { version = "0.24.9", default-features = false }
 libsecp256k1 = { version = "0.7.2", default-features = false }
 lencode = "0.1.6"

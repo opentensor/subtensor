@@ -448,12 +448,32 @@ impl TypeInfo for NetUidStorageIndex {
 }
 
 #[derive(
-    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    TypeInfo,
+    Debug,
 )]
+#[freeze_struct("51505f4d98347bff")]
 pub struct VoteTally {
     pub approval: Perbill,
     pub rejection: Perbill,
     pub abstention: Perbill,
+}
+
+impl Default for VoteTally {
+    fn default() -> Self {
+        Self {
+            approval: Perbill::zero(),
+            rejection: Perbill::zero(),
+            abstention: Perbill::one(),
+        }
+    }
 }
 
 #[cfg(test)]

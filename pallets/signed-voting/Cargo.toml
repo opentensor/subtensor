@@ -19,10 +19,22 @@ codec = { workspace = true, features = ["max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
+subtensor-macros.workspace = true
 subtensor-runtime-common = { workspace = true }
+
+[dev-dependencies]
+sp-io = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-std = []
+std = [
+    "codec/std",
+    "scale-info/std",
+    "frame-system/std",
+    "frame-support/std",
+    "subtensor-runtime-common/std",
+]
 runtime-benchmarks = []
 try-runtime = []

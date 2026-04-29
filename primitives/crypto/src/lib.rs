@@ -41,6 +41,9 @@
 //!    check). Ristretto points are always in the prime-order subgroup.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::unwrap_used)]
 
 extern crate alloc;
 
@@ -114,6 +117,7 @@ pub enum BlsagError {
     codec::DecodeWithMemTracking,
     scale_info::TypeInfo,
 )]
+#[subtensor_macros::freeze_struct("b0388239913a8b1")]
 pub struct BlsagSignature {
     /// Initial challenge scalar c_0 (32 bytes, canonical encoding).
     /// Called `c_1` in ZtM2 §3.4 (1-indexed), we use 0-indexed.
@@ -492,7 +496,7 @@ pub fn verify(
     let responses: Vec<Scalar> = signature
         .responses
         .iter()
-        .map(|bytes| deserialize_scalar(bytes))
+        .map(deserialize_scalar)
         .collect::<Result<_, _>>()?;
 
     // ADDED (not in ZtM2): Pre-compute the ring binding digest.
