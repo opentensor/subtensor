@@ -2,8 +2,8 @@
 //! approval track; track 1 is the collective oversight (Review) track.
 
 use pallet_referenda::{
-    DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack, TrackInfo as RefTrackInfo,
-    TracksInfo as RefTracksInfo,
+    ApprovalAction, DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack,
+    TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo,
 };
 use sp_runtime::Perbill;
 
@@ -45,7 +45,9 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                 id: 0u8,
                 info: RefTrackInfo {
                     name: name(b"triumvirate"),
-                    proposer_set: GovernanceMemberSet::Single(GovernanceCollectiveId::Proposers),
+                    proposer_set: Some(GovernanceMemberSet::Single(
+                        GovernanceCollectiveId::Proposers,
+                    )),
                     voter_set: GovernanceMemberSet::Single(GovernanceCollectiveId::Triumvirate),
                     voting_scheme: GovernanceVotingScheme::Signed,
                     decision_strategy: DecisionStrategy::PassOrFail {
@@ -53,6 +55,10 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                         // 2/3 approval
                         approve_threshold: Perbill::from_rational(2u32, 3u32),
                         reject_threshold: Perbill::from_rational(2u32, 3u32),
+                        // Approved triumvirate decisions hand off to the
+                        // collective review track (track 1) so the wider
+                        // body can fast-track or cancel before enactment.
+                        on_approval: ApprovalAction::Review { track: 1 },
                     },
                 },
             },
@@ -60,7 +66,9 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                 id: 1u8,
                 info: RefTrackInfo {
                     name: name(b"review"),
-                    proposer_set: GovernanceMemberSet::Single(GovernanceCollectiveId::Proposers),
+                    proposer_set: Some(GovernanceMemberSet::Single(
+                        GovernanceCollectiveId::Proposers,
+                    )),
                     voter_set: GovernanceMemberSet::Union(alloc::vec![
                         GovernanceCollectiveId::Economic,
                         GovernanceCollectiveId::Building,
@@ -69,7 +77,7 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                     decision_strategy: DecisionStrategy::Adjustable {
                         initial_delay: GovernanceCollectiveInitialDelay::get(),
                         fast_track_threshold: Perbill::from_percent(67),
-                        reject_threshold: Perbill::from_percent(51),
+                        cancel_threshold: Perbill::from_percent(51),
                     },
                 },
             },

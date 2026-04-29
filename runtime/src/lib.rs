@@ -1870,7 +1870,7 @@ impl pallet_referenda::Config for Runtime {
     type Scheduler = Scheduler;
     type Preimages = Preimage;
     type MaxQueued = ReferendaMaxQueued;
-    type CancelOrigin = EnsureRoot<AccountId>;
+    type KillOrigin = EnsureRoot<AccountId>;
     type Tracks = governance::tracks::SubtensorTracks;
     type BlockNumberProvider = System;
     type PollHooks = SignedVoting;
