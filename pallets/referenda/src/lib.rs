@@ -79,216 +79,22 @@ use frame_support::{
         traits::{BlockNumberProvider, Dispatchable, One, Zero},
     },
     traits::{
-        Bounded, LockIdentifier, QueryPreimage, StorePreimage,
-        schedule::{
-            DispatchTime,
-            v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},
-        },
+        QueryPreimage, StorePreimage,
+        schedule::{DispatchTime, v3::Named as ScheduleNamed},
     },
 };
 use frame_system::pallet_prelude::*;
 use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
+pub use types::*;
+
+mod types;
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
-
-pub const MAX_TRACK_NAME_LEN: usize = 32;
-pub type TrackName = [u8; MAX_TRACK_NAME_LEN];
-
-pub type PalletsOriginOf<T> =
-    <<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
-
-type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-pub type CallOf<T> = <T as Config>::RuntimeCall;
-pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
-
-pub type ScheduleAddressOf<T> = <<T as Config>::Scheduler as ScheduleAnon<
-    BlockNumberFor<T>,
-    CallOf<T>,
-    PalletsOriginOf<T>,
->>::Address;
-
-pub type TracksOf<T> = <T as Config>::Tracks;
-pub type TrackIdOf<T> =
-    <TracksOf<T> as TracksInfo<TrackName, AccountIdOf<T>, CallOf<T>, BlockNumberFor<T>>>::Id;
-pub type VotingSchemeOf<T> = <TracksOf<T> as TracksInfo<
-    TrackName,
-    AccountIdOf<T>,
-    CallOf<T>,
-    BlockNumberFor<T>,
->>::VotingScheme;
-pub type VoterSetOf<T> =
-    <TracksOf<T> as TracksInfo<TrackName, AccountIdOf<T>, CallOf<T>, BlockNumberFor<T>>>::VoterSet;
-
-pub type ReferendumStatusOf<T> =
-    ReferendumStatus<AccountIdOf<T>, TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>>;
-
-pub type ReferendumInfoOf<T> =
-    ReferendumInfo<AccountIdOf<T>, TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>>;
-
-pub type ReferendumIndex = u32;
-pub type ProposalTaskName = [u8; 32];
-
-pub const REFERENDA_ID: LockIdentifier = *b"referend";
-
-#[derive(
-    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
-)]
-pub enum Proposal<Call> {
-    /// A call to execute if approved by a `PassOrFail` track.
-    Action(Call),
-    /// A scheduled call whose timing is governed by an `Adjustable` track.
-    Review,
-}
-
-#[derive(
-    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
-)]
-pub enum DecisionStrategy<TrackId, BlockNumber> {
-    /// Binary decision before a deadline. Approval crosses `approve_threshold`
-    /// or rejection crosses `reject_threshold` within `decision_period`;
-    /// otherwise the referendum expires. On approval, the action specified
-    /// by `on_approval` runs.
-    PassOrFail {
-        decision_period: BlockNumber,
-        approve_threshold: Perbill,
-        reject_threshold: Perbill,
-        on_approval: ApprovalAction<TrackId>,
-    },
-    /// Timing decision over a scheduled call. The call runs after
-    /// `initial_delay` by default. Voters can fast-track it (approval crosses
-    /// `fast_track_threshold`), cancel it (rejection crosses `cancel_threshold`),
-    /// or shift the dispatch time via linear interpolation between those
-    /// extremes.
-    Adjustable {
-        initial_delay: BlockNumber,
-        fast_track_threshold: Perbill,
-        cancel_threshold: Perbill,
-    },
-}
-
-/// What happens when a `PassOrFail` referendum is approved.
-#[derive(Clone, Debug, PartialEq, Eq, TypeInfo)]
-pub enum ApprovalAction<TrackId> {
-    /// Schedule the call for next-block dispatch on this referendum's index.
-    Execute,
-    /// Hand the call off to a fresh `Adjustable` referendum on `track`.
-    /// The parent concludes as `Delegated` and the new referendum drives the
-    /// rest of the lifecycle.
-    Review { track: TrackId },
-}
-
-#[derive(Clone, Debug)]
-pub struct TrackInfo<TrackId, Name, BlockNumber, ProposerSet, VoterSet, VotingScheme> {
-    pub name: Name,
-    pub proposer_set: Option<ProposerSet>,
-    pub voting_scheme: VotingScheme,
-    pub voter_set: VoterSet,
-    pub decision_strategy: DecisionStrategy<TrackId, BlockNumber>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Track<Id, Name, BlockNumber, ProposerSet, VoterSet, VotingScheme> {
-    pub id: Id,
-    pub info: TrackInfo<Id, Name, BlockNumber, ProposerSet, VoterSet, VotingScheme>,
-}
-
-pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
-    type Id: Parameter + MaxEncodedLen + Copy + Ord + PartialOrd + Send + Sync + 'static;
-    type ProposerSet: SetLike<AccountId>;
-    type VotingScheme: PartialEq;
-    type VoterSet: SetLike<AccountId>;
-
-    fn tracks() -> impl Iterator<
-        Item = Track<
-            Self::Id,
-            Name,
-            BlockNumber,
-            Self::ProposerSet,
-            Self::VoterSet,
-            Self::VotingScheme,
-        >,
-    >;
-
-    fn track_ids() -> impl Iterator<Item = Self::Id> {
-        Self::tracks().map(|x| x.id)
-    }
-
-    fn info(
-        id: Self::Id,
-    ) -> Option<
-        TrackInfo<
-            Self::Id,
-            Name,
-            BlockNumber,
-            Self::ProposerSet,
-            Self::VoterSet,
-            Self::VotingScheme,
-        >,
-    > {
-        Self::tracks().find(|t| t.id == id).map(|t| t.info)
-    }
-
-    /// Optional per-track authorization of a proposed call. Default allows all.
-    fn authorize_proposal(
-        _track_info: &TrackInfo<
-            Self::Id,
-            Name,
-            BlockNumber,
-            Self::ProposerSet,
-            Self::VoterSet,
-            Self::VotingScheme,
-        >,
-        _call: &Call,
-    ) -> bool {
-        true
-    }
-}
-
-#[derive(
-    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
-)]
-// #[subtensor_macros::freeze_struct("2f4ecc36737f0fd5")]
-pub struct ReferendumInfo<AccountId, TrackId, Call, BlockNumber> {
-    pub track: TrackId,
-    pub proposal: Proposal<Call>,
-    pub proposer: AccountId,
-    pub submitted: BlockNumber,
-    pub tally: VoteTally,
-}
-
-#[derive(
-    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
-)]
-pub enum ReferendumStatus<AccountId, Id, Call, BlockNumber> {
-    /// Voting is in progress.
-    Ongoing(ReferendumInfo<AccountId, Id, Call, BlockNumber>),
-    /// Approval was reached and the call has been scheduled on this index.
-    /// Transitions to `Enacted` once the scheduled task has run.
-    Approved(BlockNumber),
-    /// Approval was reached with `ApprovalAction::Review`. The call now
-    /// lives on a fresh referendum on the configured review track. This
-    /// status is terminal; the parent index is an audit trail.
-    Delegated(BlockNumber),
-    /// Rejection threshold reached on a `PassOrFail` track.
-    Rejected(BlockNumber),
-    /// Decision period elapsed without crossing approve or reject thresholds.
-    Expired(BlockNumber),
-    /// Fast-track threshold reached on an `Adjustable` track. The scheduled
-    /// task was rescheduled to run next block. Transitions to `Enacted`.
-    FastTracked(BlockNumber),
-    /// Cancel threshold reached on an `Adjustable` track. The scheduled task
-    /// was cancelled.
-    Cancelled(BlockNumber),
-    /// The referendum's call has been dispatched.
-    Enacted(BlockNumber),
-    /// Privileged termination via `KillOrigin`.
-    Killed(BlockNumber),
-}
 
 #[frame_support::pallet(dev_mode)]
 #[allow(clippy::expect_used)]
@@ -300,12 +106,17 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// The aggregate runtime call type. Submitted calls and the
+        /// pallet's own `advance_referendum` are dispatched through this.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
             + From<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
 
+        /// Named scheduler used to queue enactment tasks and alarms. Each
+        /// referendum has at most one task and one alarm, identified by
+        /// the names produced by [`task_name`] and [`alarm_name`].
         type Scheduler: ScheduleNamed<
                 BlockNumberFor<Self>,
                 CallOf<Self>,
@@ -313,28 +124,48 @@ pub mod pallet {
                 Hasher = Self::Hashing,
             >;
 
+        /// Preimage provider used to bound submitted calls into a
+        /// content-addressed reference and to bound the pallet's own
+        /// `advance_referendum` call when scheduling alarms.
         type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
+        /// Maximum number of simultaneously-active referenda. Submission is
+        /// rejected with [`Error::QueueFull`] when this is reached.
         type MaxQueued: Get<u32>;
 
+        /// Origin authorized to terminate an ongoing referendum via `kill`.
         type KillOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
+        /// Track configuration. Defines the proposer set, voter set, voting
+        /// scheme, and decision strategy for each track id.
         type Tracks: TracksInfo<TrackName, Self::AccountId, CallOf<Self>, BlockNumberFor<Self>>;
 
+        /// Source of "now" used for scheduling decisions. Typically
+        /// `frame_system::Pallet<T>`; configurable for runtimes that
+        /// expose a different block-number authority.
         type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
-        /// Lifecycle hooks for voting pallets.
+        /// Lifecycle hooks invoked when a referendum is created or
+        /// completed. Notifies any subscriber that needs to react to those
+        /// events.
         type PollHooks: PollHooks<ReferendumIndex>;
     }
 
+    /// Monotonic referendum id generator. Incremented by `submit`; never
+    /// decremented. Existing referenda continue to be identified by their
+    /// assigned id even after the count moves on.
     #[pallet::storage]
     pub type ReferendumCount<T: Config> = StorageValue<_, ReferendumIndex, ValueQuery>;
 
-    /// Number of currently-ongoing referenda. Bounded by `MaxQueued`.
-    /// Distinct from `ReferendumCount`, which is a monotonic ID generator.
+    /// Number of currently-ongoing referenda. Bounded by [`Config::MaxQueued`]
+    /// and used as the capacity check at submit time. Distinct from
+    /// [`ReferendumCount`], which only ever grows.
     #[pallet::storage]
     pub type ActiveCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+    /// Status of every referendum that has been submitted, keyed by index.
+    /// Entries persist after the referendum reaches a terminal state so the
+    /// outcome remains queryable for audit.
     #[pallet::storage]
     pub type ReferendumStatusFor<T: Config> =
         StorageMap<_, Blake2_128Concat, ReferendumIndex, ReferendumStatusOf<T>, OptionQuery>;
@@ -419,28 +250,27 @@ pub mod pallet {
             call: Box<CallOf<T>>,
         ) -> DispatchResult {
             let proposer = ensure_signed(origin)?;
-
             let track_info = T::Tracks::info(track).ok_or(Error::<T>::BadTrack)?;
-            ensure!(
-                T::Tracks::authorize_proposal(&track_info, &call),
-                Error::<T>::ProposalNotAuthorized
-            );
 
-            // Capacity is bounded on currently-active referenda, not on
+            // All validation runs before any state mutation. The capacity
+            // check is bounded on currently-active referenda, not on
             // lifetime submissions.
-            let active = ActiveCount::<T>::get();
-            ensure!(active < T::MaxQueued::get(), Error::<T>::QueueFull);
-            ActiveCount::<T>::put(active.saturating_add(1));
-
             let Some(ref proposer_set) = track_info.proposer_set else {
                 return Err(Error::<T>::TrackNotSubmittable.into());
             };
             ensure!(proposer_set.contains(&proposer), Error::<T>::NotProposer);
+            ensure!(
+                T::Tracks::authorize_proposal(&track_info, &call),
+                Error::<T>::ProposalNotAuthorized
+            );
+            let active = ActiveCount::<T>::get();
+            ensure!(active < T::MaxQueued::get(), Error::<T>::QueueFull);
 
             let now = T::BlockNumberProvider::current_block_number();
             let bounded_call = T::Preimages::bound(*call)?;
             let index = ReferendumCount::<T>::get();
             ReferendumCount::<T>::put(index.saturating_add(1));
+            ActiveCount::<T>::put(active.saturating_add(1));
 
             let proposal = match track_info.decision_strategy {
                 DecisionStrategy::PassOrFail {
@@ -992,12 +822,3 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
     }
 }
 
-/// Stable scheduler name for a referendum's enactment task.
-pub fn task_name(index: ReferendumIndex) -> TaskName {
-    (REFERENDA_ID, "enactment", index).using_encoded(sp_io::hashing::blake2_256)
-}
-
-/// Stable scheduler name for a referendum's alarm.
-pub fn alarm_name(index: ReferendumIndex) -> TaskName {
-    (REFERENDA_ID, "alarm", index).using_encoded(sp_io::hashing::blake2_256)
-}
