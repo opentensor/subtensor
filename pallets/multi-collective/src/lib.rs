@@ -426,8 +426,15 @@ pub trait OnMembersChanged<CollectiveId, AccountId> {
     );
 }
 
-impl<CollectiveId, AccountId> OnMembersChanged<CollectiveId, AccountId> for () {
-    fn on_members_changed(_: CollectiveId, _: &[AccountId], _: &[AccountId]) {}
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl<CollectiveId: Clone, AccountId> OnMembersChanged<CollectiveId, AccountId> for Tuple {
+    fn on_members_changed(
+        collective_id: CollectiveId,
+        incoming: &[AccountId],
+        outgoing: &[AccountId],
+    ) {
+        for_tuples!( #( Tuple::on_members_changed(collective_id.clone(), incoming, outgoing); )* );
+    }
 }
 
 /// Handler for when a new term of a collective has started.
@@ -436,9 +443,12 @@ pub trait OnNewTerm<CollectiveId> {
     fn on_new_term(collective_id: CollectiveId) -> Weight;
 }
 
-impl<CollectiveId> OnNewTerm<CollectiveId> for () {
-    fn on_new_term(_: CollectiveId) -> Weight {
-        Weight::zero()
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl<CollectiveId: Clone> OnNewTerm<CollectiveId> for Tuple {
+    fn on_new_term(collective_id: CollectiveId) -> Weight {
+        let mut weight = Weight::zero();
+        for_tuples!( #( weight = weight.saturating_add(Tuple::on_new_term(collective_id.clone())); )* );
+        weight
     }
 }
 
