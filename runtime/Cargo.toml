@@ -336,7 +336,9 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 
 	"subtensor-runtime-common/runtime-benchmarks",
-	"subtensor-chain-extensions/runtime-benchmarks"
+	"subtensor-chain-extensions/runtime-benchmarks",
+	"pallet-multi-collective/runtime-benchmarks",
+	"pallet-signed-voting/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

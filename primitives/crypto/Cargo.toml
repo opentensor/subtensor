@@ -25,11 +25,12 @@ rand = "0.8"
 [features]
 default = ["std"]
 std = [
-    "blake2/std",
-    "codec/std",
-    "digest/std",
-    "rand_core?/std",
-    "scale-info/std",
+	"blake2/std",
+	"codec/std",
+	"digest/std",
+	"rand_core?/std",
+	"scale-info/std",
+	"zeroize?/std"
 ]
 # Enables sign() and generate_key_image(). Not needed for on-chain verification.
 signing = ["rand_core", "zeroize"]
