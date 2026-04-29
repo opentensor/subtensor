@@ -493,7 +493,9 @@ macro_rules! LoopRemovePrefixWithWeightMeter {
         let remaining_ref_time = $meter.limit().ref_time();
         let write_ref_time = $weight.ref_time();
 
-        let limit = remaining_ref_time.saturating_div(write_ref_time);
+        let limit = remaining_ref_time
+            .checked_div(write_ref_time)
+            .unwrap_or_default();
 
         let limit = u32::try_from(limit).unwrap_or(u32::MAX);
 
