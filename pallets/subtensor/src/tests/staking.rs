@@ -5309,20 +5309,20 @@ fn test_add_stake_payable_is_ok() {
         let actor_coldkey = U256::from(4);
         let app_coldkey = U256::from(5);
         let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
-        let amount_stake = min_tao_stake;
+        let amount_stake = TaoBalance::from(min_tao_stake);
         let amount_fees = 100_000;
-        let owner_balance_before = amount_stake * 10;
-        let actor_balance_before = amount_stake * 100;
+        let owner_balance_before = amount_stake * 10.into();
+        let actor_balance_before = amount_stake * 100.into();
         let app_owner_balance_before = ExistentialDeposit::get();
 
         // add network
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &subnet_owner_coldkey,
             owner_balance_before,
         );
-        SubtensorModule::add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
-        SubtensorModule::add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
+        add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
+        add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
         // Stake with paying fees
         assert_ok!(SubtensorModule::add_stake_payable(
@@ -5338,12 +5338,12 @@ fn test_add_stake_payable_is_ok() {
         let actor_balance_after = Balances::free_balance(actor_coldkey);
 
         assert_eq!(
-            app_owner_balance_before + amount_fees,
+            app_owner_balance_before + amount_fees.into(),
             app_owner_balance_after,
             "app owner balance after should include fees"
         );
         assert_eq!(
-            actor_balance_before - amount_fees - amount_stake,
+            actor_balance_before - amount_fees.into() - amount_stake.into(),
             actor_balance_after,
             "actor balance after be decreased by stake + fees"
         );
@@ -5384,20 +5384,20 @@ fn test_add_stake_payable_actor_insufficient_balance() {
         let actor_coldkey = U256::from(4);
         let app_coldkey = U256::from(5);
         let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
-        let amount_stake = min_tao_stake;
+        let amount_stake = TaoBalance::from(min_tao_stake);
         let amount_fees = 100_000;
-        let owner_balance_before = amount_stake * 10;
+        let owner_balance_before = amount_stake * 10.into();
         let actor_balance_before = amount_stake; // The actor doesn't have funds for fees
         let app_owner_balance_before = ExistentialDeposit::get();
 
         // add network
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &subnet_owner_coldkey,
             owner_balance_before,
         );
-        SubtensorModule::add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
-        SubtensorModule::add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
+        add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
+        add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
         // Should fail because of insufficient balance to pay for fees
         assert_err!(

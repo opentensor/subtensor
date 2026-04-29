@@ -1040,7 +1040,7 @@ impl<T: Config> Pallet<T> {
         to: <T as frame_system::Config>::AccountId,
         amount: TaoBalance,
     ) -> Result<(), Error<T>> {
-        <T as Config>::Currency::transfer(&from, &to, amount.into(), Preservation::Expendable)
+        <T as Config>::Currency::transfer(from, &to, amount.into(), Preservation::Expendable)
             .map_err(|_| Error::<T>::BalanceWithdrawalError)?;
 
         Self::deposit_event(Event::FeesTransferred(from.clone(), to.clone(), amount));
