@@ -775,12 +775,11 @@ impl<T: Config> Pallet<T> {
 
         // Skip the scheduler call when the target did not move. The scheduler
         // rejects no-op reschedules with `RescheduleNoChange`.
-        if Self::next_task_dispatch_time(index) != Some(target) {
-            if let Err(err) =
+        if Self::next_task_dispatch_time(index) != Some(target)
+            && let Err(err) =
                 T::Scheduler::reschedule_named(task_name(index), DispatchTime::At(target))
-            {
-                Self::report_scheduler_error(index, "reschedule_task", err);
-            }
+        {
+            Self::report_scheduler_error(index, "reschedule_task", err);
         }
 
         let natural_alarm = submitted

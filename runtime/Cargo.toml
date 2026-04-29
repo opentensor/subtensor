@@ -156,7 +156,7 @@ stp-shield.workspace = true
 
 ethereum.workspace = true
 
-# Governance (V2)
+# Governance
 pallet-multi-collective.workspace = true
 pallet-signed-voting.workspace = true
 pallet-referenda.workspace = true

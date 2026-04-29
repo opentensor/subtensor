@@ -10087,6 +10087,7 @@ version = "1.0.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "num-traits",
  "parity-scale-codec",
  "scale-info",
@@ -18331,6 +18332,7 @@ dependencies = [
  "approx",
  "environmental",
  "frame-support",
+ "impl-trait-for-tuples",
  "num-traits",
  "parity-scale-codec",
  "polkadot-runtime-common",

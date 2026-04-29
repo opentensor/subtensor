@@ -1915,7 +1915,7 @@ construct_runtime!(
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
 
-        // Governance V2 (replaces pallet_governance which previously held index 31).
+        // Governance
         MultiCollective: pallet_multi_collective = 31,
         SignedVoting: pallet_signed_voting = 32,
         Referenda: pallet_referenda = 33,
