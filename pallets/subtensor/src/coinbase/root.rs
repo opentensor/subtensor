@@ -400,11 +400,12 @@ impl<T: Config> Pallet<T> {
         // longer reachable via any subnet, so drop its per-hotkey global
         // bookkeeping (Owner, Delegates, OwnedHotkeys, StakingHotkeys,
         // LastColdkeyHotkeyStakeBlock) to stop state piling up forever.
-        let mut orphans: sp_std::collections::btree_set::BTreeSet<T::AccountId> =
-            sp_std::collections::btree_set::BTreeSet::new();
+        // subnet_hotkeys came from Keys::iter_prefix(netuid) where uid is the
+        // second key, so it cannot contain duplicates — Vec is fine.
+        let mut orphans: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
         for hot in &subnet_hotkeys {
             if IsNetworkMember::<T>::iter_prefix(hot).next().is_none() {
-                orphans.insert(hot.clone());
+                orphans.push(hot.clone());
             }
         }
         for hot in &orphans {
