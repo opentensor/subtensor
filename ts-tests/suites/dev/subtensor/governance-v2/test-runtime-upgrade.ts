@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { KeyringPair } from "@moonwall/util";
 import type { ApiPromise } from "@polkadot/api";
-import { generateKeyringPair } from "../../../../utils";
+import { generateKeyringPair } from "../../../../utils/account";
 
 const UPGRADED_WASM_PATH = path.resolve(process.cwd(), "tmp/upgraded-runtime.wasm");
 
