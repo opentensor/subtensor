@@ -5,11 +5,18 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
-use frame_support::traits::OnInitialize;
 use pallet_subtensor::*;
 use pallet_subtensor_swap as swap;
+use share_pool::SafeFloat;
 use sp_core::U256;
-use subtensor_runtime_common::{MechId, NetUid, NetUidStorageIndex, TaoBalance};
+use substrate_fixed::types::U64F64;
+use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex, TaoBalance};
+use pallet_subtensor::rpc_info::delegate_info::DelegateInfo;
+use pallet_subtensor::rpc_info::stake_info::StakeInfo;
+use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
+use sp_runtime::AccountId32;
+use sp_runtime::traits::Block as BlockT;
+use subtensor_custom_rpc_runtime_api::{DelegateInfoRuntimeApi, StakeInfoRuntimeApi};
 
 use super::helpers::*;
 use super::mock::*;
@@ -68,11 +75,11 @@ fn indexer_stake_and_alpha_shares() {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
 
-        let _ = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
-        let _ = TotalHotkeyShares::<Test>::get(hotkey, netuid);
-        let _ = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
-        let _ = Alpha::<Test>::get((hotkey, coldkey, netuid));
-        let _ = AlphaV2::<Test>::get((hotkey, coldkey, netuid));
+        let _: AlphaBalance = TotalHotkeyAlpha::<Test>::get(hotkey, netuid);
+        let _: U64F64 = TotalHotkeyShares::<Test>::get(hotkey, netuid);
+        let _: SafeFloat = TotalHotkeySharesV2::<Test>::get(hotkey, netuid);
+        let _: U64F64 = Alpha::<Test>::get((hotkey, coldkey, netuid));
+        let _: SafeFloat = AlphaV2::<Test>::get((hotkey, coldkey, netuid));
     });
 }
 
@@ -174,16 +181,16 @@ fn indexer_network_economics() {
 
 #[test]
 fn indexer_runtime_api_signatures() {
-    new_test_ext(1).execute_with(|| {
-        let netuid = NetUid::from(1u16);
-        let coldkey = U256::from(3);
-        let hotkey = U256::from(4);
+    let at = <Block as BlockT>::Hash::default();
+    let netuid = NetUid::from(1u16);
+    let acct = AccountId32::new([0u8; 32]);
 
-        let _ = SubtensorModule::get_delegate(hotkey);
+    let _: Option<DelegateInfo<AccountId32>> =
+        DelegateInfoRuntimeApi::get_delegate(&MockApi, at, acct.clone()).unwrap();
 
-        let _ = SubtensorModule::get_stake_info_for_coldkeys(vec![coldkey]);
+    let _: Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> =
+        StakeInfoRuntimeApi::get_stake_info_for_coldkeys(&MockApi, at, vec![acct.clone()])
+            .unwrap();
 
-        use subtensor_swap_interface::SwapHandler;
-        let _ = <Test as pallet_subtensor::Config>::SwapInterface::current_alpha_price(netuid);
-    });
+    let _: u64 = SwapRuntimeApi::current_alpha_price(&MockApi, at, netuid).unwrap();
 }

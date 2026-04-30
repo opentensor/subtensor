@@ -28,7 +28,8 @@ use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-type Block = frame_system::mocking::MockBlock<Test>;
+pub type Block = frame_system::mocking::MockBlock<Test>;
+pub use api_mocks::MockApi;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -599,4 +600,82 @@ pub fn init_logs_for_tests() {
 pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
     let credit = SubtensorModule::mint_tao(tao);
     let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+}
+
+mod api_mocks {
+    use codec::Compact;
+    use pallet_subtensor::rpc_info::delegate_info::DelegateInfo;
+    use pallet_subtensor::rpc_info::stake_info::StakeInfo;
+    use pallet_subtensor_swap_runtime_api::{SimSwapResult, SubnetPrice, SwapRuntimeApi};
+    use sp_runtime::AccountId32;
+    use subtensor_custom_rpc_runtime_api::{DelegateInfoRuntimeApi, StakeInfoRuntimeApi};
+    use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
+
+    use super::Block;
+
+    pub struct MockApi;
+
+    sp_api::mock_impl_runtime_apis! {
+        impl DelegateInfoRuntimeApi<Block> for MockApi {
+            fn get_delegates() -> Vec<DelegateInfo<AccountId32>> { Vec::new() }
+            fn get_delegate(_delegate_account: AccountId32) -> Option<DelegateInfo<AccountId32>> { None }
+            fn get_delegated(
+                _delegatee_account: AccountId32,
+            ) -> Vec<(DelegateInfo<AccountId32>, (Compact<NetUid>, Compact<AlphaBalance>))> {
+                Vec::new()
+            }
+        }
+
+        impl StakeInfoRuntimeApi<Block> for MockApi {
+            fn get_stake_info_for_coldkey(_coldkey_account: AccountId32) -> Vec<StakeInfo<AccountId32>> {
+                Vec::new()
+            }
+            fn get_stake_info_for_coldkeys(
+                _coldkey_accounts: Vec<AccountId32>,
+            ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> {
+                Vec::new()
+            }
+            fn get_stake_info_for_hotkey_coldkey_netuid(
+                _hotkey_account: AccountId32,
+                _coldkey_account: AccountId32,
+                _netuid: NetUid,
+            ) -> Option<StakeInfo<AccountId32>> {
+                None
+            }
+            fn get_stake_fee(
+                _origin: Option<(AccountId32, NetUid)>,
+                _origin_coldkey_account: AccountId32,
+                _destination: Option<(AccountId32, NetUid)>,
+                _destination_coldkey_account: AccountId32,
+                _amount: u64,
+            ) -> u64 {
+                0
+            }
+        }
+
+        impl SwapRuntimeApi<Block> for MockApi {
+            fn current_alpha_price(_netuid: NetUid) -> u64 { 0 }
+            fn current_alpha_price_all() -> Vec<SubnetPrice> { Vec::new() }
+            fn sim_swap_tao_for_alpha(_netuid: NetUid, _tao: TaoBalance) -> SimSwapResult {
+                SimSwapResult {
+                    tao_amount: 0u64.into(),
+                    alpha_amount: 0u64.into(),
+                    tao_fee: 0u64.into(),
+                    alpha_fee: 0u64.into(),
+                    tao_slippage: 0u64.into(),
+                    alpha_slippage: 0u64.into(),
+                }
+            }
+            fn sim_swap_alpha_for_tao(_netuid: NetUid, _alpha: AlphaBalance) -> SimSwapResult {
+                SimSwapResult {
+                    tao_amount: 0u64.into(),
+                    alpha_amount: 0u64.into(),
+                    tao_fee: 0u64.into(),
+                    alpha_fee: 0u64.into(),
+                    tao_slippage: 0u64.into(),
+                    alpha_slippage: 0u64.into(),
+                }
+            }
+        }
+    }
 }
