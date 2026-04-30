@@ -13,8 +13,9 @@ use sp_runtime::{BuildStorage, Perbill, traits::IdentityLookup};
 
 use crate::{self as pallet_referenda, *};
 use pallet_multi_collective::{
-    self, Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo, OnMembersChanged,
+    self, Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo,
 };
+use subtensor_runtime_common::OnMembersChanged;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

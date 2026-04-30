@@ -10094,6 +10094,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-runtime-common",
 ]
 
 [[package]]

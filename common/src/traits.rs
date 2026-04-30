@@ -67,3 +67,25 @@ impl<I: Copy> OnPollCompleted<I> for Tuple {
         weight
     }
 }
+
+/// Handler for when the members of a collective have changed.
+pub trait OnMembersChanged<CollectiveId, AccountId> {
+    /// A collective's members have changed, `incoming` members have joined and
+    /// `outgoing` members have left.
+    fn on_members_changed(
+        collective_id: CollectiveId,
+        incoming: &[AccountId],
+        outgoing: &[AccountId],
+    );
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl<CollectiveId: Clone, AccountId> OnMembersChanged<CollectiveId, AccountId> for Tuple {
+    fn on_members_changed(
+        collective_id: CollectiveId,
+        incoming: &[AccountId],
+        outgoing: &[AccountId],
+    ) {
+        for_tuples!( #( Tuple::on_members_changed(collective_id.clone(), incoming, outgoing); )* );
+    }
+}

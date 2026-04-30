@@ -1647,8 +1647,8 @@ use frame_support::traits::AsEnsureOriginWithArg;
 use pallet_multi_collective::{
     Collective as McCollective, CollectiveInfo as McCollectiveInfo,
     CollectiveInspect as McCollectiveInspect, CollectivesInfo as McCollectivesInfo,
-    OnMembersChanged as McOnMembersChanged,
 };
+use subtensor_runtime_common::OnMembersChanged as McOnMembersChanged;
 /// Identifier of a collective managed by `pallet-multi-collective`.
 #[derive(
     Copy,

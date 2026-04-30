@@ -11,6 +11,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use num_traits::ops::checked::CheckedRem;
 pub use pallet::*;
+pub use subtensor_runtime_common::OnMembersChanged;
 
 #[cfg(test)]
 mod mock;
@@ -433,28 +434,6 @@ pub trait CollectivesInfo<Moment, Name> {
     /// Return the collective info for collective `id`, by default this just looks it up in `Self::collectives()`.
     fn info(id: Self::Id) -> Option<CollectiveInfo<Moment, Name>> {
         Self::collectives().find(|c| c.id == id).map(|c| c.info)
-    }
-}
-
-/// Handler for when the members of a collective have changed.
-pub trait OnMembersChanged<CollectiveId, AccountId> {
-    /// A collective's members have changed, `incoming` members have joined and
-    /// `outgoing` members have left.
-    fn on_members_changed(
-        collective_id: CollectiveId,
-        incoming: &[AccountId],
-        outgoing: &[AccountId],
-    );
-}
-
-#[impl_trait_for_tuples::impl_for_tuples(10)]
-impl<CollectiveId: Clone, AccountId> OnMembersChanged<CollectiveId, AccountId> for Tuple {
-    fn on_members_changed(
-        collective_id: CollectiveId,
-        incoming: &[AccountId],
-        outgoing: &[AccountId],
-    ) {
-        for_tuples!( #( Tuple::on_members_changed(collective_id.clone(), incoming, outgoing); )* );
     }
 }
 
