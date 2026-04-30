@@ -34,6 +34,13 @@ describeSuite({
                 );
             }
 
+            const minimumPeriod = (api.consts.timestamp.minimumPeriod as unknown as { toNumber(): number }).toNumber();
+            if (minimumPeriod !== 6000) {
+                throw new Error(
+                    `node-subtensor binary appears to be built with --features fast-runtime (timestamp.minimumPeriod=${minimumPeriod}, expected 6000). The upgrade WASM is built without fast-runtime; mixing them bricks block production after setCode. Rebuild the node binary without --features fast-runtime: cargo build --release -p node-subtensor`
+                );
+            }
+
             const fund = 1_000_000_000_000n;
             for (const inner of [
                 api.tx.balances.forceSetBalance(proposer.address, fund),

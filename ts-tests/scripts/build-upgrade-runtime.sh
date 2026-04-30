@@ -48,7 +48,7 @@ echo "    First build is slow (cold deps); subsequent runs are incremental."
 (
     cd "$REPO_ROOT"
     CARGO_TARGET_DIR="$UPGRADE_TARGET_DIR" \
-        cargo build --profile release --features fast-runtime -p node-subtensor-runtime
+        cargo build --profile release -p node-subtensor-runtime
 )
 
 if [ ! -f "$BUILT_WASM" ]; then
