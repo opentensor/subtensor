@@ -543,7 +543,9 @@ impl<T: Config> Pallet<T> {
     /// call `set_alarm` AFTER this function, since `conclude` cancels
     /// whatever alarm is currently scheduled.
     fn conclude(index: ReferendumIndex, status: ReferendumStatusOf<T>, event: Event<T>) {
-        let _ = T::Scheduler::cancel_named(alarm_name(index));
+        if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
+            Self::report_scheduler_error(index, "cancel_alarm", err);
+        }
         ReferendumStatusFor::<T>::insert(index, status);
         ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
         T::PollHooks::on_poll_completed(index);
