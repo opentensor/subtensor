@@ -1794,7 +1794,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Proposers,
                 info: McCollectiveInfo {
                     name: name(b"otf"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(20),
                     term_duration: None,
                 },
@@ -1803,7 +1803,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Triumvirate,
                 info: McCollectiveInfo {
                     name: name(b"triumvirate"),
-                    min_members: 0,
+                    min_members: 3,
                     max_members: Some(3),
                     term_duration: None,
                 },
@@ -1812,7 +1812,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Economic,
                 info: McCollectiveInfo {
                     name: name(b"economic"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),
                 },
@@ -1821,7 +1821,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Building,
                 info: McCollectiveInfo {
                     name: name(b"building"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),
                 },
