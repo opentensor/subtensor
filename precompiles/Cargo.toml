@@ -57,6 +57,7 @@ std = [
 	"pallet-crowdloan/std",
 	"pallet-drand/std",
 	"pallet-evm-precompile-bn128/std",
+	"pallet-evm-chain-id/std",
 	"pallet-evm-precompile-dispatch/std",
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-sha3fips/std",
@@ -100,6 +101,7 @@ runtime-benchmarks = [
 
 [dev-dependencies]
 pallet-drand = { workspace = true, features = ["std"] }
+pallet-evm-chain-id = { workspace = true, features = ["std"] }
 pallet-preimage = { workspace = true, features = ["std"] }
 pallet-scheduler = { workspace = true, features = ["std"] }
 pallet-timestamp = { workspace = true, features = ["std"] }

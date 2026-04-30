@@ -255,15 +255,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::expect_used, clippy::indexing_slicing)]
+    #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        AccountId, Runtime, System, addr_from_index, execute_precompile, new_test_ext, precompiles,
-        selector_u32,
+        AccountId, Runtime, System, addr_from_index, execute_precompile, mapped_account,
+        new_test_ext, precompiles, selector_u32,
     };
-    use pallet_evm::AddressMapping;
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
     use sp_core::{H160, H256, U256};
@@ -289,10 +288,14 @@ mod tests {
     const SERVE_PLACEHOLDER1: u8 = 8;
     const SERVE_PLACEHOLDER2: u8 = 9;
 
+    fn add_balance_to_coldkey_account(coldkey: &sp_core::crypto::AccountId32, tao: TaoBalance) {
+        let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(tao);
+        let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(coldkey, credit, tao).unwrap();
+    }
+
     fn setup_registered_caller(caller: H160) -> (NetUid, AccountId) {
         let netuid = NetUid::from(TEST_NETUID_U16);
-        let caller_account =
-            <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(caller);
+        let caller_account = mapped_account(caller);
         let caller_hotkey = H256::from_slice(caller_account.as_ref());
 
         pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, TEMPO);
@@ -306,10 +309,7 @@ mod tests {
             .expect("reveal period setup should succeed");
         pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
         pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
-        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
-            &caller_account,
-            COLDKEY_BALANCE.into(),
-        );
+        add_balance_to_coldkey_account(&caller_account, COLDKEY_BALANCE.into());
 
         precompiles::<NeuronPrecompile<Runtime>>()
             .prepare_test(
@@ -348,8 +348,7 @@ mod tests {
         new_test_ext().execute_with(|| {
             let netuid = NetUid::from(TEST_NETUID_U16);
             let caller = addr_from_index(0x1234);
-            let caller_account =
-                <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(caller);
+            let caller_account = mapped_account(caller);
             let hotkey_account = AccountId::from([0x42; 32]);
             let hotkey = H256::from_slice(hotkey_account.as_ref());
 
@@ -359,10 +358,7 @@ mod tests {
             pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
             pallet_subtensor::SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(RESERVE));
             pallet_subtensor::SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(RESERVE));
-            pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
-                &caller_account,
-                COLDKEY_BALANCE.into(),
-            );
+            add_balance_to_coldkey_account(&caller_account, COLDKEY_BALANCE.into());
 
             let uid_before = pallet_subtensor::SubnetworkN::<Runtime>::get(netuid);
             let balance_before =

@@ -70,10 +70,12 @@ pub enum Output {
     ProxyNoSelfProxy = 18,
     /// Proxy relationship not found
     ProxyNotFound = 19,
+    /// A system account cannot be used in this operation
+    CannotUseSystemAccount = 20,
     /// Cannot burn or recycle on root subnet
-    CannotBurnOrRecycleOnRootSubnet = 20,
+    CannotBurnOrRecycleOnRootSubnet = 21,
     /// Subtoken is disabled for this subnet
-    SubtokenDisabled = 21,
+    SubtokenDisabled = 22,
 }
 
 impl From<DispatchError> for Output {
@@ -85,6 +87,7 @@ impl From<DispatchError> for Output {
         match error_text {
             Some("NotEnoughBalanceToStake") => Output::NotEnoughBalanceToStake,
             Some("NonAssociatedColdKey") => Output::NonAssociatedColdKey,
+            Some("CannotUseSystemAccount") => Output::CannotUseSystemAccount,
             Some("BalanceWithdrawalError") => Output::BalanceWithdrawalError,
             Some("HotKeyNotRegisteredInSubNet") => Output::NotRegistered,
             Some("HotKeyAccountNotExists") => Output::NotRegistered,

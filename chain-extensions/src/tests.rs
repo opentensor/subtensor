@@ -16,6 +16,8 @@ use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
+use mock::*;
+
 type AccountId = <mock::Test as frame_system::Config>::AccountId;
 
 #[derive(Clone)]
@@ -90,7 +92,7 @@ fn remove_stake_full_limit_success_with_limit_price() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(stake_amount_raw + 1_000_000_000),
         );
@@ -229,7 +231,7 @@ fn remove_stake_limit_success_respects_price_limit() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(stake_amount_raw + 1_000_000_000),
         );
@@ -305,10 +307,7 @@ fn add_stake_limit_success_executes_within_price_guard() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey,
-            (amount_raw + 1_000_000_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, (amount_raw + 1_000_000_000).into());
 
         let stake_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -380,10 +379,7 @@ fn swap_stake_success_moves_between_subnets() {
         mock::register_ok_neuron(netuid_a, hotkey, coldkey, 0);
         mock::register_ok_neuron(netuid_b, hotkey, coldkey, 1);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey,
-            (stake_amount_raw + 1_000_000_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, (stake_amount_raw + 1_000_000_000).into());
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
             RawOrigin::Signed(coldkey).into(),
@@ -457,10 +453,7 @@ fn transfer_stake_success_moves_between_coldkeys() {
 
         mock::register_ok_neuron(netuid, hotkey, origin_coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &origin_coldkey,
-            (stake_amount_raw + 1_000_000_000).into(),
-        );
+        add_balance_to_coldkey_account(&origin_coldkey, (stake_amount_raw + 1_000_000_000).into());
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
             RawOrigin::Signed(origin_coldkey).into(),
@@ -541,10 +534,7 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
         mock::register_ok_neuron(netuid, origin_hotkey, coldkey, 0);
         mock::register_ok_neuron(netuid, destination_hotkey, coldkey, 1);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey,
-            (stake_amount_raw + 1_000_000_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, (stake_amount_raw + 1_000_000_000).into());
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
             RawOrigin::Signed(coldkey).into(),
@@ -621,10 +611,7 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey,
-            (stake_amount_raw + 1_000_000_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, (stake_amount_raw + 1_000_000_000).into());
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
             RawOrigin::Signed(coldkey).into(),
@@ -668,10 +655,7 @@ fn add_proxy_success_creates_proxy_relationship() {
         let delegator = U256::from(6001);
         let delegate = U256::from(6002);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &delegator,
-            1_000_000_000.into(),
-        );
+        add_balance_to_coldkey_account(&delegator, 1_000_000_000.into());
 
         assert_eq!(
             pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator)
@@ -706,10 +690,7 @@ fn remove_proxy_success_removes_proxy_relationship() {
         let delegator = U256::from(7001);
         let delegate = U256::from(7002);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &delegator,
-            1_000_000_000.into(),
-        );
+        add_balance_to_coldkey_account(&delegator, 1_000_000_000.into());
 
         let mut add_env = MockEnv::new(FunctionId::AddProxyV1, delegator, delegate.encode());
         let ret = SubtensorChainExtension::<mock::Test>::dispatch(&mut add_env).unwrap();
@@ -746,7 +727,7 @@ fn recycle_alpha_success_reduces_stake_and_returns_actual_amount() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -847,7 +828,7 @@ fn burn_alpha_success_reduces_stake_and_returns_actual_amount() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -947,7 +928,7 @@ fn add_stake_recycle_success_atomically_stakes_and_recycles() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -1006,7 +987,7 @@ fn add_stake_burn_success_atomically_stakes_and_burns() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -1108,7 +1089,7 @@ fn recycle_alpha_clamps_to_available_when_amount_exceeds_stake() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -1207,7 +1188,7 @@ fn burn_alpha_clamps_to_available_when_amount_exceeds_stake() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(stake_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -1349,7 +1330,7 @@ fn add_stake_recycle_rollback_on_recycle_failure() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -1420,7 +1401,7 @@ fn add_stake_burn_rollback_on_burn_failure() {
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(tao_amount_raw.saturating_add(1_000_000_000)),
         );
@@ -1519,10 +1500,7 @@ fn add_stake_success_updates_stake_and_returns_success_code() {
         );
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey,
-            amount_raw.into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, amount_raw.into());
 
         assert!(
             pallet_subtensor::Pallet::<mock::Test>::get_total_stake_for_hotkey(&hotkey).is_zero()
@@ -1607,10 +1585,7 @@ fn unstake_all_success_unstakes_balance() {
         );
 
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
-        pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-            &coldkey,
-            (stake_amount_raw + 1_000_000_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, (stake_amount_raw + 1_000_000_000).into());
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
             RawOrigin::Signed(coldkey).into(),

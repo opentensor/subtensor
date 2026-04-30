@@ -90,8 +90,9 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 17 | `ProxyDuplicate` | Proxy already exists |
 | 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
 | 19 | `ProxyNotFound` | Proxy relationship not found |
-| 20 | `CannotBurnOrRecycleOnRootSubnet` | Cannot burn or recycle on the root subnet |
-| 21 | `SubtokenDisabled` | Subtoken is not enabled for the specified subnet |
+| 20 | `CannotUseSystemAccount` | A system account cannot be used in this operation |
+| 21 | `CannotBurnOrRecycleOnRootSubnet` | Cannot burn or recycle on the root subnet |
+| 22 | `SubtokenDisabled` | Subtoken is not enabled for the specified subnet |
 
 ### Call Filter
 

@@ -665,9 +665,7 @@ impl<T: Config> Pallet<T> {
             *total = total.saturating_add(swap_result.amount_paid_out.into());
         });
 
-        // Increase only the protocol TAO reserve. We only use the sum of
-        // (SubnetTAO + SubnetTaoProvided) in tao_reserve(), so it is irrelevant
-        // which one to increase.
+        // Increase the protocol TAO reserve
         SubnetTAO::<T>::mutate(netuid, |total| {
             let delta = swap_result.paid_in_reserve_delta_i64().unsigned_abs();
             *total = total.saturating_add(delta.into());
@@ -739,9 +737,11 @@ impl<T: Config> Pallet<T> {
     /// Unstakes alpha from a subnet for a given hotkey and coldkey pair.
     ///
     /// We update the pools associated with a subnet as well as update hotkey alpha shares.
+    /// Credits the unstaked TAO to the beneficiary account
     pub fn unstake_from_subnet(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
+        beneficiary: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaBalance,
         price_limit: TaoBalance,
@@ -764,6 +764,9 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid, refund);
         }
 
+        // Transfer unstaked TAO from subnet account to the coldkey.
+        Self::transfer_tao_from_subnet(netuid, beneficiary, swap_result.amount_paid_out.into())?;
+
         // Swap (in a fee-less way) the block builder alpha fee
         let mut fee_outflow = 0_u64;
         let maybe_block_author_coldkey = T::AuthorshipProvider::author();
@@ -774,10 +777,11 @@ impl<T: Config> Pallet<T> {
                 T::SwapInterface::min_price::<TaoBalance>(),
                 true,
             )?;
-            Self::add_balance_to_coldkey_account(
+            Self::transfer_tao_from_subnet(
+                netuid,
                 &block_author_coldkey,
                 bb_swap_result.amount_paid_out.into(),
-            );
+            )?;
             fee_outflow = bb_swap_result.amount_paid_out.into();
         } else {
             // block author is not found, burn this alpha
@@ -843,8 +847,12 @@ impl<T: Config> Pallet<T> {
         set_limit: bool,
         drop_fees: bool,
     ) -> Result<AlphaBalance, DispatchError> {
+        // Transfer TAO from coldkey to the subnet account.
+        // Actual transfered may be different within ED amount.
+        let tao_staked = Self::transfer_tao_to_subnet(netuid, coldkey, tao)?;
+
         // Swap the tao to alpha.
-        let swap_result = Self::swap_tao_for_alpha(netuid, tao, price_limit, drop_fees)?;
+        let swap_result = Self::swap_tao_for_alpha(netuid, tao_staked, price_limit, drop_fees)?;
 
         ensure!(
             !swap_result.amount_paid_out.is_zero(),
@@ -878,16 +886,20 @@ impl<T: Config> Pallet<T> {
         // Increase the balance of the block author
         let maybe_block_author_coldkey = T::AuthorshipProvider::author();
         if let Some(block_author_coldkey) = maybe_block_author_coldkey {
-            Self::add_balance_to_coldkey_account(
+            // TAO was transferred to subnet account in the beginning of this fn
+            // swap_tao_for_alpha guarantees that input amount of TAO was split into
+            // reserve delta + fee_to_block_author.
+            // Now transfer the fee from subnet account to block builder.
+            Self::transfer_tao_from_subnet(
+                netuid,
                 &block_author_coldkey,
                 swap_result.fee_to_block_author.into(),
-            );
+            )?;
         } else {
             // Block author is not found - burn this TAO
-            // Pallet balances total issuance was taken care of when balance was withdrawn for this swap
-            TotalIssuance::<T>::mutate(|ti| {
-                *ti = ti.saturating_sub(swap_result.fee_to_block_author);
-            });
+            if let Some(subnet_account_id) = Self::get_subnet_account_id(netuid) {
+                let _ = Self::burn_tao(&subnet_account_id, swap_result.fee_to_block_author.into());
+            }
         }
 
         // Record TAO inflow
@@ -911,7 +923,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::StakeAdded(
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_staked,
             swap_result.amount_paid_out.into(),
             netuid,
             swap_result.fee_paid.to_u64(),
@@ -921,7 +933,7 @@ impl<T: Config> Pallet<T> {
             "StakeAdded( coldkey: {:?}, hotkey:{:?}, tao: {:?}, alpha:{:?}, netuid: {:?}, fee {} )",
             coldkey.clone(),
             hotkey.clone(),
-            tao,
+            tao_staked,
             swap_result.amount_paid_out,
             netuid,
             swap_result.fee_paid,
