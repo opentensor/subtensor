@@ -36,5 +36,14 @@ std = [
     "frame-support/std",
     "subtensor-runtime-common/std",
 ]
-runtime-benchmarks = []
-try-runtime = []
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks"
+]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime"
+]
