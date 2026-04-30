@@ -14,6 +14,7 @@ use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
     BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
 };
+use pallet_subtensor::weights::WeightInfo as SubtensorWeightInfo;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
 use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
@@ -522,6 +523,128 @@ where
                     .map_err(|_| DispatchError::Other("Failed to write output"))?;
 
                 Ok(RetVal::Converging(Output::Success as u32))
+            }
+            FunctionId::RecycleAlphaV1 => {
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha();
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, amount): (T::AccountId, NetUid, AlphaBalance) =
+                    env.read_as()?;
+
+                let caller = env.caller();
+
+                let call_result = pallet_subtensor::Pallet::<T>::do_recycle_alpha(
+                    RawOrigin::Signed(caller).into(),
+                    hotkey,
+                    amount,
+                    netuid,
+                );
+
+                match call_result {
+                    Ok(real_amount) => {
+                        env.write_output(&real_amount.encode())
+                            .map_err(|_| DispatchError::Other("Failed to write output"))?;
+                        Ok(RetVal::Converging(Output::Success as u32))
+                    }
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::BurnAlphaV1 => {
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha();
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, amount): (T::AccountId, NetUid, AlphaBalance) =
+                    env.read_as()?;
+
+                let caller = env.caller();
+
+                let call_result = pallet_subtensor::Pallet::<T>::do_burn_alpha(
+                    RawOrigin::Signed(caller).into(),
+                    hotkey,
+                    amount,
+                    netuid,
+                );
+
+                match call_result {
+                    Ok(real_amount) => {
+                        env.write_output(&real_amount.encode())
+                            .map_err(|_| DispatchError::Other("Failed to write output"))?;
+                        Ok(RetVal::Converging(Output::Success as u32))
+                    }
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::AddStakeRecycleV1 => {
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                        .saturating_add(
+                            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::recycle_alpha(),
+                        );
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, tao_amount): (T::AccountId, NetUid, TaoBalance) =
+                    env.read_as()?;
+
+                let call_result = pallet_subtensor::Pallet::<T>::do_add_stake_recycle(
+                    RawOrigin::Signed(env.caller()).into(),
+                    hotkey,
+                    netuid,
+                    tao_amount,
+                );
+
+                match call_result {
+                    Ok(alpha) => {
+                        env.write_output(&alpha.encode())
+                            .map_err(|_| DispatchError::Other("Failed to write output"))?;
+                        Ok(RetVal::Converging(Output::Success as u32))
+                    }
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
+            }
+            FunctionId::AddStakeBurnV1 => {
+                let weight =
+                    <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::add_stake()
+                        .saturating_add(
+                            <<T as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::burn_alpha(),
+                        );
+
+                env.charge_weight(weight)?;
+
+                let (hotkey, netuid, tao_amount): (T::AccountId, NetUid, TaoBalance) =
+                    env.read_as()?;
+
+                let call_result = pallet_subtensor::Pallet::<T>::do_add_stake_burn_permissionless(
+                    RawOrigin::Signed(env.caller()).into(),
+                    hotkey,
+                    netuid,
+                    tao_amount,
+                );
+
+                match call_result {
+                    Ok(alpha) => {
+                        env.write_output(&alpha.encode())
+                            .map_err(|_| DispatchError::Other("Failed to write output"))?;
+                        Ok(RetVal::Converging(Output::Success as u32))
+                    }
+                    Err(e) => {
+                        let error_code = Output::from(e) as u32;
+                        Ok(RetVal::Converging(error_code))
+                    }
+                }
             }
         }
     }

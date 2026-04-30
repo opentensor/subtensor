@@ -21,6 +21,10 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    RecycleAlphaV1 = 16,
+    BurnAlphaV1 = 17,
+    AddStakeRecycleV1 = 18,
+    AddStakeBurnV1 = 19,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -68,6 +72,10 @@ pub enum Output {
     ProxyNotFound = 19,
     /// A system account cannot be used in this operation
     CannotUseSystemAccount = 20,
+    /// Cannot burn or recycle on root subnet
+    CannotBurnOrRecycleOnRootSubnet = 21,
+    /// Subtoken is disabled for this subnet
+    SubtokenDisabled = 22,
 }
 
 impl From<DispatchError> for Output {
@@ -96,6 +104,8 @@ impl From<DispatchError> for Output {
             Some("Duplicate") => Output::ProxyDuplicate,
             Some("NoSelfProxy") => Output::ProxyNoSelfProxy,
             Some("NotFound") => Output::ProxyNotFound,
+            Some("CannotBurnOrRecycleOnRootSubnet") => Output::CannotBurnOrRecycleOnRootSubnet,
+            Some("SubtokenDisabled") => Output::SubtokenDisabled,
             _ => Output::RuntimeError,
         }
     }

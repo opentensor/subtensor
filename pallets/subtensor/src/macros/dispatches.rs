@@ -1855,7 +1855,7 @@ mod dispatches {
             amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
-            Self::do_recycle_alpha(origin, hotkey, amount, netuid)
+            Self::do_recycle_alpha(origin, hotkey, amount, netuid).map(|_| ())
         }
 
         /// Burns alpha from a cold/hot key pair without reducing `AlphaOut`
@@ -1876,7 +1876,7 @@ mod dispatches {
             amount: AlphaBalance,
             netuid: NetUid,
         ) -> DispatchResult {
-            Self::do_burn_alpha(origin, hotkey, amount, netuid)
+            Self::do_burn_alpha(origin, hotkey, amount, netuid).map(|_| ())
         }
 
         /// Sets the pending childkey cooldown (in blocks). Root only.

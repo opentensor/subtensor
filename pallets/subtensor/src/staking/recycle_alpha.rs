@@ -1,5 +1,6 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
+use frame_support::storage::{TransactionOutcome, transactional};
 use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 impl<T: Config> Pallet<T> {
@@ -14,13 +15,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
-    pub(crate) fn do_recycle_alpha(
+    /// * `Result<AlphaBalance, DispatchError>` - The actual amount recycled, or error
+    pub fn do_recycle_alpha(
         origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
-    ) -> DispatchResult {
+    ) -> Result<AlphaBalance, DispatchError> {
         let coldkey: T::AccountId = ensure_signed(origin)?;
 
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -61,7 +62,7 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::AlphaRecycled(coldkey, hotkey, amount, netuid));
 
-        Ok(())
+        Ok(amount)
     }
 
     /// Burns alpha from a cold/hot key pair without reducing AlphaOut
@@ -75,13 +76,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
-    pub(crate) fn do_burn_alpha(
+    /// * `Result<AlphaBalance, DispatchError>` - The actual amount burned, or error
+    pub fn do_burn_alpha(
         origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
-    ) -> DispatchResult {
+    ) -> Result<AlphaBalance, DispatchError> {
         let coldkey = ensure_signed(origin)?;
 
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -122,7 +123,7 @@ impl<T: Config> Pallet<T> {
         // Deposit event
         Self::deposit_event(Event::AlphaBurned(coldkey, hotkey, amount, netuid));
 
-        Ok(())
+        Ok(amount)
     }
     pub(crate) fn do_add_stake_burn(
         origin: OriginFor<T>,
@@ -160,5 +161,48 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    /// Atomically stakes TAO and recycles the resulting alpha.
+    /// Permissionless counterpart used by the chain extension so that contracts
+    /// can compose the two operations without leaving residual stake if the
+    /// second leg fails.
+    pub fn do_add_stake_recycle(
+        origin: OriginFor<T>,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        amount: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
+        transactional::with_transaction(|| {
+            let alpha = match Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount) {
+                Ok(a) => a,
+                Err(e) => return TransactionOutcome::Rollback(Err(e)),
+            };
+            match Self::do_recycle_alpha(origin, hotkey, alpha, netuid) {
+                Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
+                Err(e) => TransactionOutcome::Rollback(Err(e)),
+            }
+        })
+    }
+
+    /// Atomically stakes TAO and burns the resulting alpha. Permissionless
+    /// counterpart to `do_add_stake_burn`: no subnet-owner guard and no rate
+    /// limit. Used by the chain extension.
+    pub fn do_add_stake_burn_permissionless(
+        origin: OriginFor<T>,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        amount: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
+        transactional::with_transaction(|| {
+            let alpha = match Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount) {
+                Ok(a) => a,
+                Err(e) => return TransactionOutcome::Rollback(Err(e)),
+            };
+            match Self::do_burn_alpha(origin, hotkey, alpha, netuid) {
+                Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
+                Err(e) => TransactionOutcome::Rollback(Err(e)),
+            }
+        })
     }
 }
