@@ -336,7 +336,7 @@ impl pallet_multi_collective::Config for Test {
     type AddOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type RemoveOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SwapOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
-    type ResetOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
+    type SetMembersOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type OnMembersChanged = VoteCleanup;
     type OnNewTerm = ();
     type MaxMembers = MaxMembers;

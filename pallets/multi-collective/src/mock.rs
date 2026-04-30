@@ -173,7 +173,7 @@ impl CollectivesInfo<u64, [u8; 32]> for TestCollectives {
 // --- Recording stub for the `OnNewTerm` hook ---
 //
 // `OnMembersChanged` observations go through the pallet's `Event` enum
-// (MemberAdded / MemberRemoved / MemberSwapped / MembersReset) — see
+// (MemberAdded / MemberRemoved / MemberSwapped / MembersSet) — see
 // `multi_collective_events()` below. `OnNewTerm` has no corresponding event,
 // so we keep a thread_local log for the rotation tests in Section 6.
 
@@ -228,7 +228,7 @@ impl pallet_multi_collective::Config for Test {
     type AddOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
-    type ResetOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
+    type SetMembersOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type OnMembersChanged = ();
     type OnNewTerm = TestOnNewTerm;
     type MaxMembers = MaxMembers;

@@ -1793,7 +1793,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
             McCollective {
                 id: GovernanceCollectiveId::Proposers,
                 info: McCollectiveInfo {
-                    name: name(b"proposers"),
+                    name: name(b"otf"),
                     min_members: 0,
                     max_members: Some(20),
                     term_duration: None,
@@ -1854,7 +1854,7 @@ impl pallet_multi_collective::Config for Runtime {
     type AddOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
-    type ResetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type SetMembersOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type OnMembersChanged = GovernanceVoteCleanup;
     type OnNewTerm = governance::collective_management::CollectiveManagement;
     type MaxMembers = MultiCollectiveMaxMembers;

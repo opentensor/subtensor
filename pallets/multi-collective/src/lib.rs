@@ -41,7 +41,7 @@ pub mod pallet {
         type SwapOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// Required origin for resetting the members of a collective.
-        type ResetOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
+        type SetMembersOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// The receiver of the signal for when the members of a collective have changed.
         type OnMembersChanged: OnMembersChanged<Self::CollectiveId, Self::AccountId>;
@@ -83,7 +83,7 @@ pub mod pallet {
             removed: T::AccountId,
             added: T::AccountId,
         },
-        MembersReset {
+        MembersSet {
             collective_id: T::CollectiveId,
             members: Vec<T::AccountId>,
         },
@@ -137,7 +137,7 @@ pub mod pallet {
             // Guards against `CollectiveInfo` / `T::MaxMembers` mismatch: a runtime
             // declaring `max_members` (or `min_members`) greater than
             // `T::MaxMembers` would pass the per-collective cap check in
-            // `add_member` / `reset_members` but then fail the `BoundedVec` bound
+            // `add_member` / `set_members` but then fail the `BoundedVec` bound
             // with a confusing `TooManyMembers` at the storage ceiling. Failing
             // construction here makes the inconsistent config unreachable at
             // runtime.
@@ -281,12 +281,12 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        pub fn reset_members(
+        pub fn set_members(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
             members: Vec<T::AccountId>,
         ) -> DispatchResult {
-            T::ResetOrigin::ensure_origin(origin, &collective_id)?;
+            T::SetMembersOrigin::ensure_origin(origin, &collective_id)?;
             let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
             // Validate new member list
@@ -322,7 +322,7 @@ pub mod pallet {
                 .collect();
 
             T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
-            Self::deposit_event(Event::MembersReset {
+            Self::deposit_event(Event::MembersSet {
                 collective_id,
                 members,
             });
@@ -339,7 +339,7 @@ pub mod pallet {
         /// Restricted to collectives whose `CollectiveId::can_rotate()`
         /// is true. Curated collectives (Triumvirate, Proposers) are
         /// managed directly via `add_member` / `remove_member` /
-        /// `swap_member` / `reset_members` and have no rotation hook
+        /// `swap_member` / `set_members` and have no rotation hook
         /// — refusing the call here surfaces a misconfigured Root
         /// extrinsic as `CollectiveDoesNotRotate` instead of silently
         /// consuming weight.
