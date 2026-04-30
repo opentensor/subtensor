@@ -8393,6 +8393,7 @@ dependencies = [
  "hex",
  "log",
  "pallet-admin-utils",
+ "pallet-alpha-assets",
  "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -8885,6 +8886,21 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=7cc54bf2d50ae3921d718736dfeb0de9468539c7)",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-alpha-assets"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-runtime-common",
 ]
 
 [[package]]

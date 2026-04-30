@@ -526,6 +526,8 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
+impl pallet_alpha_assets::Config for Runtime {}
+
 // Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction
 // fee OnUnbalanced trait bounds
 pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
@@ -1683,6 +1685,7 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
+        AlphaAssets: pallet_alpha_assets = 31,
     }
 );
 
