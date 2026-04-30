@@ -22,6 +22,10 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    RecycleAlphaV1 = 16,
+    BurnAlphaV1 = 17,
+    AddStakeRecycleV1 = 18,
+    AddStakeBurnV1 = 19,
 }
 
 #[ink::chain_extension(extension = 0x1000)]
@@ -130,6 +134,34 @@ pub trait RuntimeReadWrite {
 
     #[ink(function = 15)]
     fn get_alpha_price(netuid: u16) -> u64;
+
+    #[ink(function = 16)]
+    fn recycle_alpha(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        amount: u64,
+        netuid: u16,
+    ) -> u64;
+
+    #[ink(function = 17)]
+    fn burn_alpha(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        amount: u64,
+        netuid: u16,
+    ) -> u64;
+
+    #[ink(function = 18)]
+    fn add_stake_recycle(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+    ) -> u64;
+
+    #[ink(function = 19)]
+    fn add_stake_burn(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+    ) -> u64;
 }
 
 #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -411,6 +443,58 @@ mod bittensor {
                 .extension()
                 .get_alpha_price(netuid)
                 .map_err(|_e| ReadWriteErrorCode::ReadFailed)
+        }
+
+        #[ink(message)]
+        pub fn recycle_alpha(
+            &self,
+            hotkey: [u8; 32],
+            amount: u64,
+            netuid: u16,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .recycle_alpha(hotkey.into(), amount, netuid)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn burn_alpha(
+            &self,
+            hotkey: [u8; 32],
+            amount: u64,
+            netuid: u16,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .burn_alpha(hotkey.into(), amount, netuid)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn add_stake_recycle(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .add_stake_recycle(hotkey.into(), netuid, amount)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn add_stake_burn(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .add_stake_burn(hotkey.into(), netuid, amount)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
     }
 }
