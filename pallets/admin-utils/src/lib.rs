@@ -141,6 +141,8 @@ pub mod pallet {
         NotPermittedOnRootSubnet,
         /// POW Registration has been deprecated
         POWRegistrationDisabled,
+        /// Call is deprecated
+        Deprecated,
     }
     /// Enum for specifying the type of precompile operation.
     #[derive(
@@ -978,20 +980,14 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the total issuance for the network.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the issuance for the network.
+        /// DEPRECATED
         #[pallet::call_index(33)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_total_issuance())]
         pub fn sudo_set_total_issuance(
-            origin: OriginFor<T>,
-            total_issuance: TaoBalance,
+            _origin: OriginFor<T>,
+            _total_issuance: TaoBalance,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-
-            pallet_subtensor::Pallet::<T>::set_total_issuance(total_issuance);
-
-            Ok(())
+            Err(Error::<T>::Deprecated.into())
         }
 
         /// The extrinsic sets the immunity period for the network.

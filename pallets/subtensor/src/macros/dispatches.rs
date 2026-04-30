@@ -736,9 +736,7 @@ mod dispatches {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(3)]
-        #[pallet::weight((Weight::from_parts(196_800_000, 0)
-		.saturating_add(T::DbWeight::get().reads(19))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Normal, Pays::Yes))]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::remove_stake())]
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1057,7 +1055,7 @@ mod dispatches {
         #[pallet::call_index(72)]
         #[pallet::weight((Weight::from_parts(275_300_000, 0)
         .saturating_add(T::DbWeight::get().reads(52_u64))
-        .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().writes(35_u64)), DispatchClass::Normal, Pays::Yes))]
         pub fn swap_hotkey_v2(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1081,7 +1079,7 @@ mod dispatches {
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            if swap_cost.to_u64() > 0 {
+            if !swap_cost.is_zero() {
                 Self::charge_swap_cost(&old_coldkey, swap_cost)?;
             }
             Self::do_swap_coldkey(&old_coldkey, &new_coldkey)?;
@@ -1778,7 +1776,7 @@ mod dispatches {
         pub fn try_associate_hotkey(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
 
-            let _ = Self::do_try_associate_hotkey(&coldkey, &hotkey);
+            Self::do_try_associate_hotkey(&coldkey, &hotkey)?;
 
             Ok(())
         }
@@ -2505,6 +2503,33 @@ mod dispatches {
             limit_price: u64,
         ) -> DispatchResult {
             Self::do_register_limit(origin, netuid, hotkey, limit_price)
+        }
+
+        /// --- Allows a root validator to toggle auto parent delegation
+        /// for new subnets owner hotkey
+        #[pallet::call_index(135)]
+        #[pallet::weight((<T as crate::pallet::Config>::WeightInfo::set_auto_parent_delegation_enabled(), DispatchClass::Normal, Pays::Yes))]
+        pub fn set_auto_parent_delegation_enabled(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            enabled: bool,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+
+            ensure!(
+                Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
+
+            ensure!(
+                Self::is_hotkey_registered_on_network(NetUid::ROOT, &hotkey),
+                Error::<T>::HotKeyNotRegisteredInSubNet
+            );
+
+            AutoParentDelegationEnabled::<T>::insert(&hotkey, enabled);
+
+            Self::deposit_event(Event::AutoParentDelegationEnabledSet { hotkey, enabled });
+            Ok(())
         }
     }
 }

@@ -542,6 +542,8 @@ mod events {
         TransactionFeePaidWithAlpha {
             /// Account that paid the transaction fee.
             who: T::AccountId,
+            /// Netuid
+            netuid: NetUid,
             /// Exact fee deducted in Alpha units.
             alpha_fee: AlphaBalance,
             /// Resulting swapped TAO amount
@@ -560,7 +562,15 @@ mod events {
             /// The subnet identifier.
             netuid: NetUid,
             /// The burn increase multiplier value for neuron registration.
-            burn_increase_mult: u64,
+            burn_increase_mult: U64F64,
+        },
+
+        /// A root validator toggled the "auto parent delegation" flag.
+        AutoParentDelegationEnabledSet {
+            /// The validator hotkey.
+            hotkey: T::AccountId,
+            /// Whether delegation is now enabled.
+            enabled: bool,
         },
     }
 }

@@ -579,9 +579,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 2_575_000 picoseconds.
-		Weight::from_parts(2_775_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
+		// Minimum execution time: 5_318_000 picoseconds.
+		Weight::from_parts(5_318_000, 0)
+			.saturating_add(T::DbWeight::get().writes(0_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1380,9 +1380,9 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 2_575_000 picoseconds.
-		Weight::from_parts(2_775_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+		// Minimum execution time: 5_318_000 picoseconds.
+		Weight::from_parts(5_318_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(0_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)

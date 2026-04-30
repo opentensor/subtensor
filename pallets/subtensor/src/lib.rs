@@ -1092,6 +1092,12 @@ pub mod pallet {
         10u16
     }
 
+    /// Default value for AutoParentDelegationEnabled.
+    #[pallet::type_value]
+    pub fn DefaultAutoParentDelegationEnabled<T: Config>() -> bool {
+        true
+    }
+
     #[pallet::storage]
     pub type MinActivityCutoff<T: Config> =
         StorageValue<_, u16, ValueQuery, DefaultMinActivityCutoff<T>>;
@@ -1686,6 +1692,18 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
+
+    /// --- MAP ( netuid ) --> registered_subnet_counter
+    ///
+    /// Monotonic counter incremented on every successful `do_register_network`
+    /// for a given netuid. Consumers that persist per-netuid state keyed by
+    /// `(user, netuid)` (e.g. the staking precompile `AllowancesStorage`) can
+    /// mix the current counter value into their storage key so that entries
+    /// written under a previous registration of the same netuid become
+    /// unreachable after the netuid is re-registered, without requiring
+    /// unbounded storage iteration on deregistration.
+    #[pallet::storage]
+    pub type RegisteredSubnetCounter<T: Config> = StorageMap<_, Identity, NetUid, u64, ValueQuery>;
 
     /// --- MAP ( netuid ) --> pending_server_emission
     #[pallet::storage]
@@ -2454,6 +2472,21 @@ pub mod pallet {
     pub type BurnIncreaseMult<T> =
         StorageMap<_, Identity, NetUid, U64F64, ValueQuery, DefaultBurnIncreaseMult<T>>;
 
+    /// --- MAP ( hotkey ) --> parent_delegation_enabled
+    ///
+    /// When `true`, this root validator allows auto parent delegation.
+    /// Defaults to `true`; validators can opt out at any time
+    /// by calling `set_auto_parent_delegation_enabled(false)`.
+    #[pallet::storage]
+    pub type AutoParentDelegationEnabled<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        bool,
+        ValueQuery,
+        DefaultAutoParentDelegationEnabled<T>, // default = true
+    >;
+
     /// ==================
     /// ==== Genesis =====
     /// ==================
@@ -2639,17 +2672,6 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
         hotkey: &T::AccountId,
     ) -> AlphaBalance {
         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
-    }
-
-    fn increase_balance(coldkey: &T::AccountId, tao: TaoBalance) {
-        Self::add_balance_to_coldkey_account(coldkey, tao.into())
-    }
-
-    fn decrease_balance(
-        coldkey: &T::AccountId,
-        tao: TaoBalance,
-    ) -> Result<TaoBalance, DispatchError> {
-        Self::remove_balance_from_coldkey_account(coldkey, tao.into())
     }
 
     fn increase_stake(

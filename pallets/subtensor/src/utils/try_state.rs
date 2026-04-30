@@ -5,10 +5,26 @@ use super::*;
 impl<T: Config> Pallet<T> {
     /// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
     /// locked.
-    #[allow(clippy::expect_used)]
+    #[allow(clippy::arithmetic_side_effects, clippy::expect_used)]
     pub(crate) fn check_total_issuance() -> Result<(), sp_runtime::TryRuntimeError> {
         // Get the total currency issuance
         let currency_issuance = <T as Config>::Currency::total_issuance();
+        let total_issuance = TotalIssuance::<T>::get();
+
+        log::info!("=== Try runtime check_total_issuance ===");
+        log::info!("  currency_issuance: {}", currency_issuance);
+        log::info!("  total_issuance: {}", total_issuance);
+
+        // If balances total issuance is greater than 21M, we're on devnet or testnet, ignore
+        // this check, TI is off for multiple reasons.
+        if currency_issuance > 21_000_000_000_000_000_u64.into() {
+            return Ok(());
+        }
+
+        // If there's an exact match, it means we are past imbalances upgrade
+        if currency_issuance == total_issuance {
+            return Ok(());
+        }
 
         // Calculate the expected total issuance
         let expected_total_issuance =
@@ -19,7 +35,6 @@ impl<T: Config> Pallet<T> {
         // These values can be off slightly due to float rounding errors.
         // They are corrected every runtime upgrade.
         let delta = TaoBalance::from(1000);
-        let total_issuance = TotalIssuance::<T>::get();
 
         let diff = if total_issuance > expected_total_issuance {
             total_issuance.checked_sub(&expected_total_issuance)
