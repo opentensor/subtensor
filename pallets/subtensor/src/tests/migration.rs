@@ -47,29 +47,6 @@ fn close(value: u64, target: u64, eps: u64) {
 }
 
 #[test]
-fn test_initialise_ti() {
-    use frame_support::traits::OnRuntimeUpgrade;
-
-    new_test_ext(1).execute_with(|| {
-        pallet_balances::TotalIssuance::<Test>::put(TaoBalance::from(1000));
-        crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoBalance::from(100));
-        crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoBalance::from(5));
-
-        // Ensure values are NOT initialized prior to running migration
-        assert!(crate::TotalIssuance::<Test>::get().is_zero());
-		assert!(crate::TotalStake::<Test>::get().is_zero());
-
-        crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
-
-        // Ensure values were initialized correctly
-		assert_eq!(crate::TotalStake::<Test>::get(), TaoBalance::from(105));
-        assert_eq!(
-            crate::TotalIssuance::<Test>::get(), TaoBalance::from(105 + 1000)
-        );
-    });
-}
-
-#[test]
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 1
@@ -335,7 +312,7 @@ fn test_migrate_commit_reveal_2() {
 //             2 * stake_amount
 //         );
 //         // Increase stake for hotkey1 and coldkey1 on netuid_0
-//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
 //             &hotkey1,
 //             &coldkey1,
 //             netuid_0,
@@ -354,7 +331,7 @@ fn test_migrate_commit_reveal_2() {
 //             3 * stake_amount
 //         );
 //         // Increase stake for hotkey1 and coldkey1 on netuid_1
-//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
 //             &hotkey1,
 //             &coldkey1,
 //             netuid_1,
@@ -2491,7 +2468,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         let coldkey_account_id = U256::from(1111);
         let hotkey_account_id = U256::from(1111);
         let burn_cost = SubtensorModule::get_burn(*netuid);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
         TotalIssuance::<Test>::mutate(|total_issuance| {
             let updated_total = u64::from(*total_issuance)
                 .checked_add(u64::from(burn_cost))
@@ -3154,7 +3131,7 @@ fn test_migrate_fix_bad_hk_swap_only_genesis() {
             <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -3215,7 +3192,7 @@ fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
             <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -4300,5 +4277,43 @@ fn test_migrate_fix_root_claimed_incorrect_genesis() {
             RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
             "new_hotkey data must remain untouched on non-mainnet"
         );
+    });
+}
+
+#[test]
+fn test_migrate_subnet_balances() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Add network locks
+        let lock1 = TaoBalance::from(123_000_000_000_u64);
+        let lock2 = TaoBalance::from(321_000_000_000_u64);
+        SubnetLocked::<Test>::insert(netuid1, lock1);
+        SubnetLocked::<Test>::insert(netuid2, lock2);
+
+        // Add SubnetTAO
+        let reserve1 = TaoBalance::from(456_000_000_000_u64);
+        let reserve2 = TaoBalance::from(654_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid1, reserve1);
+        SubnetTAO::<Test>::insert(netuid2, reserve2);
+
+        // Run migration
+        crate::migrations::migrate_subnet_balances::migrate_subnet_balances::<Test>();
+
+        // Test that subnet balances got updated
+        let subnet_account_1 = SubtensorModule::get_subnet_account_id(netuid1).unwrap();
+        let subnet_account_2 = SubtensorModule::get_subnet_account_id(netuid2).unwrap();
+        let balance1 = SubtensorModule::get_coldkey_balance(&subnet_account_1);
+        let balance2 = SubtensorModule::get_coldkey_balance(&subnet_account_2);
+        let initial_pool_tao = NetworkMinLockCost::<Test>::get();
+        assert_eq!(balance1, lock1 + reserve1 - initial_pool_tao);
+        assert_eq!(balance2, lock2 + reserve2 - initial_pool_tao);
+
+        // Check migration has been marked as run
+        const MIGRATION_NAME: &[u8] = b"migrate_subnet_balances";
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
     });
 }

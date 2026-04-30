@@ -12,8 +12,8 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
 use pallet_evm::{
-    BalanceConverter, EnsureAddressNever, EnsureAddressRoot, EvmBalance, PrecompileHandle,
-    PrecompileSet, SubstrateBalance,
+    AddressMapping, BalanceConverter, EnsureAddressNever, EnsureAddressRoot, EvmBalance,
+    PrecompileHandle, PrecompileSet, SubstrateBalance,
 };
 use precompile_utils::testing::MockHandle;
 use sp_core::{ConstU64, H160, H256, U256, crypto::AccountId32};
@@ -45,6 +45,8 @@ frame_support::construct_runtime!(
         Crowdloan: pallet_crowdloan::{Pallet, Call, Storage, Event<T>} = 10,
         Proxy: pallet_subtensor_proxy = 11,
         Evm: pallet_evm = 12,
+        AdminUtils: pallet_admin_utils = 13,
+        EVMChainId: pallet_evm_chain_id = 14,
     }
 );
 
@@ -148,6 +150,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -338,6 +342,17 @@ mod test_crypto {
     }
 }
 
+impl pallet_evm_chain_id::Config for Runtime {}
+
+impl pallet_admin_utils::Config for Runtime {
+    type Aura = ();
+    type Grandpa = ();
+    type AuthorityId = test_crypto::Public;
+    type MaxAuthorities = MaxAuthorities;
+    type Balance = TaoBalance;
+    type WeightInfo = ();
+}
+
 impl pallet_drand::Config for Runtime {
     type AuthorityId = test_crypto::TestAuthId;
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
@@ -469,6 +484,8 @@ impl pallet_subtensor::Config for Runtime {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 
@@ -564,6 +581,17 @@ pub(crate) fn addr_from_index(index: u64) -> H160 {
     H160::from_low_u64_be(index)
 }
 
+pub(crate) fn mapped_account(address: H160) -> AccountId {
+    <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
+}
+
+pub(crate) fn fund_account(account: &AccountId, amount: u64) {
+    let amount = TaoBalance::from(amount);
+    let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(amount);
+    let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(account, credit, amount)
+        .expect("test account funding should work");
+}
+
 pub(crate) fn abi_word(value: U256) -> Vec<u8> {
     value.to_big_endian().to_vec()
 }
@@ -592,5 +620,11 @@ pub(crate) fn alpha_price_to_evm(price: U96F32) -> U256 {
     let scaled_price = (price * U96F32::from_num(EVM_DECIMALS_FACTOR)).to_num::<u64>();
     <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(scaled_price.into())
         .expect("runtime balance conversion should work for alpha price")
+        .into_u256()
+}
+
+pub(crate) fn substrate_to_evm(amount: u64) -> U256 {
+    <Runtime as pallet_evm::Config>::BalanceConverter::into_evm_balance(amount.into())
+        .expect("runtime balance conversion should work")
         .into_u256()
 }

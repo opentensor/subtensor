@@ -81,7 +81,7 @@ fn test_swap_total_hotkey_stake() {
         mock::setup_reserves(netuid, reserve.into(), reserve.into());
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
+        add_balance_to_coldkey_account(&coldkey, amount);
 
         // Add stake
         let (expected_alpha, _) = mock::swap_tao_to_alpha(netuid, amount);
@@ -420,14 +420,8 @@ fn test_swap_hotkey_with_multiple_coldkeys() {
         StakingHotkeys::<Test>::insert(coldkey1, vec![old_hotkey]);
         StakingHotkeys::<Test>::insert(coldkey2, vec![old_hotkey]);
         SubtensorModule::create_account_if_non_existent(&coldkey1, &old_hotkey);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey1,
-            stake + ExistentialDeposit::get(),
-        );
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey2,
-            stake + ExistentialDeposit::get(),
-        );
+        add_balance_to_coldkey_account(&coldkey1, stake + ExistentialDeposit::get());
+        add_balance_to_coldkey_account(&coldkey2, stake + ExistentialDeposit::get());
 
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey1),
@@ -519,14 +513,8 @@ fn test_swap_staking_hotkeys_multiple_coldkeys() {
         Alpha::<Test>::insert((old_hotkey, coldkey2, netuid), U64F64::from_num(100));
 
         SubtensorModule::create_account_if_non_existent(&coldkey1, &old_hotkey);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey1,
-            stake + ExistentialDeposit::get(),
-        );
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey2,
-            stake + ExistentialDeposit::get(),
-        );
+        add_balance_to_coldkey_account(&coldkey1, stake + ExistentialDeposit::get());
+        add_balance_to_coldkey_account(&coldkey2, stake + ExistentialDeposit::get());
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey1),
             old_hotkey,
@@ -618,8 +606,8 @@ fn test_swap_hotkey_with_multiple_coldkeys_and_subnets() {
         mock::setup_reserves(netuid2, reserve.into(), reserve.into());
 
         // Add balance to both coldkeys
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake + 1_000.into());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake + 1_000.into());
+        add_balance_to_coldkey_account(&coldkey1, stake + 1_000.into());
+        add_balance_to_coldkey_account(&coldkey2, stake + 1_000.into());
 
         // Stake with coldkey1
         assert_ok!(SubtensorModule::add_stake(
@@ -741,7 +729,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         let new_hotkey_1 = U256::from(2);
         let new_hotkey_2 = U256::from(4);
         let coldkey = U256::from(3);
-        let swap_cost = TaoBalance::from(1_000_000_000u64 * 2);
+        let swap_cost = SubtensorModule::get_key_swap_cost() * 2.into();
 
         let tx_rate_limit = 1;
 
@@ -757,7 +745,7 @@ fn test_swap_hotkey_tx_rate_limit_exceeded() {
         // Setup initial state
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, old_hotkey, coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+        add_balance_to_coldkey_account(&coldkey, swap_cost + ExistentialDeposit::get());
 
         // Perform the first swap
         assert_ok!(SubtensorModule::do_swap_hotkey(
@@ -807,7 +795,7 @@ fn test_do_swap_hotkey_err_not_owner() {
         // Setup initial state
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, old_hotkey, coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&not_owner_coldkey, swap_cost);
+        add_balance_to_coldkey_account(&not_owner_coldkey, swap_cost);
 
         // Attempt the swap with a non-owner coldkey
         assert_err!(
@@ -1140,7 +1128,7 @@ fn test_swap_hotkey_error_cases() {
         );
 
         let initial_balance = SubtensorModule::get_key_swap_cost() + 1000.into();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+        add_balance_to_coldkey_account(&coldkey, initial_balance);
 
         // Test new hotkey same as old
         assert_noop!(
@@ -1208,7 +1196,7 @@ fn test_do_swap_hotkey_err_new_hotkey_not_clean_for_root() {
         SubtensorModule::set_last_tx_block(&coldkey, 0);
 
         let initial_balance = SubtensorModule::get_key_swap_cost() + 1000.into();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+        add_balance_to_coldkey_account(&coldkey, initial_balance);
 
         // new_hotkey is NOT registered on any network, but some other coldkey
         // has staked to it on root. This must block a root-touching swap.
@@ -1577,7 +1565,7 @@ fn test_swap_hotkey_swap_rate_limits() {
         let new_hotkey = U256::from(2);
         let coldkey = U256::from(3);
         let netuid = add_dynamic_network(&old_hotkey, &coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_u64.into());
 
         let last_tx_block = 123;
         let delegate_take_block = 4567;
