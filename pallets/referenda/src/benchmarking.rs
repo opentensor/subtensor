@@ -20,10 +20,13 @@ use sp_runtime::Perbill;
 mod benches {
     use super::*;
 
+    /// Worst-case `submit`: `Adjustable` track schedules both the
+    /// enactment task and the reaper alarm. `PassOrFail` only schedules
+    /// the deadline alarm, so it is strictly cheaper.
     #[benchmark]
     fn submit() {
         let proposer = T::BenchmarkHelper::proposer();
-        let track = T::BenchmarkHelper::track_passorfail();
+        let track = T::BenchmarkHelper::track_adjustable();
         let call = Box::new(T::BenchmarkHelper::call());
 
         #[extrinsic_call]
@@ -32,10 +35,13 @@ mod benches {
         assert_eq!(ActiveCount::<T>::get(), 1);
     }
 
+    /// Worst-case `kill`: `Adjustable` has both an enactment task and an
+    /// alarm to cancel. `PassOrFail` only has an alarm before approval, so
+    /// one of the two `cancel_named` calls is a no-op.
     #[benchmark]
     fn kill() {
         let proposer = T::BenchmarkHelper::proposer();
-        let track = T::BenchmarkHelper::track_passorfail();
+        let track = T::BenchmarkHelper::track_adjustable();
         let call = Box::new(T::BenchmarkHelper::call());
         let index = ReferendumCount::<T>::get();
         Pallet::<T>::submit(RawOrigin::Signed(proposer).into(), track, call)
@@ -77,10 +83,9 @@ mod benches {
         #[extrinsic_call]
         advance_referendum(RawOrigin::Root, index);
 
-        // Either Delegated (Review path) or Approved (Execute fallback).
-        assert!(!matches!(
+        assert!(matches!(
             ReferendumStatusFor::<T>::get(index),
-            Some(ReferendumStatus::Ongoing(_))
+            Some(ReferendumStatus::Delegated(_))
         ));
     }
 
