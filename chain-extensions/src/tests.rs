@@ -992,7 +992,7 @@ mod caller_dispatch_tests {
             );
             mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 amount_raw.into(),
             );
@@ -1066,7 +1066,7 @@ mod caller_dispatch_tests {
             );
 
             mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 (stake_amount_raw + 1_000_000_000).into(),
             );
@@ -1120,7 +1120,7 @@ mod caller_dispatch_tests {
             );
 
             mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 (stake_amount_raw + 1_000_000_000).into(),
             );
@@ -1184,7 +1184,7 @@ mod caller_dispatch_tests {
             mock::register_ok_neuron(netuid, origin_hotkey, coldkey, 0);
             mock::register_ok_neuron(netuid, destination_hotkey, coldkey, 1);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 (stake_amount_raw + 1_000_000_000).into(),
             );
@@ -1264,7 +1264,7 @@ mod caller_dispatch_tests {
 
             mock::register_ok_neuron(netuid, hotkey, origin_coldkey, 0);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &origin_coldkey,
                 (stake_amount_raw + 1_000_000_000).into(),
             );
@@ -1353,7 +1353,7 @@ mod caller_dispatch_tests {
             mock::register_ok_neuron(netuid_a, hotkey, coldkey, 0);
             mock::register_ok_neuron(netuid_b, hotkey, coldkey, 1);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 (stake_amount_raw + 1_000_000_000).into(),
             );
@@ -1423,7 +1423,7 @@ mod caller_dispatch_tests {
 
             mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 (amount_raw + 1_000_000_000).into(),
             );
@@ -1485,7 +1485,7 @@ mod caller_dispatch_tests {
 
             mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 TaoBalance::from(stake_amount_raw + 1_000_000_000),
             );
@@ -1722,10 +1722,7 @@ mod caller_dispatch_tests {
             let delegator = U256::from(60001);
             let delegate = U256::from(60002);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-                &delegator,
-                1_000_000_000.into(),
-            );
+            mock::add_balance_to_coldkey_account(&delegator, 1_000_000_000.into());
 
             let mut env = MockEnv::new(FunctionId::CallerAddProxyV1, delegator, delegate.encode());
 
@@ -1743,10 +1740,7 @@ mod caller_dispatch_tests {
             let delegator = U256::from(70001);
             let delegate = U256::from(70002);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
-                &delegator,
-                1_000_000_000.into(),
-            );
+            mock::add_balance_to_coldkey_account(&delegator, 1_000_000_000.into());
 
             let mut add_env =
                 MockEnv::new(FunctionId::CallerAddProxyV1, delegator, delegate.encode());
