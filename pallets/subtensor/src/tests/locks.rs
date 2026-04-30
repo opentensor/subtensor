@@ -35,7 +35,10 @@ fn setup_subnet_with_stake(
         (stake_tao * 10_000_000).into(),
     );
 
-    SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+    assert_ok!(SubtensorModule::create_account_if_non_existent(
+        &coldkey, &hotkey
+    ));
+    add_balance_to_coldkey_account(&coldkey, amount);
     SubtensorModule::stake_into_subnet(
         &hotkey,
         &coldkey,
@@ -724,7 +727,9 @@ fn test_move_stake_same_coldkey_same_subnet_allowed() {
         let hotkey_b = U256::from(3);
         let netuid = setup_subnet_with_stake(coldkey, hotkey_a, 100_000_000_000);
 
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey_b);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey, &hotkey_b
+        ));
 
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         // Lock the full amount to hotkey_a
@@ -871,7 +876,10 @@ fn test_lock_on_multiple_subnets() {
             (100_000_000_000u64 * 1_000_000).into(),
             (100_000_000_000u64 * 10_000_000).into(),
         );
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey_b);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey, &hotkey_b
+        ));
+        add_balance_to_coldkey_account(&coldkey, 100_000_000_000u64.into());
         SubtensorModule::stake_into_subnet(
             &hotkey_b,
             &coldkey,
@@ -936,7 +944,10 @@ fn test_unstake_one_subnet_does_not_affect_other() {
             (100_000_000_000u64 * 1_000_000).into(),
             (100_000_000_000u64 * 10_000_000).into(),
         );
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey, &hotkey
+        ));
+        add_balance_to_coldkey_account(&coldkey, 100_000_000_000u64.into());
         SubtensorModule::stake_into_subnet(
             &hotkey,
             &coldkey,
@@ -1007,8 +1018,10 @@ fn test_hotkey_conviction_multiple_lockers() {
         let netuid = setup_subnet_with_stake(coldkey1, hotkey, 100_000_000_000);
 
         // Also give coldkey2 stake on same hotkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
-        SubtensorModule::create_account_if_non_existent(&coldkey2, &hotkey);
+        add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey2, &hotkey
+        ));
         SubtensorModule::stake_into_subnet(
             &hotkey,
             &coldkey2,
@@ -1080,8 +1093,10 @@ fn test_subnet_king_highest_conviction_wins() {
 
         let netuid = setup_subnet_with_stake(coldkey1, hotkey_a, 100_000_000_000);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
-        SubtensorModule::create_account_if_non_existent(&coldkey2, &hotkey_b);
+        add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey2, &hotkey_b
+        ));
         SubtensorModule::stake_into_subnet(
             &hotkey_b,
             &coldkey2,
@@ -1125,22 +1140,23 @@ fn test_subnet_king_no_locks() {
 }
 
 // =========================================================================
-// GROUP 10: Lock cleanup
+// GROUP 10: Lock force-reduction
 // =========================================================================
 
 #[test]
-fn test_cleanup_lock_removes_dust() {
+fn test_reduce_lock_removes_dust() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        let lock_amount = AlphaBalance::from(50u64);
 
         // Lock a small amount
         assert_ok!(SubtensorModule::do_lock_stake(
             &coldkey,
             netuid,
             &hotkey,
-            50u64.into(),
+            lock_amount,
         ));
 
         // Advance many taus so everything decays well below dust (100)
@@ -1148,7 +1164,8 @@ fn test_cleanup_lock_removes_dust() {
         let target = System::block_number() + tau * 50;
         System::set_block_number(target);
 
-        SubtensorModule::cleanup_lock(&coldkey, netuid);
+        // Remove full lock amount
+        SubtensorModule::force_reduce_lock(&coldkey, netuid, lock_amount);
 
         assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_none());
         assert!(HotkeyLock::<Test>::get(netuid, hotkey).is_none());
@@ -1156,12 +1173,69 @@ fn test_cleanup_lock_removes_dust() {
 }
 
 #[test]
-fn test_cleanup_lock_no_lock() {
+fn test_reduce_lock_partial_reduction() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        let lock_amount = AlphaBalance::from(100u64);
+        let reduce_amount = AlphaBalance::from(40u64);
+        let now = SubtensorModule::get_current_block_as_u64();
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount,
+        ));
+
+        let conviction = U64F64::from_num(1000);
+        Lock::<Test>::insert(
+            (coldkey, netuid, hotkey),
+            LockState {
+                locked_mass: lock_amount,
+                conviction,
+                last_update: now,
+            },
+        );
+        HotkeyLock::<Test>::insert(
+            netuid,
+            hotkey,
+            LockState {
+                locked_mass: lock_amount,
+                conviction,
+                last_update: now,
+            },
+        );
+
+        SubtensorModule::force_reduce_lock(&coldkey, netuid, reduce_amount);
+
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).expect("lock should remain");
+        assert_eq!(lock.locked_mass, 60u64.into());
+        assert_abs_diff_eq!(
+            lock.conviction.to_num::<f64>(),
+            600.,
+            epsilon = 0.0000000001
+        );
+
+        let hotkey_lock =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should remain");
+        assert_eq!(hotkey_lock.locked_mass, 60u64.into());
+        assert_abs_diff_eq!(
+            hotkey_lock.conviction.to_num::<f64>(),
+            600.,
+            epsilon = 0.0000000001
+        );
+    });
+}
+
+#[test]
+fn test_reduce_lock_no_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let netuid = subtensor_runtime_common::NetUid::from(1);
         // Should be a no-op, no panic
-        SubtensorModule::cleanup_lock(&coldkey, netuid);
+        SubtensorModule::force_reduce_lock(&coldkey, netuid, 100u64.into());
         assert!(
             Lock::<Test>::iter_prefix((coldkey, netuid))
                 .next()
@@ -1171,7 +1245,7 @@ fn test_cleanup_lock_no_lock() {
 }
 
 #[test]
-fn test_cleanup_lock_two_coldkeys() {
+fn test_reduce_lock_two_coldkeys() {
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1001);
         let coldkey2 = U256::from(1002);
@@ -1179,8 +1253,10 @@ fn test_cleanup_lock_two_coldkeys() {
         let netuid = setup_subnet_with_stake(coldkey1, hotkey, 100_000_000_000);
 
         // Add stake on coldkey 2
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
-        SubtensorModule::create_account_if_non_existent(&coldkey2, &hotkey);
+        add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey2, &hotkey
+        ));
         SubtensorModule::stake_into_subnet(
             &hotkey,
             &coldkey2,
@@ -1229,7 +1305,7 @@ fn test_cleanup_lock_two_coldkeys() {
             50u64.into(),
         ));
 
-        SubtensorModule::cleanup_lock(&coldkey1, netuid);
+        SubtensorModule::force_reduce_lock(&coldkey1, netuid, 50u64.into());
 
         // Should only clean up coldkey1's lock, not coldkey2's
         assert!(
@@ -1574,8 +1650,11 @@ fn test_clear_small_nomination_checks_lock() {
 
         // Set up a nominator (different coldkey, does NOT own the hotkey)
         let nominator = U256::from(200);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator, 100_000_000_000u64.into());
-        SubtensorModule::create_account_if_non_existent(&nominator, &owner_hotkey);
+        add_balance_to_coldkey_account(&nominator, 100_000_000_000u64.into());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &nominator,
+            &owner_hotkey
+        ));
         SubtensorModule::stake_into_subnet(
             &owner_hotkey,
             &nominator,
@@ -1769,11 +1848,17 @@ fn test_moving_partial_lock() {
         let netuid = setup_subnet_with_stake(coldkey1, hotkey_origin, 100_000_000_000);
 
         // Make hotkey_origin and hotkey_destination owned by different coldkeys
-        SubtensorModule::create_account_if_non_existent(&coldkey1, &hotkey_origin);
-        SubtensorModule::create_account_if_non_existent(&coldkey2, &hotkey_destination);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey1,
+            &hotkey_origin
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey2,
+            &hotkey_destination
+        ));
 
         // Add coldkey2 stake
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
+        add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
         SubtensorModule::stake_into_subnet(
             &hotkey_origin,
             &coldkey2,
@@ -1847,11 +1932,17 @@ fn test_moving_partial_lock_same_owners() {
         let netuid = setup_subnet_with_stake(coldkey1, hotkey_origin, 100_000_000_000);
 
         // Add coldkey2 stake
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
+        add_balance_to_coldkey_account(&coldkey2, 100_000_000_000u64.into());
 
         // Make hotkey_origin and hotkey_destination both owned by coldkey1
-        SubtensorModule::create_account_if_non_existent(&coldkey1, &hotkey_origin);
-        SubtensorModule::create_account_if_non_existent(&coldkey1, &hotkey_destination);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey1,
+            &hotkey_origin
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey1,
+            &hotkey_destination
+        ));
         SubtensorModule::stake_into_subnet(
             &hotkey_origin,
             &coldkey2,

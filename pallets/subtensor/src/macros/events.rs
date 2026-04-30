@@ -562,7 +562,7 @@ mod events {
             /// The subnet identifier.
             netuid: NetUid,
             /// The burn increase multiplier value for neuron registration.
-            burn_increase_mult: u64,
+            burn_increase_mult: U64F64,
         },
 
         /// A root validator toggled the "auto parent delegation" flag.

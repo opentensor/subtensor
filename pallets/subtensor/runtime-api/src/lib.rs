@@ -49,6 +49,7 @@ sp_api::decl_runtime_apis! {
         fn get_coldkey_auto_stake_hotkey(coldkey: AccountId32, netuid: NetUid) -> Option<AccountId32>;
         fn get_selective_mechagraph(netuid: NetUid, subid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>>;
         fn get_subnet_to_prune() -> Option<NetUid>;
+        fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32>;
     }
 
     pub trait StakeInfoRuntimeApi {

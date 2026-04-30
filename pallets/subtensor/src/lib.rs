@@ -2721,17 +2721,6 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
     }
 
-    fn increase_balance(coldkey: &T::AccountId, tao: TaoBalance) {
-        Self::add_balance_to_coldkey_account(coldkey, tao.into())
-    }
-
-    fn decrease_balance(
-        coldkey: &T::AccountId,
-        tao: TaoBalance,
-    ) -> Result<TaoBalance, DispatchError> {
-        Self::remove_balance_from_coldkey_account(coldkey, tao.into())
-    }
-
     fn increase_stake(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,

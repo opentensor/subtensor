@@ -1,11 +1,4 @@
 use alloc::collections::BTreeMap;
-use frame_support::traits::{
-    Imbalance,
-    tokens::{
-        Fortitude, Precision, Preservation,
-        fungible::{Balanced as _, Inspect as _},
-    },
-};
 use safe_math::*;
 use share_pool::SafeFloat;
 use substrate_fixed::types::U96F32;
@@ -132,7 +125,16 @@ impl<T: Config> Pallet<T> {
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
-    pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
+    pub fn create_account_if_non_existent(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> DispatchResult {
+        // Only allow to register non-system hotkeys
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::CannotUseSystemAccount
+        );
+
         if !Self::hotkey_account_exists(hotkey) {
             Owner::<T>::insert(hotkey, coldkey);
 
@@ -150,6 +152,17 @@ impl<T: Config> Pallet<T> {
                 StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
             }
         }
+        Ok(())
+    }
+
+    pub fn set_hotkey_owner(coldkey: &T::AccountId, hotkey: &T::AccountId) -> DispatchResult {
+        // Only allow to register non-system hotkeys
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::CannotUseSystemAccount
+        );
+        Owner::<T>::insert(hotkey, coldkey);
+        Ok(())
     }
 
     //// If the hotkey is not a delegate, make it a delegate.
@@ -233,22 +246,18 @@ impl<T: Config> Pallet<T> {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 // Do not apply any fees
-                let maybe_cleared_stake = Self::unstake_from_subnet(
+                if Self::unstake_from_subnet(
                     hotkey,
+                    coldkey,
                     coldkey,
                     netuid,
                     alpha_stake,
                     T::SwapInterface::min_price(),
                     false,
-                );
-
-                if let Ok(cleared_stake) = maybe_cleared_stake {
-                    // Add the stake to the coldkey account.
-                    Self::add_balance_to_coldkey_account(coldkey, cleared_stake.into());
-
-                    // Clear the lock if exists
-                    Self::cleanup_lock(coldkey, netuid);
-                } else {
+                )
+                .is_err()
+                {
+                    // Ignore errors if unstaking fails
                     // Just clear small alpha
                     let alpha =
                         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
@@ -256,6 +265,9 @@ impl<T: Config> Pallet<T> {
                         hotkey, coldkey, netuid, alpha,
                     );
                 }
+
+                // Reduce lock (if exists) by the cleaned stake amount
+                Self::force_reduce_lock(coldkey, netuid, alpha_stake);
             }
         }
     }
@@ -269,92 +281,6 @@ impl<T: Config> Pallet<T> {
         for ((hotkey, coldkey, netuid), _) in Self::alpha_iter() {
             Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid);
         }
-    }
-
-    pub fn add_balance_to_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) {
-        // infallible
-        let _ = <T as Config>::Currency::deposit(coldkey, amount, Precision::BestEffort);
-    }
-
-    pub fn can_remove_balance_from_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> bool {
-        let current_balance = Self::get_coldkey_balance(coldkey);
-        if amount > current_balance {
-            return false;
-        }
-
-        // This bit is currently untested. @todo
-
-        <T as Config>::Currency::can_withdraw(coldkey, amount)
-            .into_result(false)
-            .is_ok()
-    }
-
-    pub fn get_coldkey_balance(
-        coldkey: &T::AccountId,
-    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
-    {
-        <T as Config>::Currency::reducible_balance(
-            coldkey,
-            Preservation::Expendable,
-            Fortitude::Polite,
-        )
-    }
-
-    #[must_use = "Balance must be used to preserve total issuance of token"]
-    pub fn remove_balance_from_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<TaoBalance, DispatchError> {
-        if amount.is_zero() {
-            return Ok(TaoBalance::ZERO);
-        }
-
-        let credit = <T as Config>::Currency::withdraw(
-            coldkey,
-            amount,
-            Precision::BestEffort,
-            Preservation::Preserve,
-            Fortitude::Polite,
-        )
-        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
-        .peek();
-
-        if credit.is_zero() {
-            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
-        }
-
-        Ok(credit.into())
-    }
-
-    pub fn kill_coldkey_account(
-        coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
-    ) -> Result<TaoBalance, DispatchError> {
-        if amount.is_zero() {
-            return Ok(0.into());
-        }
-
-        let credit = <T as Config>::Currency::withdraw(
-            coldkey,
-            amount,
-            Precision::Exact,
-            Preservation::Expendable,
-            Fortitude::Force,
-        )
-        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
-        .peek();
-
-        if credit.is_zero() {
-            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
-        }
-
-        Ok(credit)
     }
 
     pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {

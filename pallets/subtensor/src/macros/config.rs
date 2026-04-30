@@ -7,6 +7,7 @@ use frame_support::pallet_macros::pallet_section;
 mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
+    use frame_support::PalletId;
     use pallet_commitments::GetCommitments;
     use subtensor_runtime_common::AuthorshipInfo;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
@@ -256,5 +257,11 @@ mod config {
         /// Maximum percentage of immune UIDs.
         #[pallet::constant]
         type MaxImmuneUidsPercentage: Get<Percent>;
+        /// Pallet account ID
+        #[pallet::constant]
+        type SubtensorPalletId: Get<PalletId>;
+        /// Burn account ID
+        #[pallet::constant]
+        type BurnAccountId: Get<PalletId>;
     }
 }

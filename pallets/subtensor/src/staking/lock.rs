@@ -201,21 +201,38 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Clears the lock. This function will be called if the alpha stake drops below minimum
-    /// threshold.
-    pub fn cleanup_lock(coldkey: &T::AccountId, netuid: NetUid) {
+    /// Reduces the coldkey lock by a specified alpha amount and the coldkey conviction
+    /// proportionally.
+    pub fn force_reduce_lock(coldkey: &T::AccountId, netuid: NetUid, amount: AlphaBalance) {
         if let Some((existing_hotkey, lock)) = Lock::<T>::iter_prefix((coldkey, netuid)).next() {
             let now = Self::get_current_block_as_u64();
             let rolled = Self::roll_forward_lock(lock, now);
-            Lock::<T>::remove((coldkey.clone(), netuid, existing_hotkey.clone()));
+            let new_locked_mass = rolled.locked_mass.saturating_sub(amount);
+            let conviction_diff;
+
+            // Remove or update lock
+            if new_locked_mass.is_zero() {
+                Lock::<T>::remove((coldkey.clone(), netuid, existing_hotkey.clone()));
+                conviction_diff = rolled.conviction;
+            } else {
+                let removed_proportion = U64F64::saturating_from_num(u64::from(amount))
+                    .safe_div(U64F64::saturating_from_num(u64::from(rolled.locked_mass)));
+                let new_conviction = rolled.conviction.saturating_mul(
+                    U64F64::saturating_from_num(1).saturating_sub(removed_proportion),
+                );
+                Lock::<T>::insert(
+                    (coldkey.clone(), netuid, existing_hotkey.clone()),
+                    LockState {
+                        locked_mass: new_locked_mass,
+                        conviction: new_conviction,
+                        last_update: now,
+                    },
+                );
+                conviction_diff = rolled.conviction.saturating_sub(new_conviction);
+            }
 
             // Reduce the total hotkey lock by the rolled locked mass and conviction
-            Self::reduce_hotkey_lock(
-                &existing_hotkey,
-                netuid,
-                rolled.locked_mass,
-                rolled.conviction,
-            );
+            Self::reduce_hotkey_lock(&existing_hotkey, netuid, amount, conviction_diff);
         }
     }
 

@@ -301,5 +301,7 @@ mod errors {
         NoExistingLock,
         /// There is already an active lock for the given coldkey.
         ActiveLockExists,
+        /// A system account cannot be used in this operation
+        CannotUseSystemAccount,
     }
 }
