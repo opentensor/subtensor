@@ -387,11 +387,13 @@ pub mod pallet {
 
             Self::ensure_ongoing(index)?;
 
-            // Best-effort cleanup. Either entry may be absent: `PassOrFail`
-            // has no enactment task before approval, and the alarm may have
-            // just fired. Failures here are expected and not reported.
+            // Best-effort cleanup. The task entry may be absent (`PassOrFail`
+            // has no enactment task before approval); a missing task is
+            // expected and not reported.
             let _ = T::Scheduler::cancel_named(task_name(index));
-            let _ = T::Scheduler::cancel_named(alarm_name(index));
+            if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
+                Self::report_scheduler_error(index, "cancel_alarm", err);
+            }
 
             let now = T::BlockNumberProvider::current_block_number();
             Self::conclude(
@@ -496,6 +498,24 @@ impl<T: Config> Pallet<T> {
                 // logic (which would falsely conclude as fast-tracked).
                 if Self::next_task_dispatch_time(index).is_none() {
                     Self::do_lapse_to_enacted(index);
+                    return Ok(());
+                }
+
+                // Reaper position reached but the task is still queued —
+                // it was postponed by the scheduler under weight pressure.
+                // Don't run threshold logic here (with no votes,
+                // `do_adjust_delay` would fall through to `do_fast_track`
+                // and conclude as `FastTracked` even though no member
+                // fast-tracked); re-arm and wait for the task to dispatch.
+                let reaper_at = info
+                    .submitted
+                    .saturating_add(*initial_delay)
+                    .saturating_add(One::one());
+                let now = T::BlockNumberProvider::current_block_number();
+                if now >= reaper_at {
+                    if let Err(err) = Self::set_alarm(index, now.saturating_add(One::one())) {
+                        Self::report_scheduler_error(index, "set_alarm", err);
+                    }
                     return Ok(());
                 }
 
