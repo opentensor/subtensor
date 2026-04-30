@@ -3,7 +3,7 @@
 
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
+use frame_support::sp_runtime::{DispatchError, Permill};
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
 use pallet_subtensor_swap::tick::TickIndex;
@@ -5310,7 +5310,8 @@ fn test_add_stake_payable_is_ok() {
         let app_coldkey = U256::from(5);
         let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
         let amount_stake = TaoBalance::from(min_tao_stake);
-        let amount_fees = 100_000;
+        let fee_percentage = Permill::from_percent(10);
+        let expected_fee = TaoBalance::from(fee_percentage * amount_stake.to_u64());
         let owner_balance_before = amount_stake * 10.into();
         let actor_balance_before = amount_stake * 100.into();
         let app_owner_balance_before = ExistentialDeposit::get();
@@ -5321,28 +5322,28 @@ fn test_add_stake_payable_is_ok() {
         add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
         add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
-        // Stake with paying fees
+        // Stake with paying fees (deducted from stake amount)
         assert_ok!(SubtensorModule::add_stake_payable(
             RuntimeOrigin::signed(actor_coldkey),
             subnet_owner_hotkey,
             netuid,
             amount_stake.into(),
             app_coldkey,
-            amount_fees.into()
+            fee_percentage,
         ));
 
         let app_owner_balance_after = Balances::free_balance(app_coldkey);
         let actor_balance_after = Balances::free_balance(actor_coldkey);
 
         assert_eq!(
-            app_owner_balance_before + amount_fees.into(),
+            app_owner_balance_before + expected_fee,
             app_owner_balance_after,
             "app owner balance after should include fees"
         );
         assert_eq!(
-            actor_balance_before - amount_fees.into() - amount_stake.into(),
+            actor_balance_before - amount_stake,
             actor_balance_after,
-            "actor balance after be decreased by stake + fees"
+            "actor balance after be decreased by stake amount (fee deducted from it)"
         );
 
         let events = System::events();
@@ -5353,7 +5354,7 @@ fn test_add_stake_payable_is_ok() {
                 RuntimeEvent::SubtensorModule(Event::FeesTransferred(from, to, amount))
                     if from == &actor_coldkey
                     && to == &app_coldkey
-                    && *amount == amount_fees.into()
+                    && *amount == expected_fee
             )),
             "FeesTransferred event should be emitted"
         );
@@ -5381,7 +5382,7 @@ fn test_add_stake_payable_atomicity() {
         let app_coldkey = U256::from(5);
         let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
         let amount_stake = TaoBalance::from(min_tao_stake);
-        let amount_fees = 100_000;
+        let fee_percentage = Permill::from_percent(10);
         let actor_balance_before = amount_stake * 100.into();
         let app_owner_balance_before = ExistentialDeposit::get();
 
@@ -5398,7 +5399,7 @@ fn test_add_stake_payable_atomicity() {
                 invalid_netuid,
                 amount_stake.into(),
                 app_coldkey,
-                amount_fees.into()
+                fee_percentage,
             ),
             Error::<Test>::SubnetNotExists
         );
@@ -5416,7 +5417,8 @@ fn test_add_stake_payable_atomicity() {
     });
 }
 
-/// This test verifies if the stake + pay fees is working
+/// This test verifies that add_stake_payable fails if the actor doesn't have enough TAO
+/// to cover the staked amount (which now includes the fee deducted from it).
 ///
 /// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_payable_actor_insufficient_balance --exact --show-output
 #[test]
@@ -5428,9 +5430,10 @@ fn test_add_stake_payable_actor_insufficient_balance() {
         let app_coldkey = U256::from(5);
         let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
         let amount_stake = TaoBalance::from(min_tao_stake);
-        let amount_fees = 100_000;
+        let fee_percentage = Permill::from_percent(10);
         let owner_balance_before = amount_stake * 10.into();
-        let actor_balance_before = amount_stake; // The actor doesn't have funds for fees
+        // Actor doesn't have enough to cover the requested stake amount.
+        let actor_balance_before = amount_stake - TaoBalance::from(1u64);
         let app_owner_balance_before = ExistentialDeposit::get();
 
         // add network
@@ -5439,7 +5442,7 @@ fn test_add_stake_payable_actor_insufficient_balance() {
         add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
         add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
 
-        // Should fail because of insufficient balance to pay for fees
+        // Should fail because of insufficient balance for the stake amount
         assert_err!(
             SubtensorModule::add_stake_payable(
                 RuntimeOrigin::signed(actor_coldkey),
@@ -5447,7 +5450,7 @@ fn test_add_stake_payable_actor_insufficient_balance() {
                 netuid,
                 amount_stake.into(),
                 app_coldkey,
-                amount_fees.into()
+                fee_percentage,
             ),
             Error::<Test>::NotEnoughBalanceToStake
         );

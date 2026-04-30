@@ -755,7 +755,7 @@ mod dispatches {
             netuid: NetUid,
             amount_unstaked: AlphaBalance,
             coldkey_fees_tank: T::AccountId,
-            amount_fees: TaoBalance,
+            fee_percentage: sp_runtime::Permill,
         ) -> DispatchResult {
             Self::do_remove_stake_payable(
                 origin,
@@ -763,7 +763,7 @@ mod dispatches {
                 netuid,
                 amount_unstaked,
                 coldkey_fees_tank,
-                amount_fees,
+                fee_percentage,
             )
             .map(|_| ())
         }
@@ -2563,7 +2563,7 @@ mod dispatches {
             netuid: NetUid,
             amount_staked: TaoBalance,
             coldkey_fees_tank: T::AccountId,
-            amount_fees: TaoBalance,
+            fee_percentage: sp_runtime::Permill,
         ) -> DispatchResult {
             Self::do_add_stake_payable(
                 origin,
@@ -2571,7 +2571,7 @@ mod dispatches {
                 netuid,
                 amount_staked,
                 coldkey_fees_tank,
-                amount_fees,
+                fee_percentage,
             )
             .map(|_| ())
         }

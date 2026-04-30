@@ -11,7 +11,7 @@ use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
 use sp_core::H256;
 use sp_runtime::{
-    BoundedVec, Percent,
+    BoundedVec, Percent, Permill,
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::collections::btree_set::BTreeSet;
@@ -210,7 +210,7 @@ mod pallet_benchmarks {
         let hotkey: T::AccountId = account("Alice", 0, seed);
         let total_stake = TaoBalance::from(1_000_000_000);
         let amount = TaoBalance::from(60_000_000);
-        let amount_fees = TaoBalance::from(1000);
+        let fee_percentage = Permill::from_percent(1);
 
         seed_swap_reserves::<T>(netuid);
         add_balance_to_coldkey_account::<T>(&coldkey, total_stake.into());
@@ -227,7 +227,7 @@ mod pallet_benchmarks {
             netuid,
             amount,
             app_coldkey,
-            amount_fees,
+            fee_percentage,
         );
     }
 
@@ -1098,7 +1098,7 @@ mod pallet_benchmarks {
         Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
 
         let app_coldkey: T::AccountId = account("cold", 0, seed);
-        let amount_fees = TaoBalance::from(1000);
+        let fee_percentage = Permill::from_percent(1);
         let tao_reserve = TaoBalance::from(150_000_000_000_u64);
         let alpha_in = AlphaBalance::from(100_000_000_000_u64);
         set_reserves::<T>(netuid, tao_reserve, alpha_in);
@@ -1134,7 +1134,7 @@ mod pallet_benchmarks {
             netuid,
             amount_unstaked,
             app_coldkey,
-            amount_fees,
+            fee_percentage,
         );
     }
 

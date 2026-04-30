@@ -1,3 +1,4 @@
+use sp_runtime::Permill;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 
@@ -77,20 +78,22 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         stake_to_be_added: TaoBalance,
         coldkey_fees_tank: T::AccountId,
-        amount_fees: TaoBalance,
+        fee_percentage: Permill,
     ) -> Result<AlphaBalance, DispatchError> {
         let coldkey = ensure_signed(origin.clone())?;
 
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(
-                &coldkey,
-                stake_to_be_added.saturating_add(amount_fees).into()
-            ),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added.into()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
-        Self::do_add_stake(origin, hotkey, netuid, stake_to_be_added)
+        let amount_fees = TaoBalance::from(fee_percentage * stake_to_be_added.to_u64());
+        let stake_after_fees = stake_to_be_added.saturating_sub(amount_fees);
+
+        if !amount_fees.is_zero() {
+            Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
+        }
+        Self::do_add_stake(origin, hotkey, netuid, stake_after_fees)
     }
 
     /// ---- The implementation for the extrinsic add_stake_limit: Adds stake to a hotkey

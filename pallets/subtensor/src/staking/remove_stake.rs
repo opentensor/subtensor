@@ -1,4 +1,5 @@
 use super::*;
+use sp_runtime::Permill;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -619,11 +620,19 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         amount_unstaked: AlphaBalance,
         coldkey_fees_tank: T::AccountId,
-        amount_fees: TaoBalance,
+        fee_percentage: Permill,
     ) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin.clone())?;
 
-        Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
-        Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
+        let balance_before = Self::get_coldkey_balance(&coldkey);
+        Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)?;
+        let balance_after = Self::get_coldkey_balance(&coldkey);
+        let tao_received = balance_after.saturating_sub(balance_before);
+
+        let amount_fees = TaoBalance::from(fee_percentage * tao_received.to_u64());
+        if !amount_fees.is_zero() {
+            Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
+        }
+        Ok(())
     }
 }
