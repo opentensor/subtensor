@@ -21,20 +21,24 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
-    CallerAddStakeV1 = 16,
-    CallerRemoveStakeV1 = 17,
-    CallerUnstakeAllV1 = 18,
-    CallerUnstakeAllAlphaV1 = 19,
-    CallerMoveStakeV1 = 20,
-    CallerTransferStakeV1 = 21,
-    CallerSwapStakeV1 = 22,
-    CallerAddStakeLimitV1 = 23,
-    CallerRemoveStakeLimitV1 = 24,
-    CallerSwapStakeLimitV1 = 25,
-    CallerRemoveStakeFullLimitV1 = 26,
-    CallerSetColdkeyAutoStakeHotkeyV1 = 27,
-    CallerAddProxyV1 = 28,
-    CallerRemoveProxyV1 = 29,
+    RecycleAlphaV1 = 16,
+    BurnAlphaV1 = 17,
+    AddStakeRecycleV1 = 18,
+    AddStakeBurnV1 = 19,
+    CallerAddStakeV1 = 20,
+    CallerRemoveStakeV1 = 21,
+    CallerUnstakeAllV1 = 22,
+    CallerUnstakeAllAlphaV1 = 23,
+    CallerMoveStakeV1 = 24,
+    CallerTransferStakeV1 = 25,
+    CallerSwapStakeV1 = 26,
+    CallerAddStakeLimitV1 = 27,
+    CallerRemoveStakeLimitV1 = 28,
+    CallerSwapStakeLimitV1 = 29,
+    CallerRemoveStakeFullLimitV1 = 30,
+    CallerSetColdkeyAutoStakeHotkeyV1 = 31,
+    CallerAddProxyV1 = 32,
+    CallerRemoveProxyV1 = 33,
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, Debug)]
@@ -82,6 +86,10 @@ pub enum Output {
     ProxyNotFound = 19,
     /// A system account cannot be used in this operation
     CannotUseSystemAccount = 20,
+    /// Cannot burn or recycle on root subnet
+    CannotBurnOrRecycleOnRootSubnet = 21,
+    /// Subtoken is disabled for this subnet
+    SubtokenDisabled = 22,
 }
 
 impl From<DispatchError> for Output {
@@ -110,6 +118,8 @@ impl From<DispatchError> for Output {
             Some("Duplicate") => Output::ProxyDuplicate,
             Some("NoSelfProxy") => Output::ProxyNoSelfProxy,
             Some("NotFound") => Output::ProxyNotFound,
+            Some("CannotBurnOrRecycleOnRootSubnet") => Output::CannotBurnOrRecycleOnRootSubnet,
+            Some("SubtokenDisabled") => Output::SubtokenDisabled,
             _ => Output::RuntimeError,
         }
     }
@@ -123,25 +133,29 @@ mod function_id_tests {
     #[test]
     fn caller_variants_have_stable_discriminants() {
         assert_eq!(FunctionId::GetAlphaPriceV1 as u16, 15);
-        assert_eq!(FunctionId::CallerAddStakeV1 as u16, 16);
-        assert_eq!(FunctionId::CallerRemoveStakeV1 as u16, 17);
-        assert_eq!(FunctionId::CallerUnstakeAllV1 as u16, 18);
-        assert_eq!(FunctionId::CallerUnstakeAllAlphaV1 as u16, 19);
-        assert_eq!(FunctionId::CallerMoveStakeV1 as u16, 20);
-        assert_eq!(FunctionId::CallerTransferStakeV1 as u16, 21);
-        assert_eq!(FunctionId::CallerSwapStakeV1 as u16, 22);
-        assert_eq!(FunctionId::CallerAddStakeLimitV1 as u16, 23);
-        assert_eq!(FunctionId::CallerRemoveStakeLimitV1 as u16, 24);
-        assert_eq!(FunctionId::CallerSwapStakeLimitV1 as u16, 25);
-        assert_eq!(FunctionId::CallerRemoveStakeFullLimitV1 as u16, 26);
-        assert_eq!(FunctionId::CallerSetColdkeyAutoStakeHotkeyV1 as u16, 27);
-        assert_eq!(FunctionId::CallerAddProxyV1 as u16, 28);
-        assert_eq!(FunctionId::CallerRemoveProxyV1 as u16, 29);
+        assert_eq!(FunctionId::RecycleAlphaV1 as u16, 16);
+        assert_eq!(FunctionId::BurnAlphaV1 as u16, 17);
+        assert_eq!(FunctionId::AddStakeRecycleV1 as u16, 18);
+        assert_eq!(FunctionId::AddStakeBurnV1 as u16, 19);
+        assert_eq!(FunctionId::CallerAddStakeV1 as u16, 20);
+        assert_eq!(FunctionId::CallerRemoveStakeV1 as u16, 21);
+        assert_eq!(FunctionId::CallerUnstakeAllV1 as u16, 22);
+        assert_eq!(FunctionId::CallerUnstakeAllAlphaV1 as u16, 23);
+        assert_eq!(FunctionId::CallerMoveStakeV1 as u16, 24);
+        assert_eq!(FunctionId::CallerTransferStakeV1 as u16, 25);
+        assert_eq!(FunctionId::CallerSwapStakeV1 as u16, 26);
+        assert_eq!(FunctionId::CallerAddStakeLimitV1 as u16, 27);
+        assert_eq!(FunctionId::CallerRemoveStakeLimitV1 as u16, 28);
+        assert_eq!(FunctionId::CallerSwapStakeLimitV1 as u16, 29);
+        assert_eq!(FunctionId::CallerRemoveStakeFullLimitV1 as u16, 30);
+        assert_eq!(FunctionId::CallerSetColdkeyAutoStakeHotkeyV1 as u16, 31);
+        assert_eq!(FunctionId::CallerAddProxyV1 as u16, 32);
+        assert_eq!(FunctionId::CallerRemoveProxyV1 as u16, 33);
     }
 
     #[test]
     fn caller_ids_roundtrip_try_from_primitive() {
-        for id in 16u16..=29u16 {
+        for id in 16u16..=33u16 {
             let v = FunctionId::try_from_primitive(id)
                 .unwrap_or_else(|_| panic!("try_from_primitive failed for {id}"));
             assert_eq!(v as u16, id);
