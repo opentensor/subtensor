@@ -568,7 +568,7 @@ describe("Test wasm contract", () => {
 
         const removeMessage = inkClient.message("remove_proxy")
         const removeData = removeMessage.encode({
-            delegate: Binary.fromBytes(hotkey2.publicKey),
+            delegate: Binary.fromBytes(hotkey.publicKey),
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData)
 
