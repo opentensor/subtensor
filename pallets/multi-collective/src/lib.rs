@@ -3,7 +3,11 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::EnsureOriginWithArg};
+use frame_support::{
+    dispatch::DispatchResult,
+    pallet_prelude::*,
+    traits::{ChangeMembers, EnsureOriginWithArg},
+};
 use frame_system::pallet_prelude::*;
 use num_traits::ops::checked::CheckedRem;
 pub use pallet::*;
@@ -58,6 +62,12 @@ pub mod pallet {
         type MaxMembers: Get<u32>;
     }
 
+    /// Members of each collective, kept sorted by `AccountId`.
+    ///
+    /// The sorted invariant is maintained by every write path
+    /// (`add_member`, `remove_member`, `swap_member`, `reset_members`) so
+    /// that membership lookups can use `binary_search` and the
+    /// reset-time diff against the previous set is a linear merge.
     #[pallet::storage]
     pub(super) type Members<T: Config> = StorageMap<
         _,
@@ -200,12 +210,15 @@ pub mod pallet {
             let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
             Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
-                ensure!(!members.contains(&who), Error::<T>::AlreadyMember);
+                let pos = members
+                    .binary_search(&who)
+                    .err()
+                    .ok_or(Error::<T>::AlreadyMember)?;
                 if let Some(max) = info.max_members {
                     ensure!(members.len() < max as usize, Error::<T>::TooManyMembers);
                 }
                 members
-                    .try_push(who.clone())
+                    .try_insert(pos, who.clone())
                     .map_err(|_| Error::<T>::TooManyMembers)?;
                 Ok(())
             })?;
@@ -229,12 +242,14 @@ pub mod pallet {
             let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
             Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
-                ensure!(members.contains(&who), Error::<T>::NotMember);
+                let pos = members
+                    .binary_search(&who)
+                    .map_err(|_| Error::<T>::NotMember)?;
                 ensure!(
                     members.len() > info.min_members as usize,
                     Error::<T>::TooFewMembers
                 );
-                members.retain(|m| m != &who);
+                members.remove(pos);
                 Ok(())
             })?;
 
@@ -258,12 +273,22 @@ pub mod pallet {
             T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
             Members::<T>::try_mutate(collective_id, |members| -> DispatchResult {
-                let pos = members
-                    .iter()
-                    .position(|m| m == &remove)
-                    .ok_or(Error::<T>::NotMember)?;
-                ensure!(!members.contains(&add), Error::<T>::AlreadyMember);
-                *members.get_mut(pos).ok_or(Error::<T>::NotMember)? = add.clone();
+                let pos_remove = members
+                    .binary_search(&remove)
+                    .map_err(|_| Error::<T>::NotMember)?;
+                ensure!(
+                    members.binary_search(&add).is_err(),
+                    Error::<T>::AlreadyMember
+                );
+                members.remove(pos_remove);
+                // `add` was absent before the removal, so it is still
+                // absent now; the search must return `Err(idx)`.
+                let pos_add = members
+                    .binary_search(&add)
+                    .expect_err("add was checked absent above");
+                members
+                    .try_insert(pos_add, add.clone())
+                    .map_err(|_| Error::<T>::TooManyMembers)?;
                 Ok(())
             })?;
 
@@ -298,33 +323,29 @@ pub mod pallet {
                 ensure!(members.len() <= max as usize, Error::<T>::TooManyMembers);
             }
 
-            // Check for duplicates
-            let mut sorted = members.clone();
+            // Sort + dedup; the sorted form is what we store, so the
+            // dedup pass and the storage write share the same buffer.
+            let len_before = members.len();
+            let mut sorted = members;
             sorted.sort();
             sorted.dedup();
-            ensure!(sorted.len() == members.len(), Error::<T>::DuplicateAccounts);
+            ensure!(sorted.len() == len_before, Error::<T>::DuplicateAccounts);
 
             let old_members = Members::<T>::get(collective_id);
             let bounded =
-                BoundedVec::try_from(members.clone()).map_err(|_| Error::<T>::TooManyMembers)?;
+                BoundedVec::try_from(sorted.clone()).map_err(|_| Error::<T>::TooManyMembers)?;
             Members::<T>::insert(collective_id, bounded);
 
-            // Compute incoming/outgoing
-            let incoming: Vec<_> = members
-                .iter()
-                .filter(|m| !old_members.contains(m))
-                .cloned()
-                .collect();
-            let outgoing: Vec<_> = old_members
-                .iter()
-                .filter(|m| !members.contains(m))
-                .cloned()
-                .collect();
+            let (incoming, outgoing) =
+                <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(
+                    &sorted,
+                    &old_members,
+                );
 
             T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
             Self::deposit_event(Event::MembersReset {
                 collective_id,
-                members,
+                members: sorted,
             });
             Ok(())
         }
@@ -469,7 +490,7 @@ impl<T: Config> CollectiveInspect<T::AccountId, T::CollectiveId> for Pallet<T> {
         Members::<T>::get(collective_id).to_vec()
     }
     fn is_member(collective_id: T::CollectiveId, who: &T::AccountId) -> bool {
-        Members::<T>::get(collective_id).contains(who)
+        Members::<T>::get(collective_id).binary_search(who).is_ok()
     }
     fn member_count(collective_id: T::CollectiveId) -> u32 {
         Members::<T>::get(collective_id).len() as u32

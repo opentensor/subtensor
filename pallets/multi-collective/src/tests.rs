@@ -424,10 +424,10 @@ fn swap_member_happy_path() {
             dave,
         ));
 
-        // Dave takes bob's slot at index 1 — position preserved.
+        // Members are kept sorted: dave (4) goes after charlie (3).
         assert_eq!(
             MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![alice, dave, charlie]
+            vec![alice, charlie, dave]
         );
         assert!(!MultiCollective::<Test>::is_member(
             CollectiveId::Alpha,
@@ -450,7 +450,7 @@ fn swap_member_happy_path() {
 }
 
 #[test]
-fn swap_member_preserves_position_on_head_and_tail() {
+fn swap_member_keeps_sorted_order() {
     TestState::build_and_execute(|| {
         let a = U256::from(1);
         let b = U256::from(2);
@@ -466,7 +466,7 @@ fn swap_member_preserves_position_on_head_and_tail() {
             ));
         }
 
-        // Swap head slot.
+        // Swap the head member out for an account that sorts to the tail.
         assert_ok!(MultiCollective::<Test>::swap_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -475,10 +475,10 @@ fn swap_member_preserves_position_on_head_and_tail() {
         ));
         assert_eq!(
             MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![x, b, c]
+            vec![b, c, x]
         );
 
-        // Swap tail slot.
+        // Swap the (former) tail member; the new account also sorts to the tail.
         assert_ok!(MultiCollective::<Test>::swap_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -487,7 +487,7 @@ fn swap_member_preserves_position_on_head_and_tail() {
         ));
         assert_eq!(
             MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![x, b, y]
+            vec![b, x, y]
         );
     });
 }
