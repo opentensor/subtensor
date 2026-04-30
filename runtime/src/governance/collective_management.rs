@@ -132,17 +132,17 @@ impl CollectiveManagement {
     }
 
     /// Push a new membership list into multi-collective storage.
-    /// Goes through `reset_members` (rather than direct storage writes)
+    /// Goes through `set_members` (rather than direct storage writes)
     /// so size validation, the `OnMembersChanged` hook (which routes to
     /// `SignedVoting::remove_votes_for`), and the canonical
-    /// `MembersReset` event all fire on every rotation.
+    /// `MembersSet` event all fire on every rotation.
     fn apply_rotation(
         collective_id: GovernanceCollectiveId,
         members: Vec<AccountId>,
         query_weight: Weight,
     ) -> Weight {
         let len = members.len() as u64;
-        let result = pallet_multi_collective::Pallet::<Runtime>::reset_members(
+        let result = pallet_multi_collective::Pallet::<Runtime>::set_members(
             frame_system::RawOrigin::Root.into(),
             collective_id,
             members,
@@ -151,7 +151,7 @@ impl CollectiveManagement {
         if let Err(err) = result {
             log::error!(
                 target: "runtime::collective-management",
-                "reset_members failed for {:?}: {:?}",
+                "set_members failed for {:?}: {:?}",
                 collective_id,
                 err,
             );

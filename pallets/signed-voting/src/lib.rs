@@ -247,7 +247,7 @@ impl<T: Config> Pallet<T> {
     /// Called when a member is rotated out of a collective.
     ///
     /// `total` is intentionally left unchanged: the runtime is expected to
-    /// replace departing voters via `swap_member` or `reset_members`, which
+    /// replace departing voters via `swap_member` or `set_members`, which
     /// preserve voter-set size. The `outgoing`-only iteration in typical
     /// `OnMembersChanged` wiring (e.g. referenda's `VoteCleanup`) has no
     /// symmetric counterpart for incoming members, so decrementing `total`

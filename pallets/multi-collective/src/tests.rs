@@ -690,10 +690,10 @@ fn swap_member_works_at_max_bound() {
     });
 }
 
-// -------- Section 5: reset_members --------
+// -------- Section 5: set_members --------
 
 #[test]
-fn reset_members_replaces_list() {
+fn set_members_replaces_list() {
     TestState::build_and_execute(|| {
         let a = U256::from(1);
         let b = U256::from(2);
@@ -709,7 +709,7 @@ fn reset_members_replaces_list() {
             ));
         }
 
-        assert_ok!(MultiCollective::<Test>::reset_members(
+        assert_ok!(MultiCollective::<Test>::set_members(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
             vec![c, d, e],
@@ -725,7 +725,7 @@ fn reset_members_replaces_list() {
 
         assert_eq!(
             multi_collective_events().last(),
-            Some(&CollectiveEvent::MembersReset {
+            Some(&CollectiveEvent::MembersSet {
                 collective_id: CollectiveId::Alpha,
                 members: vec![c, d, e],
             })
@@ -734,7 +734,7 @@ fn reset_members_replaces_list() {
 }
 
 #[test]
-fn reset_members_handles_overlap() {
+fn set_members_handles_overlap() {
     TestState::build_and_execute(|| {
         let a = U256::from(1);
         let b = U256::from(2);
@@ -751,7 +751,7 @@ fn reset_members_handles_overlap() {
 
         // [b, c, d] overlaps with the old [a, b, c]: b and c stay, a goes out,
         // d comes in. Final storage reflects the new list verbatim.
-        assert_ok!(MultiCollective::<Test>::reset_members(
+        assert_ok!(MultiCollective::<Test>::set_members(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
             vec![b, c, d],
@@ -764,7 +764,7 @@ fn reset_members_handles_overlap() {
 
         assert_eq!(
             multi_collective_events().last(),
-            Some(&CollectiveEvent::MembersReset {
+            Some(&CollectiveEvent::MembersSet {
                 collective_id: CollectiveId::Alpha,
                 members: vec![b, c, d],
             })
@@ -773,10 +773,10 @@ fn reset_members_handles_overlap() {
 }
 
 #[test]
-fn reset_members_requires_origin() {
+fn set_members_requires_origin() {
     TestState::build_and_execute(|| {
         assert_noop!(
-            MultiCollective::<Test>::reset_members(
+            MultiCollective::<Test>::set_members(
                 RuntimeOrigin::signed(U256::from(999)),
                 CollectiveId::Alpha,
                 vec![U256::from(1)],
@@ -790,10 +790,10 @@ fn reset_members_requires_origin() {
 }
 
 #[test]
-fn reset_members_fails_for_unknown_collective() {
+fn set_members_fails_for_unknown_collective() {
     TestState::build_and_execute(|| {
         assert_noop!(
-            MultiCollective::<Test>::reset_members(
+            MultiCollective::<Test>::set_members(
                 RuntimeOrigin::root(),
                 CollectiveId::Unknown,
                 vec![U256::from(1)],
@@ -806,11 +806,11 @@ fn reset_members_fails_for_unknown_collective() {
 }
 
 #[test]
-fn reset_members_rejects_too_few() {
+fn set_members_rejects_too_few() {
     TestState::build_and_execute(|| {
         // Beta declares min_members = 2.
         assert_noop!(
-            MultiCollective::<Test>::reset_members(
+            MultiCollective::<Test>::set_members(
                 RuntimeOrigin::root(),
                 CollectiveId::Beta,
                 vec![U256::from(1)],
@@ -824,12 +824,12 @@ fn reset_members_rejects_too_few() {
 }
 
 #[test]
-fn reset_members_rejects_too_many_via_info() {
+fn set_members_rejects_too_many_via_info() {
     TestState::build_and_execute(|| {
         // Beta declares max_members = Some(3); four accounts is one over.
         let list: Vec<U256> = (1..=4u32).map(U256::from).collect();
         assert_noop!(
-            MultiCollective::<Test>::reset_members(RuntimeOrigin::root(), CollectiveId::Beta, list,),
+            MultiCollective::<Test>::set_members(RuntimeOrigin::root(), CollectiveId::Beta, list,),
             Error::<Test>::TooManyMembers
         );
 
@@ -839,17 +839,13 @@ fn reset_members_rejects_too_many_via_info() {
 }
 
 #[test]
-fn reset_members_rejects_too_many_via_storage() {
+fn set_members_rejects_too_many_via_storage() {
     TestState::build_and_execute(|| {
         // Gamma's info.max_members is None; only T::MaxMembers = 32 applies.
         // 33 accounts exceed the BoundedVec bound, caught by try_from.
         let list: Vec<U256> = (1..=33u32).map(U256::from).collect();
         assert_noop!(
-            MultiCollective::<Test>::reset_members(
-                RuntimeOrigin::root(),
-                CollectiveId::Gamma,
-                list,
-            ),
+            MultiCollective::<Test>::set_members(RuntimeOrigin::root(), CollectiveId::Gamma, list,),
             Error::<Test>::TooManyMembers
         );
 
@@ -858,13 +854,13 @@ fn reset_members_rejects_too_many_via_storage() {
 }
 
 #[test]
-fn reset_members_rejects_duplicates() {
+fn set_members_rejects_duplicates() {
     TestState::build_and_execute(|| {
         let a = U256::from(1);
         let b = U256::from(2);
 
         assert_noop!(
-            MultiCollective::<Test>::reset_members(
+            MultiCollective::<Test>::set_members(
                 RuntimeOrigin::root(),
                 CollectiveId::Alpha,
                 vec![a, b, a],
@@ -877,10 +873,10 @@ fn reset_members_rejects_duplicates() {
 }
 
 /// Reset with a list identical to the current membership still emits a
-/// `MembersReset` event — the pallet doesn't short-circuit no-op resets.
+/// `MembersSet` event — the pallet doesn't short-circuit no-op resets.
 /// Pinned so downstream consumers know they must tolerate empty-diff calls.
 #[test]
-fn reset_members_noop_still_fires_event() {
+fn set_members_noop_still_fires_event() {
     TestState::build_and_execute(|| {
         let a = U256::from(1);
         let b = U256::from(2);
@@ -893,7 +889,7 @@ fn reset_members_noop_still_fires_event() {
             ));
         }
 
-        assert_ok!(MultiCollective::<Test>::reset_members(
+        assert_ok!(MultiCollective::<Test>::set_members(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
             vec![a, b],
@@ -906,7 +902,7 @@ fn reset_members_noop_still_fires_event() {
 
         assert_eq!(
             multi_collective_events().last(),
-            Some(&CollectiveEvent::MembersReset {
+            Some(&CollectiveEvent::MembersSet {
                 collective_id: CollectiveId::Alpha,
                 members: vec![a, b],
             })
@@ -1166,7 +1162,7 @@ fn inspect_member_count_matches_mutations() {
         );
 
         // Reset replaces wholesale — count reflects the new list length.
-        assert_ok!(MultiCollective::<Test>::reset_members(
+        assert_ok!(MultiCollective::<Test>::set_members(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
             vec![a, b, c, d],

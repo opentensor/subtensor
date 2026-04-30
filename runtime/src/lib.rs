@@ -1854,7 +1854,7 @@ impl pallet_multi_collective::Config for Runtime {
     type AddOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
-    type ResetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type SetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type OnMembersChanged = GovernanceVoteCleanup;
     type OnNewTerm = governance::collective_management::CollectiveManagement;
     type MaxMembers = MultiCollectiveMaxMembers;
