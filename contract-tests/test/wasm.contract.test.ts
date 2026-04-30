@@ -539,7 +539,7 @@ describe("Test wasm contract", () => {
         const message = inkClient.message("set_coldkey_auto_stake_hotkey")
         const data = message.encode({
             netuid: netuid,
-            hotkey: Binary.fromBytes(hotkey2.publicKey),
+            hotkey: Binary.fromBytes(hotkey.publicKey),
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
@@ -549,13 +549,13 @@ describe("Test wasm contract", () => {
         )
 
         assert.ok(autoStakeHotkey !== undefined)
-        assert.ok(autoStakeHotkey === convertPublicKeyToSs58(hotkey2.publicKey))
+        assert.ok(autoStakeHotkey === convertPublicKeyToSs58(hotkey.publicKey))
     })
 
     it("Can add and remove proxy", async () => {
         const message = inkClient.message("add_proxy")
         const data = message.encode({
-            delegate: Binary.fromBytes(hotkey2.publicKey),
+            delegate: Binary.fromBytes(hotkey.publicKey),
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         let proxies = await api.query.Proxy.Proxies.getValue(
@@ -563,7 +563,7 @@ describe("Test wasm contract", () => {
         )
         assert.ok(proxies !== undefined)
         assert.ok(proxies.length > 0 && proxies[0].length > 0)
-        assert.ok(proxies[0][0].delegate === convertPublicKeyToSs58(hotkey2.publicKey))
+        assert.ok(proxies[0][0].delegate === convertPublicKeyToSs58(hotkey.publicKey))
 
 
         const removeMessage = inkClient.message("remove_proxy")
