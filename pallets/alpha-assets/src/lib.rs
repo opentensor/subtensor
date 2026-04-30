@@ -299,6 +299,16 @@ pub mod pallet {
     #[pallet::getter(fn total_alpha_issuance)]
     pub type TotalAlphaIssuance<T> =
         StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
+
+    /// Total alpha burned per subnet through this pallet.
+    #[pallet::storage]
+    #[pallet::getter(fn alpha_burned)]
+    pub type AlphaBurned<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
+
+    /// Total alpha recycled per subnet through this pallet.
+    #[pallet::storage]
+    #[pallet::getter(fn alpha_recycled)]
+    pub type AlphaRecycled<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 }
 
 impl<T: pallet::Config> Pallet<T> {
@@ -315,9 +325,15 @@ impl<T: pallet::Config> Pallet<T> {
     pub fn burn_alpha(
         _coldkey: &T::AccountId,
         _hotkey: &T::AccountId,
-        _netuid: NetUid,
+        netuid: NetUid,
         amount: AlphaBalance,
     ) -> AlphaBalance {
+        if !amount.is_zero() {
+            AlphaBurned::<T>::mutate(netuid, |burned| {
+                *burned = (*burned).saturating_add(amount);
+            });
+        }
+
         amount
     }
 
@@ -328,6 +344,9 @@ impl<T: pallet::Config> Pallet<T> {
         amount: AlphaBalance,
     ) -> AlphaBalance {
         if !amount.is_zero() {
+            AlphaRecycled::<T>::mutate(netuid, |recycled| {
+                *recycled = (*recycled).saturating_add(amount);
+            });
             TotalAlphaIssuance::<T>::mutate(netuid, |issuance| {
                 *issuance = (*issuance).saturating_sub(amount);
             });

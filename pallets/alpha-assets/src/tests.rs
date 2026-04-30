@@ -4,7 +4,9 @@ use frame_support::traits::{Imbalance, tokens::imbalance::TryMerge};
 use subtensor_runtime_common::{AlphaBalance, NetUid};
 use subtensor_runtime_common::Token;
 
-use crate::{AlphaAssetsInterface, PositiveAlphaImbalance, TotalAlphaIssuance};
+use crate::{
+    AlphaAssetsInterface, AlphaBurned, AlphaRecycled, PositiveAlphaImbalance, TotalAlphaIssuance,
+};
 
 use super::mock::*;
 
@@ -35,6 +37,7 @@ fn burn_alpha_does_not_change_total_issuance() {
 
         assert_eq!(minted.amount(), 100u64.into());
         assert_eq!(burned, 40u64.into());
+        assert_eq!(AlphaBurned::<Test>::get(netuid), 40u64.into());
         assert_eq!(TotalAlphaIssuance::<Test>::get(netuid), 100u64.into());
     });
 }
@@ -54,9 +57,11 @@ fn recycle_alpha_reduces_total_issuance_saturating_at_zero() {
             30u64.into(),
         );
         assert_eq!(recycled, 30u64.into());
+        assert_eq!(AlphaRecycled::<Test>::get(netuid), 30u64.into());
         assert_eq!(TotalAlphaIssuance::<Test>::get(netuid), 60u64.into());
 
         AlphaAssets::recycle_alpha(&coldkey, &hotkey, netuid, 100u64.into());
+        assert_eq!(AlphaRecycled::<Test>::get(netuid), 130u64.into());
         assert_eq!(TotalAlphaIssuance::<Test>::get(netuid), AlphaBalance::ZERO);
     });
 }
