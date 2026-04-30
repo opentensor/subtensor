@@ -208,12 +208,11 @@ impl<T: Config> Pallet<T> {
             let now = Self::get_current_block_as_u64();
             let rolled = Self::roll_forward_lock(lock, now);
             let new_locked_mass = rolled.locked_mass.saturating_sub(amount);
-            let conviction_diff;
 
             // Remove or update lock
-            if new_locked_mass.is_zero() {
+            let conviction_diff = if new_locked_mass.is_zero() {
                 Lock::<T>::remove((coldkey.clone(), netuid, existing_hotkey.clone()));
-                conviction_diff = rolled.conviction;
+                rolled.conviction
             } else {
                 let removed_proportion = U64F64::saturating_from_num(u64::from(amount))
                     .safe_div(U64F64::saturating_from_num(u64::from(rolled.locked_mass)));
@@ -228,8 +227,8 @@ impl<T: Config> Pallet<T> {
                         last_update: now,
                     },
                 );
-                conviction_diff = rolled.conviction.saturating_sub(new_conviction);
-            }
+                rolled.conviction.saturating_sub(new_conviction)
+            };
 
             // Reduce the total hotkey lock by the rolled locked mass and conviction
             Self::reduce_hotkey_lock(&existing_hotkey, netuid, amount, conviction_diff);
