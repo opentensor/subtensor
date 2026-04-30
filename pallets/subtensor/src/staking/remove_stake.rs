@@ -629,7 +629,7 @@ impl<T: Config> Pallet<T> {
         let balance_after = Self::get_coldkey_balance(&coldkey);
         let tao_received = balance_after.saturating_sub(balance_before);
 
-        let amount_fees = TaoBalance::from(fee_percentage * tao_received.to_u64());
+        let amount_fees = TaoBalance::from(fee_percentage.mul_floor(tao_received.to_u64()));
         if !amount_fees.is_zero() {
             Self::do_transfer_fees(&coldkey, coldkey_fees_tank, amount_fees)?;
         }

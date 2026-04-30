@@ -5311,7 +5311,7 @@ fn test_add_stake_payable_is_ok() {
         let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
         let amount_stake = TaoBalance::from(min_tao_stake);
         let fee_percentage = Permill::from_percent(10);
-        let expected_fee = TaoBalance::from(fee_percentage * amount_stake.to_u64());
+        let expected_fee = TaoBalance::from(fee_percentage.mul_floor(amount_stake.to_u64()));
         let owner_balance_before = amount_stake * 10.into();
         let actor_balance_before = amount_stake * 100.into();
         let app_owner_balance_before = ExistentialDeposit::get();

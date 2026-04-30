@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        let amount_fees = TaoBalance::from(fee_percentage * stake_to_be_added.to_u64());
+        let amount_fees = TaoBalance::from(fee_percentage.mul_floor(stake_to_be_added.to_u64()));
         let stake_after_fees = stake_to_be_added.saturating_sub(amount_fees);
 
         if !amount_fees.is_zero() {
