@@ -30,6 +30,12 @@ struct MockEnv {
     expected_weight: Option<Weight>,
 }
 
+#[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = pallet_subtensor::Pallet::<mock::Test>::mint_tao(tao);
+    let _ = pallet_subtensor::Pallet::<mock::Test>::spend_tao(coldkey, credit, tao).unwrap();
+}
+
 #[test]
 fn set_coldkey_auto_stake_hotkey_success_sets_destination() {
     mock::new_test_ext(1).execute_with(|| {
@@ -1629,7 +1635,7 @@ mod caller_dispatch_tests {
 
             mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-            pallet_subtensor::Pallet::<mock::Test>::add_balance_to_coldkey_account(
+            mock::add_balance_to_coldkey_account(
                 &coldkey,
                 TaoBalance::from(stake_amount_raw + 1_000_000_000),
             );
