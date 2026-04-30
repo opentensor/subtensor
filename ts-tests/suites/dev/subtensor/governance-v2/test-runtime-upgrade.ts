@@ -1,11 +1,15 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { KeyringPair } from "@moonwall/util";
 import type { ApiPromise } from "@polkadot/api";
 import { generateKeyringPair } from "../../../../utils/account";
 
+const UPGRADED_WASM_PATH = path.resolve(process.cwd(), "tmp/upgraded-runtime.wasm");
+
 describeSuite({
-    id: "DEV_SUB_GOVV2_FULLFLOW_01",
-    title: "Governance V2 — full two-phase flow (track 0 + track 1)",
+    id: "DEV_SUB_GOVV2_UPGRADE_01",
+    title: "Governance V2 — runtime upgrade via setCode",
     foundationMethods: "dev",
     testCases: ({ it, context, log }) => {
         let api: ApiPromise;
@@ -19,11 +23,23 @@ describeSuite({
         const economic2 = generateKeyringPair("sr25519");
         const building1 = generateKeyringPair("sr25519");
         const building2 = generateKeyringPair("sr25519");
-        const target = generateKeyringPair("sr25519");
 
         beforeAll(async () => {
             api = context.polkadotJs();
             sudoer = context.keyring.alice;
+
+            if (!fs.existsSync(UPGRADED_WASM_PATH)) {
+                throw new Error(
+                    `Upgraded runtime WASM not found at ${UPGRADED_WASM_PATH}. Run ts-tests/scripts/build-upgrade-runtime.sh first (moonwall should run it automatically via runScripts).`
+                );
+            }
+
+            const minimumPeriod = (api.consts.timestamp.minimumPeriod as unknown as { toNumber(): number }).toNumber();
+            if (minimumPeriod !== 6000) {
+                throw new Error(
+                    `node-subtensor binary appears to be built with --features fast-runtime (timestamp.minimumPeriod=${minimumPeriod}, expected 6000). The upgrade WASM is built without fast-runtime; mixing them bricks block production after setCode. Rebuild the node binary without --features fast-runtime: cargo build --release -p node-subtensor`
+                );
+            }
 
             const fund = 1_000_000_000_000n;
             for (const inner of [
@@ -46,77 +62,63 @@ describeSuite({
             ]) {
                 await context.createBlock([await api.tx.sudo.sudo(inner).signAsync(sudoer)]);
             }
-            const economic = await api.query.multiCollective.members("Economic");
-            const building = await api.query.multiCollective.members("Building");
-            log(`Economic: ${economic.toJSON()}`);
-            log(`Building: ${building.toJSON()}`);
-            expect(economic.toJSON()).to.have.length(2);
-            expect(building.toJSON()).to.have.length(2);
         });
 
         it({
             id: "T01",
-            title: "proposer submits; triumvirate delegates; collective fast-tracks; balance changes",
+            title: "setCode passes governance and bumps specVersion",
             test: async () => {
-                const targetAmount = 2_000_000_000n;
+                const wasmBytes = fs.readFileSync(UPGRADED_WASM_PATH);
+                const wasmHex = `0x${wasmBytes.toString("hex")}`;
+                log(`upgraded runtime size: ${wasmBytes.length} bytes`);
+
+                const versionBefore = await api.rpc.state.getRuntimeVersion();
+                const specBefore = versionBefore.specVersion.toNumber();
+                log(`specVersion before: ${specBefore}`);
+
+                const setCodePayload = api.tx.system.setCode(wasmHex);
+
                 const countBefore = (await api.query.referenda.referendumCount()).toNumber();
 
-                const payload = api.tx.balances.forceSetBalance(target.address, targetAmount);
-
-                await context.createBlock([await api.tx.referenda.submit(0, payload).signAsync(proposer)]);
+                await context.createBlock([await api.tx.referenda.submit(0, setCodePayload).signAsync(proposer)]);
                 const outerPoll = countBefore;
 
-                // Triumvirate reaches 2/3 aye.
                 await context.createBlock([await api.tx.signedVoting.vote(outerPoll, true).signAsync(triumvirate1)]);
                 await context.createBlock([await api.tx.signedVoting.vote(outerPoll, true).signAsync(triumvirate2)]);
 
-                // The 2nd vote schedules a `nudge` for the next block, so need to create 1 block
                 await context.createBlock([]);
 
-                const approveEvents = await api.query.system.events();
-                const delegated = approveEvents.find(
+                const delegatedEvent = (await api.query.system.events()).find(
                     (e) => e.event.section === "referenda" && e.event.method === "Delegated"
                 );
-                expect(delegated, "Delegated").to.exist;
-
-                const delegatedData = delegated?.event.data as unknown as {
-                    review: any;
-                    track: any;
-                };
-                expect(delegatedData.track.toString()).to.equal("1");
-
+                expect(delegatedEvent, "outer Delegated").to.exist;
                 const innerPoll = outerPoll + 1;
-                expect(delegatedData.review.toString()).to.equal(innerPoll.toString());
 
-                const innerStatus = await api.query.referenda.referendumStatusFor(innerPoll);
-                expect(innerStatus.isSome, "inner poll stored").to.be.true;
-                expect(innerStatus.toJSON()).to.have.property("ongoing");
-
-                // Track 1 voter_set = Union(Economic, Building) → 4 voters total.
-                // 3 ayes (3/4 = 75% ≥ 67% fast_track threshold) is enough.
                 await context.createBlock([await api.tx.signedVoting.vote(innerPoll, true).signAsync(economic1)]);
                 await context.createBlock([await api.tx.signedVoting.vote(innerPoll, true).signAsync(economic2)]);
                 await context.createBlock([await api.tx.signedVoting.vote(innerPoll, true).signAsync(building1)]);
 
-                // Same nudge pattern: 3rd vote schedules nudge → next block fast-tracks.
                 await context.createBlock([]);
 
-                const fastTrackEvents = await api.query.system.events();
-                const fastTracked = fastTrackEvents.find(
+                const fastTracked = (await api.query.system.events()).find(
                     (e) => e.event.section === "referenda" && e.event.method === "FastTracked"
                 );
                 expect(fastTracked, "inner FastTracked").to.exist;
 
                 await context.createBlock([]);
 
-                const finalEvents = await api.query.system.events();
-                const dispatched = finalEvents.find(
-                    (e) => e.event.section === "scheduler" && e.event.method === "Dispatched"
+                const enactmentEvents = await api.query.system.events();
+                const codeUpdated = enactmentEvents.find(
+                    (e) => e.event.section === "system" && e.event.method === "CodeUpdated"
                 );
-                expect(dispatched, "scheduler.Dispatched").to.exist;
+                expect(codeUpdated, "system.CodeUpdated").to.exist;
 
-                const targetFinal = (await api.query.system.account(target.address)).data.free.toBigInt();
-                expect(targetFinal).to.equal(targetAmount);
+                await context.createBlock([]);
+
+                const versionAfter = await api.rpc.state.getRuntimeVersion();
+                const specAfter = versionAfter.specVersion.toNumber();
+                log(`specVersion after: ${specAfter}`);
+                expect(specAfter).to.equal(specBefore + 1);
             },
         });
     },
