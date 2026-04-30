@@ -47,8 +47,9 @@ impl<I: Copy> OnPollCreated<I> for Tuple {
     }
 
     fn weight() -> Weight {
+        #[allow(clippy::let_and_return)]
         let mut weight = Weight::zero();
-        for_tuples!( #( weight = weight.saturating_add(Tuple::weight()); )* );
+        for_tuples!( #( weight.saturating_accrue(Tuple::weight()); )* );
         weight
     }
 }
@@ -60,8 +61,9 @@ impl<I: Copy> OnPollCompleted<I> for Tuple {
     }
 
     fn weight() -> Weight {
+        #[allow(clippy::let_and_return)]
         let mut weight = Weight::zero();
-        for_tuples!( #( weight = weight.saturating_add(Tuple::weight()); )* );
+        for_tuples!( #( weight.saturating_accrue(Tuple::weight()); )* );
         weight
     }
 }

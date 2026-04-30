@@ -8,8 +8,7 @@
 //! (approve-with-`Review`): the parent fires `OnPollCompleted`, the child
 //! fires `OnPollCreated`, and two scheduler operations run. Every other
 //! branch is strictly cheaper, so a single figure soundly bounds them all.
-
-#![cfg(feature = "runtime-benchmarks")]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use super::*;
 use alloc::boxed::Box;
