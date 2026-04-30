@@ -16,8 +16,6 @@ use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
-use mock::*;
-
 type AccountId = <mock::Test as frame_system::Config>::AccountId;
 
 #[derive(Clone)]
