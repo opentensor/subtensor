@@ -100,15 +100,24 @@ impl subtensor_runtime_common::SetLike<U256> for MemberSet {
                 U256,
                 CollectiveId,
             >>::member_count(*id),
-            MemberSet::Union(ids) => ids
-                .iter()
-                .map(|id| {
-                    <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
-                        U256,
-                        CollectiveId,
-                    >>::member_count(*id)
-                })
-                .sum(),
+            // Mirrors the production `GovernanceMemberSet` impl: members can
+            // overlap across collectives but a dual member can only vote
+            // once. Sum-of-`member_count` would inflate `total` and bias
+            // thresholds upward; dedup so `len()` is the true cardinality.
+            MemberSet::Union(ids) => {
+                let mut accounts: Vec<U256> = Vec::new();
+                for id in ids {
+                    accounts.extend(
+                        <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                            U256,
+                            CollectiveId,
+                        >>::members_of(*id),
+                    );
+                }
+                accounts.sort();
+                accounts.dedup();
+                accounts.len() as u32
+            }
         }
     }
 }

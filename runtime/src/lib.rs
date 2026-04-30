@@ -1736,15 +1736,27 @@ impl SetLike<AccountId> for GovernanceMemberSet {
                 AccountId,
                 GovernanceCollectiveId,
             >>::member_count(*id),
-            Self::Union(ids) => ids
-                .iter()
-                .map(|id| {
-                    <MultiCollective as McCollectiveInspect<
+            // Union members can overlap (a coldkey may be both a top
+            // validator on Economic and a top subnet owner on Building).
+            // A naive sum of `member_count` inflates the denominator that
+            // signed-voting captures as `total` at poll creation; dual
+            // members count twice in `total` but can vote at most once,
+            // biasing both `fast_track_threshold` and `cancel_threshold`
+            // upward in proportion to the overlap. Deduplicate so `len()`
+            // returns the true cardinality of accounts satisfying
+            // `contains`.
+            Self::Union(ids) => {
+                let mut accounts: Vec<AccountId> = Vec::new();
+                for id in ids {
+                    accounts.extend(<MultiCollective as McCollectiveInspect<
                         AccountId,
                         GovernanceCollectiveId,
-                    >>::member_count(*id)
-                })
-                .sum(),
+                    >>::members_of(*id));
+                }
+                accounts.sort();
+                accounts.dedup();
+                accounts.len() as u32
+            }
         }
     }
 }
