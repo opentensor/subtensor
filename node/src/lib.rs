@@ -5,5 +5,6 @@ pub mod clone_spec;
 pub mod conditional_evm_block_import;
 pub mod consensus;
 pub mod ethereum;
+pub mod mev_shield_ibe;
 pub mod rpc;
 pub mod service;

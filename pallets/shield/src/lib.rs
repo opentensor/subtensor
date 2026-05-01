@@ -3,11 +3,13 @@
 
 extern crate alloc;
 
-use alloc::vec;
+use alloc::{collections::BTreeMap, vec, vec::Vec};
+
 use chacha20poly1305::{
-    KeyInit, XChaCha20Poly1305, XNonce,
     aead::{Aead, Payload},
+    KeyInit, XChaCha20Poly1305, XNonce,
 };
+use codec::{Decode, Encode};
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::*,
@@ -15,12 +17,23 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 use ml_kem::{
-    Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
     kem::{Decapsulate, DecapsulationKey},
+    Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
 };
 use sp_io::hashing::twox_128;
-use sp_runtime::traits::{Applyable, Block as BlockT, Checkable, Hash};
-use sp_runtime::traits::{Dispatchable, Saturating};
+use sp_runtime::{
+    traits::{
+        Applyable, Block as BlockT, Checkable, Dispatchable, Hash, SaturatedConversion, Saturating,
+        Zero,
+    },
+    transaction_validity::{
+        InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
+    },
+};
+use stp_mev_shield_ibe::{
+    block_key_storage_key, IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1, IbeEpochPublicKey,
+    IbePendingIdentity, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
+};
 use stp_shield::{
     INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
     ShieldedTransaction,
@@ -43,6 +56,7 @@ mod tests;
 
 mod extension;
 mod migrations;
+
 pub use extension::CheckShieldedTxValidity;
 
 type MigrationKeyMaxLen = ConstU32<128>;
@@ -74,6 +88,72 @@ impl<RuntimeCall> ExtrinsicDecryptor<RuntimeCall> for () {
     }
 }
 
+pub enum IbeDecryptOutcome<InnerExtrinsic> {
+    NotReady,
+    InvalidAfterKeyAvailable,
+    Ready(InnerExtrinsic),
+}
+
+pub trait IbeEncryptedTxDecryptor<InnerExtrinsic> {
+    fn decrypt(data: &[u8]) -> IbeDecryptOutcome<InnerExtrinsic>;
+}
+
+impl<InnerExtrinsic> IbeEncryptedTxDecryptor<InnerExtrinsic> for () {
+    fn decrypt(_data: &[u8]) -> IbeDecryptOutcome<InnerExtrinsic> {
+        IbeDecryptOutcome::InvalidAfterKeyAvailable
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct IbeAppliedExtrinsic {
+    pub consumed_weight: Weight,
+    pub success: bool,
+}
+
+pub trait DecryptedExtrinsicExecutor<InnerExtrinsic> {
+    fn dispatch_info(inner: &InnerExtrinsic) -> Option<frame_support::dispatch::DispatchInfo>;
+
+    fn apply(inner: InnerExtrinsic) -> IbeAppliedExtrinsic;
+}
+
+impl<InnerExtrinsic> DecryptedExtrinsicExecutor<InnerExtrinsic> for () {
+    fn dispatch_info(_inner: &InnerExtrinsic) -> Option<frame_support::dispatch::DispatchInfo> {
+        None
+    }
+
+    fn apply(_inner: InnerExtrinsic) -> IbeAppliedExtrinsic {
+        IbeAppliedExtrinsic {
+            consumed_weight: Weight::zero(),
+            success: false,
+        }
+    }
+}
+
+pub trait IbeKeyVerifier<HashT> {
+    fn verify_block_identity_key(
+        genesis_hash: HashT,
+        epoch_key: &IbeEpochPublicKey,
+        target_block: u64,
+        identity_decryption_key: &[u8],
+    ) -> bool;
+}
+
+impl<HashT> IbeKeyVerifier<HashT> for () {
+    fn verify_block_identity_key(
+        _genesis_hash: HashT,
+        _epoch_key: &IbeEpochPublicKey,
+        _target_block: u64,
+        _identity_decryption_key: &[u8],
+    ) -> bool {
+        false
+    }
+}
+
+enum PendingProcess {
+    Continue(Weight),
+    Break(Weight),
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -93,7 +173,19 @@ pub mod pallet {
             + GetDispatchInfo;
 
         /// Decryptor for stored extrinsics.
-        type ExtrinsicDecryptor: ExtrinsicDecryptor<<Self as pallet::Config>::RuntimeCall>;
+        type ExtrinsicDecryptor: ExtrinsicDecryptor<<Self as Config>::RuntimeCall>;
+
+        /// Signed inner extrinsic decrypted by MEVShield v2 threshold IBE.
+        type InnerExtrinsic: Parameter + Encode + Decode;
+
+        /// Decryptor for MEVShield v2 threshold-IBE envelopes.
+        type IbeEncryptedTxDecryptor: IbeEncryptedTxDecryptor<Self::InnerExtrinsic>;
+
+        /// Applies decrypted signed inner extrinsics.
+        type DecryptedExtrinsicExecutor: DecryptedExtrinsicExecutor<Self::InnerExtrinsic>;
+
+        /// Verifies a reconstructed IBE block identity key against the epoch master public key.
+        type IbeKeyVerifier: IbeKeyVerifier<Self::Hash>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
@@ -183,8 +275,10 @@ pub mod pallet {
     pub struct PendingExtrinsic<T: Config> {
         /// The account that submitted the extrinsic.
         pub who: T::AccountId,
-        /// The encoded call data.
+
+        /// The encoded encrypted envelope/call data.
         pub encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+
         /// The block number when the extrinsic was submitted.
         pub submitted_at: BlockNumberFor<T>,
     }
@@ -198,6 +292,21 @@ pub mod pallet {
     /// Next index to use when inserting a pending extrinsic (unique auto-increment).
     #[pallet::storage]
     pub type NextPendingExtrinsicIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// MEVShield v2 threshold-IBE epoch master public keys.
+    #[pallet::storage]
+    pub type IbeEpochKeys<T: Config> =
+        StorageMap<_, Twox64Concat, u64, IbeEpochPublicKey, OptionQuery>;
+
+    /// Published/reconstructed MEVShield v2 block identity decryption keys.
+    #[pallet::storage]
+    pub type IbeBlockDecryptionKeys<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        (u64, u64, [u8; KEY_ID_LEN]),
+        IbeBlockDecryptionKeyV1,
+        OptionQuery,
+    >;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -214,7 +323,7 @@ pub mod pallet {
         ExtrinsicDispatched { index: u32 },
         /// Extrinsic expired (exceeded max block lifetime).
         ExtrinsicExpired { index: u32 },
-        /// Extrinsic postponed due to weight limit.
+        /// Extrinsic postponed due to missing key or weight limit.
         ExtrinsicPostponed { index: u32 },
         /// Maximum pending extrinsics limit was updated.
         MaxPendingExtrinsicsNumberSet { value: u32 },
@@ -226,11 +335,35 @@ pub mod pallet {
         MaxExtrinsicWeightSet { value: u64 },
         /// Extrinsic exceeded the per-extrinsic weight limit and was removed.
         ExtrinsicWeightExceeded { index: u32 },
+        /// MEVShield v2 IBE encrypted extrinsic accepted into the pending queue.
+        IbeEncryptedSubmitted {
+            index: u32,
+            who: T::AccountId,
+            epoch: u64,
+            target_block: u64,
+            key_id: [u8; KEY_ID_LEN],
+            commitment: sp_core::H256,
+        },
+        /// MEVShield v2 IBE epoch master public key was set.
+        IbeEpochPublicKeySet {
+            epoch: u64,
+            key_id: [u8; KEY_ID_LEN],
+        },
+        /// MEVShield v2 block identity decryption key was submitted.
+        IbeBlockDecryptionKeySubmitted {
+            epoch: u64,
+            target_block: u64,
+            key_id: [u8; KEY_ID_LEN],
+        },
+        /// MEVShield v2 encrypted extrinsic was invalid after the block key became available.
+        IbeEncryptedExtrinsicInvalid { index: u32 },
+        /// MEVShield v2 encrypted extrinsic consumed its canonical queue position.
+        IbeEncryptedExtrinsicExecuted { index: u32, success: bool },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// The announced ML‑KEM encapsulation key length is invalid.
+        /// The announced ML-KEM encapsulation key length is invalid.
         BadEncKeyLen,
         /// Unreachable.
         Unreachable,
@@ -238,6 +371,20 @@ pub mod pallet {
         TooManyPendingExtrinsics,
         /// Weight exceeds the absolute maximum (half of total block weight).
         WeightExceedsAbsoluteMax,
+        /// Invalid MEVShield v2 IBE envelope.
+        BadIbeEnvelope,
+        /// Unknown MEVShield v2 IBE epoch.
+        UnknownIbeEpoch,
+        /// IBE key id does not match the epoch key.
+        WrongIbeEpochKey,
+        /// The encrypted target block is stale.
+        StaleEncryptedTarget,
+        /// The IBE block identity key has already been published.
+        IbeKeyAlreadyPublished,
+        /// IBE block identity key was submitted before its target block.
+        IbeKeyTooEarly,
+        /// Invalid IBE block identity decryption key.
+        InvalidIbeBlockDecryptionKey,
     }
 
     #[pallet::hooks]
@@ -265,10 +412,10 @@ pub mod pallet {
         /// which removes the author from future shielded tx eligibility.
         ///
         /// Key rotation order (using pre-update AuthorKeys):
-        ///   1. CurrentKey  ← PendingKey
-        ///   2. PendingKey  ← NextKey
-        ///   3. NextKey     ← next-next author's key  (user-facing)
-        ///   4. AuthorKeys[current] ← announced key
+        /// 1. CurrentKey ← PendingKey
+        /// 2. PendingKey ← NextKey
+        /// 3. NextKey ← next-next author's key (user-facing)
+        /// 4. AuthorKeys[current] ← announced key
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::announce_next_key())]
         pub fn announce_next_key(
@@ -331,33 +478,24 @@ pub mod pallet {
 
         /// Users submit an encrypted wrapper.
         ///
-        /// Client‑side:
+        /// v1:
+        /// ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
         ///
-        ///   1. Read `NextKey` (ML‑KEM encapsulation key bytes) from storage.
-        ///   2. Sign your extrinsic so that it can be executed when added to the pool,
-        ///        i.e. you may need to increment the nonce if you submit using the same account.
-        ///   3. Encrypt:
-        ///
-        ///        plaintext = signed_extrinsic
-        ///        key_hash = xxhash128(NextKey)
-        ///        kem_len = Length of kem_ct in bytes (u16)
-        ///        kem_ct = Ciphertext from ML‑KEM‑768
-        ///        nonce = Random 24 bytes used for XChaCha20‑Poly1305
-        ///        aead_ct = Ciphertext from XChaCha20‑Poly1305
-        ///
-        ///      with ML‑KEM‑768 + XChaCha20‑Poly1305, producing
-        ///
-        ///        ciphertext = key_hash || kem_len || kem_ct || nonce || aead_ct
-        ///
+        /// v2:
+        /// ciphertext is SCALE(IbeEncryptedExtrinsicV1), prefixed with the v2 magic.
         #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::submit_encrypted())]
         pub fn submit_encrypted(
             origin: OriginFor<T>,
-            ciphertext: BoundedVec<u8, ConstU32<8192>>,
+            ciphertext: BoundedVec<u8, MaxEncryptedCallSize>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            let id: T::Hash = T::Hashing::hash_of(&(who.clone(), &ciphertext));
 
+            if IbeEncryptedExtrinsicV1::is_v2_prefixed(ciphertext.as_slice()) {
+                return Self::submit_encrypted_v2_inner(who, ciphertext);
+            }
+
+            let id: T::Hash = T::Hashing::hash_of(&(who.clone(), &ciphertext));
             Self::deposit_event(Event::EncryptedSubmitted { id, who });
             Ok(())
         }
@@ -370,24 +508,7 @@ pub mod pallet {
             encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-
-            ensure!(
-                PendingExtrinsics::<T>::count() < MaxPendingExtrinsicsLimit::<T>::get(),
-                Error::<T>::TooManyPendingExtrinsics
-            );
-
-            let index = NextPendingExtrinsicIndex::<T>::get();
-            let pending = PendingExtrinsic {
-                who: who.clone(),
-                encrypted_call,
-                submitted_at: frame_system::Pallet::<T>::block_number(),
-            };
-            PendingExtrinsics::<T>::insert(index, pending);
-
-            NextPendingExtrinsicIndex::<T>::put(index.saturating_add(1));
-
-            Self::deposit_event(Event::ExtrinsicStored { index, who });
-            Ok(())
+            Self::store_encrypted_inner(who, encrypted_call)
         }
 
         /// Set the maximum number of pending extrinsics allowed in the queue.
@@ -453,6 +574,91 @@ pub mod pallet {
             Self::deposit_event(Event::MaxExtrinsicWeightSet { value });
             Ok(())
         }
+
+        /// Set a MEVShield v2 IBE epoch public key.
+        ///
+        /// In production this should be called by the DKG output pipeline or governance/root
+        /// after epoch-ahead DKG completes.
+        #[pallet::call_index(7)]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
+        pub fn set_ibe_epoch_public_key(
+            origin: OriginFor<T>,
+            epoch_key: IbeEpochPublicKey,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            IbeEpochKeys::<T>::insert(epoch_key.epoch, epoch_key.clone());
+
+            Self::deposit_event(Event::IbeEpochPublicKeySet {
+                epoch: epoch_key.epoch,
+                key_id: epoch_key.key_id,
+            });
+
+            Ok(())
+        }
+
+        /// Submit a reconstructed MEVShield v2 block identity decryption key.
+        ///
+        /// This accepts either:
+        /// - signed origin, for manual/operator submission;
+        /// - unsigned origin, for local node submission produced by the v2 share pool.
+        ///
+        /// Unsigned transaction-pool validity is provided by `ValidateUnsigned` below.
+        #[pallet::call_index(8)]
+        #[pallet::weight(T::WeightInfo::submit_encrypted())]
+        pub fn submit_block_decryption_key(
+            origin: OriginFor<T>,
+            key: IbeBlockDecryptionKeyV1,
+        ) -> DispatchResult {
+            if ensure_signed(origin.clone()).is_err() {
+                ensure_none(origin)?;
+            }
+
+            Self::validate_ibe_block_decryption_key_for_submission(&key)?;
+
+            IbeBlockDecryptionKeys::<T>::insert(
+                block_key_storage_key(key.epoch, key.target_block, key.key_id),
+                key.clone(),
+            );
+
+            Self::deposit_event(Event::IbeBlockDecryptionKeySubmitted {
+                epoch: key.epoch,
+                target_block: key.target_block,
+                key_id: key.key_id,
+            });
+
+            Ok(())
+        }
+    }
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+
+        fn validate_unsigned(
+            _source: TransactionSource,
+            call: &Self::Call,
+        ) -> TransactionValidity {
+            let Call::submit_block_decryption_key { key } = call else {
+                return InvalidTransaction::Call.into();
+            };
+
+            if Self::validate_ibe_block_decryption_key_for_submission(key).is_err() {
+                return InvalidTransaction::BadProof.into();
+            }
+
+            ValidTransaction::with_tag_prefix("MevShieldIbeBlockKey")
+                .priority(1_000_000)
+                .and_provides((
+                    b"mev-shield-ibe-block-key".as_slice(),
+                    key.epoch,
+                    key.target_block,
+                    key.key_id,
+                ))
+                .longevity(64)
+                .propagate(true)
+                .build()
+        }
     }
 
     #[pallet::inherent]
@@ -469,6 +675,7 @@ pub mod pallet {
                     |e| log::debug!(target: LOG_TARGET, "Failed to get shielded enc key inherent data: {:?}", e),
                 )
                 .ok()??;
+
             Some(Call::announce_next_key { enc_key })
         }
 
@@ -479,12 +686,160 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    fn submit_encrypted_v2_inner(
+        who: T::AccountId,
+        encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+    ) -> DispatchResult {
+        let envelope = IbeEncryptedExtrinsicV1::decode_v2(encrypted_call.as_slice())
+            .map_err(|_| Error::<T>::BadIbeEnvelope)?;
+
+        Self::validate_v2_envelope_for_submission(&envelope)?;
+
+        let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
+
+        Self::deposit_event(Event::IbeEncryptedSubmitted {
+            index,
+            who,
+            epoch: envelope.epoch,
+            target_block: envelope.target_block,
+            key_id: envelope.key_id,
+            commitment: envelope.commitment,
+        });
+
+        Ok(())
+    }
+
+    fn store_encrypted_inner(
+        who: T::AccountId,
+        encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+    ) -> DispatchResult {
+        if IbeEncryptedExtrinsicV1::is_v2_prefixed(encrypted_call.as_slice()) {
+            let envelope = IbeEncryptedExtrinsicV1::decode_v2(encrypted_call.as_slice())
+                .map_err(|_| Error::<T>::BadIbeEnvelope)?;
+
+            Self::validate_v2_envelope_for_submission(&envelope)?;
+        }
+
+        let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
+
+        Self::deposit_event(Event::ExtrinsicStored { index, who });
+
+        Ok(())
+    }
+
+    fn validate_v2_envelope_for_submission(envelope: &IbeEncryptedExtrinsicV1) -> DispatchResult {
+        ensure!(
+            envelope.version == MEV_SHIELD_IBE_VERSION,
+            Error::<T>::BadIbeEnvelope
+        );
+
+        let current_block_u64: u64 =
+            frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+
+        ensure!(
+            envelope.target_block > current_block_u64,
+            Error::<T>::StaleEncryptedTarget
+        );
+
+        let epoch_key =
+            IbeEpochKeys::<T>::get(envelope.epoch).ok_or(Error::<T>::UnknownIbeEpoch)?;
+
+        ensure!(
+            epoch_key.key_id == envelope.key_id,
+            Error::<T>::WrongIbeEpochKey
+        );
+
+        ensure!(
+            IbeBlockDecryptionKeys::<T>::get(block_key_storage_key(
+                envelope.epoch,
+                envelope.target_block,
+                envelope.key_id,
+            ))
+            .is_none(),
+            Error::<T>::IbeKeyAlreadyPublished
+        );
+
+        Ok(())
+    }
+
+    pub fn validate_ibe_block_decryption_key_for_submission(
+        key: &IbeBlockDecryptionKeyV1,
+    ) -> DispatchResult {
+        ensure!(
+            key.version == MEV_SHIELD_IBE_VERSION,
+            Error::<T>::InvalidIbeBlockDecryptionKey
+        );
+
+        let epoch_key =
+            IbeEpochKeys::<T>::get(key.epoch).ok_or(Error::<T>::UnknownIbeEpoch)?;
+
+        ensure!(epoch_key.key_id == key.key_id, Error::<T>::WrongIbeEpochKey);
+
+        let current_block_u64: u64 =
+            frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+
+        ensure!(
+            current_block_u64 >= key.target_block,
+            Error::<T>::IbeKeyTooEarly
+        );
+
+        ensure!(
+            IbeBlockDecryptionKeys::<T>::get(block_key_storage_key(
+                key.epoch,
+                key.target_block,
+                key.key_id,
+            ))
+            .is_none(),
+            Error::<T>::IbeKeyAlreadyPublished
+        );
+
+        let genesis_hash =
+            frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
+
+        ensure!(
+            T::IbeKeyVerifier::verify_block_identity_key(
+                genesis_hash,
+                &epoch_key,
+                key.target_block,
+                key.identity_decryption_key.as_slice(),
+            ),
+            Error::<T>::InvalidIbeBlockDecryptionKey
+        );
+
+        Ok(())
+    }
+
+    fn store_pending_encrypted(
+        who: T::AccountId,
+        encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
+    ) -> Result<u32, DispatchError> {
+        let pending_count: u32 = PendingExtrinsics::<T>::count();
+        let max_pending: u32 = MaxPendingExtrinsicsLimit::<T>::get();
+
+        ensure!(
+            pending_count < max_pending,
+            Error::<T>::TooManyPendingExtrinsics
+        );
+
+        let index = NextPendingExtrinsicIndex::<T>::get();
+
+        let pending = PendingExtrinsic::<T> {
+            who,
+            encrypted_call,
+            submitted_at: frame_system::Pallet::<T>::block_number(),
+        };
+
+        PendingExtrinsics::<T>::insert(index, pending);
+        NextPendingExtrinsicIndex::<T>::put(index.saturating_add(1));
+
+        Ok(index)
+    }
+
     /// Process pending encrypted extrinsics up to the weight limit.
     /// Returns the total weight consumed.
     pub fn process_pending_extrinsics() -> Weight {
         let next_index = NextPendingExtrinsicIndex::<T>::get();
-        let count = PendingExtrinsics::<T>::count();
-
+        let count: u32 = PendingExtrinsics::<T>::count();
         let mut weight = T::DbWeight::get().reads(2);
 
         if count == 0 {
@@ -494,43 +849,50 @@ impl<T: Config> Pallet<T> {
         let start_index = next_index.saturating_sub(count);
         let current_block = frame_system::Pallet::<T>::block_number();
 
-        // Process extrinsics
         for index in start_index..next_index {
             let Some(pending) = PendingExtrinsics::<T>::get(index) else {
                 weight = weight.saturating_add(T::DbWeight::get().reads(1));
-
                 continue;
             };
 
             let remove_weight = T::DbWeight::get().reads_writes(1, 2);
 
-            // Check if the extrinsic has expired
+            if IbeEncryptedExtrinsicV1::is_v2_prefixed(pending.encrypted_call.as_slice()) {
+                match Self::process_pending_ibe_extrinsic(index, pending, weight, remove_weight) {
+                    PendingProcess::Continue(new_weight) => {
+                        weight = new_weight;
+                        continue;
+                    }
+                    PendingProcess::Break(new_weight) => {
+                        weight = new_weight;
+                        break;
+                    }
+                }
+            }
+
+            // Legacy/non-v2 deferred RuntimeCall queue behavior.
+            // v2 entries do not expire here; missing keys postpone the queue head.
             let age = current_block.saturating_sub(pending.submitted_at);
+
             if age > ExtrinsicLifetime::<T>::get().into() {
                 PendingExtrinsics::<T>::remove(index);
                 weight = weight.saturating_add(remove_weight);
-
                 Self::deposit_event(Event::ExtrinsicExpired { index });
-
                 continue;
             }
 
-            let Ok(call) = T::ExtrinsicDecryptor::decrypt(&pending.encrypted_call) else {
+            let Ok(call) = T::ExtrinsicDecryptor::decrypt(pending.encrypted_call.as_slice()) else {
                 PendingExtrinsics::<T>::remove(index);
                 weight = weight.saturating_add(remove_weight);
-
                 Self::deposit_event(Event::ExtrinsicDecodeFailed { index });
-
                 continue;
             };
 
-            // Check if dispatching would exceed weight limit
             let info = call.get_dispatch_info();
             let dispatch_weight = T::DbWeight::get()
                 .writes(2)
                 .saturating_add(info.call_weight);
 
-            // Check per-extrinsic weight limit
             let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
             if info.call_weight.any_gt(max_extrinsic_weight) {
                 PendingExtrinsics::<T>::remove(index);
@@ -548,11 +910,9 @@ impl<T: Config> Pallet<T> {
                 break;
             }
 
-            // We're going to execute it - remove the item from storage
             PendingExtrinsics::<T>::remove(index);
             weight = weight.saturating_add(remove_weight);
 
-            // Dispatch the extrinsic
             let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(pending.who).into();
             let result = call.dispatch(origin);
 
@@ -577,6 +937,143 @@ impl<T: Config> Pallet<T> {
         weight
     }
 
+    fn process_pending_ibe_extrinsic(
+        index: u32,
+        pending: PendingExtrinsic<T>,
+        mut weight: Weight,
+        remove_weight: Weight,
+    ) -> PendingProcess {
+        let outcome = T::IbeEncryptedTxDecryptor::decrypt(pending.encrypted_call.as_slice());
+
+        let inner = match outcome {
+            IbeDecryptOutcome::NotReady => {
+                Self::deposit_event(Event::ExtrinsicPostponed { index });
+                return PendingProcess::Break(weight);
+            }
+            IbeDecryptOutcome::InvalidAfterKeyAvailable => {
+                PendingExtrinsics::<T>::remove(index);
+                weight = weight.saturating_add(remove_weight);
+
+                Self::deposit_event(Event::IbeEncryptedExtrinsicInvalid { index });
+                return PendingProcess::Continue(weight);
+            }
+            IbeDecryptOutcome::Ready(inner) => inner,
+        };
+
+        let Some(info) = T::DecryptedExtrinsicExecutor::dispatch_info(&inner) else {
+            PendingExtrinsics::<T>::remove(index);
+            weight = weight.saturating_add(remove_weight);
+
+            Self::deposit_event(Event::IbeEncryptedExtrinsicInvalid { index });
+            return PendingProcess::Continue(weight);
+        };
+
+        let dispatch_weight = T::DbWeight::get()
+            .writes(2)
+            .saturating_add(info.call_weight);
+
+        let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
+
+        if info.call_weight.any_gt(max_extrinsic_weight) {
+            PendingExtrinsics::<T>::remove(index);
+            weight = weight.saturating_add(remove_weight);
+
+            Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
+            Self::deposit_event(Event::IbeEncryptedExtrinsicExecuted {
+                index,
+                success: false,
+            });
+
+            return PendingProcess::Continue(weight);
+        }
+
+        let max_weight = Weight::from_parts(OnInitializeWeight::<T>::get(), 0);
+
+        if weight.saturating_add(dispatch_weight).any_gt(max_weight) {
+            Self::deposit_event(Event::ExtrinsicPostponed { index });
+            return PendingProcess::Break(weight);
+        }
+
+        PendingExtrinsics::<T>::remove(index);
+        weight = weight.saturating_add(remove_weight);
+
+        let applied = T::DecryptedExtrinsicExecutor::apply(inner);
+
+        weight = weight.saturating_add(applied.consumed_weight);
+
+        Self::deposit_event(Event::IbeEncryptedExtrinsicExecuted {
+            index,
+            success: applied.success,
+        });
+
+        PendingProcess::Continue(weight)
+    }
+
+    pub fn ibe_block_decryption_key(
+        epoch: u64,
+        target_block: u64,
+        key_id: [u8; KEY_ID_LEN],
+    ) -> Option<IbeBlockDecryptionKeyV1> {
+        IbeBlockDecryptionKeys::<T>::get(block_key_storage_key(epoch, target_block, key_id))
+    }
+
+    pub fn pending_ibe_identities(limit: u32) -> Vec<IbePendingIdentity> {
+        let limit_usize = limit as usize;
+        let next_index = NextPendingExtrinsicIndex::<T>::get();
+        let count: u32 = PendingExtrinsics::<T>::count();
+        let start_index = next_index.saturating_sub(count);
+
+        let mut identities = BTreeMap::<(u64, u64, [u8; KEY_ID_LEN]), (u32, u32)>::new();
+
+        for index in start_index..next_index {
+            if identities.len() >= limit_usize {
+                break;
+            }
+
+            let Some(pending) = PendingExtrinsics::<T>::get(index) else {
+                continue;
+            };
+
+            let Ok(envelope) = IbeEncryptedExtrinsicV1::decode_v2(pending.encrypted_call.as_slice())
+            else {
+                continue;
+            };
+
+            let key = (envelope.epoch, envelope.target_block, envelope.key_id);
+
+            identities
+                .entry(key)
+                .and_modify(|range| {
+                    range.0 = range.0.min(index);
+                    range.1 = range.1.max(index);
+                })
+                .or_insert((index, index));
+        }
+
+        identities
+            .into_iter()
+            .map(
+                |((epoch, target_block, key_id), (first_queue_index, last_queue_index))| {
+                    IbePendingIdentity {
+                        epoch,
+                        target_block,
+                        key_id,
+                        first_queue_index,
+                        last_queue_index,
+                    }
+                },
+            )
+            .collect()
+    }
+
+    pub fn pending_encrypted_queue_len() -> u32 {
+        PendingExtrinsics::<T>::count()
+    }
+
+    pub fn has_ibe_block_key(epoch: u64, target_block: u64, key_id: [u8; KEY_ID_LEN]) -> bool {
+        Self::ibe_block_decryption_key(epoch, target_block, key_id).is_some()
+    }
+
     pub fn try_decode_shielded_tx<Block: BlockT, Context: Default>(
         uxt: ExtrinsicOf<Block>,
     ) -> Option<ShieldedTransaction>
@@ -585,7 +1082,6 @@ impl<T: Config> Pallet<T> {
         CheckedOf<Block::Extrinsic, Context>: Applyable,
         ApplyableCallOf<CheckedOf<Block::Extrinsic, Context>>: IsSubType<Call<T>>,
     {
-        // Prevent stack overflows by limiting the depth of the extrinsic.
         let encoded = uxt.encode();
         let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
             MAX_EXTRINSIC_DEPTH,
@@ -596,7 +1092,6 @@ impl<T: Config> Pallet<T> {
         )
         .ok()?;
 
-        // Verify that the signature is correct.
         let xt = ExtrinsicOf::<Block>::check(uxt, &Context::default())
             .inspect_err(
                 |e| log::debug!(target: LOG_TARGET, "Failed to check shielded extrinsic: {:?}", e),
@@ -604,10 +1099,17 @@ impl<T: Config> Pallet<T> {
             .ok()?;
         let call = xt.call();
 
-        let Some(Call::submit_encrypted { ciphertext }) = IsSubType::<Call<T>>::is_sub_type(call)
+        let Some(Call::submit_encrypted { ciphertext }) =
+            IsSubType::<Call<T>>::is_sub_type(call)
         else {
             return None;
         };
+
+        // v2 envelopes are handled by the threshold-IBE queue, not by the v1
+        // author-local unshielding path.
+        if IbeEncryptedExtrinsicV1::is_v2_prefixed(ciphertext.as_slice()) {
+            return None;
+        }
 
         ShieldedTransaction::parse(ciphertext)
     }
@@ -631,9 +1133,11 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        ExtrinsicOf::<Block>::decode(&mut &plaintext[..]).inspect_err(
-            |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded transaction: {:?}", e),
-        ).ok()
+        ExtrinsicOf::<Block>::decode(&mut &plaintext[..])
+            .inspect_err(
+                |e| log::debug!(target: LOG_TARGET, "Failed to decode shielded transaction: {:?}", e),
+            )
+            .ok()
     }
 }
 

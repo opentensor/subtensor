@@ -1,7 +1,7 @@
 [package]
 name = "pallet-shield"
 description = "FRAME pallet for opt-in, per-block ephemeral-key encrypted transactions, MEV-shielded."
-authors = ["Subtensor Contributors <https://github.com/opentensor/subtensor>"]
+authors = ["Subtensor Contributors "]
 version = "0.0.1"
 license = "Unlicense"
 edition.workspace = true
@@ -16,7 +16,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
 log.workspace = true
-
 subtensor-macros.workspace = true
 subtensor-runtime-common.workspace = true
 
@@ -35,6 +34,7 @@ sp-inherents.workspace = true
 
 # Subtensor primitives
 stp-shield.workspace = true
+stp-mev-shield-ibe.workspace = true
 
 # Crypto (ML-KEM-768 + XChaCha20-Poly1305 for unshielding)
 ml-kem.workspace = true
@@ -56,7 +56,6 @@ sp-keystore.workspace = true
 
 [features]
 default = ["std"]
-
 std = [
 	"codec/std",
 	"scale-info/std",
@@ -71,6 +70,7 @@ std = [
 	"sp-weights/std",
 	"sp-inherents/std",
 	"stp-shield/std",
+	"stp-mev-shield-ibe/std",
 	"ml-kem/std",
 	"chacha20poly1305/std",
 	"pallet-aura?/std",
@@ -93,7 +93,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-aura",
 	"sp-consensus-aura",
-	"rand_chacha",
+    "rand_chacha",
 ]
 
 try-runtime = [

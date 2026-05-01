@@ -8374,6 +8374,7 @@ dependencies = [
 name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 dependencies = [
+ "ark-ec 0.4.2",
  "ark-serialize 0.4.2",
  "ethereum",
  "fp-account",
@@ -8469,6 +8470,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "sp-weights",
+ "stp-mev-shield-ibe",
  "stp-shield",
  "substrate-fixed",
  "substrate-wasm-builder",
@@ -10624,6 +10626,7 @@ dependencies = [
  "sp-std",
  "sp-weights",
  "stc-shield",
+ "stp-mev-shield-ibe",
  "stp-shield",
  "subtensor-macros",
  "subtensor-runtime-common",
@@ -17932,6 +17935,16 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "stp-shield",
+]
+
+[[package]]
+name = "stp-mev-shield-ibe"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]

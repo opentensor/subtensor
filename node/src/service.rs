@@ -316,6 +316,14 @@ where
             peer_store_handle,
         );
 
+    // MEVShield v2 threshold-IBE validator share gossip protocol.
+    //
+    // This is additive and does not affect the existing v1 shield protocol.
+    // Non-authorities may register the protocol but do not spawn the share pool.
+    let (ibe_protocol_config, ibe_notification_service) =
+        crate::mev_shield_ibe::network::protocol_config();
+    net_config.add_notification_protocol(ibe_protocol_config);
+
     let warp_sync_config = if sealing.is_some() {
         None
     } else {
@@ -355,6 +363,45 @@ where
             block_relay: None,
             metrics,
         })?;
+
+    let role = config.role;
+
+    let maybe_ibe_share_pool = if role.is_authority() {
+        let genesis_hash = client.block_hash(0u32)?.expect("genesis exists").into();
+
+        let dkg_bundle_dir = config
+            .base_path
+            .as_ref()
+            .expect("base path required for MEVShield v2 DKG bundles")
+            .path()
+            .join("mev_shield_ibe")
+            .join("dkg");
+
+        let dkg_key_source = Arc::new(
+            crate::mev_shield_ibe::dkg::DevFileDkgKeySource::new(genesis_hash, dkg_bundle_dir)
+                .map_err(|e| ServiceError::Application(e.into()))?,
+        );
+
+        let (ibe_share_pool, ibe_outbound_rx, ibe_inbound_tx) =
+            crate::mev_shield_ibe::MevShieldIbeSharePool::new(
+                crate::mev_shield_ibe::SharePoolConfig {
+                    max_pending_identities: 512,
+                },
+                dkg_key_source,
+            )
+            .map_err(|e| ServiceError::Application(e.into()))?;
+
+        crate::mev_shield_ibe::network::spawn_network_task(
+            &task_manager.spawn_handle(),
+            ibe_notification_service,
+            ibe_inbound_tx,
+            ibe_outbound_rx,
+        );
+
+        Some(ibe_share_pool)
+    } else {
+        None
+    };
 
     consensus_mechanism.spawn_essential_handles(
         &mut task_manager,
@@ -405,7 +452,6 @@ where
         );
     }
 
-    let role = config.role;
     let force_authoring = config.force_authoring;
     let backoff_authoring_blocks =
         Some(BackoffAuthoringOnFinalizedHeadLagging::<NumberFor<Block>> {
@@ -563,11 +609,31 @@ where
             return Ok(task_manager);
         }
 
+        // Existing MEVShield v1 key rotation. Leave unchanged.
         stc_shield::spawn_key_rotation_on_own_import(
             &task_manager.spawn_handle(),
             client.clone(),
             shield_keystore.clone(),
         );
+
+        // New MEVShield v2 threshold-IBE tasks.
+        //
+        // These run beside v1. They do not modify proposer construction and do not
+        // insert any pre-runtime decryption digest.
+        if let Some(ibe_share_pool) = maybe_ibe_share_pool.clone() {
+            crate::mev_shield_ibe::finality::spawn_finality_gate::<Block, FullClient>(
+                &task_manager.spawn_handle(),
+                client.clone(),
+                ibe_share_pool.clone(),
+            );
+
+            crate::mev_shield_ibe::submitter::spawn_key_submitter(
+                &task_manager.spawn_handle(),
+                client.clone(),
+                transaction_pool.clone(),
+                ibe_share_pool,
+            );
+        }
 
         let proposer_factory = sc_basic_authorship::ProposerFactory::new(
             task_manager.spawn_handle(),

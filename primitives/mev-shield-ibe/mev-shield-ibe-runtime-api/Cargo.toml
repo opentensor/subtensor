@@ -1,0 +1,23 @@
+[package]
+name = "mev-shield-ibe-runtime-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+codec = { workspace = true, package = "parity-scale-codec", default-features = false, features = ["derive"] }
+scale-info = { workspace = true, default-features = false, features = ["derive"] }
+sp-api = { workspace = true, default-features = false }
+sp-core = { workspace = true, default-features = false }
+sp-runtime = { workspace = true, default-features = false }
+stp-mev-shield-ibe = { workspace = true, default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "scale-info/std",
+    "sp-api/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "stp-mev-shield-ibe/std",
+]

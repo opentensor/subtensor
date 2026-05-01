@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
+pub mod mev_shield_ibe;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
@@ -151,7 +152,11 @@ impl pallet_shield::Config for Runtime {
     type AuthorityId = AuraId;
     type FindAuthors = FindAuraAuthors;
     type RuntimeCall = RuntimeCall;
-    type ExtrinsicDecryptor = ();
+    type ExtrinsicDecryptor = mev_shield_ibe::LegacyDeferredRuntimeCallDecryptor;
+    type InnerExtrinsic = UncheckedExtrinsic;
+    type IbeEncryptedTxDecryptor = mev_shield_ibe::MevShieldIbeDecryptor;
+    type DecryptedExtrinsicExecutor = mev_shield_ibe::MevShieldInnerExtrinsicExecutor;
+    type IbeKeyVerifier = mev_shield_ibe::MevShieldIbeVerifier;
     type WeightInfo = pallet_shield::weights::SubstrateWeight<Runtime>;
 }
 

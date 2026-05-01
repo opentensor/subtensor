@@ -153,6 +153,8 @@ pallet-crowdloan.workspace = true
 # Mev Shield
 pallet-shield.workspace = true
 stp-shield.workspace = true
+stp-mev-shield-ibe.workspace = true
+ark-ec = { workspace = true, default-features = false }
 
 ethereum.workspace = true
 
@@ -280,6 +282,8 @@ std = [
 	"pallet-shield/std",
 	"stp-shield/std",
 	"sp-weights/std",
+	"stp-mev-shield-ibe/std",
+	"ark-ec/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

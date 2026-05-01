@@ -11,6 +11,7 @@ mod command;
 mod conditional_evm_block_import;
 mod consensus;
 mod ethereum;
+mod mev_shield_ibe;
 mod rpc;
 mod service;
 
