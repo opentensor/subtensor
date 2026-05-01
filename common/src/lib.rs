@@ -14,9 +14,6 @@ use sp_runtime::{
 };
 
 pub use sp_io::MultiRemovalResults;
-
-/// Carries a `clear_prefix` cursor between batched deletions; same shape as `MultiRemovalResults::maybe_cursor`.
-pub type LpwStorageCursor = Option<sp_runtime::Vec<u8>>;
 use subtensor_macros::freeze_struct;
 
 pub use currency::*;
@@ -459,34 +456,6 @@ macro_rules! WeightMeterWrapper {
     }};
 }
 
-pub const BATCH_SIZE: u32 = 1024;
-
-/// Expands to a single `clear_prefix` for an N-map whose first key is a [`NetUid`].
-///
-/// - `$storage`: a **type** (use `RootClaimed<T>`, not the turbofish `RootClaimed::<T>`).
-/// - `$netuid`: expression, e.g. `netuid` or `*netuid`, used as `( $netuid, )` in the partial key.
-///
-/// Uses [`BATCH_SIZE`](crate::BATCH_SIZE) as the per-call key limit, `None` cursor.
-///
-/// # Example
-///
-/// `nmap_clear_prefix_by_netuid!(RootClaimed<T>, netuid)`
-#[macro_export]
-macro_rules! nmap_clear_prefix_by_netuid {
-    ($storage:ty, $netuid:expr) => {
-        <$storage>::clear_prefix(($netuid,), $crate::BATCH_SIZE, None)
-    };
-}
-
-/// Removes storage under a map prefix, batching with [`BATCH_SIZE`] and a [`frame_support::weights::WeightMeter`].
-///
-/// - **Double map (first key only):** `LoopRemovePrefixWithWeightMeter!(meter, w, Uids<T>, netuid);`
-///   — expands to `clear_prefix` with partial key `netuid`.
-/// - **N-map (first key is a single netuid in a tuple):** add `nmap` before the type:
-///   `LoopRemovePrefixWithWeightMeter!(meter, w, nmap RootClaimed<T>, netuid);`
-///   — expands to `clear_prefix` with partial key `(netuid,)`.
-///
-/// The per-call key limit and cursor handling are **inside** the macro; callers must not pass `BATCH_SIZE` or `None` explicitly.
 #[macro_export]
 macro_rules! LoopRemovePrefixWithWeightMeter {
     ( $meter:expr, $weight:expr, $storage:ty, $netuid:expr ) => {{
@@ -510,8 +479,6 @@ mod tests {
     use frame_support::weights::WeightMeter;
     const REF_TIME_WEIGHT: u64 = 100;
     const PROOF_SIZE_WEIGHT: u64 = 100;
-    const BATCH_SIZE_U64: u64 = BATCH_SIZE as u64;
-
     struct TestBody {
         count: u64,
     }
@@ -555,27 +522,6 @@ mod tests {
         (weight_meter.consumed(), true)
     }
 
-    fn test_loop(
-        remaining_weight: Weight,
-        weight: Weight,
-        body: &mut TestBody,
-        number: u64,
-    ) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-        // Mirrors `LoopRemovePrefixWithWeightMeter!`’s load pattern using a mock `TestBody` (not real storage).
-        loop {
-            if !weight_meter.can_consume(weight.saturating_mul(BATCH_SIZE as u64)) {
-                return (weight_meter.consumed(), false);
-            }
-            let result = body.execute(number);
-            weight_meter.consume(weight.saturating_mul(result.backend));
-            if result.maybe_cursor.is_none() {
-                break;
-            }
-        }
-        (weight_meter.consumed(), true)
-    }
-
     #[test]
     fn test_weight_meter_wrapper() {
         // Enough budget for one (ref, proof) unit of `weight`.
@@ -590,36 +536,5 @@ mod tests {
             Weight::from_parts(REF_TIME_WEIGHT * 3, PROOF_SIZE_WEIGHT * 3),
         );
         assert_eq!(used, (Weight::zero(), false));
-    }
-
-    #[test]
-    fn test_loop_remove_prefix_with_weight_meter() {
-        let per_unit = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
-        let count = BATCH_SIZE_U64 * 100;
-        let mut body = TestBody::new(count);
-        // Unbounded budget: must drain the mock and report completed.
-        let (consumed, completed) = test_loop(
-            Weight::from_parts(u64::MAX, u64::MAX),
-            per_unit,
-            &mut body,
-            BATCH_SIZE_U64,
-        );
-        assert!(completed);
-        let expected = per_unit.saturating_mul(BATCH_SIZE_U64).saturating_mul(100);
-        assert_eq!(consumed, expected);
-        assert_eq!(body.count, 0);
-
-        // Tight budget: at most 10 batch-reserves for loop heads, so the mock is not fully drained.
-        let mut body2 = TestBody::new(count);
-        let batch_reserve = per_unit.saturating_mul(BATCH_SIZE as u64);
-        let (consumed2, completed2) = test_loop(
-            batch_reserve.saturating_mul(10),
-            per_unit,
-            &mut body2,
-            BATCH_SIZE_U64,
-        );
-        assert!(!completed2);
-        assert_eq!(consumed2, batch_reserve.saturating_mul(10));
-        assert_eq!(body2.count, 90 * BATCH_SIZE_U64);
     }
 }
