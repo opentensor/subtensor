@@ -51,7 +51,7 @@ impl<T: Config> Pallet<T> {
     /// Calculates decayed unlocked mass and matured conviction.
     ///
     /// Matured conviction is calculated as c1 = m - (m - c0) * decay
-    /// Decayed unlocked mass is calculated as m1 = m0 * decay
+    /// Decayed unlocked mass is calculated as m1 = m0 * unlock_decay
     ///
     /// Note: It is important to roll forward every time locked mass changes
     /// because this formula is for discrete time and it assumes there are
