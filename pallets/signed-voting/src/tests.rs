@@ -638,7 +638,7 @@ fn remove_votes_for_emits_invalidated_event() {
 }
 
 /// `remove_votes_for` preserves `total`: the runtime rotates voters via
-/// `swap_member` / `reset_members`, which keep the voter-set size constant
+/// `swap_member` / `set_members`, which keep the voter-set size constant
 /// and fill the slot a departing voter leaves. Decrementing `total` here
 /// would break the denominator on swap (incoming member present but uncounted).
 #[test]
