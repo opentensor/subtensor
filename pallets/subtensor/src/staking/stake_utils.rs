@@ -1034,6 +1034,17 @@ impl<T: Config> Pallet<T> {
         Ok(tao_equivalent)
     }
 
+    pub fn do_transfer_fees(
+        from: &<T as frame_system::Config>::AccountId,
+        to: <T as frame_system::Config>::AccountId,
+        amount: TaoBalance,
+    ) -> Result<(), DispatchError> {
+        Self::transfer_tao(from, &to, amount)?;
+        Self::deposit_event(Event::FeesTransferred(from.clone(), to.clone(), amount));
+
+        Ok(())
+    }
+
     pub fn get_alpha_share_pool(
         hotkey: <T as frame_system::Config>::AccountId,
         netuid: NetUid,

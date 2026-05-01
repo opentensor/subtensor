@@ -11,7 +11,7 @@ use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
 use sp_core::H256;
 use sp_runtime::{
-    BoundedVec, Percent,
+    BoundedVec, Percent, Permill,
     traits::{BlakeTwo256, Hash},
 };
 use sp_std::collections::btree_set::BTreeSet;
@@ -190,6 +190,44 @@ mod pallet_benchmarks {
             hotkey.clone(),
             netuid,
             amount,
+        );
+    }
+
+    #[benchmark]
+    fn add_stake_payable() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+
+        let seed: u32 = 1;
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let app_coldkey: T::AccountId = account("cold", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        let total_stake = TaoBalance::from(1_000_000_000);
+        let amount = TaoBalance::from(60_000_000);
+        let fee_percentage = Permill::from_percent(1);
+
+        seed_swap_reserves::<T>(netuid);
+        add_balance_to_coldkey_account::<T>(&coldkey, total_stake.into());
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey.clone(),
+            netuid,
+            amount,
+            app_coldkey,
+            fee_percentage,
         );
     }
 
@@ -1036,6 +1074,67 @@ mod pallet_benchmarks {
             amount_unstaked,
             limit,
             true,
+        );
+    }
+
+    #[benchmark]
+    fn remove_stake_payable() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+        let seed: u32 = 1;
+
+        // Set our total stake to 1000 TAO
+        Subtensor::<T>::increase_total_stake(1_000_000_000_000_u64.into());
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        SubtokenEnabled::<T>::insert(netuid, true);
+
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+
+        let app_coldkey: T::AccountId = account("cold", 0, seed);
+        let fee_percentage = Permill::from_percent(1);
+        let tao_reserve = TaoBalance::from(150_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
+        set_reserves::<T>(netuid, tao_reserve, alpha_in);
+
+        let wallet_bal = 1_000_000_000_000u64.into();
+        add_balance_to_coldkey_account::<T>(&coldkey.clone(), wallet_bal);
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        let u64_staked_amt = TaoBalance::from(1_000_000_000_000u64);
+        add_balance_to_coldkey_account::<T>(&coldkey.clone(), u64_staked_amt);
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            u64_staked_amt.into()
+        ));
+
+        let amount_unstaked = AlphaBalance::from(30_000_000_000_u64);
+
+        // Remove stake limit for benchmark
+        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(coldkey.clone()),
+            hotkey.clone(),
+            netuid,
+            amount_unstaked,
+            app_coldkey,
+            fee_percentage,
         );
     }
 

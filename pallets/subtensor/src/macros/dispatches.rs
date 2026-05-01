@@ -746,6 +746,28 @@ mod dispatches {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
+        /// --- The extrinsic is a combination of remove_stake and fees token transfer
+        #[pallet::call_index(137)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::remove_stake_payable())]
+        pub fn remove_stake_payable(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_unstaked: AlphaBalance,
+            coldkey_fees_tank: T::AccountId,
+            fee_percentage: sp_runtime::Permill,
+        ) -> DispatchResult {
+            Self::do_remove_stake_payable(
+                origin,
+                hotkey,
+                netuid,
+                amount_unstaked,
+                coldkey_fees_tank,
+                fee_percentage,
+            )
+            .map(|_| ())
+        }
+
         /// Serves or updates axon /prometheus information for the neuron associated with the caller. If the caller is
         /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         ///
@@ -2530,6 +2552,28 @@ mod dispatches {
 
             Self::deposit_event(Event::AutoParentDelegationEnabledSet { hotkey, enabled });
             Ok(())
+        }
+
+        /// --- The extrinsic is a combination of add_stake and fees token transfer
+        #[pallet::call_index(136)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::add_stake_payable())]
+        pub fn add_stake_payable(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: NetUid,
+            amount_staked: TaoBalance,
+            coldkey_fees_tank: T::AccountId,
+            fee_percentage: sp_runtime::Permill,
+        ) -> DispatchResult {
+            Self::do_add_stake_payable(
+                origin,
+                hotkey,
+                netuid,
+                amount_staked,
+                coldkey_fees_tank,
+                fee_percentage,
+            )
+            .map(|_| ())
         }
     }
 }

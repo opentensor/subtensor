@@ -3,7 +3,7 @@
 
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::{DispatchClass, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
+use frame_support::sp_runtime::{DispatchError, Permill};
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
 use pallet_subtensor_swap::tick::TickIndex;
@@ -5295,6 +5295,165 @@ fn test_default_min_stake_sufficiency() {
         assert!(fee_unstake > 0);
         assert!(current_price_after_stake > current_price_before);
         assert!(current_price_after_stake > current_price_after_unstake);
+    });
+}
+
+/// This test verifies if the stake + pay fees is working
+///
+/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_payable_is_ok --exact --show-output
+#[test]
+fn test_add_stake_payable_is_ok() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_hotkey = U256::from(1);
+        let subnet_owner_coldkey = U256::from(2);
+        let actor_coldkey = U256::from(4);
+        let app_coldkey = U256::from(5);
+        let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
+        let amount_stake = TaoBalance::from(min_tao_stake);
+        let fee_percentage = Permill::from_percent(10);
+        let expected_fee = TaoBalance::from(fee_percentage.mul_floor(amount_stake.to_u64()));
+        let owner_balance_before = amount_stake * 10.into();
+        let actor_balance_before = amount_stake * 100.into();
+        let app_owner_balance_before = ExistentialDeposit::get();
+
+        // add network
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        add_balance_to_coldkey_account(&subnet_owner_coldkey, owner_balance_before);
+        add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
+        add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
+
+        // Stake with paying fees (deducted from stake amount)
+        assert_ok!(SubtensorModule::add_stake_payable(
+            RuntimeOrigin::signed(actor_coldkey),
+            subnet_owner_hotkey,
+            netuid,
+            amount_stake.into(),
+            app_coldkey,
+            fee_percentage,
+        ));
+
+        let app_owner_balance_after = Balances::free_balance(app_coldkey);
+        let actor_balance_after = Balances::free_balance(actor_coldkey);
+
+        assert_eq!(
+            app_owner_balance_before + expected_fee,
+            app_owner_balance_after,
+            "app owner balance after should include fees"
+        );
+        assert_eq!(
+            actor_balance_before - amount_stake,
+            actor_balance_after,
+            "actor balance after be decreased by stake amount (fee deducted from it)"
+        );
+
+        let events = System::events();
+
+        assert!(
+            events.iter().any(|e| matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::FeesTransferred(from, to, amount))
+                    if from == &actor_coldkey
+                    && to == &app_coldkey
+                    && *amount == expected_fee
+            )),
+            "FeesTransferred event should be emitted"
+        );
+
+        assert!(
+            events.iter().any(|e| matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::StakeAdded(coldkey, hotkey, ..))
+                    if coldkey == &actor_coldkey
+                    && hotkey == &subnet_owner_hotkey
+            )),
+            "StakeAdded event should be emitted"
+        );
+    });
+}
+
+/// This test verifies that fees are rolled back if staking fails (atomicity)
+///
+/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_payable_atomicity --exact --show-output
+#[test]
+fn test_add_stake_payable_atomicity() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_hotkey = U256::from(1);
+        let actor_coldkey = U256::from(4);
+        let app_coldkey = U256::from(5);
+        let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
+        let amount_stake = TaoBalance::from(min_tao_stake);
+        let fee_percentage = Permill::from_percent(10);
+        let actor_balance_before = amount_stake * 100.into();
+        let app_owner_balance_before = ExistentialDeposit::get();
+
+        let invalid_netuid = NetUid::from(99);
+
+        add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
+        add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
+
+        // add_stake should fail because of invalid netuid
+        assert_err!(
+            SubtensorModule::add_stake_payable(
+                RuntimeOrigin::signed(actor_coldkey),
+                subnet_owner_hotkey,
+                invalid_netuid,
+                amount_stake.into(),
+                app_coldkey,
+                fee_percentage,
+            ),
+            Error::<Test>::SubnetNotExists
+        );
+
+        assert_eq!(
+            Balances::free_balance(app_coldkey),
+            app_owner_balance_before,
+            "fees should be rolled back if staking fails"
+        );
+        assert_eq!(
+            Balances::free_balance(actor_coldkey),
+            actor_balance_before,
+            "actor balance should be unchanged if staking fails"
+        );
+    });
+}
+
+/// This test verifies that add_stake_payable fails if the actor doesn't have enough TAO
+/// to cover the staked amount (which now includes the fee deducted from it).
+///
+/// cargo test --package pallet-subtensor --lib -- tests::staking::test_add_stake_payable_actor_insufficient_balance --exact --show-output
+#[test]
+fn test_add_stake_payable_actor_insufficient_balance() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_hotkey = U256::from(1);
+        let subnet_owner_coldkey = U256::from(2);
+        let actor_coldkey = U256::from(4);
+        let app_coldkey = U256::from(5);
+        let min_tao_stake = DefaultMinStake::<Test>::get().to_u64() * 2;
+        let amount_stake = TaoBalance::from(min_tao_stake);
+        let fee_percentage = Permill::from_percent(10);
+        let owner_balance_before = amount_stake * 10.into();
+        // Actor doesn't have enough to cover the requested stake amount.
+        let actor_balance_before = amount_stake - TaoBalance::from(1u64);
+        let app_owner_balance_before = ExistentialDeposit::get();
+
+        // add network
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        add_balance_to_coldkey_account(&subnet_owner_coldkey, owner_balance_before);
+        add_balance_to_coldkey_account(&actor_coldkey, actor_balance_before);
+        add_balance_to_coldkey_account(&app_coldkey, app_owner_balance_before);
+
+        // Should fail because of insufficient balance for the stake amount
+        assert_err!(
+            SubtensorModule::add_stake_payable(
+                RuntimeOrigin::signed(actor_coldkey),
+                subnet_owner_hotkey,
+                netuid,
+                amount_stake.into(),
+                app_coldkey,
+                fee_percentage,
+            ),
+            Error::<Test>::NotEnoughBalanceToStake
+        );
     });
 }
 
