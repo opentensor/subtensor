@@ -1710,11 +1710,7 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
 
         // Force the tiny nomination to qualify as "small" and clear only that nomination.
         SubtensorModule::set_nominator_min_required_stake(u64::MAX);
-        SubtensorModule::clear_small_nomination_if_required(
-            &hotkey_tiny,
-            &nominator,
-            netuid,
-        );
+        SubtensorModule::clear_small_nomination_if_required(&hotkey_tiny, &nominator, netuid);
 
         // The large nomination stays, the tiny one is removed.
         let large_alpha_after = get_alpha(&hotkey_large, &nominator, netuid);
@@ -1727,20 +1723,14 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
         let lock_after = Lock::<Test>::get((nominator, netuid, hotkey_large)).unwrap();
         let tiny_alpha_fixed = U64F64::from_num(tiny_alpha_before.to_u64());
         assert!(!lock_after.locked_mass.is_zero());
-        assert_eq!(
-            lock_after.locked_mass,
-            total_before - tiny_alpha_before
-        );
+        assert_eq!(lock_after.locked_mass, total_before - tiny_alpha_before);
         assert!(!lock_after.unlocked_mass.is_zero());
         assert_eq!(
             lock_after.unlocked_mass,
             unlocked_before - tiny_alpha_before
         );
         assert!(lock_after.conviction != U64F64::from_num(0));
-        assert_eq!(
-            lock_after.conviction,
-            conviction_before - tiny_alpha_fixed
-        );
+        assert_eq!(lock_after.conviction, conviction_before - tiny_alpha_fixed);
 
         // The aggregate hotkey lock on the locked hotkey should also only shrink by the tiny amount.
         let hotkey_lock_after = HotkeyLock::<Test>::get(netuid, hotkey_large).unwrap();
