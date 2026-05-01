@@ -1933,6 +1933,66 @@ fn test_moving_partial_lock_same_owners() {
     });
 }
 
+#[test]
+// Moving a lock after partially unlocking it should preserve the coldkey's unavailable amount.
+fn test_moving_unlocked_lock_preserves_unavailable_amount() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let destination_coldkey = U256::from(9);
+        let hotkey_origin = U256::from(2);
+        let hotkey_destination = U256::from(3);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey_origin, 100_000_000_000);
+
+        // Make the destination hotkey exist under a different owner so the move is a real transfer of lock ownership.
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &destination_coldkey,
+            &hotkey_destination
+        ));
+
+        // Lock some stake, then unlock part of it so unavailable stake is split across locked and unlocked mass.
+        let lock_amount = AlphaBalance::from(5_000u64);
+        let unlock_amount = AlphaBalance::from(2_000u64);
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey_origin,
+            lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_unlock_stake(
+            &coldkey,
+            netuid,
+            unlock_amount,
+        ));
+
+        // Capture the coldkey-level availability view before moving the lock.
+        let available_before = SubtensorModule::available_stake(&coldkey, netuid);
+        let locked_before = SubtensorModule::get_current_locked(&coldkey, netuid);
+        let unlocked_before = SubtensorModule::get_current_unlocked(&coldkey, netuid);
+        let unavailable_before = locked_before.saturating_add(unlocked_before);
+
+        // Move the lock to the destination hotkey.
+        assert_ok!(SubtensorModule::move_lock(
+            RuntimeOrigin::signed(coldkey),
+            hotkey_destination,
+            netuid,
+        ));
+
+        // The origin entry should be gone and the destination entry should preserve locked/unlocked mass.
+        assert!(Lock::<Test>::get((coldkey, netuid, hotkey_origin)).is_none());
+        let moved_lock = Lock::<Test>::get((coldkey, netuid, hotkey_destination)).unwrap();
+        assert_eq!(moved_lock.locked_mass, locked_before);
+        assert_eq!(moved_lock.unlocked_mass, unlocked_before);
+
+        // The coldkey's unavailable and available stake should be unchanged by the move.
+        let available_after = SubtensorModule::available_stake(&coldkey, netuid);
+        let locked_after = SubtensorModule::get_current_locked(&coldkey, netuid);
+        let unlocked_after = SubtensorModule::get_current_unlocked(&coldkey, netuid);
+        let unavailable_after = locked_after.saturating_add(unlocked_after);
+        assert_eq!(available_after, available_before);
+        assert_eq!(unavailable_after, unavailable_before);
+    });
+}
+
 // =========================================================================
 // GROUP 20: Unlocking behavior
 // =========================================================================
