@@ -350,6 +350,7 @@ mod hooks {
                                 remaining_weight,
                             );
                             if done {
+                                T::SwapInterface::init_clean_up_protocol_liquidity_phase();
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::ClearProtocolLiquidity,

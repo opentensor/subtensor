@@ -848,7 +848,7 @@ impl<T: Config> Pallet<T> {
         // only reason for phase_done to be false is if the weight limit is reached
         while phase_done {
             let current_phase = CleanUpPhase::<T>::get();
-            log::info!(
+            log::debug!(
                 "current_phase in do_clear_protocol_liquidity is: {:?}",
                 current_phase
             );
@@ -1193,5 +1193,11 @@ impl<T: Config> SwapHandler for Pallet<T> {
             // Static subnet, alpha == tao
             _ => u64::from(tao_amount).into(),
         }
+    }
+
+    fn init_clean_up_protocol_liquidity_phase() {
+        CleanUpPhase::<T>::set(Some(
+            CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
+        ));
     }
 }
