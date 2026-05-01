@@ -841,6 +841,65 @@ impl<T: Config> Pallet<T> {
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
     pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
+        let mut remaining_weight = remaining_weight;
+
+        // if one phase is done or exit because of weight limit
+        let mut phase_done = true;
+        // only reason for phase_done to be false is if the weight limit is reached
+        while phase_done {
+            let current_phase = CleanUpPhase::<T>::get();
+            log::info!(
+                "current_phase in do_clear_protocol_liquidity is: {:?}",
+                current_phase
+            );
+            let (weight_used, done) = match current_phase {
+                Some(CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity) => {
+                    let (weight_used, done) = Self::do_clear_protocol_liquidity_remove_liquidity(
+                        netuid,
+                        remaining_weight,
+                    );
+                    remaining_weight = remaining_weight.saturating_sub(weight_used);
+                    if done {
+                        CleanUpPhase::<T>::set(Some(
+                            CleanUpPhaseEnum::ClearProtocolLiquidityTickIndexBitmapWords,
+                        ));
+                    }
+                    (weight_used, done)
+                }
+                Some(CleanUpPhaseEnum::ClearProtocolLiquidityTickIndexBitmapWords) => {
+                    let (weight_used, done) =
+                        Self::do_clear_tick_index_bitmap_words(netuid, remaining_weight);
+                    remaining_weight = remaining_weight.saturating_sub(weight_used);
+                    if done {
+                        CleanUpPhase::<T>::set(Some(
+                            CleanUpPhaseEnum::ClearProtocolLiquidityParameters,
+                        ));
+                    }
+                    (weight_used, done)
+                }
+                Some(CleanUpPhaseEnum::ClearProtocolLiquidityParameters) => {
+                    let (weight_used, done) =
+                        Self::do_clear_protocol_liquidity_parameters(netuid, remaining_weight);
+                    remaining_weight = remaining_weight.saturating_sub(weight_used);
+                    if done {
+                        CleanUpPhase::<T>::set(None);
+                    }
+                    (weight_used, done)
+                }
+                None => (Weight::default(), true),
+            };
+
+            phase_done = done;
+            remaining_weight = remaining_weight.saturating_sub(weight_used);
+        }
+
+        (remaining_weight, CleanUpPhase::<T>::get().is_none())
+    }
+
+    pub fn do_clear_protocol_liquidity_remove_liquidity(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
         let read_weight = T::DbWeight::get().reads(1);
         let remove_weight = T::DbWeight::get()
             .reads_writes(2, 2)

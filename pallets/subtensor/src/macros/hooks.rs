@@ -370,6 +370,7 @@ mod hooks {
                             }
                             (weight_used, done)
                         }
+
                         DissolvedNetworksCleanupPhaseEnum::PurgeNetuid => {
                             let (weight_used, done) =
                             T::CommitmentsInterface::purge_netuid(*netuid, remaining_weight);
