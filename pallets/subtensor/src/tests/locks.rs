@@ -1938,6 +1938,88 @@ fn test_moving_partial_lock_same_owners() {
 // =========================================================================
 
 #[test]
+fn test_unlocked_amount_cannot_be_unstaked_immediately() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, total
+        ));
+        assert_ok!(SubtensorModule::do_unlock_stake(&coldkey, netuid, total));
+
+        assert_eq!(SubtensorModule::available_stake(&coldkey, netuid), AlphaBalance::ZERO);
+        assert_eq!(SubtensorModule::get_current_locked(&coldkey, netuid), AlphaBalance::ZERO);
+        assert_eq!(SubtensorModule::get_current_unlocked(&coldkey, netuid), total);
+
+        step_block(1);
+
+        assert_noop!(
+            SubtensorModule::do_remove_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                total,
+            ),
+            Error::<Test>::StakeUnavailable
+        );
+    });
+}
+
+#[test]
+fn test_unlocked_amount_cannot_be_relocked_immediately() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, total
+        ));
+        assert_ok!(SubtensorModule::do_unlock_stake(&coldkey, netuid, total));
+
+        assert_eq!(SubtensorModule::available_stake(&coldkey, netuid), AlphaBalance::ZERO);
+        assert_eq!(SubtensorModule::get_current_unlocked(&coldkey, netuid), total);
+
+        assert_noop!(
+            SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, 1u64.into()),
+            Error::<Test>::InsufficientStakeForLock
+        );
+    });
+}
+
+#[test]
+fn test_unlock_stake_rejects_amount_above_locked_mass() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        let locked_amount = AlphaBalance::from(1_000u64);
+        let unlock_amount_too_high = AlphaBalance::from(1_001u64);
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            locked_amount,
+        ));
+
+        assert_noop!(
+            SubtensorModule::do_unlock_stake(&coldkey, netuid, unlock_amount_too_high),
+            Error::<Test>::UnlockAmountTooHigh
+        );
+
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).expect("Lock should exist");
+        assert_eq!(lock.locked_mass, locked_amount);
+        assert_eq!(lock.unlocked_mass, AlphaBalance::ZERO);
+    });
+}
+
+#[test]
 fn test_roll_forward_unlocked_mass_decays() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
