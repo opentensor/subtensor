@@ -211,7 +211,7 @@ fn add_member_respects_storage_max_when_info_max_none() {
             32
         );
 
-        // 33rd add fails via `try_push` (BoundedVec bound) rather than the info cap.
+        // 33rd add fails via `try_insert` (BoundedVec bound) rather than the info cap.
         assert_noop!(
             MultiCollective::<Test>::add_member(
                 RuntimeOrigin::root(),
@@ -872,8 +872,8 @@ fn set_members_rejects_duplicates() {
     });
 }
 
-/// Reset with a list identical to the current membership still emits a
-/// `MembersSet` event — the pallet doesn't short-circuit no-op resets.
+/// Setting a list identical to the current membership still emits a
+/// `MembersSet` event — the pallet doesn't short-circuit no-op sets.
 /// Pinned so downstream consumers know they must tolerate empty-diff calls.
 #[test]
 fn set_members_noop_still_fires_event() {
@@ -1161,7 +1161,7 @@ fn inspect_member_count_matches_mutations() {
             1
         );
 
-        // Reset replaces wholesale — count reflects the new list length.
+        // `set_members` replaces wholesale — count reflects the new list length.
         assert_ok!(MultiCollective::<Test>::set_members(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,

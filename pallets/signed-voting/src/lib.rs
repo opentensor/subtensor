@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
     /// `OnMembersChanged` wiring (e.g. referenda's `VoteCleanup`) has no
     /// symmetric counterpart for incoming members, so decrementing `total`
     /// here would make the denominator diverge from the actual voter-set
-    /// size on swap or reset. Pure `remove_member` of a voter in an active
+    /// size on swap or set. Pure `remove_member` of a voter in an active
     /// poll is therefore a known operational limitation — leaves `total`
     /// stale (denominator too high, conservative for thresholds).
     pub fn remove_votes_for(who: &T::AccountId) {

@@ -188,6 +188,10 @@ impl OnNewTerm<CollectiveId> for TestOnNewTerm {
         NEW_TERM_LOG.with(|log| log.borrow_mut().push(id));
         Weight::zero()
     }
+
+    fn weight() -> Weight {
+        Weight::zero()
+    }
 }
 
 /// Drain and return the recorded `OnNewTerm` calls since the last drain.
@@ -232,18 +236,45 @@ impl pallet_multi_collective::Config for Test {
     type OnMembersChanged = ();
     type OnNewTerm = TestOnNewTerm;
     type MaxMembers = MaxMembers;
+    type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = TestBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TestBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for TestBenchmarkHelper {
+    fn collective() -> CollectiveId {
+        // Gamma: max_members = None, min_members = 0 → can fill to MaxMembers
+        // and drain to empty without tripping the per-collective bounds.
+        CollectiveId::Gamma
+    }
+
+    fn rotatable_collective() -> CollectiveId {
+        // Beta has term_duration = Some(100); see `CollectiveId::can_rotate`.
+        CollectiveId::Beta
+    }
 }
 
 // --- Test externality builder ---
+
+/// Build a fresh `TestExternalities` for the mock runtime. Used directly
+/// by `impl_benchmark_test_suite!`; `TestState::build_and_execute` wraps
+/// this with the per-test bootstrap unit tests rely on.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    RuntimeGenesisConfig::default()
+        .build_storage()
+        .unwrap()
+        .into()
+}
 
 pub struct TestState;
 
 impl TestState {
     pub fn build_and_execute(test: impl FnOnce()) {
-        let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
-            .build_storage()
-            .unwrap()
-            .into();
+        let mut ext = new_test_ext();
 
         ext.execute_with(|| {
             // System::events() only records events from block >= 1, so

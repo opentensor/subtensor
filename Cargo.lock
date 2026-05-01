@@ -10085,6 +10085,7 @@ dependencies = [
 name = "pallet-multi-collective"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",

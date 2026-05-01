@@ -1846,6 +1846,25 @@ impl McOnMembersChanged<GovernanceCollectiveId, AccountId> for GovernanceVoteCle
             SignedVoting::remove_votes_for(who);
         }
     }
+
+    fn weight() -> Weight {
+        // Worst-case `remove_votes_for` for every outgoing member. For
+        // each, the implementation iterates every entry in `TallyOf`
+        // (bounded by `ReferendaMaxQueued`) and, for each poll where the
+        // voter is recorded, takes the vote and updates the tally —
+        // which in turn calls `Polls::on_tally_updated`.
+        let outgoing_max = MultiCollectiveMaxMembers::get() as u64;
+        let polls_max = ReferendaMaxQueued::get() as u64;
+        let db = <Runtime as frame_system::Config>::DbWeight::get();
+        // Per-poll: VotingFor::take + TallyOf::get + TallyOf::insert
+        // (= 2 reads + 2 writes), plus the cost of `on_tally_updated`.
+        let per_poll = db
+            .reads_writes(2, 2)
+            .saturating_add(
+                <Referenda as subtensor_runtime_common::Polls<AccountId>>::on_tally_updated_weight(),
+            );
+        per_poll.saturating_mul(outgoing_max.saturating_mul(polls_max))
+    }
 }
 
 impl pallet_multi_collective::Config for Runtime {
@@ -1858,6 +1877,28 @@ impl pallet_multi_collective::Config for Runtime {
     type OnMembersChanged = GovernanceVoteCleanup;
     type OnNewTerm = governance::collective_management::CollectiveManagement;
     type MaxMembers = MultiCollectiveMaxMembers;
+    type WeightInfo = pallet_multi_collective::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = MultiCollectiveBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct MultiCollectiveBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_multi_collective::BenchmarkHelper<GovernanceCollectiveId>
+    for MultiCollectiveBenchmarkHelper
+{
+    fn collective() -> GovernanceCollectiveId {
+        // Proposers: max_members = MultiCollectiveMaxMembers, min_members = 0,
+        // and not rotatable — so the pallet's member-management benchmarks
+        // can fill and drain freely.
+        GovernanceCollectiveId::Proposers
+    }
+
+    fn rotatable_collective() -> GovernanceCollectiveId {
+        GovernanceCollectiveId::Economic
+    }
 }
 
 impl pallet_signed_voting::Config for Runtime {

@@ -13,10 +13,14 @@ use num_traits::ops::checked::CheckedRem;
 pub use pallet::*;
 pub use subtensor_runtime_common::OnMembersChanged;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
+pub use weights::WeightInfo;
 
 pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
 type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
@@ -45,7 +49,7 @@ pub mod pallet {
         /// Required origin for swapping a member in a collective.
         type SwapOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
-        /// Required origin for resetting the members of a collective.
+        /// Required origin for setting the full member list of a collective.
         type SetOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// The receiver of the signal for when the members of a collective have changed.
@@ -61,14 +65,35 @@ pub mod pallet {
         /// This is enforced in the code; the membership size can not exceed this limit.
         #[pallet::constant]
         type MaxMembers: Get<u32>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
+
+        /// Helper for setting up cross-pallet state needed by benchmarks.
+        #[cfg(feature = "runtime-benchmarks")]
+        type BenchmarkHelper: BenchmarkHelper<Self::CollectiveId>;
+    }
+
+    /// Benchmark setup helper. The runtime supplies a non-rotatable
+    /// collective for member-management benchmarks and a rotatable one for
+    /// `force_rotate`.
+    #[cfg(feature = "runtime-benchmarks")]
+    pub trait BenchmarkHelper<CollectiveId> {
+        /// A collective whose `info.max_members` allows reaching `MaxMembers`
+        /// and whose `info.min_members == 0`, so member-management
+        /// benchmarks can fill and drain freely.
+        fn collective() -> CollectiveId;
+        /// A collective whose `CollectiveId::can_rotate()` is `true`,
+        /// for the `force_rotate` benchmark.
+        fn rotatable_collective() -> CollectiveId;
     }
 
     /// Members of each collective, kept sorted by `AccountId`.
     ///
     /// The sorted invariant is maintained by every write path
     /// (`add_member`, `remove_member`, `swap_member`, `set_members`) so
-    /// that membership lookups can use `binary_search` and the
-    /// reset-time diff against the previous set is a linear merge.
+    /// that membership lookups can use `binary_search` and `set_members`
+    /// can diff against the previous set with a linear merge.
     #[pallet::storage]
     pub(super) type Members<T: Config> = StorageMap<
         _,
@@ -145,63 +170,16 @@ pub mod pallet {
         }
 
         fn integrity_test() {
-            // Guards against `CollectiveInfo` / `T::MaxMembers` mismatch: a runtime
-            // declaring `max_members` (or `min_members`) greater than
-            // `T::MaxMembers` would pass the per-collective cap check in
-            // `add_member` / `set_members` but then fail the `BoundedVec` bound
-            // with a confusing `TooManyMembers` at the storage ceiling. Failing
-            // construction here makes the inconsistent config unreachable at
-            // runtime.
-            //
-            // Alternative structural fix (not taken): drop `max_members` from
-            // `CollectiveInfo` and expose it via a per-collective method on
-            // `CollectivesInfo` computed against `T::MaxMembers` (e.g.
-            // `fn max_members_of(id) -> u32`). That eliminates the field mismatch
-            // by construction at the cost of a `CollectivesInfo` trait-shape change.
-            let storage_max = T::MaxMembers::get();
-            for collective in T::Collectives::collectives() {
-                let info = collective.info;
-
-                assert!(
-                    info.min_members <= storage_max,
-                    "CollectiveInfo::min_members ({}) exceeds T::MaxMembers ({}) — collective cannot reach its min",
-                    info.min_members,
-                    storage_max,
-                );
-
-                if let Some(max) = info.max_members {
-                    assert!(
-                        max <= storage_max,
-                        "CollectiveInfo::max_members ({}) exceeds T::MaxMembers ({}) — storage cannot hold this many",
-                        max,
-                        storage_max,
-                    );
-                    assert!(
-                        info.min_members <= max,
-                        "CollectiveInfo::min_members ({}) exceeds max_members ({}) — collective is unreachable",
-                        info.min_members,
-                        max,
-                    );
-                }
-
-                // `Some(0)` for term_duration is indistinguishable from "rotate
-                // every block" at the type level, but the `n % td` check in
-                // `on_initialize` short-circuits via `checked_rem` and never
-                // fires. Reject it here rather than let a misconfigured runtime
-                // silently disable rotations. Use `None` to opt out.
-                if let Some(td) = info.term_duration {
-                    assert!(
-                        !td.is_zero(),
-                        "CollectiveInfo::term_duration = Some(0) silently disables rotations; use None to opt out",
-                    );
-                }
-            }
+            Pallet::<T>::check_integrity();
         }
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
+        #[pallet::weight(
+            T::WeightInfo::add_member().saturating_add(T::OnMembersChanged::weight())
+        )]
         pub fn add_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -234,6 +212,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
+        #[pallet::weight(
+            T::WeightInfo::remove_member().saturating_add(T::OnMembersChanged::weight())
+        )]
         pub fn remove_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -264,6 +245,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
+        #[pallet::weight(
+            T::WeightInfo::swap_member().saturating_add(T::OnMembersChanged::weight())
+        )]
         pub fn swap_member(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -307,6 +291,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
+        #[pallet::weight(
+            T::WeightInfo::set_members().saturating_add(T::OnMembersChanged::weight())
+        )]
         pub fn set_members(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
@@ -368,10 +355,13 @@ pub mod pallet {
         ///
         /// Origin: Root.
         #[pallet::call_index(4)]
+        #[pallet::weight(
+            T::WeightInfo::force_rotate().saturating_add(T::OnNewTerm::weight())
+        )]
         pub fn force_rotate(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
                 collective_id.can_rotate(),
@@ -381,8 +371,72 @@ pub mod pallet {
             // id still surfaces `CollectiveNotFound` if it was meant to
             // be rotatable.
             T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
-            let weight = T::OnNewTerm::on_new_term(collective_id);
-            Ok(Some(weight).into())
+            // The hook returns `Weight` so `on_initialize` can accumulate
+            // actual block weight; `force_rotate` is Root-only and just
+            // pays the worst-case bound, no refund.
+            let _ = T::OnNewTerm::on_new_term(collective_id);
+            Ok(())
+        }
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    /// Validates the `CollectivesInfo` configuration against the
+    /// pallet's storage cap. Called from the `integrity_test` hook
+    /// at construction; extracted so tests can drive it directly.
+    ///
+    /// Guards against `CollectiveInfo` / `T::MaxMembers` mismatch: a
+    /// runtime declaring `max_members` (or `min_members`) greater
+    /// than `T::MaxMembers` would pass the per-collective cap check
+    /// in `add_member` / `set_members` but then fail the `BoundedVec`
+    /// bound with a confusing `TooManyMembers` at the storage
+    /// ceiling. Failing construction here makes the inconsistent
+    /// config unreachable at runtime.
+    ///
+    /// Alternative structural fix (not taken): drop `max_members`
+    /// from `CollectiveInfo` and expose it via a per-collective
+    /// method on `CollectivesInfo` computed against `T::MaxMembers`
+    /// (e.g. `fn max_members_of(id) -> u32`). That eliminates the
+    /// field mismatch by construction at the cost of a
+    /// `CollectivesInfo` trait-shape change.
+    pub fn check_integrity() {
+        let storage_max = T::MaxMembers::get();
+        for collective in T::Collectives::collectives() {
+            let info = collective.info;
+
+            assert!(
+                info.min_members <= storage_max,
+                "CollectiveInfo::min_members ({}) exceeds T::MaxMembers ({}) — collective cannot reach its min",
+                info.min_members,
+                storage_max,
+            );
+
+            if let Some(max) = info.max_members {
+                assert!(
+                    max <= storage_max,
+                    "CollectiveInfo::max_members ({}) exceeds T::MaxMembers ({}) — storage cannot hold this many",
+                    max,
+                    storage_max,
+                );
+                assert!(
+                    info.min_members <= max,
+                    "CollectiveInfo::min_members ({}) exceeds max_members ({}) — collective is unreachable",
+                    info.min_members,
+                    max,
+                );
+            }
+
+            // `Some(0)` for term_duration is indistinguishable from "rotate
+            // every block" at the type level, but the `n % td` check in
+            // `on_initialize` short-circuits via `checked_rem` and never
+            // fires. Reject it here rather than let a misconfigured runtime
+            // silently disable rotations. Use `None` to opt out.
+            if let Some(td) = info.term_duration {
+                assert!(
+                    !td.is_zero(),
+                    "CollectiveInfo::term_duration = Some(0) silently disables rotations; use None to opt out",
+                );
+            }
         }
     }
 }
@@ -439,8 +493,13 @@ pub trait CollectivesInfo<Moment, Name> {
 
 /// Handler for when a new term of a collective has started.
 pub trait OnNewTerm<CollectiveId> {
-    /// A new term of a collective has started.
+    /// A new term of a collective has started. Returns the actual weight
+    /// consumed so `on_initialize` can accumulate per-block hook weight
+    /// across all rotating collectives.
     fn on_new_term(collective_id: CollectiveId) -> Weight;
+    /// Worst-case upper bound on `on_new_term`'s weight, used to
+    /// pre-charge `force_rotate`.
+    fn weight() -> Weight;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
@@ -450,6 +509,13 @@ impl<CollectiveId: Clone> OnNewTerm<CollectiveId> for Tuple {
     fn on_new_term(collective_id: CollectiveId) -> Weight {
         let mut weight = Weight::zero();
         for_tuples!( #( weight = weight.saturating_add(Tuple::on_new_term(collective_id.clone())); )* );
+        weight
+    }
+
+    fn weight() -> Weight {
+        #[allow(clippy::let_and_return)]
+        let mut weight = Weight::zero();
+        for_tuples!( #( weight.saturating_accrue(Tuple::weight()); )* );
         weight
     }
 }

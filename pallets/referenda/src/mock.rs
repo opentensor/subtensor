@@ -325,6 +325,11 @@ impl OnMembersChanged<CollectiveId, U256> for VoteCleanup {
             SignedVoting::remove_votes_for(who);
         }
     }
+
+    fn weight() -> Weight {
+        // Test mock: weights aren't billed in unit tests, return zero.
+        Weight::zero()
+    }
 }
 
 parameter_types! {
@@ -341,6 +346,22 @@ impl pallet_multi_collective::Config for Test {
     type OnMembersChanged = VoteCleanup;
     type OnNewTerm = ();
     type MaxMembers = MaxMembers;
+    type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ReferendaMockMcBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ReferendaMockMcBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for ReferendaMockMcBenchmarkHelper {
+    fn collective() -> CollectiveId {
+        CollectiveId::Alpha
+    }
+    fn rotatable_collective() -> CollectiveId {
+        CollectiveId::Alpha
+    }
 }
 
 parameter_types! {
