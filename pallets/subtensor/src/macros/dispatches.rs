@@ -2555,6 +2555,23 @@ mod dispatches {
             Self::do_lock_stake(&coldkey, netuid, &hotkey, amount)
         }
 
+        /// Unlocks stake on a subnet from a specific hotkey, reducing conviction.
+        ///
+        /// # Arguments
+        /// * `origin` - Must be signed by the coldkey.
+        /// * `netuid` - The subnet on which the lock exists.
+        /// * `amount` - The alpha amount to unlock.
+        #[pallet::call_index(137)]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::unlock_stake())]
+        pub fn unlock_stake(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            amount: AlphaBalance,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_unlock_stake(&coldkey, netuid, amount)
+        }
+
         /// Moves an existing lock for a coldkey on a subnet from one hotkey to another.
         ///
         /// The lock is rolled forward to the current block before switching the
@@ -2567,7 +2584,7 @@ mod dispatches {
         /// * `netuid` - The subnet on which the lock exists.
         /// # Errors:
         /// * `Error::<T>::NoExistingLock` - If no lock exists for the given coldkey and subnet.
-        #[pallet::call_index(137)]
+        #[pallet::call_index(138)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::move_lock())]
         pub fn move_lock(
             origin: OriginFor<T>,

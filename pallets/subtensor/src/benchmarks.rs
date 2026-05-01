@@ -69,6 +69,7 @@ mod pallet_benchmarks {
             (coldkey, netuid, hotkey.clone()),
             LockState {
                 locked_mass: AlphaBalance::ZERO,
+                unlocked_mass: AlphaBalance::ZERO,
                 conviction: U64F64::from_num(0),
                 last_update: 0,
             },
@@ -78,6 +79,7 @@ mod pallet_benchmarks {
             hotkey,
             LockState {
                 locked_mass: AlphaBalance::ZERO,
+                unlocked_mass: AlphaBalance::ZERO,
                 conviction: U64F64::from_num(0),
                 last_update: 0,
             },
@@ -2080,6 +2082,54 @@ mod pallet_benchmarks {
             netuid,
             amount,
         );
+    }
+
+    #[benchmark]
+    fn unlock_stake() {
+        let netuid = NetUid::from(1);
+        let tempo: u16 = 1;
+
+        Subtensor::<T>::init_new_network(netuid, tempo);
+        SubtokenEnabled::<T>::insert(netuid, true);
+        Subtensor::<T>::set_burn(netuid, benchmark_registration_burn());
+        Subtensor::<T>::set_network_registration_allowed(netuid, true);
+        Subtensor::<T>::set_max_allowed_uids(netuid, 4096);
+
+        let seed: u32 = 1;
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        let total_stake = TaoBalance::from(1_000_000_000);
+        let amount = AlphaBalance::from(60_000_000);
+
+        seed_swap_reserves::<T>(netuid);
+        let burn = Subtensor::<T>::get_burn(netuid);
+        add_balance_to_coldkey_account::<T>(
+            &coldkey,
+            total_stake
+                .saturating_mul(2.into())
+                .saturating_add(burn.saturating_mul(2.into()))
+                .into(),
+        );
+
+        assert_ok!(Subtensor::<T>::burned_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            netuid,
+            hotkey.clone()
+        ));
+
+        assert_ok!(Subtensor::<T>::add_stake(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+            netuid,
+            total_stake
+        ));
+
+        assert_ok!(Subtensor::<T>::do_lock_stake(
+            &coldkey, netuid, &hotkey, amount,
+        ));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), netuid, amount);
     }
 
     #[benchmark]

@@ -171,8 +171,8 @@ mod errors {
         InvalidIdentity,
         /// Subnet mechanism does not exist.
         MechanismDoesNotExist,
-        /// Trying to unstake your lock amount.
-        CannotUnstakeLock,
+        /// Trying to unstake or re-lock the locked amount.
+        StakeUnavailable,
         /// Trying to perform action on non-existent subnet.
         SubnetNotExists,
         /// Maximum commit limit reached

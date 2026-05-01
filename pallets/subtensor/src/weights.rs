@@ -91,6 +91,7 @@ pub trait WeightInfo {
 	fn add_stake_burn() -> Weight;
 	fn set_pending_childkey_cooldown() -> Weight;
 	fn lock_stake() -> Weight;
+	fn unlock_stake() -> Weight;
 	fn move_lock() -> Weight;
 }
 
@@ -2251,6 +2252,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
     fn lock_stake() -> Weight {
+        Weight::from_parts(81_532_000, 4317)
+            .saturating_add(T::DbWeight::get().reads(8_u64))
+            .saturating_add(T::DbWeight::get().writes(2_u64))
+    }
+
+    fn unlock_stake() -> Weight {
         Weight::from_parts(81_532_000, 4317)
             .saturating_add(T::DbWeight::get().reads(8_u64))
             .saturating_add(T::DbWeight::get().writes(2_u64))
@@ -4419,6 +4426,12 @@ impl WeightInfo for () {
 	}
 
     fn lock_stake() -> Weight {
+        Weight::from_parts(81_532_000, 4317)
+            .saturating_add(RocksDbWeight::get().reads(8_u64))
+            .saturating_add(RocksDbWeight::get().writes(2_u64))
+    }
+
+    fn unlock_stake() -> Weight {
         Weight::from_parts(81_532_000, 4317)
             .saturating_add(RocksDbWeight::get().reads(8_u64))
             .saturating_add(RocksDbWeight::get().writes(2_u64))

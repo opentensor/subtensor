@@ -586,6 +586,18 @@ mod events {
         },
 
         /// Stake has been unlocked from a hotkey on a subnet.
+        StakeUnlocked {
+            /// The coldkey that unlocked the stake.
+            coldkey: T::AccountId,
+            /// The hotkey the stake was locked to.
+            hotkey: T::AccountId,
+            /// The subnet the stake was locked on.
+            netuid: NetUid,
+            /// The alpha amount unlocked.
+            amount: AlphaBalance,
+        },
+
+        /// Stake has been unlocked from a hotkey on a subnet.
         LockMoved {
             /// The coldkey that moved the lock.
             coldkey: T::AccountId,

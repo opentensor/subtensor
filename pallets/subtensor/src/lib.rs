@@ -1492,13 +1492,15 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Exponential lock state for a coldkey on a subnet.
-    #[crate::freeze_struct("1f6be20a66128b8d")]
+    /// Lock state for a coldkey on a subnet.
+    #[crate::freeze_struct("13703236126f1b2b")]
     #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
     pub struct LockState {
-        /// Exponentially decaying locked amount.
+        /// Locked amount, stays constant unless user makes changes.
         pub locked_mass: AlphaBalance,
-        /// Matured decaying score (integral of locked_mass over time).
+        /// Unlocked amount, gradually decays over time.
+        pub unlocked_mass: AlphaBalance,
+        /// Matured decaying score (converges to locked_mass over time with MaturityRate rate).
         pub conviction: U64F64,
         /// Block number of last roll-forward.
         pub last_update: u64,
@@ -1529,15 +1531,25 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// Default decay timescale: ~365.25 days at 12s blocks.
+    /// Default lock maturity timescale: ~90 days at 12s blocks.
     #[pallet::type_value]
-    pub fn DefaultTauBlocks<T: Config>() -> u64 {
-        7200 * 365 + 1800
+    pub fn DefaultMaturityRate<T: Config>() -> u64 {
+        7200 * 90
     }
 
-    /// --- ITEM( tau_blocks ) | Decay timescale in blocks for exponential lock.
+    /// --- ITEM( tau_blocks ) | Maturity timescale in blocks for exponential lock.
     #[pallet::storage]
-    pub type TauBlocks<T: Config> = StorageValue<_, u64, ValueQuery, DefaultTauBlocks<T>>;
+    pub type MaturityRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultMaturityRate<T>>;
+
+    /// Default unlock timescale: ~30 days at 12s blocks.
+    #[pallet::type_value]
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
+        7200 * 30
+    }
+
+    /// --- ITEM( tau_blocks ) | Unlock timescale in blocks for exponential unlocking.
+    #[pallet::storage]
+    pub type UnlockRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultUnlockRate<T>>;
 
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
