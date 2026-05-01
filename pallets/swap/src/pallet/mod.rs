@@ -158,6 +158,10 @@ mod pallet {
     #[pallet::storage]
     pub type LastPositionId<T> = StorageValue<_, u128, ValueQuery>;
 
+    /// Last raw position key visited while clearing protocol liquidity.
+    #[pallet::storage]
+    pub type CleanUpLastKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<256>>, OptionQuery>;
+
     /// Tick index bitmap words storage
     #[pallet::storage]
     pub type TickIndexBitmapWords<T: Config> = StorageNMap<

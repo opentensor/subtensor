@@ -4,7 +4,7 @@ use core::ops::Neg;
 use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use frame_support::storage::{TransactionOutcome, transactional};
 use frame_support::{
-    ensure,
+    BoundedVec, ensure,
     pallet_prelude::DispatchError,
     traits::Get,
     weights::{Weight, WeightMeter},
@@ -841,70 +841,62 @@ impl<T: Config> Pallet<T> {
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
     pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
+        let read_weight = T::DbWeight::get().reads(1);
+        let remove_weight = T::DbWeight::get()
+            .reads_writes(2, 2)
+            .saturating_add(T::DbWeight::get().reads(1));
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let mut read_all = true;
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+        WeightMeterWrapper!(weight_meter, read_weight);
         let protocol_account = Self::protocol_account_id();
 
-        // 1) Force-close only protocol positions, burning proceeds.
-        let mut burned_tao = TaoBalance::ZERO;
-        let mut burned_alpha = AlphaBalance::ZERO;
+        let iter = match CleanUpLastKey::<T>::get() {
+            Some(raw_key) => Positions::<T>::iter_prefix_from((netuid,), raw_key.into_inner()),
+            None => Positions::<T>::iter_prefix((netuid,)),
+        };
 
-        // Collect protocol position IDs first to avoid mutating while iterating.
-        let protocol_pos_ids: sp_std::vec::Vec<PositionId> = Positions::<T>::iter_prefix((netuid,))
-            .filter_map(|((owner, pos_id), _)| {
-                if owner == protocol_account {
-                    Some(pos_id)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        for ((owner, pos_id), _) in iter {
+            if !weight_meter.can_consume(read_weight) {
+                read_all = false;
+                let key = Positions::<T>::hashed_key_for((netuid, &owner, pos_id));
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(key)));
+                break;
+            }
+            weight_meter.consume(read_weight);
 
-        WeightMeterWrapper!(
-            weight_meter,
-            T::DbWeight::get().reads(protocol_pos_ids.len() as u64)
-        );
+            if owner != protocol_account {
+                continue;
+            }
 
-        for pos_id in protocol_pos_ids {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(2, 2));
-            match Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
-                Ok(rm) => {
-                    WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
-                    let alpha_total_from_pool: AlphaBalance = rm.alpha.saturating_add(rm.fee_alpha);
-                    let tao_total_from_pool: TaoBalance = rm.tao.saturating_add(rm.fee_tao);
+            if !weight_meter.can_consume(remove_weight) {
+                read_all = false;
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(
+                    Positions::<T>::hashed_key_for((netuid, &owner, pos_id)),
+                )));
+                break;
+            }
+            weight_meter.consume(remove_weight);
 
-                    if tao_total_from_pool > TaoBalance::ZERO {
-                        burned_tao = burned_tao.saturating_add(tao_total_from_pool);
-                    }
-                    if alpha_total_from_pool > AlphaBalance::ZERO {
-                        burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
-                    }
-
-                    log::debug!(
-                        "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao_total_from_pool:?}, α_total={alpha_total_from_pool:?}"
-                    );
-                }
-                Err(e) => {
-                    log::debug!(
-                        "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
-                    );
-                    continue;
-                }
+            if let Err(e) = Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
+                log::debug!(
+                    "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
+                );
             }
         }
 
-        // 2) Clear active tick index entries, then all swap state (idempotent even if empty/non‑V3).
-        let active_ticks: sp_std::vec::Vec<TickIndex> =
-            Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
-
-        WeightMeterWrapper!(
-            weight_meter,
-            T::DbWeight::get().reads_writes(active_ticks.len() as u64, active_ticks.len() as u64)
-        );
-        for ti in active_ticks {
-            ActiveTickIndexManager::<T>::remove(netuid, ti);
+        if read_all {
+            CleanUpLastKey::<T>::set(None);
         }
+
+        (weight_meter.consumed(), read_all)
+    }
+
+    pub fn do_clear_protocol_liquidity_parameters(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
@@ -917,6 +909,12 @@ impl<T: Config> Pallet<T> {
             T::DbWeight::get().writes(1),
             Ticks<T>,
             netuid
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            TickIndexBitmapWords::<T>,
+            (netuid,)
         );
 
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
@@ -931,23 +929,53 @@ impl<T: Config> Pallet<T> {
         AlphaSqrtPrice::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SwapV3Initialized::<T>::remove(netuid);
-
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            TickIndexBitmapWords::<T>,
-            (netuid,)
-        );
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeRate::<T>::remove(netuid);
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         EnabledUserLiquidity::<T>::remove(netuid);
 
-        log::debug!(
-            "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
-        );
-
         (weight_meter.consumed(), true)
+    }
+
+    pub fn do_clear_tick_index_bitmap_words(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let read_weight = T::DbWeight::get().reads(1);
+        let remove_weight = T::DbWeight::get().reads_writes(3, 3);
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let mut read_all = true;
+
+        let iter = match CleanUpLastKey::<T>::get() {
+            Some(raw_key) => Ticks::<T>::iter_prefix_from(netuid, raw_key.into_inner()),
+            None => Ticks::<T>::iter_prefix(netuid),
+        };
+
+        for (tick_index, _) in iter {
+            if !weight_meter.can_consume(read_weight) {
+                read_all = false;
+                let key = Ticks::<T>::hashed_key_for(netuid, tick_index);
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(key)));
+                break;
+            }
+            weight_meter.consume(read_weight);
+
+            if !weight_meter.can_consume(remove_weight) {
+                read_all = false;
+                let key = Ticks::<T>::hashed_key_for(netuid, tick_index);
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(key)));
+                break;
+            }
+            weight_meter.consume(remove_weight);
+
+            ActiveTickIndexManager::<T>::remove(netuid, tick_index);
+        }
+
+        if read_all {
+            CleanUpLastKey::<T>::set(None);
+        }
+
+        (weight_meter.consumed(), read_all)
     }
 }
 
