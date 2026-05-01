@@ -113,9 +113,9 @@ impl<T: Config> Pallet<T> {
                 let alpha_in_i =
                     AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
                 SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
-                SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(alpha_in_i);
-                });
+
+                // Mint alpha and resolve to alpha reserve
+                Self::resolve_to_alpha_in(Self::mint_alpha(*netuid_i, alpha_in_i));
 
                 // Inject TAO in.
                 let injected_tao: TaoBalance =
@@ -239,9 +239,9 @@ impl<T: Config> Pallet<T> {
 
             let alpha_created: AlphaBalance = AlphaBalance::from(tou64!(alpha_out_i));
             SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_created);
-            SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_created);
-            });
+
+            // Mint and resolve outstanding alpha
+            Self::resolve_to_alpha_out(Self::mint_alpha(*netuid_i, alpha_created));
 
             // Calculate the owner cut.
             let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);

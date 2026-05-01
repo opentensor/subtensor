@@ -1,4 +1,5 @@
 use super::*;
+pub mod alpha;
 pub mod block_emission;
 pub mod block_step;
 pub mod reveal_commits;

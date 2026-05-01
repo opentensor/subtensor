@@ -1,4 +1,4 @@
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::arithmetic_side_effects, clippy::expect_used)]
 
 use frame_support::derive_impl;
 use frame_support::weights::constants::RocksDbWeight;
@@ -11,8 +11,8 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
     pub enum Test {
-        System: frame_system,
-        AlphaAssets: crate,
+        System: frame_system = 1,
+        AlphaAssets: crate = 2,
     }
 );
 

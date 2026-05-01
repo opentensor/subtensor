@@ -7,29 +7,24 @@ mod tests;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
-use frame_support::traits::{
-    Imbalance,
-    SameOrOther, TryDrop,
-    tokens::imbalance::TryMerge,
-};
+use frame_support::traits::{Imbalance, SameOrOther, TryDrop, tokens::imbalance::TryMerge};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Zero;
+use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, NetUid, Token};
 
 pub use pallet::*;
 
 /// Lightweight mint record that can later be resolved to a subnet or user alpha balance.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo,
-)]
+#[freeze_struct("2da64a64e80a7880")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct PositiveAlphaImbalance {
     netuid: NetUid,
     amount: AlphaBalance,
 }
 
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo,
-)]
+#[freeze_struct("1f16c8937e05cf36")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub struct NegativeAlphaImbalance {
     netuid: NetUid,
     amount: AlphaBalance,
@@ -85,7 +80,10 @@ impl TryDrop for NegativeAlphaImbalance {
 impl TryMerge for PositiveAlphaImbalance {
     fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
         if self.netuid == other.netuid {
-            Ok(Self::new(self.netuid, self.amount.saturating_add(other.amount)))
+            Ok(Self::new(
+                self.netuid,
+                self.amount.saturating_add(other.amount),
+            ))
         } else {
             Err((self, other))
         }
@@ -95,7 +93,10 @@ impl TryMerge for PositiveAlphaImbalance {
 impl TryMerge for NegativeAlphaImbalance {
     fn try_merge(self, other: Self) -> Result<Self, (Self, Self)> {
         if self.netuid == other.netuid {
-            Ok(Self::new(self.netuid, self.amount.saturating_add(other.amount)))
+            Ok(Self::new(
+                self.netuid,
+                self.amount.saturating_add(other.amount),
+            ))
         } else {
             Err((self, other))
         }
@@ -116,7 +117,10 @@ impl Imbalance<AlphaBalance> for PositiveAlphaImbalance {
     fn split(self, amount: AlphaBalance) -> (Self, Self) {
         let first = self.amount.min(amount);
         let second = self.amount.saturating_sub(first);
-        (Self::new(self.netuid, first), Self::new(self.netuid, second))
+        (
+            Self::new(self.netuid, first),
+            Self::new(self.netuid, second),
+        )
     }
 
     fn extract(&mut self, amount: AlphaBalance) -> Self {
@@ -182,7 +186,10 @@ impl Imbalance<AlphaBalance> for NegativeAlphaImbalance {
     fn split(self, amount: AlphaBalance) -> (Self, Self) {
         let first = self.amount.min(amount);
         let second = self.amount.saturating_sub(first);
-        (Self::new(self.netuid, first), Self::new(self.netuid, second))
+        (
+            Self::new(self.netuid, first),
+            Self::new(self.netuid, second),
+        )
     }
 
     fn extract(&mut self, amount: AlphaBalance) -> Self {
@@ -235,27 +242,17 @@ impl Imbalance<AlphaBalance> for NegativeAlphaImbalance {
 }
 
 /// Loose-coupling interface for alpha issuance operations.
-pub trait AlphaAssetsInterface<AccountId> {
+pub trait AlphaAssetsInterface {
     fn total_alpha_issuance(netuid: NetUid) -> AlphaBalance;
 
     fn mint_alpha(netuid: NetUid, amount: AlphaBalance) -> PositiveAlphaImbalance;
 
-    fn burn_alpha(
-        coldkey: &AccountId,
-        hotkey: &AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance;
+    fn burn_alpha(netuid: NetUid, amount: AlphaBalance) -> AlphaBalance;
 
-    fn recycle_alpha(
-        coldkey: &AccountId,
-        hotkey: &AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance;
+    fn recycle_alpha(netuid: NetUid, amount: AlphaBalance) -> AlphaBalance;
 }
 
-impl<AccountId> AlphaAssetsInterface<AccountId> for () {
+impl AlphaAssetsInterface for () {
     fn total_alpha_issuance(_netuid: NetUid) -> AlphaBalance {
         AlphaBalance::ZERO
     }
@@ -264,26 +261,18 @@ impl<AccountId> AlphaAssetsInterface<AccountId> for () {
         PositiveAlphaImbalance::new(netuid, amount)
     }
 
-    fn burn_alpha(
-        _coldkey: &AccountId,
-        _hotkey: &AccountId,
-        _netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance {
+    fn burn_alpha(_netuid: NetUid, amount: AlphaBalance) -> AlphaBalance {
         amount
     }
 
-    fn recycle_alpha(
-        _coldkey: &AccountId,
-        _hotkey: &AccountId,
-        _netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance {
+    fn recycle_alpha(_netuid: NetUid, amount: AlphaBalance) -> AlphaBalance {
         amount
     }
 }
 
+#[deny(missing_docs)]
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
@@ -297,8 +286,7 @@ pub mod pallet {
     /// Total alpha issuance tracked by the pallet.
     #[pallet::storage]
     #[pallet::getter(fn total_alpha_issuance)]
-    pub type TotalAlphaIssuance<T> =
-        StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
+    pub type TotalAlphaIssuance<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 
     /// Total alpha burned per subnet through this pallet.
     #[pallet::storage]
@@ -322,12 +310,7 @@ impl<T: pallet::Config> Pallet<T> {
         PositiveAlphaImbalance::new(netuid, amount)
     }
 
-    pub fn burn_alpha(
-        _coldkey: &T::AccountId,
-        _hotkey: &T::AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance {
+    pub fn burn_alpha(netuid: NetUid, amount: AlphaBalance) -> AlphaBalance {
         if !amount.is_zero() {
             AlphaBurned::<T>::mutate(netuid, |burned| {
                 *burned = (*burned).saturating_add(amount);
@@ -337,12 +320,7 @@ impl<T: pallet::Config> Pallet<T> {
         amount
     }
 
-    pub fn recycle_alpha(
-        _coldkey: &T::AccountId,
-        _hotkey: &T::AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance {
+    pub fn recycle_alpha(netuid: NetUid, amount: AlphaBalance) -> AlphaBalance {
         if !amount.is_zero() {
             AlphaRecycled::<T>::mutate(netuid, |recycled| {
                 *recycled = (*recycled).saturating_add(amount);
@@ -356,7 +334,7 @@ impl<T: pallet::Config> Pallet<T> {
     }
 }
 
-impl<T: pallet::Config> AlphaAssetsInterface<T::AccountId> for Pallet<T> {
+impl<T: pallet::Config> AlphaAssetsInterface for Pallet<T> {
     fn total_alpha_issuance(netuid: NetUid) -> AlphaBalance {
         TotalAlphaIssuance::<T>::get(netuid)
     }
@@ -365,21 +343,11 @@ impl<T: pallet::Config> AlphaAssetsInterface<T::AccountId> for Pallet<T> {
         Self::mint_alpha(netuid, amount)
     }
 
-    fn burn_alpha(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance {
-        Self::burn_alpha(coldkey, hotkey, netuid, amount)
+    fn burn_alpha(netuid: NetUid, amount: AlphaBalance) -> AlphaBalance {
+        Self::burn_alpha(netuid, amount)
     }
 
-    fn recycle_alpha(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        netuid: NetUid,
-        amount: AlphaBalance,
-    ) -> AlphaBalance {
-        Self::recycle_alpha(coldkey, hotkey, netuid, amount)
+    fn recycle_alpha(netuid: NetUid, amount: AlphaBalance) -> AlphaBalance {
+        Self::recycle_alpha(netuid, amount)
     }
 }

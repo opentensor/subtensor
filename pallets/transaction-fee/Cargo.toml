@@ -9,6 +9,7 @@ frame-support.workspace = true
 frame-system.workspace = true
 log.workspace = true
 pallet-balances = { workspace = true, default-features = false }
+pallet-alpha-assets = { workspace = true, default-features = false }
 pallet-subtensor.workspace = true
 pallet-subtensor-swap.workspace = true
 pallet-transaction-payment.workspace = true
@@ -47,6 +48,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-alpha-assets/std",
 	"pallet-balances/std",
 	"pallet-crowdloan/std",
 	"pallet-drand/std",

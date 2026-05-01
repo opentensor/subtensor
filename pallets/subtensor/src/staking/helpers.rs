@@ -284,12 +284,6 @@ impl<T: Config> Pallet<T> {
         T::SwapInterface::is_user_liquidity_enabled(netuid)
     }
 
-    pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaBalance) {
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(amount);
-        });
-    }
-
     /// The function clears Alpha map in batches. Each run will check ALPHA_MAP_BATCH_SIZE
     /// alphas. It keeps the alpha value stored when it's >= than MIN_ALPHA.
     /// The function uses AlphaMapLastKey as a storage for key iterator between runs.
@@ -387,10 +381,6 @@ impl<T: Config> Pallet<T> {
 
             AlphaV2MapLastKey::<T>::put(new_starting_key);
         }
-    }
-
-    pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaBalance) {
-        // Do nothing
     }
 
     /// Several alpha iteration helpers that merge key space from Alpha and AlphaV2 maps

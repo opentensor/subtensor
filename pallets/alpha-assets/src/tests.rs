@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used)]
 
 use frame_support::traits::{Imbalance, tokens::imbalance::TryMerge};
-use subtensor_runtime_common::{AlphaBalance, NetUid};
 use subtensor_runtime_common::Token;
+use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 use crate::{
     AlphaAssetsInterface, AlphaBurned, AlphaRecycled, PositiveAlphaImbalance, TotalAlphaIssuance,
@@ -28,12 +28,10 @@ fn mint_alpha_increases_total_issuance_and_returns_imbalance() {
 #[test]
 fn burn_alpha_does_not_change_total_issuance() {
     new_test_ext().execute_with(|| {
-        let coldkey = 10u64;
-        let hotkey = 11u64;
         let netuid = NetUid::from(4u16);
         let minted = AlphaAssets::mint_alpha(netuid, 100u64.into());
 
-        let burned = AlphaAssets::burn_alpha(&coldkey, &hotkey, netuid, 40u64.into());
+        let burned = AlphaAssets::burn_alpha(netuid, 40u64.into());
 
         assert_eq!(minted.amount(), 100u64.into());
         assert_eq!(burned, 40u64.into());
@@ -45,22 +43,15 @@ fn burn_alpha_does_not_change_total_issuance() {
 #[test]
 fn recycle_alpha_reduces_total_issuance_saturating_at_zero() {
     new_test_ext().execute_with(|| {
-        let coldkey = 20u64;
-        let hotkey = 21u64;
         let netuid = NetUid::from(5u16);
 
         AlphaAssets::mint_alpha(netuid, 90u64.into());
-        let recycled = <AlphaAssets as AlphaAssetsInterface<u64>>::recycle_alpha(
-            &coldkey,
-            &hotkey,
-            netuid,
-            30u64.into(),
-        );
+        let recycled = <AlphaAssets as AlphaAssetsInterface>::recycle_alpha(netuid, 30u64.into());
         assert_eq!(recycled, 30u64.into());
         assert_eq!(AlphaRecycled::<Test>::get(netuid), 30u64.into());
         assert_eq!(TotalAlphaIssuance::<Test>::get(netuid), 60u64.into());
 
-        AlphaAssets::recycle_alpha(&coldkey, &hotkey, netuid, 100u64.into());
+        AlphaAssets::recycle_alpha(netuid, 100u64.into());
         assert_eq!(AlphaRecycled::<Test>::get(netuid), 130u64.into());
         assert_eq!(TotalAlphaIssuance::<Test>::get(netuid), AlphaBalance::ZERO);
     });
