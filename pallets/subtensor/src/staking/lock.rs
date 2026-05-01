@@ -231,12 +231,12 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
-        ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
-
         let now = Self::get_current_block_as_u64();
         if let Some((existing_hotkey, existing)) = Lock::<T>::iter_prefix((coldkey, netuid)).next()
         {
             let lock = Self::roll_forward_lock(existing, now);
+            ensure!(amount <= lock.locked_mass, Error::<T>::UnlockAmountTooHigh);
+
             let new_locked = lock.locked_mass.saturating_sub(amount);
             let amount_fixed = U64F64::saturating_from_num(amount);
             let new_conviction = lock.conviction.saturating_sub(amount_fixed);

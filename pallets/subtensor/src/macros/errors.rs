@@ -303,5 +303,7 @@ mod errors {
         ActiveLockExists,
         /// A system account cannot be used in this operation
         CannotUseSystemAccount,
+        /// Trying to unlock more than locked
+        UnlockAmountTooHigh,
     }
 }
