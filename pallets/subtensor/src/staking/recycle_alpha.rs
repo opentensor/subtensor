@@ -51,6 +51,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientLiquidity
         );
 
+        // Ensure that recycled amount is not greater than available to unstake (due to locks)
+        Self::ensure_available_stake(&coldkey, netuid, amount)?;
+
         // Deduct from the coldkey's stake.
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
 
@@ -108,6 +111,9 @@ impl<T: Config> Pallet<T> {
             SubnetAlphaOut::<T>::get(netuid) >= amount,
             Error::<T>::InsufficientLiquidity
         );
+
+        // Ensure that burned amount is not greater than available to unstake (due to locks)
+        Self::ensure_available_stake(&coldkey, netuid, amount)?;
 
         // Deduct from the coldkey's stake.
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
