@@ -1938,24 +1938,29 @@ fn test_moving_partial_lock_same_owners() {
 // =========================================================================
 
 #[test]
+// Fully unlocked stake should still be unavailable on the very next block.
 fn test_unlocked_amount_cannot_be_unstaked_immediately() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
+        // Lock then immediately unlock the entire position.
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         assert_ok!(SubtensorModule::do_lock_stake(
             &coldkey, netuid, &hotkey, total
         ));
         assert_ok!(SubtensorModule::do_unlock_stake(&coldkey, netuid, total));
 
+        // Right after unlock, everything sits in unlocked_mass and nothing is available yet.
         assert_eq!(SubtensorModule::available_stake(&coldkey, netuid), AlphaBalance::ZERO);
         assert_eq!(SubtensorModule::get_current_locked(&coldkey, netuid), AlphaBalance::ZERO);
         assert_eq!(SubtensorModule::get_current_unlocked(&coldkey, netuid), total);
 
+        // Move one block to avoid unrelated rate-limit behavior on stake operations.
         step_block(1);
 
+        // Unstaking the just-unlocked amount should still be blocked.
         assert_noop!(
             SubtensorModule::do_remove_stake(
                 RuntimeOrigin::signed(coldkey),
@@ -1969,21 +1974,25 @@ fn test_unlocked_amount_cannot_be_unstaked_immediately() {
 }
 
 #[test]
+// Fully unlocked stake should also be unavailable for immediate re-locking.
 fn test_unlocked_amount_cannot_be_relocked_immediately() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
 
+        // Lock then immediately unlock the entire position.
         let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         assert_ok!(SubtensorModule::do_lock_stake(
             &coldkey, netuid, &hotkey, total
         ));
         assert_ok!(SubtensorModule::do_unlock_stake(&coldkey, netuid, total));
 
+        // Nothing should be available to lock again yet.
         assert_eq!(SubtensorModule::available_stake(&coldkey, netuid), AlphaBalance::ZERO);
         assert_eq!(SubtensorModule::get_current_unlocked(&coldkey, netuid), total);
 
+        // Even a tiny re-lock should fail because available stake is still zero.
         assert_noop!(
             SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, 1u64.into()),
             Error::<Test>::InsufficientStakeForLock
@@ -1992,6 +2001,7 @@ fn test_unlocked_amount_cannot_be_relocked_immediately() {
 }
 
 #[test]
+// Unlocking more than the currently locked mass must be rejected and leave the lock untouched.
 fn test_unlock_stake_rejects_amount_above_locked_mass() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -2020,6 +2030,7 @@ fn test_unlock_stake_rejects_amount_above_locked_mass() {
 }
 
 #[test]
+// After one full UnlockRate period, unlocked_mass should decay to about e^-1 of its original value.
 fn test_roll_forward_unlocked_mass_decays() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -2057,6 +2068,109 @@ fn test_roll_forward_unlocked_mass_decays() {
             u64::from(unlocked) as f64,
             expected,
             epsilon = lock_amount as f64 / 10.
+        );
+    });
+}
+
+#[test]
+// Even after one UnlockRate period, a large fraction of a fully unlocked position should remain unavailable.
+fn test_unlock_decay_blocks_eighty_percent() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        // Start with a full lock, then fully unlock it.
+        let original_lock = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
+        let attempted_amount = original_lock * 8.into() / 10.into();
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            original_lock,
+        ));
+        assert_ok!(SubtensorModule::do_unlock_stake(
+            &coldkey,
+            netuid,
+            original_lock,
+        ));
+
+        // Advance exactly one unlock time constant.
+        let rate = UnlockRate::<Test>::get();
+        let target = System::block_number() + rate;
+        System::set_block_number(target);
+
+        // Only about 36.8% should remain unavailable here, so 80% is still too much.
+        let unlocked = SubtensorModule::get_current_unlocked(&coldkey, netuid);
+        assert!(unlocked < attempted_amount);
+
+        // The same oversized amount should fail for both unstake and re-lock.
+        assert_noop!(
+            SubtensorModule::do_remove_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                attempted_amount,
+            ),
+            Error::<Test>::StakeUnavailable
+        );
+
+        assert_noop!(
+            SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, attempted_amount),
+            Error::<Test>::InsufficientStakeForLock
+        );
+    });
+}
+
+#[test]
+// If only half the position is unlocked, even 40% of the original position should still be blocked after one UnlockRate.
+fn test_unlock_decay_blocks_forty_percent_after_half_unlock() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        // Lock the full position, then unlock only half of it.
+        let original_lock = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
+        let unlocked_amount = original_lock / 2.into();
+        let attempted_amount = original_lock * 4.into() / 10.into();
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            original_lock,
+        ));
+        assert_ok!(SubtensorModule::do_unlock_stake(
+            &coldkey,
+            netuid,
+            unlocked_amount,
+        ));
+
+        // Advance exactly one unlock time constant.
+        let rate = UnlockRate::<Test>::get();
+        let target = System::block_number() + rate;
+        System::set_block_number(target);
+
+        // Since only half the original position entered unlocked_mass, 40% of the original is still unavailable.
+        let unlocked = SubtensorModule::get_current_unlocked(&coldkey, netuid);
+        assert!(unlocked < attempted_amount);
+
+        // The same oversized amount should fail for both unstake and re-lock.
+        assert_noop!(
+            SubtensorModule::do_remove_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                attempted_amount,
+            ),
+            Error::<Test>::StakeUnavailable
+        );
+
+        assert_noop!(
+            SubtensorModule::do_lock_stake(&coldkey, netuid, &hotkey, attempted_amount),
+            Error::<Test>::InsufficientStakeForLock
         );
     });
 }
