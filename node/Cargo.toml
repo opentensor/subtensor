@@ -123,6 +123,18 @@ pallet-shield.workspace = true
 stp-shield.workspace = true
 stc-shield.workspace = true
 
+codec = { workspace = true }
+ark-ec = { workspace = true, features = ["std"] }
+ark-ff = { workspace = true, features = ["std"] }
+ark-serialize = { workspace = true, features = ["std"] }
+tle = { workspace = true, features = ["std"] }
+w3f-bls = { workspace = true, features = ["std"] }
+stp-mev-shield-ibe = { workspace = true, features = ["std"] }
+mev-shield-ibe-runtime-api = { workspace = true, features = ["std"] }
+parking_lot = "0.12"
+bincode = "1"
+ark-std = { workspace = true, features = ["std"] }
+
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
 subtensor-runtime-common = { workspace = true, features = ["std"] }

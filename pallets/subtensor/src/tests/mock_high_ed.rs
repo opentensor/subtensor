@@ -86,6 +86,10 @@ impl pallet_shield::Config for Test {
     type FindAuthors = ();
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = ();
+    type InnerExtrinsic = RuntimeCall;
+    type IbeEncryptedTxDecryptor = ();
+    type DecryptedExtrinsicExecutor = ();
+    type IbeKeyVerifier = ();
     type WeightInfo = ();
 }
 

@@ -3,12 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use codec::Encode;
 use mev_shield_ibe_runtime_api::{MevShieldExtrinsicClass, MevShieldIbeApi};
-use sc_consensus::{
-    BlockCheckParams, BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult,
-};
+use sc_consensus::{BlockCheckParams, BlockImport, BlockImportParams, ImportResult};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, SaturatedConversion};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, NumberFor, SaturatedConversion};
 
 pub struct MevShieldBlockImport<I, C> {
     inner: I,
@@ -21,64 +19,56 @@ impl<I, C> MevShieldBlockImport<I, C> {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum MevShieldBlockImportError<E> {
-    #[error("inner block import error: {0:?}")]
-    Inner(E),
-
-    #[error("runtime api error")]
-    RuntimeApi,
-
-    #[error("v2 key submitted before finalized ordering proof is locally valid")]
-    KeyBeforeFinality,
-
-    #[error("stale v2 encrypted target block")]
-    StaleEncryptedTarget,
-
-    #[error("unencrypted non-operational transaction preempts encrypted queue")]
-    UnencryptedPreemptsEncryptedQueue,
-
-    #[error("full block censors pending encrypted queue")]
-    FullBlockCensorsEncryptedQueue,
+impl<I, C> Clone for MevShieldBlockImport<I, C>
+where
+    I: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            client: self.client.clone(),
+        }
+    }
 }
 
 #[async_trait]
 impl<Block, I, C> BlockImport<Block> for MevShieldBlockImport<I, C>
 where
     Block: BlockT,
-    I: BlockImport<Block> + Send,
+    Block::Hash: Clone + Into<sp_core::H256>,
+    I: BlockImport<Block> + Send + Sync,
+    I::Error: Into<sp_consensus::Error>,
     C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     C::Api: MevShieldIbeApi<Block>,
 {
-    type Error = MevShieldBlockImportError<I::Error>;
+    type Error = sp_consensus::Error;
 
     async fn check_block(
-        &mut self,
+        &self,
         block: BlockCheckParams<Block>,
     ) -> Result<ImportResult, Self::Error> {
-        self.inner
-            .check_block(block)
-            .await
-            .map_err(MevShieldBlockImportError::Inner)
+        self.inner.check_block(block).await.map_err(Into::into)
     }
 
     async fn import_block(
-        &mut self,
+        &self,
         block: BlockImportParams<Block>,
     ) -> Result<ImportResult, Self::Error> {
-        self.verify_mev_shield_validity(&block)?;
+        self.verify_mev_shield_validity::<Block>(&block)?;
 
-        self.inner
-            .import_block(block)
-            .await
-            .map_err(MevShieldBlockImportError::Inner)
+        self.inner.import_block(block).await.map_err(Into::into)
     }
 }
 
 impl<I, C> MevShieldBlockImport<I, C> {
-    fn local_finality_contains<Block>(&self, number: u64, hash: Block::Hash) -> bool
+    fn invalid(reason: &'static str) -> sp_consensus::Error {
+        sp_consensus::Error::ClientImport(reason.to_string())
+    }
+
+    fn local_finality_contains<Block>(&self, number: u64, hash: sp_core::H256) -> bool
     where
         Block: BlockT,
+        Block::Hash: Into<sp_core::H256>,
         C: HeaderBackend<Block>,
     {
         let finalized_number: u64 = self.client.info().finalized_number.saturated_into();
@@ -87,91 +77,84 @@ impl<I, C> MevShieldBlockImport<I, C> {
             return false;
         }
 
-        let Ok(Some(local_hash)) = self.client.hash(number.into()) else {
+        let number_for_block: NumberFor<Block> = number.saturated_into();
+
+        let Ok(Some(local_hash)) = self.client.hash(number_for_block) else {
             return false;
         };
 
-        local_hash == hash
+        local_hash.into() == hash
     }
 
     fn verify_mev_shield_validity<Block>(
         &self,
         block: &BlockImportParams<Block>,
-    ) -> Result<(), MevShieldBlockImportError<I::Error>>
+    ) -> Result<(), sp_consensus::Error>
     where
         Block: BlockT,
-        Block::Hash: From<sp_core::H256>,
+        Block::Hash: Clone + Into<sp_core::H256>,
         C: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
         C::Api: MevShieldIbeApi<Block>,
     {
-        let parent_hash = block.header.parent_hash();
+        let parent_hash = block.header.parent_hash().clone();
 
         let pending = self
             .client
             .runtime_api()
-            .pending_encrypted_queue_len(*parent_hash)
-            .map_err(|_| MevShieldBlockImportError::RuntimeApi)?;
+            .pending_encrypted_queue_len(parent_hash.clone())
+            .map_err(|_| Self::invalid("MEVShield v2 runtime API pending queue lookup failed"))?;
 
-        let mut has_unencrypted_non_operational = false;
-        let mut has_only_operational_or_encrypted = true;
+        if let Some(body) = block.body.as_ref() {
+            for xt in body.iter() {
+                let class = self
+                    .client
+                    .runtime_api()
+                    .classify_extrinsic(parent_hash.clone(), xt.encode())
+                    .map_err(|_| {
+                        Self::invalid("MEVShield v2 runtime API extrinsic classification failed")
+                    })?;
 
-        for xt in block.body.as_ref().unwrap_or(&Vec::new()).iter() {
-            let class = self
-                .client
-                .runtime_api()
-                .classify_extrinsic(*parent_hash, xt.encode())
-                .map_err(|_| MevShieldBlockImportError::RuntimeApi)?;
+                match class {
+                    MevShieldExtrinsicClass::Operational => {}
 
-            match class {
-                MevShieldExtrinsicClass::Operational => {}
+                    MevShieldExtrinsicClass::SubmitEncryptedV1 => {}
 
-                MevShieldExtrinsicClass::SubmitEncryptedV1 => {
-                    // v1 remains valid.
-                }
+                    MevShieldExtrinsicClass::SubmitEncryptedV2 { target_block, .. } => {
+                        let block_number: u64 = (*block.header.number()).saturated_into();
 
-                MevShieldExtrinsicClass::SubmitEncryptedV2 { target_block, .. } => {
-                    let block_number: u64 = block.header.number().saturated_into();
-
-                    if target_block <= block_number {
-                        return Err(MevShieldBlockImportError::StaleEncryptedTarget);
+                        if target_block <= block_number {
+                            return Err(Self::invalid(
+                                "MEVShield v2 encrypted transaction targets a stale block",
+                            ));
+                        }
                     }
-                }
 
-                MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
-                    finalized_ordering_block_number,
-                    finalized_ordering_block_hash,
-                    ..
-                } => {
-                    if !self.local_finality_contains::<Block>(
+                    MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
                         finalized_ordering_block_number,
-                        finalized_ordering_block_hash.into(),
-                    ) {
-                        return Err(MevShieldBlockImportError::KeyBeforeFinality);
+                        finalized_ordering_block_hash,
+                        ..
+                    } => {
+                        if !self.local_finality_contains::<Block>(
+                            finalized_ordering_block_number,
+                            finalized_ordering_block_hash,
+                        ) {
+                            return Err(Self::invalid(
+                                "MEVShield v2 block decryption key submitted before ordering finality",
+                            ));
+                        }
                     }
-                }
 
-                MevShieldExtrinsicClass::UnencryptedNonOperational => {
-                    has_unencrypted_non_operational = true;
-                    has_only_operational_or_encrypted = false;
+                    MevShieldExtrinsicClass::UnencryptedNonOperational => {
+                        if pending > 0 {
+                            return Err(Self::invalid(
+                                "MEVShield v2 pending encrypted queue preempted by unencrypted non-operational transaction",
+                            ));
+                        }
+                    }
                 }
             }
         }
 
-        // Invariant 1.
-        if pending > 0 && has_unencrypted_non_operational {
-            return Err(MevShieldBlockImportError::UnencryptedPreemptsEncryptedQueue);
-        }
-
-        // Invariant 3.
-        // Replace this placeholder with Subtensor's actual block-full predicate.
-        let block_is_full = crate::block_weight::block_is_full(block);
-
-        if block_is_full && pending > 0 && !has_only_operational_or_encrypted {
-            return Err(MevShieldBlockImportError::FullBlockCensorsEncryptedQueue);
-        }
-
-        // Invariant 2 is enforced in runtime by processing only the queue head:
-        // NotReady breaks, Ready/Invalid consumes exactly the current head.
         Ok(())
     }
 }

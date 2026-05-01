@@ -57,9 +57,7 @@ impl IbeEncryptedExtrinsicV1 {
     pub fn decode_v2(bytes: &[u8]) -> Result<Self, ()> {
         let envelope = Self::decode(&mut &bytes[..]).map_err(|_| ())?;
 
-        if envelope.magic != MEV_SHIELD_IBE_MAGIC
-            || envelope.version != MEV_SHIELD_IBE_VERSION
-        {
+        if envelope.magic != MEV_SHIELD_IBE_MAGIC || envelope.version != MEV_SHIELD_IBE_VERSION {
             return Err(());
         }
 
@@ -68,15 +66,7 @@ impl IbeEncryptedExtrinsicV1 {
 }
 
 #[derive(
-    Clone,
-    Eq,
-    PartialEq,
-    Debug,
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    TypeInfo,
-    MaxEncodedLen,
+    Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
 pub struct IbeEpochPublicKey {
     pub epoch: u64,
@@ -95,21 +85,12 @@ pub struct IbeEpochPublicKey {
     pub last_block: u64,
 }
 
-pub type BoundedMasterPublicKey =
-    BoundedVec<u8, ConstU32<COMPRESSED_MASTER_PUBLIC_KEY_LEN_U32>>;
+pub type BoundedMasterPublicKey = BoundedVec<u8, ConstU32<COMPRESSED_MASTER_PUBLIC_KEY_LEN_U32>>;
 
 pub type BoundedIdentityKey = BoundedVec<u8, ConstU32<COMPRESSED_IDENTITY_KEY_LEN_U32>>;
 
 #[derive(
-    Clone,
-    Eq,
-    PartialEq,
-    Debug,
-    Encode,
-    Decode,
-    DecodeWithMemTracking,
-    TypeInfo,
-    MaxEncodedLen,
+    Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
 pub struct IbeBlockDecryptionKeyV1 {
     pub version: u16,
@@ -168,14 +149,7 @@ pub fn block_identity_bytes(
     target_block: u64,
     key_id: [u8; KEY_ID_LEN],
 ) -> Vec<u8> {
-    (
-        IBE_DOMAIN,
-        genesis_hash,
-        epoch,
-        target_block,
-        key_id,
-    )
-        .encode()
+    (IBE_DOMAIN, genesis_hash, epoch, target_block, key_id).encode()
 }
 
 pub fn block_key_storage_key(

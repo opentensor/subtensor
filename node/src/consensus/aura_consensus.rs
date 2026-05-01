@@ -139,7 +139,7 @@ impl ConsensusMechanism for AuraConsensus {
         Self {}
     }
 
-    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ<'_>, sc_service::Error>
+    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ, sc_service::Error>
     where
         NumberFor<Block>: BlockNumberOps,
     {
@@ -153,6 +153,7 @@ impl ConsensusMechanism for AuraConsensus {
                   grandpa_block_import: GrandpaBlockImport,
                   transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>| {
                 let expected_babe_config = get_expected_babe_configuration(&*client)?;
+
                 let conditional_block_import = HybridBlockImport::new(
                     client.clone(),
                     grandpa_block_import.clone(),
@@ -160,25 +161,31 @@ impl ConsensusMechanism for AuraConsensus {
                     skip_history_backfill,
                 );
 
+                let epoch_changes = conditional_block_import.babe_link().epoch_changes().clone();
+
+                let mev_shield_block_import =
+                    crate::mev_shield_ibe::block_import::MevShieldBlockImport::new(
+                        conditional_block_import.clone(),
+                        client.clone(),
+                    );
+
                 let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
+
                 let create_inherent_data_providers = move |_, ()| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
                     let slot =
-						sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
+                        sp_consensus_aura::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+                            *timestamp,
+                            slot_duration,
+                        );
+
                     Ok((slot, timestamp))
                 };
 
-                // Aura needs the hybrid import queue, because it needs to
-                // 1. Validate the first Babe block it encounters before switching into Babe
-                //    consensus mode
-                // 2. Import the entire blockchain without restarting during warp sync, because
-                //    warp sync does not allow restarting sync midway.
                 let import_queue = super::hybrid_import_queue::import_queue(
                     crate::consensus::hybrid_import_queue::HybridImportQueueParams {
-                        block_import: conditional_block_import.clone(),
+                        block_import: mev_shield_block_import.clone(),
                         justification_import: Some(Box::new(grandpa_block_import.clone())),
                         client,
                         create_inherent_data_providers,
@@ -189,7 +196,7 @@ impl ConsensusMechanism for AuraConsensus {
                         compatibility_mode: sc_consensus_aura::CompatibilityMode::None,
                         select_chain: sc_consensus::LongestChain::new(backend.clone()),
                         babe_config: expected_babe_config,
-                        epoch_changes: conditional_block_import.babe_link().epoch_changes().clone(),
+                        epoch_changes,
                         offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(
                             transaction_pool,
                         ),
@@ -199,7 +206,7 @@ impl ConsensusMechanism for AuraConsensus {
 
                 Ok((
                     import_queue,
-                    Box::new(conditional_block_import) as BoxBlockImport<Block>,
+                    Box::new(mev_shield_block_import) as BoxBlockImport<Block>,
                 ))
             },
         );

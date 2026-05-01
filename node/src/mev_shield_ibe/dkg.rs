@@ -123,11 +123,9 @@ impl ProductionDkgKeySource {
     }
 
     fn ensure_dirs(&self) -> Result<(), String> {
-        fs::create_dir_all(self.public_dir())
-            .map_err(|e| format!("create public DKG dir: {e}"))?;
+        fs::create_dir_all(self.public_dir()).map_err(|e| format!("create public DKG dir: {e}"))?;
 
-        fs::create_dir_all(self.secret_dir())
-            .map_err(|e| format!("create secret DKG dir: {e}"))?;
+        fs::create_dir_all(self.secret_dir()).map_err(|e| format!("create secret DKG dir: {e}"))?;
 
         Ok(())
     }
@@ -300,15 +298,17 @@ impl ProductionDkgKeySource {
         Ok(())
     }
 
-    fn load_public_outputs(&self) -> Result<BTreeMap<DkgRoundKey, Arc<EpochDkgPublicOutput>>, String> {
+    fn load_public_outputs(
+        &self,
+    ) -> Result<BTreeMap<DkgRoundKey, Arc<EpochDkgPublicOutput>>, String> {
         let mut outputs = BTreeMap::new();
 
         if !self.public_dir().exists() {
             return Ok(outputs);
         }
 
-        for entry in fs::read_dir(self.public_dir())
-            .map_err(|e| format!("read public DKG dir: {e}"))?
+        for entry in
+            fs::read_dir(self.public_dir()).map_err(|e| format!("read public DKG dir: {e}"))?
         {
             let entry = entry.map_err(|e| format!("read public DKG dir entry: {e}"))?;
             let path = entry.path();
@@ -326,15 +326,17 @@ impl ProductionDkgKeySource {
         Ok(outputs)
     }
 
-    fn load_secret_bundles(&self) -> Result<BTreeMap<DkgRoundKey, Arc<EpochSecretShareBundle>>, String> {
+    fn load_secret_bundles(
+        &self,
+    ) -> Result<BTreeMap<DkgRoundKey, Arc<EpochSecretShareBundle>>, String> {
         let mut bundles = BTreeMap::new();
 
         if !self.secret_dir().exists() {
             return Ok(bundles);
         }
 
-        for entry in fs::read_dir(self.secret_dir())
-            .map_err(|e| format!("read secret DKG dir: {e}"))?
+        for entry in
+            fs::read_dir(self.secret_dir()).map_err(|e| format!("read secret DKG dir: {e}"))?
         {
             let entry = entry.map_err(|e| format!("read secret DKG dir entry: {e}"))?;
             let path = entry.path();

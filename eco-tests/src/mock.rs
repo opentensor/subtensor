@@ -86,13 +86,16 @@ impl pallet_balances::Config for Test {
 }
 
 impl pallet_shield::Config for Test {
-    type AuthorityId = sp_core::sr25519::Public;
-    type FindAuthors = ();
+    type AuthorityId = AuraId;
+    type FindAuthors = MockFindAuthors;
     type RuntimeCall = RuntimeCall;
-    type ExtrinsicDecryptor = ();
+    type ExtrinsicDecryptor = MockDecryptor;
+    type InnerExtrinsic = RuntimeCall;
+    type IbeEncryptedTxDecryptor = ();
+    type DecryptedExtrinsicExecutor = ();
+    type IbeKeyVerifier = ();
     type WeightInfo = ();
 }
-
 pub struct NoNestingCallFilter;
 
 impl Contains<RuntimeCall> for NoNestingCallFilter {

@@ -3,17 +3,16 @@ use std::{fs, path::PathBuf};
 use ark_ec::Group;
 use ark_ff::{One, UniformRand, Zero};
 use ark_serialize::CanonicalSerialize;
+use ark_std::rand::thread_rng;
 use clap::Parser;
 use codec::Encode;
-use rand::thread_rng;
 use sp_core::H256;
 use stp_mev_shield_ibe::{BoundedMasterPublicKey, IbeEpochPublicKey, KEY_ID_LEN};
 use tle::curves::drand::TinyBLS381;
 use w3f_bls::EngineBLS;
 
-use subtensor_node::mev_shield_ibe::crypto::{
-    EpochDkgPublicOutput, EpochSecretShareBundle, PublicShareAtom,
-    WeightedSecretShareAtom,
+use node_subtensor::mev_shield_ibe::crypto::{
+    EpochDkgPublicOutput, EpochSecretShareBundle, PublicShareAtom, WeightedSecretShareAtom,
 };
 
 type Scalar = <TinyBLS381 as EngineBLS>::Scalar;

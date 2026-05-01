@@ -135,10 +135,6 @@ impl MevShieldIbeSharePool {
             .expect("spawn inbound share pool");
     }
 
-    pub fn refresh_dkg(&self) -> Result<(), String> {
-        self.inner.dkg.refresh()
-    }
-
     pub fn mark_finalized_identity_unlocked(
         &self,
         identity: IbePendingIdentity,

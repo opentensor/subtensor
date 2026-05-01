@@ -23,12 +23,13 @@ use codec::{Compact, Decode, Encode};
 use ethereum::AuthorizationList;
 use frame_support::{
     PalletId,
-    dispatch::DispatchResult,
+    dispatch::{DispatchClass, DispatchResult, GetDispatchInfo},
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
+    traits::{Contains, InsideBoth, IsSubType, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
+use mev_shield_ibe_runtime_api::MevShieldExtrinsicClass;
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
@@ -2695,6 +2696,86 @@ impl_runtime_apis! {
 
         fn try_unshield_tx(dec_key_bytes: Vec<u8>, shielded_tx: ShieldedTransaction) -> Option<<Block as BlockT>::Extrinsic> {
             MevShield::try_unshield_tx::<Block>(dec_key_bytes, shielded_tx)
+        }
+    }
+
+    impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
+        fn pending_ibe_identities(
+            limit: u32,
+        ) -> Vec<stp_mev_shield_ibe::IbePendingIdentity> {
+            pallet_shield::Pallet::<Runtime>::pending_ibe_identities(limit)
+        }
+
+        fn has_ibe_block_key(
+            epoch: u64,
+            target_block: u64,
+            key_id: [u8; 16],
+        ) -> bool {
+            pallet_shield::Pallet::<Runtime>::has_ibe_block_key(
+                epoch,
+                target_block,
+                key_id,
+            )
+        }
+
+        fn pending_encrypted_queue_len() -> u32 {
+            pallet_shield::Pallet::<Runtime>::pending_encrypted_queue_len()
+        }
+
+        fn classify_extrinsic(encoded_xt: Vec<u8>) -> MevShieldExtrinsicClass {
+            let Ok(xt) = UncheckedExtrinsic::decode(&mut &encoded_xt[..]) else {
+                return MevShieldExtrinsicClass::UnencryptedNonOperational;
+            };
+
+            let call = &xt.0.function;
+
+            if let Some(shield_call) =
+                IsSubType::<pallet_shield::Call<Runtime>>::is_sub_type(call)
+            {
+                return match shield_call {
+                    pallet_shield::Call::submit_encrypted { ciphertext } => {
+                        match stp_mev_shield_ibe::IbeEncryptedExtrinsicV1::decode_v2(
+                            ciphertext.as_slice(),
+                        ) {
+                            Ok(envelope) => MevShieldExtrinsicClass::SubmitEncryptedV2 {
+                                epoch: envelope.epoch,
+                                target_block: envelope.target_block,
+                                key_id: envelope.key_id,
+                                commitment: envelope.commitment,
+                            },
+                            Err(_) => MevShieldExtrinsicClass::SubmitEncryptedV1,
+                        }
+                    }
+
+                    pallet_shield::Call::submit_block_decryption_key { key } => {
+                        MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
+                            epoch: key.epoch,
+                            target_block: key.target_block,
+                            key_id: key.key_id,
+                            finalized_ordering_block_number: key
+                                .finalized_ordering_block_number,
+                            finalized_ordering_block_hash: key.finalized_ordering_block_hash,
+                        }
+                    }
+
+                    pallet_shield::Call::announce_next_key { .. } => {
+                        MevShieldExtrinsicClass::Operational
+                    }
+
+                    _ => MevShieldExtrinsicClass::UnencryptedNonOperational,
+                };
+            }
+
+            let info = call.get_dispatch_info();
+
+            match info.class {
+                DispatchClass::Operational | DispatchClass::Mandatory => {
+                    MevShieldExtrinsicClass::Operational
+                }
+                DispatchClass::Normal => {
+                    MevShieldExtrinsicClass::UnencryptedNonOperational
+                }
+            }
         }
     }
 }

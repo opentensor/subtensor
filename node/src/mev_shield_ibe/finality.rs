@@ -33,13 +33,14 @@ pub fn spawn_finality_gate<Block, Client>(
 
             while let Some(notification) = finality_stream.next().await {
                 let finalized_hash = notification.hash;
-                let finalized_number: u64 = notification.header.number().saturated_into();
+
+                let finalized_number: u64 = (*notification.header.number()).saturated_into();
 
                 let best_number: u64 = client.info().best_number.saturated_into();
 
                 let Ok(identities) = client
                     .runtime_api()
-                    .pending_ibe_identities(finalized_hash, 512)
+                    .pending_ibe_identities(finalized_hash, pool.max_pending_identities())
                 else {
                     continue;
                 };

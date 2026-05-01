@@ -6,9 +6,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use codec::{Decode, Encode};
 use sp_core::H256;
 use stp_mev_shield_ibe::{
-    BoundedIdentityKey, IbeBlockDecryptionKeyV1, IbeEpochPublicKey,
-    IbePartialDecryptionKeyShareV1, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
-    block_identity_bytes,
+    BoundedIdentityKey, IbeBlockDecryptionKeyV1, IbeEpochPublicKey, IbePartialDecryptionKeyShareV1,
+    KEY_ID_LEN, MEV_SHIELD_IBE_VERSION, block_identity_bytes,
 };
 use tle::{curves::drand::TinyBLS381, ibe::fullident::Identity};
 use w3f_bls::EngineBLS;
@@ -58,7 +57,9 @@ pub struct EpochSecretShareBundle {
 
 impl EpochDkgPublicOutput {
     pub fn public_atom(&self, share_id: u32) -> Option<&PublicShareAtom> {
-        self.public_atoms.iter().find(|atom| atom.share_id == share_id)
+        self.public_atoms
+            .iter()
+            .find(|atom| atom.share_id == share_id)
     }
 
     pub fn total_public_weight(&self) -> u128 {
@@ -156,12 +157,7 @@ pub fn verify_partial_identity_key(
         return false;
     }
 
-    let id = identity(
-        genesis_hash,
-        share.epoch,
-        share.target_block,
-        share.key_id,
-    );
+    let id = identity(genesis_hash, share.epoch, share.target_block, share.key_id);
 
     let Ok(public_share) = PublicShare::deserialize_compressed(&mut &share.public_share[..]) else {
         return false;

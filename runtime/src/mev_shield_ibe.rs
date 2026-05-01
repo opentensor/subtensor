@@ -3,21 +3,20 @@ use ark_serialize::CanonicalDeserialize;
 use codec::Decode;
 use frame_support::dispatch::{DispatchInfo, GetDispatchInfo};
 use pallet_shield::{
-    DecryptedExtrinsicExecutor, IbeAppliedExtrinsic, IbeDecryptOutcome,
-    IbeEncryptedTxDecryptor, IbeKeyVerifier,
+    DecryptedExtrinsicExecutor, IbeAppliedExtrinsic, IbeDecryptOutcome, IbeEncryptedTxDecryptor,
+    IbeKeyVerifier,
 };
 use sp_core::H256;
-use sp_runtime::{traits::UniqueSaturatedInto, DispatchError};
+use sp_runtime::{DispatchError, traits::UniqueSaturatedInto};
 use sp_std::vec;
 use stp_mev_shield_ibe::{
-    block_identity_bytes, IbeEncryptedExtrinsicV1, IbeEpochPublicKey,
-    MEV_SHIELD_IBE_VERSION,
+    IbeEncryptedExtrinsicV1, IbeEpochPublicKey, MEV_SHIELD_IBE_VERSION, block_identity_bytes,
 };
 use tle::{
     curves::drand::TinyBLS381,
     ibe::fullident::Identity,
     stream_ciphers::AESGCMStreamCipherProvider,
-    tlock::{tld, TLECiphertext},
+    tlock::{TLECiphertext, tld},
 };
 use w3f_bls::EngineBLS;
 
@@ -54,11 +53,9 @@ where
             return false;
         };
 
-        let Ok(identity_key) =
-            <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
-                &mut &identity_decryption_key[..],
-            )
-        else {
+        let Ok(identity_key) = <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
+            &mut &identity_decryption_key[..],
+        ) else {
             return false;
         };
 
@@ -69,8 +66,7 @@ where
         //
         // Verify:
         //   e(g2^msk, H(identity)) == e(g2, d_id)
-        TinyBLS381::pairing(master_public_key, q_id)
-            == TinyBLS381::pairing(g2, identity_key)
+        TinyBLS381::pairing(master_public_key, q_id) == TinyBLS381::pairing(g2, identity_key)
     }
 }
 
@@ -102,23 +98,18 @@ impl IbeEncryptedTxDecryptor<UncheckedExtrinsic> for MevShieldIbeDecryptor {
         };
 
         let Ok(ciphertext) =
-            TLECiphertext::<TinyBLS381>::deserialize_compressed(
-                &mut &envelope.ciphertext[..],
-            )
+            TLECiphertext::<TinyBLS381>::deserialize_compressed(&mut &envelope.ciphertext[..])
         else {
             return IbeDecryptOutcome::InvalidAfterKeyAvailable;
         };
 
-        let Ok(identity_key) =
-            <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
-                &mut &block_key.identity_decryption_key[..],
-            )
-        else {
+        let Ok(identity_key) = <TinyBLS381 as EngineBLS>::SignatureGroup::deserialize_compressed(
+            &mut &block_key.identity_decryption_key[..],
+        ) else {
             return IbeDecryptOutcome::InvalidAfterKeyAvailable;
         };
 
-        let Ok(plaintext) =
-            tld::<TinyBLS381, AESGCMStreamCipherProvider>(ciphertext, identity_key)
+        let Ok(plaintext) = tld::<TinyBLS381, AESGCMStreamCipherProvider>(ciphertext, identity_key)
         else {
             return IbeDecryptOutcome::InvalidAfterKeyAvailable;
         };

@@ -6,8 +6,8 @@ extern crate alloc;
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 
 use chacha20poly1305::{
-    aead::{Aead, Payload},
     KeyInit, XChaCha20Poly1305, XNonce,
+    aead::{Aead, Payload},
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -17,8 +17,8 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 use ml_kem::{
-    kem::{Decapsulate, DecapsulationKey},
     Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
+    kem::{Decapsulate, DecapsulationKey},
 };
 use sp_io::hashing::twox_128;
 use sp_runtime::{
@@ -31,8 +31,8 @@ use sp_runtime::{
     },
 };
 use stp_mev_shield_ibe::{
-    block_key_storage_key, IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1, IbeEpochPublicKey,
-    IbePendingIdentity, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION,
+    IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1, IbeEpochPublicKey, IbePendingIdentity,
+    KEY_ID_LEN, MEV_SHIELD_IBE_VERSION, block_key_storage_key,
 };
 use stp_shield::{
     INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
@@ -635,10 +635,7 @@ pub mod pallet {
     impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
 
-        fn validate_unsigned(
-            _source: TransactionSource,
-            call: &Self::Call,
-        ) -> TransactionValidity {
+        fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             let Call::submit_block_decryption_key { key } = call else {
                 return InvalidTransaction::Call.into();
             };
@@ -770,8 +767,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidIbeBlockDecryptionKey
         );
 
-        let epoch_key =
-            IbeEpochKeys::<T>::get(key.epoch).ok_or(Error::<T>::UnknownIbeEpoch)?;
+        let epoch_key = IbeEpochKeys::<T>::get(key.epoch).ok_or(Error::<T>::UnknownIbeEpoch)?;
 
         ensure!(epoch_key.key_id == key.key_id, Error::<T>::WrongIbeEpochKey);
 
@@ -793,8 +789,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IbeKeyAlreadyPublished
         );
 
-        let genesis_hash =
-            frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
+        let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
 
         ensure!(
             T::IbeKeyVerifier::verify_block_identity_key(
@@ -1034,7 +1029,8 @@ impl<T: Config> Pallet<T> {
                 continue;
             };
 
-            let Ok(envelope) = IbeEncryptedExtrinsicV1::decode_v2(pending.encrypted_call.as_slice())
+            let Ok(envelope) =
+                IbeEncryptedExtrinsicV1::decode_v2(pending.encrypted_call.as_slice())
             else {
                 continue;
             };
@@ -1099,8 +1095,7 @@ impl<T: Config> Pallet<T> {
             .ok()?;
         let call = xt.call();
 
-        let Some(Call::submit_encrypted { ciphertext }) =
-            IsSubType::<Call<T>>::is_sub_type(call)
+        let Some(Call::submit_encrypted { ciphertext }) = IsSubType::<Call<T>>::is_sub_type(call)
         else {
             return None;
         };

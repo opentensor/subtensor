@@ -197,6 +197,10 @@ impl pallet_shield::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = ();
     type WeightInfo = ();
+    type InnerExtrinsic = RuntimeCall;
+    type IbeEncryptedTxDecryptor = ();
+    type DecryptedExtrinsicExecutor = ();
+    type IbeKeyVerifier = ();
 }
 
 impl pallet_preimage::Config for Runtime {

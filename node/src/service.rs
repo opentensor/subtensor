@@ -313,7 +313,7 @@ where
         sc_consensus_grandpa::grandpa_peers_set_config::<_, NB>(
             grandpa_protocol_name.clone(),
             metrics.clone(),
-            peer_store_handle,
+            peer_store_handle.clone(),
         );
 
     // MEVShield v2 threshold-IBE validator share gossip protocol.
@@ -321,7 +321,11 @@ where
     // This is additive and does not affect the existing v1 shield protocol.
     // Non-authorities may register the protocol but do not spawn the share pool.
     let (ibe_protocol_config, ibe_notification_service) =
-        crate::mev_shield_ibe::network::protocol_config();
+        crate::mev_shield_ibe::network::protocol_config::<NB, Block>(
+            metrics.clone(),
+            peer_store_handle.clone(),
+        );
+
     net_config.add_notification_protocol(ibe_protocol_config);
 
     let warp_sync_config = if sealing.is_some() {
@@ -369,13 +373,7 @@ where
     let maybe_ibe_share_pool = if role.is_authority() {
         let genesis_hash = client.block_hash(0u32)?.expect("genesis exists").into();
 
-        let dkg_bundle_dir = config
-            .base_path
-            .as_ref()
-            .expect("base path required for MEVShield v2 DKG bundles")
-            .path()
-            .join("mev_shield_ibe")
-            .join("dkg");
+        let dkg_bundle_dir = config.base_path.path().join("mev_shield_ibe").join("dkg");
 
         let dkg_key_source = Arc::new(
             crate::mev_shield_ibe::dkg::DevFileDkgKeySource::new(genesis_hash, dkg_bundle_dir)
@@ -468,7 +466,8 @@ where
 
     // Sinks for pubsub notifications.
     // Everytime a new subscription is created, a new mpsc channel is added to the sink pool.
-    // The MappingSyncWorker sends through the channel on block import and the subscription emits a notification to the subscriber on receiving a message through this channel.
+    // The MappingSyncWorker sends through the channel on block import and the subscription emits
+    // a notification to the subscriber on receiving a message through this channel.
     // This way we avoid race conditions when using native substrate block import notification stream.
     let pubsub_notification_sinks: fc_mapping_sync::EthereumBlockNotificationSinks<
         fc_mapping_sync::EthereumBlockNotification<Block>,

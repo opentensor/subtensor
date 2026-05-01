@@ -152,7 +152,7 @@ impl ConsensusMechanism for BabeConsensus {
         }
     }
 
-    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ<'_>, sc_service::Error>
+    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ, sc_service::Error>
     where
         NumberFor<Block>: BlockNumberOps,
     {
@@ -191,21 +191,30 @@ impl ConsensusMechanism for BabeConsensus {
                     skip_history_backfill,
                 );
 
+                let mev_shield_block_import =
+                    crate::mev_shield_ibe::block_import::MevShieldBlockImport::new(
+                        conditional_block_import.clone(),
+                        client.clone(),
+                    );
+
                 let slot_duration = babe_link.config().slot_duration();
+
                 let create_inherent_data_providers = move |_, ()| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+
                     let slot =
-						sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
-							*timestamp,
-							slot_duration,
-						);
+                        sp_consensus_babe::inherents::InherentDataProvider::from_timestamp_and_slot_duration(
+                            *timestamp,
+                            slot_duration,
+                        );
+
                     Ok((slot, timestamp))
                 };
 
                 let (import_queue, babe_worker_handle) =
                     sc_consensus_babe::import_queue(sc_consensus_babe::ImportQueueParams {
                         link: babe_link.clone(),
-                        block_import: conditional_block_import.clone(),
+                        block_import: mev_shield_block_import.clone(),
                         justification_import: Some(Box::new(grandpa_block_import)),
                         client,
                         select_chain: sc_consensus::LongestChain::new(backend.clone()),
@@ -220,9 +229,10 @@ impl ConsensusMechanism for BabeConsensus {
 
                 self.babe_link = Some(babe_link);
                 self.babe_worker_handle = Some(babe_worker_handle);
+
                 Ok((
                     import_queue,
-                    Box::new(conditional_block_import) as BoxBlockImport<Block>,
+                    Box::new(mev_shield_block_import) as BoxBlockImport<Block>,
                 ))
             },
         );

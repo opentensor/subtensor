@@ -155,6 +155,7 @@ pallet-shield.workspace = true
 stp-shield.workspace = true
 stp-mev-shield-ibe.workspace = true
 ark-ec = { workspace = true, default-features = false }
+mev-shield-ibe-runtime-api = { workspace = true, default-features = false }
 
 ethereum.workspace = true
 
@@ -284,6 +285,7 @@ std = [
 	"sp-weights/std",
 	"stp-mev-shield-ibe/std",
 	"ark-ec/std",
+	"mev-shield-ibe-runtime-api/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

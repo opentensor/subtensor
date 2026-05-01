@@ -1,15 +1,19 @@
+use std::{collections::BTreeSet, sync::Arc};
+
 use codec::{Decode, Encode};
 use futures::{FutureExt, StreamExt, channel::mpsc};
 use sc_network::{
     PeerId,
-    config::{NonDefaultSetConfig, NotificationHandshake, ProtocolName, SetConfig},
-    service::traits::{NotificationEvent, NotificationService},
+    config::{
+        NotificationHandshake, NotificationMetrics, PeerStoreProvider, ProtocolName, SetConfig,
+    },
+    service::traits::{NetworkBackend, NotificationEvent, NotificationService, ValidationResult},
 };
 use sc_service::SpawnTaskHandle;
-use std::collections::BTreeSet;
+use sp_runtime::traits::Block as BlockT;
 use stp_mev_shield_ibe::IbePartialDecryptionKeyShareV1;
 
-const PROTOCOL: &[u8] = b"/subtensor/mev-shield-ibe/2";
+const PROTOCOL: &str = "/subtensor/mev-shield-ibe/2";
 const MAX_NOTIFICATION_SIZE: u64 = 16 * 1024 * 1024;
 
 #[derive(Clone, Debug, Encode, Decode)]
@@ -17,17 +21,26 @@ pub enum WireMessage {
     PartialDecryptionKeyShareV1(IbePartialDecryptionKeyShareV1),
 }
 
-pub fn protocol_config() -> (NonDefaultSetConfig, Box<dyn NotificationService>) {
+pub fn protocol_config<NB, Block>(
+    metrics: NotificationMetrics,
+    peer_store_handle: Arc<dyn PeerStoreProvider>,
+) -> (NB::NotificationProtocolConfig, Box<dyn NotificationService>)
+where
+    Block: BlockT,
+    NB: NetworkBackend<Block, <Block as BlockT>::Hash>,
+{
     let mut set_config = SetConfig::default();
     set_config.in_peers = 25;
     set_config.out_peers = 75;
 
-    NonDefaultSetConfig::new(
-        ProtocolName::from(PROTOCOL.to_vec()),
+    NB::notification_config(
+        ProtocolName::from(PROTOCOL),
         Vec::new(),
         MAX_NOTIFICATION_SIZE,
         Some(NotificationHandshake::from_bytes(vec![2])),
         set_config,
+        metrics,
+        peer_store_handle,
     )
 }
 
@@ -47,26 +60,36 @@ pub fn spawn_network_task(
                 futures::select! {
                     event = service.next_event().fuse() => {
                         match event {
-                            Some(NotificationEvent::NotificationStreamOpened { remote, .. }) => {
-                                peers.insert(remote);
+                            Some(NotificationEvent::ValidateInboundSubstream { result_tx, .. }) => {
+                                let _ = result_tx.send(ValidationResult::Accept);
                             }
-                            Some(NotificationEvent::NotificationStreamClosed { remote }) => {
-                                peers.remove(&remote);
+
+                            Some(NotificationEvent::NotificationStreamOpened { peer, .. }) => {
+                                peers.insert(peer);
                             }
+
+                            Some(NotificationEvent::NotificationStreamClosed { peer }) => {
+                                peers.remove(&peer);
+                            }
+
                             Some(NotificationEvent::NotificationReceived { notification, .. }) => {
                                 if let Ok(msg) = WireMessage::decode(&mut &notification[..]) {
                                     let _ = inbound.unbounded_send(msg);
                                 }
                             }
+
                             None => break,
                         }
                     }
 
                     msg = outbound.next().fuse() => {
-                        let Some(msg) = msg else { break };
+                        let Some(msg) = msg else {
+                            break;
+                        };
+
                         let bytes = msg.encode();
 
-                        for peer in peers.iter().copied() {
+                        for peer in peers.iter() {
                             service.send_sync_notification(peer, bytes.clone());
                         }
                     }

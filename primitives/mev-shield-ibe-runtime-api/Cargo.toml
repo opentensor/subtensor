@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-codec = { workspace = true, package = "parity-scale-codec", default-features = false, features = ["derive"] }
+codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 sp-api = { workspace = true, default-features = false }
 sp-core = { workspace = true, default-features = false }
