@@ -1628,6 +1628,133 @@ fn test_clear_small_nomination_checks_lock() {
     });
 }
 
+#[test]
+// If one coldkey has a large nomination on one hotkey and a tiny nomination on another,
+// clearing the tiny nomination should reduce the lock state only by that tiny alpha amount.
+fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_large = U256::from(100);
+        let hotkey_large = U256::from(101);
+        let netuid = setup_subnet_with_stake(coldkey_large, hotkey_large, 100_000_000_000);
+
+        let coldkey_tiny = U256::from(102);
+        let hotkey_tiny = U256::from(103);
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey_tiny,
+            &hotkey_tiny
+        ));
+
+        let nominator = U256::from(200);
+        let large_tao = TaoBalance::from(50_000_000_000u64);
+        let tiny_tao = TaoBalance::from(1_000_000u64);
+        add_balance_to_coldkey_account(&nominator, large_tao + tiny_tao);
+
+        // Create one large nomination and one tiny nomination on the same subnet.
+        SubtensorModule::stake_into_subnet(
+            &hotkey_large,
+            &nominator,
+            netuid,
+            large_tao,
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+        SubtensorModule::stake_into_subnet(
+            &hotkey_tiny,
+            &nominator,
+            netuid,
+            tiny_tao,
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+
+        let large_alpha_before = get_alpha(&hotkey_large, &nominator, netuid);
+        let tiny_alpha_before = get_alpha(&hotkey_tiny, &nominator, netuid);
+        assert!(large_alpha_before > tiny_alpha_before);
+
+        // Lock against the large nomination hotkey and seed non-zero unlocked_mass + conviction
+        // so we can verify each field is reduced only by the tiny nomination's alpha amount.
+        let total_before = SubtensorModule::total_coldkey_alpha_on_subnet(&nominator, netuid);
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &nominator,
+            netuid,
+            &hotkey_large,
+            total_before,
+        ));
+
+        let unlocked_before = AlphaBalance::from(tiny_alpha_before.to_u64() + 1_000);
+        let conviction_before = U64F64::from_num(tiny_alpha_before.to_u64() + 2_000);
+        let last_update = SubtensorModule::get_current_block_as_u64();
+        Lock::<Test>::insert(
+            (nominator, netuid, hotkey_large),
+            LockState {
+                locked_mass: total_before,
+                unlocked_mass: unlocked_before,
+                conviction: conviction_before,
+                last_update,
+            },
+        );
+        HotkeyLock::<Test>::insert(
+            netuid,
+            hotkey_large,
+            LockState {
+                locked_mass: total_before,
+                unlocked_mass: AlphaBalance::ZERO,
+                conviction: conviction_before,
+                last_update,
+            },
+        );
+
+        // Force the tiny nomination to qualify as "small" and clear only that nomination.
+        SubtensorModule::set_nominator_min_required_stake(u64::MAX);
+        SubtensorModule::clear_small_nomination_if_required(
+            &hotkey_tiny,
+            &nominator,
+            netuid,
+        );
+
+        // The large nomination stays, the tiny one is removed.
+        let large_alpha_after = get_alpha(&hotkey_large, &nominator, netuid);
+        let tiny_alpha_after = get_alpha(&hotkey_tiny, &nominator, netuid);
+        assert_eq!(large_alpha_after, large_alpha_before);
+        assert!(!large_alpha_after.is_zero());
+        assert_eq!(tiny_alpha_after, AlphaBalance::ZERO);
+
+        // Only the tiny alpha amount should be shaved off the coldkey lock state.
+        let lock_after = Lock::<Test>::get((nominator, netuid, hotkey_large)).unwrap();
+        let tiny_alpha_fixed = U64F64::from_num(tiny_alpha_before.to_u64());
+        assert!(!lock_after.locked_mass.is_zero());
+        assert_eq!(
+            lock_after.locked_mass,
+            total_before - tiny_alpha_before
+        );
+        assert!(!lock_after.unlocked_mass.is_zero());
+        assert_eq!(
+            lock_after.unlocked_mass,
+            unlocked_before - tiny_alpha_before
+        );
+        assert!(lock_after.conviction != U64F64::from_num(0));
+        assert_eq!(
+            lock_after.conviction,
+            conviction_before - tiny_alpha_fixed
+        );
+
+        // The aggregate hotkey lock on the locked hotkey should also only shrink by the tiny amount.
+        let hotkey_lock_after = HotkeyLock::<Test>::get(netuid, hotkey_large).unwrap();
+        assert_eq!(
+            hotkey_lock_after.locked_mass,
+            total_before - tiny_alpha_before
+        );
+        assert_eq!(
+            hotkey_lock_after.conviction,
+            conviction_before - tiny_alpha_fixed
+        );
+    });
+}
+
 // =========================================================================
 // GROUP 17: Emission interaction
 // =========================================================================
@@ -1968,7 +2095,7 @@ fn test_moving_unlocked_lock_preserves_unavailable_amount() {
         let available_before = SubtensorModule::available_stake(&coldkey, netuid);
         let locked_before = SubtensorModule::get_current_locked(&coldkey, netuid);
         let unlocked_before = SubtensorModule::get_current_unlocked(&coldkey, netuid);
-        let unavailable_before = locked_before.saturating_add(unlocked_before);
+        let unavailable_before = locked_before + unlocked_before;
 
         // Move the lock to the destination hotkey.
         assert_ok!(SubtensorModule::move_lock(
@@ -1987,7 +2114,7 @@ fn test_moving_unlocked_lock_preserves_unavailable_amount() {
         let available_after = SubtensorModule::available_stake(&coldkey, netuid);
         let locked_after = SubtensorModule::get_current_locked(&coldkey, netuid);
         let unlocked_after = SubtensorModule::get_current_unlocked(&coldkey, netuid);
-        let unavailable_after = locked_after.saturating_add(unlocked_after);
+        let unavailable_after = locked_after + unlocked_after;
         assert_eq!(available_after, available_before);
         assert_eq!(unavailable_after, unavailable_before);
     });
