@@ -62,8 +62,6 @@ pub fn spawn_dkg_transport_key_submitter(
         "mev-shield-ibe-dkg-transport-key-submitter",
         None,
         Box::pin(async move {
-            // Submit repeatedly at a low cadence until included.  The unsigned
-            // validation tag makes repeats harmless.
             let payload = dkg_transport_key_payload_hash(&authority_id, &dkg_x25519_public_key);
             let Ok(signature) = signer.sign(consensus_key_kind, &authority_signature_key_hint, payload) else {
                 log::warn!(target: "mev-shield-ibe", "unable to sign DKG transport-key registration");

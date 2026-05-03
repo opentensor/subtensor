@@ -138,3 +138,106 @@ pub fn plan_stake_weighted_atoms<AuthorityId: Clone + Ord>(
         threshold_weight,
     })
 }
+
+#[cfg(test)]
+mod mev_shield_dkg_weighting_unit_tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    fn validator(id: u8, stake: u128) -> ActiveValidatorStake<Vec<u8>> {
+        ActiveValidatorStake {
+            authority_id: vec![id],
+            stake,
+            dkg_x25519_public_key: [id; 32],
+        }
+    }
+
+    fn atom_counts(plan: &DkgAtomPlan<Vec<u8>>) -> BTreeMap<Vec<u8>, usize> {
+        let mut counts = BTreeMap::new();
+        for atom in &plan.atoms {
+            *counts.entry(atom.authority_id.clone()).or_insert(0) += 1;
+        }
+        counts
+    }
+
+    #[test]
+    fn threshold_is_floor_two_thirds_plus_one() {
+        assert_eq!(two_thirds_plus_one(1).unwrap(), 1);
+        assert_eq!(two_thirds_plus_one(2).unwrap(), 2);
+        assert_eq!(two_thirds_plus_one(3).unwrap(), 3);
+        assert_eq!(two_thirds_plus_one(4).unwrap(), 3);
+        assert_eq!(two_thirds_plus_one(10).unwrap(), 7);
+    }
+
+    #[test]
+    fn plan_rejects_empty_or_zero_stake_sets() {
+        assert_eq!(
+            plan_stake_weighted_atoms::<Vec<u8>>(&[], 8).unwrap_err(),
+            DkgWeightingError::NoActiveValidators
+        );
+        assert_eq!(
+            plan_stake_weighted_atoms(&[validator(1, 0), validator(2, 0)], 8).unwrap_err(),
+            DkgWeightingError::NoActiveValidators
+        );
+    }
+
+    #[test]
+    fn plan_rejects_more_active_validators_than_atom_budget() {
+        let validators = vec![validator(1, 1), validator(2, 1), validator(3, 1)];
+        assert_eq!(
+            plan_stake_weighted_atoms(&validators, 2).unwrap_err(),
+            DkgWeightingError::TooManyValidatorsForAtomBudget
+        );
+    }
+
+    #[test]
+    fn plan_assigns_minimum_one_atom_and_consecutive_share_ids() {
+        let plan =
+            plan_stake_weighted_atoms(&[validator(1, 1), validator(2, 1_000), validator(3, 1)], 12)
+                .unwrap();
+
+        assert_eq!(plan.atoms.len(), 12);
+        assert_eq!(plan.total_weight, 12);
+        assert_eq!(plan.threshold_weight, 9);
+
+        let counts = atom_counts(&plan);
+        assert!(counts.get(&vec![1]).copied().unwrap_or_default() >= 1);
+        assert!(counts.get(&vec![2]).copied().unwrap_or_default() >= 1);
+        assert!(counts.get(&vec![3]).copied().unwrap_or_default() >= 1);
+
+        let ids = plan.atoms.iter().map(|a| a.share_id).collect::<Vec<_>>();
+        assert_eq!(ids, (1..=12).collect::<Vec<_>>());
+        assert!(plan.atoms.iter().all(|a| a.weight == 1));
+    }
+
+    #[test]
+    fn plan_ignores_zero_stake_validators_and_preserves_transport_keys() {
+        let plan = plan_stake_weighted_atoms(&[validator(9, 0), validator(4, 10)], 4).unwrap();
+        assert_eq!(plan.atoms.len(), 4);
+        assert!(plan.atoms.iter().all(|a| a.authority_id == vec![4]));
+        assert!(
+            plan.atoms
+                .iter()
+                .all(|a| a.dkg_x25519_public_key == [4; 32])
+        );
+    }
+
+    #[test]
+    fn plan_is_deterministic_independent_of_input_order() {
+        let a = vec![validator(3, 30), validator(1, 10), validator(2, 20)];
+        let b = vec![validator(2, 20), validator(3, 30), validator(1, 10)];
+        assert_eq!(
+            plan_stake_weighted_atoms(&a, 12),
+            plan_stake_weighted_atoms(&b, 12)
+        );
+    }
+
+    #[test]
+    fn plan_detects_stake_overflow() {
+        assert_eq!(
+            plan_stake_weighted_atoms(&[validator(1, u128::MAX), validator(2, u128::MAX)], 4)
+                .unwrap_err(),
+            DkgWeightingError::ArithmeticOverflow
+        );
+    }
+}

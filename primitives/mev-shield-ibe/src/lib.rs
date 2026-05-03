@@ -5,8 +5,9 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{bounded_vec::BoundedVec, H256};
+use sp_core::H256;
 use sp_runtime::traits::ConstU32;
+use sp_runtime::BoundedVec;
 
 pub const MEV_SHIELD_IBE_VERSION: u16 = 1;
 pub const MEV_SHIELD_IBE_MAGIC: [u8; 4] = *b"MSI2";
@@ -163,4 +164,61 @@ pub fn block_key_storage_key(
     key_id: [u8; KEY_ID_LEN],
 ) -> (u64, u64, [u8; KEY_ID_LEN]) {
     (epoch, target_block, key_id)
+}
+
+#[cfg(test)]
+mod mev_shield_ibe_primitive_unit_tests {
+    use super::*;
+
+    fn envelope() -> IbeEncryptedExtrinsicV1 {
+        IbeEncryptedExtrinsicV1 {
+            magic: MEV_SHIELD_IBE_MAGIC,
+            version: MEV_SHIELD_IBE_VERSION,
+            epoch: 3,
+            target_block: 42,
+            key_id: [7; KEY_ID_LEN],
+            commitment: H256::repeat_byte(9),
+            ciphertext: vec![1, 2, 3, 4],
+        }
+    }
+
+    #[test]
+    fn v2_envelope_round_trips_and_rejects_bad_magic_or_version() {
+        let good = envelope();
+        let encoded = good.encode();
+        assert!(IbeEncryptedExtrinsicV1::is_v2_prefixed(&encoded));
+        assert_eq!(IbeEncryptedExtrinsicV1::decode_v2(&encoded).unwrap(), good);
+
+        let mut bad_magic = envelope();
+        bad_magic.magic = *b"BAD!";
+        assert!(IbeEncryptedExtrinsicV1::decode_v2(&bad_magic.encode()).is_err());
+
+        let mut bad_version = envelope();
+        bad_version.version = MEV_SHIELD_IBE_VERSION + 1;
+        assert!(IbeEncryptedExtrinsicV1::decode_v2(&bad_version.encode()).is_err());
+    }
+
+    #[test]
+    fn block_identity_is_domain_separated() {
+        let genesis = H256::repeat_byte(1);
+        let identity = block_identity_bytes(genesis, 1, 10, [2; KEY_ID_LEN]);
+        assert_ne!(
+            identity,
+            block_identity_bytes(genesis, 2, 10, [2; KEY_ID_LEN])
+        );
+        assert_ne!(
+            identity,
+            block_identity_bytes(genesis, 1, 11, [2; KEY_ID_LEN])
+        );
+        assert_ne!(
+            identity,
+            block_identity_bytes(genesis, 1, 10, [3; KEY_ID_LEN])
+        );
+    }
+
+    #[test]
+    fn plaintext_commitment_changes_with_plaintext() {
+        assert_ne!(plaintext_commitment(b"a"), plaintext_commitment(b"b"));
+        assert_eq!(plaintext_commitment(b"same"), plaintext_commitment(b"same"));
+    }
 }

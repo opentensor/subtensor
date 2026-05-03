@@ -16,8 +16,8 @@ use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as 
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
-use sp_core::H256;
 use sp_core::crypto::KeyTypeId;
+use sp_core::{H256, Pair};
 use sp_keystore::Keystore;
 use sp_runtime::key_types;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
@@ -104,6 +104,32 @@ pub fn new_partial(
         )?;
 
     // Prepare keystore for authoring Babe blocks.
+    ensure_dev_authority_keys(
+        &keystore_container.local_keystore(),
+        config.dev_key_seed.as_deref(),
+    );
+
+    if let Some(seed) = config.dev_key_seed.as_deref() {
+        ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::AURA, seed);
+        ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::BABE, seed);
+        ensure_dev_sr25519_key(
+            &keystore_container.local_keystore(),
+            crate::mev_shield_ibe::dkg_runtime_keys::HOTKEY_KEY_TYPE,
+            seed,
+        );
+    }
+    if let Some(seed) = config.dev_key_seed.as_deref() {
+        ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::AURA, seed);
+
+        ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::BABE, seed);
+
+        ensure_dev_sr25519_key(
+            &keystore_container.local_keystore(),
+            crate::mev_shield_ibe::dkg_runtime_keys::HOTKEY_KEY_TYPE,
+            seed,
+        );
+    }
+
     copy_keys(
         &keystore_container.local_keystore(),
         key_types::AURA,
@@ -423,10 +449,12 @@ where
             crate::mev_shield_ibe::dkg_runtime_keys::local_consensus_authorities(
                 &keystore_container.keystore(),
             );
-        if local_authorities.is_empty() {
-            return Err(ServiceError::Application(
-                "authority node has neither Aura nor BABE local keys for MeV Shield DKG".into(),
-            ));
+        let has_mev_shield_dkg_consensus_keys = !local_authorities.is_empty();
+        if !has_mev_shield_dkg_consensus_keys {
+            log::warn!(
+                target: "mev-shield-ibe",
+                "authority node has no local Aura or BABE keys visible to MeV Shield DKG; skipping MeV Shield DKG registration and epoch-ahead DKG worker"
+            );
         }
 
         let authority_signer = Arc::new(
@@ -442,54 +470,65 @@ where
         // consensus key and the durable X25519 DKG transport key.  The runtime will
         // select Aura registrations while POA is active and automatically switch to
         // BABE registrations once registered BABE stake reaches 2/3+1.
-        crate::mev_shield_ibe::dkg_authority_registration_submitter::spawn_dkg_authority_registration_submitter(
-        &task_manager.spawn_handle(),
-        client.clone(),
-        transaction_pool.clone(),
-        authority_signer.clone(),
-        local_hotkeys,
-        local_authorities.clone(),
-        x25519_public,
-    );
-
-        // Backward-compatible transport registration for the existing POA code path.
-        // It is no longer the authority source of truth; it is retained to keep
-        // older share-pool consumers operational during the transition.
-        for local in local_authorities.clone() {
-            crate::mev_shield_ibe::dkg_transport_key_submitter::spawn_dkg_transport_key_submitter(
-                &task_manager.spawn_handle(),
-                client.clone(),
-                transaction_pool.clone(),
-                authority_signer.clone(),
-                local.authority_id.clone(),
-                local.consensus_key_kind,
-                local.signature_key_hint.clone(),
-                x25519_public,
-            );
-        }
-
-        crate::mev_shield_ibe::dkg_worker::spawn_epoch_ahead_dkg_worker::<Block, FullClient>(
-            &task_manager.spawn_handle(),
-            client.clone(),
-            dkg_key_source.clone(),
-            crate::mev_shield_ibe::dkg_worker::DkgWorkerConfig {
-                poll_interval: std::time::Duration::from_secs(12),
-                max_atoms: 4096,
-                local_authorities,
-                x25519_static_secret_bytes: x25519_secret,
-            },
-            authority_signer,
-            dkg_inbound_rx,
-            wire_outbound_tx.clone(),
-            Some(dkg_publication_tx),
-        );
-
-        crate::mev_shield_ibe::dkg_submitter::spawn_dkg_publication_submitter(
+        if has_mev_shield_dkg_consensus_keys {
+            crate::mev_shield_ibe::dkg_authority_registration_submitter::spawn_dkg_authority_registration_submitter(
             &task_manager.spawn_handle(),
             client.clone(),
             transaction_pool.clone(),
-            dkg_publication_rx,
+            authority_signer.clone(),
+            local_hotkeys,
+            local_authorities.clone(),
+            x25519_public,
         );
+
+            // Backward-compatible transport registration for the existing POA code path.
+            // It is no longer the authority source of truth; it is retained to keep
+            // older share-pool consumers operational during the transition.
+            for local in local_authorities.clone() {
+                if has_mev_shield_dkg_consensus_keys {
+                    crate::mev_shield_ibe::dkg_transport_key_submitter::spawn_dkg_transport_key_submitter(
+                        &task_manager.spawn_handle(),
+                        client.clone(),
+                        transaction_pool.clone(),
+                        authority_signer.clone(),
+                        local.authority_id.clone(),
+                        local.consensus_key_kind,
+                        local.signature_key_hint.clone(),
+                        x25519_public,
+                    );
+                }
+            }
+
+            if has_mev_shield_dkg_consensus_keys {
+                crate::mev_shield_ibe::dkg_worker::spawn_epoch_ahead_dkg_worker::<Block, FullClient>(
+                    &task_manager.spawn_handle(),
+                    client.clone(),
+                    dkg_key_source.clone(),
+                    crate::mev_shield_ibe::dkg_worker::DkgWorkerConfig {
+                        poll_interval: std::time::Duration::from_secs(12),
+                        max_atoms: 4096,
+                        local_authorities,
+                        x25519_static_secret_bytes: x25519_secret,
+                    },
+                    authority_signer,
+                    dkg_inbound_rx,
+                    wire_outbound_tx.clone(),
+                    Some(dkg_publication_tx),
+                );
+            }
+
+            if has_mev_shield_dkg_consensus_keys {
+                crate::mev_shield_ibe::dkg_submitter::spawn_dkg_publication_submitter(
+                    &task_manager.spawn_handle(),
+                    client.clone(),
+                    transaction_pool.clone(),
+                    dkg_publication_rx,
+                );
+            }
+        } else {
+            drop(dkg_inbound_rx);
+            drop(dkg_publication_rx);
+        }
 
         crate::mev_shield_ibe::outbound_fanout::spawn_outbound_fanout(
             &task_manager.spawn_handle(),
@@ -985,6 +1024,116 @@ fn run_manual_seal_authorship(
 /// While not required to retain beyond the initial Aura to Babe migration, it is nice to leave it
 /// so the node always retains the ability to perform Aura to Babe migrations in the future, in case
 /// there is a requirement to do something like regenesis testnet.
+
+fn ensure_dev_authority_keys(keystore: &LocalKeystore, dev_key_seed: Option<&str>) {
+    let Some(seed) = dev_key_seed else {
+        return;
+    };
+
+    let seed = seed.trim();
+    if seed.is_empty() {
+        return;
+    }
+
+    let suri = if seed.starts_with("//") {
+        seed.to_string()
+    } else {
+        format!("//{seed}")
+    };
+
+    let pair = match <sp_core::sr25519::Pair as sp_core::Pair>::from_string(&suri, None) {
+        Ok(pair) => pair,
+        Err(error) => {
+            log::warn!(
+                target: LOG_TARGET,
+                "failed to derive local dev authority key from configured seed: {error:?}"
+            );
+            return;
+        }
+    };
+
+    let public = <sp_core::sr25519::Pair as sp_core::Pair>::public(&pair);
+    for key_type in [key_types::AURA, key_types::BABE] {
+        let existing = match keystore.raw_public_keys(key_type) {
+            Ok(keys) => keys,
+            Err(error) => {
+                log::warn!(
+                    target: LOG_TARGET,
+                    "failed reading local dev authority keys for {key_type:?}: {error:?}"
+                );
+                continue;
+            }
+        };
+
+        let public_bytes: &[u8] = public.as_ref();
+
+        if existing.iter().any(|key| key.as_slice() == public_bytes) {
+            continue;
+        }
+
+        if let Err(error) = keystore.insert(key_type, &suri, public_bytes) {
+            log::warn!(
+                target: LOG_TARGET,
+                "failed inserting local dev authority key for {key_type:?}: {error:?}"
+            );
+        }
+    }
+}
+fn ensure_dev_sr25519_key(keystore: &LocalKeystore, key_type: KeyTypeId, seed: &str) {
+    let seed = match seed {
+        "one" => "One",
+        "two" => "Two",
+        "three" => "Three",
+        "four" => "Four",
+        "five" => "Five",
+        other => other,
+    };
+
+    let suri = if seed.starts_with("//") {
+        seed.to_string()
+    } else {
+        format!("//{seed}")
+    };
+
+    let pair = match sp_core::sr25519::Pair::from_string(&suri, None) {
+        Ok(pair) => pair,
+        Err(error) => {
+            log::warn!(
+                target: "mev-shield-ibe",
+                "failed to derive local dev sr25519 key for {key_type:?} from seed {seed:?}: {error:?}"
+            );
+            return;
+        }
+    };
+
+    let public = pair.public();
+    let public_bytes: &[u8] = public.as_ref();
+    let existing = match keystore.raw_public_keys(key_type) {
+        Ok(keys) => keys,
+        Err(error) => {
+            log::warn!(
+                target: "mev-shield-ibe",
+                "failed reading local dev sr25519 keys for {key_type:?}: {error:?}"
+            );
+            return;
+        }
+    };
+
+    if existing
+        .iter()
+        .any(|known| known.as_slice() == public_bytes)
+    {
+        return;
+    }
+
+    if let Err(error) = keystore.insert(key_type, &suri, public_bytes) {
+        log::warn!(
+            target: "mev-shield-ibe",
+            "failed inserting local dev sr25519 key for {key_type:?}: {error:?}"
+        );
+    }
+}
+
 fn copy_keys(
     keystore: &LocalKeystore,
     from_key_type: KeyTypeId,

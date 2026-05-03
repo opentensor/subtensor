@@ -814,7 +814,20 @@ pub mod pallet {
     impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
 
-        fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            if let Call::announce_next_key { .. } = call {
+                return if matches!(source, TransactionSource::InBlock) {
+                    ValidTransaction::with_tag_prefix("MevShieldAnnounceNextKey")
+                        .priority(u64::MAX)
+                        .and_provides(b"mev-shield-announce-next-key".as_slice())
+                        .longevity(1)
+                        .propagate(false)
+                        .build()
+                } else {
+                    InvalidTransaction::Call.into()
+                };
+            }
+
             if let Call::submit_ibe_dkg_transport_key { registration } = call {
                 if Self::verify_dkg_transport_key_registration(registration).is_err() {
                     return InvalidTransaction::BadProof.into();

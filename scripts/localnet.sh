@@ -104,7 +104,11 @@ fi
 if [ $BUILD_ONLY -eq 0 ]; then
   echo "*** Starting localnet nodes..."
 
-  one_start=(
+  
+"$BUILD_DIR/release/node-subtensor" key insert --base-path /tmp/one --chain="$FULL_PATH" --scheme Sr25519 --suri "//One" --key-type bthk >/dev/null 2>&1 || true
+"$BUILD_DIR/release/node-subtensor" key insert --base-path /tmp/two --chain="$FULL_PATH" --scheme Sr25519 --suri "//Two" --key-type bthk >/dev/null 2>&1 || true
+"$BUILD_DIR/release/node-subtensor" key insert --base-path /tmp/three --chain="$FULL_PATH" --scheme Sr25519 --suri "//Three" --key-type bthk >/dev/null 2>&1 || true
+one_start=(
     "$BUILD_DIR/release/node-subtensor"
     --base-path /tmp/one
     --chain="$FULL_PATH"

@@ -1162,3 +1162,188 @@ mod encrypted_extrinsics_tests {
         });
     }
 }
+
+fn test_ibe_epoch_key(
+    epoch: u64,
+    key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],
+    first_block: u64,
+    last_block: u64,
+) -> stp_mev_shield_ibe::IbeEpochPublicKey {
+    stp_mev_shield_ibe::IbeEpochPublicKey {
+        epoch,
+        key_id,
+        master_public_key: BoundedVec::truncate_from(
+            vec![0x55; stp_mev_shield_ibe::COMPRESSED_MASTER_PUBLIC_KEY_LEN],
+        ),
+        total_weight: 100,
+        threshold_weight: 67,
+        first_block,
+        last_block,
+    }
+}
+
+fn test_ibe_envelope(
+    epoch: u64,
+    target_block: u64,
+    key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],
+    commitment_byte: u8,
+) -> BoundedVec<u8, crate::MaxEncryptedCallSize> {
+    let envelope = stp_mev_shield_ibe::IbeEncryptedExtrinsicV1 {
+        magic: stp_mev_shield_ibe::MEV_SHIELD_IBE_MAGIC,
+        version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
+        epoch,
+        target_block,
+        key_id,
+        commitment: sp_core::H256::repeat_byte(commitment_byte),
+        ciphertext: vec![commitment_byte; 32],
+    };
+    BoundedVec::truncate_from(codec::Encode::encode(&envelope))
+}
+
+#[test]
+fn ibe_v2_submit_requires_exact_current_plus_two_target() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        let key_id = [1; stp_mev_shield_ibe::KEY_ID_LEN];
+        frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
+            RuntimeOrigin::root(),
+            test_ibe_epoch_key(1, key_id, 1, 100),
+        ));
+
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(1),
+                test_ibe_envelope(1, 11, key_id, 1)
+            ),
+            Error::<Test>::InvalidIbeTargetWindow
+        );
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(1),
+                test_ibe_envelope(1, 13, key_id, 2)
+            ),
+            Error::<Test>::InvalidIbeTargetWindow
+        );
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(1),
+            test_ibe_envelope(1, 12, key_id, 3),
+        ));
+    });
+}
+
+#[test]
+fn ibe_v2_submit_requires_epoch_key_and_active_key_window() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        let key_id = [2; stp_mev_shield_ibe::KEY_ID_LEN];
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(1),
+                test_ibe_envelope(7, 12, key_id, 1)
+            ),
+            Error::<Test>::UnknownIbeEpoch
+        );
+
+        frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
+            RuntimeOrigin::root(),
+            test_ibe_epoch_key(7, key_id, 20, 30),
+        ));
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(1),
+                test_ibe_envelope(7, 12, key_id, 2)
+            ),
+            Error::<Test>::IbeEpochKeyInactive
+        );
+    });
+}
+
+#[test]
+fn ibe_v2_submit_rejects_wrong_key_id_and_duplicate_commitment() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        let key_id = [3; stp_mev_shield_ibe::KEY_ID_LEN];
+        let wrong_key_id = [4; stp_mev_shield_ibe::KEY_ID_LEN];
+        frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
+            RuntimeOrigin::root(),
+            test_ibe_epoch_key(8, key_id, 1, 100),
+        ));
+
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(
+                RuntimeOrigin::signed(1),
+                test_ibe_envelope(8, 12, wrong_key_id, 1)
+            ),
+            Error::<Test>::WrongIbeEpochKey
+        );
+
+        let envelope = test_ibe_envelope(8, 12, key_id, 9);
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(1),
+            envelope.clone()
+        ));
+        frame_support::assert_noop!(
+            MevShield::submit_encrypted(RuntimeOrigin::signed(1), envelope),
+            Error::<Test>::DuplicateIbeCommitment
+        );
+    });
+}
+
+#[test]
+fn ibe_v2_pending_identities_group_by_epoch_target_and_key() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(10);
+        let key_id = [5; stp_mev_shield_ibe::KEY_ID_LEN];
+        frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
+            RuntimeOrigin::root(),
+            test_ibe_epoch_key(9, key_id, 1, 100),
+        ));
+
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(1),
+            test_ibe_envelope(9, 12, key_id, 1),
+        ));
+        frame_support::assert_ok!(MevShield::submit_encrypted(
+            RuntimeOrigin::signed(2),
+            test_ibe_envelope(9, 12, key_id, 2),
+        ));
+
+        let identities = MevShield::pending_ibe_identities(10);
+        assert_eq!(identities.len(), 1);
+        assert_eq!(identities[0].epoch, 9);
+        assert_eq!(identities[0].target_block, 12);
+        assert_eq!(identities[0].key_id, key_id);
+        assert_eq!(identities[0].first_queue_index, 0);
+        assert_eq!(identities[0].last_queue_index, 1);
+        assert_eq!(MevShield::pending_encrypted_queue_len(), 2);
+    });
+}
+
+#[test]
+fn ibe_block_key_rejects_finality_point_before_target_before_verifier() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(20);
+        let key_id = [6; stp_mev_shield_ibe::KEY_ID_LEN];
+        frame_support::assert_ok!(MevShield::set_ibe_epoch_public_key(
+            RuntimeOrigin::root(),
+            test_ibe_epoch_key(10, key_id, 1, 100),
+        ));
+
+        let key = stp_mev_shield_ibe::IbeBlockDecryptionKeyV1 {
+            version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
+            epoch: 10,
+            target_block: 20,
+            key_id,
+            identity_decryption_key: BoundedVec::truncate_from(
+                vec![0x77; stp_mev_shield_ibe::COMPRESSED_IDENTITY_KEY_LEN],
+            ),
+            finalized_ordering_block_number: 19,
+            finalized_ordering_block_hash: sp_core::H256::repeat_byte(1),
+        };
+
+        frame_support::assert_noop!(
+            MevShield::submit_block_decryption_key(RuntimeOrigin::none(), key),
+            Error::<Test>::InvalidIbeFinalityPoint
+        );
+    });
+}

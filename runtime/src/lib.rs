@@ -2713,8 +2713,6 @@ impl_runtime_apis! {
 
 
 
-// Insert this whole block inside runtime/src/lib.rs impl_runtime_apis! { ... }.
-// The apply script inserts it automatically immediately before the final closing brace of impl_runtime_apis!.
 
 
 
@@ -2740,8 +2738,6 @@ impl mev_shield_ibe_runtime_api::MevShieldDkgApi<Block> for Runtime {
     }
 }
 
-// Fixed runtime API implementation for compilefix7.
-// Insert this whole block inside runtime/src/lib.rs impl_runtime_apis! { ... }.
 
 impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
     fn pending_ibe_identities(limit: u32) -> Vec<stp_mev_shield_ibe::IbePendingIdentity> {

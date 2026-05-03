@@ -15,6 +15,7 @@ use sp_core::{H256, hashing::blake2_256, sr25519};
 use sp_runtime::traits::{UniqueSaturatedInto, Verify};
 
 use crate::{AccountId32, NetUid, Runtime};
+use sp_std::vec::Vec;
 
 pub struct RuntimeIbeDkgAuthorityProvider;
 
@@ -133,8 +134,6 @@ impl RuntimeIbeDkgAuthorityProvider {
         payload_hash: H256,
         signature: &[u8],
     ) -> bool {
-        // Subtensor hotkeys are AccountId32/sr25519.  The registration payload is
-        // rejected if the encoded account cannot be represented as raw sr25519.
         let Ok(account) = AccountId32::decode(&mut &hotkey_account_id[..]) else {
             return false;
         };

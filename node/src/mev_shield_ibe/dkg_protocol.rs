@@ -493,8 +493,6 @@ pub fn finalize_local_output(
     let generator = <PublicShare as Group>::generator();
 
     for atom in &atom_plan.atoms {
-        // Public atoms are derived from accepted dealer commitments; local atoms additionally
-        // include the secret scalar when this validator owns the atom.
         let mut public = PublicShare::zero();
         for dealer in accepted_dealers {
             let commitments: Vec<PublicShare> = dealer
@@ -571,4 +569,134 @@ pub fn plan_from_runtime_authorities(
         return Err("bad DKG threshold".into());
     }
     Ok(plan)
+}
+
+#[cfg(test)]
+mod mev_shield_dkg_protocol_unit_tests {
+    use super::*;
+
+    fn round() -> DkgRoundId {
+        DkgRoundId {
+            epoch: 7,
+            key_id: [9; KEY_ID_LEN],
+            first_block: 700,
+            last_block: 799,
+            genesis_hash: H256::repeat_byte(0x42),
+        }
+    }
+
+    fn encrypted_share(share_id: u32) -> DkgEncryptedShareV1 {
+        DkgEncryptedShareV1 {
+            sender_authority_id: b"dealer".to_vec(),
+            recipient_authority_id: b"recipient".to_vec(),
+            share_id,
+            sender_x25519_public_key: [1; 32],
+            recipient_x25519_public_key: [2; 32],
+            nonce: [3; 24],
+            ciphertext: vec![share_id as u8; 8],
+        }
+    }
+
+    #[test]
+    fn key_id_is_domain_separated_by_epoch_window_and_plan_hash() {
+        let genesis = H256::repeat_byte(1);
+        let a = derive_key_id(genesis, 10, 100, 199, H256::repeat_byte(2));
+        assert_ne!(
+            a,
+            derive_key_id(genesis, 11, 100, 199, H256::repeat_byte(2))
+        );
+        assert_ne!(
+            a,
+            derive_key_id(genesis, 10, 101, 199, H256::repeat_byte(2))
+        );
+        assert_ne!(
+            a,
+            derive_key_id(genesis, 10, 100, 200, H256::repeat_byte(2))
+        );
+        assert_ne!(
+            a,
+            derive_key_id(genesis, 10, 100, 199, H256::repeat_byte(3))
+        );
+    }
+
+    #[test]
+    fn dealer_commitment_hash_ignores_signature_and_binds_payload() {
+        let mut msg = DkgDealerCommitmentV1 {
+            version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
+            round: round(),
+            dealer_authority_id: b"dealer".to_vec(),
+            dealer_stake: 10,
+            coefficient_commitments: vec![vec![1, 2, 3]],
+            encrypted_shares: vec![encrypted_share(1)],
+            authority_signature: vec![1; 64],
+        };
+
+        let original = dealer_commitment_payload_hash(&msg);
+        msg.authority_signature = vec![2; 64];
+        assert_eq!(original, dealer_commitment_payload_hash(&msg));
+
+        msg.encrypted_shares.push(encrypted_share(2));
+        assert_ne!(original, dealer_commitment_payload_hash(&msg));
+    }
+
+    #[test]
+    fn acceptance_vote_hash_ignores_signature_and_binds_voter_dealer_and_hash() {
+        let mut vote = DkgAcceptanceVoteV1 {
+            version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
+            round: round(),
+            voter_authority_id: b"voter".to_vec(),
+            accepted_dealer_authority_id: b"dealer".to_vec(),
+            vote_hash: H256::repeat_byte(9),
+            authority_signature: vec![1; 64],
+        };
+
+        let original = acceptance_vote_payload_hash(&vote);
+        vote.authority_signature = vec![2; 64];
+        assert_eq!(original, acceptance_vote_payload_hash(&vote));
+
+        vote.accepted_dealer_authority_id = b"other".to_vec();
+        assert_ne!(original, acceptance_vote_payload_hash(&vote));
+    }
+
+    #[test]
+    fn output_publication_hash_binds_all_public_parameters() {
+        let key_id = [1; KEY_ID_LEN];
+        let hash = epoch_publication_payload_hash(
+            7,
+            key_id,
+            70,
+            79,
+            DkgConsensusSource::PoaAuraRootValidators,
+            &[8; 96],
+            100,
+            67,
+        );
+
+        assert_ne!(
+            hash,
+            epoch_publication_payload_hash(
+                7,
+                key_id,
+                70,
+                79,
+                DkgConsensusSource::PosBabeRootValidators,
+                &[8; 96],
+                100,
+                67,
+            )
+        );
+        assert_ne!(
+            hash,
+            epoch_publication_payload_hash(
+                7,
+                key_id,
+                70,
+                79,
+                DkgConsensusSource::PoaAuraRootValidators,
+                &[9; 96],
+                100,
+                67,
+            )
+        );
+    }
 }
