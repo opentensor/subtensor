@@ -571,6 +571,20 @@ pub fn plan_from_runtime_authorities(
     Ok(plan)
 }
 
+pub fn dkg_transport_key_payload_hash(
+    authority_id: &[u8],
+    dkg_x25519_public_key: &[u8; 32],
+) -> H256 {
+    H256::from(blake2_256(
+        &(
+            b"bittensor.mev-shield.v2.dkg.transport-key",
+            authority_id,
+            dkg_x25519_public_key,
+        )
+            .encode(),
+    ))
+}
+
 #[cfg(test)]
 mod mev_shield_dkg_protocol_unit_tests {
     use super::*;

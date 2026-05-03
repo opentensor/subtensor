@@ -815,49 +815,13 @@ pub mod pallet {
         type Call = Call<T>;
 
         fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-            if let Call::announce_next_key { .. } = call {
-                return if matches!(source, TransactionSource::InBlock) {
-                    ValidTransaction::with_tag_prefix("MevShieldAnnounceNextKey")
-                        .priority(u64::MAX)
-                        .and_provides(b"mev-shield-announce-next-key".as_slice())
-                        .longevity(1)
-                        .propagate(false)
-                        .build()
-                } else {
-                    InvalidTransaction::Call.into()
+            if <Self as frame_support::pallet_prelude::ProvideInherent>::is_inherent(call) {
+                return match source {
+                    TransactionSource::InBlock => Ok(ValidTransaction::default()),
+                    _ => InvalidTransaction::Call.into(),
                 };
             }
 
-            if let Call::submit_ibe_dkg_transport_key { registration } = call {
-                if Self::verify_dkg_transport_key_registration(registration).is_err() {
-                    return InvalidTransaction::BadProof.into();
-                }
-                return ValidTransaction::with_tag_prefix("MevShieldIbeDkgTransportKey")
-                    .priority(2_500_000)
-                    .and_provides((
-                        b"mev-shield-ibe-dkg-transport-key".as_slice(),
-                        registration.authority_id.clone(),
-                    ))
-                    .longevity(1024)
-                    .propagate(true)
-                    .build();
-            }
-            if let Call::submit_ibe_dkg_authority_registration { registration } = call {
-                if Self::verify_dkg_authority_registration(registration).is_err() {
-                    return InvalidTransaction::BadProof.into();
-                }
-                return ValidTransaction::with_tag_prefix("MevShieldIbeDkgAuthorityRegistration")
-                    .priority(2_750_000)
-                    .and_provides((
-                        b"mev-shield-ibe-dkg-authority-registration".as_slice(),
-                        registration.hotkey_account_id.clone(),
-                        registration.consensus_key_kind,
-                        registration.consensus_authority_id.clone(),
-                    ))
-                    .longevity(1024)
-                    .propagate(true)
-                    .build();
-            }
             if let Call::publish_ibe_epoch_public_key { publication } = call {
                 if Self::verify_epoch_dkg_publication(publication).is_err() {
                     return InvalidTransaction::BadProof.into();
@@ -873,12 +837,15 @@ pub mod pallet {
                     .propagate(true)
                     .build();
             }
+
             let Call::submit_block_decryption_key { key } = call else {
                 return InvalidTransaction::Call.into();
             };
+
             if Self::validate_ibe_block_decryption_key_for_submission(key).is_err() {
                 return InvalidTransaction::BadProof.into();
             }
+
             ValidTransaction::with_tag_prefix("MevShieldIbeBlockKey")
                 .priority(1_000_000)
                 .and_provides((

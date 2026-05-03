@@ -14,6 +14,7 @@ use sp_runtime::traits::Block as BlockT;
 use stp_mev_shield_ibe::IbePartialDecryptionKeyShareV1;
 
 use super::dkg_protocol::{DkgAcceptanceVoteV1, DkgDealerCommitmentV1, DkgOutputAttestationV1};
+use mev_shield_ibe_runtime_api::DkgTransportKeyRegistration;
 
 const PROTOCOL: &str = "/subtensor/mev-shield-ibe/3";
 const MAX_NOTIFICATION_SIZE: u64 = 16 * 1024 * 1024;
@@ -24,6 +25,7 @@ pub enum WireMessage {
     DkgDealerCommitmentV1(DkgDealerCommitmentV1),
     DkgAcceptanceVoteV1(DkgAcceptanceVoteV1),
     DkgOutputAttestationV1(DkgOutputAttestationV1),
+    DkgTransportKeyV1(DkgTransportKeyRegistration),
 }
 
 #[derive(Clone)]
@@ -50,7 +52,8 @@ impl WireRouter {
             }
             WireMessage::DkgDealerCommitmentV1(_)
             | WireMessage::DkgAcceptanceVoteV1(_)
-            | WireMessage::DkgOutputAttestationV1(_) => {
+            | WireMessage::DkgOutputAttestationV1(_)
+            | WireMessage::DkgTransportKeyV1(_) => {
                 let _ = self.dkg_tx.unbounded_send(msg);
             }
         }

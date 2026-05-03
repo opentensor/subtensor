@@ -112,22 +112,11 @@ pub fn new_partial(
     if let Some(seed) = config.dev_key_seed.as_deref() {
         ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::AURA, seed);
         ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::BABE, seed);
-        ensure_dev_sr25519_key(
-            &keystore_container.local_keystore(),
-            crate::mev_shield_ibe::dkg_runtime_keys::HOTKEY_KEY_TYPE,
-            seed,
-        );
     }
     if let Some(seed) = config.dev_key_seed.as_deref() {
         ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::AURA, seed);
 
         ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::BABE, seed);
-
-        ensure_dev_sr25519_key(
-            &keystore_container.local_keystore(),
-            crate::mev_shield_ibe::dkg_runtime_keys::HOTKEY_KEY_TYPE,
-            seed,
-        );
     }
 
     copy_keys(
@@ -396,7 +385,6 @@ where
 
     let role = config.role;
 
-    // Replacement for the authority-only block in service.rs that currently constructs
     // DevFileDkgKeySource and spawns the share network.
     //
     // This version is POS-hybrid aware: it discovers all local Aura and BABE
@@ -442,9 +430,6 @@ where
             )
             .map_err(|e| ServiceError::Application(e.into()))?;
 
-        let x25519_public =
-            crate::mev_shield_ibe::dkg_runtime_keys::x25519_public_from_secret_bytes(x25519_secret);
-
         let local_authorities =
             crate::mev_shield_ibe::dkg_runtime_keys::local_consensus_authorities(
                 &keystore_container.keystore(),
@@ -462,43 +447,11 @@ where
                 keystore_container.keystore(),
             ),
         );
-        let local_hotkeys = crate::mev_shield_ibe::dkg_runtime_keys::local_hotkey_public_keys(
-            &keystore_container.keystore(),
-        );
-
-        // POS-critical registration: bind each local Subtensor hotkey to each local
         // consensus key and the durable X25519 DKG transport key.  The runtime will
         // select Aura registrations while POA is active and automatically switch to
-        // BABE registrations once registered BABE stake reaches 2/3+1.
         if has_mev_shield_dkg_consensus_keys {
-            crate::mev_shield_ibe::dkg_authority_registration_submitter::spawn_dkg_authority_registration_submitter(
-            &task_manager.spawn_handle(),
-            client.clone(),
-            transaction_pool.clone(),
-            authority_signer.clone(),
-            local_hotkeys,
-            local_authorities.clone(),
-            x25519_public,
-        );
-
-            // Backward-compatible transport registration for the existing POA code path.
             // It is no longer the authority source of truth; it is retained to keep
             // older share-pool consumers operational during the transition.
-            for local in local_authorities.clone() {
-                if has_mev_shield_dkg_consensus_keys {
-                    crate::mev_shield_ibe::dkg_transport_key_submitter::spawn_dkg_transport_key_submitter(
-                        &task_manager.spawn_handle(),
-                        client.clone(),
-                        transaction_pool.clone(),
-                        authority_signer.clone(),
-                        local.authority_id.clone(),
-                        local.consensus_key_kind,
-                        local.signature_key_hint.clone(),
-                        x25519_public,
-                    );
-                }
-            }
-
             if has_mev_shield_dkg_consensus_keys {
                 crate::mev_shield_ibe::dkg_worker::spawn_epoch_ahead_dkg_worker::<Block, FullClient>(
                     &task_manager.spawn_handle(),

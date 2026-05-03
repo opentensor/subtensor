@@ -7,7 +7,7 @@
 
 use std::{fs, path::Path};
 
-use mev_shield_ibe_runtime_api::{DkgAuthorityRegistration, DkgConsensusKeyKind};
+use mev_shield_ibe_runtime_api::DkgConsensusKeyKind;
 use rand_core::{OsRng, RngCore};
 use sp_core::{H256, crypto::KeyTypeId, sr25519};
 use sp_keystore::{Keystore, KeystorePtr};
@@ -16,10 +16,6 @@ use super::dkg_worker::{AuthoritySigner, LocalConsensusAuthority};
 
 pub const AURA_KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
 pub const BABE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"babe");
-/// Node-local validator hotkey key type for MeV Shield DKG authority registration.
-/// Operators should insert their Subtensor hotkey secret here before POS activation.
-pub const HOTKEY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"bthk");
-
 /// Loads a persistent X25519 DKG-transport secret, or creates it on first boot.
 ///
 /// This key is not the threshold IBE secret.  It only encrypts per-round DKG
@@ -78,20 +74,6 @@ pub fn local_consensus_authorities(keystore: &KeystorePtr) -> Vec<LocalConsensus
     out
 }
 
-/// Local Subtensor hotkeys available for DKG authority registration.
-///
-/// If this list is empty, POA still works through the transport-only path where
-/// Aura authority id equals the stake hotkey.  For POS/BABE, operators should
-/// insert the validator hotkey secret under `HOTKEY_KEY_TYPE` so the node can
-/// automatically register its BABE session key against the hotkey's stake.
-pub fn local_hotkey_public_keys(keystore: &KeystorePtr) -> Vec<Vec<u8>> {
-    keystore
-        .sr25519_public_keys(HOTKEY_KEY_TYPE)
-        .into_iter()
-        .map(|pk| pk.0.to_vec())
-        .collect()
-}
-
 #[derive(Clone)]
 pub struct SubtensorAuthoritySigner {
     keystore: KeystorePtr,
@@ -123,10 +105,6 @@ impl SubtensorAuthoritySigner {
             Err(e) => Err(format!("sr25519 authority signing failed: {e}")),
         }
     }
-    pub fn sign_hotkey(&self, key_hint: &[u8], payload_hash: H256) -> Result<Vec<u8>, String> {
-        self.try_sr25519(HOTKEY_KEY_TYPE, key_hint, payload_hash)?
-            .ok_or_else(|| "no matching local Subtensor hotkey for DKG registration".into())
-    }
 }
 
 impl AuthoritySigner for SubtensorAuthoritySigner {
@@ -149,49 +127,3 @@ impl AuthoritySigner for SubtensorAuthoritySigner {
         }
     }
 }
-
-pub fn x25519_public_from_secret_bytes(secret: [u8; 32]) -> [u8; 32] {
-    let secret = x25519_dalek::StaticSecret::from(secret);
-    let public = x25519_dalek::PublicKey::from(&secret);
-    *public.as_bytes()
-}
-
-pub fn authority_registration_payload_hash(
-    hotkey_account_id: &[u8],
-    consensus_key_kind: DkgConsensusKeyKind,
-    consensus_authority_id: &[u8],
-    dkg_x25519_public_key: &[u8; 32],
-) -> H256 {
-    H256::from(sp_core::blake2_256(
-        &(
-            b"bittensor.mev-shield.v2.dkg.authority-registration",
-            hotkey_account_id,
-            consensus_key_kind,
-            consensus_authority_id,
-            dkg_x25519_public_key,
-        )
-            .encode(),
-    ))
-}
-
-/// Build a registration once both signatures are already available.  The node
-/// service uses this to submit Aura and BABE registrations for the same hotkey
-/// ahead of the POS transition.
-pub fn build_dkg_authority_registration(
-    hotkey_account_id: Vec<u8>,
-    consensus: &LocalConsensusAuthority,
-    dkg_x25519_public_key: [u8; 32],
-    hotkey_signature: Vec<u8>,
-    consensus_signature: Vec<u8>,
-) -> DkgAuthorityRegistration {
-    DkgAuthorityRegistration {
-        hotkey_account_id,
-        consensus_key_kind: consensus.consensus_key_kind,
-        consensus_authority_id: consensus.authority_id.clone(),
-        dkg_x25519_public_key,
-        hotkey_signature,
-        consensus_signature,
-    }
-}
-
-use codec::Encode;

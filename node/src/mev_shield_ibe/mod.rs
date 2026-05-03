@@ -132,7 +132,8 @@ impl MevShieldIbeSharePool {
                             }
                             WireMessage::DkgDealerCommitmentV1(_)
                             | WireMessage::DkgAcceptanceVoteV1(_)
-                            | WireMessage::DkgOutputAttestationV1(_) => {}
+                            | WireMessage::DkgOutputAttestationV1(_)
+                            | WireMessage::DkgTransportKeyV1(_) => {}
                         }
                     }
                 });
@@ -286,9 +287,4 @@ pub mod dkg_worker;
 pub mod dkg_runtime_keys;
 
 pub mod dkg_submitter;
-
-pub mod dkg_transport_key_submitter;
-
-pub mod dkg_authority_registration_submitter;
-
 pub mod outbound_fanout;

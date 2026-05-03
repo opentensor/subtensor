@@ -16,7 +16,10 @@ pub struct MevShieldBlockImport<I, C, B> {
     _marker: PhantomData<B>,
 }
 
-impl<I: Clone, C, B> Clone for MevShieldBlockImport<I, C, B> {
+impl<I, C, B> Clone for MevShieldBlockImport<I, C, B>
+where
+    I: Clone,
+{
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
