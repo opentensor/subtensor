@@ -1344,6 +1344,16 @@ pub mod pallet {
     pub type SubnetTaoInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
+    /// --- MAP ( netuid ) --> excess_tao | Returns the excess TAO swapped (chain buys) into this subnet on the last block.
+    #[pallet::storage]
+    pub type SubnetExcessTao<T: Config> =
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
+
+    /// --- MAP ( netuid ) --> root_sell_tao | Returns the TAO received from root dividend sells on this subnet on the last block.
+    #[pallet::storage]
+    pub type SubnetRootSellTao<T: Config> =
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
+
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
     #[pallet::storage]
     pub type SubnetAlphaIn<T: Config> =
@@ -1574,6 +1584,25 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> subnet_ema_tao_flow | Returns the EMA of TAO inflow-outflow balance.
     #[pallet::storage]
     pub type SubnetEmaTaoFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
+
+    /// --- ITEM --> net_tao_flow_enabled | When true, emission shares use net flow (user - protocol). When false, uses gross user flow only.
+    #[pallet::type_value]
+    pub fn DefaultNetTaoFlowEnabled<T: Config>() -> bool {
+        true
+    }
+    #[pallet::storage]
+    pub type NetTaoFlowEnabled<T: Config> =
+        StorageValue<_, bool, ValueQuery, DefaultNetTaoFlowEnabled<T>>;
+
+    /// --- MAP ( netuid ) --> subnet_protocol_flow | Per-block accumulator for protocol cost (emission + chain buys - root sells).
+    #[pallet::storage]
+    pub type SubnetProtocolFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, i64, ValueQuery, DefaultZeroI64<T>>;
+
+    /// --- MAP ( netuid ) --> subnet_ema_protocol_flow | EMA of protocol cost flow, same smoothing as SubnetEmaTaoFlow.
+    #[pallet::storage]
+    pub type SubnetEmaProtocolFlow<T: Config> =
         StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
 
     /// Default value for flow cutoff.

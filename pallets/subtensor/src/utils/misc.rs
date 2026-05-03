@@ -908,6 +908,11 @@ impl<T: Config> Pallet<T> {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
     }
 
+    /// Enables or disables net TAO flow (protocol cost deduction from emission shares).
+    pub fn set_net_tao_flow_enabled(enabled: bool) {
+        NetTaoFlowEnabled::<T>::set(enabled);
+    }
+
     /// Multiply an integer `value` by a Q32 fixed-point factor.
     ///
     /// Q32 means:
