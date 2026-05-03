@@ -13,6 +13,7 @@ publish = false
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+mev-shield-ibe-runtime-api = { workspace = true, default-features = false }
 codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
 log.workspace = true
@@ -81,7 +82,7 @@ std = [
 	"subtensor-runtime-common/std",
 	"sp-keystore/std",
 	"pallet-timestamp/std",
-]
+ "mev-shield-ibe-runtime-api/std",]
 
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -96,6 +96,34 @@ impl pallet_shield::ExtrinsicDecryptor<RuntimeCall> for MockDecryptor {
     }
 }
 
+pub struct MockIbeDkgAuthorityProvider;
+impl pallet_shield::IbeDkgAuthorityProvider for MockIbeDkgAuthorityProvider {
+    fn authorities_for_epoch(_epoch: u64) -> Vec<mev_shield_ibe_runtime_api::DkgAuthorityInfo> {
+        Vec::new()
+    }
+    fn consensus_source_for_epoch(_epoch: u64) -> mev_shield_ibe_runtime_api::DkgConsensusSource {
+        mev_shield_ibe_runtime_api::DkgConsensusSource::PoaAuraRootValidators
+    }
+    fn verify_authority_signature(
+        _authority_id: &[u8],
+        _payload_hash: sp_core::H256,
+        _signature: &[u8],
+    ) -> bool {
+        true
+    }
+    fn verify_dkg_authority_registration(
+        _registration: &mev_shield_ibe_runtime_api::DkgAuthorityRegistration,
+    ) -> bool {
+        true
+    }
+}
+
+frame_support::parameter_types! {
+    pub const TestIbeEpochLength: u64 = 100;
+    pub const TestMaxDkgAtoms: u32 = 64;
+    pub const TestMaxPendingIbePerSender: u32 = 8;
+}
+
 impl pallet_shield::Config for Test {
     type AuthorityId = AuraId;
     type FindAuthors = MockFindAuthors;
@@ -106,6 +134,11 @@ impl pallet_shield::Config for Test {
     type DecryptedExtrinsicExecutor = ();
     type IbeKeyVerifier = ();
     type WeightInfo = ();
+
+    type EpochLength = TestIbeEpochLength;
+    type MaxDkgAtoms = TestMaxDkgAtoms;
+    type MaxPendingIbePerSender = TestMaxPendingIbePerSender;
+    type IbeDkgAuthorityProvider = MockIbeDkgAuthorityProvider;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

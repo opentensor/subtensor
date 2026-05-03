@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+subtensor-macros.workspace = true
+
 codec = { workspace = true, default-features = false, features = ["derive"] }
 scale-info = { workspace = true, default-features = false, features = ["derive"] }
 sp-api = { workspace = true, default-features = false }

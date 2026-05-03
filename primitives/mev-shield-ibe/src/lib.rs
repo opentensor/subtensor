@@ -26,6 +26,7 @@ pub const COMPRESSED_MASTER_PUBLIC_KEY_LEN_U32: u32 = 96;
 /// v2 envelope stored in PR-2533 PendingExtrinsics.
 ///
 /// Important: this ciphertext encrypts the signed inner extrinsic, not a RuntimeCall.
+#[subtensor_macros::freeze_struct("d1904a1f68dc401a")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbeEncryptedExtrinsicV1 {
     /// Must be `MSI2`, so existing v1 ML-KEM ciphertexts cannot be misdecoded as v2.
@@ -65,6 +66,7 @@ impl IbeEncryptedExtrinsicV1 {
     }
 }
 
+#[subtensor_macros::freeze_struct("10aeaaf81afa6e70")]
 #[derive(
     Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
@@ -89,6 +91,7 @@ pub type BoundedMasterPublicKey = BoundedVec<u8, ConstU32<COMPRESSED_MASTER_PUBL
 
 pub type BoundedIdentityKey = BoundedVec<u8, ConstU32<COMPRESSED_IDENTITY_KEY_LEN_U32>>;
 
+#[subtensor_macros::freeze_struct("8b8dbad2d6b33368")]
 #[derive(
     Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen,
 )]
@@ -106,6 +109,7 @@ pub struct IbeBlockDecryptionKeyV1 {
     pub finalized_ordering_block_hash: H256,
 }
 
+#[subtensor_macros::freeze_struct("637a2b7834d1086")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbePendingIdentity {
     pub epoch: u64,
@@ -115,6 +119,7 @@ pub struct IbePendingIdentity {
     pub last_queue_index: u32,
 }
 
+#[subtensor_macros::freeze_struct("ab897b1f761e7743")]
 #[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 pub struct IbePartialDecryptionKeyShareV1 {
     pub version: u16,

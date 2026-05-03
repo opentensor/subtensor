@@ -152,7 +152,7 @@ impl ConsensusMechanism for BabeConsensus {
         }
     }
 
-    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ, sc_service::Error>
+    fn build_biq(&mut self, skip_history_backfill: bool) -> Result<BIQ<'_>, sc_service::Error>
     where
         NumberFor<Block>: BlockNumberOps,
     {

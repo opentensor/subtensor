@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
+pub mod mev_shield_dkg_authority_provider;
 pub mod mev_shield_ibe;
 mod migrations;
 pub mod sudo_wrapper;
@@ -23,13 +24,12 @@ use codec::{Compact, Decode, Encode};
 use ethereum::AuthorizationList;
 use frame_support::{
     PalletId,
-    dispatch::{DispatchClass, DispatchResult, GetDispatchInfo},
+    dispatch::DispatchResult,
     genesis_builder_helper::{build_state, get_preset},
     pallet_prelude::Get,
-    traits::{Contains, InsideBoth, IsSubType, LinearStoragePrice, fungible::HoldConsideration},
+    traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
-use mev_shield_ibe_runtime_api::MevShieldExtrinsicClass;
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
@@ -149,6 +149,12 @@ impl pallet_shield::FindAuthors<Runtime> for FindAuraAuthors {
     }
 }
 
+parameter_types! {
+    pub const MevShieldIbeEpochLength: u64 = EPOCH_DURATION_IN_SLOTS;
+    pub const MevShieldIbeMaxDkgAtoms: u32 = 4096;
+    pub const MevShieldIbeMaxPendingPerSender: u32 = 8;
+}
+
 impl pallet_shield::Config for Runtime {
     type AuthorityId = AuraId;
     type FindAuthors = FindAuraAuthors;
@@ -159,6 +165,12 @@ impl pallet_shield::Config for Runtime {
     type DecryptedExtrinsicExecutor = mev_shield_ibe::MevShieldInnerExtrinsicExecutor;
     type IbeKeyVerifier = mev_shield_ibe::MevShieldIbeVerifier;
     type WeightInfo = pallet_shield::weights::SubstrateWeight<Runtime>;
+
+    type EpochLength = MevShieldIbeEpochLength;
+    type MaxDkgAtoms = MevShieldIbeMaxDkgAtoms;
+    type MaxPendingIbePerSender = MevShieldIbeMaxPendingPerSender;
+    type IbeDkgAuthorityProvider =
+        mev_shield_dkg_authority_provider::RuntimeIbeDkgAuthorityProvider;
 }
 
 parameter_types! {
@@ -2699,85 +2711,186 @@ impl_runtime_apis! {
         }
     }
 
-    impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
-        fn pending_ibe_identities(
-            limit: u32,
-        ) -> Vec<stp_mev_shield_ibe::IbePendingIdentity> {
-            pallet_shield::Pallet::<Runtime>::pending_ibe_identities(limit)
-        }
 
-        fn has_ibe_block_key(
-            epoch: u64,
-            target_block: u64,
-            key_id: [u8; 16],
-        ) -> bool {
-            pallet_shield::Pallet::<Runtime>::has_ibe_block_key(
-                epoch,
-                target_block,
-                key_id,
-            )
-        }
 
-        fn pending_encrypted_queue_len() -> u32 {
-            pallet_shield::Pallet::<Runtime>::pending_encrypted_queue_len()
-        }
+// Insert this whole block inside runtime/src/lib.rs impl_runtime_apis! { ... }.
+// The apply script inserts it automatically immediately before the final closing brace of impl_runtime_apis!.
 
-        fn classify_extrinsic(encoded_xt: Vec<u8>) -> MevShieldExtrinsicClass {
-            let Ok(xt) = UncheckedExtrinsic::decode(&mut &encoded_xt[..]) else {
-                return MevShieldExtrinsicClass::UnencryptedNonOperational;
-            };
 
-            let call = &xt.0.function;
 
-            if let Some(shield_call) =
-                IsSubType::<pallet_shield::Call<Runtime>>::is_sub_type(call)
-            {
-                return match shield_call {
-                    pallet_shield::Call::submit_encrypted { ciphertext } => {
-                        match stp_mev_shield_ibe::IbeEncryptedExtrinsicV1::decode_v2(
-                            ciphertext.as_slice(),
-                        ) {
-                            Ok(envelope) => MevShieldExtrinsicClass::SubmitEncryptedV2 {
-                                epoch: envelope.epoch,
-                                target_block: envelope.target_block,
-                                key_id: envelope.key_id,
-                                commitment: envelope.commitment,
-                            },
-                            Err(_) => MevShieldExtrinsicClass::SubmitEncryptedV1,
-                        }
+impl mev_shield_ibe_runtime_api::MevShieldDkgApi<Block> for Runtime {
+    fn active_epoch_dkg_plan() -> Option<mev_shield_ibe_runtime_api::EpochDkgPlan> {
+        MevShield::active_epoch_dkg_plan()
+    }
+
+    fn next_epoch_dkg_plan() -> Option<mev_shield_ibe_runtime_api::EpochDkgPlan> {
+        MevShield::next_epoch_dkg_plan()
+    }
+
+    fn verify_epoch_dkg_publication(publication: mev_shield_ibe_runtime_api::EpochDkgPublication) -> bool {
+        MevShield::verify_epoch_dkg_publication(&publication).is_ok()
+    }
+
+    fn verify_dkg_transport_key_registration(registration: mev_shield_ibe_runtime_api::DkgTransportKeyRegistration) -> bool {
+        MevShield::verify_dkg_transport_key_registration(&registration).is_ok()
+    }
+
+    fn verify_dkg_authority_registration(registration: mev_shield_ibe_runtime_api::DkgAuthorityRegistration) -> bool {
+        MevShield::verify_dkg_authority_registration(&registration).is_ok()
+    }
+}
+
+// Fixed runtime API implementation for compilefix7.
+// Insert this whole block inside runtime/src/lib.rs impl_runtime_apis! { ... }.
+
+impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
+    fn pending_ibe_identities(limit: u32) -> Vec<stp_mev_shield_ibe::IbePendingIdentity> {
+        MevShield::pending_ibe_identities(limit)
+    }
+
+    fn has_ibe_block_key(
+        epoch: u64,
+        target_block: u64,
+        key_id: [u8; stp_mev_shield_ibe::KEY_ID_LEN],
+    ) -> bool {
+        MevShield::has_ibe_block_key(epoch, target_block, key_id)
+    }
+
+    fn pending_encrypted_queue_len() -> u32 {
+        MevShield::pending_encrypted_queue_len()
+    }
+
+    fn classify_extrinsic(
+        encoded_xt: Vec<u8>,
+    ) -> mev_shield_ibe_runtime_api::MevShieldExtrinsicClass {
+        use codec::Decode;
+        use frame_support::dispatch::{DispatchClass, GetDispatchInfo};
+        use mev_shield_ibe_runtime_api::MevShieldExtrinsicClass;
+        use stp_mev_shield_ibe::IbeEncryptedExtrinsicV1;
+
+        let Ok(xt) = UncheckedExtrinsic::decode(&mut &encoded_xt[..]) else {
+            return MevShieldExtrinsicClass::UnencryptedNonOperational;
+        };
+
+        let call = &xt.0.function;
+        match call {
+            RuntimeCall::MevShield(pallet_shield::Call::submit_encrypted { ciphertext }) => {
+                if IbeEncryptedExtrinsicV1::is_v2_prefixed(ciphertext.as_slice()) {
+                    if let Ok(envelope) = IbeEncryptedExtrinsicV1::decode_v2(ciphertext.as_slice()) {
+                        return MevShieldExtrinsicClass::SubmitEncryptedV2 {
+                            epoch: envelope.epoch,
+                            target_block: envelope.target_block,
+                            key_id: envelope.key_id,
+                            queue_commitment: envelope.commitment,
+                        };
                     }
-
-                    pallet_shield::Call::submit_block_decryption_key { key } => {
-                        MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
-                            epoch: key.epoch,
-                            target_block: key.target_block,
-                            key_id: key.key_id,
-                            finalized_ordering_block_number: key
-                                .finalized_ordering_block_number,
-                            finalized_ordering_block_hash: key.finalized_ordering_block_hash,
-                        }
-                    }
-
-                    pallet_shield::Call::announce_next_key { .. } => {
-                        MevShieldExtrinsicClass::Operational
-                    }
-
-                    _ => MevShieldExtrinsicClass::UnencryptedNonOperational,
-                };
-            }
-
-            let info = call.get_dispatch_info();
-
-            match info.class {
-                DispatchClass::Operational | DispatchClass::Mandatory => {
-                    MevShieldExtrinsicClass::Operational
                 }
-                DispatchClass::Normal => {
+                MevShieldExtrinsicClass::UnencryptedNonOperational
+            }
+            RuntimeCall::MevShield(pallet_shield::Call::submit_block_decryption_key { key }) => {
+                MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
+                    epoch: key.epoch,
+                    target_block: key.target_block,
+                    key_id: key.key_id,
+                    finalized_ordering_block_number: key.finalized_ordering_block_number,
+                    finalized_ordering_block_hash: key.finalized_ordering_block_hash,
+                }
+            }
+            _ => {
+                if call.get_dispatch_info().class == DispatchClass::Operational {
+                    MevShieldExtrinsicClass::Operational
+                } else {
                     MevShieldExtrinsicClass::UnencryptedNonOperational
                 }
             }
         }
     }
+
+    fn block_composition(
+        encoded_xts: Vec<Vec<u8>>,
+    ) -> mev_shield_ibe_runtime_api::MevShieldBlockComposition {
+        use codec::Decode;
+        use frame_support::dispatch::{DispatchClass, GetDispatchInfo};
+        use mev_shield_ibe_runtime_api::{MevShieldBlockComposition, MevShieldExtrinsicClass};
+        use stp_mev_shield_ibe::IbeEncryptedExtrinsicV1;
+
+        let mut out = MevShieldBlockComposition {
+            pending_queue_len_at_parent: MevShield::pending_encrypted_queue_len(),
+            contains_encrypted_v2: false,
+            contains_plaintext_non_operational: false,
+            contains_only_operational_or_encrypted: true,
+            block_weight_ref_time: 0,
+            max_normal_block_weight_ref_time: BlockWeights::get().max_block.ref_time(),
+            block_len: 0,
+            max_normal_block_len: *BlockLength::get()
+                .max
+                .get(frame_support::dispatch::DispatchClass::Normal),
+        };
+
+        for encoded in encoded_xts {
+            out.block_len = out.block_len.saturating_add(encoded.len() as u32);
+
+            let class = if let Ok(xt) = UncheckedExtrinsic::decode(&mut &encoded[..]) {
+                let call = &xt.0.function;
+                out.block_weight_ref_time = out.block_weight_ref_time.saturating_add(
+                    { let dispatch_info = call.get_dispatch_info(); dispatch_info.call_weight.ref_time().saturating_add(dispatch_info.extension_weight.ref_time()) },
+                );
+
+                match call {
+                    RuntimeCall::MevShield(pallet_shield::Call::submit_encrypted { ciphertext }) => {
+                        if IbeEncryptedExtrinsicV1::is_v2_prefixed(ciphertext.as_slice()) {
+                            if let Ok(envelope) =
+                                IbeEncryptedExtrinsicV1::decode_v2(ciphertext.as_slice())
+                            {
+                                MevShieldExtrinsicClass::SubmitEncryptedV2 {
+                                    epoch: envelope.epoch,
+                                    target_block: envelope.target_block,
+                                    key_id: envelope.key_id,
+                                    queue_commitment: envelope.commitment,
+                                }
+                            } else {
+                                MevShieldExtrinsicClass::UnencryptedNonOperational
+                            }
+                        } else {
+                            MevShieldExtrinsicClass::UnencryptedNonOperational
+                        }
+                    }
+                    RuntimeCall::MevShield(
+                        pallet_shield::Call::submit_block_decryption_key { key },
+                    ) => MevShieldExtrinsicClass::SubmitBlockDecryptionKey {
+                        epoch: key.epoch,
+                        target_block: key.target_block,
+                        key_id: key.key_id,
+                        finalized_ordering_block_number: key.finalized_ordering_block_number,
+                        finalized_ordering_block_hash: key.finalized_ordering_block_hash,
+                    },
+                    _ => {
+                        if call.get_dispatch_info().class == DispatchClass::Operational {
+                            MevShieldExtrinsicClass::Operational
+                        } else {
+                            MevShieldExtrinsicClass::UnencryptedNonOperational
+                        }
+                    }
+                }
+            } else {
+                MevShieldExtrinsicClass::UnencryptedNonOperational
+            };
+
+            match class {
+                MevShieldExtrinsicClass::SubmitEncryptedV2 { .. } => {
+                    out.contains_encrypted_v2 = true;
+                }
+                MevShieldExtrinsicClass::UnencryptedNonOperational => {
+                    out.contains_plaintext_non_operational = true;
+                    out.contains_only_operational_or_encrypted = false;
+                }
+                _ => {}
+            }
+        }
+
+        out
+    }
+}
 }
 
 #[test]

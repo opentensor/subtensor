@@ -16,6 +16,7 @@ pub type Scalar = <TinyBLS381 as EngineBLS>::Scalar;
 pub type PublicShare = <TinyBLS381 as EngineBLS>::PublicKeyGroup;
 pub type IdentityKeyShare = <TinyBLS381 as EngineBLS>::SignatureGroup;
 
+#[subtensor_macros::freeze_struct("d498a709856e8dcc")]
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct PublicShareAtom {
     pub share_id: u32,
@@ -25,6 +26,7 @@ pub struct PublicShareAtom {
     pub public_share: Vec<u8>,
 }
 
+#[subtensor_macros::freeze_struct("97a125d6747c2ef5")]
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct WeightedSecretShareAtom {
     pub public: PublicShareAtom,
@@ -33,6 +35,7 @@ pub struct WeightedSecretShareAtom {
     pub secret_scalar: Vec<u8>,
 }
 
+#[subtensor_macros::freeze_struct("31e4fa1da0e9aca8")]
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct EpochDkgPublicOutput {
     pub epoch_key: IbeEpochPublicKey,
@@ -44,6 +47,7 @@ pub struct EpochDkgPublicOutput {
     pub public_atoms: Vec<PublicShareAtom>,
 }
 
+#[subtensor_macros::freeze_struct("9cac0b66d6fb3f8a")]
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct EpochSecretShareBundle {
     pub public: EpochDkgPublicOutput,
@@ -72,14 +76,6 @@ impl EpochDkgPublicOutput {
 impl EpochSecretShareBundle {
     pub fn epoch_key(&self) -> &IbeEpochPublicKey {
         &self.public.epoch_key
-    }
-
-    pub fn epoch(&self) -> u64 {
-        self.public.epoch_key.epoch
-    }
-
-    pub fn key_id(&self) -> [u8; KEY_ID_LEN] {
-        self.public.epoch_key.key_id
     }
 }
 
@@ -203,73 +199,67 @@ pub fn combine_identity_key(
     shares: &[IbePartialDecryptionKeyShareV1],
 ) -> Result<IbeBlockDecryptionKeyV1, String> {
     let epoch_key = &public_output.epoch_key;
-
-    let mut by_id = BTreeMap::<u32, &IbePartialDecryptionKeyShareV1>::new();
-    let mut total_weight = 0u128;
-    let mut finalized_number = 0u64;
-    let mut finalized_hash = H256::zero();
+    let mut grouped =
+        BTreeMap::<(u64, H256), BTreeMap<u32, &IbePartialDecryptionKeyShareV1>>::new();
 
     for share in shares {
         if share.version != MEV_SHIELD_IBE_VERSION
             || share.epoch != epoch_key.epoch
             || share.target_block != target_block
             || share.key_id != epoch_key.key_id
+            || share.finalized_ordering_block_number < target_block
         {
             continue;
         }
-
         let Some(public_atom) = public_output.public_atom(share.share_id) else {
             continue;
         };
-
-        if share.weight != public_atom.weight {
+        if share.weight != public_atom.weight || share.public_share != public_atom.public_share {
             continue;
         }
+        grouped
+            .entry((
+                share.finalized_ordering_block_number,
+                share.finalized_ordering_block_hash,
+            ))
+            .or_default()
+            .entry(share.share_id)
+            .or_insert(share);
+    }
 
-        if share.public_share != public_atom.public_share {
-            continue;
-        }
-
-        if by_id.insert(share.share_id, share).is_none() {
-            total_weight = total_weight.saturating_add(share.weight);
-        }
-
-        if share.finalized_ordering_block_number >= finalized_number {
-            finalized_number = share.finalized_ordering_block_number;
-            finalized_hash = share.finalized_ordering_block_hash;
-        }
-
+    let mut selected_finality = None;
+    let mut selected_shares = BTreeMap::<u32, &IbePartialDecryptionKeyShareV1>::new();
+    for (finality, by_id) in grouped {
+        let total_weight = by_id
+            .values()
+            .fold(0u128, |acc, share| acc.saturating_add(share.weight));
         if total_weight >= epoch_key.threshold_weight {
+            selected_finality = Some(finality);
+            selected_shares = by_id;
             break;
         }
     }
 
-    if total_weight < epoch_key.threshold_weight {
+    let Some((finalized_number, finalized_hash)) = selected_finality else {
         return Err(format!(
-            "not enough stake weight for threshold IBE key: have {total_weight}, need {}",
-            epoch_key.threshold_weight,
+            "not enough stake weight for a single finalized ordering point; need {}",
+            epoch_key.threshold_weight
         ));
-    }
+    };
 
-    let ids: Vec<u32> = by_id.keys().copied().collect();
-
+    let ids: Vec<u32> = selected_shares.keys().copied().collect();
     let mut acc = IdentityKeyShare::zero();
-
-    for (share_id, share) in by_id {
+    for (share_id, share) in selected_shares {
         let partial =
             IdentityKeyShare::deserialize_compressed(&mut &share.partial_identity_key[..])
                 .map_err(|e| format!("bad partial identity key: {e:?}"))?;
-
         let lambda = lagrange_coeff_at_zero(share_id, &ids);
-
         acc += partial.mul(lambda);
     }
 
     let mut identity_decryption_key = Vec::new();
-
     acc.serialize_compressed(&mut identity_decryption_key)
         .map_err(|e| format!("serialize combined identity key: {e:?}"))?;
-
     let bounded_key: BoundedIdentityKey = identity_decryption_key
         .try_into()
         .map_err(|_| "identity key has wrong length".to_string())?;

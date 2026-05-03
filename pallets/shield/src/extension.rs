@@ -9,6 +9,7 @@ use sp_runtime::traits::{
     ValidateResult,
 };
 use sp_runtime::transaction_validity::TransactionSource;
+use stp_mev_shield_ibe::IbeEncryptedExtrinsicV1;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::CustomTransactionError;
 
@@ -70,9 +71,15 @@ where
         };
 
         // Reject malformed ciphertext regardless of source.
-        let Some(ShieldedTransaction { .. }) = ShieldedTransaction::parse(ciphertext) else {
-            return Err(CustomTransactionError::FailedShieldedTxParsing.into());
-        };
+        if IbeEncryptedExtrinsicV1::is_v2_prefixed(ciphertext.as_slice()) {
+            if IbeEncryptedExtrinsicV1::decode_v2(ciphertext.as_slice()).is_err() {
+                return Err(CustomTransactionError::FailedShieldedTxParsing.into());
+            }
+        } else {
+            let Some(ShieldedTransaction { .. }) = ShieldedTransaction::parse(ciphertext) else {
+                return Err(CustomTransactionError::FailedShieldedTxParsing.into());
+            };
+        }
 
         Ok((Default::default(), (), origin))
     }

@@ -7849,6 +7849,7 @@ dependencies = [
  "sp-core",
  "sp-runtime",
  "stp-mev-shield-ibe",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -8293,6 +8294,7 @@ dependencies = [
  "ark-std 0.4.0",
  "async-trait",
  "bincode",
+ "chacha20poly1305",
  "clap",
  "fc-api",
  "fc-aura",
@@ -8312,6 +8314,7 @@ dependencies = [
  "frame-system",
  "frame-system-rpc-runtime-api",
  "futures",
+ "futures-timer",
  "hex",
  "jsonrpsee",
  "log",
@@ -8332,6 +8335,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.5",
  "polkadot-sdk",
+ "rand_core 0.6.4",
  "sc-basic-authorship",
  "sc-chain-spec",
  "sc-chain-spec-derive",
@@ -8391,6 +8395,7 @@ dependencies = [
  "tle",
  "tokio",
  "w3f-bls 0.1.3",
+ "x25519-dalek",
 ]
 
 [[package]]
@@ -10634,6 +10639,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "mev-shield-ibe-runtime-api",
  "ml-kem",
  "pallet-aura",
  "pallet-subtensor-utility",
@@ -17969,6 +17975,7 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-runtime",
+ "subtensor-macros",
 ]
 
 [[package]]

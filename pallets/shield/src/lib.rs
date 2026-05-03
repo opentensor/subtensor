@@ -3,7 +3,7 @@
 
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 
 use chacha20poly1305::{
     KeyInit, XChaCha20Poly1305, XNonce,
@@ -16,6 +16,10 @@ use frame_support::{
     traits::{ConstU64, IsSubType},
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
+use mev_shield_ibe_runtime_api::{
+    DkgAuthorityInfo, DkgAuthorityRegistration, DkgConsensusKeyKind, DkgConsensusSource,
+    DkgTransportKeyRegistration, EpochDkgPlan, EpochDkgPublication,
+};
 use ml_kem::{
     Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
     kem::{Decapsulate, DecapsulationKey},
@@ -31,8 +35,8 @@ use sp_runtime::{
     },
 };
 use stp_mev_shield_ibe::{
-    IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1, IbeEpochPublicKey, IbePendingIdentity,
-    KEY_ID_LEN, MEV_SHIELD_IBE_VERSION, block_key_storage_key,
+    BoundedMasterPublicKey, IbeBlockDecryptionKeyV1, IbeEncryptedExtrinsicV1, IbeEpochPublicKey,
+    IbePendingIdentity, KEY_ID_LEN, MEV_SHIELD_IBE_VERSION, block_key_storage_key,
 };
 use stp_shield::{
     INHERENT_IDENTIFIER, InherentType, LOG_TARGET, MLKEM768_ENC_KEY_LEN, ShieldEncKey,
@@ -70,6 +74,39 @@ const MAX_EXTRINSIC_DEPTH: u32 = 8;
 /// Weight for `store_encrypted`, intentionally set higher than the benchmark
 /// to discourage abuse of the encrypted extrinsic queue.
 const STORE_ENCRYPTED_WEIGHT: u64 = 20_000_000_000;
+
+pub const IBE_TARGET_LOOKAHEAD_BLOCKS: u64 = 2;
+pub const IBE_DKG_EPOCHS_AHEAD: u64 = 2;
+
+pub trait IbeDkgAuthorityProvider {
+    fn authorities_for_epoch(epoch: u64) -> Vec<DkgAuthorityInfo>;
+    fn consensus_source_for_epoch(epoch: u64) -> DkgConsensusSource;
+    fn verify_authority_signature(
+        authority_id: &[u8],
+        payload_hash: sp_core::H256,
+        signature: &[u8],
+    ) -> bool;
+    fn verify_dkg_authority_registration(registration: &DkgAuthorityRegistration) -> bool;
+}
+
+impl IbeDkgAuthorityProvider for () {
+    fn authorities_for_epoch(_epoch: u64) -> Vec<DkgAuthorityInfo> {
+        Vec::new()
+    }
+    fn consensus_source_for_epoch(_epoch: u64) -> DkgConsensusSource {
+        DkgConsensusSource::PoaAuraRootValidators
+    }
+    fn verify_authority_signature(
+        _authority_id: &[u8],
+        _payload_hash: sp_core::H256,
+        _signature: &[u8],
+    ) -> bool {
+        false
+    }
+    fn verify_dkg_authority_registration(_registration: &DkgAuthorityRegistration) -> bool {
+        false
+    }
+}
 
 pub fn store_encrypted_weight() -> Weight {
     Weight::from_parts(STORE_ENCRYPTED_WEIGHT, 0)
@@ -189,9 +226,18 @@ pub mod pallet {
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+
+        #[pallet::constant]
+        type EpochLength: frame_support::traits::Get<u64>;
+        #[pallet::constant]
+        type MaxDkgAtoms: frame_support::traits::Get<u32>;
+        #[pallet::constant]
+        type MaxPendingIbePerSender: frame_support::traits::Get<u32>;
+        type IbeDkgAuthorityProvider: crate::IbeDkgAuthorityProvider;
     }
 
     #[pallet::pallet]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     /// Current block author's ML-KEM-768 encapsulation key (internal, not for encryption).
@@ -294,6 +340,49 @@ pub mod pallet {
     pub type NextPendingExtrinsicIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// MEVShield v2 threshold-IBE epoch master public keys.
+
+    #[freeze_struct("5a9a72dffce049d7")]
+    #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen, PartialEq, Debug)]
+    #[scale_info(skip_type_params(T))]
+    pub struct PendingIbeMeta<T: Config> {
+        pub epoch: u64,
+        pub target_block: u64,
+        pub key_id: [u8; KEY_ID_LEN],
+        pub commitment: sp_core::H256,
+        pub submitted_at: BlockNumberFor<T>,
+        pub submitted_tx_index: u32,
+        pub submitter: T::AccountId,
+    }
+
+    #[pallet::storage]
+    pub type PendingIbeMetadata<T: Config> =
+        StorageMap<_, Identity, u32, PendingIbeMeta<T>, OptionQuery>;
+    #[pallet::storage]
+    pub type PendingIbeCommitments<T: Config> =
+        StorageMap<_, Blake2_128Concat, sp_core::H256, u32, OptionQuery>;
+    #[pallet::storage]
+    pub type PendingIbeBySubmitter<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+    #[pallet::storage]
+    pub type PublishedDkgOutputHashes<T: Config> =
+        StorageMap<_, Twox64Concat, u64, sp_core::H256, OptionQuery>;
+    #[pallet::storage]
+    pub type IbeDkgTransportPublicKeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, Vec<u8>, [u8; 32], OptionQuery>;
+    #[pallet::storage]
+    pub type IbeDkgAuthorityRegistrations<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        Vec<u8>,
+        Twox64Concat,
+        DkgConsensusKeyKind,
+        DkgAuthorityRegistration,
+        OptionQuery,
+    >;
+    #[pallet::storage]
+    pub type IbeDkgAuthoritySnapshots<T: Config> =
+        StorageMap<_, Twox64Concat, u64, Vec<DkgAuthorityInfo>, ValueQuery>;
+
     #[pallet::storage]
     pub type IbeEpochKeys<T: Config> =
         StorageMap<_, Twox64Concat, u64, IbeEpochPublicKey, OptionQuery>;
@@ -312,29 +401,56 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// Encrypted wrapper accepted.
-        EncryptedSubmitted { id: T::Hash, who: T::AccountId },
+        EncryptedSubmitted {
+            id: T::Hash,
+            who: T::AccountId,
+        },
         /// Encrypted extrinsic was stored for later execution.
-        ExtrinsicStored { index: u32, who: T::AccountId },
+        ExtrinsicStored {
+            index: u32,
+            who: T::AccountId,
+        },
         /// Extrinsic decode failed during on_initialize.
-        ExtrinsicDecodeFailed { index: u32 },
+        ExtrinsicDecodeFailed {
+            index: u32,
+        },
         /// Extrinsic dispatch failed during on_initialize.
-        ExtrinsicDispatchFailed { index: u32, error: DispatchError },
+        ExtrinsicDispatchFailed {
+            index: u32,
+            error: DispatchError,
+        },
         /// Extrinsic was successfully dispatched during on_initialize.
-        ExtrinsicDispatched { index: u32 },
+        ExtrinsicDispatched {
+            index: u32,
+        },
         /// Extrinsic expired (exceeded max block lifetime).
-        ExtrinsicExpired { index: u32 },
+        ExtrinsicExpired {
+            index: u32,
+        },
         /// Extrinsic postponed due to missing key or weight limit.
-        ExtrinsicPostponed { index: u32 },
+        ExtrinsicPostponed {
+            index: u32,
+        },
         /// Maximum pending extrinsics limit was updated.
-        MaxPendingExtrinsicsNumberSet { value: u32 },
+        MaxPendingExtrinsicsNumberSet {
+            value: u32,
+        },
         /// Maximum on_initialize weight was updated.
-        OnInitializeWeightSet { value: u64 },
+        OnInitializeWeightSet {
+            value: u64,
+        },
         /// Extrinsic lifetime was updated.
-        ExtrinsicLifetimeSet { value: u32 },
+        ExtrinsicLifetimeSet {
+            value: u32,
+        },
         /// Maximum per-extrinsic weight was updated.
-        MaxExtrinsicWeightSet { value: u64 },
+        MaxExtrinsicWeightSet {
+            value: u64,
+        },
         /// Extrinsic exceeded the per-extrinsic weight limit and was removed.
-        ExtrinsicWeightExceeded { index: u32 },
+        ExtrinsicWeightExceeded {
+            index: u32,
+        },
         /// MEVShield v2 IBE encrypted extrinsic accepted into the pending queue.
         IbeEncryptedSubmitted {
             index: u32,
@@ -355,10 +471,35 @@ pub mod pallet {
             target_block: u64,
             key_id: [u8; KEY_ID_LEN],
         },
+        IbeEpochDkgPublicKeyPublished {
+            epoch: u64,
+            key_id: [u8; KEY_ID_LEN],
+            attested_weight: u128,
+        },
+        IbeDkgTransportKeyRegistered {
+            authority_id: Vec<u8>,
+            dkg_x25519_public_key: [u8; 32],
+        },
+        IbeDkgAuthorityRegistered {
+            hotkey_account_id: Vec<u8>,
+            consensus_key_kind: DkgConsensusKeyKind,
+            authority_id: Vec<u8>,
+            dkg_x25519_public_key: [u8; 32],
+        },
+        IbeDkgAuthoritySnapshotStored {
+            epoch: u64,
+            authority_count: u32,
+        },
+
         /// MEVShield v2 encrypted extrinsic was invalid after the block key became available.
-        IbeEncryptedExtrinsicInvalid { index: u32 },
+        IbeEncryptedExtrinsicInvalid {
+            index: u32,
+        },
         /// MEVShield v2 encrypted extrinsic consumed its canonical queue position.
-        IbeEncryptedExtrinsicExecuted { index: u32, success: bool },
+        IbeEncryptedExtrinsicExecuted {
+            index: u32,
+            success: bool,
+        },
     }
 
     #[pallet::error]
@@ -385,12 +526,24 @@ pub mod pallet {
         IbeKeyTooEarly,
         /// Invalid IBE block identity decryption key.
         InvalidIbeBlockDecryptionKey,
+        IbeEpochKeyInactive,
+        InvalidIbeTargetWindow,
+        DuplicateIbeCommitment,
+        TooManyPendingIbeForSender,
+        InvalidIbeFinalityPoint,
+        BadIbeDkgPublication,
+        InsufficientIbeDkgAttestationWeight,
+        IbeDkgPublicationAlreadyKnown,
+        BadIbeDkgTransportKeyRegistration,
+        BadIbeDkgAuthorityRegistration,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
-            Self::process_pending_extrinsics()
+            let mut weight = Self::ensure_epoch_ahead_dkg_snapshots();
+            weight = weight.saturating_add(Self::process_pending_extrinsics());
+            weight
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -613,21 +766,47 @@ pub mod pallet {
             if ensure_signed(origin.clone()).is_err() {
                 ensure_none(origin)?;
             }
-
             Self::validate_ibe_block_decryption_key_for_submission(&key)?;
-
             IbeBlockDecryptionKeys::<T>::insert(
                 block_key_storage_key(key.epoch, key.target_block, key.key_id),
                 key.clone(),
             );
-
             Self::deposit_event(Event::IbeBlockDecryptionKeySubmitted {
                 epoch: key.epoch,
                 target_block: key.target_block,
                 key_id: key.key_id,
             });
-
             Ok(())
+        }
+
+        #[pallet::call_index(9)]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
+        pub fn publish_ibe_epoch_public_key(
+            origin: OriginFor<T>,
+            publication: EpochDkgPublication,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+            Self::publish_ibe_epoch_public_key_inner(publication)
+        }
+
+        #[pallet::call_index(10)]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
+        pub fn submit_ibe_dkg_transport_key(
+            origin: OriginFor<T>,
+            registration: DkgTransportKeyRegistration,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+            Self::submit_ibe_dkg_transport_key_inner(registration)
+        }
+
+        #[pallet::call_index(11)]
+        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
+        pub fn submit_ibe_dkg_authority_registration(
+            origin: OriginFor<T>,
+            registration: DkgAuthorityRegistration,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+            Self::submit_ibe_dkg_authority_registration_inner(registration)
         }
     }
 
@@ -636,14 +815,57 @@ pub mod pallet {
         type Call = Call<T>;
 
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            if let Call::submit_ibe_dkg_transport_key { registration } = call {
+                if Self::verify_dkg_transport_key_registration(registration).is_err() {
+                    return InvalidTransaction::BadProof.into();
+                }
+                return ValidTransaction::with_tag_prefix("MevShieldIbeDkgTransportKey")
+                    .priority(2_500_000)
+                    .and_provides((
+                        b"mev-shield-ibe-dkg-transport-key".as_slice(),
+                        registration.authority_id.clone(),
+                    ))
+                    .longevity(1024)
+                    .propagate(true)
+                    .build();
+            }
+            if let Call::submit_ibe_dkg_authority_registration { registration } = call {
+                if Self::verify_dkg_authority_registration(registration).is_err() {
+                    return InvalidTransaction::BadProof.into();
+                }
+                return ValidTransaction::with_tag_prefix("MevShieldIbeDkgAuthorityRegistration")
+                    .priority(2_750_000)
+                    .and_provides((
+                        b"mev-shield-ibe-dkg-authority-registration".as_slice(),
+                        registration.hotkey_account_id.clone(),
+                        registration.consensus_key_kind,
+                        registration.consensus_authority_id.clone(),
+                    ))
+                    .longevity(1024)
+                    .propagate(true)
+                    .build();
+            }
+            if let Call::publish_ibe_epoch_public_key { publication } = call {
+                if Self::verify_epoch_dkg_publication(publication).is_err() {
+                    return InvalidTransaction::BadProof.into();
+                }
+                return ValidTransaction::with_tag_prefix("MevShieldIbeEpochDkg")
+                    .priority(2_000_000)
+                    .and_provides((
+                        b"mev-shield-ibe-epoch-dkg".as_slice(),
+                        publication.epoch,
+                        publication.key_id,
+                    ))
+                    .longevity(256)
+                    .propagate(true)
+                    .build();
+            }
             let Call::submit_block_decryption_key { key } = call else {
                 return InvalidTransaction::Call.into();
             };
-
             if Self::validate_ibe_block_decryption_key_for_submission(key).is_err() {
                 return InvalidTransaction::BadProof.into();
             }
-
             ValidTransaction::with_tag_prefix("MevShieldIbeBlockKey")
                 .priority(1_000_000)
                 .and_provides((
@@ -683,17 +905,358 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn current_ibe_epoch() -> u64 {
+        let n: u64 = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+        let epoch_len = T::EpochLength::get().max(1);
+        n / epoch_len
+    }
+    pub fn epoch_bounds(epoch: u64) -> (u64, u64) {
+        let len = T::EpochLength::get().max(1);
+        let first = epoch.saturating_mul(len);
+        let last = first.saturating_add(len.saturating_sub(1));
+        (first, last)
+    }
+    pub fn ensure_epoch_ahead_dkg_snapshots() -> frame_support::weights::Weight {
+        let current = Self::current_ibe_epoch();
+        let mut reads = 0u64;
+        let mut writes = 0u64;
+        for offset in 0..=IBE_DKG_EPOCHS_AHEAD {
+            let epoch = current.saturating_add(offset);
+            reads = reads.saturating_add(1);
+            if !IbeDkgAuthoritySnapshots::<T>::get(epoch).is_empty() {
+                continue;
+            }
+            let authorities = T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch);
+            if authorities.is_empty() {
+                continue;
+            }
+            let authority_count = authorities.len() as u32;
+            IbeDkgAuthoritySnapshots::<T>::insert(epoch, authorities);
+            writes = writes.saturating_add(1);
+            Self::deposit_event(Event::IbeDkgAuthoritySnapshotStored {
+                epoch,
+                authority_count,
+            });
+        }
+        <T as frame_system::Config>::DbWeight::get().reads_writes(reads, writes)
+    }
+    pub fn dkg_authorities_for_plan(epoch: u64) -> Vec<DkgAuthorityInfo> {
+        let snapshot = IbeDkgAuthoritySnapshots::<T>::get(epoch);
+        if !snapshot.is_empty() {
+            snapshot
+        } else {
+            T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch)
+        }
+    }
+    pub fn dkg_transport_key_payload_hash(
+        authority_id: &[u8],
+        dkg_x25519_public_key: &[u8; 32],
+    ) -> sp_core::H256 {
+        sp_core::H256::from(sp_core::hashing::blake2_256(
+            &(
+                b"bittensor.mev-shield.v2.dkg.transport-key",
+                authority_id,
+                dkg_x25519_public_key,
+            )
+                .encode(),
+        ))
+    }
+    pub fn verify_dkg_transport_key_registration(
+        registration: &DkgTransportKeyRegistration,
+    ) -> DispatchResult {
+        let payload = Self::dkg_transport_key_payload_hash(
+            &registration.authority_id,
+            &registration.dkg_x25519_public_key,
+        );
+        ensure!(
+            T::IbeDkgAuthorityProvider::verify_authority_signature(
+                &registration.authority_id,
+                payload,
+                &registration.signature,
+            ),
+            Error::<T>::BadIbeDkgTransportKeyRegistration
+        );
+        Ok(())
+    }
+    pub fn submit_ibe_dkg_transport_key_inner(
+        registration: DkgTransportKeyRegistration,
+    ) -> DispatchResult {
+        Self::verify_dkg_transport_key_registration(&registration)?;
+        IbeDkgTransportPublicKeys::<T>::insert(
+            registration.authority_id.clone(),
+            registration.dkg_x25519_public_key,
+        );
+        Self::deposit_event(Event::IbeDkgTransportKeyRegistered {
+            authority_id: registration.authority_id,
+            dkg_x25519_public_key: registration.dkg_x25519_public_key,
+        });
+        Ok(())
+    }
+    pub fn verify_dkg_authority_registration(
+        registration: &DkgAuthorityRegistration,
+    ) -> DispatchResult {
+        ensure!(
+            T::IbeDkgAuthorityProvider::verify_dkg_authority_registration(registration),
+            Error::<T>::BadIbeDkgAuthorityRegistration
+        );
+        Ok(())
+    }
+    pub fn submit_ibe_dkg_authority_registration_inner(
+        registration: DkgAuthorityRegistration,
+    ) -> DispatchResult {
+        Self::verify_dkg_authority_registration(&registration)?;
+        IbeDkgAuthorityRegistrations::<T>::insert(
+            registration.hotkey_account_id.clone(),
+            registration.consensus_key_kind,
+            registration.clone(),
+        );
+        IbeDkgTransportPublicKeys::<T>::insert(
+            registration.consensus_authority_id.clone(),
+            registration.dkg_x25519_public_key,
+        );
+        Self::deposit_event(Event::IbeDkgAuthorityRegistered {
+            hotkey_account_id: registration.hotkey_account_id,
+            consensus_key_kind: registration.consensus_key_kind,
+            authority_id: registration.consensus_authority_id,
+            dkg_x25519_public_key: registration.dkg_x25519_public_key,
+        });
+        Ok(())
+    }
+    pub fn next_epoch_dkg_plan() -> Option<EpochDkgPlan> {
+        let epoch = Self::current_ibe_epoch().saturating_add(IBE_DKG_EPOCHS_AHEAD);
+        let authorities = Self::dkg_authorities_for_plan(epoch);
+        if authorities.is_empty() {
+            return None;
+        }
+        let (first_block, last_block) = Self::epoch_bounds(epoch);
+        Some(EpochDkgPlan {
+            epoch,
+            first_block,
+            last_block,
+            consensus_source: T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch),
+            max_atoms: T::MaxDkgAtoms::get(),
+            authorities,
+        })
+    }
+    pub fn active_epoch_dkg_plan() -> Option<EpochDkgPlan> {
+        let epoch = Self::current_ibe_epoch();
+        let authorities = Self::dkg_authorities_for_plan(epoch);
+        if authorities.is_empty() {
+            return None;
+        }
+        let (first_block, last_block) = Self::epoch_bounds(epoch);
+        Some(EpochDkgPlan {
+            epoch,
+            first_block,
+            last_block,
+            consensus_source: T::IbeDkgAuthorityProvider::consensus_source_for_epoch(epoch),
+            max_atoms: T::MaxDkgAtoms::get(),
+            authorities,
+        })
+    }
+    pub fn dkg_public_output_hash(publication: &EpochDkgPublication) -> sp_core::H256 {
+        sp_core::H256::from(sp_core::hashing::blake2_256(
+            &(
+                b"bittensor.mev-shield.v2.dkg.public-output",
+                publication.epoch,
+                publication.key_id,
+                publication.first_block,
+                publication.last_block,
+                publication.consensus_source,
+                &publication.master_public_key,
+                publication.total_weight,
+                publication.threshold_weight,
+            )
+                .encode(),
+        ))
+    }
+    pub fn dkg_attestation_payload_hash(
+        epoch: u64,
+        key_id: [u8; KEY_ID_LEN],
+        public_output_hash: sp_core::H256,
+        authority_id: &[u8],
+        stake: u128,
+    ) -> sp_core::H256 {
+        sp_core::H256::from(sp_core::hashing::blake2_256(
+            &(
+                b"bittensor.mev-shield.v2.dkg.output-attestation",
+                epoch,
+                key_id,
+                public_output_hash,
+                authority_id,
+                stake,
+            )
+                .encode(),
+        ))
+    }
+    pub fn verify_epoch_dkg_publication(publication: &EpochDkgPublication) -> DispatchResult {
+        let expected_hash = Self::dkg_public_output_hash(publication);
+        ensure!(
+            publication.public_output_hash == expected_hash,
+            Error::<T>::BadIbeDkgPublication
+        );
+
+        let plan = if let Some(next) = Self::next_epoch_dkg_plan() {
+            if next.epoch == publication.epoch {
+                next
+            } else {
+                Self::active_epoch_dkg_plan().ok_or(Error::<T>::BadIbeDkgPublication)?
+            }
+        } else {
+            Self::active_epoch_dkg_plan().ok_or(Error::<T>::BadIbeDkgPublication)?
+        };
+
+        ensure!(
+            publication.epoch == plan.epoch,
+            Error::<T>::BadIbeDkgPublication
+        );
+        ensure!(
+            publication.consensus_source == plan.consensus_source,
+            Error::<T>::BadIbeDkgPublication
+        );
+        ensure!(
+            publication.first_block == plan.first_block
+                && publication.last_block == plan.last_block,
+            Error::<T>::BadIbeDkgPublication
+        );
+        ensure!(
+            publication.total_weight >= publication.threshold_weight
+                && publication.threshold_weight > 0,
+            Error::<T>::BadIbeDkgPublication
+        );
+        ensure!(
+            !IbeEpochKeys::<T>::contains_key(publication.epoch)
+                && !PublishedDkgOutputHashes::<T>::contains_key(publication.epoch),
+            Error::<T>::IbeDkgPublicationAlreadyKnown
+        );
+
+        let mut by_authority = sp_std::collections::btree_map::BTreeMap::<Vec<u8>, u128>::new();
+        for a in &plan.authorities {
+            by_authority.insert(a.authority_id.clone(), a.stake);
+        }
+
+        let total_stake = plan
+            .authorities
+            .iter()
+            .fold(0u128, |acc, a| acc.saturating_add(a.stake));
+        let threshold_stake = total_stake.saturating_mul(2) / 3 + 1;
+
+        let mut attested_stake = 0u128;
+        let mut seen = sp_std::collections::btree_set::BTreeSet::<Vec<u8>>::new();
+        for att in &publication.attestations {
+            if !seen.insert(att.authority_id.clone()) {
+                continue;
+            }
+            let Some(expected_stake) = by_authority.get(&att.authority_id).copied() else {
+                continue;
+            };
+            if expected_stake != att.stake || att.public_output_hash != expected_hash {
+                continue;
+            }
+            let payload = Self::dkg_attestation_payload_hash(
+                publication.epoch,
+                publication.key_id,
+                expected_hash,
+                &att.authority_id,
+                att.stake,
+            );
+            if T::IbeDkgAuthorityProvider::verify_authority_signature(
+                &att.authority_id,
+                payload,
+                &att.signature,
+            ) {
+                attested_stake = attested_stake.saturating_add(att.stake);
+            }
+        }
+
+        ensure!(
+            attested_stake >= threshold_stake,
+            Error::<T>::InsufficientIbeDkgAttestationWeight
+        );
+        Ok(())
+    }
+    pub fn publish_ibe_epoch_public_key_inner(publication: EpochDkgPublication) -> DispatchResult {
+        Self::verify_epoch_dkg_publication(&publication)?;
+        let master_public_key: BoundedMasterPublicKey = publication
+            .master_public_key
+            .clone()
+            .try_into()
+            .map_err(|_| Error::<T>::BadIbeDkgPublication)?;
+
+        let epoch_key = IbeEpochPublicKey {
+            epoch: publication.epoch,
+            key_id: publication.key_id,
+            master_public_key,
+            total_weight: publication.total_weight,
+            threshold_weight: publication.threshold_weight,
+            first_block: publication.first_block,
+            last_block: publication.last_block,
+        };
+
+        IbeEpochKeys::<T>::insert(publication.epoch, epoch_key);
+        PublishedDkgOutputHashes::<T>::insert(
+            publication.epoch,
+            Self::dkg_public_output_hash(&publication),
+        );
+        let attested_weight = publication
+            .attestations
+            .iter()
+            .fold(0u128, |acc, a| acc.saturating_add(a.stake));
+        Self::deposit_event(Event::IbeEpochDkgPublicKeyPublished {
+            epoch: publication.epoch,
+            key_id: publication.key_id,
+            attested_weight,
+        });
+        Ok(())
+    }
+    pub fn after_v2_pending_push(
+        who: &T::AccountId,
+        index: u32,
+        envelope: &IbeEncryptedExtrinsicV1,
+    ) -> DispatchResult {
+        ensure!(
+            PendingIbeBySubmitter::<T>::get(who) < T::MaxPendingIbePerSender::get(),
+            Error::<T>::TooManyPendingIbeForSender
+        );
+        let submitted_at = frame_system::Pallet::<T>::block_number();
+        let submitted_tx_index = frame_system::Pallet::<T>::extrinsic_index().unwrap_or_default();
+        PendingIbeMetadata::<T>::insert(
+            index,
+            PendingIbeMeta::<T> {
+                epoch: envelope.epoch,
+                target_block: envelope.target_block,
+                key_id: envelope.key_id,
+                commitment: envelope.commitment,
+                submitted_at,
+                submitted_tx_index,
+                submitter: who.clone(),
+            },
+        );
+        PendingIbeCommitments::<T>::insert(envelope.commitment, index);
+        PendingIbeBySubmitter::<T>::mutate(who, |n| *n = n.saturating_add(1));
+        Ok(())
+    }
+    pub fn remove_pending_index(index: u32) {
+        PendingExtrinsics::<T>::remove(index);
+        if let Some(meta) = PendingIbeMetadata::<T>::take(index) {
+            PendingIbeCommitments::<T>::remove(meta.commitment);
+            PendingIbeBySubmitter::<T>::mutate(meta.submitter, |n| *n = n.saturating_sub(1));
+        }
+    }
+
     fn submit_encrypted_v2_inner(
         who: T::AccountId,
         encrypted_call: BoundedVec<u8, MaxEncryptedCallSize>,
     ) -> DispatchResult {
         let envelope = IbeEncryptedExtrinsicV1::decode_v2(encrypted_call.as_slice())
             .map_err(|_| Error::<T>::BadIbeEnvelope)?;
-
         Self::validate_v2_envelope_for_submission(&envelope)?;
-
+        ensure!(
+            PendingIbeBySubmitter::<T>::get(&who) < T::MaxPendingIbePerSender::get(),
+            Error::<T>::TooManyPendingIbeForSender
+        );
         let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
-
+        Self::after_v2_pending_push(&who, index, &envelope)?;
         Self::deposit_event(Event::IbeEncryptedSubmitted {
             index,
             who,
@@ -702,7 +1265,6 @@ impl<T: Config> Pallet<T> {
             key_id: envelope.key_id,
             commitment: envelope.commitment,
         });
-
         Ok(())
     }
 
@@ -713,39 +1275,49 @@ impl<T: Config> Pallet<T> {
         if IbeEncryptedExtrinsicV1::is_v2_prefixed(encrypted_call.as_slice()) {
             let envelope = IbeEncryptedExtrinsicV1::decode_v2(encrypted_call.as_slice())
                 .map_err(|_| Error::<T>::BadIbeEnvelope)?;
-
             Self::validate_v2_envelope_for_submission(&envelope)?;
+            ensure!(
+                PendingIbeBySubmitter::<T>::get(&who) < T::MaxPendingIbePerSender::get(),
+                Error::<T>::TooManyPendingIbeForSender
+            );
+            let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
+            Self::after_v2_pending_push(&who, index, &envelope)?;
+            Self::deposit_event(Event::ExtrinsicStored { index, who });
+            return Ok(());
         }
-
         let index = Self::store_pending_encrypted(who.clone(), encrypted_call)?;
-
         Self::deposit_event(Event::ExtrinsicStored { index, who });
-
         Ok(())
     }
 
-    fn validate_v2_envelope_for_submission(envelope: &IbeEncryptedExtrinsicV1) -> DispatchResult {
+    pub fn validate_v2_envelope_for_submission(
+        envelope: &IbeEncryptedExtrinsicV1,
+    ) -> DispatchResult {
         ensure!(
             envelope.version == MEV_SHIELD_IBE_VERSION,
             Error::<T>::BadIbeEnvelope
         );
-
         let current_block_u64: u64 =
             frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
-
         ensure!(
-            envelope.target_block > current_block_u64,
-            Error::<T>::StaleEncryptedTarget
+            envelope.target_block == current_block_u64.saturating_add(IBE_TARGET_LOOKAHEAD_BLOCKS),
+            Error::<T>::InvalidIbeTargetWindow
         );
-
+        ensure!(
+            !PendingIbeCommitments::<T>::contains_key(envelope.commitment),
+            Error::<T>::DuplicateIbeCommitment
+        );
         let epoch_key =
             IbeEpochKeys::<T>::get(envelope.epoch).ok_or(Error::<T>::UnknownIbeEpoch)?;
-
         ensure!(
             epoch_key.key_id == envelope.key_id,
             Error::<T>::WrongIbeEpochKey
         );
-
+        ensure!(
+            envelope.target_block >= epoch_key.first_block
+                && envelope.target_block <= epoch_key.last_block,
+            Error::<T>::IbeEpochKeyInactive
+        );
         ensure!(
             IbeBlockDecryptionKeys::<T>::get(block_key_storage_key(
                 envelope.epoch,
@@ -755,7 +1327,6 @@ impl<T: Config> Pallet<T> {
             .is_none(),
             Error::<T>::IbeKeyAlreadyPublished
         );
-
         Ok(())
     }
 
@@ -766,19 +1337,22 @@ impl<T: Config> Pallet<T> {
             key.version == MEV_SHIELD_IBE_VERSION,
             Error::<T>::InvalidIbeBlockDecryptionKey
         );
-
         let epoch_key = IbeEpochKeys::<T>::get(key.epoch).ok_or(Error::<T>::UnknownIbeEpoch)?;
-
         ensure!(epoch_key.key_id == key.key_id, Error::<T>::WrongIbeEpochKey);
-
+        ensure!(
+            key.target_block >= epoch_key.first_block && key.target_block <= epoch_key.last_block,
+            Error::<T>::IbeEpochKeyInactive
+        );
         let current_block_u64: u64 =
             frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
-
         ensure!(
             current_block_u64 >= key.target_block,
             Error::<T>::IbeKeyTooEarly
         );
-
+        ensure!(
+            key.finalized_ordering_block_number >= key.target_block,
+            Error::<T>::InvalidIbeFinalityPoint
+        );
         ensure!(
             IbeBlockDecryptionKeys::<T>::get(block_key_storage_key(
                 key.epoch,
@@ -788,9 +1362,7 @@ impl<T: Config> Pallet<T> {
             .is_none(),
             Error::<T>::IbeKeyAlreadyPublished
         );
-
         let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
-
         ensure!(
             T::IbeKeyVerifier::verify_block_identity_key(
                 genesis_hash,
@@ -800,7 +1372,6 @@ impl<T: Config> Pallet<T> {
             ),
             Error::<T>::InvalidIbeBlockDecryptionKey
         );
-
         Ok(())
     }
 
@@ -870,14 +1441,14 @@ impl<T: Config> Pallet<T> {
             let age = current_block.saturating_sub(pending.submitted_at);
 
             if age > ExtrinsicLifetime::<T>::get().into() {
-                PendingExtrinsics::<T>::remove(index);
+                Self::remove_pending_index(index);
                 weight = weight.saturating_add(remove_weight);
                 Self::deposit_event(Event::ExtrinsicExpired { index });
                 continue;
             }
 
             let Ok(call) = T::ExtrinsicDecryptor::decrypt(pending.encrypted_call.as_slice()) else {
-                PendingExtrinsics::<T>::remove(index);
+                Self::remove_pending_index(index);
                 weight = weight.saturating_add(remove_weight);
                 Self::deposit_event(Event::ExtrinsicDecodeFailed { index });
                 continue;
@@ -890,7 +1461,7 @@ impl<T: Config> Pallet<T> {
 
             let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
             if info.call_weight.any_gt(max_extrinsic_weight) {
-                PendingExtrinsics::<T>::remove(index);
+                Self::remove_pending_index(index);
                 weight = weight.saturating_add(remove_weight);
 
                 Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
@@ -905,7 +1476,7 @@ impl<T: Config> Pallet<T> {
                 break;
             }
 
-            PendingExtrinsics::<T>::remove(index);
+            Self::remove_pending_index(index);
             weight = weight.saturating_add(remove_weight);
 
             let origin: T::RuntimeOrigin = frame_system::RawOrigin::Signed(pending.who).into();
@@ -946,7 +1517,7 @@ impl<T: Config> Pallet<T> {
                 return PendingProcess::Break(weight);
             }
             IbeDecryptOutcome::InvalidAfterKeyAvailable => {
-                PendingExtrinsics::<T>::remove(index);
+                Self::remove_pending_index(index);
                 weight = weight.saturating_add(remove_weight);
 
                 Self::deposit_event(Event::IbeEncryptedExtrinsicInvalid { index });
@@ -956,7 +1527,7 @@ impl<T: Config> Pallet<T> {
         };
 
         let Some(info) = T::DecryptedExtrinsicExecutor::dispatch_info(&inner) else {
-            PendingExtrinsics::<T>::remove(index);
+            Self::remove_pending_index(index);
             weight = weight.saturating_add(remove_weight);
 
             Self::deposit_event(Event::IbeEncryptedExtrinsicInvalid { index });
@@ -970,7 +1541,7 @@ impl<T: Config> Pallet<T> {
         let max_extrinsic_weight = Weight::from_parts(MaxExtrinsicWeight::<T>::get(), 0);
 
         if info.call_weight.any_gt(max_extrinsic_weight) {
-            PendingExtrinsics::<T>::remove(index);
+            Self::remove_pending_index(index);
             weight = weight.saturating_add(remove_weight);
 
             Self::deposit_event(Event::ExtrinsicWeightExceeded { index });
@@ -989,7 +1560,7 @@ impl<T: Config> Pallet<T> {
             return PendingProcess::Break(weight);
         }
 
-        PendingExtrinsics::<T>::remove(index);
+        Self::remove_pending_index(index);
         weight = weight.saturating_add(remove_weight);
 
         let applied = T::DecryptedExtrinsicExecutor::apply(inner);
@@ -1013,30 +1584,26 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn pending_ibe_identities(limit: u32) -> Vec<IbePendingIdentity> {
-        let limit_usize = limit as usize;
+        let limit_usize = if limit == 0 {
+            usize::MAX
+        } else {
+            limit as usize
+        };
         let next_index = NextPendingExtrinsicIndex::<T>::get();
         let count: u32 = PendingExtrinsics::<T>::count();
         let start_index = next_index.saturating_sub(count);
-
-        let mut identities = BTreeMap::<(u64, u64, [u8; KEY_ID_LEN]), (u32, u32)>::new();
-
+        let mut identities = sp_std::collections::btree_map::BTreeMap::<
+            (u64, u64, [u8; KEY_ID_LEN]),
+            (u32, u32),
+        >::new();
         for index in start_index..next_index {
             if identities.len() >= limit_usize {
                 break;
             }
-
-            let Some(pending) = PendingExtrinsics::<T>::get(index) else {
+            let Some(meta) = PendingIbeMetadata::<T>::get(index) else {
                 continue;
             };
-
-            let Ok(envelope) =
-                IbeEncryptedExtrinsicV1::decode_v2(pending.encrypted_call.as_slice())
-            else {
-                continue;
-            };
-
-            let key = (envelope.epoch, envelope.target_block, envelope.key_id);
-
+            let key = (meta.epoch, meta.target_block, meta.key_id);
             identities
                 .entry(key)
                 .and_modify(|range| {
@@ -1045,7 +1612,6 @@ impl<T: Config> Pallet<T> {
                 })
                 .or_insert((index, index));
         }
-
         identities
             .into_iter()
             .map(

@@ -29,6 +29,7 @@ pub struct SharePoolConfig {
     pub max_pending_identities: u32,
 }
 
+#[subtensor_macros::freeze_struct("97623adccd5a1f9b")]
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode)]
 pub struct IdentityRound {
     pub epoch: u64,
@@ -116,18 +117,22 @@ impl MevShieldIbeSharePool {
         Ok((pool, out_rx, in_tx))
     }
 
-    fn spawn_inbound(&self, mut inbound: mpsc::UnboundedReceiver<WireMessage>) {
+    fn spawn_inbound(&self, inbound: mpsc::UnboundedReceiver<WireMessage>) {
         let pool = self.clone();
 
         std::thread::Builder::new()
             .name("mev-shield-ibe-inbound".into())
             .spawn(move || {
                 futures::executor::block_on(async move {
+                    let mut inbound = inbound;
                     while let Some(msg) = inbound.next().await {
                         match msg {
                             WireMessage::PartialDecryptionKeyShareV1(share) => {
                                 pool.import_share(share);
                             }
+                            WireMessage::DkgDealerCommitmentV1(_)
+                            | WireMessage::DkgAcceptanceVoteV1(_)
+                            | WireMessage::DkgOutputAttestationV1(_) => {}
                         }
                     }
                 });
@@ -271,3 +276,19 @@ impl MevShieldIbeSharePool {
         self.inner.cfg.max_pending_identities
     }
 }
+
+pub mod dkg_weighting;
+
+pub mod dkg_protocol;
+
+pub mod dkg_worker;
+
+pub mod dkg_runtime_keys;
+
+pub mod dkg_submitter;
+
+pub mod dkg_transport_key_submitter;
+
+pub mod dkg_authority_registration_submitter;
+
+pub mod outbound_fanout;

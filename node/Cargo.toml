@@ -20,7 +20,13 @@ targets = ["x86_64-unknown-linux-gnu"]
 name = "node-subtensor"
 
 [dependencies]
-log.workspace = true
+log = { workspace = true }
+
+subtensor-macros.workspace = true
+futures-timer = "3"
+rand_core = "0.6"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+chacha20poly1305 = "0.10"
 async-trait.workspace = true
 clap = { workspace = true, features = ["derive"] }
 futures = { workspace = true, features = ["thread-pool"] }
@@ -142,7 +148,6 @@ subtensor-custom-rpc = { workspace = true, features = ["std"] }
 subtensor-custom-rpc-runtime-api = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-rpc = { workspace = true, features = ["std"] }
 pallet-subtensor-swap-runtime-api = { workspace = true, features = ["std"] }
-subtensor-macros.workspace = true
 
 [build-dependencies]
 substrate-build-script-utils.workspace = true

@@ -82,6 +82,11 @@ impl pallet_balances::Config for Test {
 }
 
 impl pallet_shield::Config for Test {
+    type EpochLength = frame_support::traits::ConstU64<100>;
+    type MaxDkgAtoms = frame_support::traits::ConstU32<16>;
+    type MaxPendingIbePerSender = frame_support::traits::ConstU32<16>;
+    type IbeDkgAuthorityProvider = ();
+
     type AuthorityId = sp_core::sr25519::Public;
     type FindAuthors = ();
     type RuntimeCall = RuntimeCall;

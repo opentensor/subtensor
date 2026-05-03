@@ -13,12 +13,14 @@ use stp_mev_shield_ibe::{IbePendingIdentity, KEY_ID_LEN};
 
 use super::crypto::{EpochDkgPublicOutput, EpochSecretShareBundle, PublicShareAtom};
 
+#[subtensor_macros::freeze_struct("c8a8482c3e91353d")]
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode)]
 pub struct DkgRoundKey {
     pub epoch: u64,
     pub key_id: [u8; KEY_ID_LEN],
 }
 
+#[subtensor_macros::freeze_struct("b0d21ec216f5e6cd")]
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode)]
 pub struct IdentityRoundKey {
     pub epoch: u64,
@@ -108,10 +110,6 @@ impl ProductionDkgKeySource {
         source.refresh()?;
 
         Ok(source)
-    }
-
-    pub fn root_dir(&self) -> PathBuf {
-        self.inner.root_dir.clone()
     }
 
     pub fn public_dir(&self) -> PathBuf {
@@ -440,71 +438,5 @@ impl DkgOutputSink for ProductionDkgKeySource {
             .insert(key, Arc::new(bundle));
 
         Ok(())
-    }
-}
-
-/// Backwards-compatible wrapper for the dev path you already wired in service.rs.
-///
-/// Your service can keep calling:
-///
-///   DevFileDkgKeySource::new(genesis_hash, dkg_bundle_dir)
-///
-/// and it will use the same production durable store format.
-#[derive(Clone)]
-pub struct DevFileDkgKeySource {
-    inner: ProductionDkgKeySource,
-}
-
-impl DevFileDkgKeySource {
-    pub fn new(genesis_hash: H256, root_dir: impl Into<PathBuf>) -> Result<Self, String> {
-        Ok(Self {
-            inner: ProductionDkgKeySource::new(genesis_hash, root_dir)?,
-        })
-    }
-
-    pub fn production_source(&self) -> ProductionDkgKeySource {
-        self.inner.clone()
-    }
-}
-
-impl DkgKeySource for DevFileDkgKeySource {
-    fn genesis_hash(&self) -> H256 {
-        self.inner.genesis_hash()
-    }
-
-    fn refresh(&self) -> Result<(), String> {
-        self.inner.refresh()
-    }
-
-    fn secret_bundle_for_identity(
-        &self,
-        identity: &IdentityRoundKey,
-    ) -> Option<Arc<EpochSecretShareBundle>> {
-        self.inner.secret_bundle_for_identity(identity)
-    }
-
-    fn public_output_for_identity(
-        &self,
-        identity: &IdentityRoundKey,
-    ) -> Option<Arc<EpochDkgPublicOutput>> {
-        self.inner.public_output_for_identity(identity)
-    }
-
-    fn public_atom_for_identity(
-        &self,
-        identity: &IdentityRoundKey,
-        share_id: u32,
-    ) -> Option<PublicShareAtom> {
-        self.inner.public_atom_for_identity(identity, share_id)
-    }
-}
-
-impl DkgOutputSink for DevFileDkgKeySource {
-    fn upsert_public_output(&self, output: EpochDkgPublicOutput) -> Result<(), String> {
-        self.inner.upsert_public_output(output)
-    }
-
-    fn upsert_secret_bundle(&self, bundle: EpochSecretShareBundle) -> Result<(), String> {
-        self.inner.upsert_secret_bundle(bundle)
     }
 }

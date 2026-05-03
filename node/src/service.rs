@@ -370,30 +370,131 @@ where
 
     let role = config.role;
 
+    // Replacement for the authority-only block in service.rs that currently constructs
+    // DevFileDkgKeySource and spawns the share network.
+    //
+    // This version is POS-hybrid aware: it discovers all local Aura and BABE
+    // authoring keys, registers each consensus key with the DKG transport key, and
+    // lets the runtime plan decide which key kind is active for an epoch.  No service
+    // change is required at the POA->POS transition.
+
     let maybe_ibe_share_pool = if role.is_authority() {
         let genesis_hash = client.block_hash(0u32)?.expect("genesis exists").into();
-
         let dkg_bundle_dir = config.base_path.path().join("mev_shield_ibe").join("dkg");
-
         let dkg_key_source = Arc::new(
-            crate::mev_shield_ibe::dkg::DevFileDkgKeySource::new(genesis_hash, dkg_bundle_dir)
+            crate::mev_shield_ibe::dkg::ProductionDkgKeySource::new(genesis_hash, dkg_bundle_dir)
                 .map_err(|e| ServiceError::Application(e.into()))?,
         );
 
-        let (ibe_share_pool, ibe_outbound_rx, ibe_inbound_tx) =
+        let (ibe_share_pool, ibe_outbound_rx, ibe_share_inbound_tx) =
             crate::mev_shield_ibe::MevShieldIbeSharePool::new(
                 crate::mev_shield_ibe::SharePoolConfig {
                     max_pending_identities: 512,
                 },
-                dkg_key_source,
+                dkg_key_source.clone(),
             )
             .map_err(|e| ServiceError::Application(e.into()))?;
+
+        let (dkg_inbound_tx, dkg_inbound_rx) = futures::channel::mpsc::unbounded();
+        let (wire_outbound_tx, wire_outbound_rx) = futures::channel::mpsc::unbounded();
+        let (dkg_publication_tx, dkg_publication_rx) = futures::channel::mpsc::unbounded();
 
         crate::mev_shield_ibe::network::spawn_network_task(
             &task_manager.spawn_handle(),
             ibe_notification_service,
-            ibe_inbound_tx,
+            crate::mev_shield_ibe::network::WireRouter::new(ibe_share_inbound_tx, dkg_inbound_tx),
+            wire_outbound_rx,
+        );
+
+        let x25519_secret =
+            crate::mev_shield_ibe::dkg_runtime_keys::load_or_generate_x25519_secret(
+                config
+                    .base_path
+                    .path()
+                    .join("mev_shield_ibe")
+                    .join("dkg_x25519_secret"),
+            )
+            .map_err(|e| ServiceError::Application(e.into()))?;
+
+        let x25519_public =
+            crate::mev_shield_ibe::dkg_runtime_keys::x25519_public_from_secret_bytes(x25519_secret);
+
+        let local_authorities =
+            crate::mev_shield_ibe::dkg_runtime_keys::local_consensus_authorities(
+                &keystore_container.keystore(),
+            );
+        if local_authorities.is_empty() {
+            return Err(ServiceError::Application(
+                "authority node has neither Aura nor BABE local keys for MeV Shield DKG".into(),
+            ));
+        }
+
+        let authority_signer = Arc::new(
+            crate::mev_shield_ibe::dkg_runtime_keys::SubtensorAuthoritySigner::new(
+                keystore_container.keystore(),
+            ),
+        );
+        let local_hotkeys = crate::mev_shield_ibe::dkg_runtime_keys::local_hotkey_public_keys(
+            &keystore_container.keystore(),
+        );
+
+        // POS-critical registration: bind each local Subtensor hotkey to each local
+        // consensus key and the durable X25519 DKG transport key.  The runtime will
+        // select Aura registrations while POA is active and automatically switch to
+        // BABE registrations once registered BABE stake reaches 2/3+1.
+        crate::mev_shield_ibe::dkg_authority_registration_submitter::spawn_dkg_authority_registration_submitter(
+        &task_manager.spawn_handle(),
+        client.clone(),
+        transaction_pool.clone(),
+        authority_signer.clone(),
+        local_hotkeys,
+        local_authorities.clone(),
+        x25519_public,
+    );
+
+        // Backward-compatible transport registration for the existing POA code path.
+        // It is no longer the authority source of truth; it is retained to keep
+        // older share-pool consumers operational during the transition.
+        for local in local_authorities.clone() {
+            crate::mev_shield_ibe::dkg_transport_key_submitter::spawn_dkg_transport_key_submitter(
+                &task_manager.spawn_handle(),
+                client.clone(),
+                transaction_pool.clone(),
+                authority_signer.clone(),
+                local.authority_id.clone(),
+                local.consensus_key_kind,
+                local.signature_key_hint.clone(),
+                x25519_public,
+            );
+        }
+
+        crate::mev_shield_ibe::dkg_worker::spawn_epoch_ahead_dkg_worker::<Block, FullClient>(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            dkg_key_source.clone(),
+            crate::mev_shield_ibe::dkg_worker::DkgWorkerConfig {
+                poll_interval: std::time::Duration::from_secs(12),
+                max_atoms: 4096,
+                local_authorities,
+                x25519_static_secret_bytes: x25519_secret,
+            },
+            authority_signer,
+            dkg_inbound_rx,
+            wire_outbound_tx.clone(),
+            Some(dkg_publication_tx),
+        );
+
+        crate::mev_shield_ibe::dkg_submitter::spawn_dkg_publication_submitter(
+            &task_manager.spawn_handle(),
+            client.clone(),
+            transaction_pool.clone(),
+            dkg_publication_rx,
+        );
+
+        crate::mev_shield_ibe::outbound_fanout::spawn_outbound_fanout(
+            &task_manager.spawn_handle(),
             ibe_outbound_rx,
+            wire_outbound_tx,
         );
 
         Some(ibe_share_pool)
