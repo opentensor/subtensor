@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
         amount: TaoBalance,
         limit: Option<TaoBalance>,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner(origin.clone(), netuid)?;
+        ensure_signed(origin.clone())?;
 
         let current_block = Self::get_current_block_as_u64();
         let last_block = Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid));
@@ -143,24 +143,44 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AddStakeBurnRateLimitExceeded
         );
 
-        let alpha = if let Some(limit) = limit {
-            Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
-        } else {
-            Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?
-        };
+        transactional::with_transaction(|| {
+            let add_stake_result = if let Some(limit) = limit {
+                Self::do_add_stake_limit(
+                    origin.clone(),
+                    hotkey.clone(),
+                    netuid,
+                    amount,
+                    limit,
+                    false,
+                )
+            } else {
+                Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)
+            };
 
-        Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
+            let alpha = match add_stake_result {
+                Ok(alpha) => alpha,
+                Err(e) => return TransactionOutcome::Rollback(Err(e)),
+            };
 
-        Self::set_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid), current_block);
+            match Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid) {
+                Ok(_) => {
+                    Self::set_rate_limited_last_block(
+                        &RateLimitKey::AddStakeBurn(netuid),
+                        current_block,
+                    );
 
-        Self::deposit_event(Event::AddStakeBurn {
-            netuid,
-            hotkey,
-            amount,
-            alpha,
-        });
+                    Self::deposit_event(Event::AddStakeBurn {
+                        netuid,
+                        hotkey,
+                        amount,
+                        alpha,
+                    });
 
-        Ok(())
+                    TransactionOutcome::Commit(Ok(()))
+                }
+                Err(e) => TransactionOutcome::Rollback(Err(e)),
+            }
+        })
     }
 
     /// Atomically stakes TAO and recycles the resulting alpha.

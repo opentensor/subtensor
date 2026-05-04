@@ -774,7 +774,7 @@ fn test_add_stake_burn_with_limit_success() {
 }
 
 #[test]
-fn test_add_stake_burn_non_owner_fails() {
+fn test_add_stake_burn_non_owner_success() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(2);
@@ -793,17 +793,30 @@ fn test_add_stake_burn_non_owner_fails() {
         // Give non-owner some balance
         add_balance_to_coldkey_account(&non_owner_coldkey, amount.into());
 
-        // Non-owner trying to call add_stake_burn should fail with BadOrigin
-        assert_noop!(
-            SubtensorModule::add_stake_burn(
-                RuntimeOrigin::signed(non_owner_coldkey),
-                hotkey_account_id,
-                netuid,
-                amount.into(),
-                None,
+        // Any signed origin can atomically stake and burn.
+        assert_ok!(SubtensorModule::add_stake_burn(
+            RuntimeOrigin::signed(non_owner_coldkey),
+            hotkey_account_id,
+            netuid,
+            amount.into(),
+            None,
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &non_owner_coldkey,
+                netuid
             ),
-            DispatchError::BadOrigin
+            AlphaBalance::ZERO
         );
+
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AddStakeBurn { .. })
+            )
+        }));
     });
 }
 
@@ -827,7 +840,7 @@ fn test_add_stake_burn_nonexistent_subnet_fails() {
                 amount.into(),
                 None,
             ),
-            DispatchError::BadOrigin
+            Error::<Test>::SubnetNotExists
         );
     });
 }
