@@ -179,6 +179,13 @@ impl<T: Config> Pallet<T> {
                 }
             };
 
+            // Record root sell as protocol outflow (reduces protocol cost).
+            let root_sell_tao: TaoBalance = owed_tao.amount_paid_out;
+            SubnetRootSellTao::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(root_sell_tao);
+            });
+            Self::record_protocol_outflow(netuid, root_sell_tao);
+
             // Transfer unstaked TAO from subnet account to the root subnet account
             // and increase root stake.
             if let Some(root_subnet_account_id) = Self::get_subnet_account_id(NetUid::ROOT)
