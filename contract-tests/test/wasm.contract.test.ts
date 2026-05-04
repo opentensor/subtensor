@@ -178,11 +178,7 @@ describe("Test wasm contract", () => {
 
     it("Can remove stake to contract", async () => {
         await addStakeViaContract(true)
-        const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stake = await getContractStake()
 
         assert.ok(stake !== undefined)
 
@@ -196,11 +192,7 @@ describe("Test wasm contract", () => {
 
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-        const stakeAfterAddStake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfterAddStake = await getContractStake()
 
         assert.ok(stakeAfterAddStake !== undefined)
         assert.ok(stake !== undefined)
@@ -210,11 +202,7 @@ describe("Test wasm contract", () => {
     it("Can unstake all from contract", async () => {
         await addStakeViaContract(true)
         // Get stake before unstake_all
-        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBefore = await getContractStake()
 
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
 
@@ -226,11 +214,7 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, unstakeData)
 
         // Verify stake is now zero
-        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfter = await getContractStake()
 
         assert.ok(stakeAfter !== undefined)
         assert.equal(stakeAfter, BigInt(0))
@@ -239,11 +223,7 @@ describe("Test wasm contract", () => {
     it("Can unstake all alpha from contract", async () => {
         await addStakeViaContract(true)
         // Get stake before unstake_all_alpha
-        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBefore = await getContractStake()
 
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
 
@@ -255,11 +235,7 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
         // Verify stake is now zero
-        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfter = await getContractStake()
 
         assert.ok(stakeAfter !== undefined)
         assert.equal(stakeAfter, BigInt(0))
@@ -269,11 +245,7 @@ describe("Test wasm contract", () => {
         await addStakeViaContract(true)
         await initSecondColdAndHotkey()
         // Get initial stakes
-        const originStakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const originStakeBefore = await getContractStake()
 
         const destStakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey2.publicKey),
@@ -296,11 +268,7 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
         // Verify stakes changed
-        const originStakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const originStakeAfter = await getContractStake()
 
         const destStakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey2.publicKey),
@@ -318,11 +286,7 @@ describe("Test wasm contract", () => {
         await addStakeViaContract(true)
         await initSecondColdAndHotkey()
         // Get initial stake
-        const stakeBeforeOrigin = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBeforeOrigin = await getContractStake()
 
         const stakeBeforeDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
@@ -346,11 +310,7 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
         // Verify stake transferred
-        const stakeAfterOrigin = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfterOrigin = await getContractStake()
 
         const stakeAfterDest = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
@@ -367,11 +327,7 @@ describe("Test wasm contract", () => {
     it("Can swap stake between networks", async () => {
         await addStakeViaContract(true)
         // Get initial stakes
-        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBefore = await getContractStake()
 
         const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
@@ -393,11 +349,7 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
         // Verify stakes swapped
-        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfter = await getContractStake()
 
         const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
@@ -412,11 +364,7 @@ describe("Test wasm contract", () => {
     })
 
     it("Can add stake with limit", async () => {
-        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBefore = await getContractStake()
 
         assert.ok(stakeBefore !== undefined)
 
@@ -431,11 +379,7 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
         // Verify stake was added
-        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfter = await getContractStake()
 
         assert.ok(stakeAfter !== undefined)
         assert.ok(stakeAfter > stakeBefore!)
@@ -443,11 +387,7 @@ describe("Test wasm contract", () => {
 
     it("Can remove stake with limit", async () => {
         await addStakeViaContract(true)
-        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBefore = await getContractStake()
 
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
 
@@ -461,11 +401,7 @@ describe("Test wasm contract", () => {
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfter = await getContractStake()
 
         assert.ok(stakeAfter !== undefined)
         assert.ok(stakeAfter < stakeBefore!)
@@ -474,11 +410,7 @@ describe("Test wasm contract", () => {
     it("Can swap stake with limit", async () => {
         await addStakeViaContract(true)
 
-        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBefore = await getContractStake()
 
         const stakeBefore2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
@@ -500,11 +432,7 @@ describe("Test wasm contract", () => {
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfter = await getContractStake()
 
         const stakeAfter2 = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
@@ -520,11 +448,7 @@ describe("Test wasm contract", () => {
 
     it("Can remove stake full limit", async () => {
         await addStakeViaContract(true)
-        const stakeBefore = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeBefore = await getContractStake()
 
         assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
 
@@ -536,11 +460,7 @@ describe("Test wasm contract", () => {
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
-        const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
-            convertPublicKeyToSs58(hotkey.publicKey),
-            contractAddress,
-            netuid,
-        ))?.stake
+        const stakeAfter = await getContractStake()
 
         assert.ok(stakeAfter !== undefined)
         assert.ok(stakeAfter < stakeBefore!)
