@@ -61,6 +61,17 @@ describe("Test wasm contract", () => {
         assert.ok(stake > BigInt(0))
     }
 
+    async function getContractStake() {
+        const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            netuid,
+        ))?.stake
+
+        assert.ok(stake !== undefined)
+        return stake
+    }
+
     async function initSecondColdAndHotkey() {
         hotkey2 = getRandomSubstrateKeypair();
         coldkey2 = getRandomSubstrateKeypair();
@@ -598,6 +609,78 @@ describe("Test wasm contract", () => {
         const result = message.decode(response.result.value).value.value
 
         assert.ok(result !== undefined)
+    })
+
+    it("Can recycle alpha from contract stake", async () => {
+        await addStakeViaContract(true)
+        const stakeBefore = await getContractStake()
+        const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+
+        const message = inkClient.message("recycle_alpha")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid,
+            amount: stakeBefore / BigInt(2),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+
+        const stakeAfter = await getContractStake()
+        const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+
+        assert.ok(stakeAfter < stakeBefore)
+        assert.ok(alphaOutAfter < alphaOutBefore)
+    })
+
+    it("Can burn alpha from contract stake", async () => {
+        await addStakeViaContract(true)
+        const stakeBefore = await getContractStake()
+
+        const message = inkClient.message("burn_alpha")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid,
+            amount: stakeBefore / BigInt(2),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+
+        const stakeAfter = await getContractStake()
+
+        assert.ok(stakeAfter < stakeBefore)
+    })
+
+    it("Can add stake and recycle resulting alpha", async () => {
+        const stakeBefore = await getContractStake()
+
+        const message = inkClient.message("add_stake_recycle")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid,
+            amount: tao(100),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+
+        const stakeAfter = await getContractStake()
+
+        assert.equal(stakeAfter, stakeBefore)
+    })
+
+    it("Can add stake and burn resulting alpha", async () => {
+        const stakeBefore = await getContractStake()
+        const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+
+        const message = inkClient.message("add_stake_burn")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid,
+            amount: tao(100),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+
+        const stakeAfter = await getContractStake()
+        const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+
+        assert.equal(stakeAfter, stakeBefore)
+        assert.ok(alphaOutAfter > alphaOutBefore)
     })
 
     it("Can caller add stake (fn 20)", async () => {
