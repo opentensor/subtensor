@@ -5,6 +5,7 @@ use std::{
 };
 
 use codec::Encode;
+use futures::future::{AbortHandle, Abortable};
 use futures::{FutureExt, StreamExt, channel::mpsc};
 use rand_core::OsRng;
 use sc_client_api::HeaderBackend;
@@ -51,6 +52,16 @@ pub struct DkgWorkerConfig {
     pub x25519_static_secret_bytes: [u8; 32],
 }
 
+pub struct EpochAheadDkgWorkerGuard {
+    abort_handle: AbortHandle,
+}
+
+impl Drop for EpochAheadDkgWorkerGuard {
+    fn drop(&mut self) {
+        self.abort_handle.abort();
+    }
+}
+
 pub trait AuthoritySigner: Send + Sync + 'static {
     fn sign(
         &self,
@@ -81,8 +92,7 @@ impl Default for WorkerState {
 }
 
 pub fn spawn_epoch_ahead_dkg_worker<Block, Client>(
-    spawn_handle: &SpawnTaskHandle,
-    shutdown_registration: futures::future::AbortRegistration,
+    _spawn_handle: &SpawnTaskHandle,
     client: Arc<Client>,
     dkg_source: Arc<ProductionDkgKeySource>,
     cfg: DkgWorkerConfig,
@@ -90,12 +100,15 @@ pub fn spawn_epoch_ahead_dkg_worker<Block, Client>(
     mut inbound: mpsc::UnboundedReceiver<WireMessage>,
     outbound: mpsc::UnboundedSender<WireMessage>,
     epoch_publication_tx: Option<mpsc::UnboundedSender<EpochDkgPublication>>,
-) where
+) -> EpochAheadDkgWorkerGuard
+where
     Block: BlockT,
     Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     Client::Api: MevShieldDkgApi<Block>,
 {
-    let mev_shield_dkg_worker = async move {
+    let (abort_handle, abort_registration) = AbortHandle::new_pair();
+    let task = Abortable::new(
+        async move {
         let x25519_secret = StaticSecret::from(cfg.x25519_static_secret_bytes);
         let x25519_public: [u8; 32] = X25519PublicKey::from(&x25519_secret).to_bytes();
         let first_local_authority = cfg
@@ -135,16 +148,14 @@ pub fn spawn_epoch_ahead_dkg_worker<Block, Client>(
                 }
             }
         }
-    };
+        },
+        abort_registration,
+    )
+    .map(|_| ());
 
-    spawn_handle.spawn(
-        "mev-shield-ibe-epoch-ahead-dkg",
-        None,
-        Box::pin(async move {
-            let _ =
-                futures::future::Abortable::new(mev_shield_dkg_worker, shutdown_registration).await;
-        }),
-    );
+    let _mev_shield_ibe_epoch_ahead_dkg_task = tokio::spawn(Box::pin(task));
+
+    EpochAheadDkgWorkerGuard { abort_handle }
 }
 
 fn import_dkg_wire_message(state: &mut WorkerState, local_keys: &LocalDkgKeys, msg: WireMessage) {

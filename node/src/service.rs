@@ -37,16 +37,6 @@ use crate::ethereum::{
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
 
-struct MevShieldDkgAbortOnDrop(Option<futures::future::AbortHandle>);
-
-impl Drop for MevShieldDkgAbortOnDrop {
-    fn drop(&mut self) {
-        if let Some(handle) = self.0.take() {
-            handle.abort();
-        }
-    }
-}
-
 const LOG_TARGET: &str = "node-service";
 
 /// The minimum period of blocks on which justifications will be
@@ -459,25 +449,26 @@ where
             // It is no longer the authority source of truth; it is retained to keep
             // older share-pool consumers operational during the transition.
             if has_mev_shield_dkg_consensus_keys {
-                let (mev_shield_dkg_abort_handle, mev_shield_dkg_abort_registration) =
-                    futures::future::AbortHandle::new_pair();
-                task_manager.keep_alive(MevShieldDkgAbortOnDrop(Some(mev_shield_dkg_abort_handle)));
-                crate::mev_shield_ibe::dkg_worker::spawn_epoch_ahead_dkg_worker::<Block, FullClient>(
-                    &task_manager.spawn_handle(),
-                    mev_shield_dkg_abort_registration,
-                    client.clone(),
-                    dkg_key_source.clone(),
-                    crate::mev_shield_ibe::dkg_worker::DkgWorkerConfig {
-                        poll_interval: std::time::Duration::from_secs(12),
-                        max_atoms: 4096,
-                        local_authorities,
-                        x25519_static_secret_bytes: x25519_secret,
-                    },
-                    authority_signer,
-                    dkg_inbound_rx,
-                    wire_outbound_tx.clone(),
-                    Some(dkg_publication_tx),
-                );
+                let mev_shield_epoch_ahead_dkg_guard =
+                    crate::mev_shield_ibe::dkg_worker::spawn_epoch_ahead_dkg_worker::<
+                        Block,
+                        FullClient,
+                    >(
+                        &task_manager.spawn_handle(),
+                        client.clone(),
+                        dkg_key_source.clone(),
+                        crate::mev_shield_ibe::dkg_worker::DkgWorkerConfig {
+                            poll_interval: std::time::Duration::from_secs(12),
+                            max_atoms: 4096,
+                            local_authorities,
+                            x25519_static_secret_bytes: x25519_secret,
+                        },
+                        authority_signer,
+                        dkg_inbound_rx,
+                        wire_outbound_tx.clone(),
+                        Some(dkg_publication_tx),
+                    );
+                task_manager.keep_alive(mev_shield_epoch_ahead_dkg_guard);
             }
 
             if has_mev_shield_dkg_consensus_keys {
