@@ -125,7 +125,7 @@ impl<T: Config> Pallet<T> {
 
         Ok(amount)
     }
-    pub(crate) fn do_add_stake_burn(
+    pub(crate) fn do_add_stake_burn_rate_limit(
         origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
@@ -206,7 +206,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Atomically stakes TAO and burns the resulting alpha. Permissionless
-    /// counterpart to `do_add_stake_burn`: no subnet-owner guard and no rate
+    /// counterpart to `do_add_stake_burn_rate_limit`: no rate limit.
     /// limit. Used by the chain extension.
     pub fn do_add_stake_burn_permissionless(
         origin: OriginFor<T>,
