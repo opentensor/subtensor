@@ -2805,7 +2805,7 @@ pub enum RateLimitKey<AccountId> {
     LastTxBlockDelegateTake(AccountId),
     // "Add stake and burn" rate limit
     #[codec(index = 6)]
-    AddStakeBurn(NetUid),
+    AddStakeBurn(NetUid, AccountId),
 }
 
 pub trait ProxyInterface<AccountId> {

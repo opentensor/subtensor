@@ -125,17 +125,19 @@ impl<T: Config> Pallet<T> {
 
         Ok(amount)
     }
-    pub(crate) fn do_add_stake_burn_rate_limit(
+
+    pub(crate) fn do_add_stake_burn(
         origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         amount: TaoBalance,
         limit: Option<TaoBalance>,
     ) -> DispatchResult {
-        ensure_signed(origin.clone())?;
+        let coldkey = ensure_signed(origin.clone())?;
 
         let current_block = Self::get_current_block_as_u64();
-        let last_block = Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid));
+        let last_block =
+            Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid, coldkey.clone()));
         let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
 
         ensure!(
@@ -143,44 +145,27 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AddStakeBurnRateLimitExceeded
         );
 
-        transactional::with_transaction(|| {
-            let add_stake_result = if let Some(limit) = limit {
-                Self::do_add_stake_limit(
-                    origin.clone(),
-                    hotkey.clone(),
-                    netuid,
-                    amount,
-                    limit,
-                    false,
-                )
-            } else {
-                Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)
-            };
+        let alpha = if let Some(limit) = limit {
+            Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
+        } else {
+            Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?
+        };
 
-            let alpha = match add_stake_result {
-                Ok(alpha) => alpha,
-                Err(e) => return TransactionOutcome::Rollback(Err(e)),
-            };
+        Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
 
-            match Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid) {
-                Ok(_) => {
-                    Self::set_rate_limited_last_block(
-                        &RateLimitKey::AddStakeBurn(netuid),
-                        current_block,
-                    );
+        Self::set_rate_limited_last_block(
+            &RateLimitKey::AddStakeBurn(netuid, coldkey),
+            current_block,
+        );
 
-                    Self::deposit_event(Event::AddStakeBurn {
-                        netuid,
-                        hotkey,
-                        amount,
-                        alpha,
-                    });
+        Self::deposit_event(Event::AddStakeBurn {
+            netuid,
+            hotkey,
+            amount,
+            alpha,
+        });
 
-                    TransactionOutcome::Commit(Ok(()))
-                }
-                Err(e) => TransactionOutcome::Rollback(Err(e)),
-            }
-        })
+        Ok(())
     }
 
     /// Atomically stakes TAO and recycles the resulting alpha.
@@ -206,7 +191,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Atomically stakes TAO and burns the resulting alpha. Permissionless
-    /// counterpart to `do_add_stake_burn_rate_limit`: no rate limit.
+    /// counterpart to `do_add_stake_burn`: no rate limit.
     /// limit. Used by the chain extension.
     pub fn do_add_stake_burn_permissionless(
         origin: OriginFor<T>,

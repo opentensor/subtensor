@@ -2456,7 +2456,7 @@ mod dispatches {
             amount: TaoBalance,
             limit: Option<TaoBalance>,
         ) -> DispatchResult {
-            Self::do_add_stake_burn_rate_limit(origin, hotkey, netuid, amount, limit)
+            Self::do_add_stake_burn(origin, hotkey, netuid, amount, limit)
         }
 
         /// Clears a coldkey swap announcement after the reannouncement delay if
