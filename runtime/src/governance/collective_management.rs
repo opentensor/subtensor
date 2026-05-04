@@ -26,6 +26,31 @@ use crate::{
 pub struct CollectiveManagement;
 
 impl pallet_multi_collective::OnNewTerm<GovernanceCollectiveId> for CollectiveManagement {
+    fn weight() -> Weight {
+        // Worst-case bound used to pre-charge `force_rotate`.
+        // `on_initialize` separately accumulates the *actual* weight
+        // returned by `on_new_term`, so this bound is only consulted
+        // at extrinsic dispatch.
+        //
+        // The dominant cost is the ranking pass (`top_validators` or
+        // `top_subnet_owners`) which iterates an unbounded storage map
+        // and, today, charges 8 reads per staking hotkey or 3 per
+        // subnet. We size the bound generously: 5_000 iterations × 8
+        // reads, plus the `apply_rotation` storage cost (1 read + 1
+        // write for the membership update, plus per-outgoing-member
+        // cleanup work counted separately by `OnMembersChanged::weight`).
+        //
+        // TODO(weights): tighten once `StakingHotkeys` has an explicit
+        // size bound or once the ranking helpers move to a bounded
+        // iterator.
+        const RANKING_ITERATIONS_BOUND: u64 = 5_000;
+        const READS_PER_ITERATION: u64 = 8;
+        let db = <Runtime as frame_system::Config>::DbWeight::get();
+        let ranking = db.reads(RANKING_ITERATIONS_BOUND.saturating_mul(READS_PER_ITERATION));
+        let apply = db.reads_writes(1, 1);
+        ranking.saturating_add(apply)
+    }
+
     fn on_new_term(collective_id: GovernanceCollectiveId) -> Weight {
         // Gate via the inherent `GovernanceCollectiveId::can_rotate()`.
         // The pallet is policy-agnostic — `force_rotate` will route any

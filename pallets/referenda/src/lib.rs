@@ -22,7 +22,7 @@
 //! `submit` records a referendum, schedules the relevant scheduler entries
 //! (an alarm for `PassOrFail`; an enactment task plus a reaper alarm for
 //! `Adjustable`), and notifies subscribers via
-//! [`PollHooks::on_poll_created`].
+//! [`OnPollCreated::on_poll_created`].
 //!
 //! Tally updates arrive through [`Polls::on_tally_updated`]. The hook is
 //! intentionally side-effect-light: it stores the new tally and arms an
@@ -140,19 +140,23 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
-use subtensor_runtime_common::{PollHooks, Polls, SetLike, VoteTally};
+use subtensor_runtime_common::{OnPollCompleted, OnPollCreated, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
 pub use types::*;
+pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod types;
+pub mod weights;
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
@@ -201,10 +205,44 @@ pub mod pallet {
         /// expose a different block-number authority.
         type BlockNumberProvider: BlockNumberProvider<BlockNumber = BlockNumberFor<Self>>;
 
-        /// Lifecycle hooks invoked when a referendum is created or
-        /// completed. Notifies any subscriber that needs to react to those
-        /// events.
-        type PollHooks: PollHooks<ReferendumIndex>;
+        /// Subscriber notified when a new referendum is created. The hook
+        /// returns its actual weight; the pallet pre-charges
+        /// `OnPollCreated::weight()` and refunds the unused portion.
+        type OnPollCreated: OnPollCreated<ReferendumIndex>;
+
+        /// Subscriber notified when a referendum reaches a terminal status.
+        /// Same weight contract as [`OnPollCreated`].
+        type OnPollCompleted: OnPollCompleted<ReferendumIndex>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
+
+        /// Helper for setting up cross-pallet state needed by benchmarks.
+        /// The runtime provides track ids of each strategy variant plus a
+        /// proposer guaranteed to be in those tracks' proposer sets.
+        #[cfg(feature = "runtime-benchmarks")]
+        type BenchmarkHelper: BenchmarkHelper<TrackIdOf<Self>, Self::AccountId, CallOf<Self>>;
+    }
+
+    /// Benchmark setup helper. The runtime wires this with track ids and a
+    /// proposer that match its track table; the mock provides defaults
+    /// matching `pallet-referenda::mock::TestTracks`.
+    ///
+    /// Note: only a `PassOrFail` track is needed for the approve benchmark
+    /// because the `Review` outcome is the worst case and bounds `Execute`
+    /// from above (see [`weights::WeightInfo`]).
+    #[cfg(feature = "runtime-benchmarks")]
+    pub trait BenchmarkHelper<TrackId, AccountId, Call> {
+        /// Track id of a `PassOrFail` track. The benchmark drives both the
+        /// approve and reject paths through it.
+        fn track_passorfail() -> TrackId;
+        /// Track id of an `Adjustable` track.
+        fn track_adjustable() -> TrackId;
+        /// Account in the proposer set of both tracks returned above.
+        fn proposer() -> AccountId;
+        /// A call that `T::Tracks::authorize_proposal` accepts. Should be
+        /// cheap to bound (e.g. `frame_system::remark`).
+        fn call() -> Call;
     }
 
     /// Monotonic referendum id generator. Incremented by `submit`; never
@@ -310,6 +348,9 @@ pub mod pallet {
         /// `PassOrFail`, `Review` for `Adjustable` (with the call scheduled
         /// for dispatch after `initial_delay`).
         #[pallet::call_index(0)]
+        #[pallet::weight(
+            T::WeightInfo::submit().saturating_add(T::OnPollCreated::weight())
+        )]
         pub fn submit(
             origin: OriginFor<T>,
             track: TrackIdOf<T>,
@@ -368,7 +409,7 @@ pub mod pallet {
             };
             ReferendumStatusFor::<T>::insert(index, ReferendumStatus::Ongoing(info));
 
-            T::PollHooks::on_poll_created(index);
+            T::OnPollCreated::on_poll_created(index);
 
             Self::deposit_event(Event::<T>::Submitted {
                 index,
@@ -382,16 +423,21 @@ pub mod pallet {
         /// Privileged termination of an ongoing referendum. Cancels any
         /// pending scheduler entries and concludes as `Killed`.
         #[pallet::call_index(1)]
+        #[pallet::weight(
+            T::WeightInfo::kill().saturating_add(T::OnPollCompleted::weight())
+        )]
         pub fn kill(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             T::KillOrigin::ensure_origin(origin)?;
 
             Self::ensure_ongoing(index)?;
 
-            // Best-effort cleanup. Either entry may be absent: `PassOrFail`
-            // has no enactment task before approval, and the alarm may have
-            // just fired. Failures here are expected and not reported.
+            // Best-effort cleanup. The task entry may be absent (`PassOrFail`
+            // has no enactment task before approval); a missing task is
+            // expected and not reported.
             let _ = T::Scheduler::cancel_named(task_name(index));
-            let _ = T::Scheduler::cancel_named(alarm_name(index));
+            if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
+                Self::report_scheduler_error(index, "cancel_alarm", err);
+            }
 
             let now = T::BlockNumberProvider::current_block_number();
             Self::conclude(
@@ -405,6 +451,12 @@ pub mod pallet {
         /// Drive the state machine for `index`. Invoked by the alarm and
         /// available as a privileged extrinsic for manual recovery.
         #[pallet::call_index(2)]
+        #[pallet::weight(
+            // Worst-case bound: the approve-with-`Review` branch fires both hooks.
+            T::WeightInfo::advance_referendum()
+                .saturating_add(T::OnPollCreated::weight())
+                .saturating_add(T::OnPollCompleted::weight())
+        )]
         pub fn advance_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -421,7 +473,7 @@ pub mod pallet {
                     // Terminal state: nothing further to do. Reached when an
                     // alarm fires after a manual kill or a delegated handoff.
                 }
-            };
+            }
 
             Ok(())
         }
@@ -499,6 +551,24 @@ impl<T: Config> Pallet<T> {
                     return Ok(());
                 }
 
+                // Reaper position reached but the task is still queued —
+                // it was postponed by the scheduler under weight pressure.
+                // Don't run threshold logic here (with no votes,
+                // `do_adjust_delay` would fall through to `do_fast_track`
+                // and conclude as `FastTracked` even though no member
+                // fast-tracked); re-arm and wait for the task to dispatch.
+                let reaper_at = info
+                    .submitted
+                    .saturating_add(*initial_delay)
+                    .saturating_add(One::one());
+                let now = T::BlockNumberProvider::current_block_number();
+                if now >= reaper_at {
+                    if let Err(err) = Self::set_alarm(index, now.saturating_add(One::one())) {
+                        Self::report_scheduler_error(index, "set_alarm", err);
+                    }
+                    return Ok(());
+                }
+
                 if tally.approval >= *fast_track_threshold {
                     Self::do_fast_track(index);
                 } else if tally.rejection >= *cancel_threshold {
@@ -537,16 +607,19 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Move a referendum to a terminal status: cancel any pending alarm,
-    /// store the new status, decrement `ActiveCount`, notify voting pallets,
-    /// and emit `event`. Callers that need a follow-up alarm (the
-    /// `Approved -> Enacted` and `FastTracked -> Enacted` transitions) must
-    /// call `set_alarm` AFTER this function, since `conclude` cancels
-    /// whatever alarm is currently scheduled.
+    /// store the new status, decrement `ActiveCount`, notify subscribers
+    /// via `OnPollCompleted`, and emit `event`. Callers that need a
+    /// follow-up alarm (the `Approved -> Enacted` and
+    /// `FastTracked -> Enacted` transitions) must call `set_alarm` AFTER
+    /// this function, since `conclude` cancels whatever alarm is currently
+    /// scheduled.
     fn conclude(index: ReferendumIndex, status: ReferendumStatusOf<T>, event: Event<T>) {
-        let _ = T::Scheduler::cancel_named(alarm_name(index));
+        if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
+            Self::report_scheduler_error(index, "cancel_alarm", err);
+        }
         ReferendumStatusFor::<T>::insert(index, status);
         ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
-        T::PollHooks::on_poll_completed(index);
+        T::OnPollCompleted::on_poll_completed(index);
         Self::deposit_event(event);
     }
 
@@ -662,7 +735,7 @@ impl<T: Config> Pallet<T> {
         };
         ReferendumStatusFor::<T>::insert(new_index, ReferendumStatus::Ongoing(new_info));
 
-        T::PollHooks::on_poll_created(new_index);
+        T::OnPollCreated::on_poll_created(new_index);
 
         Some(new_index)
     }
@@ -883,5 +956,9 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
         if let Err(err) = Self::set_alarm(index, now.saturating_add(One::one())) {
             Self::report_scheduler_error(index, "set_alarm", err);
         }
+    }
+
+    fn on_tally_updated_weight() -> Weight {
+        T::WeightInfo::on_tally_updated()
     }
 }

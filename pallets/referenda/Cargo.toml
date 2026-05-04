@@ -19,6 +19,7 @@ codec = { workspace = true, features = ["max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
 sp-runtime = { workspace = true }
 sp-io = { workspace = true }
 subtensor-macros.workspace = true
@@ -42,28 +43,31 @@ std = [
     "scale-info/std",
     "frame-system/std",
     "frame-support/std",
+    "frame-benchmarking?/std",
     "sp-runtime/std",
+    "sp-io/std",
     "subtensor-runtime-common/std",
     "log/std",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-multi-collective/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-signed-voting/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"subtensor-runtime-common/runtime-benchmarks"
+	"pallet-signed-voting/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"sp-runtime/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-multi-collective/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
-	"pallet-signed-voting/try-runtime",
-	"sp-runtime/try-runtime"
+	"pallet-signed-voting/try-runtime"
 ]

@@ -13,8 +13,9 @@ use sp_runtime::{BuildStorage, Perbill, traits::IdentityLookup};
 
 use crate::{self as pallet_referenda, *};
 use pallet_multi_collective::{
-    self, Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo, OnMembersChanged,
+    self, Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo,
 };
+use subtensor_runtime_common::OnMembersChanged;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -100,15 +101,24 @@ impl subtensor_runtime_common::SetLike<U256> for MemberSet {
                 U256,
                 CollectiveId,
             >>::member_count(*id),
-            MemberSet::Union(ids) => ids
-                .iter()
-                .map(|id| {
-                    <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
-                        U256,
-                        CollectiveId,
-                    >>::member_count(*id)
-                })
-                .sum(),
+            // Mirrors the production `GovernanceMemberSet` impl: members can
+            // overlap across collectives but a dual member can only vote
+            // once. Sum-of-`member_count` would inflate `total` and bias
+            // thresholds upward; dedup so `len()` is the true cardinality.
+            MemberSet::Union(ids) => {
+                let mut accounts: Vec<U256> = Vec::new();
+                for id in ids {
+                    accounts.extend(
+                        <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                            U256,
+                            CollectiveId,
+                        >>::members_of(*id),
+                    );
+                }
+                accounts.sort();
+                accounts.dedup();
+                accounts.len() as u32
+            }
         }
     }
 }
@@ -324,6 +334,11 @@ impl OnMembersChanged<CollectiveId, U256> for VoteCleanup {
             SignedVoting::remove_votes_for(who);
         }
     }
+
+    fn weight() -> Weight {
+        // Test mock: weights aren't billed in unit tests, return zero.
+        Weight::zero()
+    }
 }
 
 parameter_types! {
@@ -336,10 +351,26 @@ impl pallet_multi_collective::Config for Test {
     type AddOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type RemoveOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SwapOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
-    type SetMembersOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
+    type SetOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type OnMembersChanged = VoteCleanup;
     type OnNewTerm = ();
     type MaxMembers = MaxMembers;
+    type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ReferendaMockMcBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ReferendaMockMcBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for ReferendaMockMcBenchmarkHelper {
+    fn collective() -> CollectiveId {
+        CollectiveId::Alpha
+    }
+    fn rotatable_collective() -> CollectiveId {
+        CollectiveId::Alpha
+    }
 }
 
 parameter_types! {
@@ -363,7 +394,32 @@ impl pallet_referenda::Config for Test {
     type KillOrigin = EnsureRoot<U256>;
     type Tracks = TestTracks;
     type BlockNumberProvider = System;
-    type PollHooks = SignedVoting;
+    type OnPollCreated = SignedVoting;
+    type OnPollCompleted = SignedVoting;
+    type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = TestBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct TestBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_referenda::BenchmarkHelper<u8, U256, RuntimeCall> for TestBenchmarkHelper {
+    /// Track 2: `PassOrFail` with `Review { track: 1 }`. Worst case for
+    /// the approve benchmark (creates a child referendum).
+    fn track_passorfail() -> u8 {
+        2
+    }
+    fn track_adjustable() -> u8 {
+        1
+    }
+    fn proposer() -> U256 {
+        U256::from(1)
+    }
+    fn call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::remark { remark: vec![] })
+    }
 }
 
 pub struct TestState {
@@ -382,6 +438,14 @@ impl Default for TestState {
 
 impl TestState {
     pub fn build_and_execute(self, test: impl FnOnce()) {
+        let mut ext = self.into_test_ext();
+        ext.execute_with(test);
+    }
+
+    /// Build the externalities object pre-populated with collectives.
+    /// Exposed for `impl_benchmark_test_suite!`, which expects a builder
+    /// that returns `sp_io::TestExternalities` rather than a `FnOnce`.
+    pub fn into_test_ext(self) -> sp_io::TestExternalities {
         let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
             system: frame_system::GenesisConfig::default(),
             balances: pallet_balances::GenesisConfig::default(),
@@ -411,10 +475,16 @@ impl TestState {
                 )
                 .unwrap();
             }
-
-            test();
         });
+
+        ext
     }
+}
+
+/// Externalities builder for `impl_benchmark_test_suite!`.
+#[cfg(feature = "runtime-benchmarks")]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    TestState::default().into_test_ext()
 }
 
 pub fn run_to_block(n: u64) {

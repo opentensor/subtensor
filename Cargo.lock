@@ -10085,6 +10085,7 @@ dependencies = [
 name = "pallet-multi-collective"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
@@ -10094,6 +10095,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -10366,6 +10368,7 @@ dependencies = [
 name = "pallet-referenda"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",

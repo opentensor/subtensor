@@ -17,10 +17,12 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { workspace = true, features = ["max-encoded-len"] }
 scale-info = { workspace = true, features = ["derive"] }
+frame-benchmarking = { workspace = true, optional = true }
 frame-system = { workspace = true }
 frame-support = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 num-traits = { workspace = true }
+subtensor-runtime-common = { workspace = true }
 
 [dev-dependencies]
 sp-io = { workspace = true, default-features = true }
@@ -32,14 +34,18 @@ default = ["std"]
 std = [
     "codec/std",
     "scale-info/std",
+    "frame-benchmarking?/std",
     "frame-system/std",
     "frame-support/std",
     "num-traits/std",
+    "subtensor-runtime-common/std",
 ]
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks"
+	"sp-runtime/runtime-benchmarks",
+	"subtensor-runtime-common/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",

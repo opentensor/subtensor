@@ -882,7 +882,7 @@ impl CommitmentsInterface for CommitmentsI {
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
-    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const MaxScheduledPerBlock: u32 = 70;
 }
 
 /// Used the compare the privilege of an origin inside the scheduler.
@@ -1653,8 +1653,8 @@ use frame_support::traits::AsEnsureOriginWithArg;
 use pallet_multi_collective::{
     Collective as McCollective, CollectiveInfo as McCollectiveInfo,
     CollectiveInspect as McCollectiveInspect, CollectivesInfo as McCollectivesInfo,
-    OnMembersChanged as McOnMembersChanged,
 };
+use subtensor_runtime_common::OnMembersChanged as McOnMembersChanged;
 /// Identifier of a collective managed by `pallet-multi-collective`.
 #[derive(
     Copy,
@@ -1742,15 +1742,27 @@ impl SetLike<AccountId> for GovernanceMemberSet {
                 AccountId,
                 GovernanceCollectiveId,
             >>::member_count(*id),
-            Self::Union(ids) => ids
-                .iter()
-                .map(|id| {
-                    <MultiCollective as McCollectiveInspect<
+            // Union members can overlap (a coldkey may be both a top
+            // validator on Economic and a top subnet owner on Building).
+            // A naive sum of `member_count` inflates the denominator that
+            // signed-voting captures as `total` at poll creation; dual
+            // members count twice in `total` but can vote at most once,
+            // biasing both `fast_track_threshold` and `cancel_threshold`
+            // upward in proportion to the overlap. Deduplicate so `len()`
+            // returns the true cardinality of accounts satisfying
+            // `contains`.
+            Self::Union(ids) => {
+                let mut accounts: Vec<AccountId> = Vec::new();
+                for id in ids {
+                    accounts.extend(<MultiCollective as McCollectiveInspect<
                         AccountId,
                         GovernanceCollectiveId,
-                    >>::member_count(*id)
-                })
-                .sum(),
+                    >>::members_of(*id));
+                }
+                accounts.sort();
+                accounts.dedup();
+                accounts.len() as u32
+            }
         }
     }
 }
@@ -1800,7 +1812,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Proposers,
                 info: McCollectiveInfo {
                     name: name(b"otf"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(20),
                     term_duration: None,
                 },
@@ -1809,7 +1821,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Triumvirate,
                 info: McCollectiveInfo {
                     name: name(b"triumvirate"),
-                    min_members: 0,
+                    min_members: 3,
                     max_members: Some(3),
                     term_duration: None,
                 },
@@ -1818,7 +1830,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Economic,
                 info: McCollectiveInfo {
                     name: name(b"economic"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),
                 },
@@ -1827,7 +1839,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Building,
                 info: McCollectiveInfo {
                     name: name(b"building"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),
                 },
@@ -1852,6 +1864,25 @@ impl McOnMembersChanged<GovernanceCollectiveId, AccountId> for GovernanceVoteCle
             SignedVoting::remove_votes_for(who);
         }
     }
+
+    fn weight() -> Weight {
+        // Worst-case `remove_votes_for` for every outgoing member. For
+        // each, the implementation iterates every entry in `TallyOf`
+        // (bounded by `ReferendaMaxQueued`) and, for each poll where the
+        // voter is recorded, takes the vote and updates the tally —
+        // which in turn calls `Polls::on_tally_updated`.
+        let outgoing_max = MultiCollectiveMaxMembers::get() as u64;
+        let polls_max = ReferendaMaxQueued::get() as u64;
+        let db = <Runtime as frame_system::Config>::DbWeight::get();
+        // Per-poll: VotingFor::take + TallyOf::get + TallyOf::insert
+        // (= 2 reads + 2 writes), plus the cost of `on_tally_updated`.
+        let per_poll =
+            db.reads_writes(2, 2)
+                .saturating_add(<Referenda as subtensor_runtime_common::Polls<
+                AccountId,
+            >>::on_tally_updated_weight());
+        per_poll.saturating_mul(outgoing_max.saturating_mul(polls_max))
+    }
 }
 
 impl pallet_multi_collective::Config for Runtime {
@@ -1860,10 +1891,32 @@ impl pallet_multi_collective::Config for Runtime {
     type AddOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
-    type SetMembersOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type SetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type OnMembersChanged = GovernanceVoteCleanup;
     type OnNewTerm = governance::collective_management::CollectiveManagement;
     type MaxMembers = MultiCollectiveMaxMembers;
+    type WeightInfo = pallet_multi_collective::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = MultiCollectiveBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct MultiCollectiveBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_multi_collective::BenchmarkHelper<GovernanceCollectiveId>
+    for MultiCollectiveBenchmarkHelper
+{
+    fn collective() -> GovernanceCollectiveId {
+        // Proposers: max_members = MultiCollectiveMaxMembers, min_members = 0,
+        // and not rotatable — so the pallet's member-management benchmarks
+        // can fill and drain freely.
+        GovernanceCollectiveId::Proposers
+    }
+
+    fn rotatable_collective() -> GovernanceCollectiveId {
+        GovernanceCollectiveId::Economic
+    }
 }
 
 impl pallet_signed_voting::Config for Runtime {
@@ -1879,7 +1932,43 @@ impl pallet_referenda::Config for Runtime {
     type KillOrigin = EnsureRoot<AccountId>;
     type Tracks = governance::tracks::SubtensorTracks;
     type BlockNumberProvider = System;
-    type PollHooks = SignedVoting;
+    type OnPollCreated = SignedVoting;
+    type OnPollCompleted = SignedVoting;
+    type WeightInfo = pallet_referenda::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ReferendaBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ReferendaBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_referenda::BenchmarkHelper<u8, AccountId, RuntimeCall> for ReferendaBenchmarkHelper {
+    /// Track 0: `triumvirate` (PassOrFail with `Review { track: 1 }`).
+    fn track_passorfail() -> u8 {
+        0
+    }
+    /// Track 1: `review` (Adjustable).
+    fn track_adjustable() -> u8 {
+        1
+    }
+    /// Adds a fresh account to the `Proposers` collective on every call so
+    /// `submit` finds it in the proposer set. Idempotent failures (already
+    /// a member) are ignored so multiple benchmarks can call it.
+    fn proposer() -> AccountId {
+        let proposer: AccountId = sp_core::crypto::AccountId32::new([1u8; 32]).into();
+        let _ = pallet_multi_collective::Pallet::<Runtime>::add_member(
+            frame_system::RawOrigin::Root.into(),
+            GovernanceCollectiveId::Proposers,
+            proposer.clone(),
+        );
+        proposer
+    }
+    fn call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::remark {
+            remark: alloc::vec![],
+        })
+    }
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -2010,6 +2099,7 @@ mod benches {
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
+        [pallet_referenda, Referenda]
     );
 }
 
