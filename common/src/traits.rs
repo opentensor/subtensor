@@ -1,5 +1,6 @@
 use super::VoteTally;
 use frame_support::pallet_prelude::*;
+use sp_runtime::Vec;
 
 pub trait SetLike<T> {
     fn contains(&self, item: &T) -> bool;
@@ -7,13 +8,17 @@ pub trait SetLike<T> {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    /// Materialize the set as a `Vec`. Used by signed-voting to snapshot
+    /// the voter set at poll creation. Implementations must return each
+    /// distinct member exactly once; ordering is unspecified.
+    fn to_vec(&self) -> Vec<T>;
 }
 
 /// Poll provider seen from the voting pallet's side. Carries the
 /// read-only queries plus the tally-update notification fired when a
 /// vote moves the tally.
 pub trait Polls<AccountId> {
-    type Index: Parameter + Copy;
+    type Index: Parameter + Copy + MaxEncodedLen;
     type VotingScheme: PartialEq;
     type VoterSet: SetLike<AccountId>;
 

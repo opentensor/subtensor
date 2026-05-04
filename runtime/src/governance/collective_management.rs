@@ -158,8 +158,7 @@ impl CollectiveManagement {
 
     /// Push a new membership list into multi-collective storage.
     /// Goes through `set_members` (rather than direct storage writes)
-    /// so size validation, the `OnMembersChanged` hook (which routes to
-    /// `SignedVoting::remove_votes_for`), and the canonical
+    /// so size validation, the `OnMembersChanged` hook, and the canonical
     /// `MembersSet` event all fire on every rotation.
     fn apply_rotation(
         collective_id: GovernanceCollectiveId,
