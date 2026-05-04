@@ -449,6 +449,11 @@ impl<T: Config> Pallet<T> {
                 Lock::<T>::iter_prefix((new_coldkey, netuid)).next()
             {
                 let mut new_lock_rolled = Self::roll_forward_lock(new_lock, now);
+
+                // The new coldkey does not have active locks, ensure_no_active_locks guarantees
+                // that, so overwrite the mass and conviction with old coldkey's.
+                new_lock_rolled.locked_mass = lock.locked_mass;
+                new_lock_rolled.conviction = lock.conviction;
                 new_lock_rolled.unlocked_mass = new_lock_rolled
                     .unlocked_mass
                     .saturating_add(lock.unlocked_mass);

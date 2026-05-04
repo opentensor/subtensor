@@ -1377,6 +1377,66 @@ fn test_coldkey_swap_adds_unlocked_mass_into_existing_destination_lock() {
 }
 
 #[test]
+// When the destination already has a lock row on the subnet, the destination hotkey key should
+// be preserved, but locked_mass and conviction should be overwritten by the source lock.
+fn test_coldkey_swap_overwrites_destination_locked_mass_and_conviction() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(10);
+        let old_hotkey = U256::from(2);
+        let new_hotkey = U256::from(20);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+
+        let old_locked = AlphaBalance::from(7_000u64);
+        let old_unlocked = AlphaBalance::from(4_000u64);
+        let old_conviction = U64F64::from_num(77);
+
+        let new_locked = AlphaBalance::from(999u64);
+        let new_unlocked = AlphaBalance::from(6_000u64);
+        let new_conviction = U64F64::from_num(11);
+
+        SubtensorModule::insert_lock_state(
+            &old_coldkey,
+            netuid,
+            &old_hotkey,
+            LockState {
+                locked_mass: old_locked,
+                unlocked_mass: old_unlocked,
+                conviction: old_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        SubtensorModule::insert_lock_state(
+            &new_coldkey,
+            netuid,
+            &new_hotkey,
+            LockState {
+                locked_mass: new_locked,
+                unlocked_mass: new_unlocked,
+                conviction: new_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+
+        SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey);
+
+        assert!(
+            Lock::<Test>::iter_prefix((old_coldkey, netuid))
+                .next()
+                .is_none()
+        );
+        assert!(Lock::<Test>::get((new_coldkey, netuid, old_hotkey)).is_none());
+
+        let merged_lock = Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
+            .expect("destination lock should remain under its original hotkey key");
+        assert_eq!(merged_lock.locked_mass, old_locked);
+        assert_eq!(merged_lock.conviction, old_conviction);
+        assert_eq!(merged_lock.unlocked_mass, old_unlocked + new_unlocked);
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+    });
+}
+
+#[test]
 // The public coldkey swap extrinsic runs inside a storage layer, so a late failure rolls back the earlier writes.
 fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
     new_test_ext(1).execute_with(|| {
