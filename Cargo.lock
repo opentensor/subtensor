@@ -3469,7 +3469,6 @@ dependencies = [
  "curve25519-dalek-derive",
  "digest 0.10.7",
  "fiat-crypto",
- "rand_core 0.6.4",
  "rustc_version 0.4.1",
  "subtle 2.6.1",
  "zeroize",
@@ -10676,6 +10675,7 @@ dependencies = [
 name = "pallet-signed-voting"
 version = "1.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -17990,21 +17990,6 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "stp-shield",
-]
-
-[[package]]
-name = "stp-crypto"
-version = "0.1.0"
-dependencies = [
- "blake2 0.10.6",
- "curve25519-dalek",
- "digest 0.10.7",
- "parity-scale-codec",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "scale-info",
- "subtensor-macros",
- "zeroize",
 ]
 
 [[package]]

@@ -34,7 +34,7 @@ members = [
 	"support/*",
 	"chain-extensions",
 ]
-exclude = ["eco-tests", "pallets/anonymous-voting"]
+exclude = ["eco-tests"]
 resolver = "2"
 
 [workspace.package]
@@ -65,7 +65,6 @@ pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
 pallet-multi-collective = { path = "pallets/multi-collective", default-features = false }
 pallet-signed-voting = { path = "pallets/signed-voting", default-features = false }
-pallet-anonymous-voting = { path = "pallets/anonymous-voting", default-features = false }
 pallet-referenda = { path = "pallets/referenda", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
 safe-math = { path = "primitives/safe-math", default-features = false }
@@ -78,7 +77,6 @@ subtensor-runtime-common = { default-features = false, path = "common" }
 subtensor-swap-interface = { default-features = false, path = "pallets/swap-interface" }
 subtensor-transaction-fee = { default-features = false, path = "pallets/transaction-fee" }
 subtensor-chain-extensions = { default-features = false, path = "chain-extensions" }
-stp-crypto = { path = "primitives/crypto", default-features = false }
 stp-shield = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "7cc54bf2d50ae3921d718736dfeb0de9468539c7", default-features = false }
 stc-shield = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "7cc54bf2d50ae3921d718736dfeb0de9468539c7", default-features = false }
 
