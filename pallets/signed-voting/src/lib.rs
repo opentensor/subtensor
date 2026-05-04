@@ -2,7 +2,6 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 use frame_support::{
     pallet_prelude::*,
     sp_runtime::{Perbill, Saturating},
@@ -12,11 +11,15 @@ use frame_system::pallet_prelude::*;
 use subtensor_runtime_common::{OnPollCompleted, OnPollCreated, Polls, SetLike, VoteTally};
 
 pub use pallet::*;
+pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type PollIndexOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Index;
@@ -105,6 +108,10 @@ pub mod pallet {
 
         type WeightInfo: WeightInfo;
 
+        /// Benchmark setup hook. The runtime supplies an ongoing poll
+        /// index whose voting scheme matches `Self::Scheme::get()`.
+        #[cfg(feature = "runtime-benchmarks")]
+        type BenchmarkHelper: crate::benchmarking::BenchmarkHelper<Self>;
     }
 
     /// Per-`(poll, voter)` vote direction. `true` is an aye, `false` a
@@ -241,6 +248,10 @@ pub mod pallet {
         /// creation; eligibility is not affected by membership changes
         /// after the poll started.
         #[pallet::call_index(0)]
+        #[pallet::weight(
+            T::WeightInfo::vote(T::MaxVoterSetSize::get())
+                .saturating_add(T::Polls::on_tally_updated_weight())
+        )]
         pub fn vote(
             origin: OriginFor<T>,
             poll_index: PollIndexOf<T>,
@@ -267,6 +278,10 @@ pub mod pallet {
         /// tally is rolled back as if the caller had never voted, and
         /// the caller may cast a new vote afterwards.
         #[pallet::call_index(1)]
+        #[pallet::weight(
+            T::WeightInfo::remove_vote(T::MaxVoterSetSize::get())
+                .saturating_add(T::Polls::on_tally_updated_weight())
+        )]
         pub fn remove_vote(origin: OriginFor<T>, poll_index: PollIndexOf<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -480,7 +495,7 @@ impl<T: Config> OnPollCreated<PollIndexOf<T>> for Pallet<T> {
     }
 
     fn weight() -> Weight {
-        Weight::zero()
+        T::WeightInfo::on_poll_created()
     }
 }
 
@@ -503,6 +518,6 @@ impl<T: Config> OnPollCompleted<PollIndexOf<T>> for Pallet<T> {
     }
 
     fn weight() -> Weight {
-        Weight::zero()
+        T::WeightInfo::on_poll_completed()
     }
 }
