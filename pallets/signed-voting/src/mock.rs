@@ -27,8 +27,6 @@ frame_support::construct_runtime!(
     }
 );
 
-// --- VotingScheme enum ---
-
 #[derive(
     Copy,
     Clone,
@@ -47,8 +45,6 @@ pub enum VotingScheme {
     Anonymous,
 }
 
-// --- SimpleVoterSet ---
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SimpleVoterSet(pub Vec<U256>);
 
@@ -59,9 +55,10 @@ impl SetLike<U256> for SimpleVoterSet {
     fn len(&self) -> u32 {
         self.0.len() as u32
     }
+    fn to_vec(&self) -> Vec<U256> {
+        self.0.clone()
+    }
 }
-
-// --- Mock `Polls` backed by thread-local state ---
 
 #[derive(Clone)]
 pub struct PollState {
@@ -114,8 +111,6 @@ impl Polls<U256> for MockPolls {
     }
 }
 
-// --- Helpers ---
-
 /// Register a poll and fire `on_poll_created` so `TallyOf` / `ActivePolls`
 /// are populated. After this returns, the pallet sees the poll as ongoing.
 pub fn start_poll(index: u32, scheme: VotingScheme, voter_set: Vec<U256>) {
@@ -142,13 +137,28 @@ pub fn complete_poll(index: u32) {
     <SignedVoting as OnPollCompleted<u32>>::on_poll_completed(index);
 }
 
-/// Simulate membership rotation by removing `who` from a poll's voter set
-/// *without* invoking `Pallet::remove_votes_for`. Tests that want the cleanup
-/// call it explicitly.
-pub fn remove_voter(index: u32, who: U256) {
+/// Simulate a membership rotation in the underlying collective by removing
+/// `who` from the mock's `Polls::voter_set_of` view. Used to assert that
+/// signed-voting is unaffected: the eligibility roster is whatever was
+/// snapshotted into `VoterSetOf` at `on_poll_created`, regardless of later
+/// changes here.
+pub fn rotate_voter_out(index: u32, who: U256) {
     POLLS_STATE.with(|p| {
         if let Some(s) = p.borrow_mut().get_mut(&index) {
             s.voter_set.retain(|v| *v != who);
+        }
+    });
+}
+
+/// Simulate adding a member to the underlying collective after the poll
+/// snapshot was taken. The new member must not gain voting rights on the
+/// existing poll.
+pub fn rotate_voter_in(index: u32, who: U256) {
+    POLLS_STATE.with(|p| {
+        if let Some(s) = p.borrow_mut().get_mut(&index)
+            && !s.voter_set.contains(&who)
+        {
+            s.voter_set.push(who);
         }
     });
 }
@@ -167,8 +177,6 @@ pub fn signed_voting_events() -> Vec<crate::Event<Test>> {
         .collect()
 }
 
-// --- frame_system ---
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type Block = Block;
@@ -176,33 +184,69 @@ impl frame_system::Config for Test {
     type Lookup = IdentityLookup<Self::AccountId>;
 }
 
-// --- pallet_signed_voting ---
-
 parameter_types! {
     pub const TestScheme: VotingScheme = VotingScheme::Signed;
+    pub const TestMaxVoterSetSize: u32 = 256;
+    pub const TestMaxPendingCleanup: u32 = 32;
+    pub const TestCleanupChunkSize: u32 = 4;
+    pub const TestCleanupCursorMaxLen: u32 = 128;
 }
 
 impl pallet_signed_voting::Config for Test {
     type Scheme = TestScheme;
     type Polls = MockPolls;
+    type MaxVoterSetSize = TestMaxVoterSetSize;
+    type MaxPendingCleanup = TestMaxPendingCleanup;
+    type CleanupChunkSize = TestCleanupChunkSize;
+    type CleanupCursorMaxLen = TestCleanupCursorMaxLen;
+    type WeightInfo = pallet_signed_voting::weights::SubstrateWeight<Test>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = MockBenchmarkHelper;
 }
 
-// --- Test externality builder ---
+/// Benchmark bootstrap for the mock. Registers a poll directly in
+/// `POLLS_STATE` so `MockPolls::is_ongoing` and `voting_scheme_of`
+/// return the values the benchmark expects.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct MockBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_signed_voting::benchmarking::BenchmarkHelper<Test> for MockBenchmarkHelper {
+    fn ongoing_poll() -> u32 {
+        let index: u32 = 0;
+        POLLS_STATE.with(|p| {
+            p.borrow_mut().insert(
+                index,
+                PollState {
+                    is_ongoing: true,
+                    scheme: VotingScheme::Signed,
+                    // Voter set populated directly by the benchmark via
+                    // `populate_snapshot`.
+                    voter_set: alloc::vec::Vec::new(),
+                },
+            );
+        });
+        index
+    }
+}
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
+        .build_storage()
+        .unwrap()
+        .into();
+    ext.execute_with(|| {
+        System::set_block_number(1);
+        POLLS_STATE.with(|p| p.borrow_mut().clear());
+        let _ = take_tally_updates();
+    });
+    ext
+}
 
 pub struct TestState;
 
 impl TestState {
     pub fn build_and_execute(test: impl FnOnce()) {
-        let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig::default()
-            .build_storage()
-            .unwrap()
-            .into();
-
-        ext.execute_with(|| {
-            System::set_block_number(1);
-            POLLS_STATE.with(|p| p.borrow_mut().clear());
-            let _ = take_tally_updates();
-            test();
-        });
+        new_test_ext().execute_with(test);
     }
 }

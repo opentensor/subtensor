@@ -45,7 +45,7 @@ pub struct SignedVoteTally {
 }
 
 impl From<SignedVoteTally> for VoteTally {
-    // Empty voter set: everyone implicitly abstains. 
+    // Empty voter set: everyone implicitly abstains.
     fn from(value: SignedVoteTally) -> Self {
         if value.total == 0 {
             return VoteTally::default();
