@@ -37,6 +37,16 @@ use crate::ethereum::{
     StorageOverrideHandler, db_config_dir, new_frontier_partial, spawn_frontier_tasks,
 };
 
+struct MevShieldDkgAbortOnDrop(Option<futures::future::AbortHandle>);
+
+impl Drop for MevShieldDkgAbortOnDrop {
+    fn drop(&mut self) {
+        if let Some(handle) = self.0.take() {
+            handle.abort();
+        }
+    }
+}
+
 const LOG_TARGET: &str = "node-service";
 
 /// The minimum period of blocks on which justifications will be
@@ -449,8 +459,12 @@ where
             // It is no longer the authority source of truth; it is retained to keep
             // older share-pool consumers operational during the transition.
             if has_mev_shield_dkg_consensus_keys {
+                let (mev_shield_dkg_abort_handle, mev_shield_dkg_abort_registration) =
+                    futures::future::AbortHandle::new_pair();
+                task_manager.keep_alive(MevShieldDkgAbortOnDrop(Some(mev_shield_dkg_abort_handle)));
                 crate::mev_shield_ibe::dkg_worker::spawn_epoch_ahead_dkg_worker::<Block, FullClient>(
                     &task_manager.spawn_handle(),
+                    mev_shield_dkg_abort_registration,
                     client.clone(),
                     dkg_key_source.clone(),
                     crate::mev_shield_ibe::dkg_worker::DkgWorkerConfig {

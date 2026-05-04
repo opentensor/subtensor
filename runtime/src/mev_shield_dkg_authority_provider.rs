@@ -5,27 +5,43 @@ use sp_runtime::{
     RuntimeAppPublic,
     traits::{UniqueSaturatedInto, Verify},
 };
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use sp_std::vec::Vec;
 
-use crate::{AccountId32, NetUid, Runtime};
+use crate::{AccountId32, MevShieldIbeEpochLength, NetUid, Runtime};
 
 pub struct RuntimeIbeDkgAuthorityProvider;
 
+#[derive(Clone)]
+struct RootValidatorEntry {
+    hotkey_id: Vec<u8>,
+    stake: u128,
+}
+
 impl RuntimeIbeDkgAuthorityProvider {
-    fn root_validator_stakes_by_hotkey() -> BTreeMap<Vec<u8>, (Vec<u8>, u128)> {
+    fn epoch_length() -> u64 {
+        MevShieldIbeEpochLength::get().max(1)
+    }
+
+    fn current_epoch() -> u64 {
+        let block_number: u64 =
+            frame_system::Pallet::<Runtime>::block_number().unique_saturated_into();
+        block_number / Self::epoch_length()
+    }
+
+    fn root_validator_entries() -> Vec<RootValidatorEntry> {
         let root = NetUid::ROOT;
         let permits = pallet_subtensor::Pallet::<Runtime>::get_validator_permit(root);
-        let mut out = BTreeMap::new();
-
-        let hotkeys: Vec<(u16, AccountId32)> =
+        let mut keys: Vec<(u16, AccountId32)> =
             <pallet_subtensor::Keys<Runtime> as IterableStorageDoubleMap<
                 NetUid,
                 u16,
                 AccountId32,
             >>::iter_prefix(root)
             .collect();
+        keys.sort_by_key(|(uid, _)| *uid);
 
-        for (uid, hotkey) in hotkeys {
+        let mut out = Vec::new();
+        for (uid, hotkey) in keys {
             if !permits.get(uid as usize).copied().unwrap_or(false) {
                 continue;
             }
@@ -38,36 +54,30 @@ impl RuntimeIbeDkgAuthorityProvider {
             }
 
             let hotkey_bytes: &[u8] = hotkey.as_ref();
-            let hotkey_id = hotkey_bytes.to_vec();
-            out.insert(hotkey_id.clone(), (hotkey_id, stake));
+            out.push(RootValidatorEntry {
+                hotkey_id: hotkey_bytes.to_vec(),
+                stake,
+            });
         }
-
         out
     }
 
-    fn observed_consensus_source() -> DkgConsensusSource {
-        let digest = frame_system::Pallet::<Runtime>::digest();
-        let has_babe_predigest = digest
-            .logs()
-            .iter()
-            .filter_map(|log| log.as_pre_runtime())
-            .any(|(engine_id, _)| engine_id == sp_consensus_babe::BABE_ENGINE_ID);
-
-        if has_babe_predigest {
+    fn source_for_epoch(epoch: u64) -> DkgConsensusSource {
+        if epoch >= Self::current_epoch().saturating_add(2) {
             DkgConsensusSource::PosBabeRootValidators
         } else {
             DkgConsensusSource::PoaAuraRootValidators
         }
     }
 
-    fn consensus_key_kind(source: DkgConsensusSource) -> DkgConsensusKeyKind {
+    fn key_kind_for_source(source: DkgConsensusSource) -> DkgConsensusKeyKind {
         match source {
             DkgConsensusSource::PosBabeRootValidators => DkgConsensusKeyKind::BabeSr25519,
             DkgConsensusSource::PoaAuraRootValidators => DkgConsensusKeyKind::AuraSr25519,
         }
     }
 
-    fn authority_ids_from_runtime() -> Vec<Vec<u8>> {
+    fn authority_ids_for_source(_source: DkgConsensusSource) -> Vec<Vec<u8>> {
         pallet_aura::Authorities::<Runtime>::get()
             .into_inner()
             .into_iter()
@@ -75,31 +85,47 @@ impl RuntimeIbeDkgAuthorityProvider {
             .collect()
     }
 
-    fn selected_authorities() -> (DkgConsensusSource, Vec<DkgAuthorityInfo>) {
-        let source = Self::observed_consensus_source();
-        let key_kind = Self::consensus_key_kind(source);
-        let authority_ids = Self::authority_ids_from_runtime();
-        let stakes_by_hotkey = Self::root_validator_stakes_by_hotkey();
-        let has_direct_stake_matches = authority_ids
-            .iter()
-            .any(|authority_id| stakes_by_hotkey.contains_key(authority_id));
+    fn selected_authorities_for_epoch(epoch: u64) -> (DkgConsensusSource, Vec<DkgAuthorityInfo>) {
+        let source = Self::source_for_epoch(epoch);
+        let key_kind = Self::key_kind_for_source(source);
+        let authority_ids = Self::authority_ids_for_source(source);
+        let root_entries = Self::root_validator_entries();
 
-        let mut out = Vec::new();
-        for authority_id in authority_ids {
-            let (hotkey_account_id, stake) = match stakes_by_hotkey.get(&authority_id) {
-                Some((hotkey_account_id, stake)) => (hotkey_account_id.clone(), *stake),
-                None if !has_direct_stake_matches => (authority_id.clone(), 1),
-                None => continue,
-            };
-
-            out.push(DkgAuthorityInfo {
-                hotkey_account_id,
-                consensus_key_kind: key_kind,
-                authority_id,
-                stake,
-                dkg_x25519_public_key: [0u8; 32],
-            });
-        }
+        let mut out = if root_entries.is_empty() {
+            authority_ids
+                .into_iter()
+                .map(|authority_id| DkgAuthorityInfo {
+                    hotkey_account_id: authority_id.clone(),
+                    consensus_key_kind: key_kind,
+                    authority_id,
+                    stake: 1,
+                    dkg_x25519_public_key: [0u8; 32],
+                })
+                .collect::<Vec<_>>()
+        } else if root_entries.len() == authority_ids.len() {
+            authority_ids
+                .into_iter()
+                .zip(root_entries)
+                .map(|(authority_id, root)| DkgAuthorityInfo {
+                    hotkey_account_id: root.hotkey_id,
+                    consensus_key_kind: key_kind,
+                    authority_id,
+                    stake: root.stake,
+                    dkg_x25519_public_key: [0u8; 32],
+                })
+                .collect::<Vec<_>>()
+        } else {
+            authority_ids
+                .into_iter()
+                .map(|authority_id| DkgAuthorityInfo {
+                    hotkey_account_id: authority_id.clone(),
+                    consensus_key_kind: key_kind,
+                    authority_id,
+                    stake: 1,
+                    dkg_x25519_public_key: [0u8; 32],
+                })
+                .collect::<Vec<_>>()
+        };
 
         out.sort_by(|a, b| a.authority_id.cmp(&b.authority_id));
         (source, out)
@@ -120,12 +146,12 @@ impl RuntimeIbeDkgAuthorityProvider {
 }
 
 impl pallet_shield::IbeDkgAuthorityProvider for RuntimeIbeDkgAuthorityProvider {
-    fn authorities_for_epoch(_epoch: u64) -> Vec<DkgAuthorityInfo> {
-        Self::selected_authorities().1
+    fn authorities_for_epoch(epoch: u64) -> Vec<DkgAuthorityInfo> {
+        Self::selected_authorities_for_epoch(epoch).1
     }
 
-    fn consensus_source_for_epoch(_epoch: u64) -> DkgConsensusSource {
-        Self::selected_authorities().0
+    fn consensus_source_for_epoch(epoch: u64) -> DkgConsensusSource {
+        Self::selected_authorities_for_epoch(epoch).0
     }
 
     fn verify_authority_signature(

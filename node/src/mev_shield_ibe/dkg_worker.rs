@@ -64,7 +64,8 @@ struct WorkerState {
     rounds: BTreeMap<DkgRoundId, DkgRoundAccumulator>,
     committed: BTreeSet<DkgRoundId>,
     finalized: BTreeSet<DkgRoundId>,
-    transport_keys: BTreeMap<Vec<u8>, [u8; 32]>,
+    transport_keys: BTreeMap<(DkgRoundId, Vec<u8>), [u8; 32]>,
+    pending_transport_keys: BTreeMap<Vec<u8>, DkgTransportKeyRegistration>,
 }
 
 impl Default for WorkerState {
@@ -74,12 +75,14 @@ impl Default for WorkerState {
             committed: BTreeSet::new(),
             finalized: BTreeSet::new(),
             transport_keys: BTreeMap::new(),
+            pending_transport_keys: BTreeMap::new(),
         }
     }
 }
 
 pub fn spawn_epoch_ahead_dkg_worker<Block, Client>(
     spawn_handle: &SpawnTaskHandle,
+    shutdown_registration: futures::future::AbortRegistration,
     client: Arc<Client>,
     dkg_source: Arc<ProductionDkgKeySource>,
     cfg: DkgWorkerConfig,
@@ -92,41 +95,54 @@ pub fn spawn_epoch_ahead_dkg_worker<Block, Client>(
     Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
     Client::Api: MevShieldDkgApi<Block>,
 {
+    let mev_shield_dkg_worker = async move {
+        let x25519_secret = StaticSecret::from(cfg.x25519_static_secret_bytes);
+        let x25519_public: [u8; 32] = X25519PublicKey::from(&x25519_secret).to_bytes();
+        let first_local_authority = cfg
+            .local_authorities
+            .first()
+            .map(|a| a.authority_id.clone())
+            .unwrap_or_default();
+        let local_keys = LocalDkgKeys {
+            authority_id: first_local_authority,
+            authority_ids: cfg
+                .local_authorities
+                .iter()
+                .map(|a| a.authority_id.clone())
+                .collect(),
+            x25519_secret,
+            x25519_public,
+        };
+        let mut state = WorkerState::default();
+        let mut interval = futures_timer::Delay::new(cfg.poll_interval).fuse();
+
+        let shutdown = tokio::signal::ctrl_c().fuse();
+        futures::pin_mut!(shutdown);
+        loop {
+            futures::select! {
+                _ = shutdown => {
+                break;
+            }
+            msg = inbound.next().fuse() => {
+                    let Some(msg) = msg else { break; };
+                    import_dkg_wire_message(&mut state, &local_keys, msg);
+                }
+                _ = interval => {
+                    interval = futures_timer::Delay::new(cfg.poll_interval).fuse();
+                    if let Err(err) = tick::<Block, Client>(&client, &dkg_source, &cfg, &local_keys, signer.as_ref(), &outbound, epoch_publication_tx.as_ref(), &mut state).await {
+                        log::warn!(target: "mev-shield-ibe", "epoch-ahead DKG tick failed: {err}");
+                    }
+                }
+            }
+        }
+    };
+
     spawn_handle.spawn(
         "mev-shield-ibe-epoch-ahead-dkg",
         None,
         Box::pin(async move {
-            let x25519_secret = StaticSecret::from(cfg.x25519_static_secret_bytes);
-            let x25519_public: [u8; 32] = X25519PublicKey::from(&x25519_secret).to_bytes();
-            let first_local_authority = cfg.local_authorities.first().map(|a| a.authority_id.clone()).unwrap_or_default();
-            let local_keys = LocalDkgKeys {
-                authority_id: first_local_authority,
-                authority_ids: cfg.local_authorities.iter().map(|a| a.authority_id.clone()).collect(),
-                x25519_secret,
-                x25519_public
-};
-            let mut state = WorkerState::default();
-            let mut interval = futures_timer::Delay::new(cfg.poll_interval).fuse();
-
-            let shutdown = tokio::signal::ctrl_c().fuse();
-        futures::pin_mut!(shutdown);
-        loop {
-                futures::select! {
-                    _ = shutdown => {
-                    break;
-                }
-                msg = inbound.next().fuse() => {
-                        let Some(msg) = msg else { break; };
-                        import_dkg_wire_message(&mut state, &local_keys, msg);
-                    }
-                    _ = interval => {
-                        interval = futures_timer::Delay::new(cfg.poll_interval).fuse();
-                        if let Err(err) = tick::<Block, Client>(&client, &dkg_source, &cfg, &local_keys, signer.as_ref(), &outbound, epoch_publication_tx.as_ref(), &mut state).await {
-                            log::warn!(target: "mev-shield-ibe", "epoch-ahead DKG tick failed: {err}");
-                        }
-                    }
-                }
-            }
+            let _ =
+                futures::future::Abortable::new(mev_shield_dkg_worker, shutdown_registration).await;
         }),
     );
 }
@@ -134,20 +150,9 @@ pub fn spawn_epoch_ahead_dkg_worker<Block, Client>(
 fn import_dkg_wire_message(state: &mut WorkerState, local_keys: &LocalDkgKeys, msg: WireMessage) {
     match msg {
         WireMessage::DkgTransportKeyV1(registration) => {
-            let payload = dkg_transport_key_payload_hash(
-                &registration.authority_id,
-                &registration.dkg_x25519_public_key,
-            );
-            if verify_sr25519_authority_signature(
-                &registration.authority_id,
-                payload,
-                &registration.signature,
-            ) {
-                state.transport_keys.insert(
-                    registration.authority_id,
-                    registration.dkg_x25519_public_key,
-                );
-            }
+            state
+                .pending_transport_keys
+                .insert(registration.authority_id.clone(), registration);
         }
         WireMessage::DkgDealerCommitmentV1(commitment) => {
             let round = commitment.round.clone();
@@ -253,53 +258,6 @@ where
     };
     let local_stake = local_info.stake;
 
-    state.transport_keys.insert(
-        local_authority.authority_id.clone(),
-        local_keys.x25519_public,
-    );
-    let transport_hash =
-        dkg_transport_key_payload_hash(&local_authority.authority_id, &local_keys.x25519_public);
-    let transport_signature = signer.sign(
-        local_authority.consensus_key_kind,
-        &local_authority.signature_key_hint,
-        transport_hash,
-    )?;
-    let _ = outbound.unbounded_send(WireMessage::DkgTransportKeyV1(
-        DkgTransportKeyRegistration {
-            authority_id: local_authority.authority_id.clone(),
-            dkg_x25519_public_key: local_keys.x25519_public,
-            signature: transport_signature,
-        },
-    ));
-
-    let mut effective_authorities = plan.authorities.clone();
-    for authority in effective_authorities.iter_mut() {
-        if let Some(public_key) = state.transport_keys.get(&authority.authority_id) {
-            authority.dkg_x25519_public_key = *public_key;
-        }
-    }
-    if effective_authorities
-        .iter()
-        .any(|authority| authority.dkg_x25519_public_key == [0u8; 32])
-    {
-        return Ok(());
-    }
-    if plan.max_atoms > cfg.max_atoms {
-        return Err(format!(
-            "runtime DKG plan advertises {} atoms, above local max {}",
-            plan.max_atoms, cfg.max_atoms
-        ));
-    }
-
-    let authorities = effective_authorities
-        .iter()
-        .map(|a| (a.authority_id.clone(), a.stake, a.dkg_x25519_public_key))
-        .collect::<Vec<_>>();
-    let atom_plan = plan_from_runtime_authorities(authorities, plan.max_atoms)?;
-    let local_share_ids = local_share_ids_for_authority(&atom_plan, &local_authority.authority_id);
-    if local_share_ids.is_empty() {
-        return Err("local DKG authority has no share atoms in runtime plan".into());
-    }
     let plan_hash = H256::from(sp_core::blake2_256(&plan.encode()));
     let key_id = super::dkg_protocol::derive_key_id(
         dkg_source.genesis_hash(),
@@ -315,6 +273,79 @@ where
         last_block: plan.last_block,
         genesis_hash: dkg_source.genesis_hash(),
     };
+
+    state.transport_keys.insert(
+        (round.clone(), local_authority.authority_id.clone()),
+        local_keys.x25519_public,
+    );
+
+    let transport_hash = dkg_transport_key_payload_hash(
+        &round,
+        &local_authority.authority_id,
+        &local_keys.x25519_public,
+    );
+    let transport_signature = signer.sign(
+        local_authority.consensus_key_kind,
+        &local_authority.signature_key_hint,
+        transport_hash,
+    )?;
+    let _ = outbound.unbounded_send(WireMessage::DkgTransportKeyV1(
+        DkgTransportKeyRegistration {
+            authority_id: local_authority.authority_id.clone(),
+            dkg_x25519_public_key: local_keys.x25519_public,
+            signature: transport_signature,
+        },
+    ));
+
+    for registration in state
+        .pending_transport_keys
+        .values()
+        .cloned()
+        .collect::<Vec<_>>()
+    {
+        let payload = dkg_transport_key_payload_hash(
+            &round,
+            &registration.authority_id,
+            &registration.dkg_x25519_public_key,
+        );
+        if verify_sr25519_authority_signature(
+            &registration.authority_id,
+            payload,
+            &registration.signature,
+        ) {
+            state.transport_keys.insert(
+                (round.clone(), registration.authority_id),
+                registration.dkg_x25519_public_key,
+            );
+        }
+    }
+
+    let mut effective_authorities = plan.authorities.clone();
+    for authority in effective_authorities.iter_mut() {
+        if let Some(public_key) = state
+            .transport_keys
+            .get(&(round.clone(), authority.authority_id.clone()))
+        {
+            authority.dkg_x25519_public_key = *public_key;
+        }
+    }
+
+    if effective_authorities
+        .iter()
+        .any(|authority| authority.dkg_x25519_public_key == [0u8; 32])
+    {
+        return Ok(());
+    }
+
+    let authorities = effective_authorities
+        .iter()
+        .map(|a| (a.authority_id.clone(), a.stake, a.dkg_x25519_public_key))
+        .collect::<Vec<_>>();
+    let atom_plan = plan_from_runtime_authorities(authorities, plan.max_atoms)?;
+    let local_share_ids = local_share_ids_for_authority(&atom_plan, &local_authority.authority_id);
+    if local_share_ids.is_empty() {
+        return Err("local DKG authority has no share atoms in runtime plan".into());
+    }
 
     let active_local_keys = LocalDkgKeys {
         authority_id: local_authority.authority_id.clone(),
