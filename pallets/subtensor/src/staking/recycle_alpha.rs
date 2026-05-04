@@ -132,10 +132,6 @@ impl<T: Config> Pallet<T> {
         amount: TaoBalance,
         limit: Option<TaoBalance>,
     ) -> DispatchResult {
-        let coldkey = ensure_signed(origin.clone())?;
-
-        Self::ensure_add_stake_burn_rate_limit(coldkey.clone(), netuid)?;
-
         let alpha = if let Some(limit) = limit {
             Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
         } else {
@@ -143,11 +139,6 @@ impl<T: Config> Pallet<T> {
         };
 
         Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
-
-        Self::set_rate_limited_last_block(
-            &RateLimitKey::AddStakeBurn(netuid, coldkey),
-            Self::get_current_block_as_u64(),
-        );
 
         Self::deposit_event(Event::AddStakeBurn {
             netuid,
@@ -184,20 +175,5 @@ impl<T: Config> Pallet<T> {
     ) -> Result<AlphaBalance, DispatchError> {
         let alpha = Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?;
         Self::do_burn_alpha(origin, hotkey, alpha, netuid)
-    }
-
-    pub fn ensure_add_stake_burn_rate_limit(
-        coldkey: T::AccountId,
-        netuid: NetUid,
-    ) -> DispatchResult {
-        let current_block = Self::get_current_block_as_u64();
-        let last_block =
-            Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid, coldkey.clone()));
-        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
-        ensure!(
-            last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
-            Error::<T>::AddStakeBurnRateLimitExceeded
-        );
-        Ok(())
     }
 }

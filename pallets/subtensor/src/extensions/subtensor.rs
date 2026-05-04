@@ -16,8 +16,6 @@ use sp_std::vec::Vec;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{CustomTransactionError, NetUid, NetUidStorageIndex};
 
-const ADD_STAKE_BURN_PRIORITY_BOOST: u64 = 100;
-
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type OriginOf<T> = <T as frame_system::Config>::RuntimeOrigin;
 
@@ -260,12 +258,6 @@ where
                 Pallet::<T>::ensure_evm_key_associate_rate_limit(*netuid, uid)
                     .map_err(|_| CustomTransactionError::EvmKeyAssociateRateLimitExceeded)?;
                 Ok((Default::default(), (), origin))
-            }
-            Some(Call::add_stake_burn { netuid, .. }) => {
-                Pallet::<T>::ensure_add_stake_burn_rate_limit(who.clone(), *netuid)
-                    .map_err(|_| CustomTransactionError::RateLimitExceeded)?;
-
-                Ok((Self::validity_ok(ADD_STAKE_BURN_PRIORITY_BOOST), (), origin))
             }
             _ => Ok((Default::default(), (), origin)),
         }
