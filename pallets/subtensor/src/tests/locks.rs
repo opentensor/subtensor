@@ -1321,6 +1321,130 @@ fn test_coldkey_swap_lock_blocks_unstake() {
     });
 }
 
+#[test]
+// When both coldkeys already have unlocked-only lock state on the same subnet, the destination
+// hotkey key should be preserved and unlocked_mass should be accumulated onto that record.
+fn test_coldkey_swap_adds_unlocked_mass_into_existing_destination_lock() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(10);
+        let old_hotkey = U256::from(2);
+        let new_hotkey = U256::from(20);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+        let old_unlocked = AlphaBalance::from(4_000u64);
+        let new_unlocked = AlphaBalance::from(6_000u64);
+
+        // Seed unlocked-only lock rows on both coldkeys so the helper has to merge into
+        // the destination record instead of creating a second lock entry on the subnet.
+        SubtensorModule::insert_lock_state(
+            &old_coldkey,
+            netuid,
+            &old_hotkey,
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                unlocked_mass: old_unlocked,
+                conviction: U64F64::from_num(0),
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        SubtensorModule::insert_lock_state(
+            &new_coldkey,
+            netuid,
+            &new_hotkey,
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                unlocked_mass: new_unlocked,
+                conviction: U64F64::from_num(0),
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+
+        SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey);
+
+        assert!(
+            Lock::<Test>::iter_prefix((old_coldkey, netuid))
+                .next()
+                .is_none()
+        );
+        assert!(Lock::<Test>::get((new_coldkey, netuid, old_hotkey)).is_none());
+
+        let merged_lock = Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
+            .expect("destination lock should remain under its original hotkey key");
+        assert_eq!(merged_lock.locked_mass, AlphaBalance::ZERO);
+        assert_eq!(merged_lock.unlocked_mass, old_unlocked + new_unlocked);
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+    });
+}
+
+#[test]
+// The public coldkey swap extrinsic runs inside a storage layer, so a late failure rolls back the earlier writes.
+fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let old_hotkey = U256::from(2);
+        let new_coldkey = U256::from(3);
+        let blocked_hotkey = U256::from(4);
+        let netuid = setup_subnet_with_stake(old_coldkey, old_hotkey, 100_000_000_000);
+
+        let original_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &old_coldkey,
+            netuid,
+        );
+        assert!(!original_stake.is_zero());
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            AlphaBalance::ZERO
+        );
+
+        // Seed a lock directly on the destination coldkey so the swap reaches ActiveLockExists
+        // without tripping the earlier "already associated" guard.
+        SubtensorModule::insert_lock_state(
+            &new_coldkey,
+            netuid,
+            &blocked_hotkey,
+            LockState {
+                locked_mass: 1u64.into(),
+                unlocked_mass: AlphaBalance::ZERO,
+                conviction: U64F64::from_num(0),
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+
+        assert_noop!(
+            SubtensorModule::swap_coldkey(
+                RuntimeOrigin::root(),
+                old_coldkey,
+                new_coldkey,
+                TaoBalance::ZERO,
+            ),
+            Error::<Test>::ActiveLockExists
+        );
+
+        // The failed extrinsic should roll back the earlier stake transfer.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &old_coldkey,
+                netuid
+            ),
+            original_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            AlphaBalance::ZERO
+        );
+    });
+}
+
 // =========================================================================
 // GROUP 12: Hotkey swap interaction
 // =========================================================================

@@ -429,21 +429,33 @@ impl<T: Config> Pallet<T> {
     ///
     /// The hotkey and netuid remain the same, only the coldkey changes.
     ///
-    /// The new coldkey is guaranteed to have no active locks (checked in ensure_no_active_locks),
-    /// so we can simply transfer the locks "as is" without rolling them forward and the
-    /// HotkeyLock map does not change (because it only contains totals, not individual coldkey locks).
+    /// Because unlocked_mass decays over time, both source and destination lock state must be
+    /// rolled forward to the current block before the transfer is applied. The HotkeyLock map
+    /// does not change because it only contains subnet-wide hotkey totals, not per-coldkey locks.
     pub fn swap_coldkey_locks(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+        let now = Self::get_current_block_as_u64();
         let mut locks_to_transfer: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
 
         // Gather locks for old coldkey
         for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((old_coldkey,)) {
-            locks_to_transfer.push((netuid, hotkey, lock));
+            locks_to_transfer.push((netuid, hotkey, Self::roll_forward_lock(lock, now)));
         }
 
         // Remove locks for old coldkey and insert for new
         for (netuid, hotkey, lock) in locks_to_transfer {
             Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
-            Self::insert_lock_state(new_coldkey, netuid, &hotkey, lock);
+
+            if let Some((new_hotkey, new_lock)) =
+                Lock::<T>::iter_prefix((new_coldkey, netuid)).next()
+            {
+                let mut new_lock_rolled = Self::roll_forward_lock(new_lock, now);
+                new_lock_rolled.unlocked_mass = new_lock_rolled
+                    .unlocked_mass
+                    .saturating_add(lock.unlocked_mass);
+                Self::insert_lock_state(new_coldkey, netuid, &new_hotkey, new_lock_rolled);
+            } else {
+                Self::insert_lock_state(new_coldkey, netuid, &hotkey, lock);
+            }
         }
     }
 
