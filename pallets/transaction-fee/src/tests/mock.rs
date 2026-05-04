@@ -229,6 +229,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -304,6 +306,8 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 
@@ -604,7 +608,7 @@ pub fn register_ok_neuron(
 
         let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {
-            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+            add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
         }
     };
 
@@ -642,10 +646,21 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let _ = SubtensorModule::burn_tao(coldkey, tao);
+}
+
+#[allow(dead_code)]
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.into());
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
@@ -812,7 +827,7 @@ pub fn setup_stake(
     stake_amount: u64,
 ) {
     // Fund enough to stake while keeping the coldkey account alive (KeepAlive / ED).
-    SubtensorModule::add_balance_to_coldkey_account(
+    add_balance_to_coldkey_account(
         coldkey,
         TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
     );
@@ -866,6 +881,7 @@ pub(crate) fn quote_remove_stake_after_alpha_fee(
             if !alpha_fee.is_zero() {
                 assert_ok!(SubtensorModule::unstake_from_subnet(
                     hotkey,
+                    coldkey,
                     coldkey,
                     netuid,
                     alpha_fee,

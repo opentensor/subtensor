@@ -1,7 +1,7 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { KeyringPair } from "@moonwall/util";
 import type { ApiPromise } from "@polkadot/api";
-import { generateKeyringPair } from "../../../../utils";
+import { generateKeyringPair } from "../../../../utils/account";
 
 describeSuite({
     id: "DEV_SUB_GOVV2_TRACK0_01",

@@ -64,6 +64,9 @@ mod errors {
         HotKeyAlreadyRegisteredInSubNet,
         /// The new hotkey is the same as old one
         NewHotKeyIsSameWithOld,
+        /// The new hotkey has outstanding root claimable or non-zero root stake,
+        /// so the root rate-book cannot be merged without misallocating dividends.
+        NewHotKeyNotCleanForRootSwap,
         /// The supplied PoW hash block is in the future or negative.
         InvalidWorkBlock,
         /// The supplied PoW hash block does not meet the network difficulty.
@@ -290,5 +293,7 @@ mod errors {
         DisabledTemporarily,
         /// Registration Price Limit Exceeded
         RegistrationPriceLimitExceeded,
+        /// A system account cannot be used in this operation
+        CannotUseSystemAccount,
     }
 }
