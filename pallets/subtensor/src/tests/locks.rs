@@ -2685,3 +2685,43 @@ fn test_unlock_decay_allows_relock_then_blocks_unstake() {
         );
     });
 }
+
+// =========================================================================
+// GROUP 21: Subnet registration
+// =========================================================================
+
+#[test]
+fn test_register_network_locks_initial_owner_distribution() {
+    new_test_ext(0).execute_with(|| {
+        NetworkMinLockCost::<Test>::set(TaoBalance::from(1_000u64));
+        NetworkLastLockCost::<Test>::set(TaoBalance::from(2_000u64));
+
+        let coldkey = U256::from(9001);
+        let hotkey = U256::from(9002);
+        let netuid = SubtensorModule::get_next_netuid();
+        let lock_cost: TaoBalance = SubtensorModule::get_network_lock_cost().into();
+
+        add_balance_to_coldkey_account(&coldkey, lock_cost);
+
+        assert_ok!(SubtensorModule::register_network(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+        ));
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_eq!(SubnetOwner::<Test>::get(netuid), coldkey);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), hotkey);
+
+        let owner_alpha = get_alpha(&hotkey, &coldkey, netuid);
+        assert!(owner_alpha > AlphaBalance::ZERO);
+
+        let lock = Lock::<Test>::get((coldkey, netuid, hotkey))
+            .expect("initial owner distribution should be locked on registration");
+        assert_eq!(lock.locked_mass, owner_alpha);
+        assert_eq!(lock.unlocked_mass, AlphaBalance::ZERO);
+
+        let hotkey_lock = HotkeyLock::<Test>::get(netuid, hotkey)
+            .expect("hotkey aggregate lock should be created on registration");
+        assert_eq!(hotkey_lock.locked_mass, owner_alpha);
+    });
+}
