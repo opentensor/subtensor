@@ -327,6 +327,7 @@ runtime-benchmarks = [
 	"pallet-drand/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-subtensor-swap/runtime-benchmarks",
+	"subtensor-precompiles/runtime-benchmarks",
 
 	# Smart Tx fees pallet
 	"subtensor-transaction-fee/runtime-benchmarks",
