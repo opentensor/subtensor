@@ -1,5 +1,54 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+//! # Signed Voting
+//!
+//! Per-account voting backend for a poll producer (typically
+//! `pallet-referenda`). Voters cast a single aye or nay; the tally is
+//! pushed back to the producer through the [`Polls`] trait so it can
+//! re-evaluate thresholds in real time.
+//!
+//! The pallet is generic over the producer: it does not know what is
+//! being voted on, only that polls have an index, a voting scheme, and
+//! a voter set. The producer provides those via [`Polls`]; the pallet
+//! provides [`OnPollCreated`] / [`OnPollCompleted`] in return for
+//! lifecycle notifications.
+//!
+//! ## Lifecycle
+//!
+//! - [`OnPollCreated::on_poll_created`] snapshots the producer's voter
+//!   set into [`VoterSetOf`] and initialises [`TallyOf`]. Eligibility
+//!   and the tally denominator are frozen for the poll's lifetime.
+//! - [`Pallet::vote`] / [`Pallet::remove_vote`] check eligibility
+//!   against the snapshot (binary-searched; the snapshot is sorted at
+//!   creation), update [`VotingFor`] and [`TallyOf`], and notify the
+//!   producer of the new tally.
+//! - [`OnPollCompleted::on_poll_completed`] removes [`TallyOf`] and
+//!   [`VoterSetOf`] synchronously and enqueues the poll on
+//!   [`PendingCleanup`] for lazy [`VotingFor`] cleanup.
+//! - [`Hooks::on_idle`] drains the cleanup queue in
+//!   [`Config::CleanupChunkSize`]-sized chunks. A single poll's cleanup
+//!   may span multiple idle blocks; progress is tracked by the resume
+//!   cursor returned by `clear_prefix`.
+//!
+//! ## Frozen voter-set snapshot
+//!
+//! The eligibility roster is whatever [`Polls::voter_set_of`] returns
+//! at `on_poll_created`. After that the underlying collective can
+//! rotate freely without affecting active polls: removed members keep
+//! the voting rights they had when the poll opened, new members cannot
+//! sneak votes onto polls created before they joined, and the
+//! denominator stays fixed so thresholds cannot drift mid-poll.
+//!
+//! ## Lazy `VotingFor` cleanup
+//!
+//! The vote map grows linearly with `voters × active polls`. Clearing
+//! it inside `on_poll_completed` would put unbounded work on the
+//! producer's call. Instead, completion records the poll on
+//! [`PendingCleanup`] and `on_idle` reclaims the storage in chunks
+//! over subsequent blocks. The bound on chunk size and queue capacity
+//! is set by the runtime via [`Config::CleanupChunkSize`] and
+//! [`Config::MaxPendingCleanup`].
+
 extern crate alloc;
 
 use frame_support::{
