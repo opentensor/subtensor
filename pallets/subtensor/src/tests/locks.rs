@@ -9,7 +9,7 @@ use frame_support::weights::Weight;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaBalance, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -1964,6 +1964,95 @@ fn test_emissions_do_not_break_lock_invariant() {
         // Available becomes emission_amount
         let available = SubtensorModule::available_stake(&coldkey, netuid);
         assert_eq!(available, emission_amount);
+    });
+}
+
+#[test]
+fn test_epoch_distribution_auto_locks_owner_cut() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let subnet_tempo = 10;
+        let stake = 100_000_000_000u64;
+
+        SubtensorModule::set_tempo(netuid, subnet_tempo);
+        SubtensorModule::set_ck_burn(0);
+        setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
+
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
+
+        add_balance_to_coldkey_account(
+            &validator_coldkey,
+            TaoBalance::from(stake) + ExistentialDeposit::get(),
+        );
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            netuid,
+            stake.into()
+        ));
+
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_allowed_validators(netuid, 1);
+        step_block(subnet_tempo);
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+
+        let owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &subnet_owner_hotkey).unwrap();
+        let validator_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &validator_hotkey).unwrap();
+        let miner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &miner_hotkey).unwrap();
+        let uid_count = [
+            owner_uid as usize,
+            validator_uid as usize,
+            miner_uid as usize,
+        ]
+        .into_iter()
+        .max()
+        .unwrap()
+            + 1;
+
+        // Setup YUMA so that the next epoch produces non-zero subnet emissions.
+        Weights::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            validator_uid,
+            vec![(miner_uid, 0xFFFF)],
+        );
+        BlockAtRegistration::<Test>::set(netuid, owner_uid, 1);
+        BlockAtRegistration::<Test>::set(netuid, validator_uid, 1);
+        BlockAtRegistration::<Test>::set(netuid, miner_uid, 1);
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2; uid_count]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        let mut validator_permit = vec![false; uid_count];
+        validator_permit[validator_uid as usize] = true;
+        ValidatorPermit::<Test>::insert(netuid, validator_permit);
+
+        let owner_stake_before = get_alpha(&subnet_owner_hotkey, &subnet_owner_coldkey, netuid);
+        assert!(
+            Lock::<Test>::iter_prefix((subnet_owner_coldkey, netuid))
+                .next()
+                .is_none()
+        );
+
+        // Advance to the next epoch so owner cut is distributed and auto-locked.
+        step_block(subnet_tempo);
+
+        let owner_stake_after = get_alpha(&subnet_owner_hotkey, &subnet_owner_coldkey, netuid);
+        let owner_cut_locked = owner_stake_after - owner_stake_before;
+        assert!(owner_cut_locked > AlphaBalance::ZERO);
+
+        let owner_lock = Lock::<Test>::get((subnet_owner_coldkey, netuid, subnet_owner_hotkey))
+            .expect("owner cut should be auto-locked to the subnet owner's hotkey");
+        assert_eq!(owner_lock.locked_mass, owner_cut_locked);
+        assert_eq!(owner_lock.unlocked_mass, AlphaBalance::ZERO);
     });
 }
 

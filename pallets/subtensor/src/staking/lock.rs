@@ -592,4 +592,22 @@ impl<T: Config> Pallet<T> {
             None => Err(Error::<T>::NoExistingLock.into()),
         }
     }
+
+    pub fn auto_lock_owner_cut(netuid: NetUid, amount: AlphaBalance) {
+        let subnet_owner_coldkey = Self::get_subnet_owner(netuid);
+
+        // Determine the lock hotkey. If no locks exist, assign subnet owner's hotkey, otherwise
+        // auto-lock to existing lock hotkey
+        let lock_hotkey = if let Some((existing_hotkey, _existing)) =
+            Lock::<T>::iter_prefix((&subnet_owner_coldkey, netuid)).next()
+        {
+            existing_hotkey
+        } else {
+            SubnetOwnerHotkey::<T>::get(netuid)
+        };
+
+        // Ignore the result. It may only fail if amount is zero, which is OK to ignore because nothing
+        // needs to happen in that case
+        let _ = Self::do_lock_stake(&subnet_owner_coldkey, netuid, &lock_hotkey, amount);
+    }
 }
