@@ -7,7 +7,6 @@ use sp_runtime::traits::{
     AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, TransactionExtension,
     ValidateResult,
 };
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionValidityError};
 use sp_runtime::{
     impl_tx_ext_default,
     transaction_validity::{TransactionSource, TransactionValidity, ValidTransaction},
@@ -263,9 +262,8 @@ where
                 Ok((Default::default(), (), origin))
             }
             Some(Call::add_stake_burn { netuid, .. }) => {
-                Pallet::<T>::ensure_subnet_owner(origin.clone(), *netuid).map_err(|_| {
-                    TransactionValidityError::Invalid(InvalidTransaction::BadSigner)
-                })?;
+                Pallet::<T>::ensure_add_stake_burn_rate_limit(who.clone(), *netuid)
+                    .map_err(|_| CustomTransactionError::RateLimitExceeded)?;
 
                 Ok((Self::validity_ok(ADD_STAKE_BURN_PRIORITY_BOOST), (), origin))
             }

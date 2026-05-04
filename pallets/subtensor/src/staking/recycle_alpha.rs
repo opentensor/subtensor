@@ -135,15 +135,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let coldkey = ensure_signed(origin.clone())?;
 
-        let current_block = Self::get_current_block_as_u64();
-        let last_block =
-            Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid, coldkey.clone()));
-        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
-
-        ensure!(
-            last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
-            Error::<T>::AddStakeBurnRateLimitExceeded
-        );
+        Self::ensure_add_stake_burn_rate_limit(coldkey.clone(), netuid)?;
 
         let alpha = if let Some(limit) = limit {
             Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
@@ -155,7 +147,7 @@ impl<T: Config> Pallet<T> {
 
         Self::set_rate_limited_last_block(
             &RateLimitKey::AddStakeBurn(netuid, coldkey),
-            current_block,
+            Self::get_current_block_as_u64(),
         );
 
         Self::deposit_event(Event::AddStakeBurn {
@@ -209,5 +201,20 @@ impl<T: Config> Pallet<T> {
                 Err(e) => TransactionOutcome::Rollback(Err(e)),
             }
         })
+    }
+
+    pub fn ensure_add_stake_burn_rate_limit(
+        coldkey: T::AccountId,
+        netuid: NetUid,
+    ) -> DispatchResult {
+        let current_block = Self::get_current_block_as_u64();
+        let last_block =
+            Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid, coldkey.clone()));
+        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
+        ensure!(
+            last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
+            Error::<T>::AddStakeBurnRateLimitExceeded
+        );
+        Ok(())
     }
 }
