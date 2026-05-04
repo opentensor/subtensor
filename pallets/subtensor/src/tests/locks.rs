@@ -1,7 +1,8 @@
 #![allow(
+    clippy::arithmetic_side_effects,
     clippy::expect_used,
-    clippy::unwrap_used,
-    clippy::arithmetic_side_effects
+    clippy::indexing_slicing,
+    clippy::unwrap_used
 )]
 
 use approx::assert_abs_diff_eq;

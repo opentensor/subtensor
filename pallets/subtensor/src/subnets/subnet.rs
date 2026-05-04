@@ -263,7 +263,7 @@ impl<T: Config> Pallet<T> {
             );
 
             // Also lock the initial owner's distribution
-            Self::do_lock_stake(&coldkey, netuid_to_register, &hotkey, owner_alpha_stake)?;
+            Self::do_lock_stake(&coldkey, netuid_to_register, hotkey, owner_alpha_stake)?;
         }
 
         if total_pool_tao > TaoBalance::ZERO {
