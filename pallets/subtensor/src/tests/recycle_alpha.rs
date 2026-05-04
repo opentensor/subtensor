@@ -894,10 +894,7 @@ fn test_add_stake_burn_rate_limit_exceeded() {
         add_balance_to_coldkey_account(&coldkey_account_id, (amount * 10).into());
 
         assert_eq!(
-            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(
-                netuid,
-                coldkey_account_id
-            )),
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid,)),
             0
         );
 
@@ -911,10 +908,7 @@ fn test_add_stake_burn_rate_limit_exceeded() {
         ));
 
         assert_eq!(
-            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(
-                netuid,
-                coldkey_account_id
-            )),
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid,)),
             SubtensorModule::get_current_block_as_u64()
         );
 
