@@ -1645,7 +1645,7 @@ impl pallet_contracts::Config for Runtime {
 }
 
 // ============================================================================
-// Governance V2: multi-collective + signed-voting + referenda
+// Governance: multi-collective + signed-voting + referenda
 // ============================================================================
 
 use codec::{DecodeWithMemTracking, MaxEncodedLen};
@@ -1695,7 +1695,7 @@ impl pallet_multi_collective::CanRotate for GovernanceCollectiveId {
 }
 
 /// Voting scheme for each referenda track. Only `Signed` is supported; the
-/// V1 "anonymous" scheme is replaced with signed voting in V2 per design.
+/// "anonymous" scheme is replaced with signed voting per design.
 #[derive(
     Copy,
     Clone,
@@ -1786,9 +1786,6 @@ parameter_types! {
     /// Minimum subnet age for its owner to be eligible for the Building
     /// collective: 180 days mainnet / 100 blocks fast-runtime.
     pub const GovernanceMinSubnetAge: BlockNumber = prod_or_fast!(180 * DAYS, 100);
-    /// Track ids — must match the indices declared in `SubtensorTracks`.
-    pub const GovernanceTriumvirateTrack: u8 = 0;
-    pub const GovernanceReviewTrack: u8 = 1;
 }
 
 /// Static list of collectives. Adding a variant to `GovernanceCollectiveId`
