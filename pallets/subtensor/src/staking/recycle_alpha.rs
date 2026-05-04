@@ -1,6 +1,5 @@
 use super::*;
 use crate::{Error, system::ensure_signed};
-use frame_support::storage::{TransactionOutcome, transactional};
 use subtensor_runtime_common::{AlphaBalance, NetUid};
 
 impl<T: Config> Pallet<T> {
@@ -170,16 +169,8 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         amount: TaoBalance,
     ) -> Result<AlphaBalance, DispatchError> {
-        transactional::with_transaction(|| {
-            let alpha = match Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount) {
-                Ok(a) => a,
-                Err(e) => return TransactionOutcome::Rollback(Err(e)),
-            };
-            match Self::do_recycle_alpha(origin, hotkey, alpha, netuid) {
-                Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
-                Err(e) => TransactionOutcome::Rollback(Err(e)),
-            }
-        })
+        let alpha = Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?;
+        Self::do_recycle_alpha(origin, hotkey, alpha, netuid)
     }
 
     /// Atomically stakes TAO and burns the resulting alpha. Permissionless
@@ -191,16 +182,8 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         amount: TaoBalance,
     ) -> Result<AlphaBalance, DispatchError> {
-        transactional::with_transaction(|| {
-            let alpha = match Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount) {
-                Ok(a) => a,
-                Err(e) => return TransactionOutcome::Rollback(Err(e)),
-            };
-            match Self::do_burn_alpha(origin, hotkey, alpha, netuid) {
-                Ok(real_alpha) => TransactionOutcome::Commit(Ok(real_alpha)),
-                Err(e) => TransactionOutcome::Rollback(Err(e)),
-            }
-        })
+        let alpha = Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?;
+        Self::do_burn_alpha(origin, hotkey, alpha, netuid)
     }
 
     pub fn ensure_add_stake_burn_rate_limit(

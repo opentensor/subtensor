@@ -1124,6 +1124,72 @@ fn test_migrate_rate_limit_keys() {
 }
 
 #[test]
+fn test_migrate_add_stake_burn_rate_limit_key() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_add_stake_burn_rate_limit_key";
+
+        let netuid = NetUid::from(42);
+        let netuid_with_newer_value = NetUid::from(43);
+        let owner = U256::from(4242);
+        let migrated_block = 1234u64;
+        let newer_block = 4321u64;
+
+        SubnetOwner::<Test>::insert(netuid, owner);
+        SubnetOwner::<Test>::insert(netuid_with_newer_value, owner);
+        SubtensorModule::set_rate_limited_last_block(
+            &RateLimitKey::AddStakeBurn(netuid_with_newer_value, owner),
+            newer_block,
+        );
+
+        let mut legacy_key = {
+            let pallet_prefix = twox_128("SubtensorModule".as_bytes());
+            let storage_prefix = twox_128("LastRateLimitedBlock".as_bytes());
+            [pallet_prefix, storage_prefix].concat()
+        };
+        legacy_key.push(6u8);
+        legacy_key.extend_from_slice(&netuid.encode());
+        sp_io::storage::set(&legacy_key, &migrated_block.encode());
+
+        let mut legacy_key_with_newer_value = {
+            let pallet_prefix = twox_128("SubtensorModule".as_bytes());
+            let storage_prefix = twox_128("LastRateLimitedBlock".as_bytes());
+            [pallet_prefix, storage_prefix].concat()
+        };
+        legacy_key_with_newer_value.push(6u8);
+        legacy_key_with_newer_value.extend_from_slice(&netuid_with_newer_value.encode());
+        sp_io::storage::set(&legacy_key_with_newer_value, &migrated_block.encode());
+
+        let weight =
+            crate::migrations::migrate_add_stake_burn_rate_limit_key::migrate_add_stake_burn_rate_limit_key::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should be marked as executed"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+        assert!(
+            sp_io::storage::get(&legacy_key).is_none(),
+            "Legacy AddStakeBurn entry should be cleared"
+        );
+        assert_eq!(
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid, owner)),
+            migrated_block
+        );
+        assert!(
+            sp_io::storage::get(&legacy_key_with_newer_value).is_none(),
+            "Legacy AddStakeBurn entry with existing modern value should be cleared"
+        );
+        assert_eq!(
+            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(
+                netuid_with_newer_value,
+                owner
+            )),
+            newer_block
+        );
+    });
+}
+
+#[test]
 fn test_migrate_fix_staking_hot_keys() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &[u8] = b"migrate_fix_staking_hot_keys";
