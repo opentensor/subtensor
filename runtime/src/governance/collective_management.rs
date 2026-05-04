@@ -46,9 +46,7 @@ impl pallet_multi_collective::OnNewTerm<GovernanceCollectiveId> for CollectiveMa
         const RANKING_ITERATIONS_BOUND: u64 = 5_000;
         const READS_PER_ITERATION: u64 = 8;
         let db = <Runtime as frame_system::Config>::DbWeight::get();
-        let ranking = db.reads(
-            RANKING_ITERATIONS_BOUND.saturating_mul(READS_PER_ITERATION),
-        );
+        let ranking = db.reads(RANKING_ITERATIONS_BOUND.saturating_mul(READS_PER_ITERATION));
         let apply = db.reads_writes(1, 1);
         ranking.saturating_add(apply)
     }

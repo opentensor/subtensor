@@ -26,8 +26,8 @@ fn fill_members<T: Config>(collective_id: T::CollectiveId, count: u32) -> Vec<T:
     // Bypass `add_member` to avoid paying the per-call binary_search cost
     // during setup: we know the list is sorted and unique, so we can
     // write the storage directly.
-    let bounded = BoundedVec::try_from(members.clone())
-        .expect("benchmark fill must respect MaxMembers");
+    let bounded =
+        BoundedVec::try_from(members.clone()).expect("benchmark fill must respect MaxMembers");
     Members::<T>::insert(collective_id, bounded);
     members
 }

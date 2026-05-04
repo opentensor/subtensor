@@ -1870,11 +1870,11 @@ impl McOnMembersChanged<GovernanceCollectiveId, AccountId> for GovernanceVoteCle
         let db = <Runtime as frame_system::Config>::DbWeight::get();
         // Per-poll: VotingFor::take + TallyOf::get + TallyOf::insert
         // (= 2 reads + 2 writes), plus the cost of `on_tally_updated`.
-        let per_poll = db
-            .reads_writes(2, 2)
-            .saturating_add(
-                <Referenda as subtensor_runtime_common::Polls<AccountId>>::on_tally_updated_weight(),
-            );
+        let per_poll =
+            db.reads_writes(2, 2)
+                .saturating_add(<Referenda as subtensor_runtime_common::Polls<
+                AccountId,
+            >>::on_tally_updated_weight());
         per_poll.saturating_mul(outgoing_max.saturating_mul(polls_max))
     }
 }
