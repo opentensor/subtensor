@@ -17,8 +17,7 @@ use frame_support::{
 };
 use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::*};
 use mev_shield_ibe_runtime_api::{
-    DkgAuthorityInfo, DkgAuthorityRegistration, DkgConsensusKeyKind, DkgConsensusSource,
-    DkgTransportKeyRegistration, EpochDkgPlan, EpochDkgPublication,
+    DkgAuthorityInfo, DkgConsensusSource, EpochDkgPlan, EpochDkgPublication,
 };
 use ml_kem::{
     Ciphertext, EncodedSizeUser, MlKem768, MlKem768Params,
@@ -86,7 +85,6 @@ pub trait IbeDkgAuthorityProvider {
         payload_hash: sp_core::H256,
         signature: &[u8],
     ) -> bool;
-    fn verify_dkg_authority_registration(registration: &DkgAuthorityRegistration) -> bool;
 }
 
 impl IbeDkgAuthorityProvider for () {
@@ -101,9 +99,6 @@ impl IbeDkgAuthorityProvider for () {
         _payload_hash: sp_core::H256,
         _signature: &[u8],
     ) -> bool {
-        false
-    }
-    fn verify_dkg_authority_registration(_registration: &DkgAuthorityRegistration) -> bool {
         false
     }
 }
@@ -367,19 +362,6 @@ pub mod pallet {
     pub type PublishedDkgOutputHashes<T: Config> =
         StorageMap<_, Twox64Concat, u64, sp_core::H256, OptionQuery>;
     #[pallet::storage]
-    pub type IbeDkgTransportPublicKeys<T: Config> =
-        StorageMap<_, Blake2_128Concat, Vec<u8>, [u8; 32], OptionQuery>;
-    #[pallet::storage]
-    pub type IbeDkgAuthorityRegistrations<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        Vec<u8>,
-        Twox64Concat,
-        DkgConsensusKeyKind,
-        DkgAuthorityRegistration,
-        OptionQuery,
-    >;
-    #[pallet::storage]
     pub type IbeDkgAuthoritySnapshots<T: Config> =
         StorageMap<_, Twox64Concat, u64, Vec<DkgAuthorityInfo>, ValueQuery>;
 
@@ -476,16 +458,6 @@ pub mod pallet {
             key_id: [u8; KEY_ID_LEN],
             attested_weight: u128,
         },
-        IbeDkgTransportKeyRegistered {
-            authority_id: Vec<u8>,
-            dkg_x25519_public_key: [u8; 32],
-        },
-        IbeDkgAuthorityRegistered {
-            hotkey_account_id: Vec<u8>,
-            consensus_key_kind: DkgConsensusKeyKind,
-            authority_id: Vec<u8>,
-            dkg_x25519_public_key: [u8; 32],
-        },
         IbeDkgAuthoritySnapshotStored {
             epoch: u64,
             authority_count: u32,
@@ -534,8 +506,6 @@ pub mod pallet {
         BadIbeDkgPublication,
         InsufficientIbeDkgAttestationWeight,
         IbeDkgPublicationAlreadyKnown,
-        BadIbeDkgTransportKeyRegistration,
-        BadIbeDkgAuthorityRegistration,
     }
 
     #[pallet::hooks]
@@ -788,26 +758,6 @@ pub mod pallet {
             ensure_none(origin)?;
             Self::publish_ibe_epoch_public_key_inner(publication)
         }
-
-        #[pallet::call_index(10)]
-        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
-        pub fn submit_ibe_dkg_transport_key(
-            origin: OriginFor<T>,
-            registration: DkgTransportKeyRegistration,
-        ) -> DispatchResult {
-            ensure_none(origin)?;
-            Self::submit_ibe_dkg_transport_key_inner(registration)
-        }
-
-        #[pallet::call_index(11)]
-        #[pallet::weight(T::WeightInfo::set_max_pending_extrinsics_number())]
-        pub fn submit_ibe_dkg_authority_registration(
-            origin: OriginFor<T>,
-            registration: DkgAuthorityRegistration,
-        ) -> DispatchResult {
-            ensure_none(origin)?;
-            Self::submit_ibe_dkg_authority_registration_inner(registration)
-        }
     }
 
     #[pallet::validate_unsigned]
@@ -927,80 +877,6 @@ impl<T: Config> Pallet<T> {
         } else {
             T::IbeDkgAuthorityProvider::authorities_for_epoch(epoch)
         }
-    }
-    pub fn dkg_transport_key_payload_hash(
-        authority_id: &[u8],
-        dkg_x25519_public_key: &[u8; 32],
-    ) -> sp_core::H256 {
-        sp_core::H256::from(sp_core::hashing::blake2_256(
-            &(
-                b"bittensor.mev-shield.v2.dkg.transport-key",
-                authority_id,
-                dkg_x25519_public_key,
-            )
-                .encode(),
-        ))
-    }
-    pub fn verify_dkg_transport_key_registration(
-        registration: &DkgTransportKeyRegistration,
-    ) -> DispatchResult {
-        let payload = Self::dkg_transport_key_payload_hash(
-            &registration.authority_id,
-            &registration.dkg_x25519_public_key,
-        );
-        ensure!(
-            T::IbeDkgAuthorityProvider::verify_authority_signature(
-                &registration.authority_id,
-                payload,
-                &registration.signature,
-            ),
-            Error::<T>::BadIbeDkgTransportKeyRegistration
-        );
-        Ok(())
-    }
-    pub fn submit_ibe_dkg_transport_key_inner(
-        registration: DkgTransportKeyRegistration,
-    ) -> DispatchResult {
-        Self::verify_dkg_transport_key_registration(&registration)?;
-        IbeDkgTransportPublicKeys::<T>::insert(
-            registration.authority_id.clone(),
-            registration.dkg_x25519_public_key,
-        );
-        Self::deposit_event(Event::IbeDkgTransportKeyRegistered {
-            authority_id: registration.authority_id,
-            dkg_x25519_public_key: registration.dkg_x25519_public_key,
-        });
-        Ok(())
-    }
-    pub fn verify_dkg_authority_registration(
-        registration: &DkgAuthorityRegistration,
-    ) -> DispatchResult {
-        ensure!(
-            T::IbeDkgAuthorityProvider::verify_dkg_authority_registration(registration),
-            Error::<T>::BadIbeDkgAuthorityRegistration
-        );
-        Ok(())
-    }
-    pub fn submit_ibe_dkg_authority_registration_inner(
-        registration: DkgAuthorityRegistration,
-    ) -> DispatchResult {
-        Self::verify_dkg_authority_registration(&registration)?;
-        IbeDkgAuthorityRegistrations::<T>::insert(
-            registration.hotkey_account_id.clone(),
-            registration.consensus_key_kind,
-            registration.clone(),
-        );
-        IbeDkgTransportPublicKeys::<T>::insert(
-            registration.consensus_authority_id.clone(),
-            registration.dkg_x25519_public_key,
-        );
-        Self::deposit_event(Event::IbeDkgAuthorityRegistered {
-            hotkey_account_id: registration.hotkey_account_id,
-            consensus_key_kind: registration.consensus_key_kind,
-            authority_id: registration.consensus_authority_id,
-            dkg_x25519_public_key: registration.dkg_x25519_public_key,
-        });
-        Ok(())
     }
     pub fn next_epoch_dkg_plan() -> Option<EpochDkgPlan> {
         let epoch = Self::current_ibe_epoch().saturating_add(IBE_DKG_EPOCHS_AHEAD);

@@ -111,10 +111,6 @@ pub fn new_partial(
 
     if let Some(seed) = config.dev_key_seed.as_deref() {
         ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::AURA, seed);
-        ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::BABE, seed);
-    }
-    if let Some(seed) = config.dev_key_seed.as_deref() {
-        ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::AURA, seed);
 
         ensure_dev_sr25519_key(&keystore_container.local_keystore(), key_types::BABE, seed);
     }

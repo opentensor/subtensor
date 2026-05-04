@@ -93,24 +93,6 @@ pub enum DkgConsensusSource {
     PoaAuraRootValidators,
 }
 
-/// Full on-chain registration binding one Subtensor hotkey/account to its
-/// current consensus signing key and its durable DKG X25519 transport key.
-///
-/// Registration is accepted only if both signatures verify:
-/// * the hotkey/account signature proves the stake-bearing hotkey opted into DKG;
-/// * the consensus key signature proves the node that can author blocks under
-///   that key controls the DKG transport key.
-#[subtensor_macros::freeze_struct("72edeb4c9eb13a62")]
-#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
-pub struct DkgAuthorityRegistration {
-    pub hotkey_account_id: Vec<u8>,
-    pub consensus_key_kind: DkgConsensusKeyKind,
-    pub consensus_authority_id: Vec<u8>,
-    pub dkg_x25519_public_key: [u8; 32],
-    pub hotkey_signature: Vec<u8>,
-    pub consensus_signature: Vec<u8>,
-}
-
 /// One consensus authority eligible for an epoch-ahead DKG round.
 #[subtensor_macros::freeze_struct("ac25806ef271a94d")]
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
@@ -126,7 +108,7 @@ pub struct DkgAuthorityInfo {
     pub authority_id: Vec<u8>,
     /// Stake weight at the runtime snapshot used by the epoch plan.
     pub stake: u128,
-    /// Durable node DKG transport key registered on-chain by this authority.
+    /// Runtime authority plans leave this zeroed; nodes overlay signed P2P transport keys before DKG.
     pub dkg_x25519_public_key: [u8; 32],
 }
 
@@ -168,10 +150,8 @@ pub struct EpochDkgPublication {
     pub attestations: Vec<DkgOutputAttestation>,
 }
 
-/// Backward-compatible transport-only registration retained for existing nodes.
-/// New code should use `DkgAuthorityRegistration`; the pallet upgrades this form
-/// into an Aura registration whose hotkey/account is equal to the authority id.
-#[subtensor_macros::freeze_struct("7558ce2f74ceae4c")]
+/// Signed P2P DKG transport-key announcement for one consensus authority.
+#[subtensor_macros::freeze_struct("b6db37b5af3d4028")]
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, RuntimeDebug, TypeInfo)]
 pub struct DkgTransportKeyRegistration {
     pub authority_id: Vec<u8>,
@@ -192,7 +172,5 @@ sp_api::decl_runtime_apis! {
         fn active_epoch_dkg_plan() -> Option<EpochDkgPlan>;
         fn next_epoch_dkg_plan() -> Option<EpochDkgPlan>;
         fn verify_epoch_dkg_publication(publication: EpochDkgPublication) -> bool;
-        fn verify_dkg_transport_key_registration(registration: DkgTransportKeyRegistration) -> bool;
-        fn verify_dkg_authority_registration(registration: DkgAuthorityRegistration) -> bool;
     }
 }

@@ -53,6 +53,7 @@ impl WireRouter {
             WireMessage::DkgDealerCommitmentV1(_)
             | WireMessage::DkgAcceptanceVoteV1(_)
             | WireMessage::DkgOutputAttestationV1(_)
+            | WireMessage::DkgTransportKeyV1(_)
             | WireMessage::DkgTransportKeyV1(_) => {
                 let _ = self.dkg_tx.unbounded_send(msg);
             }

@@ -389,14 +389,6 @@ where
         if !all_local_atom_shares_verified_for_dealer(&local_share_ids, &dealer_id, &*acc) {
             continue;
         }
-
-        let all_local_shares_verified = local_share_ids.iter().all(|share_id| {
-            acc.local_verified_shares
-                .contains_key(&(dealer_id.clone(), *share_id))
-        });
-        if !all_local_shares_verified {
-            continue;
-        }
         let mut vote = DkgAcceptanceVoteV1 {
             version: stp_mev_shield_ibe::MEV_SHIELD_IBE_VERSION,
             round: round.clone(),

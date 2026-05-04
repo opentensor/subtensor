@@ -2728,14 +2728,6 @@ impl mev_shield_ibe_runtime_api::MevShieldDkgApi<Block> for Runtime {
     fn verify_epoch_dkg_publication(publication: mev_shield_ibe_runtime_api::EpochDkgPublication) -> bool {
         MevShield::verify_epoch_dkg_publication(&publication).is_ok()
     }
-
-    fn verify_dkg_transport_key_registration(registration: mev_shield_ibe_runtime_api::DkgTransportKeyRegistration) -> bool {
-        MevShield::verify_dkg_transport_key_registration(&registration).is_ok()
-    }
-
-    fn verify_dkg_authority_registration(registration: mev_shield_ibe_runtime_api::DkgAuthorityRegistration) -> bool {
-        MevShield::verify_dkg_authority_registration(&registration).is_ok()
-    }
 }
 
 
