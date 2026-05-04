@@ -880,7 +880,7 @@ impl CommitmentsInterface for CommitmentsI {
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
-    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const MaxScheduledPerBlock: u32 = 70;
 }
 
 /// Used the compare the privilege of an origin inside the scheduler.
@@ -1736,15 +1736,27 @@ impl SetLike<AccountId> for GovernanceMemberSet {
                 AccountId,
                 GovernanceCollectiveId,
             >>::member_count(*id),
-            Self::Union(ids) => ids
-                .iter()
-                .map(|id| {
-                    <MultiCollective as McCollectiveInspect<
+            // Union members can overlap (a coldkey may be both a top
+            // validator on Economic and a top subnet owner on Building).
+            // A naive sum of `member_count` inflates the denominator that
+            // signed-voting captures as `total` at poll creation; dual
+            // members count twice in `total` but can vote at most once,
+            // biasing both `fast_track_threshold` and `cancel_threshold`
+            // upward in proportion to the overlap. Deduplicate so `len()`
+            // returns the true cardinality of accounts satisfying
+            // `contains`.
+            Self::Union(ids) => {
+                let mut accounts: Vec<AccountId> = Vec::new();
+                for id in ids {
+                    accounts.extend(<MultiCollective as McCollectiveInspect<
                         AccountId,
                         GovernanceCollectiveId,
-                    >>::member_count(*id)
-                })
-                .sum(),
+                    >>::members_of(*id));
+                }
+                accounts.sort();
+                accounts.dedup();
+                accounts.len() as u32
+            }
         }
     }
 }
@@ -1760,8 +1772,8 @@ parameter_types! {
     pub const GovernanceCollectiveTermDuration: BlockNumber = prod_or_fast!(432_000, 100);
     /// 7 days mainnet / 50 blocks fast-runtime — triumvirate voting window.
     pub const GovernanceTriumvirateDecisionPeriod: BlockNumber = prod_or_fast!(50_400, 50);
-    /// 1 hour mainnet / 30 blocks fast-runtime — collective Review delay.
-    pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(300, 30);
+    /// 24 hours mainnet / 30 blocks fast-runtime — collective Review delay.
+    pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(7200, 30);
     /// Target size of each ranked collective (Economic + Building).
     /// Matches the `max_members` declared in `SubtensorCollectives`.
     pub const GovernanceRankedCollectiveSize: u32 = 16;
@@ -1793,8 +1805,8 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
             McCollective {
                 id: GovernanceCollectiveId::Proposers,
                 info: McCollectiveInfo {
-                    name: name(b"proposers"),
-                    min_members: 0,
+                    name: name(b"otf"),
+                    min_members: 1,
                     max_members: Some(20),
                     term_duration: None,
                 },
@@ -1803,7 +1815,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Triumvirate,
                 info: McCollectiveInfo {
                     name: name(b"triumvirate"),
-                    min_members: 0,
+                    min_members: 3,
                     max_members: Some(3),
                     term_duration: None,
                 },
@@ -1812,7 +1824,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Economic,
                 info: McCollectiveInfo {
                     name: name(b"economic"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),
                 },
@@ -1821,7 +1833,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
                 id: GovernanceCollectiveId::Building,
                 info: McCollectiveInfo {
                     name: name(b"building"),
-                    min_members: 0,
+                    min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),
                 },

@@ -76,7 +76,7 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                     voting_scheme: GovernanceVotingScheme::Signed,
                     decision_strategy: DecisionStrategy::Adjustable {
                         initial_delay: GovernanceCollectiveInitialDelay::get(),
-                        fast_track_threshold: Perbill::from_percent(67),
+                        fast_track_threshold: Perbill::from_percent(75),
                         cancel_threshold: Perbill::from_percent(51),
                     },
                 },
