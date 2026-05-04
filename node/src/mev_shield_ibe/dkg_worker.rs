@@ -103,14 +103,19 @@ pub fn spawn_epoch_ahead_dkg_worker<Block, Client>(
                 authority_id: first_local_authority,
                 authority_ids: cfg.local_authorities.iter().map(|a| a.authority_id.clone()).collect(),
                 x25519_secret,
-                x25519_public,
-            };
+                x25519_public
+};
             let mut state = WorkerState::default();
             let mut interval = futures_timer::Delay::new(cfg.poll_interval).fuse();
 
-            loop {
+            let shutdown = tokio::signal::ctrl_c().fuse();
+        futures::pin_mut!(shutdown);
+        loop {
                 futures::select! {
-                    msg = inbound.next().fuse() => {
+                    _ = shutdown => {
+                    break;
+                }
+                msg = inbound.next().fuse() => {
                         let Some(msg) = msg else { break; };
                         import_dkg_wire_message(&mut state, &local_keys, msg);
                     }

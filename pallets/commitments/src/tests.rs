@@ -694,14 +694,14 @@ fn two_timelocks_partial_then_full_reveal() {
         )
         .expect("MaxFields >= 1");
         let inner_info_1: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
-            fields: inner_1_fields,
-        };
+            fields: inner_1_fields
+};
         let encoded_1 = inner_info_1.encode();
         let ciphertext_1 = produce_ciphertext(&encoded_1, round_1000);
         let tle_a1 = Data::TimelockEncrypted {
             encrypted: ciphertext_1,
-            reveal_round: round_1000,
-        };
+            reveal_round: round_1000
+};
 
         //
         // Second Timelock => round=2000
@@ -712,14 +712,14 @@ fn two_timelocks_partial_then_full_reveal() {
         )
         .expect("MaxFields >= 1");
         let inner_info_2: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
-            fields: inner_2_fields,
-        };
+            fields: inner_2_fields
+};
         let encoded_2 = inner_info_2.encode();
         let ciphertext_2 = produce_ciphertext(&encoded_2, round_2000);
         let tle_a2 = Data::TimelockEncrypted {
             encrypted: ciphertext_2,
-            reveal_round: round_2000,
-        };
+            reveal_round: round_2000
+};
 
         //
         // Insert outer commitment with both timelocks
@@ -791,14 +791,14 @@ fn single_timelock_reveal_later_round() {
             BoundedVec::try_from(vec![Data::Raw(msg_b.to_vec().try_into().expect("Expected success"))])
                 .expect("MaxFields >= 1");
         let inner_info_b: CommitmentInfo<<Test as Config>::MaxFields> = CommitmentInfo {
-            fields: inner_b_fields,
-        };
+            fields: inner_b_fields
+};
         let encoded_b = inner_info_b.encode();
         let ciphertext_b = produce_ciphertext(&encoded_b, round_2000);
         let tle_b = Data::TimelockEncrypted {
             encrypted: ciphertext_b,
-            reveal_round: round_2000,
-        };
+            reveal_round: round_2000
+};
 
         let fields_b: BoundedVec<Data, <Test as Config>::MaxFields> =
             BoundedVec::try_from(vec![tle_b]).expect("1 field");
@@ -1859,32 +1859,32 @@ fn multiple_timelocked_commitments_reveal_works() {
         let ciphertext_1 = produce_ciphertext(tle_1_plaintext, round_1000);
         let tle_1 = Data::TimelockEncrypted {
             encrypted: ciphertext_1,
-            reveal_round: round_1000,
-        };
+            reveal_round: round_1000
+};
 
         // 2.b) TLE #2 => round=1000
         let tle_2_plaintext = b"Timelock #2 => round=1000";
         let ciphertext_2 = produce_ciphertext(tle_2_plaintext, round_1000);
         let tle_2 = Data::TimelockEncrypted {
             encrypted: ciphertext_2,
-            reveal_round: round_1000,
-        };
+            reveal_round: round_1000
+};
 
         // 2.c) TLE #3 => round=2000
         let tle_3_plaintext = b"Timelock #3 => round=2000";
         let ciphertext_3 = produce_ciphertext(tle_3_plaintext, round_2000);
         let tle_3 = Data::TimelockEncrypted {
             encrypted: ciphertext_3,
-            reveal_round: round_2000,
-        };
+            reveal_round: round_2000
+};
 
         // 2.d) TLE #4 => round=2000
         let tle_4_plaintext = b"Timelock #4 => round=2000";
         let ciphertext_4 = produce_ciphertext(tle_4_plaintext, round_2000);
         let tle_4 = Data::TimelockEncrypted {
             encrypted: ciphertext_4,
-            reveal_round: round_2000,
-        };
+            reveal_round: round_2000
+};
 
         // -------------------------------------------
         // 3) Insert all TLEs in a single CommitmentInfo
@@ -1892,8 +1892,8 @@ fn multiple_timelocked_commitments_reveal_works() {
         let fields = vec![tle_1, tle_2, tle_3, tle_4];
         let fields_bounded = BoundedVec::try_from(fields).expect("Must not exceed MaxFields");
         let info = CommitmentInfo {
-            fields: fields_bounded,
-        };
+            fields: fields_bounded
+};
 
         // -------------------------------------------
         // 4) set_commitment => user is now in TimelockedIndex
@@ -2041,16 +2041,16 @@ fn mixed_timelocked_and_raw_fields_works() {
         let ciphertext_1 = produce_ciphertext(tle_1_plaintext, round_1000);
         let tle_1 = Data::TimelockEncrypted {
             encrypted: ciphertext_1,
-            reveal_round: round_1000,
-        };
+            reveal_round: round_1000
+};
 
         // (b) Timelock #2 => round=2000
         let tle_2_plaintext = b"TLE #2 => round=2000";
         let ciphertext_2 = produce_ciphertext(tle_2_plaintext, round_2000);
         let tle_2 = Data::TimelockEncrypted {
             encrypted: ciphertext_2,
-            reveal_round: round_2000,
-        };
+            reveal_round: round_2000
+};
 
         // (c) Two Raw fields
         let raw_1 = Data::Raw(b"Raw field #1".to_vec().try_into().expect("<= 128 bytes"));

@@ -311,8 +311,8 @@ pub mod pallet {
 			let di = call.as_ref().map(|c| c.get_dispatch_info());
 			let inner_call_weight = match di {
 				Some(di) => di.call_weight,
-				None => Weight::zero(),
-			};
+				None => Weight::zero()
+};
 			let base_weight = T::WeightInfo::create();
 			(base_weight.saturating_add(inner_call_weight), Pays::Yes)
 		})]

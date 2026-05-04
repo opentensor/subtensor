@@ -117,7 +117,7 @@ impl MevShieldIbeSharePool {
         Ok((pool, out_rx, in_tx))
     }
 
-    fn spawn_inbound(&self, mut inbound: mpsc::UnboundedReceiver<WireMessage>) {
+    fn spawn_inbound(&self, inbound: mpsc::UnboundedReceiver<WireMessage>) {
         let pool = self.clone();
 
         std::thread::Builder::new()

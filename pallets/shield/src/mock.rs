@@ -111,11 +111,6 @@ impl pallet_shield::IbeDkgAuthorityProvider for MockIbeDkgAuthorityProvider {
     ) -> bool {
         true
     }
-    fn verify_dkg_authority_registration(
-        _registration: &mev_shield_ibe_runtime_api::DkgAuthorityRegistration,
-    ) -> bool {
-        true
-    }
 }
 
 frame_support::parameter_types! {

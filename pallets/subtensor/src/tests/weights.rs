@@ -4800,8 +4800,8 @@ fn test_reveal_crv3_commits_success() {
             hotkey: hotkey1.encode(),
             values: vec![10, 20],
             uids: vec![neuron_uid1, neuron_uid2],
-            version_key,
-        };
+            version_key
+};
 
         let serialized_payload = payload.encode();
 
@@ -4938,8 +4938,8 @@ fn test_reveal_crv3_commits_cannot_reveal_after_reveal_epoch() {
             hotkey: hotkey1.encode(),
             values: vec![10, 20],
             uids: vec![neuron_uid1, neuron_uid2],
-            version_key,
-        };
+            version_key
+};
 
         let serialized_payload = payload.encode();
 
@@ -5390,8 +5390,8 @@ fn test_reveal_crv3_commits_multiple_commits_some_fail_some_succeed() {
             hotkey: hotkey1.encode(),
             values: vec![10],
             uids: vec![neuron_uid1],
-            version_key,
-        };
+            version_key
+};
         let serialized_valid_payload = valid_payload.encode();
 
         let esk = [2; 32];
@@ -5511,8 +5511,8 @@ fn test_reveal_crv3_commits_do_set_weights_failure() {
             hotkey: hotkey.encode(),
             values: vec![10, 20], // Length 2
             uids: vec![0],        // Length 1
-            version_key,
-        };
+            version_key
+};
         let serialized_payload = payload.encode();
 
         let esk = [2; 32];
@@ -5674,8 +5674,8 @@ fn test_reveal_crv3_commits_signature_deserialization_failure() {
             hotkey: hotkey.encode(),
             values: vec![10, 20],
             uids: vec![0, 1],
-            version_key,
-        };
+            version_key
+};
         let serialized_payload = payload.encode();
 
         let esk = [2; 32];
@@ -5823,8 +5823,8 @@ fn test_reveal_crv3_commits_with_incorrect_identity_message() {
             hotkey: hotkey.encode(),
             values: vec![10],
             uids: vec![neuron_uid],
-            version_key,
-        };
+            version_key
+};
         let serialized_payload = payload.encode();
 
         let esk = [2; 32];
@@ -6066,8 +6066,8 @@ fn test_reveal_crv3_commits_multiple_valid_commits_all_processed() {
                 hotkey: hk.encode(),
                 values: vec![10, 20, 30, 40, 50],
                 uids: (0..5).map(|u| u as u16).collect(),
-                version_key: SubtensorModule::get_weights_version_key(netuid),
-            };
+                version_key: SubtensorModule::get_weights_version_key(netuid)
+};
 
             let id_msg = {
                 let mut h = sha2::Sha256::new();
@@ -6379,8 +6379,8 @@ fn test_reveal_crv3_commits_hotkey_check() {
             hotkey: hotkey2.encode(), // Mismatch: using hotkey2 instead of hotkey1
             values: vec![10, 20],
             uids: vec![neuron_uid1, neuron_uid2],
-            version_key,
-        };
+            version_key
+};
 
         let serialized_payload = payload.encode();
 
@@ -6496,8 +6496,8 @@ fn test_reveal_crv3_commits_hotkey_check() {
             hotkey: hotkey1.encode(), // Match: using hotkey1
             values: vec![10, 20],
             uids: vec![neuron_uid1, neuron_uid2],
-            version_key,
-        };
+            version_key
+};
 
         let serialized_payload = payload.encode();
 

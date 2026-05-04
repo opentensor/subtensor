@@ -2120,8 +2120,8 @@ impl_runtime_apis! {
                     weight_limit if weight_limit.proof_size() > 0 => {
                         (Some(weight_limit), Some(estimated_transaction_len as u64))
                     }
-                    _ => (None, None),
-                };
+                    _ => (None, None)
+};
 
             <Runtime as pallet_evm::Config>::Runner::call(
                 from,
@@ -2201,8 +2201,8 @@ impl_runtime_apis! {
                     weight_limit if weight_limit.proof_size() > 0 => {
                         (Some(weight_limit), Some(estimated_transaction_len as u64))
                     }
-                    _ => (None, None),
-                };
+                    _ => (None, None)
+};
 
             let whitelist = pallet_evm::WhitelistedCreators::<Runtime>::get();
             let whitelist_disabled = pallet_evm::DisableWhitelistCheck::<Runtime>::get();
@@ -2769,8 +2769,8 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
                             epoch: envelope.epoch,
                             target_block: envelope.target_block,
                             key_id: envelope.key_id,
-                            queue_commitment: envelope.commitment,
-                        };
+                            queue_commitment: envelope.commitment
+};
                     }
                 }
                 MevShieldExtrinsicClass::UnencryptedNonOperational
@@ -2812,8 +2812,8 @@ impl mev_shield_ibe_runtime_api::MevShieldIbeApi<Block> for Runtime {
             block_len: 0,
             max_normal_block_len: *BlockLength::get()
                 .max
-                .get(frame_support::dispatch::DispatchClass::Normal),
-        };
+                .get(frame_support::dispatch::DispatchClass::Normal)
+};
 
         for encoded in encoded_xts {
             out.block_len = out.block_len.saturating_add(encoded.len() as u32);

@@ -103,8 +103,8 @@ fn it_rejects_invalid_pulse_due_to_bad_signature() {
         let config_payload = BeaconConfigurationPayload {
             block_number,
             config: info.try_into_beacon_config().unwrap(),
-            public: alice.public(),
-        };
+            public: alice.public()
+};
         // Signature is not required for Root origin
         let config_signature = None;
         assert_ok!(Drand::set_beacon_config(
@@ -122,8 +122,8 @@ fn it_rejects_invalid_pulse_due_to_bad_signature() {
         let pulses_payload = PulsesPayload {
             pulses: vec![p.clone()],
             block_number,
-            public: alice.public(),
-        };
+            public: alice.public()
+};
         let pulses_signature = alice.sign(&pulses_payload.encode());
 
         assert_noop!(

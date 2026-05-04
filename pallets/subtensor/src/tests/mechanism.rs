@@ -1249,8 +1249,8 @@ fn test_reveal_crv3_commits_sub_success() {
             hotkey: hotkey1.encode(),
             values: vec![10, 20],
             uids: vec![uid1, uid2],
-            version_key,
-        };
+            version_key
+};
         let serialized_payload = payload.encode();
 
         // Public key + encrypt
@@ -1352,8 +1352,8 @@ fn test_crv3_above_mechanism_count_fails() {
             hotkey: hotkey1.encode(),
             values: vec![10, 20],
             uids: vec![uid1, uid2],
-            version_key,
-        };
+            version_key
+};
         let serialized_payload = payload.encode();
 
         // Public key + encrypt

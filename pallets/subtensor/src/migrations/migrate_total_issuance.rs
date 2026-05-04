@@ -4,7 +4,7 @@ use frame_support::{
     pallet_prelude::Identity,
     storage_alias,
     traits::{Get, GetStorageVersion, StorageVersion, fungible::Inspect},
-    weights::Weight,
+    weights::Weight
 };
 use sp_std::vec::Vec;
 
