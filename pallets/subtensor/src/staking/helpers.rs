@@ -265,6 +265,9 @@ impl<T: Config> Pallet<T> {
                         hotkey, coldkey, netuid, alpha,
                     );
                 }
+
+                // Reduce lock (if exists) by the cleaned stake amount
+                Self::force_reduce_lock(coldkey, netuid, alpha_stake);
             }
         }
     }
