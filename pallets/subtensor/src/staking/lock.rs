@@ -610,4 +610,97 @@ impl<T: Config> Pallet<T> {
         // needs to happen in that case
         let _ = Self::do_lock_stake(&subnet_owner_coldkey, netuid, &lock_hotkey, amount);
     }
+
+    /// When locked stake is transfered, the lock should follow the stake
+    /// 
+    /// First, this function rolls the lock forward and checks if amount is over available 
+    /// stake and if it is, the stake that's over the available amount on the destination 
+    /// coldkey is locked in the same way as the original stake:
+    /// 
+    ///  - If original stake is actively locked to a hotkey, it remains actively locked to 
+    ///    the same hotkey
+    ///  - If original stake is being unlocked, the lock is created on the destination coldkey 
+    ///    with this amount of unlocked_mass
+    pub fn transfer_lock(
+        origin_coldkey: &T::AccountId,
+        destination_coldkey: &T::AccountId,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) -> DispatchResult {
+        let now = Self::get_current_block_as_u64();
+        let alpha_available = Self::available_stake(origin_coldkey, netuid);
+
+        if amount <= alpha_available {
+            return Ok(());
+        }
+
+        let transferred_unavailable = amount.saturating_sub(alpha_available);
+
+        match Lock::<T>::iter_prefix((origin_coldkey, netuid)).next() {
+            Some((hotkey, existing)) => {
+                let mut origin_lock = Self::roll_forward_lock(existing, now);
+                let transfer_unlocked = origin_lock.unlocked_mass.min(transferred_unavailable);
+                let transfer_locked =
+                    transferred_unavailable.saturating_sub(transfer_unlocked);
+
+                ensure!(
+                    transfer_locked <= origin_lock.locked_mass,
+                    Error::<T>::StakeUnavailable
+                );
+
+                let transfer_conviction = if transfer_locked.is_zero()
+                    || origin_lock.locked_mass.is_zero()
+                {
+                    U64F64::saturating_from_num(0)
+                } else {
+                    origin_lock
+                        .conviction
+                        .saturating_mul(U64F64::saturating_from_num(transfer_locked))
+                        .checked_div(U64F64::saturating_from_num(origin_lock.locked_mass))
+                        .unwrap_or_else(|| U64F64::saturating_from_num(0))
+                };
+
+                origin_lock.locked_mass = origin_lock.locked_mass.saturating_sub(transfer_locked);
+                origin_lock.unlocked_mass =
+                    origin_lock.unlocked_mass.saturating_sub(transfer_unlocked);
+                origin_lock.conviction =
+                    origin_lock.conviction.saturating_sub(transfer_conviction);
+                origin_lock.last_update = now;
+                Self::insert_lock_state(origin_coldkey, netuid, &hotkey, origin_lock);
+
+                if let Some((existing_hotkey, existing)) =
+                    Lock::<T>::iter_prefix((destination_coldkey, netuid)).next()
+                {
+                    ensure!(existing_hotkey == hotkey, Error::<T>::LockHotkeyMismatch);
+
+                    let mut destination_lock = Self::roll_forward_lock(existing, now);
+                    destination_lock.locked_mass =
+                        destination_lock.locked_mass.saturating_add(transfer_locked);
+                    destination_lock.unlocked_mass = destination_lock
+                        .unlocked_mass
+                        .saturating_add(transfer_unlocked);
+                    destination_lock.conviction = destination_lock
+                        .conviction
+                        .saturating_add(transfer_conviction);
+                    destination_lock.last_update = now;
+                    Self::insert_lock_state(destination_coldkey, netuid, &hotkey, destination_lock);
+                } else {
+                    Self::insert_lock_state(
+                        destination_coldkey,
+                        netuid,
+                        &hotkey,
+                        LockState {
+                            locked_mass: transfer_locked,
+                            unlocked_mass: transfer_unlocked,
+                            conviction: transfer_conviction,
+                            last_update: now,
+                        },
+                    );
+                }
+
+                Ok(())
+            }
+            None => Err(Error::<T>::NoExistingLock.into()),
+        }
+    }
 }

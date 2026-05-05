@@ -1327,9 +1327,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Enforce lock invariant: if the operation reduces total coldkey alpha on origin subnet
-        // (cross-coldkey transfer or cross-subnet move), the remaining amount must cover the lock.
-        if origin_coldkey != destination_coldkey || origin_netuid != destination_netuid {
+        // Enforce lock invariant: if the is cross-subnet move, the remaining amount must 
+        // cover the lock.
+        if origin_netuid != destination_netuid {
             Self::ensure_available_stake(origin_coldkey, origin_netuid, alpha_amount)?;
         }
 
