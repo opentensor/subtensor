@@ -57,6 +57,7 @@ use sp_core::{
 };
 use sp_runtime::Cow;
 use sp_runtime::generic::Era;
+use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
     AccountId32, ApplyExtrinsicResult, ConsensusEngineId, Percent, generic, impl_opaque_keys,
     traits::{
@@ -1562,6 +1563,29 @@ impl pallet_crowdloan::Config for Runtime {
     type MaxContributors = MaxContributors;
 }
 
+// Limit Orders
+parameter_types! {
+    pub const LimitOrdersPalletId: PalletId = PalletId(*b"bt/limit");
+    pub const LimitOrdersMaxOrdersPerBatch: u32 = 100;
+}
+
+pub struct LimitOrdersPalletHotkey;
+impl Get<AccountId> for LimitOrdersPalletHotkey {
+    fn get() -> AccountId {
+        PalletId(*b"bt/lmhky").into_account_truncating()
+    }
+}
+
+impl pallet_limit_orders::Config for Runtime {
+    type SwapInterface = SubtensorModule;
+    type TimeProvider = Timestamp;
+    type MaxOrdersPerBatch = LimitOrdersMaxOrdersPerBatch;
+    type PalletId = LimitOrdersPalletId;
+    type PalletHotkey = LimitOrdersPalletHotkey;
+    type WeightInfo = pallet_limit_orders::weights::SubstrateWeight<Runtime>;
+    type ChainId = ConfigurableChainId;
+}
+
 fn contracts_schedule<T: pallet_contracts::Config>() -> pallet_contracts::Schedule<T> {
     pallet_contracts::Schedule {
         limits: pallet_contracts::Limits {
@@ -1683,6 +1707,7 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
+        LimitOrders: pallet_limit_orders = 31,
     }
 );
 
@@ -1768,6 +1793,7 @@ mod benches {
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
+        [pallet_limit_orders, LimitOrders]
     );
 }
 

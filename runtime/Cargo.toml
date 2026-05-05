@@ -150,6 +150,9 @@ ark-serialize = { workspace = true, features = ["derive"] }
 # Crowdloan
 pallet-crowdloan.workspace = true
 
+# Limit Orders
+pallet-limit-orders.workspace = true
+
 # Mev Shield
 pallet-shield.workspace = true
 stp-shield.workspace = true
@@ -160,6 +163,7 @@ ethereum.workspace = true
 frame-metadata.workspace = true
 sp-io.workspace = true
 sp-tracing.workspace = true
+sp-keyring.workspace = true
 precompile-utils = { workspace = true, features = ["testing"] }
 
 [build-dependencies]
@@ -218,6 +222,7 @@ std = [
 	"subtensor-transaction-fee/std",
 	"serde_json/std",
 	"sp-io/std",
+	"sp-keyring/std",
 	"sp-tracing/std",
 	"log/std",
 	"safe-math/std",
@@ -225,6 +230,7 @@ std = [
 	"sp-genesis-builder/std",
 	"subtensor-precompiles/std",
 	"subtensor-runtime-common/std",
+	"pallet-limit-orders/std",
 	"pallet-crowdloan/std",
 	"pallet-babe/std",
 	"pallet-session/std",
@@ -328,7 +334,9 @@ runtime-benchmarks = [
 	"pallet-shield/runtime-benchmarks",
 	
 	"subtensor-runtime-common/runtime-benchmarks",
-	"subtensor-chain-extensions/runtime-benchmarks"
+	"subtensor-chain-extensions/runtime-benchmarks",
+	"pallet-limit-orders/runtime-benchmarks",
+	"subtensor-swap-interface/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
