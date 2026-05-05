@@ -24,7 +24,7 @@ pub trait WeightInfo {
     fn force_rotate() -> Weight;
 }
 
-/// Placeholder zero weights — overwritten by the benchmark output.
+/// Placeholder zero weights; overwritten by the benchmark output.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn add_member() -> Weight { Weight::zero() }

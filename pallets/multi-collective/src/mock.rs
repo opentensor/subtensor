@@ -51,8 +51,8 @@ pub enum CollectiveId {
     Beta,
     Gamma,
     Delta,
-    /// Intentionally NOT returned by `TestCollectives::collectives()` — used to
-    /// exercise the `CollectiveNotFound` error path in extrinsics.
+    /// Intentionally NOT returned by `TestCollectives::collectives()`; used
+    /// to exercise the `CollectiveNotFound` error path in extrinsics.
     Unknown,
 }
 
@@ -128,7 +128,7 @@ fn effective_collectives() -> Vec<Collective<CollectiveId, u64, [u8; 32]>> {
 
 /// Run `f` with `TestCollectives` temporarily returning the output of
 /// `override_fn`. An RAII guard clears the override when `f` returns *or
-/// panics* — so a `#[should_panic]` integrity test cannot leak state onto
+/// panics*, so a `#[should_panic]` integrity test cannot leak state onto
 /// other tests running on the same thread.
 pub fn with_collectives_override<R>(
     override_fn: fn() -> Vec<Collective<CollectiveId, u64, [u8; 32]>>,
@@ -157,7 +157,7 @@ impl CollectivesInfo<u64, [u8; 32]> for TestCollectives {
 // --- Recording stub for the `OnNewTerm` hook ---
 //
 // `OnMembersChanged` observations go through the pallet's `Event` enum
-// (MemberAdded / MemberRemoved / MemberSwapped / MembersSet) — see
+// (MemberAdded / MemberRemoved / MemberSwapped / MembersSet); see
 // `multi_collective_events()` below. `OnNewTerm` has no corresponding event,
 // so we keep a thread_local log for the rotation tests in Section 6.
 

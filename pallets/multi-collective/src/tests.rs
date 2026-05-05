@@ -5,8 +5,8 @@ use sp_core::U256;
 use sp_runtime::DispatchError;
 
 use crate::{
-    Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo, Error,
-    Event as CollectiveEvent, Pallet as MultiCollective, mock::*,
+    Collective, CollectiveInfo, CollectiveInspect, Error, Event as CollectiveEvent,
+    Pallet as MultiCollective, mock::*,
 };
 
 #[test]
@@ -97,7 +97,7 @@ fn add_member_rejects_duplicate() {
             Error::<Test>::AlreadyMember
         );
 
-        // Only one MemberAdded event — the failing call produced nothing.
+        // Only one MemberAdded event; the failing call produced nothing.
         assert_eq!(
             multi_collective_events(),
             vec![CollectiveEvent::MemberAdded {
@@ -141,7 +141,7 @@ fn add_member_respects_info_max() {
             MultiCollective::<Test>::member_count(CollectiveId::Alpha),
             5
         );
-        // Exactly five events — no event from the failing 6th.
+        // Exactly five events; nothing from the failing 6th.
         assert_eq!(multi_collective_events().len(), 5);
     });
 }
@@ -543,9 +543,9 @@ fn swap_member_rejects_self_swap() {
         ));
 
         // `remove` matches a member, so `NotMember` doesn't fire; the next
-        // check (`!contains(add)`) rejects because add is already present —
-        // as it is `remove` itself. Records current behavior; "swap with
-        // self" is a no-op the pallet refuses.
+        // check (`!contains(add)`) rejects because add is already present
+        // (it is `remove` itself). "Swap with self" is a no-op the pallet
+        // refuses.
         assert_noop!(
             MultiCollective::<Test>::swap_member(
                 RuntimeOrigin::root(),
@@ -579,7 +579,7 @@ fn swap_member_works_at_min_bound() {
             ));
         }
 
-        // Count-invariant swap is allowed even at min — swap doesn't go
+        // Count-invariant swap is allowed even at min: swap doesn't go
         // through the `TooFewMembers` check.
         assert_ok!(MultiCollective::<Test>::swap_member(
             RuntimeOrigin::root(),
@@ -818,7 +818,7 @@ fn set_members_rejects_duplicates() {
 }
 
 /// Setting a list identical to the current membership still emits a
-/// `MembersSet` event — the pallet doesn't short-circuit no-op sets.
+/// `MembersSet` event; the pallet doesn't short-circuit no-op sets.
 /// Pinned so downstream consumers know they must tolerate empty-diff calls.
 #[test]
 fn set_members_noop_still_fires_event() {
@@ -901,7 +901,7 @@ fn on_initialize_fires_all_matching_collectives() {
     TestState::build_and_execute(|| {
         // Advance through the first shared boundary at block 100. Delta fires
         // at 50, then both Beta and Delta fire at 100. Iteration order in
-        // `TestCollectives` is [Alpha, Beta, Gamma, Delta] — so within block
+        // `TestCollectives` is [Alpha, Beta, Gamma, Delta], so within block
         // 100 the log gets Beta before Delta.
         run_to_block(100);
 
@@ -981,7 +981,7 @@ fn inspect_is_member_basic() {
         let alice = U256::from(1);
         let mallory = U256::from(999);
 
-        // Empty collective — no membership.
+        // Empty collective: no membership.
         assert!(!MultiCollective::<Test>::is_member(
             CollectiveId::Alpha,
             &alice
@@ -1065,7 +1065,7 @@ fn inspect_member_count_matches_mutations() {
             1
         );
 
-        // `set_members` replaces wholesale — count reflects the new list length.
+        // `set_members` replaces wholesale; count reflects the new list length.
         assert_ok!(MultiCollective::<Test>::set_members(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -1099,7 +1099,7 @@ fn inspect_of_unknown_collective_returns_empty() {
     });
 }
 
-// `integrity_test_passes_on_valid_config` is implicit — the mock's
+// `integrity_test_passes_on_valid_config` is implicit: the mock's
 // auto-generated `__construct_runtime_integrity_test::runtime_integrity_tests`
 // runs `integrity_test()` against the default `TestCollectives` on every
 // `cargo test`. Listed in test output as `mock::...runtime_integrity_tests`.
@@ -1135,7 +1135,7 @@ fn bad_min_exceeds_info_max() -> Vec<Collective<CollectiveId, u64, [u8; 32]>> {
         id: CollectiveId::Alpha,
         info: CollectiveInfo {
             name: name_bytes(b"bad"),
-            // min > max — the collective can never satisfy both.
+            // min > max: the collective can never satisfy both.
             min_members: 5,
             max_members: Some(3),
             term_duration: None,
@@ -1150,7 +1150,7 @@ fn bad_term_duration_zero() -> Vec<Collective<CollectiveId, u64, [u8; 32]>> {
             name: name_bytes(b"bad"),
             min_members: 0,
             max_members: Some(5),
-            // Some(0) silently disables rotations — integrity_test rejects it.
+            // Some(0) silently disables rotations; integrity_test rejects it.
             term_duration: Some(0),
         },
     }]

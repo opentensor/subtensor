@@ -5,7 +5,7 @@ authors = ["Bittensor Nucleus Team"]
 edition.workspace = true
 license = "Apache-2.0"
 homepage = "https://bittensor.com"
-description = "A pallet for managing multiple collectives"
+description = "Membership for named collectives, with per-call origins and optional scheduled rotation."
 readme = "README.md"
 
 [lints]

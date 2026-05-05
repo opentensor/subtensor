@@ -1,3 +1,37 @@
+//! # Multi-Collective Pallet
+//!
+//! Stores the membership of one or more named collectives keyed by a
+//! runtime-defined `CollectiveId`. Each collective is configured by a
+//! `CollectivesInfo` impl: name, min/max members, optional term duration.
+//!
+//! ## Membership
+//!
+//! Members are kept sorted by `AccountId` in a per-collective `BoundedVec`.
+//! Four extrinsics mutate the set, each gated by its own origin:
+//! - [`Pallet::add_member`] (`T::AddOrigin`)
+//! - [`Pallet::remove_member`] (`T::RemoveOrigin`)
+//! - [`Pallet::swap_member`] (`T::SwapOrigin`)
+//! - [`Pallet::set_members`] (`T::SetOrigin`)
+//!
+//! Every mutation fires `T::OnMembersChanged` with the incoming and
+//! outgoing accounts.
+//!
+//! ## Rotations
+//!
+//! Collectives with `CollectiveInfo::term_duration = Some(d)` rotate on
+//! schedule: `on_initialize` calls `T::OnNewTerm::on_new_term(id)` whenever
+//! `block_number % d == 0`. The runtime-provided handler recomputes the
+//! membership and pushes it back through `set_members`.
+//!
+//! [`Pallet::force_rotate`] (gated by `T::RotateOrigin`) triggers the same
+//! hook on demand, for bootstrapping the first term or as a privileged
+//! override.
+//!
+//! ## Inspection
+//!
+//! Other pallets read membership through [`CollectiveInspect`], implemented
+//! by `Pallet<T>` over `Members<_>`.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -363,8 +397,8 @@ pub mod pallet {
         /// Restricted to collectives whose `CollectiveInfo::term_duration`
         /// is `Some(_)`. Curated collectives (Triumvirate, Proposers) are
         /// managed directly via `add_member` / `remove_member` /
-        /// `swap_member` / `set_members` and have no rotation hook
-        /// — refusing the call here surfaces a misconfigured rotate
+        /// `swap_member` / `set_members` and have no rotation hook, so
+        /// refusing the call here surfaces a misconfigured rotate
         /// extrinsic as `CollectiveDoesNotRotate` instead of silently
         /// consuming weight.
         #[pallet::call_index(4)]
@@ -416,7 +450,7 @@ impl<T: Config> Pallet<T> {
 
             assert!(
                 info.min_members <= storage_max,
-                "CollectiveInfo::min_members ({}) exceeds T::MaxMembers ({}) — collective cannot reach its min",
+                "CollectiveInfo::min_members ({}) exceeds T::MaxMembers ({}); collective cannot reach its min",
                 info.min_members,
                 storage_max,
             );
@@ -424,13 +458,13 @@ impl<T: Config> Pallet<T> {
             if let Some(max) = info.max_members {
                 assert!(
                     max <= storage_max,
-                    "CollectiveInfo::max_members ({}) exceeds T::MaxMembers ({}) — storage cannot hold this many",
+                    "CollectiveInfo::max_members ({}) exceeds T::MaxMembers ({}); storage cannot hold this many",
                     max,
                     storage_max,
                 );
                 assert!(
                     info.min_members <= max,
-                    "CollectiveInfo::min_members ({}) exceeds max_members ({}) — collective is unreachable",
+                    "CollectiveInfo::min_members ({}) exceeds max_members ({}); collective is unreachable",
                     info.min_members,
                     max,
                 );

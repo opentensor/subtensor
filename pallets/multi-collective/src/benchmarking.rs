@@ -38,7 +38,7 @@ mod benches {
 
     /// Worst case: pre-fill to `MaxMembers - 1` so the binary_search
     /// runs at full depth. The new account's insert position depends on
-    /// its `AccountId` hash — uniformly distributed but deterministic
+    /// its `AccountId` hash, uniformly distributed but deterministic
     /// across benchmark runs, and the per-element shift cost is
     /// constant-bounded by `MaxMembers × sizeof::<AccountId>`.
     #[benchmark]
