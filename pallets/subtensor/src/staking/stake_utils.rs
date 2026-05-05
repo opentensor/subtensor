@@ -810,6 +810,9 @@ impl<T: Config> Pallet<T> {
                 .saturating_add(fee_outflow.into()),
         );
 
+        // Cleanup locks if needed
+        Self::cleanup_lock_if_zero(coldkey, netuid);
+
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
         // Deposit and log the unstaking event.
@@ -904,6 +907,9 @@ impl<T: Config> Pallet<T> {
 
         // Record TAO inflow
         Self::record_tao_inflow(netuid, swap_result.amount_paid_in.into());
+
+        // Cleanup locks if needed
+        Self::cleanup_lock_if_zero(coldkey, netuid);
 
         LastColdkeyHotkeyStakeBlock::<T>::insert(coldkey, hotkey, Self::get_current_block_as_u64());
 
@@ -1169,6 +1175,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
+        // Ensure that unstaked amount is not greater than available to unstake (due to locks)
+        Self::ensure_available_stake(coldkey, netuid, alpha_unstaked)?;
+
         Ok(())
     }
 
@@ -1196,6 +1205,10 @@ impl<T: Config> Pallet<T> {
 
             // Get user's stake in this subnet
             let alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, *netuid);
+
+            // Ensure that unstaked amount is not greater than available to unstake (due to locks)
+            // for this subnet.
+            Self::ensure_available_stake(coldkey, *netuid, alpha)?;
 
             if Self::validate_remove_stake(coldkey, hotkey, *netuid, alpha, alpha, false).is_ok() {
                 unstaking_any = true;
@@ -1312,6 +1325,12 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::TransferDisallowed
                 );
             }
+        }
+
+        // Enforce lock invariant: if the operation reduces total coldkey alpha on origin subnet
+        // (cross-coldkey transfer or cross-subnet move), the remaining amount must cover the lock.
+        if origin_coldkey != destination_coldkey || origin_netuid != destination_netuid {
+            Self::ensure_available_stake(origin_coldkey, origin_netuid, alpha_amount)?;
         }
 
         Ok(())

@@ -171,8 +171,8 @@ mod errors {
         InvalidIdentity,
         /// Subnet mechanism does not exist.
         MechanismDoesNotExist,
-        /// Trying to unstake your lock amount.
-        CannotUnstakeLock,
+        /// Trying to unstake or re-lock the locked amount.
+        StakeUnavailable,
         /// Trying to perform action on non-existent subnet.
         SubnetNotExists,
         /// Maximum commit limit reached
@@ -297,7 +297,17 @@ mod errors {
         DisabledTemporarily,
         /// Registration Price Limit Exceeded
         RegistrationPriceLimitExceeded,
+        /// Lock hotkey mismatch: existing lock is for a different hotkey.
+        LockHotkeyMismatch,
+        /// Insufficient stake on subnet to cover the lock amount.
+        InsufficientStakeForLock,
+        /// No existing lock found for the given coldkey and subnet.
+        NoExistingLock,
+        /// There is already an active lock for the given coldkey.
+        ActiveLockExists,
         /// A system account cannot be used in this operation
         CannotUseSystemAccount,
+        /// Trying to unlock more than locked
+        UnlockAmountTooHigh,
     }
 }

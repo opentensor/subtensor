@@ -397,6 +397,8 @@ pub mod pallet {
         RemoveNetworkTransactionKeyLastBlock,
         /// Phase 17: Remove staking operation rate limiter entries for this netuid.
         RemoveNetworkStakingOperationRateLimiter,
+        /// Remove per-coldkey stake `Lock` entries for this netuid (runs after hotkey totals; checkpointed).
+        DestroyAlphaInOutStakesClearLocks,
     }
 
     /// The Max Burn HalfLife Settable
@@ -1541,6 +1543,65 @@ pub mod pallet {
         SafeFloat, // Shares in unlimited precision
         ValueQuery,
     >;
+
+    /// Lock state for a coldkey on a subnet.
+    #[crate::freeze_struct("13703236126f1b2b")]
+    #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
+    pub struct LockState {
+        /// Locked amount, stays constant unless user makes changes.
+        pub locked_mass: AlphaBalance,
+        /// Unlocked amount, gradually decays over time.
+        pub unlocked_mass: AlphaBalance,
+        /// Matured decaying score (converges to locked_mass over time with MaturityRate rate).
+        pub conviction: U64F64,
+        /// Block number of last roll-forward.
+        pub last_update: u64,
+    }
+
+    /// --- DMAP ( coldkey, netuid, hotkey ) --> LockState | Exponential lock per coldkey per subnet.
+    #[pallet::storage]
+    pub type Lock<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // coldkey
+            NMapKey<Identity, NetUid>,               // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hotkey
+        ),
+        LockState,
+        OptionQuery,
+    >;
+
+    /// --- DMAP ( netuid, hotkey ) --> LockState | Total lock per hotkey per subnet.
+    #[pallet::storage]
+    pub type HotkeyLock<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid, // subnet
+        Blake2_128Concat,
+        T::AccountId, // hotkey
+        LockState,    // Total merged lock
+        OptionQuery,
+    >;
+
+    /// Default lock maturity timescale: ~90 days at 12s blocks.
+    #[pallet::type_value]
+    pub fn DefaultMaturityRate<T: Config>() -> u64 {
+        7200 * 90
+    }
+
+    /// --- ITEM( tau_blocks ) | Maturity timescale in blocks for exponential lock.
+    #[pallet::storage]
+    pub type MaturityRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultMaturityRate<T>>;
+
+    /// Default unlock timescale: ~30 days at 12s blocks.
+    #[pallet::type_value]
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
+        7200 * 30
+    }
+
+    /// --- ITEM( tau_blocks ) | Unlock timescale in blocks for exponential unlocking.
+    #[pallet::storage]
+    pub type UnlockRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultUnlockRate<T>>;
 
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]

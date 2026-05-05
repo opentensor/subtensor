@@ -430,6 +430,13 @@ impl<T: Config> Pallet<T> {
         // 1) Initialize the weight meter from the remaining weight.
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            HotkeyLock<T>,
+            netuid
+        );
+
         // 2) Owner / lock cost.
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
@@ -908,6 +915,57 @@ impl<T: Config> Pallet<T> {
             TotalHotkeyAlpha::<T>::remove(&hotkey, netuid);
             TotalHotkeyShares::<T>::remove(&hotkey, netuid);
             TotalHotkeySharesV2::<T>::remove(&hotkey, netuid);
+        }
+
+        (weight_meter.consumed(), read_all)
+    }
+
+    pub fn destroy_alpha_in_out_stakes_clear_locks(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let r = T::DbWeight::get().reads(1);
+        let w = T::DbWeight::get().writes(1);
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let mut read_all = true;
+
+        let iter = match LastKeptRawKey::<T>::get() {
+            Some(key) => Lock::<T>::iter_from(key),
+            None => Lock::<T>::iter(),
+        };
+
+        for ((coldkey, this_netuid, hotkey), _) in iter {
+            if !weight_meter.can_consume(r) {
+                read_all = false;
+                LastKeptRawKey::<T>::set(Some(Lock::<T>::hashed_key_for((
+                    &coldkey,
+                    this_netuid,
+                    &hotkey,
+                ))));
+                break;
+            }
+            weight_meter.consume(r);
+
+            if this_netuid != netuid {
+                continue;
+            }
+
+            if !weight_meter.can_consume(w) {
+                read_all = false;
+                LastKeptRawKey::<T>::set(Some(Lock::<T>::hashed_key_for((
+                    &coldkey,
+                    this_netuid,
+                    &hotkey,
+                ))));
+                break;
+            }
+            weight_meter.consume(w);
+
+            Lock::<T>::remove((coldkey, this_netuid, hotkey));
+        }
+
+        if read_all {
+            LastKeptRawKey::<T>::set(None);
         }
 
         (weight_meter.consumed(), read_all)

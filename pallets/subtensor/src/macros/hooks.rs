@@ -338,6 +338,20 @@ mod hooks {
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
+                                    DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesClearLocks,
+                                );
+                            }
+                            (weight_used, done)
+                        }
+
+                        DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakesClearLocks => {
+                            let (weight_used, done) = Self::destroy_alpha_in_out_stakes_clear_locks(
+                                *netuid,
+                                remaining_weight,
+                            );
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::insert(
+                                    *netuid,
                                     DissolvedNetworksCleanupPhaseEnum::DestroyAlphaInOutStakes,
                                 );
                             }

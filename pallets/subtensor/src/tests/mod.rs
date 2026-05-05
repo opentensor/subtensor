@@ -11,6 +11,7 @@ mod epoch;
 mod epoch_logs;
 mod evm;
 mod leasing;
+mod locks;
 mod math;
 mod mechanism;
 mod migration;
