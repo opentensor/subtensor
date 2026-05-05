@@ -774,7 +774,7 @@ fn test_add_stake_burn_with_limit_success() {
 }
 
 #[test]
-fn test_add_stake_burn_non_owner_success() {
+fn test_add_stake_burn_non_owner_succeeds() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(2);
