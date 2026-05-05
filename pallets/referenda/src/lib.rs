@@ -156,12 +156,19 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+/// Pinned at 0 to satisfy try-runtime CLI's pre/post-upgrade checks. The
+/// project tracks migrations via a per-pallet `HasMigrationRun` map (see
+/// `pallet-crowdloan`), so this value is not bumped on schema changes.
+pub const STORAGE_VERSION: frame_support::traits::StorageVersion =
+    frame_support::traits::StorageVersion::new(0);
+
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
 
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::config]
