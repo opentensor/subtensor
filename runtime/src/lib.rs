@@ -12,6 +12,7 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
+pub mod governance;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
@@ -881,8 +882,7 @@ impl CommitmentsInterface for CommitmentsI {
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
-    pub const MaxScheduledPerBlock: u32 = 50;
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
+    pub const MaxScheduledPerBlock: u32 = 70;
 }
 
 /// Used the compare the privilege of an origin inside the scheduler.
@@ -1119,7 +1119,6 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
-    // 0 days
     pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(1_000_000); // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = prod_or_fast!(24 * 60 * 60 / 12, 1); // 1 day
@@ -1645,6 +1644,330 @@ impl pallet_contracts::Config for Runtime {
     type ApiVersion = ();
 }
 
+// ============================================================================
+// Governance: multi-collective + signed-voting + referenda
+// ============================================================================
+
+use codec::{DecodeWithMemTracking, MaxEncodedLen};
+use frame_support::traits::AsEnsureOriginWithArg;
+use pallet_multi_collective::{
+    Collective as McCollective, CollectiveInfo as McCollectiveInfo,
+    CollectiveInspect as McCollectiveInspect, CollectivesInfo as McCollectivesInfo,
+};
+use subtensor_runtime_common::OnMembersChanged as McOnMembersChanged;
+/// Identifier of a collective managed by `pallet-multi-collective`.
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo,
+)]
+pub enum GovernanceCollectiveId {
+    /// Accounts authorized to submit proposals on the triumvirate track.
+    Proposers,
+    /// Three-member approval body for track 0.
+    Triumvirate,
+    /// Top validators — one half of the collective oversight voter set.
+    Economic,
+    /// Top subnet owners — one half of the collective oversight voter set.
+    Building,
+}
+
+impl pallet_multi_collective::CanRotate for GovernanceCollectiveId {
+    fn can_rotate(&self) -> bool {
+        match self {
+            // Ranked by on-chain stake / subnet data — rotated by
+            // `governance::collective_management::CollectiveManagement::on_new_term`.
+            Self::Economic | Self::Building => true,
+            // Curated by Root via the membership extrinsics; no ranking
+            // source, so `force_rotate` would be a no-op.
+            Self::Proposers | Self::Triumvirate => false,
+        }
+    }
+}
+
+/// Voting scheme for each referenda track. Only `Signed` is supported; the
+/// "anonymous" scheme is replaced with signed voting per design.
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo,
+)]
+pub enum GovernanceVotingScheme {
+    Signed,
+}
+
+/// A voter or proposer set composed of one or more collectives, evaluated by
+/// reading `pallet-multi-collective` storage on demand.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GovernanceMemberSet {
+    Single(GovernanceCollectiveId),
+    Union(Vec<GovernanceCollectiveId>),
+}
+
+impl SetLike<AccountId> for GovernanceMemberSet {
+    fn contains(&self, who: &AccountId) -> bool {
+        match self {
+            Self::Single(id) => <MultiCollective as McCollectiveInspect<
+                AccountId,
+                GovernanceCollectiveId,
+            >>::is_member(*id, who),
+            Self::Union(ids) => ids.iter().any(|id| {
+                <MultiCollective as McCollectiveInspect<
+                    AccountId,
+                    GovernanceCollectiveId,
+                >>::is_member(*id, who)
+            }),
+        }
+    }
+
+    fn len(&self) -> u32 {
+        match self {
+            Self::Single(id) => <MultiCollective as McCollectiveInspect<
+                AccountId,
+                GovernanceCollectiveId,
+            >>::member_count(*id),
+            // Union members can overlap (a coldkey may be both a top
+            // validator on Economic and a top subnet owner on Building).
+            // A naive sum of `member_count` inflates the denominator that
+            // signed-voting captures as `total` at poll creation; dual
+            // members count twice in `total` but can vote at most once,
+            // biasing both `fast_track_threshold` and `cancel_threshold`
+            // upward in proportion to the overlap. Deduplicate so `len()`
+            // returns the true cardinality of accounts satisfying
+            // `contains`.
+            Self::Union(ids) => {
+                let mut accounts: Vec<AccountId> = Vec::new();
+                for id in ids {
+                    accounts.extend(<MultiCollective as McCollectiveInspect<
+                        AccountId,
+                        GovernanceCollectiveId,
+                    >>::members_of(*id));
+                }
+                accounts.sort();
+                accounts.dedup();
+                accounts.len() as u32
+            }
+        }
+    }
+}
+
+parameter_types! {
+    /// Storage bound on `pallet-multi-collective::Members<_>`. Must be ≥ the
+    /// largest `max_members` declared in `SubtensorCollectives`.
+    pub const MultiCollectiveMaxMembers: u32 = 20;
+    /// Maximum number of active referenda across all tracks.
+    pub const ReferendaMaxQueued: u32 = 20;
+    pub const GovernanceSignedScheme: GovernanceVotingScheme = GovernanceVotingScheme::Signed;
+    /// 60 days mainnet / 100 blocks fast-runtime.
+    pub const GovernanceCollectiveTermDuration: BlockNumber = prod_or_fast!(432_000, 100);
+    /// 7 days mainnet / 50 blocks fast-runtime — triumvirate voting window.
+    pub const GovernanceTriumvirateDecisionPeriod: BlockNumber = prod_or_fast!(50_400, 50);
+    /// 24 hours mainnet / 30 blocks fast-runtime — collective Review delay.
+    pub const GovernanceCollectiveInitialDelay: BlockNumber = prod_or_fast!(7200, 30);
+    /// Target size of each ranked collective (Economic + Building).
+    /// Matches the `max_members` declared in `SubtensorCollectives`.
+    pub const GovernanceRankedCollectiveSize: u32 = 16;
+    /// Minimum subnet age for its owner to be eligible for the Building
+    /// collective: 180 days mainnet / 100 blocks fast-runtime.
+    pub const GovernanceMinSubnetAge: BlockNumber = prod_or_fast!(180 * DAYS, 100);
+}
+
+/// Static list of collectives. Adding a variant to `GovernanceCollectiveId`
+/// forces an update here via exhaustive `match` in runtime tests.
+pub struct SubtensorCollectives;
+
+impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
+    type Id = GovernanceCollectiveId;
+
+    fn collectives() -> impl Iterator<Item = McCollective<Self::Id, BlockNumber, [u8; 32]>> {
+        fn name(s: &[u8]) -> [u8; 32] {
+            let mut out = [0u8; 32];
+            out.iter_mut()
+                .zip(s.iter())
+                .for_each(|(dst, src)| *dst = *src);
+            out
+        }
+
+        [
+            McCollective {
+                id: GovernanceCollectiveId::Proposers,
+                info: McCollectiveInfo {
+                    name: name(b"otf"),
+                    min_members: 1,
+                    max_members: Some(20),
+                    term_duration: None,
+                },
+            },
+            McCollective {
+                id: GovernanceCollectiveId::Triumvirate,
+                info: McCollectiveInfo {
+                    name: name(b"triumvirate"),
+                    min_members: 3,
+                    max_members: Some(3),
+                    term_duration: None,
+                },
+            },
+            McCollective {
+                id: GovernanceCollectiveId::Economic,
+                info: McCollectiveInfo {
+                    name: name(b"economic"),
+                    min_members: 1,
+                    max_members: Some(16),
+                    term_duration: Some(GovernanceCollectiveTermDuration::get()),
+                },
+            },
+            McCollective {
+                id: GovernanceCollectiveId::Building,
+                info: McCollectiveInfo {
+                    name: name(b"building"),
+                    min_members: 1,
+                    max_members: Some(16),
+                    term_duration: Some(GovernanceCollectiveTermDuration::get()),
+                },
+            },
+        ]
+        .into_iter()
+    }
+}
+
+/// Routes membership removals from `pallet-multi-collective` into
+/// `pallet-signed-voting` so a member leaving a collective mid-referendum
+/// has their vote reverted.
+pub struct GovernanceVoteCleanup;
+
+impl McOnMembersChanged<GovernanceCollectiveId, AccountId> for GovernanceVoteCleanup {
+    fn on_members_changed(
+        _collective_id: GovernanceCollectiveId,
+        _incoming: &[AccountId],
+        outgoing: &[AccountId],
+    ) {
+        for who in outgoing {
+            SignedVoting::remove_votes_for(who);
+        }
+    }
+
+    fn weight() -> Weight {
+        // Worst-case `remove_votes_for` for every outgoing member. For
+        // each, the implementation iterates every entry in `TallyOf`
+        // (bounded by `ReferendaMaxQueued`) and, for each poll where the
+        // voter is recorded, takes the vote and updates the tally —
+        // which in turn calls `Polls::on_tally_updated`.
+        let outgoing_max = MultiCollectiveMaxMembers::get() as u64;
+        let polls_max = ReferendaMaxQueued::get() as u64;
+        let db = <Runtime as frame_system::Config>::DbWeight::get();
+        // Per-poll: VotingFor::take + TallyOf::get + TallyOf::insert
+        // (= 2 reads + 2 writes), plus the cost of `on_tally_updated`.
+        let per_poll =
+            db.reads_writes(2, 2)
+                .saturating_add(<Referenda as subtensor_runtime_common::Polls<
+                AccountId,
+            >>::on_tally_updated_weight());
+        per_poll.saturating_mul(outgoing_max.saturating_mul(polls_max))
+    }
+}
+
+impl pallet_multi_collective::Config for Runtime {
+    type CollectiveId = GovernanceCollectiveId;
+    type Collectives = SubtensorCollectives;
+    type AddOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type SetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type OnMembersChanged = GovernanceVoteCleanup;
+    type OnNewTerm = governance::collective_management::CollectiveManagement;
+    type MaxMembers = MultiCollectiveMaxMembers;
+    type WeightInfo = pallet_multi_collective::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = MultiCollectiveBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct MultiCollectiveBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_multi_collective::BenchmarkHelper<GovernanceCollectiveId>
+    for MultiCollectiveBenchmarkHelper
+{
+    fn collective() -> GovernanceCollectiveId {
+        // Proposers: max_members = MultiCollectiveMaxMembers, min_members = 0,
+        // and not rotatable — so the pallet's member-management benchmarks
+        // can fill and drain freely.
+        GovernanceCollectiveId::Proposers
+    }
+
+    fn rotatable_collective() -> GovernanceCollectiveId {
+        GovernanceCollectiveId::Economic
+    }
+}
+
+impl pallet_signed_voting::Config for Runtime {
+    type Scheme = GovernanceSignedScheme;
+    type Polls = Referenda;
+}
+
+impl pallet_referenda::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type Scheduler = Scheduler;
+    type Preimages = Preimage;
+    type MaxQueued = ReferendaMaxQueued;
+    type KillOrigin = EnsureRoot<AccountId>;
+    type Tracks = governance::tracks::SubtensorTracks;
+    type BlockNumberProvider = System;
+    type OnPollCreated = SignedVoting;
+    type OnPollCompleted = SignedVoting;
+    type WeightInfo = pallet_referenda::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ReferendaBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct ReferendaBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_referenda::BenchmarkHelper<u8, AccountId, RuntimeCall> for ReferendaBenchmarkHelper {
+    /// Track 0: `triumvirate` (PassOrFail with `Review { track: 1 }`).
+    fn track_passorfail() -> u8 {
+        0
+    }
+    /// Track 1: `review` (Adjustable).
+    fn track_adjustable() -> u8 {
+        1
+    }
+    /// Adds a fresh account to the `Proposers` collective on every call so
+    /// `submit` finds it in the proposer set. Idempotent failures (already
+    /// a member) are ignored so multiple benchmarks can call it.
+    fn proposer() -> AccountId {
+        let proposer: AccountId = sp_core::crypto::AccountId32::new([1u8; 32]).into();
+        let _ = pallet_multi_collective::Pallet::<Runtime>::add_member(
+            frame_system::RawOrigin::Root.into(),
+            GovernanceCollectiveId::Proposers,
+            proposer.clone(),
+        );
+        proposer
+    }
+    fn call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::remark {
+            remark: alloc::vec![],
+        })
+    }
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -1683,6 +2006,11 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
+
+        // Governance
+        MultiCollective: pallet_multi_collective = 31,
+        SignedVoting: pallet_signed_voting = 32,
+        Referenda: pallet_referenda = 33,
     }
 );
 
@@ -1768,6 +2096,7 @@ mod benches {
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
+        [pallet_referenda, Referenda]
     );
 }
 

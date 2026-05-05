@@ -9,17 +9,19 @@ use runtime_common::prod_or_fast;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    MultiSignature, Vec,
+    MultiSignature, Perbill, Vec,
     traits::{IdentifyAccount, Verify},
 };
 use subtensor_macros::freeze_struct;
 
 pub use currency::*;
 pub use evm_context::*;
+pub use traits::*;
 pub use transaction_error::*;
 
 mod currency;
 mod evm_context;
+mod traits;
 mod transaction_error;
 
 /// Balance of an account.
@@ -440,6 +442,35 @@ impl TypeInfo for NetUidStorageIndex {
     type Identity = <u16 as TypeInfo>::Identity;
     fn type_info() -> scale_info::Type {
         <u16 as TypeInfo>::type_info()
+    }
+}
+
+#[derive(
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    PartialEq,
+    Eq,
+    Clone,
+    Copy,
+    TypeInfo,
+    Debug,
+)]
+#[freeze_struct("51505f4d98347bff")]
+pub struct VoteTally {
+    pub approval: Perbill,
+    pub rejection: Perbill,
+    pub abstention: Perbill,
+}
+
+impl Default for VoteTally {
+    fn default() -> Self {
+        Self {
+            approval: Perbill::zero(),
+            rejection: Perbill::zero(),
+            abstention: Perbill::one(),
+        }
     }
 }
 

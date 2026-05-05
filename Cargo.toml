@@ -63,6 +63,9 @@ pallet-subtensor = { path = "pallets/subtensor", default-features = false }
 pallet-subtensor-swap = { path = "pallets/swap", default-features = false }
 pallet-subtensor-swap-runtime-api = { path = "pallets/swap/runtime-api", default-features = false }
 pallet-subtensor-swap-rpc = { path = "pallets/swap/rpc", default-features = false }
+pallet-multi-collective = { path = "pallets/multi-collective", default-features = false }
+pallet-signed-voting = { path = "pallets/signed-voting", default-features = false }
+pallet-referenda = { path = "pallets/referenda", default-features = false }
 procedural-fork = { path = "support/procedural-fork", default-features = false }
 safe-math = { path = "primitives/safe-math", default-features = false }
 share-pool = { path = "primitives/share-pool", default-features = false }
@@ -86,6 +89,7 @@ enumflags2 = "0.7.9"
 futures = "0.3.30"
 hex = { version = "0.4", default-features = false }
 hex-literal = "0.4.1"
+impl-trait-for-tuples = "0.2.3"
 jsonrpsee = { version = "0.24.9", default-features = false }
 libsecp256k1 = { version = "0.7.2", default-features = false }
 lencode = "0.1.6"
@@ -116,7 +120,7 @@ toml_edit = "0.22"
 derive-syn-parse = "0.2"
 Inflector = "0.11"
 cfg-expr = "0.15"
-itertools = "0.10"
+itertools = { version = "0.10", default-features = false }
 macro_magic = { version = "0.5", default-features = false }
 frame-support-procedural-tools = { version = "10.0.0", default-features = false }
 proc-macro-warning = { version = "1", default-features = false }
