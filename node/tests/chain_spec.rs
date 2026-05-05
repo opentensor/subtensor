@@ -3,7 +3,6 @@ use sp_core::sr25519;
 // use sp_consensus_grandpa::AuthorityId as GrandpaId;
 
 use node_subtensor::chain_spec::*;
-
 #[test]
 fn test_get_from_seed() {
     let seed = "WoOt";

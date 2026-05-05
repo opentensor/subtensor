@@ -55,7 +55,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
             .parse()
             .unwrap(),
     ])
-    .with_protocol_id("bittensor")
+    .with_protocol_id("bittensor-testnet")
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
     .with_genesis_config_patch(testnet_genesis(
