@@ -1201,6 +1201,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type PrecompileCleanupInterface = subtensor_precompiles::PrecompileCleanup;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;

@@ -411,6 +411,11 @@ impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
     fn purge_netuid(_netuid: NetUid) {}
 }
 
+pub struct PrecompileCleanupI;
+impl pallet_subtensor::PrecompileCleanupInterface for PrecompileCleanupI {
+    fn purge_netuid(_netuid: NetUid) {}
+}
+
 impl pallet_subtensor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
@@ -482,6 +487,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type PrecompileCleanupInterface = PrecompileCleanupI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;

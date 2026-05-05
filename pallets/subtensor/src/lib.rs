@@ -2857,3 +2857,8 @@ impl<T> ProxyInterface<T> for () {
 pub trait CommitmentsInterface {
     fn purge_netuid(netuid: NetUid);
 }
+
+/// EVM precompile crates implement this to clean up storage when a subnet is removed.
+pub trait PrecompileCleanupInterface {
+    fn purge_netuid(netuid: NetUid);
+}

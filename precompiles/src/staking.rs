@@ -75,6 +75,22 @@ pub type AllowancesStorage = StorageDoubleMap<
     ValueQuery,
 >;
 
+/// Remove all AllowancesStorage entries whose key contains the given netuid.
+pub fn purge_netuid_allowances(netuid: u16) {
+    let to_remove: Vec<(H160, (H160, u16, u64))> = AllowancesStorage::iter()
+        .filter_map(|(approver, (spender, n, counter), _)| {
+            if n == netuid {
+                Some((approver, (spender, n, counter)))
+            } else {
+                None
+            }
+        })
+        .collect();
+    for (approver, key) in to_remove {
+        AllowancesStorage::remove(approver, key);
+    }
+}
+
 // Old StakingPrecompile had ETH-precision in values, which was not alligned with Substrate API. So
 // it's kinda deprecated, but exists for backward compatibility. Eventually, we should remove it
 // to stop supporting both precompiles.
@@ -2048,6 +2064,31 @@ mod tests {
 
             let stake_after = stake_for(&hotkey, &caller_account, netuid);
             assert_eq!(stake_after, stake_before);
+        });
+    }
+
+    #[test]
+    fn purge_netuid_allowances_removes_only_target_netuid() {
+        sp_io::TestExternalities::default().execute_with(|| {
+            let approver = H160::from_low_u64_be(1);
+            let spender = H160::from_low_u64_be(2);
+            let netuid_a: u16 = 5;
+            let netuid_b: u16 = 7;
+
+            let counter: u64 = 0;
+            AllowancesStorage::insert(approver, (spender, netuid_a, counter), U256::from(100));
+            AllowancesStorage::insert(approver, (spender, netuid_b, counter), U256::from(200));
+
+            purge_netuid_allowances(netuid_a);
+
+            assert_eq!(
+                AllowancesStorage::get(approver, (spender, netuid_a, counter)),
+                U256::zero(),
+            );
+            assert_eq!(
+                AllowancesStorage::get(approver, (spender, netuid_b, counter)),
+                U256::from(200),
+            );
         });
     }
 }

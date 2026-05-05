@@ -16,7 +16,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::CommitmentsInterface;
+use crate::{CommitmentsInterface, PrecompileCleanupInterface};
 use safe_math::*;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
@@ -218,6 +218,7 @@ impl<T: Config> Pallet<T> {
         Self::destroy_alpha_in_out_stakes(netuid)?;
         T::SwapInterface::clear_protocol_liquidity(netuid)?;
         T::CommitmentsInterface::purge_netuid(netuid);
+        T::PrecompileCleanupInterface::purge_netuid(netuid);
 
         // --- Remove the network
         Self::remove_network(netuid);
@@ -273,8 +274,12 @@ impl<T: Config> Pallet<T> {
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
+        // Strip IsNetworkMember for every hotkey on this subnet and retain a
+        // snapshot for the orphan-hotkey cleanup pass further down.
+        let mut subnet_hotkeys: Vec<T::AccountId> = Vec::with_capacity(keys.len());
         for (_uid, key) in keys {
-            IsNetworkMember::<T>::remove(key, netuid);
+            IsNetworkMember::<T>::remove(&key, netuid);
+            subnet_hotkeys.push(key);
         }
 
         // --- 10. Erase network parameters.
@@ -282,9 +287,14 @@ impl<T: Config> Pallet<T> {
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
         MaxAllowedUids::<T>::remove(netuid);
+        MinAllowedUids::<T>::remove(netuid);
         ImmunityPeriod::<T>::remove(netuid);
         ActivityCutoff::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
+        MaxWeightsLimit::<T>::remove(netuid);
+        AdjustmentAlpha::<T>::remove(netuid);
+        AdjustmentInterval::<T>::remove(netuid);
+        MinNonImmuneUids::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
@@ -303,6 +313,11 @@ impl<T: Config> Pallet<T> {
         SubnetExcessTao::<T>::remove(netuid);
         SubnetRootSellTao::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
+
+        // --- 12. Root / emission split parameters.
+        RootProp::<T>::remove(netuid);
+        RecycleOrBurn::<T>::remove(netuid);
+        RootClaimableThreshold::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
@@ -366,12 +381,71 @@ impl<T: Config> Pallet<T> {
         StakeWeight::<T>::remove(netuid);
         LoadedEmission::<T>::remove(netuid);
 
+        // --- 18b. Voting power.
+        let _ = VotingPower::<T>::clear_prefix(netuid, u32::MAX, None);
+        VotingPowerTrackingEnabled::<T>::remove(netuid);
+        VotingPowerDisableAtBlock::<T>::remove(netuid);
+        VotingPowerEmaAlpha::<T>::remove(netuid);
+
+        // --- 18c. Drop RootClaimable hotkey entries whose BTreeMap is now
+        // empty. finalize_all_subnet_root_dividends (called above) already
+        // stripped this netuid from every map via mutate, leaving some maps
+        // empty; here we just garbage-collect those entries.
+        let rc_hotkeys: sp_std::vec::Vec<T::AccountId> =
+            RootClaimable::<T>::iter().map(|(hot, _)| hot).collect();
+        for hot in rc_hotkeys {
+            if RootClaimable::<T>::get(&hot).is_empty() {
+                RootClaimable::<T>::remove(&hot);
+            }
+        }
+
+        // --- 18d. Hotkey orphan cleanup. Any hotkey that was registered on
+        // this subnet and has now lost its last IsNetworkMember entry is no
+        // longer reachable via any subnet, so drop its per-hotkey global
+        // bookkeeping (Owner, Delegates, OwnedHotkeys, StakingHotkeys,
+        // LastColdkeyHotkeyStakeBlock) to stop state piling up forever.
+        // subnet_hotkeys came from Keys::iter_prefix(netuid) where uid is the
+        // second key, so it cannot contain duplicates — Vec is fine.
+        let mut orphans: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
+        for hot in &subnet_hotkeys {
+            if IsNetworkMember::<T>::iter_prefix(hot).next().is_none() {
+                orphans.push(hot.clone());
+            }
+        }
+        for hot in &orphans {
+            let cold = Owner::<T>::get(hot);
+            Owner::<T>::remove(hot);
+            Delegates::<T>::remove(hot);
+            OwnedHotkeys::<T>::mutate(&cold, |v| v.retain(|h| h != hot));
+            if OwnedHotkeys::<T>::get(&cold).is_empty() {
+                OwnedHotkeys::<T>::remove(&cold);
+            }
+        }
+        // StakingHotkeys and LastColdkeyHotkeyStakeBlock are keyed by coldkey;
+        // scan all coldkeys that staked anywhere and strip references to any
+        // orphan hotkey.
+        if !orphans.is_empty() {
+            let staking_colds: Vec<T::AccountId> =
+                StakingHotkeys::<T>::iter().map(|(c, _)| c).collect();
+            for cold in staking_colds {
+                StakingHotkeys::<T>::mutate(&cold, |v| v.retain(|h| !orphans.contains(h)));
+                if StakingHotkeys::<T>::get(&cold).is_empty() {
+                    StakingHotkeys::<T>::remove(&cold);
+                }
+                for hot in &orphans {
+                    LastColdkeyHotkeyStakeBlock::<T>::remove(&cold, hot);
+                }
+            }
+        }
+
         // --- 19. DMAPs where netuid is the FIRST key: clear by prefix.
         let _ = BlockAtRegistration::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Axons::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = NeuronCertificates::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = Prometheus::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
+        // RootClaimed is already cleared by finalize_all_subnet_root_dividends above.
         let _ = PendingChildKeys::<T>::clear_prefix(netuid, u32::MAX, None);
         let _ = AssociatedEvmAddress::<T>::clear_prefix(netuid, u32::MAX, None);
 

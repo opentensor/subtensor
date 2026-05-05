@@ -308,6 +308,7 @@ impl pallet_subtensor::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type PrecompileCleanupInterface = PrecompileCleanupI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
@@ -347,6 +348,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
+    fn purge_netuid(_netuid: NetUid) {}
+}
+
+pub struct PrecompileCleanupI;
+impl pallet_subtensor::PrecompileCleanupInterface for PrecompileCleanupI {
     fn purge_netuid(_netuid: NetUid) {}
 }
 
