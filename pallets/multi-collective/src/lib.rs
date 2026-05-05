@@ -25,7 +25,7 @@ pub use weights::WeightInfo;
 pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
 type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
 
-#[frame_support::pallet(dev_mode)]
+#[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
@@ -35,7 +35,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type CollectiveId: Parameter + MaxEncodedLen + Copy + CanRotate;
+        type CollectiveId: Parameter + MaxEncodedLen + Copy;
 
         /// Provides per-collective information.
         type Collectives: CollectivesInfo<BlockNumberFor<Self>, CollectiveName, Id = Self::CollectiveId>;
@@ -51,6 +51,9 @@ pub mod pallet {
 
         /// Required origin for setting the full member list of a collective.
         type SetOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
+
+        /// Required origin for `force_rotate`.
+        type RotateOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, Self::CollectiveId>;
 
         /// The receiver of the signal for when the members of a collective have changed.
         type OnMembersChanged: OnMembersChanged<Self::CollectiveId, Self::AccountId>;
@@ -83,7 +86,7 @@ pub mod pallet {
         /// and whose `info.min_members == 0`, so member-management
         /// benchmarks can fill and drain freely.
         fn collective() -> CollectiveId;
-        /// A collective whose `CollectiveId::can_rotate()` is `true`,
+        /// A collective whose `CollectiveInfo::term_duration` is `Some`,
         /// for the `force_rotate` benchmark.
         fn rotatable_collective() -> CollectiveId;
     }
@@ -140,9 +143,9 @@ pub mod pallet {
         /// Duplicate accounts in member list.
         DuplicateAccounts,
         /// `force_rotate` was called for a collective whose
-        /// `CollectiveId::can_rotate()` is false. Such collectives are
-        /// managed by Root directly via the membership extrinsics and
-        /// have no rotation hook to trigger.
+        /// `CollectiveInfo::term_duration` is `None`. Such collectives
+        /// are managed directly via the membership extrinsics and have
+        /// no rotation hook to trigger.
         CollectiveDoesNotRotate,
     }
 
@@ -176,6 +179,8 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #![deny(clippy::expect_used)]
+
         #[pallet::call_index(0)]
         #[pallet::weight(
             T::WeightInfo::add_member().saturating_add(T::OnMembersChanged::weight())
@@ -261,18 +266,21 @@ pub mod pallet {
                 let pos_remove = members
                     .binary_search(&remove)
                     .map_err(|_| Error::<T>::NotMember)?;
-                ensure!(
-                    members.binary_search(&add).is_err(),
-                    Error::<T>::AlreadyMember
-                );
-                members.remove(pos_remove);
-                // `add` was absent before the removal, so it is still
-                // absent now; the search must return `Err(idx)`.
                 let pos_add = members
                     .binary_search(&add)
-                    .expect_err("add was checked absent above");
+                    .err()
+                    .ok_or(Error::<T>::AlreadyMember)?;
+                members.remove(pos_remove);
+                // After removing index `pos_remove`, every position strictly
+                // greater than it has shifted down by one. The branch guards
+                // `pos_add >= 1`, so `saturating_sub` is exact here.
+                let insert_at = if pos_remove < pos_add {
+                    pos_add.saturating_sub(1)
+                } else {
+                    pos_add
+                };
                 members
-                    .try_insert(pos_add, add.clone())
+                    .try_insert(insert_at, add.clone())
                     .map_err(|_| Error::<T>::TooManyMembers)?;
                 Ok(())
             })?;
@@ -342,18 +350,16 @@ pub mod pallet {
         /// outside of the natural `n % term_duration == 0` schedule in
         /// `on_initialize`. Used for the very first population (the
         /// natural rotation only fires after the first term boundary,
-        /// which can be days or months in) and as a Root override
+        /// which can be days or months in) and as a privileged override
         /// during incidents.
         ///
-        /// Restricted to collectives whose `CollectiveId::can_rotate()`
-        /// is true. Curated collectives (Triumvirate, Proposers) are
+        /// Restricted to collectives whose `CollectiveInfo::term_duration`
+        /// is `Some(_)`. Curated collectives (Triumvirate, Proposers) are
         /// managed directly via `add_member` / `remove_member` /
         /// `swap_member` / `set_members` and have no rotation hook
-        /// — refusing the call here surfaces a misconfigured Root
+        /// — refusing the call here surfaces a misconfigured rotate
         /// extrinsic as `CollectiveDoesNotRotate` instead of silently
         /// consuming weight.
-        ///
-        /// Origin: Root.
         #[pallet::call_index(4)]
         #[pallet::weight(
             T::WeightInfo::force_rotate().saturating_add(T::OnNewTerm::weight())
@@ -362,15 +368,12 @@ pub mod pallet {
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            T::RotateOrigin::ensure_origin(origin, &collective_id)?;
+            let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
             ensure!(
-                collective_id.can_rotate(),
+                info.term_duration.is_some(),
                 Error::<T>::CollectiveDoesNotRotate
             );
-            // Existence check after the rotatability gate, so a typo'd
-            // id still surfaces `CollectiveNotFound` if it was meant to
-            // be rotatable.
-            T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
             // The hook returns `Weight` so `on_initialize` can accumulate
             // actual block weight; `force_rotate` is Root-only and just
             // pays the worst-case bound, no refund.
@@ -450,18 +453,6 @@ pub struct CollectiveInfo<Moment, Name> {
     pub max_members: Option<u32>,
     /// The duration of the term for a collective.
     pub term_duration: Option<Moment>,
-}
-
-/// Whether a `CollectiveId` represents a rotatable collective. Implemented
-/// by the runtime on its concrete `CollectiveId` enum and consumed by
-/// `force_rotate` to refuse calls for collectives that have no rotation
-/// source (e.g. Triumvirate / Proposers — managed by Root directly).
-///
-/// Kept as a property of the *id* rather than `CollectiveInfo` so the
-/// rotatability of each collective is documented at the variant
-/// definition site, not in a separate config table.
-pub trait CanRotate {
-    fn can_rotate(&self) -> bool;
 }
 
 /// Collective groups the information of a collective with its corresponding identifier.

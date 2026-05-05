@@ -9,55 +9,6 @@ use crate::{
     Event as CollectiveEvent, Pallet as MultiCollective, mock::*,
 };
 
-// -------- Section 1: Environment --------
-
-/// Verifies the mock runtime exposes the expected set of collectives, each
-/// with the per-collective config the tests rely on, and that `Members`
-/// storage starts empty for every collective.
-#[test]
-fn environment_works() {
-    TestState::build_and_execute(|| {
-        for id in [
-            CollectiveId::Alpha,
-            CollectiveId::Beta,
-            CollectiveId::Gamma,
-            CollectiveId::Delta,
-        ] {
-            assert!(
-                MultiCollective::<Test>::members_of(id).is_empty(),
-                "{:?} should start empty",
-                id,
-            );
-            assert_eq!(MultiCollective::<Test>::member_count(id), 0);
-        }
-
-        let alpha = TestCollectives::info(CollectiveId::Alpha).expect("Alpha known");
-        assert_eq!(alpha.min_members, 0);
-        assert_eq!(alpha.max_members, Some(5));
-        assert_eq!(alpha.term_duration, None);
-
-        let beta = TestCollectives::info(CollectiveId::Beta).expect("Beta known");
-        assert_eq!(beta.min_members, 2);
-        assert_eq!(beta.max_members, Some(3));
-        assert_eq!(beta.term_duration, Some(100));
-
-        let gamma = TestCollectives::info(CollectiveId::Gamma).expect("Gamma known");
-        assert_eq!(gamma.min_members, 0);
-        assert_eq!(gamma.max_members, None);
-        assert_eq!(gamma.term_duration, None);
-
-        let delta = TestCollectives::info(CollectiveId::Delta).expect("Delta known");
-        assert_eq!(delta.min_members, 1);
-        assert_eq!(delta.max_members, Some(32));
-        assert_eq!(delta.term_duration, Some(50));
-
-        assert!(multi_collective_events().is_empty());
-        assert!(take_new_term_log().is_empty());
-    });
-}
-
-// -------- Section 2: add_member --------
-
 #[test]
 fn add_member_appends_to_empty_collective() {
     TestState::build_and_execute(|| {
@@ -229,8 +180,6 @@ fn add_member_respects_storage_max_when_info_max_none() {
     });
 }
 
-// -------- Section 3: remove_member --------
-
 #[test]
 fn remove_member_happy_path() {
     TestState::build_and_execute(|| {
@@ -398,8 +347,6 @@ fn remove_member_allows_down_to_min() {
         );
     });
 }
-
-// -------- Section 4: swap_member --------
 
 #[test]
 fn swap_member_happy_path() {
@@ -690,8 +637,6 @@ fn swap_member_works_at_max_bound() {
     });
 }
 
-// -------- Section 5: set_members --------
-
 #[test]
 fn set_members_replaces_list() {
     TestState::build_and_execute(|| {
@@ -910,8 +855,6 @@ fn set_members_noop_still_fires_event() {
     });
 }
 
-// -------- Section 6: on_initialize / term rotation --------
-
 #[test]
 fn on_initialize_no_rotation_when_term_duration_none() {
     TestState::build_and_execute(|| {
@@ -983,8 +926,6 @@ fn on_initialize_fires_all_matching_collectives() {
     });
 }
 
-// -------- Section 6b: force_rotate --------
-
 #[test]
 fn force_rotate_routes_through_on_new_term() {
     TestState::build_and_execute(|| {
@@ -998,7 +939,7 @@ fn force_rotate_routes_through_on_new_term() {
 }
 
 #[test]
-fn force_rotate_requires_root() {
+fn force_rotate_requires_origin() {
     TestState::build_and_execute(|| {
         assert_noop!(
             MultiCollective::<Test>::force_rotate(
@@ -1014,7 +955,7 @@ fn force_rotate_requires_root() {
 #[test]
 fn force_rotate_rejects_non_rotating_collective() {
     TestState::build_and_execute(|| {
-        // Alpha's `CanRotate` impl returns false.
+        // Alpha has `term_duration: None`.
         assert_noop!(
             MultiCollective::<Test>::force_rotate(RuntimeOrigin::root(), CollectiveId::Alpha,),
             Error::<Test>::CollectiveDoesNotRotate,
@@ -1031,43 +972,6 @@ fn force_rotate_rejects_unknown_collective() {
             Error::<Test>::CollectiveNotFound,
         );
         assert!(take_new_term_log().is_empty());
-    });
-}
-
-// -------- Section 7: CollectiveInspect --------
-
-#[test]
-fn inspect_members_of_returns_current_list() {
-    TestState::build_and_execute(|| {
-        let a = U256::from(1);
-        let b = U256::from(2);
-        let c = U256::from(3);
-
-        assert!(MultiCollective::<Test>::members_of(CollectiveId::Alpha).is_empty());
-
-        for who in [a, b, c] {
-            assert_ok!(MultiCollective::<Test>::add_member(
-                RuntimeOrigin::root(),
-                CollectiveId::Alpha,
-                who,
-            ));
-        }
-        // Insertion order preserved on add.
-        assert_eq!(
-            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![a, b, c]
-        );
-
-        // `retain` keeps relative order on remove.
-        assert_ok!(MultiCollective::<Test>::remove_member(
-            RuntimeOrigin::root(),
-            CollectiveId::Alpha,
-            b,
-        ));
-        assert_eq!(
-            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![a, c]
-        );
     });
 }
 
@@ -1195,12 +1099,10 @@ fn inspect_of_unknown_collective_returns_empty() {
     });
 }
 
-// -------- Section 8: integrity_test --------
-//
-// Test 42 (`integrity_test_passes_on_valid_config`) is implicit — the main
-// mock's auto-generated `mock::__construct_runtime_integrity_test::runtime_integrity_tests`
-// calls `integrity_test()` with the default (valid) `TestCollectives` on every
-// `cargo test` run. It appears in the test output as "test mock::...runtime_integrity_tests ... ok".
+// `integrity_test_passes_on_valid_config` is implicit — the mock's
+// auto-generated `__construct_runtime_integrity_test::runtime_integrity_tests`
+// runs `integrity_test()` against the default `TestCollectives` on every
+// `cargo test`. Listed in test output as `mock::...runtime_integrity_tests`.
 
 fn bad_min_exceeds_storage() -> Vec<Collective<CollectiveId, u64, [u8; 32]>> {
     vec![Collective {

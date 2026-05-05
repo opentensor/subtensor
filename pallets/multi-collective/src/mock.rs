@@ -18,8 +18,7 @@ use frame_system::EnsureRoot;
 use sp_core::U256;
 
 use crate::{
-    self as pallet_multi_collective, CanRotate, Collective, CollectiveInfo, CollectivesInfo,
-    OnNewTerm,
+    self as pallet_multi_collective, Collective, CollectiveInfo, CollectivesInfo, OnNewTerm,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -55,21 +54,6 @@ pub enum CollectiveId {
     /// Intentionally NOT returned by `TestCollectives::collectives()` — used to
     /// exercise the `CollectiveNotFound` error path in extrinsics.
     Unknown,
-}
-
-/// Beta and Delta have `term_duration: Some(_)` and are the rotating
-/// pair the rotation tests exercise. Alpha / Gamma have `None`. `Unknown`
-/// is reported as rotatable so a `force_rotate` call against it hits the
-/// `CollectiveNotFound` path rather than short-circuiting on
-/// `CollectiveDoesNotRotate` — keeps the two error cases independently
-/// testable.
-impl CanRotate for CollectiveId {
-    fn can_rotate(&self) -> bool {
-        match self {
-            Self::Beta | Self::Delta | Self::Unknown => true,
-            Self::Alpha | Self::Gamma => false,
-        }
-    }
 }
 
 // --- CollectivesInfo impl ---
@@ -233,6 +217,7 @@ impl pallet_multi_collective::Config for Test {
     type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SetOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
+    type RotateOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type OnMembersChanged = ();
     type OnNewTerm = TestOnNewTerm;
     type MaxMembers = MaxMembers;
@@ -253,7 +238,7 @@ impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for TestBenchmarkHel
     }
 
     fn rotatable_collective() -> CollectiveId {
-        // Beta has term_duration = Some(100); see `CollectiveId::can_rotate`.
+        // Beta has term_duration = Some(100).
         CollectiveId::Beta
     }
 }
