@@ -349,6 +349,30 @@ pub mod pallet {
         },
     }
 
+    /// Enum for consensus mode used in liquid alpha calculation
+    #[derive(
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        Default,
+        TypeInfo,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        Debug,
+        MaxEncodedLen,
+    )]
+    pub enum ConsensusMode {
+        /// Use current in-memory consensus (current behavior)
+        Current,
+        /// Use previous consensus from storage
+        Previous,
+        /// Auto mode: Previous if bond_penalty == 1, otherwise Current
+        #[default]
+        Auto,
+    }
+
     /// The Max Burn HalfLife Settable
     #[pallet::type_value]
     pub fn MaxBurnHalfLife<T: Config>() -> u16 {
@@ -974,6 +998,12 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
+    }
+
+    /// Default consensus mode for liquid alpha calculation
+    #[pallet::type_value]
+    pub fn DefaultConsensusMode<T: Config>() -> ConsensusMode {
+        ConsensusMode::default()
     }
 
     /// Default value for coldkey swap announcement delay.
@@ -2048,6 +2078,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type AlphaValues<T> =
         StorageMap<_, Identity, NetUid, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+
+    /// MAP ( netuid ) --> consensus mode for liquid alpha calculation
+    #[pallet::storage]
+    pub type LiquidAlphaConsensusMode<T> =
+        StorageMap<_, Identity, NetUid, ConsensusMode, ValueQuery, DefaultConsensusMode<T>>;
 
     /// --- MAP ( netuid ) --> If subtoken trading enabled
     #[pallet::storage]

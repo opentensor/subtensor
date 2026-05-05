@@ -1286,9 +1286,21 @@ impl<T: Config> Pallet<T> {
                 .iter()
                 .any(|&c| c != I32F32::saturating_from_num(0))
         {
-            // Liquid Alpha is enabled, compute the liquid alphas matrix.
-            let alphas: Vec<Vec<I32F32>> =
-                Self::compute_liquid_alpha_values(netuid, weights, bonds, consensus);
+            // Liquid Alpha is enabled, compute the appropriate consensus for liquid alpha based on mode
+            let consensus_for_liquid_alpha =
+                Self::compute_consensus_for_liquid_alpha(netuid, consensus);
+            log::trace!(
+                "consensus_for_liquid_alpha: {:?}",
+                &consensus_for_liquid_alpha
+            );
+
+            // Compute the liquid alphas matrix.
+            let alphas: Vec<Vec<I32F32>> = Self::compute_liquid_alpha_values(
+                netuid,
+                weights,
+                bonds,
+                &consensus_for_liquid_alpha,
+            );
             log::trace!("alphas: {:?}", &alphas);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
@@ -1328,9 +1340,21 @@ impl<T: Config> Pallet<T> {
                 .iter()
                 .any(|&c| c != I32F32::saturating_from_num(0))
         {
-            // Liquid Alpha is enabled, compute the liquid alphas matrix.
-            let alphas: Vec<Vec<I32F32>> =
-                Self::compute_liquid_alpha_values_sparse(netuid, weights, bonds, consensus);
+            // Liquid Alpha is enabled, compute the appropriate consensus for liquid alpha based on mode
+            let consensus_for_liquid_alpha =
+                Self::compute_consensus_for_liquid_alpha(netuid, consensus);
+            log::trace!(
+                "consensus_for_liquid_alpha: {:?}",
+                &consensus_for_liquid_alpha
+            );
+
+            // Compute the liquid alphas matrix.
+            let alphas: Vec<Vec<I32F32>> = Self::compute_liquid_alpha_values_sparse(
+                netuid,
+                weights,
+                bonds,
+                &consensus_for_liquid_alpha,
+            );
             log::trace!("alphas: {:?}", &alphas);
 
             // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
@@ -1341,6 +1365,54 @@ impl<T: Config> Pallet<T> {
 
             // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
             mat_ema_sparse(weights, bonds, alpha)
+        }
+    }
+
+    /// Compute the consensus to use for liquid alpha calculation based on the configured mode
+    ///
+    /// # Args:
+    /// * `netuid` - The network ID.
+    /// * `current_consensus` - The current in-memory consensus values.
+    ///
+    /// # Returns:
+    /// A vector of consensus values to use for liquid alpha calculation
+    pub(crate) fn compute_consensus_for_liquid_alpha(
+        netuid: NetUid,
+        current_consensus: &[I32F32],
+    ) -> Vec<I32F32> {
+        let mode = Self::get_liquid_alpha_consensus_mode(netuid);
+
+        match mode {
+            ConsensusMode::Current => {
+                // Use the in-memory consensus (current behavior)
+                current_consensus.to_vec()
+            }
+            ConsensusMode::Previous => {
+                // Use consensus from storage
+                let previous_consensus_u16 = Consensus::<T>::get(netuid);
+                previous_consensus_u16
+                    .iter()
+                    .map(|&c| {
+                        I32F32::saturating_from_num(c)
+                            .safe_div(I32F32::saturating_from_num(u16::MAX))
+                    })
+                    .collect()
+            }
+            ConsensusMode::Auto => {
+                // Auto mode: Previous if bond_penalty == u16::MAX (i.e. 1.0), otherwise Current
+                if Self::get_bonds_penalty(netuid) == u16::MAX {
+                    let previous_consensus_u16 = Consensus::<T>::get(netuid);
+                    previous_consensus_u16
+                        .iter()
+                        .map(|&c| {
+                            I32F32::saturating_from_num(c)
+                                .safe_div(I32F32::saturating_from_num(u16::MAX))
+                        })
+                        .collect()
+                } else {
+                    current_consensus.to_vec()
+                }
+            }
         }
     }
 
@@ -1548,6 +1620,20 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "AlphaValuesSet( netuid: {netuid:?}, AlphaLow: {alpha_low:?}, AlphaHigh: {alpha_high:?} ) ",
         );
+        Ok(())
+    }
+
+    pub fn do_set_liquid_alpha_consensus_mode(
+        origin: OriginFor<T>,
+        netuid: NetUid,
+        mode: ConsensusMode,
+    ) -> Result<(), DispatchError> {
+        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+
+        Self::set_liquid_alpha_consensus_mode(netuid, mode);
+        Self::deposit_event(Event::LiquidAlphaConsensusModeSet { netuid, mode });
+
+        log::debug!("LiquidAlphaConsensusModeSet( netuid: {netuid:?}, mode: {mode:?} )");
         Ok(())
     }
 

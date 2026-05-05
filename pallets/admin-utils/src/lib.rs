@@ -1233,6 +1233,44 @@ pub mod pallet {
             res
         }
 
+        /// Sets the liquid alpha consensus mode for a subnet.
+        ///
+        /// This extrinsic allows the subnet owner or root to configure which consensus values
+        /// are used when computing liquid alpha bonding matrices.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the subnet owner or root.
+        /// * `netuid` - The unique identifier of the subnet.
+        /// * `mode` - The consensus mode to set.
+        ///
+        /// # Errors
+        /// * `BadOrigin` - If the caller is not the subnet owner or root.
+        #[pallet::call_index(91)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn sudo_set_liquid_alpha_consensus_mode(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            mode: pallet_subtensor::ConsensusMode,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin.clone(),
+                netuid,
+                &[Hyperparameter::LiquidAlphaConsensusMode.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+            let res = pallet_subtensor::Pallet::<T>::do_set_liquid_alpha_consensus_mode(
+                origin, netuid, mode,
+            );
+            if res.is_ok() {
+                pallet_subtensor::Pallet::<T>::record_owner_rl(
+                    maybe_owner,
+                    netuid,
+                    &[Hyperparameter::LiquidAlphaConsensusMode.into()],
+                );
+            }
+            res
+        }
+
         /// Sets the duration of the dissolve network schedule.
         ///
         /// This extrinsic allows the root account to set the duration for the dissolve network schedule.
