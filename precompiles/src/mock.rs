@@ -35,6 +35,7 @@ frame_support::construct_runtime!(
     pub enum Runtime {
         System: frame_system = 1,
         Balances: pallet_balances = 2,
+        AlphaAssets: pallet_alpha_assets = 15,
         Timestamp: pallet_timestamp = 3,
         Shield: pallet_shield = 4,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 5,
@@ -185,6 +186,8 @@ impl pallet_balances::Config for Runtime {
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
 }
+
+impl pallet_alpha_assets::Config for Runtime {}
 
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {
@@ -468,6 +471,7 @@ impl pallet_subtensor::Config for Runtime {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
+    type AlphaAssets = AlphaAssets;
     type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
     type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;

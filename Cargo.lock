@@ -8393,6 +8393,7 @@ dependencies = [
  "hex",
  "log",
  "pallet-admin-utils",
+ "pallet-alpha-assets",
  "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -8842,6 +8843,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-alpha-assets",
  "pallet-balances",
  "pallet-crowdloan",
  "pallet-drand",
@@ -8885,6 +8887,22 @@ dependencies = [
  "sp-crypto-hashing 0.1.0 (git+https://github.com/opentensor/polkadot-sdk.git?rev=7cc54bf2d50ae3921d718736dfeb0de9468539c7)",
  "sp-io",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-alpha-assets"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "subtensor-macros",
+ "subtensor-runtime-common",
 ]
 
 [[package]]
@@ -10817,6 +10835,7 @@ dependencies = [
  "log",
  "ndarray",
  "num-traits",
+ "pallet-alpha-assets",
  "pallet-aura",
  "pallet-balances",
  "pallet-commitments",
@@ -18156,6 +18175,7 @@ dependencies = [
  "frame-system",
  "log",
  "num_enum",
+ "pallet-alpha-assets",
  "pallet-balances",
  "pallet-contracts",
  "pallet-crowdloan",
@@ -18233,6 +18253,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-admin-utils",
+ "pallet-alpha-assets",
  "pallet-balances",
  "pallet-crowdloan",
  "pallet-drand",
@@ -18314,6 +18335,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-alpha-assets",
  "pallet-balances",
  "pallet-crowdloan",
  "pallet-drand",

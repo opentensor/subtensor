@@ -24,6 +24,7 @@ subtensor-runtime-common.workspace = true
 pallet-contracts.workspace = true
 pallet-subtensor.workspace = true
 pallet-subtensor-swap.workspace = true
+pallet-alpha-assets.workspace = true
 pallet-balances.workspace = true
 pallet-scheduler.workspace = true
 pallet-preimage.workspace = true
@@ -52,6 +53,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"subtensor-runtime-common/std",
+	"pallet-alpha-assets/std",
 	"pallet-contracts/std",
 	"pallet-subtensor/std",
 	"pallet-subtensor-swap/std",
