@@ -720,6 +720,14 @@ pub fn new_chain_ops<CM: ConsensusMechanism>(
     Ok((client, backend, import_queue, task_manager, other.3))
 }
 
+type SealStream = std::pin::Pin<
+    Box<
+        dyn futures::Stream<
+                Item = sc_consensus_manual_seal::rpc::EngineCommand<<Block as BlockT>::Hash>,
+            > + Send,
+    >,
+>;
+
 #[allow(clippy::too_many_arguments)]
 fn run_manual_seal_authorship(
     sealing: Sealing,
@@ -757,12 +765,9 @@ fn run_manual_seal_authorship(
             inherent_data: &mut sp_inherents::InherentData,
         ) -> Result<(), sp_inherents::Error> {
             TIMESTAMP.with(|x| {
-                let ts = {
-                    let mut x_ref = x.borrow_mut();
-                    *x_ref = x_ref.saturating_add(subtensor_runtime_common::time::SLOT_DURATION);
-                    *x_ref
-                };
-                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &ts)
+                let mut x_ref = x.borrow_mut();
+                *x_ref = x_ref.saturating_add(subtensor_runtime_common::time::SLOT_DURATION);
+                inherent_data.put_data(sp_timestamp::INHERENT_IDENTIFIER, &*x_ref)
             })
         }
 
@@ -781,14 +786,6 @@ fn run_manual_seal_authorship(
 
     let aura_data_provider =
         sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider::new(client.clone());
-
-    type SealStream = std::pin::Pin<
-        Box<
-            dyn futures::Stream<
-                    Item = sc_consensus_manual_seal::rpc::EngineCommand<<Block as BlockT>::Hash>,
-                > + Send,
-        >,
-    >;
 
     let seal_stream: SealStream = match sealing {
         Sealing::Manual => Box::pin(commands_stream),
