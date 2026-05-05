@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
         SubnetProtocolFlow::<T>::remove(netuid);
     }
 
-    fn get_ema_protocol_flow(netuid: NetUid) -> I64F64 {
+    fn update_ema_protocol_flow(netuid: NetUid) -> I64F64 {
         let current_block: u64 = Self::get_current_block_as_u64();
 
         let block_flow = I64F64::saturating_from_num(SubnetProtocolFlow::<T>::get(netuid));
@@ -223,8 +223,8 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|netuid| {
                 let user_ema = Self::get_ema_flow(*netuid);
-                let protocol_ema = Self::get_ema_protocol_flow(*netuid);
                 let net = if net_flow_enabled {
+                    let protocol_ema = Self::update_ema_protocol_flow(*netuid);
                     user_ema.saturating_sub(protocol_ema)
                 } else {
                     user_ema
