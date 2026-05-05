@@ -30,8 +30,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // Reset per-block root sell counters from the previous block.
-        // Root sells (step 8 in block_step) happen after coinbase, so their
-        // accumulated values are consumed here at the start of the next block.
+        // Root sells happen after coinbase, so their accumulated values
+        // are consumed here at the start of the next block.
         let _ = SubnetRootSellTao::<T>::clear(u32::MAX, None);
 
         // --- 1. Get all subnets (excluding root).
