@@ -152,15 +152,15 @@ pub trait RuntimeReadWrite {
     #[ink(function = 16)]
     fn recycle_alpha(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        amount: u64,
         netuid: u16,
+        amount: u64,
     ) -> u64;
 
     #[ink(function = 17)]
     fn burn_alpha(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
-        amount: u64,
         netuid: u16,
+        amount: u64,
     ) -> u64;
 
     #[ink(function = 18)]
@@ -556,12 +556,12 @@ mod bittensor {
         pub fn recycle_alpha(
             &self,
             hotkey: [u8; 32],
-            amount: u64,
             netuid: u16,
+            amount: u64,
         ) -> Result<u64, ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .recycle_alpha(hotkey.into(), amount, netuid)
+                .recycle_alpha(hotkey.into(), netuid, amount)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
@@ -569,12 +569,12 @@ mod bittensor {
         pub fn burn_alpha(
             &self,
             hotkey: [u8; 32],
-            amount: u64,
             netuid: u16,
+            amount: u64,
         ) -> Result<u64, ReadWriteErrorCode> {
             self.env()
                 .extension()
-                .burn_alpha(hotkey.into(), amount, netuid)
+                .burn_alpha(hotkey.into(), netuid, amount)
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
 
