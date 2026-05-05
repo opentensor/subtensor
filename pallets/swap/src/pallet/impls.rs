@@ -848,8 +848,8 @@ impl<T: Config> Pallet<T> {
         // only reason for phase_done to be false is if the weight limit is reached
         while phase_done {
             let current_phase = CleanUpPhase::<T>::get();
-            log::debug!(
-                "current_phase in do_clear_protocol_liquidity is: {:?}",
+            log::error!(
+                "==== current_phase in do_clear_protocol_liquidity is: {:?}",
                 current_phase
             );
             let (weight_used, done) = match current_phase {
@@ -886,7 +886,7 @@ impl<T: Config> Pallet<T> {
                     }
                     (weight_used, done)
                 }
-                None => (Weight::default(), true),
+                None => break,
             };
 
             phase_done = done;

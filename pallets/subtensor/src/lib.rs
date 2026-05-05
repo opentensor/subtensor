@@ -373,6 +373,8 @@ pub mod pallet {
         DestroyAlphaInOutStakesCleanAlpha,
         /// Phase 5: Clear hotkey totals for the subnet.
         DestroyAlphaInOutStakesClearHotkeyTotals,
+        /// Phase 6: Clear locks for the subnet.
+        DestroyAlphaInOutStakesClearLocks,
         /// Phase 6: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakes,
         /// Phase 8: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
@@ -397,8 +399,6 @@ pub mod pallet {
         RemoveNetworkTransactionKeyLastBlock,
         /// Phase 17: Remove staking operation rate limiter entries for this netuid.
         RemoveNetworkStakingOperationRateLimiter,
-        /// Remove per-coldkey stake `Lock` entries for this netuid (runs after hotkey totals; checkpointed).
-        DestroyAlphaInOutStakesClearLocks,
     }
 
     /// The Max Burn HalfLife Settable

@@ -926,6 +926,7 @@ impl<T: Config> Pallet<T> {
     ) -> (Weight, bool) {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
+        let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
@@ -961,7 +962,11 @@ impl<T: Config> Pallet<T> {
             }
             weight_meter.consume(w);
 
-            Lock::<T>::remove((coldkey, this_netuid, hotkey));
+            keys_to_remove.push((coldkey, hotkey));
+        }
+
+        for (coldkey, hotkey) in keys_to_remove {
+            Lock::<T>::remove((coldkey, netuid, hotkey));
         }
 
         if read_all {
