@@ -37,6 +37,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 1,
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>} = 2,
+        AlphaAssets: pallet_alpha_assets = 3,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Storage, Event} = 8,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 9,
@@ -97,6 +98,8 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
 }
+
+impl pallet_alpha_assets::Config for Test {}
 
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Test {
@@ -409,6 +412,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
+    type AlphaAssets = AlphaAssets;
     type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
     type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;

@@ -429,21 +429,38 @@ impl<T: Config> Pallet<T> {
     ///
     /// The hotkey and netuid remain the same, only the coldkey changes.
     ///
-    /// The new coldkey is guaranteed to have no active locks (checked in ensure_no_active_locks),
-    /// so we can simply transfer the locks "as is" without rolling them forward and the
-    /// HotkeyLock map does not change (because it only contains totals, not individual coldkey locks).
+    /// Because unlocked_mass decays over time, both source and destination lock state must be
+    /// rolled forward to the current block before the transfer is applied. The HotkeyLock map
+    /// does not change because it only contains subnet-wide hotkey totals, not per-coldkey locks.
     pub fn swap_coldkey_locks(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+        let now = Self::get_current_block_as_u64();
         let mut locks_to_transfer: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
 
         // Gather locks for old coldkey
         for ((netuid, hotkey), lock) in Lock::<T>::iter_prefix((old_coldkey,)) {
-            locks_to_transfer.push((netuid, hotkey, lock));
+            locks_to_transfer.push((netuid, hotkey, Self::roll_forward_lock(lock, now)));
         }
 
         // Remove locks for old coldkey and insert for new
         for (netuid, hotkey, lock) in locks_to_transfer {
             Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
-            Self::insert_lock_state(new_coldkey, netuid, &hotkey, lock);
+
+            if let Some((new_hotkey, new_lock)) =
+                Lock::<T>::iter_prefix((new_coldkey, netuid)).next()
+            {
+                let mut new_lock_rolled = Self::roll_forward_lock(new_lock, now);
+
+                // The new coldkey does not have active locks, ensure_no_active_locks guarantees
+                // that, so overwrite the mass and conviction with old coldkey's.
+                new_lock_rolled.locked_mass = lock.locked_mass;
+                new_lock_rolled.conviction = lock.conviction;
+                new_lock_rolled.unlocked_mass = new_lock_rolled
+                    .unlocked_mass
+                    .saturating_add(lock.unlocked_mass);
+                Self::insert_lock_state(new_coldkey, netuid, &new_hotkey, new_lock_rolled);
+            } else {
+                Self::insert_lock_state(new_coldkey, netuid, &hotkey, lock);
+            }
         }
     }
 
@@ -574,5 +591,23 @@ impl<T: Config> Pallet<T> {
             }
             None => Err(Error::<T>::NoExistingLock.into()),
         }
+    }
+
+    pub fn auto_lock_owner_cut(netuid: NetUid, amount: AlphaBalance) {
+        let subnet_owner_coldkey = Self::get_subnet_owner(netuid);
+
+        // Determine the lock hotkey. If no locks exist, assign subnet owner's hotkey, otherwise
+        // auto-lock to existing lock hotkey
+        let lock_hotkey = if let Some((existing_hotkey, _existing)) =
+            Lock::<T>::iter_prefix((&subnet_owner_coldkey, netuid)).next()
+        {
+            existing_hotkey
+        } else {
+            SubnetOwnerHotkey::<T>::get(netuid)
+        };
+
+        // Ignore the result. It may only fail if amount is zero, which is OK to ignore because nothing
+        // needs to happen in that case
+        let _ = Self::do_lock_stake(&subnet_owner_coldkey, netuid, &lock_hotkey, amount);
     }
 }

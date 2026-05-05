@@ -38,6 +38,7 @@ sp-core.workspace = true
 sp-io.workspace = true
 sp-tracing.workspace = true
 sp-consensus-aura.workspace = true
+pallet-alpha-assets.workspace = true
 pallet-balances = { workspace = true, features = ["std"] }
 pallet-scheduler.workspace = true
 pallet-grandpa.workspace = true
@@ -54,6 +55,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
+	"pallet-alpha-assets/std",
 	"pallet-balances/std",
 	"pallet-drand/std",
 	"pallet-evm-chain-id/std",
