@@ -223,8 +223,8 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|netuid| {
                 let user_ema = Self::get_ema_flow(*netuid);
-                let protocol_ema = Self::get_ema_protocol_flow(*netuid);
                 let net = if net_flow_enabled {
+                    let protocol_ema = Self::get_ema_protocol_flow(*netuid);
                     user_ema.saturating_sub(protocol_ema)
                 } else {
                     user_ema
