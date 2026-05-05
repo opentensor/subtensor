@@ -589,6 +589,9 @@ impl<T: Config> Pallet<T> {
             if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
                 Self::distribute_leased_network_dividends(lease_id, owner_cut);
             }
+
+            // Auto-lock owner's cut
+            Self::auto_lock_owner_cut(netuid, owner_cut);
         }
 
         // Distribute mining incentives.
