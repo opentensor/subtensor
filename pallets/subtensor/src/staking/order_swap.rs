@@ -32,10 +32,6 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
                 Error::<T>::NotEnoughBalanceToStake
             );
         }
-        // Debit TAO from the buyer before the pool swap so the pallet's
-        // intermediary account (and individual buyers in execute_orders) cannot
-        // stake more TAO than they actually hold.
-        let actual_tao = Self::remove_balance_from_coldkey_account(coldkey, tao_amount)?;
         // `limit_price` arrives in the same units as `current_alpha_price()` (a raw ratio
         // where 1.0 ≈ 1 unit/alpha).  The AMM encodes its price_limit as `price × 10⁹`
         // (matching the rao-per-TAO precision convention), so we scale up here before
@@ -44,7 +40,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         // an astronomically high ceiling that current prices never reach.
         let amm_limit = TaoBalance::from(limit_price.to_u64().saturating_mul(1_000_000_000));
         let alpha_out =
-            Self::stake_into_subnet(hotkey, coldkey, netuid, actual_tao, amm_limit, false, false)?;
+            Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false, false)?;
         if validate {
             Self::set_stake_operation_limit(hotkey, coldkey, netuid);
         }
@@ -88,12 +84,15 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         // the AMM expects price × 10⁹.  For the no-floor case (limit_price = 0) the result
         // is 0, which the AMM treats as "no lower bound".
         let amm_limit = TaoBalance::from(limit_price.to_u64().saturating_mul(1_000_000_000));
-        let tao_out =
-            Self::unstake_from_subnet(hotkey, coldkey, netuid, alpha_amount, amm_limit, false)?;
-        // Credit TAO proceeds to the seller so the pallet's intermediary account
-        // (and individual sellers in execute_orders) have real balance to
-        // distribute or forward to the fee collector.
-        Self::add_balance_to_coldkey_account(coldkey, tao_out);
+        let tao_out = Self::unstake_from_subnet(
+            hotkey,
+            coldkey,
+            coldkey,
+            netuid,
+            alpha_amount,
+            amm_limit,
+            false,
+        )?;
         Ok(tao_out)
     }
 
@@ -175,6 +174,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
     #[cfg(feature = "runtime-benchmarks")]
     fn set_up_acc_for_benchmark(hotkey: &T::AccountId, coldkey: &T::AccountId) {
         Self::create_account_if_non_existent(coldkey, hotkey);
-        Self::add_balance_to_coldkey_account(coldkey, TaoBalance::from(1_000_000_000_000_u64));
+        let credit = Self::mint_tao(TaoBalance::from(1_000_000_000_000_u64));
+        let _ = Self::spend_tao(coldkey, credit, TaoBalance::from(1_000_000_000_000_u64));
     }
 }

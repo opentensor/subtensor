@@ -40,8 +40,18 @@ fn min_default_stake() -> TaoBalance {
     pallet_subtensor::DefaultMinStake::<Runtime>::get()
 }
 
+fn add_balance_to_coldkey_account(coldkey: &AccountId, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao);
+}
+
+fn seed_subnet_tao(netuid: NetUid, amount: TaoBalance) {
+    let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+    add_balance_to_coldkey_account(&subnet_account, amount);
+}
+
 fn fund_account(id: &AccountId) {
-    SubtensorModule::add_balance_to_coldkey_account(id, min_default_stake() * 10u64.into());
+    add_balance_to_coldkey_account(id, min_default_stake() * 10u64.into());
 }
 
 fn order_id(order: &VersionedOrder<AccountId>) -> H256 {
@@ -70,6 +80,7 @@ fn setup_buyer_seller(
         netuid,
         initial_alpha,
     );
+    seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
     SubtensorModule::create_account_if_non_existent(alice_id, charlie_id);
     SubtensorModule::create_account_if_non_existent(bob_id, dave_id);
 }
@@ -163,6 +174,7 @@ fn setup_dynamic_subnet(netuid: NetUid) {
     // Equal reserves → price = tao_reserve / alpha_reserve = 1.0
     SubnetTAO::<Runtime>::insert(netuid, TaoBalance::from(1_000_000_000_000_u64));
     SubnetAlphaIn::<Runtime>::insert(netuid, AlphaBalance::from(1_000_000_000_000_u64));
+    seed_subnet_tao(netuid, TaoBalance::from(1_000_000_000_000_u64));
 }
 
 /// Build a signed order with an explicit `max_slippage` value.
@@ -448,6 +460,7 @@ fn take_profit_order_executes_and_unstakes_alpha() {
             netuid,
             initial_alpha,
         );
+        seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
 
         // limit_price = 0 → current_price (1.0) ≥ 0 → condition always met.
         let signed = make_signed_order(
@@ -511,6 +524,7 @@ fn stop_loss_order_executes_and_unstakes_alpha() {
             netuid,
             initial_alpha,
         );
+        seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
 
         // limit_price = 1 → current_price (1.0) ≤ 1.0 → StopLoss condition always met.
         // Using 1 (not u64::MAX) because limit_price also acts as the minimum TAO output
@@ -806,6 +820,7 @@ fn batched_fails_if_executing_without_hot_key_association() {
             netuid,
             initial_alpha,
         );
+        seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
 
         let buy = make_signed_order(
             alice,
@@ -1748,10 +1763,7 @@ fn execute_orders_partial_fill_then_complete() {
         let partial_amount = min_default_stake().to_u64() * 3u64;
         let remaining_amount = order_amount - partial_amount;
 
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            TaoBalance::from(order_amount * 2u64),
-        );
+        add_balance_to_coldkey_account(&alice_id, TaoBalance::from(order_amount * 2u64));
 
         // Create the hotkey association Alice → Bob.
         SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
@@ -1832,10 +1844,7 @@ fn execute_batched_orders_partial_fill_then_complete() {
         let partial_amount = min_default_stake().to_u64() * 3u64;
         let remaining_amount = order_amount - partial_amount;
 
-        SubtensorModule::add_balance_to_coldkey_account(
-            &alice_id,
-            TaoBalance::from(order_amount * 2u64),
-        );
+        add_balance_to_coldkey_account(&alice_id, TaoBalance::from(order_amount * 2u64));
 
         // Create the hotkey association Alice → Bob.
         SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
