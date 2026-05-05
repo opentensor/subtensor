@@ -16,6 +16,7 @@ use sc_service::{Configuration, PartialComponents, TaskManager, error::Error as 
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, log};
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
+use sc_transaction_pool_api::TransactionPool as _;
 use sp_core::H256;
 use sp_core::crypto::KeyTypeId;
 use sp_keystore::Keystore;
@@ -25,7 +26,6 @@ use stc_shield::{self, MemoryShieldKeystore};
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
-use sc_transaction_pool_api::TransactionPool as _;
 use std::{cell::RefCell, path::Path};
 use std::{sync::Arc, time::Duration};
 use stp_shield::ShieldKeystorePtr;
@@ -792,16 +792,14 @@ fn run_manual_seal_authorship(
 
     let seal_stream: SealStream = match sealing {
         Sealing::Manual => Box::pin(commands_stream),
-        Sealing::Instant => Box::pin(
-            transaction_pool
-                .import_notification_stream()
-                .map(|_| sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock {
-                    create_empty: false,
-                    finalize: false,
-                    parent_hash: None,
-                    sender: None,
-                }),
-        ),
+        Sealing::Instant => Box::pin(transaction_pool.import_notification_stream().map(|_| {
+            sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock {
+                create_empty: false,
+                finalize: false,
+                parent_hash: None,
+                sender: None,
+            }
+        })),
         Sealing::Interval(millis) => Box::pin(
             futures::stream::unfold(
                 tokio::time::interval(std::time::Duration::from_millis(millis)),
@@ -810,17 +808,19 @@ fn run_manual_seal_authorship(
                     Some(((), interval))
                 },
             )
-            .map(|_| sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock {
-                create_empty: true,
-                finalize: true,
-                parent_hash: None,
-                sender: None,
-            }),
+            .map(
+                |_| sc_consensus_manual_seal::rpc::EngineCommand::SealNewBlock {
+                    create_empty: true,
+                    finalize: true,
+                    parent_hash: None,
+                    sender: None,
+                },
+            ),
         ),
     };
 
-    let manual_seal = sc_consensus_manual_seal::run_manual_seal(
-        sc_consensus_manual_seal::ManualSealParams {
+    let manual_seal =
+        sc_consensus_manual_seal::run_manual_seal(sc_consensus_manual_seal::ManualSealParams {
             block_import,
             env: proposer_factory,
             client,
@@ -829,8 +829,7 @@ fn run_manual_seal_authorship(
             select_chain,
             consensus_data_provider: Some(Box::new(aura_data_provider)),
             create_inherent_data_providers,
-        },
-    );
+        });
 
     // we spawn the future on a background thread managed by service.
     task_manager
