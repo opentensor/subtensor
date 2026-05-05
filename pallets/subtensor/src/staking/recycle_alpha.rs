@@ -165,7 +165,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Atomically stakes TAO and burns the resulting alpha. Permissionless
-    /// counterpart to `do_add_stake_burn`: no rate limit.
+    /// counterpart to `do_add_stake_burn`: return the amount of alpha burned.
     /// limit. Used by the chain extension.
     pub fn do_add_stake_burn_permissionless(
         origin: OriginFor<T>,
