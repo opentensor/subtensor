@@ -8,6 +8,7 @@ use core::num::NonZeroU64;
 
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
+pub use frame_support::traits::Imbalance;
 use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth, InstanceFilter};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
@@ -246,6 +247,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 10;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl crate::Config for Test {
@@ -321,6 +324,8 @@ impl crate::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 
@@ -769,7 +774,7 @@ pub fn register_ok_neuron(
 
         let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {
-            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+            add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
         }
     };
 
@@ -842,7 +847,7 @@ pub fn add_network_disable_subtoken(netuid: NetUid, tempo: u16, _modality: u16) 
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.into());
     TotalIssuance::<Test>::mutate(|total_issuance| {
         *total_issuance = total_issuance.saturating_add(lock_cost);
     });
@@ -866,7 +871,7 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
 pub fn add_dynamic_network_without_emission_block(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.into());
     TotalIssuance::<Test>::mutate(|total_issuance| {
         *total_issuance = total_issuance.saturating_add(lock_cost);
     });
@@ -974,6 +979,10 @@ pub fn increase_stake_on_coldkey_hotkey_account(
     tao_staked: TaoBalance,
     netuid: NetUid,
 ) {
+    // Add TAO balance to coldkey account
+    add_balance_to_coldkey_account(coldkey, tao_staked.into());
+
+    // Stake
     SubtensorModule::stake_into_subnet(
         hotkey,
         coldkey,
@@ -1107,6 +1116,41 @@ pub fn sf_from_u64(val: u64) -> SafeFloat {
 }
 
 #[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let ed = ExistentialDeposit::get();
+    if tao >= ed {
+        let credit = SubtensorModule::mint_tao(tao);
+        let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+    }
+}
+
+#[allow(dead_code)]
+pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let _ = SubtensorModule::burn_tao(coldkey, tao);
+}
+
+#[allow(dead_code)]
+pub fn mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+    hotkey: &U256,
+    coldkey: &U256,
+    netuid: NetUid,
+    alpha: AlphaBalance,
+) {
+    // Record stake in alpha pool
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        hotkey, coldkey, netuid, alpha,
+    );
+
+    // Make sure subnet exists, so does it's account
+    NetworksAdded::<Test>::insert(netuid, true);
+
+    // Add TAO balance to subnet account
+    // For simplicity make it equal to alpha * 100, which is more than needed
+    let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+    let tao_bal = u64::from(alpha) * 100;
+    add_balance_to_coldkey_account(&subnet_account, tao_bal.into());
+}
+
 pub fn remove_owner_registration_stake(netuid: NetUid) {
     let owner_hotkey = SubnetOwnerHotkey::<Test>::get(netuid);
     let owner_coldkey = SubnetOwner::<Test>::get(netuid);

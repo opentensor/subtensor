@@ -74,7 +74,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 6) ensure pairing exists and is correct
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey)?;
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
@@ -97,7 +97,7 @@ impl<T: Config> Pallet<T> {
 
         // 8) burn payment (same mechanics as old burned_register)
         let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost.into())?;
+            Self::transfer_tao_to_subnet(netuid, &coldkey, registration_cost.into())?;
 
         let burned_alpha = Self::swap_tao_for_alpha(
             netuid,
@@ -197,11 +197,10 @@ impl<T: Config> Pallet<T> {
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
-        // --- 5. Add Balance via faucet.
+        // --- 5. Add Balance via faucet (mint free TAO)
         let balance_to_add: u64 = 1_000_000_000_000;
-        Self::increase_issuance(100_000_000_000_u64.into()); // We are creating tokens here from the coinbase.
-
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add.into());
+        let credit = Self::mint_tao(balance_to_add.into());
+        let _ = Self::spend_tao(&coldkey, credit, balance_to_add.into());
 
         // --- 6. Deposit successful event.
         log::debug!("Faucet( coldkey:{coldkey:?} amount:{balance_to_add:?} ) ");

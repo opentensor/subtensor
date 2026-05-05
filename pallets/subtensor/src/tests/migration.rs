@@ -36,7 +36,7 @@ use sp_runtime::{
 use sp_std::marker::PhantomData;
 use substrate_fixed::types::{I96F32, U64F64};
 use substrate_fixed::{traits::ToFixed, types::extra::U2};
-use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {
@@ -44,29 +44,6 @@ fn close(value: u64, target: u64, eps: u64) {
         (value as i64 - target as i64).abs() < eps as i64,
         "Assertion failed: value = {value}, target = {target}, eps = {eps}"
     )
-}
-
-#[test]
-fn test_initialise_ti() {
-    use frame_support::traits::OnRuntimeUpgrade;
-
-    new_test_ext(1).execute_with(|| {
-        pallet_balances::TotalIssuance::<Test>::put(TaoBalance::from(1000));
-        crate::SubnetTAO::<Test>::insert(NetUid::from(1), TaoBalance::from(100));
-        crate::SubnetTAO::<Test>::insert(NetUid::from(2), TaoBalance::from(5));
-
-        // Ensure values are NOT initialized prior to running migration
-        assert!(crate::TotalIssuance::<Test>::get().is_zero());
-		assert!(crate::TotalStake::<Test>::get().is_zero());
-
-        crate::migrations::migrate_init_total_issuance::initialise_total_issuance::Migration::<Test>::on_runtime_upgrade();
-
-        // Ensure values were initialized correctly
-		assert_eq!(crate::TotalStake::<Test>::get(), TaoBalance::from(105));
-        assert_eq!(
-            crate::TotalIssuance::<Test>::get(), TaoBalance::from(105 + 1000)
-        );
-    });
 }
 
 #[test]
@@ -335,7 +312,7 @@ fn test_migrate_commit_reveal_2() {
 //             2 * stake_amount
 //         );
 //         // Increase stake for hotkey1 and coldkey1 on netuid_0
-//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
 //             &hotkey1,
 //             &coldkey1,
 //             netuid_0,
@@ -354,7 +331,7 @@ fn test_migrate_commit_reveal_2() {
 //             3 * stake_amount
 //         );
 //         // Increase stake for hotkey1 and coldkey1 on netuid_1
-//         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+//         mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
 //             &hotkey1,
 //             &coldkey1,
 //             netuid_1,
@@ -2491,7 +2468,7 @@ fn do_setup_unactive_sn() -> (Vec<NetUid>, Vec<NetUid>) {
         let coldkey_account_id = U256::from(1111);
         let hotkey_account_id = U256::from(1111);
         let burn_cost = SubtensorModule::get_burn(*netuid);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, burn_cost.into());
         TotalIssuance::<Test>::mutate(|total_issuance| {
             let updated_total = u64::from(*total_issuance)
                 .checked_add(u64::from(burn_cost))
@@ -3154,7 +3131,7 @@ fn test_migrate_fix_bad_hk_swap_only_genesis() {
             <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -3215,7 +3192,7 @@ fn test_migrate_fix_bad_hk_swap_runs_on_mainnet_genesis() {
             <Test as Config>::AccountId::decode(&mut account_id32_slice).expect("Invalid hotkey");
 
         // Give balance to coldkey
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
+        add_balance_to_coldkey_account(&coldkey_account_id, 100_000222.into());
         // Give stake to hotkey
         let stake_added = 222222.into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -4142,109 +4119,104 @@ fn decode_account_id32_test(ss58_string: &str) -> U256 {
 fn test_migrate_fix_root_claimed_overclaim() {
     use crate::migrations::migrate_fix_root_claimed_overclaim::*;
 
-    let old_hotkey = decode_account_id32_test("5GmvyePN9aYErXBBhBnxZKGoGk4LKZApE4NkaSzW62CYCYNA");
     let new_hotkey = decode_account_id32_test("5H6BqkzjYvViiqp7rQLXjpnaEmW7U9CoKxXhQ4efMqtX1mQw");
-    let coldkey = U256::from(42_u64);
+    let untouched_hotkey = U256::from(7777_u64);
+    let coldkey_a = U256::from(42_u64);
+    let coldkey_b = U256::from(43_u64);
 
-    let netuid_target = NetUid::from(27_u16);
-    let netuid_other = NetUid::from(1_u16);
+    let root_netuid = NetUid::from(0_u16);
+    let netuid_a = NetUid::from(27_u16);
+    let netuid_b = NetUid::from(1_u16);
 
     let mainnet_genesis =
         hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
     const MIGRATION_NAME: &[u8] = b"migrate_fix_root_claimed_overclaim";
 
+    // CASE 1: new hotkey has no root stake → RootClaimable is cleared
     new_test_ext(1).execute_with(|| {
         frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
 
-        // Simulate post-bug state:
-        // transfer_root_claimable_for_new_hotkey wiped ALL subnets from old_hotkey
-        // and moved them to new_hotkey
-        let claimable_value_27 = I96F32::from_num(500_000_u64);
-        let claimable_value_other = I96F32::from_num(300_000_u64);
-
         RootClaimable::<Test>::mutate(new_hotkey, |map| {
-            map.insert(netuid_target, claimable_value_27);
-            map.insert(netuid_other, claimable_value_other);
+            map.insert(netuid_a, I96F32::from_num(500_000_u64));
+            map.insert(netuid_b, I96F32::from_num(300_000_u64));
         });
-        // old_hotkey RootClaimable is empty (wiped by bug)
+        RootClaimed::<Test>::insert((netuid_a, new_hotkey, coldkey_a), 999u128);
+        RootClaimed::<Test>::insert((netuid_b, new_hotkey, coldkey_b), 111u128);
 
-        // RootClaimed watermark lives on new_hotkey for netuid=27
-        let claimed_val: u128 = 999_999;
-        RootClaimed::<Test>::insert((netuid_target, new_hotkey, coldkey), claimed_val);
-
-        // RootClaimed for netuid_other should not be touched (no Alpha entry)
-        let other_claimed_val: u128 = 111_111;
-        RootClaimed::<Test>::insert((netuid_other, new_hotkey, coldkey), other_claimed_val);
-
-        // Alpha entry for new_hotkey on netuid=27 triggers transfer_root_claimed in the loop
-        Alpha::<Test>::insert(
-            (new_hotkey, coldkey, netuid_target),
-            U64F64::from_num(1_000_u64),
-        );
-
-        Alpha::<Test>::insert(
-            (old_hotkey, coldkey, NetUid::from(0)),
-            U64F64::from_num(1_000_u64),
-        );
-        // No Alpha entry for netuid_other — loop should not touch it
+        // Unrelated hotkey's claimed entry must stay intact
+        RootClaimable::<Test>::mutate(untouched_hotkey, |map| {
+            map.insert(netuid_a, I96F32::from_num(42_u64));
+        });
+        RootClaimed::<Test>::insert((netuid_a, untouched_hotkey, coldkey_a), 555u128);
 
         assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
 
         let w = migrate_fix_root_claimed_overclaim::<Test>();
-        assert!(!w.is_zero(), "weight must be non-zero");
+        assert!(!w.is_zero());
         assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
 
-        // old_hotkey should have gotten back RootClaimable for both subnets
-        // (transfer_root_claimable_for_new_hotkey moves the entire map)
-        let old_claimable = RootClaimable::<Test>::get(old_hotkey);
-        assert!(
-            old_claimable.contains_key(&netuid_target),
-            "old_hotkey should have claimable restored for netuid=27"
-        );
-        assert!(
-            old_claimable.contains_key(&netuid_other),
-            "old_hotkey should have claimable restored for netuid_other"
-        );
-        assert_eq!(
-            old_claimable.get(&netuid_target).copied(),
-            Some(claimable_value_27),
-        );
-        assert_eq!(
-            old_claimable.get(&netuid_other).copied(),
-            Some(claimable_value_other),
-        );
-
-        // new_hotkey should have lost its RootClaimable entirely
         assert!(
             RootClaimable::<Test>::get(new_hotkey).is_empty(),
-            "new_hotkey should have no claimable after migration"
+            "new hotkey RootClaimable must be cleared"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_a, new_hotkey, coldkey_a)),
+            999u128,
+            "RootClaimed entries must be left intact"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_b, new_hotkey, coldkey_b)),
+            111u128,
+            "RootClaimed entries must be left intact"
         );
 
-        // RootClaimed for netuid=27: watermark transferred from new_hotkey to old_hotkey
         assert_eq!(
-            RootClaimed::<Test>::get((netuid_target, old_hotkey, coldkey)),
-            claimed_val,
+            RootClaimable::<Test>::get(untouched_hotkey)
+                .get(&netuid_a)
+                .copied(),
+            Some(I96F32::from_num(42_u64))
         );
         assert_eq!(
-            RootClaimed::<Test>::get((netuid_target, new_hotkey, coldkey)),
-            0u128,
-            "RootClaimed for (netuid=27, new_hotkey, coldkey) should be cleared"
-        );
-
-        // RootClaimed for netuid_other on new_hotkey must be untouched (no Alpha entry)
-        assert_eq!(
-            RootClaimed::<Test>::get((netuid_other, new_hotkey, coldkey)),
-            other_claimed_val,
+            RootClaimed::<Test>::get((netuid_a, untouched_hotkey, coldkey_a)),
+            555u128
         );
     });
 
-    // Check idempotency, already run -> no-op
+    // CASE 2: new hotkey has root stake → state is preserved
+    new_test_ext(1).execute_with(|| {
+        frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
+
+        RootClaimable::<Test>::mutate(new_hotkey, |map| {
+            map.insert(netuid_a, I96F32::from_num(500_000_u64));
+        });
+        RootClaimed::<Test>::insert((netuid_a, new_hotkey, coldkey_a), 999u128);
+
+        TotalHotkeyAlpha::<Test>::insert(new_hotkey, root_netuid, AlphaBalance::from(1_000u64));
+
+        let w = migrate_fix_root_claimed_overclaim::<Test>();
+        assert!(!w.is_zero());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        assert_eq!(
+            RootClaimable::<Test>::get(new_hotkey)
+                .get(&netuid_a)
+                .copied(),
+            Some(I96F32::from_num(500_000_u64)),
+            "must not clear when new hotkey still holds root stake"
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_a, new_hotkey, coldkey_a)),
+            999u128
+        );
+    });
+
+    // CASE 3: idempotency — second run is a no-op
     new_test_ext(1).execute_with(|| {
         frame_system::BlockHash::<Test>::insert(0u64, H256::from_slice(&mainnet_genesis));
         HasMigrationRun::<Test>::insert(MIGRATION_NAME.to_vec(), true);
 
         RootClaimable::<Test>::mutate(new_hotkey, |map| {
-            map.insert(netuid_target, I96F32::from_num(777_u64));
+            map.insert(netuid_a, I96F32::from_num(777_u64));
         });
 
         let w = migrate_fix_root_claimed_overclaim::<Test>();
@@ -4253,12 +4225,12 @@ fn test_migrate_fix_root_claimed_overclaim() {
             <Test as frame_system::Config>::DbWeight::get().reads(1),
             "second run should only read the migration flag"
         );
-
-        assert!(
-            RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
-            "second run must not modify new_hotkey data"
+        assert_eq!(
+            RootClaimable::<Test>::get(new_hotkey)
+                .get(&netuid_a)
+                .copied(),
+            Some(I96F32::from_num(777_u64))
         );
-        assert!(RootClaimable::<Test>::get(old_hotkey).is_empty(),);
     });
 }
 
@@ -4305,5 +4277,43 @@ fn test_migrate_fix_root_claimed_incorrect_genesis() {
             RootClaimable::<Test>::get(new_hotkey).contains_key(&netuid_target),
             "new_hotkey data must remain untouched on non-mainnet"
         );
+    });
+}
+
+#[test]
+fn test_migrate_subnet_balances() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        // Add network locks
+        let lock1 = TaoBalance::from(123_000_000_000_u64);
+        let lock2 = TaoBalance::from(321_000_000_000_u64);
+        SubnetLocked::<Test>::insert(netuid1, lock1);
+        SubnetLocked::<Test>::insert(netuid2, lock2);
+
+        // Add SubnetTAO
+        let reserve1 = TaoBalance::from(456_000_000_000_u64);
+        let reserve2 = TaoBalance::from(654_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid1, reserve1);
+        SubnetTAO::<Test>::insert(netuid2, reserve2);
+
+        // Run migration
+        crate::migrations::migrate_subnet_balances::migrate_subnet_balances::<Test>();
+
+        // Test that subnet balances got updated
+        let subnet_account_1 = SubtensorModule::get_subnet_account_id(netuid1).unwrap();
+        let subnet_account_2 = SubtensorModule::get_subnet_account_id(netuid2).unwrap();
+        let balance1 = SubtensorModule::get_coldkey_balance(&subnet_account_1);
+        let balance2 = SubtensorModule::get_coldkey_balance(&subnet_account_2);
+        let initial_pool_tao = NetworkMinLockCost::<Test>::get();
+        assert_eq!(balance1, lock1 + reserve1 - initial_pool_tao);
+        assert_eq!(balance2, lock2 + reserve2 - initial_pool_tao);
+
+        // Check migration has been marked as run
+        const MIGRATION_NAME: &[u8] = b"migrate_subnet_balances";
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
     });
 }

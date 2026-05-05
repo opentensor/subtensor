@@ -109,6 +109,8 @@ pub trait SubtensorCustomApi<BlockHash> {
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetToPrune")]
     fn get_subnet_to_prune(&self, at: Option<BlockHash>) -> RpcResult<Option<NetUid>>;
+    #[method(name = "subnetInfo_getSubnetAccountId")]
+    fn get_subnet_account_id(&self, netuid: NetUid, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -529,6 +531,20 @@ where
             Err(e) => {
                 Err(Error::RuntimeError(format!("Unable to get subnet to prune: {e:?}")).into())
             }
+        }
+    }
+
+    fn get_subnet_account_id(
+        &self,
+        netuid: NetUid,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        match api.get_subnet_account_id(at, netuid) {
+            Ok(result) => Ok(result.encode()),
+            Err(_) => Err(Error::RuntimeError("Subnet does not exist".to_string()).into()),
         }
     }
 }

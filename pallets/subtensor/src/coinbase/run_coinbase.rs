@@ -1,5 +1,7 @@
 use super::*;
+use crate::coinbase::tao::CreditOf;
 use alloc::collections::BTreeMap;
+use frame_support::traits::Imbalance;
 use safe_math::*;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
@@ -19,12 +21,19 @@ macro_rules! tou64 {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn run_coinbase(block_emission: U96F32) {
+    pub fn run_coinbase(block_emission_credit: CreditOf<T>) {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
+        let block_emission = U96F32::saturating_from_num(block_emission_credit.peek());
         log::debug!(
             "Running coinbase for block {current_block:?} with block emission: {block_emission:?}"
         );
+
+        // Reset per-block root sell counters from the previous block.
+        // Root sells (step 8 in block_step) happen after coinbase, so their
+        // accumulated values are consumed here at the start of the next block.
+        let _ = SubnetRootSellTao::<T>::clear(u32::MAX, None);
+
         // --- 1. Get all subnets (excluding root).
         let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
             .into_iter()
@@ -44,7 +53,12 @@ impl<T: Config> Pallet<T> {
         log::debug!("Root sell flag: {root_sell_flag:?}");
 
         // --- 4. Emit to subnets for this block.
-        Self::emit_to_subnets(&subnets_to_emit_to, &subnet_emissions, root_sell_flag);
+        Self::emit_to_subnets(
+            &subnets_to_emit_to,
+            &subnet_emissions,
+            block_emission_credit,
+            root_sell_flag,
+        );
 
         // --- 5. Drain pending emissions.
         let emissions_to_distribute = Self::drain_pending(&subnets, current_block);
@@ -58,55 +72,98 @@ impl<T: Config> Pallet<T> {
         tao_in: &BTreeMap<NetUid, U96F32>,
         alpha_in: &BTreeMap<NetUid, U96F32>,
         excess_tao: &BTreeMap<NetUid, U96F32>,
+        credit: CreditOf<T>,
     ) {
+        let mut remaining_credit = credit;
         for netuid_i in subnets_to_emit_to.iter() {
-            let tao_in_i: TaoBalance = tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            let alpha_in_i: AlphaBalance =
-                tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            let tao_to_swap_with: TaoBalance =
-                tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+            let maybe_subnet_account_id = Self::get_subnet_account_id(*netuid_i);
+            if let Some(subnet_account_id) = maybe_subnet_account_id {
+                let tao_in_i: TaoBalance =
+                    tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+                let alpha_in_i: AlphaBalance =
+                    tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+                let tao_to_swap_with: TaoBalance =
+                    tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
-            T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
+                T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
-            if tao_to_swap_with > TaoBalance::ZERO {
-                let buy_swap_result = Self::swap_tao_for_alpha(
-                    *netuid_i,
-                    tao_to_swap_with,
-                    T::SwapInterface::max_price(),
-                    true,
-                );
-                if let Ok(buy_swap_result_ok) = buy_swap_result {
-                    let bought_alpha: AlphaBalance = buy_swap_result_ok.amount_paid_out.into();
-                    Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+                if tao_to_swap_with > TaoBalance::ZERO {
+                    // Turn excess_tao portion of credit into TaoBalance on subnet account
+                    match Self::spend_tao(&subnet_account_id, remaining_credit, tao_to_swap_with) {
+                        Ok(remainder) => {
+                            remaining_credit = remainder;
+
+                            let buy_swap_result = Self::swap_tao_for_alpha(
+                                *netuid_i,
+                                tao_to_swap_with,
+                                T::SwapInterface::max_price(),
+                                true,
+                            );
+                            if let Ok(buy_swap_result_ok) = buy_swap_result {
+                                let bought_alpha: AlphaBalance =
+                                    buy_swap_result_ok.amount_paid_out.into();
+                                Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+
+                                // Record actual excess TAO that entered pool.
+                                let actual_excess: TaoBalance = buy_swap_result_ok.amount_paid_in;
+                                SubnetExcessTao::<T>::insert(*netuid_i, actual_excess);
+                                Self::record_protocol_inflow(*netuid_i, actual_excess);
+                            }
+                        }
+                        Err(remainder) => {
+                            remaining_credit = remainder;
+                            let remaining_balance = remaining_credit.peek();
+                            log::error!(
+                                "Failed to spend credit: tao_to_swap_with = {tao_to_swap_with:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
+                            );
+                        }
+                    }
+                }
+
+                // Inject Alpha in.
+                let alpha_in_i =
+                    AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
+                SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
+                SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(alpha_in_i);
+                });
+
+                // Inject TAO in.
+                let injected_tao: TaoBalance =
+                    tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
+                if !injected_tao.is_zero() {
+                    match Self::spend_tao(&subnet_account_id, remaining_credit, injected_tao) {
+                        Ok(remainder) => {
+                            remaining_credit = remainder;
+
+                            SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
+                            SubnetTAO::<T>::mutate(*netuid_i, |total| {
+                                *total = total.saturating_add(injected_tao);
+                            });
+                            TotalStake::<T>::mutate(|total| {
+                                *total = total.saturating_add(injected_tao);
+                            });
+
+                            // Record emission injection as protocol inflow.
+                            Self::record_protocol_inflow(*netuid_i, injected_tao);
+                        }
+                        Err(remainder) => {
+                            remaining_credit = remainder;
+                            let remaining_balance = remaining_credit.peek();
+                            log::error!(
+                                "Failed to spend credit: injected_tao = {injected_tao:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
+                            );
+                        }
+                    }
                 }
             }
+        }
 
-            // Inject Alpha in.
-            let alpha_in_i =
-                AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
-            SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_in_i);
-            });
-
-            // Inject TAO in.
-            let injected_tao: TaoBalance =
-                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
-            SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(injected_tao);
-            });
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(injected_tao);
-            });
-
-            // Update total TAO issuance.
-            let difference_tao = tou64!(*excess_tao.get(netuid_i).unwrap_or(&asfloat!(0)));
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total
-                    .saturating_add(injected_tao.into())
-                    .saturating_add(difference_tao.into());
-            });
+        // Remaining imbalance should be zero at this point. If not, log error and burn.
+        let remaining_balance = remaining_credit.peek();
+        if !remaining_balance.is_zero() {
+            // log::error!("Unspent imbalance remains: remaining_balance = {remaining_balance:?}");
+            Self::recycle_credit(remaining_credit);
         }
     }
 
@@ -124,7 +181,7 @@ impl<T: Config> Pallet<T> {
         let mut alpha_out: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let mut excess_tao: BTreeMap<NetUid, U96F32> = BTreeMap::new();
         let tao_block_emission: U96F32 = U96F32::saturating_from_num(
-            Self::get_block_emission()
+            Self::calculate_block_emission()
                 .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );
@@ -166,6 +223,7 @@ impl<T: Config> Pallet<T> {
     pub fn emit_to_subnets(
         subnets_to_emit_to: &[NetUid],
         subnet_emissions: &BTreeMap<NetUid, U96F32>,
+        credit: CreditOf<T>,
         root_sell_flag: bool,
     ) {
         // --- 1. Get subnet terms (tao_in, alpha_in, and alpha_out)
@@ -178,7 +236,13 @@ impl<T: Config> Pallet<T> {
         log::debug!("excess_amount: {excess_amount:?}");
 
         // --- 2. Inject TAO and ALPHA to pool and swap with excess TAO.
-        Self::inject_and_maybe_swap(subnets_to_emit_to, &tao_in, &alpha_in, &excess_amount);
+        Self::inject_and_maybe_swap(
+            subnets_to_emit_to,
+            &tao_in,
+            &alpha_in,
+            &excess_amount,
+            credit,
+        );
 
         // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();

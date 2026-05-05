@@ -1,12 +1,11 @@
 use core::num::NonZeroU64;
-use core::ops::Neg;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
 use sp_arithmetic::Perbill;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{
-    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
+    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve,
 };
 
 use crate::{
@@ -463,50 +462,12 @@ mod pallet {
         #[pallet::call_index(2)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_liquidity())]
         pub fn remove_liquidity(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuid: NetUid,
-            position_id: PositionId,
+            _origin: OriginFor<T>,
+            _hotkey: T::AccountId,
+            _netuid: NetUid,
+            _position_id: PositionId,
         ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
-
-            // Ensure that the subnet exists.
-            ensure!(
-                T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::MechanismDoesNotExist
-            );
-
-            // Remove liquidity
-            let result = Self::do_remove_liquidity(netuid, &coldkey, position_id)?;
-
-            // Credit the returned tao and alpha to the account
-            T::BalanceOps::increase_balance(&coldkey, result.tao.saturating_add(result.fee_tao));
-            T::BalanceOps::increase_stake(
-                &coldkey,
-                &hotkey,
-                netuid.into(),
-                result.alpha.saturating_add(result.fee_alpha),
-            )?;
-
-            // Remove withdrawn liquidity from user-provided reserves
-            T::TaoReserve::decrease_provided(netuid.into(), result.tao);
-            T::AlphaReserve::decrease_provided(netuid.into(), result.alpha);
-
-            // Emit an event
-            Self::deposit_event(Event::LiquidityRemoved {
-                coldkey,
-                hotkey,
-                netuid: netuid.into(),
-                position_id,
-                liquidity: result.liquidity,
-                tao: result.tao,
-                alpha: result.alpha,
-                fee_tao: result.fee_tao,
-                fee_alpha: result.fee_alpha,
-                tick_low: result.tick_low.into(),
-                tick_high: result.tick_high.into(),
-            });
-
+            // Deprecated by balancer. We don't have any active liquidity providers either.
             Ok(())
         }
 
@@ -522,100 +483,13 @@ mod pallet {
         #[pallet::call_index(3)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::modify_position())]
         pub fn modify_position(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuid: NetUid,
-            position_id: PositionId,
-            liquidity_delta: i64,
+            _origin: OriginFor<T>,
+            _hotkey: T::AccountId,
+            _netuid: NetUid,
+            _position_id: PositionId,
+            _liquidity_delta: i64,
         ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
-
-            // Ensure that the subnet exists.
-            ensure!(
-                T::SubnetInfo::exists(netuid.into()),
-                Error::<T>::MechanismDoesNotExist
-            );
-
-            ensure!(
-                T::SubnetInfo::is_subtoken_enabled(netuid.into()),
-                Error::<T>::SubtokenDisabled
-            );
-
-            // Add or remove liquidity
-            let result =
-                Self::do_modify_position(netuid, &coldkey, &hotkey, position_id, liquidity_delta)?;
-
-            if liquidity_delta > 0 {
-                // Remove TAO and Alpha balances or fail transaction if they can't be removed exactly
-                let tao_provided = T::BalanceOps::decrease_balance(&coldkey, result.tao)?;
-                ensure!(tao_provided == result.tao, Error::<T>::InsufficientBalance);
-
-                T::BalanceOps::decrease_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
-
-                // Emit an event
-                Self::deposit_event(Event::LiquidityModified {
-                    coldkey: coldkey.clone(),
-                    hotkey: hotkey.clone(),
-                    netuid,
-                    position_id,
-                    liquidity: liquidity_delta,
-                    tao: result.tao.to_u64() as i64,
-                    alpha: result.alpha.to_u64() as i64,
-                    fee_tao: result.fee_tao,
-                    fee_alpha: result.fee_alpha,
-                    tick_low: result.tick_low,
-                    tick_high: result.tick_high,
-                });
-            } else {
-                // Credit the returned tao and alpha to the account
-                T::BalanceOps::increase_balance(&coldkey, result.tao);
-                T::BalanceOps::increase_stake(&coldkey, &hotkey, netuid.into(), result.alpha)?;
-
-                // Emit an event
-                if result.removed {
-                    Self::deposit_event(Event::LiquidityRemoved {
-                        coldkey: coldkey.clone(),
-                        hotkey: hotkey.clone(),
-                        netuid,
-                        position_id,
-                        liquidity: liquidity_delta.unsigned_abs(),
-                        tao: result.tao,
-                        alpha: result.alpha,
-                        fee_tao: result.fee_tao,
-                        fee_alpha: result.fee_alpha,
-                        tick_low: result.tick_low,
-                        tick_high: result.tick_high,
-                    });
-                } else {
-                    Self::deposit_event(Event::LiquidityModified {
-                        coldkey: coldkey.clone(),
-                        hotkey: hotkey.clone(),
-                        netuid,
-                        position_id,
-                        liquidity: liquidity_delta,
-                        tao: (result.tao.to_u64() as i64).neg(),
-                        alpha: (result.alpha.to_u64() as i64).neg(),
-                        fee_tao: result.fee_tao,
-                        fee_alpha: result.fee_alpha,
-                        tick_low: result.tick_low,
-                        tick_high: result.tick_high,
-                    });
-                }
-            }
-
-            // Credit accrued fees to user account (no matter if liquidity is added or removed)
-            if result.fee_tao > TaoBalance::ZERO {
-                T::BalanceOps::increase_balance(&coldkey, result.fee_tao);
-            }
-            if !result.fee_alpha.is_zero() {
-                T::BalanceOps::increase_stake(
-                    &coldkey,
-                    &hotkey.clone(),
-                    netuid.into(),
-                    result.fee_alpha,
-                )?;
-            }
-
+            // Deprecated by balancer. We don't have any active liquidity providers either.
             Ok(())
         }
 

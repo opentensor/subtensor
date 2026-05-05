@@ -137,9 +137,6 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Getters ====
     // ========================
-    pub fn get_total_issuance() -> TaoBalance {
-        TotalIssuance::<T>::get()
-    }
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
             .ok()
@@ -340,13 +337,6 @@ impl<T: Config> Pallet<T> {
     // ========================
     // === Token Management ===
     // ========================
-    pub fn recycle_tao(amount: TaoBalance) {
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
-    }
-    pub fn increase_issuance(amount: TaoBalance) {
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
-    }
-
     pub fn set_subnet_locked_balance(netuid: NetUid, amount: TaoBalance) {
         SubnetLocked::<T>::insert(netuid, amount);
     }
@@ -712,10 +702,6 @@ impl<T: Config> Pallet<T> {
         StakingHotkeys::<T>::get(coldkey)
     }
 
-    pub fn set_total_issuance(total_issuance: TaoBalance) {
-        TotalIssuance::<T>::put(total_issuance);
-    }
-
     pub fn get_rao_recycled(netuid: NetUid) -> TaoBalance {
         RAORecycledForRegistration::<T>::get(netuid)
     }
@@ -847,9 +833,16 @@ impl<T: Config> Pallet<T> {
     ///
     /// * Update the SubnetOwnerHotkey storage.
     /// * Emits a SubnetOwnerHotkeySet event.
-    pub fn set_subnet_owner_hotkey(netuid: NetUid, hotkey: &T::AccountId) {
+    pub fn set_subnet_owner_hotkey(netuid: NetUid, hotkey: &T::AccountId) -> DispatchResult {
+        // Ensure that hotkey is not a special account
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::CannotUseSystemAccount
+        );
+
         SubnetOwnerHotkey::<T>::insert(netuid, hotkey.clone());
         Self::deposit_event(Event::SubnetOwnerHotkeySet(netuid, hotkey.clone()));
+        Ok(())
     }
 
     // Get the uid of the Owner Hotkey for a subnet.
@@ -913,6 +906,11 @@ impl<T: Config> Pallet<T> {
     /// Sets TAO flow smoothing factor (alpha)
     pub fn set_tao_flow_smoothing_factor(smoothing_factor: u64) {
         FlowEmaSmoothingFactor::<T>::set(smoothing_factor);
+    }
+
+    /// Enables or disables net TAO flow (protocol cost deduction from emission shares).
+    pub fn set_net_tao_flow_enabled(enabled: bool) {
+        NetTaoFlowEnabled::<T>::set(enabled);
     }
 
     /// Multiply an integer `value` by a Q32 fixed-point factor.

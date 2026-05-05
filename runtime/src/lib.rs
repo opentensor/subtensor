@@ -73,7 +73,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use stp_shield::ShieldedTransaction;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -272,7 +272,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 397,
+    spec_version: 403,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1122,10 +1122,12 @@ parameter_types! {
     // 0 days
     pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(1_000_000); // 0.001 TAO
-    pub const HotkeySwapOnSubnetInterval : BlockNumber = 24 * 60 * 60 / 12; // 1 day
+    pub const HotkeySwapOnSubnetInterval : BlockNumber = prod_or_fast!(24 * 60 * 60 / 12, 1); // 1 day
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1201,6 +1203,8 @@ impl pallet_subtensor::Config for Runtime {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
@@ -2510,6 +2514,10 @@ impl_runtime_apis! {
         fn get_selective_mechagraph(netuid: NetUid, mecid: MechId, metagraph_indexes: Vec<u16>) -> Option<SelectiveMetagraph<AccountId32>> {
             SubtensorModule::get_selective_mechagraph(netuid, mecid, metagraph_indexes)
         }
+
+        fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::get_subnet_account_id(netuid)
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
@@ -2527,6 +2535,14 @@ impl_runtime_apis! {
 
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
+        }
+
+        fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64 {
+            SubtensorModule::hotkey_conviction(&hotkey, netuid)
+        }
+
+        fn get_most_convicted_hotkey_on_subnet(netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::subnet_king(netuid)
         }
     }
 

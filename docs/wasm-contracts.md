@@ -43,6 +43,11 @@ Subtensor provides a custom chain extension that allows smart contracts to inter
 | 12 | `set_coldkey_auto_stake_hotkey` | Configure automatic stake destination | `(NetUid, AccountId)` | Error code |
 | 13 | `add_proxy` | Add a staking proxy for the caller | `(AccountId)` | Error code |
 | 14 | `remove_proxy` | Remove a staking proxy for the caller | `(AccountId)` | Error code |
+| 15 | `get_alpha_price` | Query the current alpha price for a subnet | `(NetUid)` | `u64` (price × 10⁹) |
+| 16 | `recycle_alpha` | Recycle alpha stake, reducing SubnetAlphaOut (supply reduction) | `(AccountId, AlphaBalance, NetUid)` | `u64` (actual amount recycled) |
+| 17 | `burn_alpha` | Burn alpha stake without reducing SubnetAlphaOut (supply neutral) | `(AccountId, AlphaBalance, NetUid)` | `u64` (actual amount burned) |
+| 18 | `add_stake_recycle` | Atomically add stake then recycle the resulting alpha | `(AccountId, NetUid, TaoBalance)` | `u64` (alpha amount recycled) |
+| 19 | `add_stake_burn` | Atomically add stake then burn the resulting alpha | `(AccountId, NetUid, TaoBalance)` | `u64` (alpha amount burned) |
 
 Example usage in your ink! contract:
 ```rust
@@ -85,6 +90,9 @@ Chain extension functions that modify state return error codes as `u32` values. 
 | 17 | `ProxyDuplicate` | Proxy already exists |
 | 18 | `ProxyNoSelfProxy` | Cannot add self as proxy |
 | 19 | `ProxyNotFound` | Proxy relationship not found |
+| 20 | `CannotUseSystemAccount` | A system account cannot be used in this operation |
+| 21 | `CannotBurnOrRecycleOnRootSubnet` | Cannot burn or recycle on the root subnet |
+| 22 | `SubtokenDisabled` | Subtoken is not enabled for the specified subnet |
 
 ### Call Filter
 
