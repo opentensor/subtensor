@@ -2106,8 +2106,8 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         }
         for &net in nets.iter() {
             assert_ok!(SubtensorModule::do_dissolve_network(net));
+            run_block_idle();
         }
-        run_block_idle();
 
         // ────────────────────────────────────────────────────────────────────
         // 7) Assertions: τ balances, α gone, nets removed, swap state clean

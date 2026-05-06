@@ -4291,6 +4291,7 @@ fn test_move_stake_limit_partial() {
 
         // Registration now goes through the burn/swap path, which initializes swap V3 state.
         // Clear that state first so the manual reserve fixture below actually controls price.
+        <Test as pallet::Config>::SwapInterface::init_clean_up_protocol_liquidity_phase();
         assert!(
             <Test as pallet::Config>::SwapInterface::clear_protocol_liquidity(
                 origin_netuid,
@@ -4298,6 +4299,7 @@ fn test_move_stake_limit_partial() {
             )
             .1
         );
+        <Test as pallet::Config>::SwapInterface::init_clean_up_protocol_liquidity_phase();
         assert!(
             <Test as pallet::Config>::SwapInterface::clear_protocol_liquidity(
                 destination_netuid,
