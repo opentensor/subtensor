@@ -81,22 +81,23 @@ type VotingSchemeOf<T> = <<T as Config>::Polls as Polls<AccountIdOf<T>>>::Voting
 #[derive(
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Clone, TypeInfo, Debug,
 )]
-#[subtensor_macros::freeze_struct("523f104c4bf2ada2")]
+#[subtensor_macros::freeze_struct("8f9ee43d39e00767")]
 pub struct SignedVoteTally {
-    /// Aye votes cast so far.
+    /// Number of approve votes cast.
     pub ayes: u32,
-    /// Nay votes cast so far.
+    /// Number of reject votes cast.
     pub nays: u32,
-    /// Size of the voter-set snapshot at poll creation. The denominator
-    /// for `approval` / `rejection` / `abstention` ratios; fixed for
-    /// the poll's lifetime so thresholds cannot shift mid-poll.
+    /// Number of eligible voters at poll creation.
     pub total: u32,
 }
 
 impl From<SignedVoteTally> for VoteTally {
-    // Empty voter set: everyone implicitly abstains.
     fn from(value: SignedVoteTally) -> Self {
         if value.total == 0 {
+            // Substrate's `Perbill::from_rational(_, 0)` saturates to
+            // 100%, so without this short-circuit `approval`,
+            // `rejection`, and `abstention` would each be 100% and sum
+            // to 300%. Return the all-abstention default instead.
             return VoteTally::default();
         }
         let approval = Perbill::from_rational(value.ayes, value.total);
@@ -117,16 +118,15 @@ impl From<SignedVoteTally> for VoteTally {
 /// re-iterating already-removed entries.
 pub type CleanupCursorOf<T> = BoundedVec<u8, <T as Config>::CleanupCursorMaxLen>;
 
-/// Pinned at 0 to satisfy try-runtime CLI's pre/post-upgrade checks. The
-/// project tracks migrations via a per-pallet `HasMigrationRun` map (see
-/// `pallet-crowdloan`), so this value is not bumped on schema changes.
-pub const STORAGE_VERSION: frame_support::traits::StorageVersion =
-    frame_support::traits::StorageVersion::new(0);
-
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
+
+    // Pinned to 0 to satisfy try-runtime CLI's pre/post-upgrade checks.
+    // The project tracks migrations via a per-pallet `HasMigrationRun` map
+    // so this value is not bumped on schema changes.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -134,8 +134,13 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// Voting scheme this backend handles. Polls reporting any
+        /// other scheme via the `Polls` provider are ignored.
         type Scheme: Get<VotingSchemeOf<Self>>;
 
+        /// Poll producer that owns poll lifecycles, voter sets, and
+        /// scheme assignment. This pallet only stores tallies and
+        /// per-voter records for polls the producer announces.
         type Polls: Polls<Self::AccountId>;
 
         /// Upper bound on the size of any track's voter set, used as the
@@ -226,63 +231,54 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// A vote was cast or changed.
+        /// A member cast or changed a vote on a poll.
         Voted {
-            /// Account that cast the vote.
+            /// Account that voted.
             who: T::AccountId,
-            /// Poll the vote was cast on.
+            /// Poll voted on.
             poll_index: PollIndexOf<T>,
-            /// `true` for an aye, `false` for a nay.
+            /// True for approve, false for reject.
             approve: bool,
-            /// Tally after applying the vote.
+            /// Tally after the vote was applied.
             tally: SignedVoteTally,
         },
 
-        /// A previously-cast vote was withdrawn.
+        /// A member withdrew a previously cast vote.
         VoteRemoved {
             /// Account that withdrew the vote.
             who: T::AccountId,
             /// Poll the vote was withdrawn from.
             poll_index: PollIndexOf<T>,
-            /// Tally after the vote was removed.
+            /// Tally after the vote was withdrawn.
             tally: SignedVoteTally,
         },
 
-        /// A poll concluded but the cleanup queue was already full, so
-        /// its per-voter records were left in storage. The records do
-        /// not affect correctness but will not be reclaimed unless the
-        /// queue cap is raised. Indicates a runtime misconfiguration
-        /// where the cap is smaller than the maximum number of polls
-        /// that can complete simultaneously.
+        /// A poll concluded but the cleanup queue was full. Per-voter
+        /// records were left in storage and require operator
+        /// intervention to reclaim.
         CleanupQueueFull {
-            /// Poll whose per-voter records were not enqueued.
+            /// Poll whose records were not queued for cleanup.
             poll_index: PollIndexOf<T>,
         },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// The poll either never existed or has already concluded.
+        /// The poll has not started or has already concluded.
         PollNotOngoing,
-        /// No poll with this index is registered.
+        /// No poll with this identifier is registered.
         PollNotFound,
-        /// This poll uses a different voting scheme.
+        /// This poll is governed by a different voting scheme.
         InvalidVotingScheme,
         /// The caller is not eligible to vote on this poll.
         NotInVoterSet,
-        /// The caller has already cast a vote in the same direction.
+        /// The caller has already cast a vote in this direction.
         DuplicateVote,
-        /// The caller has not cast a vote on this poll.
+        /// The caller has no vote on this poll to withdraw.
         VoteNotFound,
-        /// The poll's voter-set snapshot is missing. The poll is
-        /// reported as ongoing but its eligibility roster was never
-        /// recorded or has been cleared early. Internal inconsistency
-        /// that should be unreachable in production.
+        /// The poll's eligibility roster is missing. Internal inconsistency.
         VoterSetMissing,
-        /// The poll's tally is missing. The poll is reported as ongoing
-        /// but its tally was never recorded or has been cleared early.
-        /// Internal inconsistency that should be unreachable in
-        /// production.
+        /// The poll's tally is missing. Internal inconsistency.
         TallyMissing,
     }
 
@@ -382,9 +378,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    // Apply a fresh or flipped vote to the tally and persist the
-    // direction. The match arms cover the three reachable states:
-    // first vote, flip aye/nay, and the rejected duplicate.
     fn try_vote(
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
@@ -423,9 +416,8 @@ impl<T: Config> Pallet<T> {
         Ok(tally)
     }
 
-    // Roll back the caller's vote and clear their `VotingFor` entry.
-    // The tally counter to decrement is decided by the stored direction,
-    // not by anything the caller passes in.
+    // Decrement the counter matching the *stored* direction, not
+    // anything the caller passes in.
     fn try_remove_vote(
         poll_index: PollIndexOf<T>,
         who: &T::AccountId,
@@ -472,15 +464,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Drains the head of `PendingCleanup` in `CleanupChunkSize` chunks
-    // until either the queue is empty or the meter is exhausted. A poll
-    // stays at the head until `clear_prefix` returns no resume cursor,
-    // at which point its prefix is empty and it is popped.
-    //
-    // The queue is read once and written once. The entry budget covers
-    // both atomically: we will not read the queue if we cannot also
-    // afford to write any progress back. Mutation between iterations
-    // happens in memory.
+    // The queue read and write are billed atomically via `entry_cost`:
+    // we don't read the queue if we can't also afford to write progress
+    // back. Mutation between iterations happens in memory.
     fn drain_pending_cleanup(remaining: Weight) -> Weight {
         let chunk = T::CleanupChunkSize::get();
         if chunk == 0 {
