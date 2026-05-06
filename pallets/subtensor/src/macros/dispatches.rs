@@ -1867,7 +1867,7 @@ mod dispatches {
         /// * `netuid` - The subnet ID
         ///
         /// # Events
-        /// Emits a `TokensBurned` event on success.
+        /// Emits a `AlphaBurned` event on success.
         #[pallet::call_index(102)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::burn_alpha())]
         pub fn burn_alpha(
