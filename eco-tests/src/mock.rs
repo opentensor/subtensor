@@ -45,6 +45,7 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap = 9,
         Crowdloan: pallet_crowdloan = 10,
         Proxy: pallet_subtensor_proxy = 11,
+        AlphaAssets: pallet_alpha_assets = 12,
     }
 );
 
@@ -313,6 +314,7 @@ impl pallet_subtensor::Config for Test {
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
+    type AlphaAssets = AlphaAssets;
 }
 
 // Swap-related parameter types
@@ -484,6 +486,8 @@ impl InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
         }
     }
 }
+
+impl pallet_alpha_assets::Config for Test {}
 
 mod test_crypto {
     use super::KEY_TYPE;

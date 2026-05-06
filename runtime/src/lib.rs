@@ -527,6 +527,8 @@ impl pallet_balances::Config for Runtime {
     type DoneSlashHandler = ();
 }
 
+impl pallet_alpha_assets::Config for Runtime {}
+
 // Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction
 // fee OnUnbalanced trait bounds
 pub struct BlockAuthorFromAura<F>(core::marker::PhantomData<F>);
@@ -1202,6 +1204,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
@@ -1707,7 +1710,8 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
-        LimitOrders: pallet_limit_orders = 31,
+        AlphaAssets: pallet_alpha_assets = 31,
+        LimitOrders: pallet_limit_orders = 32,
     }
 );
 
