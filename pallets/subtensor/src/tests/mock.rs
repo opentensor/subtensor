@@ -694,6 +694,22 @@ pub(crate) fn run_block_idle() {
     );
 }
 
+/// Run `on_idle` until `DissolvedNetworks` is empty (one pass per idle may only
+/// finish one network’s phased cleanup).
+#[allow(dead_code)]
+pub(crate) fn run_block_idle_until_no_dissolved_networks() {
+    for _ in 0..256 {
+        if DissolvedNetworks::<Test>::get().is_empty() {
+            return;
+        }
+        run_block_idle();
+    }
+    panic!(
+        "dissolved network cleanup did not finish: {:?}",
+        DissolvedNetworks::<Test>::get()
+    );
+}
+
 #[allow(dead_code)]
 pub(crate) fn next_block_no_epoch(netuid: NetUid) -> u64 {
     // high tempo to skip automatic epochs in on_initialize

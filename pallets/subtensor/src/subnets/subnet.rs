@@ -468,7 +468,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
-        if NetworksAdded::<T>::contains_key(netuid) || netuid == NetUid::ROOT {
+        if NetworksAdded::<T>::contains_key(netuid)
+            || netuid == NetUid::ROOT
+            || DissolvedNetworks::<T>::get().contains(&netuid)
+        {
             Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
         } else {
             None

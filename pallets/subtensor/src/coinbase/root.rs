@@ -266,6 +266,13 @@ impl<T: Config> Pallet<T> {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
+            Uids<T>,
+            netuid
+        );
+
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
             BlockAtRegistration<T>,
             netuid
         );

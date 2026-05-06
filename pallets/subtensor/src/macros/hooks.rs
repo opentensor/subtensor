@@ -393,7 +393,7 @@ mod hooks {
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::insert(
                                     *netuid,
-                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkMapParameters,
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParameters,
                                 );
                             }
                             (weight_used, done)
