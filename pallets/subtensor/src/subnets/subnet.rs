@@ -219,7 +219,6 @@ impl<T: Config> Pallet<T> {
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
         // Keep the locked TAO in the pool instead of recycling the excess.
-        // Mint the owner alpha separately at the median subnet alpha price.
         // Size the pool alpha reserve from the total TAO reserve at that same price.
         let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
         let total_pool_tao: TaoBalance = if actual_tao_lock_amount >= pool_initial_tao {
