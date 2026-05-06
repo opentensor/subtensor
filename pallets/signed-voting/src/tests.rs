@@ -11,8 +11,7 @@ use crate::{
 };
 
 /// Loop `on_idle` with unlimited weight until `PendingCleanup` is empty.
-/// Sufficient for tests that don't care about block-by-block progress;
-/// cursor-resume tests use [`build_and_commit`] instead because the test
+/// Cursor-resume tests must use [`build_and_commit`] instead: the test
 /// externality only progresses cleanup state across committed blocks.
 fn drain_cleanup_queue() {
     let block = System::block_number();
@@ -22,8 +21,8 @@ fn drain_cleanup_queue() {
 }
 
 /// Build a [`TestExternalities`], run `setup`, then commit so subsequent
-/// `execute_with` blocks see the writes through the backend. Required for
-/// any test that calls `clear_prefix` with a non-trivial limit, since the
+/// `execute_with` blocks see the writes through the backend. Needed for
+/// any test that calls `clear_prefix` with a non-trivial limit: the
 /// limit ignores keys that live only in the overlay.
 fn build_and_commit<F: FnOnce()>(setup: F) -> sp_io::TestExternalities {
     let mut ext = new_test_ext();
@@ -278,6 +277,63 @@ fn vote_rejects_duplicate_in_same_direction() {
 }
 
 #[test]
+fn rotated_out_member_can_still_vote_until_poll_ends() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice, U256::from(2)]);
+
+        rotate_voter_out(0, alice);
+
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+            true,
+        ));
+        assert_eq!(VotingFor::<Test>::get(0u32, alice), Some(true));
+    });
+}
+
+#[test]
+fn rotated_in_member_cannot_vote_on_poll_created_before_they_joined() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        let newcomer = U256::from(42);
+        start_poll(0, VotingScheme::Signed, vec![alice]);
+
+        rotate_voter_in(0, newcomer);
+
+        assert_noop!(
+            SignedVotingPallet::<Test>::vote(RuntimeOrigin::signed(newcomer), 0u32, true),
+            Error::<Test>::NotInVoterSet
+        );
+    });
+}
+
+#[test]
+fn rotated_out_member_can_flip_their_vote() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice, U256::from(2)]);
+
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+            true,
+        ));
+        rotate_voter_out(0, alice);
+
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+            false,
+        ));
+        let tally = TallyOf::<Test>::get(0u32).unwrap();
+        assert_eq!((tally.ayes, tally.nays), (0, 1));
+        assert_eq!(VotingFor::<Test>::get(0u32, alice), Some(false));
+    });
+}
+
+#[test]
 fn remove_vote_clears_aye_and_emits_vote_removed_event() {
     TestState::build_and_execute(|| {
         let alice = U256::from(1);
@@ -326,27 +382,6 @@ fn remove_vote_clears_nay() {
 
         let tally = TallyOf::<Test>::get(0u32).unwrap();
         assert_eq!(tally.nays, 0);
-        assert_eq!(VotingFor::<Test>::get(0u32, alice), None);
-    });
-}
-
-#[test]
-fn remove_vote_succeeds_for_voter_rotated_out_after_creation() {
-    TestState::build_and_execute(|| {
-        let alice = U256::from(1);
-        start_poll(0, VotingScheme::Signed, vec![alice, U256::from(2)]);
-
-        assert_ok!(SignedVotingPallet::<Test>::vote(
-            RuntimeOrigin::signed(alice),
-            0u32,
-            true,
-        ));
-        rotate_voter_out(0, alice);
-
-        assert_ok!(SignedVotingPallet::<Test>::remove_vote(
-            RuntimeOrigin::signed(alice),
-            0u32,
-        ));
         assert_eq!(VotingFor::<Test>::get(0u32, alice), None);
     });
 }
@@ -422,6 +457,27 @@ fn remove_vote_rejects_voter_who_never_voted() {
 }
 
 #[test]
+fn remove_vote_succeeds_for_voter_rotated_out_after_creation() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice, U256::from(2)]);
+
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+            true,
+        ));
+        rotate_voter_out(0, alice);
+
+        assert_ok!(SignedVotingPallet::<Test>::remove_vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+        ));
+        assert_eq!(VotingFor::<Test>::get(0u32, alice), None);
+    });
+}
+
+#[test]
 fn on_poll_created_initializes_tally_with_voter_set_size() {
     TestState::build_and_execute(|| {
         let voters: Vec<U256> = (1..=5u32).map(U256::from).collect();
@@ -450,10 +506,10 @@ fn on_poll_created_snapshots_voter_set_into_voter_set_of() {
     });
 }
 
-/// Defense-in-depth: the runtime's compile-time bound checks and
+/// Defense-in-depth path. The runtime's compile-time bound checks and
 /// `pallet-referenda::submit`'s `EmptyVoterSet` guard should make this
-/// unreachable. The pallet still falls back rather than panicking the
-/// producer's call if it ever happens.
+/// unreachable, but if the producer ever hands over an oversized set
+/// the pallet falls back to an empty snapshot rather than panicking.
 #[test]
 fn on_poll_created_with_oversized_voter_set_falls_back_to_empty() {
     TestState::build_and_execute(|| {
@@ -491,19 +547,6 @@ fn on_poll_created_twice_does_not_clobber_existing_tally() {
 }
 
 #[test]
-fn on_poll_completed_twice_does_not_duplicate_cleanup_queue() {
-    TestState::build_and_execute(|| {
-        let alice = U256::from(1);
-        start_poll(0, VotingScheme::Signed, vec![alice]);
-        complete_poll(0);
-        assert_eq!(PendingCleanup::<Test>::get().len(), 1);
-
-        <SignedVotingPallet<Test> as OnPollCompleted<u32>>::on_poll_completed(0u32);
-        assert_eq!(PendingCleanup::<Test>::get().len(), 1);
-    });
-}
-
-#[test]
 fn on_poll_created_skips_polls_with_mismatched_scheme() {
     TestState::build_and_execute(|| {
         let alice = U256::from(1);
@@ -511,17 +554,6 @@ fn on_poll_created_skips_polls_with_mismatched_scheme() {
 
         assert!(TallyOf::<Test>::get(0u32).is_none());
         assert!(VoterSetOf::<Test>::get(0u32).is_none());
-    });
-}
-
-#[test]
-fn on_poll_completed_no_ops_when_no_local_tally() {
-    TestState::build_and_execute(|| {
-        let alice = U256::from(1);
-        start_poll(0, VotingScheme::Anonymous, vec![alice]);
-
-        complete_poll(0);
-        assert!(PendingCleanup::<Test>::get().is_empty());
     });
 }
 
@@ -535,39 +567,6 @@ fn on_poll_created_dedups_duplicate_voters_in_snapshot() {
         let snapshot = VoterSetOf::<Test>::get(0u32).expect("snapshot stored");
         assert_eq!(snapshot.len(), 2);
         assert_eq!(TallyOf::<Test>::get(0u32).unwrap().total, 2);
-    });
-}
-
-#[test]
-fn rotated_out_member_can_still_vote_until_poll_ends() {
-    TestState::build_and_execute(|| {
-        let alice = U256::from(1);
-        start_poll(0, VotingScheme::Signed, vec![alice, U256::from(2)]);
-
-        rotate_voter_out(0, alice);
-
-        assert_ok!(SignedVotingPallet::<Test>::vote(
-            RuntimeOrigin::signed(alice),
-            0u32,
-            true,
-        ));
-        assert_eq!(VotingFor::<Test>::get(0u32, alice), Some(true));
-    });
-}
-
-#[test]
-fn rotated_in_member_cannot_vote_on_poll_created_before_they_joined() {
-    TestState::build_and_execute(|| {
-        let alice = U256::from(1);
-        let newcomer = U256::from(42);
-        start_poll(0, VotingScheme::Signed, vec![alice]);
-
-        rotate_voter_in(0, newcomer);
-
-        assert_noop!(
-            SignedVotingPallet::<Test>::vote(RuntimeOrigin::signed(newcomer), 0u32, true),
-            Error::<Test>::NotInVoterSet
-        );
     });
 }
 
@@ -633,28 +632,26 @@ fn on_poll_completed_enqueues_voting_for_for_lazy_cleanup() {
     });
 }
 
-/// Stress check at 200 voters — well above any track's `MaxVoterSetSize`
-/// in practice — to catch a regression where the cleanup queue or its
-/// drain loop silently drops entries.
 #[test]
-fn drain_cleanup_queue_clears_all_voting_for_entries_for_completed_polls() {
+fn on_poll_completed_twice_does_not_duplicate_cleanup_queue() {
     TestState::build_and_execute(|| {
-        let voters: Vec<U256> = (1..=200u32).map(U256::from).collect();
-        start_poll(0, VotingScheme::Signed, voters.clone());
-        for v in &voters {
-            assert_ok!(SignedVotingPallet::<Test>::vote(
-                RuntimeOrigin::signed(*v),
-                0u32,
-                true,
-            ));
-        }
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice]);
+        complete_poll(0);
+        assert_eq!(PendingCleanup::<Test>::get().len(), 1);
+
+        <SignedVotingPallet<Test> as OnPollCompleted<u32>>::on_poll_completed(0u32);
+        assert_eq!(PendingCleanup::<Test>::get().len(), 1);
+    });
+}
+
+#[test]
+fn on_poll_completed_no_ops_when_no_local_tally() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Anonymous, vec![alice]);
 
         complete_poll(0);
-        drain_cleanup_queue();
-
-        for v in &voters {
-            assert_eq!(VotingFor::<Test>::get(0u32, *v), None);
-        }
         assert!(PendingCleanup::<Test>::get().is_empty());
     });
 }
@@ -684,9 +681,35 @@ fn on_poll_completed_emits_cleanup_queue_full_when_queue_is_full() {
     });
 }
 
-/// One drain pass clears at most `CleanupChunkSize` `VotingFor` entries
-/// and persists the resume cursor on the queue head. Without this
-/// invariant a busy chain could starve cleanup of bounded weight.
+/// Stress check at 200 voters, well past any track's `MaxVoterSetSize`.
+/// Catches regressions where the cleanup queue or its drain loop
+/// silently drops entries.
+#[test]
+fn drain_cleanup_queue_clears_all_voting_for_entries_for_completed_polls() {
+    TestState::build_and_execute(|| {
+        let voters: Vec<U256> = (1..=200u32).map(U256::from).collect();
+        start_poll(0, VotingScheme::Signed, voters.clone());
+        for v in &voters {
+            assert_ok!(SignedVotingPallet::<Test>::vote(
+                RuntimeOrigin::signed(*v),
+                0u32,
+                true,
+            ));
+        }
+
+        complete_poll(0);
+        drain_cleanup_queue();
+
+        for v in &voters {
+            assert_eq!(VotingFor::<Test>::get(0u32, *v), None);
+        }
+        assert!(PendingCleanup::<Test>::get().is_empty());
+    });
+}
+
+/// One drain pass clears at most `CleanupChunkSize` entries and
+/// persists the resume cursor on the queue head, so a busy chain
+/// cannot starve cleanup of bounded weight.
 #[test]
 fn on_idle_clears_one_chunk_per_pass_and_stores_cursor() {
     use crate::weights::WeightInfo as _;
@@ -727,11 +750,9 @@ fn on_idle_clears_one_chunk_per_pass_and_stores_cursor() {
     });
 }
 
-/// Successive drain passes resume from the persisted cursor. With
-/// `chunk = 4` and 10 voters, three passes (4 + 4 + 2) drain the prefix
-/// and pop the poll. Each pass runs in its own committed externality so
-/// `clear_prefix`'s cursor sees real backend state, not just the
-/// in-block overlay.
+/// Successive drain passes resume from the persisted cursor. Each pass
+/// runs in its own committed externality so `clear_prefix`'s cursor sees
+/// real backend state, not just the in-block overlay.
 #[test]
 fn successive_idle_passes_resume_via_cursor_until_drained() {
     use crate::weights::WeightInfo as _;
@@ -843,10 +864,9 @@ fn on_idle_is_noop_when_weight_below_one_drain_step() {
     });
 }
 
-/// `on_idle` with an empty `PendingCleanup` consumes only `entry_cost`
-/// (the upfront `1 read + 1 write` reservation) and does no body work.
-/// Asserting against the real `RocksDbWeight` catches regressions that
-/// the default `DbWeight = ()` mock would silently mask.
+/// `on_idle` with an empty queue consumes only the upfront 1-read /
+/// 1-write reservation. The mock uses `RocksDbWeight` so this catches
+/// regressions that the default `DbWeight = ()` would silently mask.
 #[test]
 fn on_idle_with_empty_queue_consumes_only_entry_cost() {
     TestState::build_and_execute(|| {
@@ -892,10 +912,9 @@ fn tally_conversion_saturates_approval_when_all_aye() {
     assert_eq!(vote_tally.abstention, Perbill::zero());
 }
 
-/// Substrate's `Perbill::from_rational(_, 0)` returns 100%, which
-/// would naively yield approval+rejection+abstention = 300% on a
-/// zero-total tally. The conversion short-circuits to `default()` so
-/// the empty-voter-set poll lapses through abstention.
+/// `Perbill::from_rational(_, 0)` returns 100%, so a naive conversion
+/// of a zero-total tally would yield approval + rejection + abstention
+/// = 300%. The short-circuit to `default()` avoids that.
 #[test]
 fn tally_conversion_short_circuits_zero_total_to_default() {
     let tally = SignedVoteTally {

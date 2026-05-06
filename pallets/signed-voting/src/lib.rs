@@ -601,6 +601,12 @@ impl<T: Config> OnPollCompleted<PollIndexOf<T>> for Pallet<T> {
             // Failing the hook would tear down the producer's call.
             // The orphaned `VotingFor` entries leak storage but are
             // unread once `TallyOf` is gone.
+            log::error!(
+                target: "runtime::signed-voting",
+                "PendingCleanup queue full; VotingFor entries for poll {:?} \
+                 leaked. Raise MaxPendingCleanup or run a cleanup migration.",
+                poll_index,
+            );
             Self::deposit_event(Event::<T>::CleanupQueueFull { poll_index });
         }
     }
