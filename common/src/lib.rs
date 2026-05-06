@@ -479,37 +479,6 @@ mod tests {
     use frame_support::weights::WeightMeter;
     const REF_TIME_WEIGHT: u64 = 100;
     const PROOF_SIZE_WEIGHT: u64 = 100;
-    struct TestBody {
-        count: u64,
-    }
-
-    struct TestResult {
-        backend: u64,
-        maybe_cursor: Option<()>,
-    }
-
-    impl TestBody {
-        fn new(count: u64) -> Self {
-            Self { count }
-        }
-
-        fn execute(&mut self, number: u64) -> TestResult {
-            if self.count >= number {
-                self.count = self.count.saturating_sub(number);
-                TestResult {
-                    backend: number,
-                    maybe_cursor: Some(()),
-                }
-            } else {
-                let tmp = self.count;
-                self.count = 0;
-                TestResult {
-                    backend: tmp,
-                    maybe_cursor: None,
-                }
-            }
-        }
-    }
 
     #[test]
     fn netuid_has_u16_bin_repr() {
