@@ -10,7 +10,30 @@ pub use order::*;
 
 mod order;
 
-pub trait SwapEngine<O: Order>: DefaultPriceLimit<O::PaidIn, O::PaidOut> {
+/// Direction-specific dispatch for pure (no-storage-write) swap simulation.
+///
+/// Implemented by the swap pallet for each concrete token-pair direction
+/// (`TaoBalance → AlphaBalance` and `AlphaBalance → TaoBalance`).
+/// `SwapEngine<O>` requires this trait for the matching pair, so callers with
+/// a `SwapEngine<O>` bound automatically have access to `sim_run`.
+pub trait PureSwapDispatch<PaidIn, PaidOut>
+where
+    PaidIn: Token,
+    PaidOut: Token,
+{
+    /// Run a pure swap simulation for `amount` without writing to storage.
+    ///
+    /// The limit price is derived from the direction's default price limit.
+    fn sim_run(
+        netuid: NetUid,
+        amount: PaidIn,
+        drop_fees: bool,
+    ) -> Result<SwapResult<PaidIn, PaidOut>, DispatchError>;
+}
+
+pub trait SwapEngine<O: Order>:
+    DefaultPriceLimit<O::PaidIn, O::PaidOut> + PureSwapDispatch<O::PaidIn, O::PaidOut>
+{
     fn swap(
         netuid: NetUid,
         order: O,
@@ -31,6 +54,13 @@ pub trait SwapHandler {
     where
         Self: SwapEngine<O>;
     fn sim_swap<O: Order>(
+        netuid: NetUid,
+        order: O,
+    ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>
+    where
+        Self: SwapEngine<O>;
+
+    fn sim_swap_pure<O: Order>(
         netuid: NetUid,
         order: O,
     ) -> Result<SwapResult<O::PaidIn, O::PaidOut>, DispatchError>

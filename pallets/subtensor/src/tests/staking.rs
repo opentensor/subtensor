@@ -5989,3 +5989,206 @@ fn test_sharepool_dataops_try_get_value_returns_err_on_non_existing_v2() {
         assert!(maybe_actual_value.is_err());
     });
 }
+
+// ============================================================
+// Tests for sim_swap_pure migration in validate_remove_stake
+// and stake-querying helpers
+// ============================================================
+
+/// Verify that `validate_remove_stake` (which internally calls `sim_swap_pure`) does not write
+/// any AMM state as a side effect — the whole point of "pure" simulation.
+#[test]
+fn test_remove_stake_pure_swap_no_storage_mutation_during_validation() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey = U256::from(4343);
+        let hotkey = U256::from(4968585);
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+
+        // Clear any implicit existing stake to start deterministically.
+        let existing =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        if !existing.is_zero() {
+            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid, existing,
+            );
+        }
+
+        // Give the hotkey a meaningful amount of alpha stake well above the minimum.
+        let min_stake = DefaultMinStake::<Test>::get();
+        let alpha_amount = AlphaBalance::from(min_stake.to_u64() * 10);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, alpha_amount,
+        );
+
+        // Capture AMM state before the validation call.
+        let price_before = pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid);
+        let tick_before = pallet_subtensor_swap::CurrentTick::<Test>::get(netuid);
+        let liquidity_before = pallet_subtensor_swap::CurrentLiquidity::<Test>::get(netuid);
+
+        // `assert_storage_noop!` panics if any storage item is written inside the closure.
+        // This confirms sim_swap_pure does not mutate storage.
+        frame_support::assert_storage_noop!(SubtensorModule::validate_remove_stake(
+            &coldkey,
+            &hotkey,
+            netuid,
+            alpha_amount,
+            alpha_amount,
+            false,
+        )
+        .expect("validate_remove_stake must succeed for a valid unstake above min"));
+
+        // Explicitly assert the individual AMM items are unchanged for readable failure messages.
+        assert_eq!(
+            pallet_subtensor_swap::AlphaSqrtPrice::<Test>::get(netuid),
+            price_before,
+            "AlphaSqrtPrice must not change during sim_swap_pure validation"
+        );
+        assert_eq!(
+            pallet_subtensor_swap::CurrentTick::<Test>::get(netuid),
+            tick_before,
+            "CurrentTick must not change during sim_swap_pure validation"
+        );
+        assert_eq!(
+            pallet_subtensor_swap::CurrentLiquidity::<Test>::get(netuid),
+            liquidity_before,
+            "CurrentLiquidity must not change during sim_swap_pure validation"
+        );
+    });
+}
+
+/// Verify that `get_total_stake_for_coldkey` returns a non-zero value after a real `add_stake`,
+/// exercising the `sim_swap_pure` code path inside that helper.
+#[test]
+fn test_get_total_stake_for_coldkey_is_nonzero_after_staking() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey = U256::from(4343);
+        let hotkey = U256::from(4968585);
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+
+        // Fund the coldkey so it can stake.
+        let stake_tao: u64 = 500_000_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, TaoBalance::from(stake_tao));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            TaoBalance::from(stake_tao),
+        ));
+
+        // The helper converts held alpha to tao via sim_swap_pure.
+        let total = SubtensorModule::get_total_stake_for_coldkey(&coldkey);
+        assert!(
+            total > TaoBalance::ZERO,
+            "get_total_stake_for_coldkey must be non-zero after staking"
+        );
+    });
+}
+
+/// Verify that `get_total_stake_for_coldkey_on_subnet` and `get_total_stake_for_coldkey` agree
+/// when there is only one subnet with stake, exercising both sim_swap_pure code paths.
+#[test]
+fn test_get_total_stake_for_coldkey_on_subnet_matches_total() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey = U256::from(4343);
+        let hotkey = U256::from(4968585);
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+
+        // Fund and stake.
+        let stake_tao: u64 = 500_000_000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, TaoBalance::from(stake_tao));
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            TaoBalance::from(stake_tao),
+        ));
+
+        let total_all_subnets = SubtensorModule::get_total_stake_for_coldkey(&coldkey);
+        let total_on_netuid =
+            SubtensorModule::get_total_stake_for_coldkey_on_subnet(&coldkey, netuid);
+
+        // With only one subnet holding stake both helpers must return the same value.
+        assert_eq!(
+            total_on_netuid,
+            total_all_subnets,
+            "get_total_stake_for_coldkey_on_subnet must equal get_total_stake_for_coldkey when \
+             there is a single subnet with stake"
+        );
+        assert!(
+            total_all_subnets > TaoBalance::ZERO,
+            "stake must be non-zero after staking"
+        );
+    });
+}
+
+/// Verify that `validate_remove_stake` correctly succeeds via the `sim_swap_pure` path when the
+/// unstake amount is comfortably above the minimum stake threshold, and correctly rejects a
+/// removal that is far below the minimum while leaving a non-zero remainder.
+#[test]
+fn test_remove_stake_pure_swap_validates_minimum_correctly() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1);
+        let subnet_owner_hotkey = U256::from(2);
+        let coldkey = U256::from(4343);
+        let hotkey = U256::from(4968585);
+
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        register_ok_neuron(netuid, hotkey, coldkey, 192213123);
+
+        // Clear any implicit stake from registration.
+        let existing =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        if !existing.is_zero() {
+            SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid, existing,
+            );
+        }
+
+        // Provide stake that is double the minimum so the simulation produces a payout >= min.
+        let min_stake = DefaultMinStake::<Test>::get();
+        let alpha_amount = AlphaBalance::from(min_stake.to_u64() * 2);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, alpha_amount,
+        );
+
+        // Unstake the entire amount — remaining stake is zero, so the min-stake check is
+        // bypassed and the call must succeed regardless of price.
+        assert_ok!(SubtensorModule::validate_remove_stake(
+            &coldkey,
+            &hotkey,
+            netuid,
+            alpha_amount,
+            alpha_amount,
+            false,
+        ));
+
+        // Now verify the minimum-enforcement path: leave some stake behind with a tiny removal.
+        // Give additional stake so removal of just 1 alpha leaves a non-zero remainder.
+        let extra_alpha = AlphaBalance::from(min_stake.to_u64() * 10);
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey, &coldkey, netuid, extra_alpha,
+        );
+
+        // Removing a single alpha unit while leaving a remainder should fail the min-stake check
+        // because 1 alpha sim-swaps to far less than the DefaultMinStake in TAO.
+        let tiny = AlphaBalance::from(1u64);
+        assert_err!(
+            SubtensorModule::validate_remove_stake(&coldkey, &hotkey, netuid, tiny, tiny, false,),
+            Error::<Test>::AmountTooLow
+        );
+    });
+}
