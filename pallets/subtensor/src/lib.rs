@@ -2084,7 +2084,7 @@ pub mod pallet {
     /// --- ITEM ( dissolved_networks_cleanup_phase ) Networks dissolved data cleanup phase.
     #[pallet::storage]
     pub type DissolvedNetworksCleanupPhase<T> =
-        StorageMap<_, Identity, NetUid, DissolvedNetworksCleanupPhaseEnum, OptionQuery>;
+        StorageValue<_, DissolvedNetworksCleanupPhaseEnum, OptionQuery>;
 
     /// --- ITEM ( last_kept_raw_key ) Last kept raw key for the next iteration.
     /// It is only used during clean the data for dissolved networks.

@@ -844,6 +844,12 @@ impl<T: Config> Pallet<T> {
         let limit_in = remaining_weight;
         let mut remaining_weight = remaining_weight;
 
+        if CleanUpPhase::<T>::get().is_none() {
+            CleanUpPhase::<T>::set(Some(
+                CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
+            ));
+        }
+
         // if one phase is done or exit because of weight limit
         let mut phase_done = true;
         // only reason for phase_done to be false is if the weight limit is reached
@@ -1192,11 +1198,5 @@ impl<T: Config> SwapHandler for Pallet<T> {
             // Static subnet, alpha == tao
             _ => u64::from(tao_amount).into(),
         }
-    }
-
-    fn init_clean_up_protocol_liquidity_phase() {
-        CleanUpPhase::<T>::set(Some(
-            CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
-        ));
     }
 }
