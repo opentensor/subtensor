@@ -976,3 +976,35 @@ fn test_cannot_register_system_hotkey() {
         }
     });
 }
+
+#[test]
+fn test_burned_register_increases_subnet_tao_flow() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let coldkey = U256::from(77);
+        let hotkey = U256::from(88);
+
+        add_network(netuid, 13, 0);
+        mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
+
+        let burn = 1_000u64;
+        SubtensorModule::set_burn(netuid, burn.into());
+        let flow_before = SubnetTaoFlow::<Test>::get(netuid);
+
+        add_balance_to_coldkey_account(
+            &coldkey,
+            ExistentialDeposit::get() + burn.into() + 10u64.into(),
+        );
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            netuid,
+            hotkey
+        ));
+
+        assert_eq!(
+            SubnetTaoFlow::<Test>::get(netuid),
+            flow_before + burn as i64
+        );
+    });
+}
