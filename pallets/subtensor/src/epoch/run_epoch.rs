@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
         // Recently registered matrix, recently_ij=True if last_tempo was *before* j was last registered.
         // Mask if: the last tempo block happened *before* the registration block
         // ==> last_tempo <= registered
-        // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`)
+        // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`
         let lms = LastMechansimStepBlock::<T>::get(netuid);
         let last_tempo: u64 = if lms == 0 {
             current_block.saturating_sub(tempo)
@@ -825,7 +825,7 @@ impl<T: Config> Pallet<T> {
             // Remove bonds referring to neurons that have registered since last tempo.
             // Mask if: the last tempo block happened *before* the registration block
             // ==> last_tempo <= registered
-            // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`)
+            // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`
             let lms = LastMechansimStepBlock::<T>::get(netuid);
             let last_tempo: u64 = if lms == 0 {
                 current_block.saturating_sub(tempo)
@@ -871,7 +871,7 @@ impl<T: Config> Pallet<T> {
             // Remove bonds referring to neurons that have registered since last tempo.
             // Mask if: the last tempo block happened *before* the registration block
             // ==> last_tempo <= registered
-            // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`)
+            // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`
             let lms = LastMechansimStepBlock::<T>::get(netuid);
             let last_tempo: u64 = if lms == 0 {
                 current_block.saturating_sub(tempo)

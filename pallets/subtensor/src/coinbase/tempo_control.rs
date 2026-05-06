@@ -8,7 +8,7 @@ use crate::system::pallet_prelude::OriginFor;
 use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 
 impl<T: Config> Pallet<T> {
-    /// Owner-side `set_tempo` implementation. See spec §5.1.
+    /// Owner-side `set_tempo` implementation.
     pub fn do_set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
         let who = Self::ensure_subnet_owner(origin, netuid)?;
 
@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Owner-side `set_activity_cutoff_factor` implementation. See spec §5.2.
+    /// Owner-side `set_activity_cutoff_factor` implementation.
     pub fn do_set_activity_cutoff_factor(
         origin: OriginFor<T>,
         netuid: NetUid,
@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Owner-side `trigger_epoch` implementation. See spec §5.3.
+    /// Owner-side `trigger_epoch` implementation.
     /// Schedules the triggered epoch to fire after `AdminFreezeWindow` blocks; that
     /// countdown engages the freeze window for the subnet via `is_in_admin_freeze_window`.
     pub fn do_trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> Result<(), DispatchError> {
