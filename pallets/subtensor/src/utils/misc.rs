@@ -54,11 +54,16 @@ impl<T: Config> Pallet<T> {
 
     /// Returns true if the current block is within the terminal freeze window of the tempo for the
     /// given subnet. During this window, admin ops are prohibited to avoid interference with
-    /// validator weight submissions.
+    /// validator weight submissions. Engages immediately on a pending manual trigger (so the trigger
+    /// arms the freeze for the entire countdown to `PendingEpochAt`).
     pub fn is_in_admin_freeze_window(netuid: NetUid, current_block: u64) -> bool {
         let tempo = Self::get_tempo(netuid);
         if tempo == 0 {
             return false;
+        }
+        let pending = PendingEpochAt::<T>::get(netuid);
+        if pending > 0 && pending > current_block {
+            return true;
         }
         let remaining = Self::blocks_until_next_epoch(netuid, tempo, current_block);
         let window = AdminFreezeWindow::<T>::get() as u64;
@@ -102,7 +107,11 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Setters ====
     // ========================
-    pub fn set_tempo(netuid: NetUid, tempo: u16) {
+    /// Unchecked tempo write used by tests, precompiles, and internal helpers.
+    /// Does NOT reset `LastEpochBlock` — that is the responsibility of the owner-side
+    /// `set_tempo` extrinsic and `sudo_set_tempo` (root), both of which perform the cycle
+    /// reset explicitly.
+    pub fn set_tempo_unchecked(netuid: NetUid, tempo: u16) {
         Tempo::<T>::insert(netuid, tempo);
         Self::deposit_event(Event::TempoSet(netuid, tempo));
     }
@@ -570,6 +579,27 @@ impl<T: Config> Pallet<T> {
     pub fn set_activity_cutoff(netuid: NetUid, activity_cutoff: u16) {
         ActivityCutoff::<T>::insert(netuid, activity_cutoff);
         Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
+    }
+
+    /// Effective activity cutoff in blocks, derived from `ActivityCutoffFactorMilli` and `Tempo`.
+    /// `cutoff_blocks = (factor × tempo) / 1000`, clamped to ≥ 1.
+    pub fn get_activity_cutoff_blocks(netuid: NetUid) -> u64 {
+        let factor_milli = ActivityCutoffFactorMilli::<T>::get(netuid) as u64;
+        let tempo = Self::get_tempo(netuid) as u64;
+        factor_milli
+            .saturating_mul(tempo)
+            .checked_div(1000)
+            .unwrap_or(0)
+            .max(1)
+    }
+
+    pub fn get_activity_cutoff_factor_milli(netuid: NetUid) -> u32 {
+        ActivityCutoffFactorMilli::<T>::get(netuid)
+    }
+
+    pub fn set_activity_cutoff_factor_milli(netuid: NetUid, factor_milli: u32) {
+        ActivityCutoffFactorMilli::<T>::insert(netuid, factor_milli);
+        Self::deposit_event(Event::ActivityCutoffFactorMilliSet(netuid, factor_milli));
     }
 
     // Registration Toggle utils

@@ -172,7 +172,9 @@ mod hooks {
                 // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
                 .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
                 // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
-                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>());
+                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>())
+                // Seed LastEpochBlock for dynamic-tempo / owner-triggered-epochs feature
+                .saturating_add(migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<T>());
             weight
         }
 

@@ -36,9 +36,11 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     }
 
     fn try_set_pending_children(block_number: u64) {
+        // Called *after* `run_coinbase` has advanced `LastEpochBlock` for any
+        // subnet whose epoch slot fired this block — `should_run_epoch` is no
+        // longer true. Detect "epoch just fired" by `LastEpochBlock == block`.
         for netuid in Self::get_all_subnet_netuids() {
-            if Self::should_run_epoch(netuid, block_number) {
-                // Set pending children on the epoch.
+            if LastEpochBlock::<T>::get(netuid) == block_number {
                 Self::do_set_pending_children(netuid);
             }
         }

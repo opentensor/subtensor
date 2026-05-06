@@ -305,5 +305,11 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
+        /// Tempo value out of `[MinTempo, MaxTempo]` bounds.
+        TempoOutOfBounds,
+        /// Activity-cutoff factor out of `[MinActivityCutoffFactorMilli, MaxActivityCutoffFactorMilli]` bounds.
+        ActivityCutoffFactorMilliOutOfBounds,
+        /// `trigger_epoch` called while a previously triggered epoch is still pending.
+        EpochTriggerAlreadyPending,
     }
 }

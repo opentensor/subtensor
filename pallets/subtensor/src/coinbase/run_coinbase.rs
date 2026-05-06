@@ -64,7 +64,14 @@ impl<T: Config> Pallet<T> {
         let emissions_to_distribute = Self::drain_pending(&subnets, current_block);
 
         // --- 6. Distribute the emissions to the subnets.
+        //   Bonds masking inside `distribute_emission` reads `LastMechansimStepBlock` and
+        //   must see the previous successful run, so we delay the write until after.
         Self::distribute_emissions_to_subnets(&emissions_to_distribute);
+
+        // --- 7. Mark each successful epoch run as the last mechanism step.
+        for netuid in emissions_to_distribute.keys() {
+            LastMechansimStepBlock::<T>::insert(*netuid, current_block);
+        }
     }
 
     pub fn inject_and_maybe_swap(
@@ -318,19 +325,35 @@ impl<T: Config> Pallet<T> {
             NetUid,
             (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance),
         > = BTreeMap::new();
-        // --- Drain pending emissions for all subnets hat are at their tempo.
-        // Run the epoch for *all* subnets, even if we don't emit anything.
+        // Per-block cap on number of epochs that may run; the rest are deferred 1 block forward
+        // by setting `PendingEpochAt`.
+        let mut epochs_run_this_block: u32 = 0;
+
         for &netuid in subnets.iter() {
-            // Increment blocks since last step.
+            // Increment blocks since last *successful* step (existing semantics).
             BlocksSinceLastStep::<T>::mutate(netuid, |total| *total = total.saturating_add(1));
 
-            // Run the epoch if applicable.
-            if Self::should_run_epoch(netuid, current_block)
-                && Self::is_epoch_input_state_consistent(netuid)
-            {
-                // Restart counters.
+            if !Self::should_run_epoch(netuid, current_block) {
+                continue;
+            }
+
+            // Per-block cap — defer if already at limit.
+            if epochs_run_this_block >= MAX_EPOCHS_PER_BLOCK {
+                let next_block = current_block.saturating_add(1);
+                PendingEpochAt::<T>::insert(netuid, next_block);
+                Self::deposit_event(Event::EpochDeferred {
+                    netuid,
+                    from_block: current_block,
+                    to_block: next_block,
+                });
+                continue;
+            }
+
+            if Self::is_epoch_input_state_consistent(netuid) {
+                // Reset blocks-since counter; LastMechansimStepBlock is written
+                // post-distribute (see the caller), so bonds masking can read the
+                // previous successful run.
                 BlocksSinceLastStep::<T>::insert(netuid, 0);
-                LastMechansimStepBlock::<T>::insert(netuid, current_block);
 
                 // Get and drain the subnet pending emission.
                 let pending_server_alpha = PendingServerEmission::<T>::get(netuid);
@@ -357,7 +380,19 @@ impl<T: Config> Pallet<T> {
                         owner_cut,
                     ),
                 );
+                epochs_run_this_block = epochs_run_this_block.saturating_add(1);
+            } else {
+                // Schedule advances below; execution skipped. Pending emissions accumulate
+                // and will be drained by the next successful epoch.
+                Self::deposit_event(Event::EpochSkippedDueToInconsistentState {
+                    netuid,
+                    block: current_block,
+                });
             }
+
+            // Advance the schedule unconditionally — the slot is consumed.
+            LastEpochBlock::<T>::insert(netuid, current_block);
+            PendingEpochAt::<T>::insert(netuid, 0);
         }
         emissions_to_distribute
     }
@@ -993,28 +1028,35 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the epoch should run, false otherwise.
     pub fn should_run_epoch(netuid: NetUid, current_block: u64) -> bool {
-        Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return false;
+        }
+        let pending = PendingEpochAt::<T>::get(netuid);
+        if pending > 0 && current_block >= pending {
+            return true;
+        }
+        if BlocksSinceLastStep::<T>::get(netuid) > MAX_TEMPO as u64 {
+            return true;
+        }
+        let last = LastEpochBlock::<T>::get(netuid);
+        let blocks_since = current_block.saturating_sub(last);
+        blocks_since > tempo as u64
     }
 
-    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
-    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    /// tempo | netuid | # first epoch block
-    ///   1        0               0
-    ///   1        1               1
-    ///   2        0               1
-    ///   2        1               0
-    ///   100      0              99
-    ///   100      1              98
-    /// Special case: tempo = 0, the network never runs.
-    ///
+    /// Returns the number of blocks remaining before the next automatic epoch under the
+    /// stateful scheduler (period `tempo + 1`, anchored on `LastEpochBlock`). Used by the
+    /// admin-freeze-window predicate and external tooling. Returns `u64::MAX` when
+    /// `tempo == 0` (legacy defensive short-circuit).
     pub fn blocks_until_next_epoch(netuid: NetUid, tempo: u16, block_number: u64) -> u64 {
         if tempo == 0 {
             return u64::MAX;
         }
-        let netuid_plus_one = (u16::from(netuid) as u64).saturating_add(1);
-        let tempo_plus_one = (tempo as u64).saturating_add(1);
-        let adjusted_block = block_number.wrapping_add(netuid_plus_one);
-        let remainder = adjusted_block.checked_rem(tempo_plus_one).unwrap_or(0);
-        (tempo as u64).saturating_sub(remainder)
+        let last = LastEpochBlock::<T>::get(netuid);
+        // Period is `tempo + 1`: next firing at `last + tempo + 1`.
+        let next_auto = last
+            .saturating_add(tempo as u64)
+            .saturating_add(1);
+        next_auto.saturating_sub(block_number)
     }
 }

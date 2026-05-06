@@ -2594,5 +2594,46 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
         }
+
+        /// Owner-side `set_tempo`. Validates `[MinTempo, MaxTempo]`, applies a fixed
+        /// `MinTempo`-block cooldown via `TransactionType::TempoUpdate`, respects the admin
+        /// freeze window, and resets the cycle (`LastEpochBlock = current_block`) on success.
+        #[pallet::call_index(139)]
+        #[pallet::weight(Weight::from_parts(20_000, 0)
+            .saturating_add(T::DbWeight::get().reads(4))
+            .saturating_add(T::DbWeight::get().writes(3)))] // TODO: add benchmarks and update weights
+        pub fn set_tempo(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            tempo: u16,
+        ) -> DispatchResult {
+            Self::do_set_tempo(origin, netuid, tempo)
+        }
+
+        /// Owner-side `set_activity_cutoff_factor`. Per-mille (1/1000) units; `cutoff_blocks
+        /// = (factor × tempo) / 1000`. Validates `[MinActivityCutoffFactorMilli,
+        /// MaxActivityCutoffFactorMilli]`, rate-limited via the existing
+        /// `OwnerHyperparamUpdate` pattern, respects the admin freeze window.
+        #[pallet::call_index(140)]
+        #[pallet::weight(Weight::from_parts(15_000, 0)
+            .saturating_add(T::DbWeight::get().reads(3))
+            .saturating_add(T::DbWeight::get().writes(2)))] // TODO: add benchmarks and update weights
+        pub fn set_activity_cutoff_factor(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            factor_milli: u32,
+        ) -> DispatchResult {
+            Self::do_set_activity_cutoff_factor(origin, netuid, factor_milli)
+        }
+
+        /// Owner-side `trigger_epoch`. Schedules an epoch to fire after `AdminFreezeWindow`
+        /// blocks. Rate-limited via the existing `OwnerHyperparamUpdate` pattern.
+        #[pallet::call_index(141)]
+        #[pallet::weight(Weight::from_parts(15_000, 0)
+            .saturating_add(T::DbWeight::get().reads(3))
+            .saturating_add(T::DbWeight::get().writes(2)))] // TODO: add benchmarks and update weights
+        pub fn trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
+            Self::do_trigger_epoch(origin, netuid)
+        }
     }
 }

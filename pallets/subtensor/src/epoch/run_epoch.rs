@@ -169,7 +169,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("tempo: {tempo:?}");
 
         // Get activity cutoff.
-        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff: u64 = Self::get_activity_cutoff_blocks(netuid);
         log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
@@ -205,7 +205,13 @@ impl<T: Config> Pallet<T> {
         // Recently registered matrix, recently_ij=True if last_tempo was *before* j was last registered.
         // Mask if: the last tempo block happened *before* the registration block
         // ==> last_tempo <= registered
-        let last_tempo: u64 = current_block.saturating_sub(tempo);
+        // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`)
+        let lms = LastMechansimStepBlock::<T>::get(netuid);
+        let last_tempo: u64 = if lms == 0 {
+            current_block.saturating_sub(tempo)
+        } else {
+            lms.saturating_add(1)
+        };
         let recently_registered: Vec<bool> = block_at_registration
             .iter()
             .map(|registered| last_tempo <= *registered)
@@ -595,7 +601,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("tempo:\n{tempo:?}\n");
 
         // Get activity cutoff.
-        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        let activity_cutoff: u64 = Self::get_activity_cutoff_blocks(netuid);
         log::trace!("activity_cutoff: {activity_cutoff:?}");
 
         // Last update vector.
@@ -819,7 +825,13 @@ impl<T: Config> Pallet<T> {
             // Remove bonds referring to neurons that have registered since last tempo.
             // Mask if: the last tempo block happened *before* the registration block
             // ==> last_tempo <= registered
-            let last_tempo: u64 = current_block.saturating_sub(tempo);
+            // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`)
+            let lms = LastMechansimStepBlock::<T>::get(netuid);
+            let last_tempo: u64 = if lms == 0 {
+                current_block.saturating_sub(tempo)
+            } else {
+                lms.saturating_add(1)
+            };
             bonds = scalar_vec_mask_sparse_matrix(
                 &bonds,
                 last_tempo,
@@ -859,7 +871,13 @@ impl<T: Config> Pallet<T> {
             // Remove bonds referring to neurons that have registered since last tempo.
             // Mask if: the last tempo block happened *before* the registration block
             // ==> last_tempo <= registered
-            let last_tempo: u64 = current_block.saturating_sub(tempo);
+            // For dynamic tempo - we pick previous-successful-epoch block: `LastMechansimStepBlock + 1`)
+            let lms = LastMechansimStepBlock::<T>::get(netuid);
+            let last_tempo: u64 = if lms == 0 {
+                current_block.saturating_sub(tempo)
+            } else {
+                lms.saturating_add(1)
+            };
             bonds = scalar_vec_mask_sparse_matrix(
                 &bonds,
                 last_tempo,

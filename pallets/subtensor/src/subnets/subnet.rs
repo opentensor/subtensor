@@ -307,6 +307,12 @@ impl<T: Config> Pallet<T> {
         // --- 3. Fill tempo memory item.
         Tempo::<T>::insert(netuid, tempo);
 
+        // --- 3.1. Initialise `LastEpochBlock` with a per-netuid stagger
+        let now = Self::get_current_block_as_u64();
+        let period = (tempo as u64).saturating_add(1).max(1);
+        let stagger = (u16::from(netuid) as u64) % period;
+        LastEpochBlock::<T>::insert(netuid, now.saturating_sub(stagger));
+
         // --- 4. Increase total network count.
         TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
