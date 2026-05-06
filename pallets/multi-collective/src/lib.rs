@@ -59,16 +59,15 @@ pub use weights::WeightInfo;
 pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
 type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
 
-/// Pinned at 0 to satisfy try-runtime CLI's pre/post-upgrade checks. The
-/// project tracks migrations via a per-pallet `HasMigrationRun` map (see
-/// `pallet-crowdloan`), so this value is not bumped on schema changes.
-pub const STORAGE_VERSION: frame_support::traits::StorageVersion =
-    frame_support::traits::StorageVersion::new(0);
-
 #[frame_support::pallet]
 #[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
+
+    // Pinned to 0 to satisfy try-runtime CLI's pre/post-upgrade checks.
+    // The project tracks migrations via a per-pallet `HasMigrationRun` map
+    // so this value is not bumped on schema changes.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -76,6 +75,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// The identifier for a collective.
         type CollectiveId: Parameter + MaxEncodedLen + Copy;
 
         /// Provides per-collective information.
@@ -150,22 +150,42 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// An account was added to a collective.
         MemberAdded {
+            /// Collective the account joined.
             collective_id: T::CollectiveId,
+            /// Account that joined.
             who: T::AccountId,
         },
+        /// An account was removed from a collective.
         MemberRemoved {
+            /// Collective the account left.
             collective_id: T::CollectiveId,
+            /// Account that left.
             who: T::AccountId,
         },
+        /// A member of a collective was replaced by another account in
+        /// a single operation.
         MemberSwapped {
+            /// Collective whose membership changed.
             collective_id: T::CollectiveId,
+            /// Account that left.
             removed: T::AccountId,
+            /// Account that joined in its place.
             added: T::AccountId,
         },
+        /// The full membership of a collective was replaced.
         MembersSet {
+            /// Collective whose membership was replaced.
             collective_id: T::CollectiveId,
-            members: Vec<T::AccountId>,
+            /// Accounts that became members in this update, sorted.
+            /// This is the difference against the previous member
+            /// list, not the full new list.
+            incoming: BoundedVec<T::AccountId, T::MaxMembers>,
+            /// Accounts that stopped being members in this update,
+            /// sorted. This is the difference against the previous
+            /// member list.
+            outgoing: BoundedVec<T::AccountId, T::MaxMembers>,
         },
     }
 
@@ -183,24 +203,21 @@ pub mod pallet {
         CollectiveNotFound,
         /// Duplicate accounts in member list.
         DuplicateAccounts,
-        /// `force_rotate` was called for a collective whose
-        /// `CollectiveInfo::term_duration` is `None`. Such collectives
-        /// are managed directly via the membership extrinsics and have
-        /// no rotation hook to trigger.
+        /// A rotation was requested for a collective that does not
+        /// rotate. Such collectives are curated directly through the
+        /// membership operations and have no rotation hook to trigger.
         CollectiveDoesNotRotate,
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let mut weight = Weight::zero();
+            // Conservative upper bound for the iteration cost. Matches the
+            // storage-backed case; static `CollectivesInfo` impls pay a
+            // smaller CPU cost, so this is a safe overestimate.
+            let mut weight = Weight::zero().saturating_add(T::DbWeight::get().reads(1));
 
             for collective in T::Collectives::collectives() {
-                // Conservative upper bound for the iteration cost. Matches the
-                // storage-backed case; static `CollectivesInfo` impls pay a
-                // smaller CPU cost, so this is a safe overestimate.
-                weight.saturating_accrue(T::DbWeight::get().reads(1));
-
                 if collective
                     .info
                     .term_duration
@@ -346,7 +363,7 @@ pub mod pallet {
         pub fn set_members(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
-            members: Vec<T::AccountId>,
+            members: BoundedVec<T::AccountId, T::MaxMembers>,
         ) -> DispatchResult {
             T::SetOrigin::ensure_origin(origin, &collective_id)?;
             let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
@@ -363,7 +380,7 @@ pub mod pallet {
             // Sort + dedup; the sorted form is what we store, so the
             // dedup pass and the storage write share the same buffer.
             let len_before = members.len();
-            let mut sorted = members;
+            let mut sorted = members.to_vec();
             sorted.sort();
             sorted.dedup();
             ensure!(sorted.len() == len_before, Error::<T>::DuplicateAccounts);
@@ -382,7 +399,8 @@ pub mod pallet {
             T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
             Self::deposit_event(Event::MembersSet {
                 collective_id,
-                members: sorted,
+                incoming: BoundedVec::truncate_from(incoming),
+                outgoing: BoundedVec::truncate_from(outgoing),
             });
             Ok(())
         }
@@ -408,18 +426,19 @@ pub mod pallet {
         pub fn force_rotate(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             T::RotateOrigin::ensure_origin(origin, &collective_id)?;
             let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
             ensure!(
                 info.term_duration.is_some(),
                 Error::<T>::CollectiveDoesNotRotate
             );
-            // The hook returns `Weight` so `on_initialize` can accumulate
-            // actual block weight; `force_rotate` is Root-only and just
-            // pays the worst-case bound, no refund.
-            let _ = T::OnNewTerm::on_new_term(collective_id);
-            Ok(())
+
+            Ok(Some(
+                T::WeightInfo::force_rotate()
+                    .saturating_add(T::OnNewTerm::on_new_term(collective_id)),
+            )
+            .into())
         }
     }
 }
@@ -529,6 +548,7 @@ pub trait OnNewTerm<CollectiveId> {
     /// consumed so `on_initialize` can accumulate per-block hook weight
     /// across all rotating collectives.
     fn on_new_term(collective_id: CollectiveId) -> Weight;
+
     /// Worst-case upper bound on `on_new_term`'s weight, used to
     /// pre-charge `force_rotate`.
     fn weight() -> Weight;
@@ -556,8 +576,10 @@ impl<CollectiveId: Clone> OnNewTerm<CollectiveId> for Tuple {
 pub trait CollectiveInspect<AccountId, CollectiveId> {
     /// Return the members of a collective.
     fn members_of(collective_id: CollectiveId) -> Vec<AccountId>;
+
     /// Return true if an account is a member of a collective.
     fn is_member(collective_id: CollectiveId, who: &AccountId) -> bool;
+
     /// Return the number of members of a collective.
     fn member_count(collective_id: CollectiveId) -> u32;
 }
@@ -566,9 +588,11 @@ impl<T: Config> CollectiveInspect<T::AccountId, T::CollectiveId> for Pallet<T> {
     fn members_of(collective_id: T::CollectiveId) -> Vec<T::AccountId> {
         Members::<T>::get(collective_id).to_vec()
     }
+
     fn is_member(collective_id: T::CollectiveId, who: &T::AccountId) -> bool {
         Members::<T>::get(collective_id).binary_search(who).is_ok()
     }
+
     fn member_count(collective_id: T::CollectiveId) -> u32 {
         Members::<T>::get(collective_id).len() as u32
     }
