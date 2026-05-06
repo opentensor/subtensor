@@ -127,7 +127,7 @@ fn dissolve_defers_cleanup_until_on_idle() {
         assert!(NetworkRegisteredAt::<Test>::contains_key(net));
 
         // Cleanup happens in on_idle.
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
 
         assert!(!SubnetOwner::<Test>::contains_key(net));
         assert!(!NetworkRegisteredAt::<Test>::contains_key(net));
@@ -153,7 +153,7 @@ fn dissolve_refunds_full_lock_cost_when_no_emission() {
 
         let before = SubtensorModule::get_coldkey_balance(&cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&cold);
 
         assert_eq!(TaoBalance::from(after), TaoBalance::from(before) + lock);
@@ -184,7 +184,7 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
 
         // Dissolve
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
 
         // Cold-key received full pot
         let after = SubtensorModule::get_coldkey_balance(&s_cold);
@@ -257,7 +257,7 @@ fn dissolve_two_stakers_pro_rata_distribution() {
 
         // Dissolve
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
 
         // Cold-keys received their τ shares
         assert_eq!(
@@ -335,7 +335,7 @@ fn dissolve_owner_cut_refund_logic() {
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&oc);
 
         assert!(after > before); // some refund is expected
@@ -530,7 +530,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Dissolve
         // ------------------------------------------------------------------
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
 
         // ------------------------------------------------------------------
         // Items that must be COMPLETELY REMOVED
@@ -714,7 +714,7 @@ fn dissolve_alpha_out_but_zero_tao_no_rewards() {
 
         let before = SubtensorModule::get_coldkey_balance(&sc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
         let after = SubtensorModule::get_coldkey_balance(&sc);
 
         // No reward distributed, α-out cleared.
@@ -771,7 +771,7 @@ fn dissolve_rounding_remainder_distribution() {
 
         // 3. Run full dissolve flow
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
 
         // 4. s1 (larger remainder) should get +1 τ on cold-key
         let c1_after = SubtensorModule::get_coldkey_balance(&s1c);
@@ -2107,7 +2107,7 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         for &net in nets.iter() {
             assert_ok!(SubtensorModule::do_dissolve_network(net));
         }
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
 
         // ────────────────────────────────────────────────────────────────────
         // 7) Assertions: τ balances, α gone, nets removed, swap state clean
@@ -2321,7 +2321,7 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
 
         // --- Dissolve the subnet ---
         assert_ok!(SubtensorModule::do_dissolve_network(net));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
 
         // After dissolve, ALL mechanism-scoped items must be cleared for ALL mechanisms.
 
@@ -2836,7 +2836,7 @@ fn registered_subnet_counter_survives_dissolve_and_bumps_on_reregistration() {
         // can still detect the pre-dereg lifetime if they stored the counter
         // value they observed at approval time.
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
-        run_block_idle_until_no_dissolved_networks();
+        run_block_idle();
         assert!(!SubtensorModule::if_subnet_exist(netuid));
         assert_eq!(
             SubtensorModule::get_registered_subnet_counter(netuid),
