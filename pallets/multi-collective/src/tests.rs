@@ -10,35 +10,86 @@ use crate::{
 };
 
 #[test]
-fn add_member_appends_to_empty_collective() {
+fn add_member_happy_path() {
     TestState::build_and_execute(|| {
-        let alice = U256::from(1);
+        let mid = U256::from(5);
+        let head = U256::from(2);
+        let tail = U256::from(8);
+        let between = U256::from(4);
 
+        // Insert into an empty collective.
         assert_ok!(MultiCollective::<Test>::add_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
-            alice,
+            mid,
         ));
-
         assert_eq!(
             MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![alice]
-        );
-        assert_eq!(
-            MultiCollective::<Test>::member_count(CollectiveId::Alpha),
-            1
+            vec![mid]
         );
         assert!(MultiCollective::<Test>::is_member(
             CollectiveId::Alpha,
-            &alice
+            &mid
         ));
+
+        // Insert at the head (new account sorts before the existing one).
+        assert_ok!(MultiCollective::<Test>::add_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            head,
+        ));
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![head, mid]
+        );
+
+        // Insert at the tail.
+        assert_ok!(MultiCollective::<Test>::add_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            tail,
+        ));
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![head, mid, tail]
+        );
+
+        // Insert into the middle of an existing list.
+        assert_ok!(MultiCollective::<Test>::add_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            between,
+        ));
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![head, between, mid, tail]
+        );
+
+        assert_eq!(
+            MultiCollective::<Test>::member_count(CollectiveId::Alpha),
+            4
+        );
 
         assert_eq!(
             multi_collective_events(),
-            vec![CollectiveEvent::MemberAdded {
-                collective_id: CollectiveId::Alpha,
-                who: alice,
-            }]
+            vec![
+                CollectiveEvent::MemberAdded {
+                    collective_id: CollectiveId::Alpha,
+                    who: mid,
+                },
+                CollectiveEvent::MemberAdded {
+                    collective_id: CollectiveId::Alpha,
+                    who: head,
+                },
+                CollectiveEvent::MemberAdded {
+                    collective_id: CollectiveId::Alpha,
+                    who: tail,
+                },
+                CollectiveEvent::MemberAdded {
+                    collective_id: CollectiveId::Alpha,
+                    who: between,
+                },
+            ]
         );
     });
 }
@@ -195,6 +246,7 @@ fn remove_member_happy_path() {
             ));
         }
 
+        // Remove from the middle.
         assert_ok!(MultiCollective::<Test>::remove_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -214,11 +266,34 @@ fn remove_member_happy_path() {
             2
         );
 
+        // Remove from the head. A swap-remove would leave the list
+        // unsorted (`[charlie, ...]` shifting via swap), so asserting
+        // that the remaining tail stays in order discriminates against
+        // that regression.
+        assert_ok!(MultiCollective::<Test>::remove_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            alice,
+        ));
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![charlie]
+        );
+        assert!(!MultiCollective::<Test>::is_member(
+            CollectiveId::Alpha,
+            &alice
+        ));
+        assert_eq!(
+            MultiCollective::<Test>::member_count(CollectiveId::Alpha),
+            1
+        );
+
         assert_eq!(
             multi_collective_events().last(),
             Some(&CollectiveEvent::MemberRemoved {
                 collective_id: CollectiveId::Alpha,
-                who: bob,
+                who: alice,
             })
         );
     });
@@ -355,6 +430,7 @@ fn swap_member_happy_path() {
         let bob = U256::from(2);
         let charlie = U256::from(3);
         let dave = U256::from(4);
+        let zara = U256::from(10);
 
         for who in [alice, bob, charlie] {
             assert_ok!(MultiCollective::<Test>::add_member(
@@ -364,6 +440,7 @@ fn swap_member_happy_path() {
             ));
         }
 
+        // Swap the middle member for an account that sorts to the tail.
         assert_ok!(MultiCollective::<Test>::swap_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -393,48 +470,20 @@ fn swap_member_happy_path() {
                 added: dave,
             })
         );
-    });
-}
 
-#[test]
-fn swap_member_keeps_sorted_order() {
-    TestState::build_and_execute(|| {
-        let a = U256::from(1);
-        let b = U256::from(2);
-        let c = U256::from(3);
-        let x = U256::from(10);
-        let y = U256::from(11);
-
-        for who in [a, b, c] {
-            assert_ok!(MultiCollective::<Test>::add_member(
-                RuntimeOrigin::root(),
-                CollectiveId::Alpha,
-                who,
-            ));
-        }
-
-        // Swap the head member out for an account that sorts to the tail.
+        // Swap the head member for an account that sorts to the tail.
+        // A swap-remove regression on the remove side would leave the
+        // resulting list unsorted, so this exercises both sides of the
+        // sorted invariant.
         assert_ok!(MultiCollective::<Test>::swap_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
-            a,
-            x,
+            alice,
+            zara,
         ));
         assert_eq!(
             MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![b, c, x]
-        );
-
-        // Swap the (former) tail member; the new account also sorts to the tail.
-        assert_ok!(MultiCollective::<Test>::swap_member(
-            RuntimeOrigin::root(),
-            CollectiveId::Alpha,
-            c,
-            y,
-        ));
-        assert_eq!(
-            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
-            vec![b, x, y]
+            vec![charlie, dave, zara]
         );
     });
 }
@@ -672,7 +721,8 @@ fn set_members_replaces_list() {
             multi_collective_events().last(),
             Some(&CollectiveEvent::MembersSet {
                 collective_id: CollectiveId::Alpha,
-                members: vec![c, d, e],
+                outgoing: vec![a, b],
+                incoming: vec![c, d, e],
             })
         );
     });
@@ -711,7 +761,8 @@ fn set_members_handles_overlap() {
             multi_collective_events().last(),
             Some(&CollectiveEvent::MembersSet {
                 collective_id: CollectiveId::Alpha,
-                members: vec![b, c, d],
+                outgoing: vec![a],
+                incoming: vec![d],
             })
         );
     });
@@ -849,7 +900,8 @@ fn set_members_noop_still_fires_event() {
             multi_collective_events().last(),
             Some(&CollectiveEvent::MembersSet {
                 collective_id: CollectiveId::Alpha,
-                members: vec![a, b],
+                incoming: vec![],
+                outgoing: vec![],
             })
         );
     });

@@ -181,11 +181,11 @@ pub mod pallet {
             /// Accounts that became members in this update, sorted.
             /// This is the difference against the previous member
             /// list, not the full new list.
-            incoming: BoundedVec<T::AccountId, T::MaxMembers>,
+            incoming: Vec<T::AccountId>,
             /// Accounts that stopped being members in this update,
             /// sorted. This is the difference against the previous
             /// member list.
-            outgoing: BoundedVec<T::AccountId, T::MaxMembers>,
+            outgoing: Vec<T::AccountId>,
         },
     }
 
@@ -232,6 +232,13 @@ pub mod pallet {
 
         fn integrity_test() {
             Pallet::<T>::check_integrity();
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn try_state(
+            _n: BlockNumberFor<T>,
+        ) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+            Pallet::<T>::do_try_state()
         }
     }
 
@@ -363,7 +370,7 @@ pub mod pallet {
         pub fn set_members(
             origin: OriginFor<T>,
             collective_id: T::CollectiveId,
-            members: BoundedVec<T::AccountId, T::MaxMembers>,
+            members: Vec<T::AccountId>,
         ) -> DispatchResult {
             T::SetOrigin::ensure_origin(origin, &collective_id)?;
             let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
@@ -380,7 +387,7 @@ pub mod pallet {
             // Sort + dedup; the sorted form is what we store, so the
             // dedup pass and the storage write share the same buffer.
             let len_before = members.len();
-            let mut sorted = members.to_vec();
+            let mut sorted = members;
             sorted.sort();
             sorted.dedup();
             ensure!(sorted.len() == len_before, Error::<T>::DuplicateAccounts);
@@ -399,8 +406,8 @@ pub mod pallet {
             T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
             Self::deposit_event(Event::MembersSet {
                 collective_id,
-                incoming: BoundedVec::truncate_from(incoming),
-                outgoing: BoundedVec::truncate_from(outgoing),
+                incoming,
+                outgoing,
             });
             Ok(())
         }
@@ -501,6 +508,43 @@ impl<T: Config> Pallet<T> {
                 );
             }
         }
+    }
+
+    /// Storage-state invariants checked by `try-runtime`. Iterates the
+    /// `Members` map and verifies, for every entry:
+    ///
+    /// - the member list is strictly sorted ascending (no duplicates,
+    ///   matching the invariant relied on by `binary_search` and the
+    ///   linear-merge diff in `set_members`);
+    /// - the `collective_id` is registered in `T::Collectives`, so no
+    ///   orphan rows survive a misconfigured runtime upgrade;
+    /// - the member count fits the per-collective `info.max_members`,
+    ///   in addition to the type-level `T::MaxMembers` bound that
+    ///   `BoundedVec` already enforces.
+    ///
+    /// `info.min_members` is intentionally not asserted here: a
+    /// freshly registered collective has no `Members` entry until its
+    /// first mutation, which would trip a strict lower-bound check.
+    #[cfg(any(feature = "try-runtime", test))]
+    pub fn do_try_state() -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+        for (collective_id, members) in Members::<T>::iter() {
+            ensure!(
+                members.windows(2).all(|w| w[0] < w[1]),
+                "Members storage is not strictly sorted ascending"
+            );
+
+            let info = T::Collectives::info(collective_id)
+                .ok_or("Members entry references an unregistered collective")?;
+
+            if let Some(max) = info.max_members {
+                ensure!(
+                    members.len() as u32 <= max,
+                    "Member count exceeds CollectiveInfo::max_members"
+                );
+            }
+        }
+
+        Ok(())
     }
 }
 
