@@ -1569,10 +1569,10 @@ impl<T: Config> Pallet<T> {
                     netuid_index,
                     i,
                     bonds_vec
-                        .clone()
                         .iter()
                         .filter(|(j, _)| *j != uid)
-                        .collect::<Vec<&(u16, u16)>>(),
+                        .copied()
+                        .collect::<Vec<(u16, u16)>>(),
                 );
             }
             log::debug!("Reset bonds for {account_id:?}, netuid {netuid:?}");

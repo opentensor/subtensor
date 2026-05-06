@@ -3574,6 +3574,64 @@ fn test_yuma_3_bonds_reset() {
 }
 
 #[test]
+fn test_do_reset_bonds_removes_target_uid_from_all_bond_vecs() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let idx = NetUidStorageIndex::from(netuid);
+        add_network(netuid, 1, 0);
+        SubtensorModule::set_bonds_reset(netuid, true);
+
+        let hk0 = U256::from(10);
+        let hk1 = U256::from(11);
+        let hk2 = U256::from(12);
+        let ck = U256::from(100);
+        register_ok_neuron(netuid, hk0, ck, 0);
+        register_ok_neuron(netuid, hk1, ck, 0);
+        register_ok_neuron(netuid, hk2, ck, 0);
+
+        // Seed bonds so every peer has an entry pointing to uid 1 (the target)
+        // alongside entries we expect to survive the reset.
+        Bonds::<Test>::insert(idx, 0u16, vec![(1u16, 100u16), (2u16, 200u16)]);
+        Bonds::<Test>::insert(idx, 1u16, vec![(0u16, 300u16), (2u16, 400u16)]);
+        Bonds::<Test>::insert(idx, 2u16, vec![(0u16, 500u16), (1u16, 600u16)]);
+
+        assert_ok!(SubtensorModule::do_reset_bonds(idx, &hk1));
+
+        // Every entry referring to uid 1 is gone; all other entries preserved.
+        assert_eq!(Bonds::<Test>::get(idx, 0u16), vec![(2u16, 200u16)]);
+        assert_eq!(
+            Bonds::<Test>::get(idx, 1u16),
+            vec![(0u16, 300u16), (2u16, 400u16)]
+        );
+        assert_eq!(Bonds::<Test>::get(idx, 2u16), vec![(0u16, 500u16)]);
+    });
+}
+
+#[test]
+fn test_do_reset_bonds_noop_when_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let idx = NetUidStorageIndex::from(netuid);
+        add_network(netuid, 1, 0);
+        SubtensorModule::set_bonds_reset(netuid, false);
+
+        let hk0 = U256::from(10);
+        let hk1 = U256::from(11);
+        let ck = U256::from(100);
+        register_ok_neuron(netuid, hk0, ck, 0);
+        register_ok_neuron(netuid, hk1, ck, 0);
+
+        let original = vec![(1u16, 100u16)];
+        Bonds::<Test>::insert(idx, 0u16, original.clone());
+
+        assert_ok!(SubtensorModule::do_reset_bonds(idx, &hk1));
+
+        // Reset disabled: bonds untouched.
+        assert_eq!(Bonds::<Test>::get(idx, 0u16), original);
+    });
+}
+
+#[test]
 fn test_liquid_alpha_equal_values_against_itself() {
     new_test_ext(1).execute_with(|| {
         // check Liquid alpha disabled against Liquid Alpha enabled with alpha_low == alpha_high
