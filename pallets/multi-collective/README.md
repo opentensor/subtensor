@@ -23,12 +23,15 @@ which read members through the `CollectiveInspect` trait.
 | ---- | ------ | ------ |
 | `add_member`    | `T::AddOrigin`    | Insert one member. Fails on `AlreadyMember`, `TooManyMembers`, `CollectiveNotFound`. |
 | `remove_member` | `T::RemoveOrigin` | Remove one member. Fails on `NotMember`, `TooFewMembers`, `CollectiveNotFound`. |
-| `swap_member`   | `T::SwapOrigin`   | Atomic remove + insert (count-invariant; allowed at min and max). |
-| `set_members`   | `T::SetOrigin`    | Replace the full list. Sorts and dedups; rejects `DuplicateAccounts`. |
+| `swap_member`   | `T::SwapOrigin`   | Atomic remove + insert. Count is preserved, so the per-collective `min_members` / `max_members` bounds are not re-checked; works at either boundary. |
+| `set_members`   | `T::SetOrigin`    | Replace the full list. Sorts the input and rejects `DuplicateAccounts` if any duplicates are present (the input is not silently deduplicated). |
 | `force_rotate`  | `T::RotateOrigin` | Trigger `OnNewTerm` for a rotating collective on demand. |
 
 Every mutation fires `T::OnMembersChanged` with the incoming and
-outgoing accounts so downstream pallets can react (e.g. clean up votes).
+outgoing accounts so downstream pallets can react (e.g. clean up
+votes). The Subtensor runtime currently wires this to `()`: active
+polls snapshot the voter set at creation, so member changes cannot
+retroactively invalidate votes, and no cleanup is needed.
 
 ## Rotation
 
