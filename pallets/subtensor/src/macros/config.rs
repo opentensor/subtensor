@@ -8,6 +8,7 @@ mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
     use frame_support::PalletId;
+    use pallet_alpha_assets::AlphaAssetsInterface;
     use pallet_commitments::GetCommitments;
     use subtensor_runtime_common::AuthorshipInfo;
     use subtensor_swap_interface::{SwapEngine, SwapHandler};
@@ -60,6 +61,9 @@ mod config {
 
         ///  Interface to clean commitments on network dissolution.
         type CommitmentsInterface: CommitmentsInterface;
+
+        /// Interface to mint, burn, and recycle subnet alpha.
+        type AlphaAssets: AlphaAssetsInterface;
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;

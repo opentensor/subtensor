@@ -120,6 +120,7 @@ impl<T: Config> Pallet<T> {
         // 11) counters
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, registration_cost.into());
+        Self::record_tao_inflow(netuid, actual_burn_amount);
 
         // 12) event
         log::debug!("NeuronRegistered( netuid:{netuid:?} uid:{neuron_uid:?} hotkey:{hotkey:?} )");

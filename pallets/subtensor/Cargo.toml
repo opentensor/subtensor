@@ -43,6 +43,7 @@ subtensor-swap-interface.workspace = true
 runtime-common.workspace = true
 subtensor-runtime-common = { workspace = true, features = ["approx"] }
 sp-keyring.workspace = true
+pallet-alpha-assets.workspace = true
 
 pallet-drand.workspace = true
 pallet-commitments.workspace = true
@@ -115,6 +116,7 @@ std = [
 	"sp-version/std",
 	"sp-keyring/std",
 	"subtensor-runtime-common/std",
+	"pallet-alpha-assets/std",
 	"pallet-commitments/std",
 	"pallet-crowdloan/std",
 	"pallet-drand/std",
