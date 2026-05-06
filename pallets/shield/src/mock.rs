@@ -24,6 +24,7 @@ construct_runtime!(
         Aura: pallet_aura = 2,
         MevShield: pallet_shield = 3,
         Utility: pallet_subtensor_utility = 4,
+        Balances: pallet_balances = 5,
     }
 );
 
@@ -32,11 +33,13 @@ const SLOT_DURATION: u64 = 6000;
 parameter_types! {
     pub const SlotDuration: u64 = SLOT_DURATION;
     pub const MaxAuthorities: u32 = 32;
+    pub const ExistentialDeposit: u64 = 1;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type Block = Block;
+    type AccountData = pallet_balances::AccountData<u64>;
 }
 
 impl pallet_timestamp::Config for Test {
@@ -60,9 +63,18 @@ impl pallet_subtensor_utility::Config for Test {
     type WeightInfo = ();
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+    type AccountStore = System;
+    type Balance = u64;
+    type ExistentialDeposit = ExistentialDeposit;
+}
+
 thread_local! {
     static MOCK_CURRENT: RefCell<Option<AuraId>> = const { RefCell::new(None) };
     static MOCK_NEXT_NEXT: RefCell<Option<Option<AuraId>>> = const { RefCell::new(None) };
+    static REFUND_ENABLED: RefCell<bool> = const { RefCell::new(false) };
+    static REFUND_ON_EXPIRATION: RefCell<bool> = const { RefCell::new(false) };
 }
 
 pub struct MockFindAuthors;
@@ -87,6 +99,47 @@ impl pallet_shield::FindAuthors<Test> for MockFindAuthors {
     }
 }
 
+/// Mock fee handler that deposits actual balance refunds.
+/// Uses a simple 1:1 weight-to-fee mapping (ref_time = balance units).
+pub struct MockEncryptedExtrinsicFees;
+
+impl pallet_shield::EncryptedExtrinsicFees<Test> for MockEncryptedExtrinsicFees {
+    fn refund_enabled() -> bool {
+        REFUND_ENABLED.with(|e| *e.borrow())
+    }
+
+    fn refund_on_expiration() -> bool {
+        REFUND_ON_EXPIRATION.with(|e| *e.borrow())
+    }
+
+    fn refund(
+        who: &u64,
+        charged_weight: sp_weights::Weight,
+        actual_weight: sp_weights::Weight,
+        _reason: pallet_shield::RefundReason,
+    ) -> Option<u128> {
+        use frame_support::traits::{fungible::Balanced, tokens::Precision};
+
+        let diff = charged_weight
+            .ref_time()
+            .saturating_sub(actual_weight.ref_time());
+        if diff > 0 {
+            let _ = <Balances as Balanced<_>>::deposit(who, diff, Precision::BestEffort);
+            Some(diff as u128)
+        } else {
+            None
+        }
+    }
+}
+
+pub fn enable_refund(enabled: bool) {
+    REFUND_ENABLED.with(|e| *e.borrow_mut() = enabled);
+}
+
+pub fn enable_refund_on_expiration(enabled: bool) {
+    REFUND_ON_EXPIRATION.with(|e| *e.borrow_mut() = enabled);
+}
+
 /// Mock decryptor that just decodes the bytes without decryption.
 pub struct MockDecryptor;
 
@@ -101,6 +154,7 @@ impl pallet_shield::Config for Test {
     type FindAuthors = MockFindAuthors;
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = MockDecryptor;
+    type EncryptedExtrinsicFees = MockEncryptedExtrinsicFees;
     type WeightInfo = ();
 }
 
@@ -109,6 +163,24 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage()
         .expect("valid genesis")
         .into();
+    ext.register_extension(sp_keystore::KeystoreExt::new(
+        sp_keystore::testing::MemoryKeystore::new(),
+    ));
+    ext
+}
+
+/// Create test externalities with funded accounts.
+pub fn new_test_ext_with_balances(balances: Vec<(u64, u64)>) -> sp_io::TestExternalities {
+    let mut t = RuntimeGenesisConfig::default()
+        .build_storage()
+        .expect("valid genesis");
+    pallet_balances::GenesisConfig::<Test> {
+        balances,
+        dev_accounts: None,
+    }
+    .assimilate_storage(&mut t)
+    .expect("balances storage should build ok");
+    let mut ext = sp_io::TestExternalities::new(t);
     ext.register_extension(sp_keystore::KeystoreExt::new(
         sp_keystore::testing::MemoryKeystore::new(),
     ));

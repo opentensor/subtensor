@@ -105,6 +105,7 @@ impl pallet_shield::Config for Test {
     type FindAuthors = ();
     type RuntimeCall = RuntimeCall;
     type ExtrinsicDecryptor = ();
+    type EncryptedExtrinsicFees = ();
     type WeightInfo = ();
 }
 
