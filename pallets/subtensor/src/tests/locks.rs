@@ -679,6 +679,66 @@ fn test_move_stake_same_coldkey_same_subnet_allowed() {
 }
 
 #[test]
+fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_sender = U256::from(1);
+        let coldkey_receiver = U256::from(5);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
+
+        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
+        let lock_half = total / 2.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey_sender,
+            netuid,
+            &hotkey,
+            lock_half,
+        ));
+
+        let sender_lock_before =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should exist");
+        let hotkey_lock_before =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should exist");
+
+        step_block(1);
+
+        let transfer_amount = total;
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(coldkey_sender),
+            coldkey_receiver,
+            hotkey,
+            netuid,
+            netuid,
+            transfer_amount,
+        ));
+
+        let expected_sender_lock = SubtensorModule::roll_forward_lock(
+            sender_lock_before,
+            SubtensorModule::get_current_block_as_u64(),
+        );
+
+        assert!(Lock::<Test>::get((coldkey_sender, netuid, hotkey)).is_none());
+
+        let receiver_lock = Lock::<Test>::get((coldkey_receiver, netuid, hotkey))
+            .expect("receiver lock should exist after transfer");
+        assert_eq!(receiver_lock.locked_mass, expected_sender_lock.locked_mass);
+        assert_eq!(
+            receiver_lock.unlocked_mass,
+            expected_sender_lock.unlocked_mass
+        );
+        assert!(receiver_lock.conviction > U64F64::from_num(0));
+        assert!(receiver_lock.conviction <= expected_sender_lock.conviction);
+
+        let hotkey_lock_after =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should remain");
+        assert_eq!(
+            hotkey_lock_after.locked_mass,
+            hotkey_lock_before.locked_mass
+        );
+    });
+}
+
+#[test]
 fn test_move_stake_cross_subnet_blocked_by_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -717,39 +777,6 @@ fn test_move_stake_cross_subnet_blocked_by_lock() {
 }
 
 #[test]
-fn test_transfer_stake_cross_coldkey_blocked_by_lock() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_sender = U256::from(1);
-        let coldkey_receiver = U256::from(5);
-        let hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
-
-        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
-        assert_ok!(SubtensorModule::do_lock_stake(
-            &coldkey_sender,
-            netuid,
-            &hotkey,
-            total,
-        ));
-
-        step_block(1);
-
-        let alpha = get_alpha(&hotkey, &coldkey_sender, netuid);
-        assert_noop!(
-            SubtensorModule::do_transfer_stake(
-                RuntimeOrigin::signed(coldkey_sender),
-                coldkey_receiver,
-                hotkey,
-                netuid,
-                netuid,
-                alpha,
-            ),
-            Error::<Test>::StakeUnavailable
-        );
-    });
-}
-
-#[test]
 fn test_transfer_stake_cross_coldkey_allowed_partial() {
     new_test_ext(1).execute_with(|| {
         let coldkey_sender = U256::from(1);
@@ -766,6 +793,9 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
             lock_half,
         ));
 
+        let sender_lock_before =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should exist");
+
         step_block(1);
 
         // Transfer the unlocked portion
@@ -779,6 +809,22 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
             netuid,
             transfer_amount,
         ));
+
+        let sender_lock_after =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should remain");
+        assert_eq!(
+            sender_lock_after.locked_mass,
+            sender_lock_before.locked_mass
+        );
+        assert_eq!(
+            sender_lock_after.unlocked_mass,
+            SubtensorModule::roll_forward_lock(
+                sender_lock_before,
+                SubtensorModule::get_current_block_as_u64()
+            )
+            .unlocked_mass
+        );
+        assert!(Lock::<Test>::get((coldkey_receiver, netuid, hotkey)).is_none());
     });
 }
 

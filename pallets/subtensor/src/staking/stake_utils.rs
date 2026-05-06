@@ -960,6 +960,9 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         alpha: AlphaBalance,
     ) -> Result<TaoBalance, DispatchError> {
+        // Transfer lock (may fail if destination coldkey has a conflicting lock)
+        Self::transfer_lock(origin_coldkey, destination_coldkey, netuid, alpha)?;
+
         // Decrease alpha on origin keys
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             origin_hotkey,
@@ -1327,7 +1330,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Enforce lock invariant: if the is cross-subnet move, the remaining amount must 
+        // Enforce lock invariant: if the is cross-subnet move, the remaining amount must
         // cover the lock.
         if origin_netuid != destination_netuid {
             Self::ensure_available_stake(origin_coldkey, origin_netuid, alpha_amount)?;
