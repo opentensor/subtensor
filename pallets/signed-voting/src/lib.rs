@@ -295,6 +295,27 @@ pub mod pallet {
         fn on_idle(_n: BlockNumberFor<T>, remaining: Weight) -> Weight {
             Pallet::<T>::drain_pending_cleanup(remaining)
         }
+
+        fn integrity_test() {
+            // Zero would silently halt cleanup and leak `VotingFor`
+            // entries forever; reject at boot.
+            assert!(
+                T::CleanupChunkSize::get() > 0,
+                "pallet-signed-voting: CleanupChunkSize must be non-zero",
+            );
+            // A zero pending-cleanup cap would route every completion
+            // through the overflow branch and leak unconditionally.
+            assert!(
+                T::MaxPendingCleanup::get() > 0,
+                "pallet-signed-voting: MaxPendingCleanup must be non-zero",
+            );
+            // The voter-set snapshot must fit at least one account, or
+            // every poll degrades to the empty-snapshot defense path.
+            assert!(
+                T::MaxVoterSetSize::get() > 0,
+                "pallet-signed-voting: MaxVoterSetSize must be non-zero",
+            );
+        }
     }
 
     #[pallet::call]
