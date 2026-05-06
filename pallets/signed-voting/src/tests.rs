@@ -2,8 +2,8 @@
 
 use frame_support::{assert_noop, assert_ok, sp_runtime::Perbill, traits::Hooks, weights::Weight};
 use sp_core::U256;
-use sp_runtime::DispatchError;
-use subtensor_runtime_common::VoteTally;
+use sp_runtime::{DispatchError, Saturating};
+use subtensor_runtime_common::{OnPollCompleted, OnPollCreated, VoteTally};
 
 use crate::{
     Error, Event as SignedVotingEvent, Pallet as SignedVotingPallet, PendingCleanup,
@@ -84,9 +84,6 @@ fn vote_nay_increments_nays() {
     });
 }
 
-/// `try_vote` has two branches for an existing vote (aye→nay, nay→aye)
-/// plus the no-prior-vote branch. This exercises both flip directions
-/// in sequence to cover the full state machine of a single voter.
 #[test]
 fn vote_can_flip_aye_nay_aye() {
     TestState::build_and_execute(|| {
@@ -163,8 +160,6 @@ fn vote_aggregates_across_distinct_voters() {
     });
 }
 
-/// Each successful vote pushes the converted `VoteTally` to the
-/// producer's `on_tally_updated` so it can re-evaluate thresholds.
 #[test]
 fn vote_invokes_polls_on_tally_updated_with_perbill_ratios() {
     TestState::build_and_execute(|| {
@@ -187,7 +182,14 @@ fn vote_invokes_polls_on_tally_updated_with_perbill_ratios() {
         assert_eq!(*idx, 0);
         assert_eq!(tally.approval, Perbill::from_rational(1u32, 3u32));
         assert_eq!(tally.rejection, Perbill::zero());
-        assert_eq!(tally.abstention, Perbill::from_rational(2u32, 3u32));
+        assert_eq!(
+            tally.abstention,
+            Perbill::one().saturating_sub(tally.approval),
+        );
+        assert_eq!(
+            tally.approval + tally.rejection + tally.abstention,
+            Perbill::one(),
+        );
     });
 }
 
@@ -217,9 +219,6 @@ fn vote_rejects_completed_poll_with_poll_not_ongoing() {
     });
 }
 
-/// Polls that were never registered with the mock `Polls` provider
-/// surface as `PollNotOngoing` (because `is_ongoing` returns false),
-/// not as a panic or silent success.
 #[test]
 fn vote_rejects_unknown_poll_with_poll_not_ongoing() {
     TestState::build_and_execute(|| {
@@ -230,9 +229,6 @@ fn vote_rejects_unknown_poll_with_poll_not_ongoing() {
     });
 }
 
-/// Polls of a different scheme (here `Anonymous`) belong to a different
-/// voting backend; this pallet must reject them at vote time even
-/// though they pass `is_ongoing`.
 #[test]
 fn vote_rejects_poll_with_mismatched_scheme() {
     TestState::build_and_execute(|| {
@@ -259,9 +255,6 @@ fn vote_rejects_non_member_with_not_in_voter_set() {
     });
 }
 
-/// Voting twice in the same direction is rejected and leaves the
-/// tally unchanged. The flip direction is exercised by
-/// `vote_can_flip_aye_nay_aye`.
 #[test]
 fn vote_rejects_duplicate_in_same_direction() {
     TestState::build_and_execute(|| {
@@ -337,9 +330,6 @@ fn remove_vote_clears_nay() {
     });
 }
 
-/// A voter rotated out of the underlying collective is still in the
-/// snapshot and can therefore still remove a vote they previously cast
-/// — the eligibility roster is the snapshot, not the live collective.
 #[test]
 fn remove_vote_succeeds_for_voter_rotated_out_after_creation() {
     TestState::build_and_execute(|| {
@@ -460,10 +450,10 @@ fn on_poll_created_snapshots_voter_set_into_voter_set_of() {
     });
 }
 
-/// If the producer hands us a voter set larger than `MaxVoterSetSize`,
-/// fall back to an empty snapshot (`total = 0`) instead of panicking.
-/// All threshold checks then fail closed and the poll lapses through
-/// its timeout — a safe failure mode for a misconfigured runtime.
+/// Defense-in-depth: the runtime's compile-time bound checks and
+/// `pallet-referenda::submit`'s `EmptyVoterSet` guard should make this
+/// unreachable. The pallet still falls back rather than panicking the
+/// producer's call if it ever happens.
 #[test]
 fn on_poll_created_with_oversized_voter_set_falls_back_to_empty() {
     TestState::build_and_execute(|| {
@@ -474,6 +464,77 @@ fn on_poll_created_with_oversized_voter_set_falls_back_to_empty() {
         let snapshot = VoterSetOf::<Test>::get(0u32).expect("snapshot stored");
         assert!(snapshot.is_empty());
         assert_eq!(TallyOf::<Test>::get(0u32).unwrap().total, 0);
+    });
+}
+
+#[test]
+fn on_poll_created_twice_does_not_clobber_existing_tally() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        start_poll(0, VotingScheme::Signed, vec![alice, bob]);
+
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+            true,
+        ));
+        let tally_before = TallyOf::<Test>::get(0u32).expect("tally seeded");
+        assert_eq!(tally_before.ayes, 1);
+
+        <SignedVotingPallet<Test> as OnPollCreated<u32>>::on_poll_created(0u32);
+
+        let tally_after = TallyOf::<Test>::get(0u32).expect("tally preserved");
+        assert_eq!(tally_after, tally_before);
+        assert_eq!(VotingFor::<Test>::get(0u32, alice), Some(true));
+    });
+}
+
+#[test]
+fn on_poll_completed_twice_does_not_duplicate_cleanup_queue() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice]);
+        complete_poll(0);
+        assert_eq!(PendingCleanup::<Test>::get().len(), 1);
+
+        <SignedVotingPallet<Test> as OnPollCompleted<u32>>::on_poll_completed(0u32);
+        assert_eq!(PendingCleanup::<Test>::get().len(), 1);
+    });
+}
+
+#[test]
+fn on_poll_created_skips_polls_with_mismatched_scheme() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Anonymous, vec![alice]);
+
+        assert!(TallyOf::<Test>::get(0u32).is_none());
+        assert!(VoterSetOf::<Test>::get(0u32).is_none());
+    });
+}
+
+#[test]
+fn on_poll_completed_no_ops_when_no_local_tally() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Anonymous, vec![alice]);
+
+        complete_poll(0);
+        assert!(PendingCleanup::<Test>::get().is_empty());
+    });
+}
+
+#[test]
+fn on_poll_created_dedups_duplicate_voters_in_snapshot() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        start_poll(0, VotingScheme::Signed, vec![alice, bob, alice, bob, alice]);
+
+        let snapshot = VoterSetOf::<Test>::get(0u32).expect("snapshot stored");
+        assert_eq!(snapshot.len(), 2);
+        assert_eq!(TallyOf::<Test>::get(0u32).unwrap().total, 2);
     });
 }
 
@@ -510,9 +571,6 @@ fn rotated_in_member_cannot_vote_on_poll_created_before_they_joined() {
     });
 }
 
-/// The denominator (`SignedVoteTally::total`) is fixed at the snapshot
-/// size from `on_poll_created`. Membership churn — including a swap
-/// that adds and removes — must not move it.
 #[test]
 fn tally_total_is_immune_to_membership_changes_after_creation() {
     TestState::build_and_execute(|| {
@@ -571,7 +629,6 @@ fn on_poll_completed_enqueues_voting_for_for_lazy_cleanup() {
         assert_eq!(queue.len(), 1);
         assert_eq!(queue[0].0, 0u32);
         assert!(queue[0].1.is_none(), "fresh enqueue carries no cursor");
-        // VotingFor entries persist until on_idle drains them.
         assert_eq!(VotingFor::<Test>::get(0u32, alice), Some(true));
     });
 }
@@ -602,15 +659,10 @@ fn drain_cleanup_queue_clears_all_voting_for_entries_for_completed_polls() {
     });
 }
 
-/// `MaxPendingCleanup` is a documented runtime invariant — set it ≥ the
-/// producer's `MaxQueued`. If a misconfigured runtime overflows the
-/// queue, the hook swallows the failure and emits `CleanupQueueFull`
-/// rather than tearing down the producer's call.
 #[test]
 fn on_poll_completed_emits_cleanup_queue_full_when_queue_is_full() {
     TestState::build_and_execute(|| {
         let cap = TestMaxPendingCleanup::get();
-        // Fill the queue with placeholder entries so the (cap+1)th push fails.
         for i in 0..cap {
             start_poll(i, VotingScheme::Signed, vec![U256::from(i as u64 + 1)]);
             complete_poll(i);
@@ -715,9 +767,6 @@ fn successive_idle_passes_resume_via_cursor_until_drained() {
     });
 }
 
-/// The queue is FIFO: a partial drain on the head poll never bleeds
-/// into the next poll. Without this invariant cleanup ordering would
-/// be observable and frontends auditing pending work would see jitter.
 #[test]
 fn idle_drain_finishes_head_poll_before_starting_next() {
     let voters_a: Vec<U256> = (1..=8u32).map(U256::from).collect();
@@ -769,9 +818,6 @@ fn idle_drain_finishes_head_poll_before_starting_next() {
     });
 }
 
-/// `on_idle` returns immediately when remaining weight cannot cover a
-/// single drain step. Without this guard, a starved chain would pay for
-/// repeated read+mutate of `PendingCleanup` with no actual cleanup.
 #[test]
 fn on_idle_is_noop_when_weight_below_one_drain_step() {
     use crate::weights::WeightInfo as _;
@@ -797,10 +843,23 @@ fn on_idle_is_noop_when_weight_below_one_drain_step() {
     });
 }
 
+/// `on_idle` with an empty `PendingCleanup` consumes only `entry_cost`
+/// (the upfront `1 read + 1 write` reservation) and does no body work.
+/// Asserting against the real `RocksDbWeight` catches regressions that
+/// the default `DbWeight = ()` mock would silently mask.
 #[test]
-fn on_idle_is_noop_when_queue_empty() {
+fn on_idle_with_empty_queue_consumes_only_entry_cost() {
     TestState::build_and_execute(|| {
+        let entry_cost = <Test as frame_system::Config>::DbWeight::get().reads_writes(1, 1);
         let consumed = SignedVotingPallet::<Test>::on_idle(System::block_number(), Weight::MAX);
+        assert_eq!(consumed, entry_cost);
+    });
+}
+
+#[test]
+fn on_idle_consumes_nothing_when_budget_below_entry_cost() {
+    TestState::build_and_execute(|| {
+        let consumed = SignedVotingPallet::<Test>::on_idle(System::block_number(), Weight::zero());
         assert_eq!(consumed, Weight::zero());
     });
 }

@@ -12,6 +12,7 @@ use frame_support::{
     pallet_prelude::*,
     parameter_types,
     sp_runtime::{BuildStorage, traits::IdentityLookup},
+    weights::constants::RocksDbWeight,
 };
 use sp_core::U256;
 use subtensor_runtime_common::{OnPollCompleted, OnPollCreated, Polls, SetLike, VoteTally};
@@ -182,6 +183,9 @@ impl frame_system::Config for Test {
     type Block = Block;
     type AccountId = U256;
     type Lookup = IdentityLookup<Self::AccountId>;
+    // Use the production weight table so `on_idle` weight assertions
+    // catch regressions that the default `DbWeight = ()` would mask.
+    type DbWeight = RocksDbWeight;
 }
 
 parameter_types! {

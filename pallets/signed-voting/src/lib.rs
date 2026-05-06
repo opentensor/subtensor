@@ -543,24 +543,42 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> OnPollCreated<PollIndexOf<T>> for Pallet<T> {
     fn on_poll_created(poll_index: PollIndexOf<T>) {
-        // Sort once so `ensure_in_voter_set` can use `binary_search`.
-        // `SetLike::to_vec` doesn't guarantee ordering, and the snapshot
-        // is read on every vote, so paying the sort once is worth it.
-        //
-        // A `None` from the producer or a set bigger than
-        // `MaxVoterSetSize` collapses to an empty snapshot. With
-        // `total = 0` every threshold fails closed and the poll lapses
-        // through its timeout: a safe failure mode if a misconfigured
-        // runtime ever reaches this path.
+        if T::Polls::voting_scheme_of(poll_index) != Some(T::Scheme::get()) {
+            return;
+        }
+
+        // A second call would clobber `VoterSetOf` and reset the tally,
+        // silently erasing votes already cast.
+        if TallyOf::<T>::contains_key(poll_index) {
+            log::warn!(
+                target: "runtime::signed-voting",
+                "on_poll_created called twice for poll {:?}; ignoring",
+                poll_index,
+            );
+            return;
+        }
+
+        // Sort + dedup so `ensure_in_voter_set` can `binary_search` and
+        // a producer returning a multiset cannot inflate `total`.
         let snapshot: BoundedVec<T::AccountId, T::MaxVoterSetSize> =
             T::Polls::voter_set_of(poll_index)
                 .map(|s| {
                     let mut v = s.to_vec();
                     v.sort();
+                    v.dedup();
                     v
                 })
                 .and_then(|v| BoundedVec::try_from(v).ok())
                 .unwrap_or_default();
+
+        if snapshot.is_empty() {
+            log::error!(
+                target: "runtime::signed-voting",
+                "on_poll_created received empty or oversized voter set for poll {:?}; \
+                 producer or runtime configuration is broken",
+                poll_index,
+            );
+        }
 
         let total = snapshot.len() as u32;
         VoterSetOf::<T>::insert(poll_index, snapshot);
@@ -581,18 +599,22 @@ impl<T: Config> OnPollCreated<PollIndexOf<T>> for Pallet<T> {
 
 impl<T: Config> OnPollCompleted<PollIndexOf<T>> for Pallet<T> {
     fn on_poll_completed(poll_index: PollIndexOf<T>) {
-        // Keep this path O(1): the `VotingFor` prefix grows with voter
-        // count, so clearing it synchronously would put unbounded work
-        // on the producer's call. `on_idle` drains it instead.
+        // Tally absent means either another backend owns this poll or
+        // the hook fired twice; either way there is nothing to clean up.
+        // `voting_scheme_of` is not usable as the scheme gate here: the
+        // producer transitions status to terminal before firing this hook.
+        if !TallyOf::<T>::contains_key(poll_index) {
+            return;
+        }
+
         TallyOf::<T>::remove(poll_index);
         VoterSetOf::<T>::remove(poll_index);
 
         let pushed = PendingCleanup::<T>::mutate(|q| q.try_push((poll_index, None)).is_ok());
         if !pushed {
-            // Don't fail the hook on overflow: that would tear down the
-            // producer's call. The orphaned `VotingFor` entries are a
-            // storage leak (unread after `TallyOf` is gone), not a
-            // correctness issue; the event surfaces the misconfiguration.
+            // Failing the hook would tear down the producer's call.
+            // The orphaned `VotingFor` entries leak storage but are
+            // unread once `TallyOf` is gone.
             Self::deposit_event(Event::<T>::CleanupQueueFull { poll_index });
         }
     }
