@@ -99,12 +99,15 @@ impl From<SignedVoteTally> for VoteTally {
         if value.total == 0 {
             return VoteTally::default();
         }
-        let voted = value.ayes.saturating_add(value.nays);
-        let abstention = value.total.saturating_sub(voted);
+        let approval = Perbill::from_rational(value.ayes, value.total);
+        let rejection = Perbill::from_rational(value.nays, value.total);
+        let abstention = Perbill::one()
+            .saturating_sub(approval)
+            .saturating_sub(rejection);
         VoteTally {
-            approval: Perbill::from_rational(value.ayes, value.total),
-            rejection: Perbill::from_rational(value.nays, value.total),
-            abstention: Perbill::from_rational(abstention, value.total),
+            approval,
+            rejection,
+            abstention,
         }
     }
 }
