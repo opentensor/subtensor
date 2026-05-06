@@ -635,11 +635,10 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        // Read total alpha of the coldkey on this netuid. If total alpha is lower than amount
-        // transferred, error out with StakeUnavailable.
+        // Read total alpha of the coldkey on this netuid. Do not check if total alpha is
+        // lower than amount transferred, this is responsibility of a higher level, this
+        // function needs to act protectively.
         let total_alpha = Self::total_coldkey_alpha_on_subnet(origin_coldkey, netuid);
-        ensure!(total_alpha >= amount, Error::<T>::StakeUnavailable);
-
         let mut remaining_to_transfer = amount;
 
         // Read the locks for source and destination coldkey (if exist) and roll forward
