@@ -301,8 +301,6 @@ impl<T: Config> Pallet<T> {
         } else {
             inplace_mask_diag(&mut weights);
         }
-
-        inplace_mask_diag(&mut weights);
         log::trace!("W (permit+diag): {:?}", &weights);
 
         // Mask outdated weights: remove weights referring to deregistered neurons.

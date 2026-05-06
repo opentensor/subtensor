@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::expect_used)]
+#![allow(clippy::arithmetic_side_effects)]
 
 use fp_evm::{Context, ExitError, PrecompileFailure, PrecompileResult};
 use node_subtensor_runtime::{BuildStorage, Runtime, RuntimeGenesisConfig, System};
