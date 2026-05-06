@@ -1756,7 +1756,8 @@ pub mod pallet {
     /// Advances on every `should_run_epoch == true` slot — including consistency-skipped slots —
     /// and on a successful `set_tempo` (cycle reset).
     #[pallet::storage]
-    pub type LastEpochBlock<T> = StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type LastEpochBlock<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
 
     /// --- MAP ( netuid ) --> block at which a manually triggered epoch should fire.
     /// `0` means no trigger pending. Cleared after the triggered epoch runs.

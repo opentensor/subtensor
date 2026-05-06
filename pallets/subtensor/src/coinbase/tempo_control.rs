@@ -9,11 +9,7 @@ use crate::utils::rate_limiting::{Hyperparameter, TransactionType};
 
 impl<T: Config> Pallet<T> {
     /// Owner-side `set_tempo` implementation. See spec §5.1.
-    pub fn do_set_tempo(
-        origin: OriginFor<T>,
-        netuid: NetUid,
-        tempo: u16,
-    ) -> DispatchResult {
+    pub fn do_set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
         let who = Self::ensure_subnet_owner(origin, netuid)?;
 
         ensure!(
@@ -74,10 +70,7 @@ impl<T: Config> Pallet<T> {
     /// Owner-side `trigger_epoch` implementation. See spec §5.3.
     /// Schedules the triggered epoch to fire after `AdminFreezeWindow` blocks; that
     /// countdown engages the freeze window for the subnet via `is_in_admin_freeze_window`.
-    pub fn do_trigger_epoch(
-        origin: OriginFor<T>,
-        netuid: NetUid,
-    ) -> Result<(), DispatchError> {
+    pub fn do_trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> Result<(), DispatchError> {
         let who = Self::ensure_subnet_owner(origin, netuid)?;
 
         // No `ensure_admin_window_open` here: trigger *defines* the next epoch.

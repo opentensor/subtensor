@@ -1054,9 +1054,7 @@ impl<T: Config> Pallet<T> {
         }
         let last = LastEpochBlock::<T>::get(netuid);
         // Period is `tempo + 1`: next firing at `last + tempo + 1`.
-        let next_auto = last
-            .saturating_add(tempo as u64)
-            .saturating_add(1);
+        let next_auto = last.saturating_add(tempo as u64).saturating_add(1);
         next_auto.saturating_sub(block_number)
     }
 }

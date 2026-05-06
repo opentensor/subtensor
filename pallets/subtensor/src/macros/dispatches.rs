@@ -2602,11 +2602,7 @@ mod dispatches {
         #[pallet::weight(Weight::from_parts(20_000, 0)
             .saturating_add(T::DbWeight::get().reads(4))
             .saturating_add(T::DbWeight::get().writes(3)))] // TODO: add benchmarks and update weights
-        pub fn set_tempo(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            tempo: u16,
-        ) -> DispatchResult {
+        pub fn set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
             Self::do_set_tempo(origin, netuid, tempo)
         }
 
