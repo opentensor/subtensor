@@ -1,27 +1,31 @@
-use core::ops::Neg;
-
-use frame_support::dispatch::DispatchResultWithPostInfo;
-use frame_support::storage::{TransactionOutcome, transactional};
-use frame_support::{ensure, pallet_prelude::DispatchError, traits::Get, weights::Weight};
-use safe_math::*;
-use sp_arithmetic::{helpers_128bit, traits::Zero};
-use sp_runtime::{DispatchResult, traits::AccountIdConversion};
-use substrate_fixed::types::{I64F64, U64F64, U96F32};
-use subtensor_runtime_common::{
-    AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve,
-};
-
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep, SwapStepAction};
+use core::ops::Neg;
+use frame_support::pallet_prelude::DispatchResultWithPostInfo;
+use frame_support::storage::{TransactionOutcome, transactional};
+use frame_support::{
+    BoundedVec, ensure,
+    pallet_prelude::DispatchError,
+    traits::Get,
+    weights::{Weight, WeightMeter},
+};
+use safe_math::*;
+use sp_arithmetic::{helpers_128bit, traits::Zero};
+
 use crate::{
     SqrtPrice,
     position::{Position, PositionId},
     tick::{ActiveTickIndexManager, Tick, TickIndex},
 };
+use sp_runtime::traits::AccountIdConversion;
+use substrate_fixed::types::{I64F64, U64F64, U96F32};
+use subtensor_runtime_common::{
+    AlphaBalance, BalanceOps, LoopRemovePrefixWithWeightMeter, NetUid, SubnetInfo, TaoBalance,
+    Token, TokenReserve, WeightMeterWrapper,
+};
 use subtensor_swap_interface::{
     DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
 };
-
 const MAX_SWAP_ITERATIONS: u16 = 1000;
 
 #[derive(Debug, PartialEq)]
@@ -836,76 +840,206 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
-    pub fn do_clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
+    pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
+        let limit_in = remaining_weight;
+        let mut remaining_weight = remaining_weight;
+
+        if CleanUpPhase::<T>::get().is_none() {
+            CleanUpPhase::<T>::set(Some(
+                CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
+            ));
+        }
+
+        // if one phase is done or exit because of weight limit
+        let mut phase_done = true;
+        // only reason for phase_done to be false is if the weight limit is reached
+        while phase_done {
+            let current_phase = CleanUpPhase::<T>::get();
+            log::error!(
+                "==== current_phase in do_clear_protocol_liquidity is: {:?}",
+                current_phase
+            );
+            let (weight_used, done) = match current_phase {
+                Some(CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity) => {
+                    let (weight_used, done) = Self::do_clear_protocol_liquidity_remove_liquidity(
+                        netuid,
+                        remaining_weight,
+                    );
+                    if done {
+                        CleanUpPhase::<T>::set(Some(
+                            CleanUpPhaseEnum::ClearProtocolLiquidityTickIndexBitmapWords,
+                        ));
+                    }
+                    (weight_used, done)
+                }
+                Some(CleanUpPhaseEnum::ClearProtocolLiquidityTickIndexBitmapWords) => {
+                    let (weight_used, done) =
+                        Self::do_clear_tick_index_bitmap_words(netuid, remaining_weight);
+                    if done {
+                        CleanUpPhase::<T>::set(Some(
+                            CleanUpPhaseEnum::ClearProtocolLiquidityParameters,
+                        ));
+                    }
+                    (weight_used, done)
+                }
+                Some(CleanUpPhaseEnum::ClearProtocolLiquidityParameters) => {
+                    let (weight_used, done) =
+                        Self::do_clear_protocol_liquidity_parameters(netuid, remaining_weight);
+                    if done {
+                        CleanUpPhase::<T>::set(None);
+                    }
+                    (weight_used, done)
+                }
+                None => break,
+            };
+
+            phase_done = done;
+            remaining_weight = remaining_weight.saturating_sub(weight_used);
+        }
+
+        let consumed = limit_in.saturating_sub(remaining_weight);
+        (consumed, CleanUpPhase::<T>::get().is_none())
+    }
+
+    pub fn do_clear_protocol_liquidity_remove_liquidity(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let read_weight = T::DbWeight::get().reads(1);
+        let remove_weight = T::DbWeight::get()
+            .reads_writes(2, 2)
+            .saturating_add(T::DbWeight::get().reads(1));
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let mut read_all = true;
+
+        WeightMeterWrapper!(weight_meter, read_weight);
         let protocol_account = Self::protocol_account_id();
 
-        // 1) Force-close only protocol positions, burning proceeds.
-        let mut burned_tao = TaoBalance::ZERO;
-        let mut burned_alpha = AlphaBalance::ZERO;
+        let iter = match CleanUpLastKey::<T>::get() {
+            Some(raw_key) => Positions::<T>::iter_prefix_from((netuid,), raw_key.into_inner()),
+            None => Positions::<T>::iter_prefix((netuid,)),
+        };
 
-        // Collect protocol position IDs first to avoid mutating while iterating.
-        let protocol_pos_ids: sp_std::vec::Vec<PositionId> = Positions::<T>::iter_prefix((netuid,))
-            .filter_map(|((owner, pos_id), _)| {
-                if owner == protocol_account {
-                    Some(pos_id)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        for ((owner, pos_id), _) in iter {
+            if !weight_meter.can_consume(read_weight) {
+                read_all = false;
+                let key = Positions::<T>::hashed_key_for((netuid, &owner, pos_id));
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(key)));
+                break;
+            }
+            weight_meter.consume(read_weight);
 
-        for pos_id in protocol_pos_ids {
-            match Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
-                Ok(rm) => {
-                    let alpha_total_from_pool: AlphaBalance = rm.alpha.saturating_add(rm.fee_alpha);
-                    let tao_total_from_pool: TaoBalance = rm.tao.saturating_add(rm.fee_tao);
+            if owner != protocol_account {
+                continue;
+            }
 
-                    if tao_total_from_pool > TaoBalance::ZERO {
-                        burned_tao = burned_tao.saturating_add(tao_total_from_pool);
-                    }
-                    if alpha_total_from_pool > AlphaBalance::ZERO {
-                        burned_alpha = burned_alpha.saturating_add(alpha_total_from_pool);
-                    }
+            if !weight_meter.can_consume(remove_weight) {
+                read_all = false;
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(
+                    Positions::<T>::hashed_key_for((netuid, &owner, pos_id)),
+                )));
+                break;
+            }
+            weight_meter.consume(remove_weight);
 
-                    log::debug!(
-                        "clear_protocol_liquidity: burned protocol pos: netuid={netuid:?}, pos_id={pos_id:?}, τ={tao_total_from_pool:?}, α_total={alpha_total_from_pool:?}"
-                    );
-                }
-                Err(e) => {
-                    log::debug!(
-                        "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
-                    );
-                    continue;
-                }
+            if let Err(e) = Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
+                log::debug!(
+                    "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
+                );
             }
         }
 
-        // 2) Clear active tick index entries, then all swap state (idempotent even if empty/non‑V3).
-        let active_ticks: sp_std::vec::Vec<TickIndex> =
-            Ticks::<T>::iter_prefix(netuid).map(|(ti, _)| ti).collect();
-        for ti in active_ticks {
-            ActiveTickIndexManager::<T>::remove(netuid, ti);
+        if read_all {
+            CleanUpLastKey::<T>::set(None);
         }
 
-        let _ = Positions::<T>::clear_prefix((netuid,), u32::MAX, None);
-        let _ = Ticks::<T>::clear_prefix(netuid, u32::MAX, None);
+        (weight_meter.consumed(), read_all)
+    }
 
-        FeeGlobalTao::<T>::remove(netuid);
-        FeeGlobalAlpha::<T>::remove(netuid);
-        CurrentLiquidity::<T>::remove(netuid);
-        CurrentTick::<T>::remove(netuid);
-        AlphaSqrtPrice::<T>::remove(netuid);
-        SwapV3Initialized::<T>::remove(netuid);
+    pub fn do_clear_protocol_liquidity_parameters(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
-        let _ = TickIndexBitmapWords::<T>::clear_prefix((netuid,), u32::MAX, None);
-        FeeRate::<T>::remove(netuid);
-        EnabledUserLiquidity::<T>::remove(netuid);
-
-        log::debug!(
-            "clear_protocol_liquidity: netuid={netuid:?}, protocol_burned: τ={burned_tao:?}, α={burned_alpha:?}; state cleared"
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Positions::<T>,
+            (netuid,)
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            Ticks<T>,
+            netuid
+        );
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            TickIndexBitmapWords::<T>,
+            (netuid,)
         );
 
-        Ok(())
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        FeeGlobalTao::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        FeeGlobalAlpha::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        CurrentLiquidity::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        CurrentTick::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        AlphaSqrtPrice::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        SwapV3Initialized::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        FeeRate::<T>::remove(netuid);
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        EnabledUserLiquidity::<T>::remove(netuid);
+
+        (weight_meter.consumed(), true)
+    }
+
+    pub fn do_clear_tick_index_bitmap_words(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let read_weight = T::DbWeight::get().reads(1);
+        let remove_weight = T::DbWeight::get().reads_writes(3, 3);
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let mut read_all = true;
+
+        let iter = match CleanUpLastKey::<T>::get() {
+            Some(raw_key) => Ticks::<T>::iter_prefix_from(netuid, raw_key.into_inner()),
+            None => Ticks::<T>::iter_prefix(netuid),
+        };
+
+        for (tick_index, _) in iter {
+            if !weight_meter.can_consume(read_weight) {
+                read_all = false;
+                let key = Ticks::<T>::hashed_key_for(netuid, tick_index);
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(key)));
+                break;
+            }
+            weight_meter.consume(read_weight);
+
+            if !weight_meter.can_consume(remove_weight) {
+                read_all = false;
+                let key = Ticks::<T>::hashed_key_for(netuid, tick_index);
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(key)));
+                break;
+            }
+            weight_meter.consume(remove_weight);
+
+            ActiveTickIndexManager::<T>::remove(netuid, tick_index);
+        }
+
+        if read_all {
+            CleanUpLastKey::<T>::set(None);
+        }
+
+        (weight_meter.consumed(), read_all)
     }
 }
 
@@ -1030,6 +1164,9 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::max_price_inner()
     }
 
+    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
+        Self::do_clear_protocol_liquidity(netuid, remaining_weight)
+    }
     fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
     }
@@ -1042,9 +1179,6 @@ impl<T: Config> SwapHandler for Pallet<T> {
     }
     fn toggle_user_liquidity(netuid: NetUid, enabled: bool) {
         EnabledUserLiquidity::<T>::insert(netuid, enabled)
-    }
-    fn clear_protocol_liquidity(netuid: NetUid) -> DispatchResult {
-        Self::do_clear_protocol_liquidity(netuid)
     }
 
     /// Get the amount of Alpha that needs to be sold to get a given amount of Tao

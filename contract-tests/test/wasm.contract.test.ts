@@ -70,7 +70,7 @@ describe("Test wasm contract", () => {
     }
 
     before(async () => {
-        // init variables got from await and async  
+        // init variables got from await and async
         api = await getDevnetApi()
         await setAdminFreezeWindow(api);
 

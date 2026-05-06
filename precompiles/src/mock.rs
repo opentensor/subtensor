@@ -411,7 +411,9 @@ impl AuthorshipInfo<AccountId> for MockAuthorshipProvider {
 
 pub struct CommitmentsI;
 impl pallet_subtensor::CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(_netuid: NetUid) {}
+    fn purge_netuid(_netuid: NetUid, _remaining_weight: Weight) -> (Weight, bool) {
+        (Weight::from_parts(0, 0), true)
+    }
 }
 
 impl pallet_subtensor::Config for Runtime {

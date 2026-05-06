@@ -1964,7 +1964,10 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
 
         // ACT: users-only liquidation then protocol clear
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        CleanUpPhase::<Test>::set(Some(
+            CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
+        ));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // ASSERT: positions cleared (both user and protocol)
         assert_eq!(
@@ -2049,7 +2052,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
 
 //         // Users-only dissolve, then clear protocol liquidity/state.
 //         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
-//         assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+//         Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX)));
 
 //         // ASSERT: positions & ticks gone, state reset
 //         assert_eq!(
@@ -2094,6 +2097,7 @@ fn test_liquidate_non_v3_uninitialized_ok_and_clears() {
         );
 
         // ACT
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // ASSERT: Defensive clears leave no residues and do not panic
@@ -2150,8 +2154,10 @@ fn test_liquidate_idempotent() {
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // Now clear protocol liquidity/state—also idempotent.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        CleanUpPhase::<Test>::set(Some(
+            CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
+        ));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // State remains empty
         assert!(
@@ -2230,6 +2236,9 @@ fn refund_alpha_single_provider_exact() {
         AlphaReserve::increase_provided(netuid.into(), alpha_needed.into());
 
         // --- Act: users‑only dissolve.
+        CleanUpPhase::<Test>::set(Some(
+            CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
+        ));
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // --- Assert: total α conserved to owner (may be staked to validator).
@@ -2244,7 +2253,7 @@ fn refund_alpha_single_provider_exact() {
         );
 
         // Clear protocol liquidity and V3 state now.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // --- State is cleared.
         assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
@@ -2410,7 +2419,10 @@ fn test_clear_protocol_liquidity_green_path() {
 
         // --- Act ---
         // Green path: just clear protocol liquidity and wipe all V3 state.
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        CleanUpPhase::<Test>::set(Some(
+            CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
+        ));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // --- Assert: all protocol positions removed ---
         let prot_positions_after =
@@ -2445,7 +2457,8 @@ fn test_clear_protocol_liquidity_green_path() {
         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
 
         // --- And it's idempotent ---
-        assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
+        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+
         assert!(
             Positions::<Test>::iter_prefix_values((netuid, protocol_id))
                 .next()

@@ -58,6 +58,7 @@ pallet-crowdloan.workspace = true
 pallet-subtensor-proxy.workspace = true
 pallet-shield.workspace = true
 pallet-scheduler.workspace = true
+sp-debug-derive = {workspace = true, features = ["force-debug"]}
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }
@@ -141,6 +142,7 @@ std = [
 	"serde_json/std",
 	"sha2/std",
 	"rand/std",
+	"sp-debug-derive/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

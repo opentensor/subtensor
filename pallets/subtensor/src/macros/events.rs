@@ -529,6 +529,12 @@ mod events {
             alpha: AlphaBalance,
         },
 
+        /// data for a dissolved network has been cleaned up.
+        DissolvedNetworkDataCleaned {
+            /// The subnet ID
+            netuid: NetUid,
+        },
+
         /// A coldkey swap announcement has been cleared.
         ColdkeySwapCleared {
             /// The account ID of the coldkey that cleared the announcement.

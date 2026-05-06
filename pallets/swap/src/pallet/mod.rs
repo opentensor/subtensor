@@ -26,7 +26,16 @@ mod tests;
 #[allow(clippy::expect_used)]
 mod pallet {
     use super::*;
+    use codec::{Decode, Encode, MaxEncodedLen};
     use frame_system::{ensure_root, ensure_signed};
+
+    #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
+    pub enum CleanUpPhaseEnum {
+        #[default]
+        ClearProtocolLiquidityRemoveLiquidity,
+        ClearProtocolLiquidityTickIndexBitmapWords,
+        ClearProtocolLiquidityParameters,
+    }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -157,6 +166,14 @@ mod pallet {
     /// Position ID counter.
     #[pallet::storage]
     pub type LastPositionId<T> = StorageValue<_, u128, ValueQuery>;
+
+    /// Current clean up phase.
+    #[pallet::storage]
+    pub type CleanUpPhase<T> = StorageValue<_, CleanUpPhaseEnum, OptionQuery>;
+
+    /// Last raw position key visited while clearing protocol liquidity.
+    #[pallet::storage]
+    pub type CleanUpLastKey<T> = StorageValue<_, BoundedVec<u8, ConstU32<256>>, OptionQuery>;
 
     /// Tick index bitmap words storage
     #[pallet::storage]

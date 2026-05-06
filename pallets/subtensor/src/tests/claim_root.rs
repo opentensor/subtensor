@@ -1,12 +1,14 @@
 #![allow(clippy::expect_used)]
 
+use super::mock::run_block_idle;
 use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::*;
 use crate::{
-    DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
-    NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
-    SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
+    DefaultMinRootClaimAmount, DissolvedNetworks, Error, MAX_NUM_ROOT_CLAIMS,
+    MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys,
+    PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, StakingColdkeys,
+    StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice, SubnetTAO,
+    SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
@@ -1374,6 +1376,10 @@ fn test_claim_root_on_network_deregistration() {
 
         assert_ok!(SubtensorModule::do_dissolve_network(netuid));
 
+        DissolvedNetworks::<Test>::set(vec![netuid]);
+
+        run_block_idle();
+
         assert!(!RootClaimed::<Test>::contains_key((
             netuid, &hotkey, &coldkey,
         )));
@@ -2054,5 +2060,52 @@ fn test_claim_root_with_moved_stake() {
 
         assert_abs_diff_eq!(alice_stake_diff2, bob_stake_diff2, epsilon = 100u64,);
         assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
+    });
+}
+
+#[test]
+fn test_clean_up_root_claimed_for_subnet_clears_target_preserves_other_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(5001u64);
+        let c_a = U256::from(5002u64);
+        let c_b = U256::from(5003u64);
+        let c_other = U256::from(5004u64);
+        let netuid_target = NetUid::from(11u16);
+        let netuid_other = NetUid::from(12u16);
+
+        RootClaimed::<Test>::insert((netuid_target, &hotkey, &c_a), 10u128);
+        RootClaimed::<Test>::insert((netuid_target, &hotkey, &c_b), 20u128);
+        RootClaimed::<Test>::insert((netuid_other, &hotkey, &c_other), 99u128);
+
+        let (_consumed, done) = SubtensorModule::clean_up_root_claimed_for_subnet(
+            netuid_target,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
+        assert!(done, "enough weight should complete cleanup");
+
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, &hotkey, &c_a)),
+            0u128
+        );
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_target, &hotkey, &c_b)),
+            0u128
+        );
+        assert!(!RootClaimed::<Test>::contains_key((
+            netuid_target,
+            &hotkey,
+            &c_a
+        )));
+        assert!(!RootClaimed::<Test>::contains_key((
+            netuid_target,
+            &hotkey,
+            &c_b
+        )));
+
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid_other, &hotkey, &c_other)),
+            99u128,
+            "other netuid must be untouched"
+        );
     });
 }

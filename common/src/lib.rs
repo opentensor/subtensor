@@ -12,6 +12,8 @@ use sp_runtime::{
     MultiSignature, Vec,
     traits::{IdentifyAccount, Verify},
 };
+
+pub use sp_io::MultiRemovalResults;
 use subtensor_macros::freeze_struct;
 
 pub use currency::*;
@@ -443,12 +445,65 @@ impl TypeInfo for NetUidStorageIndex {
     }
 }
 
+#[macro_export]
+macro_rules! WeightMeterWrapper {
+    ( $meter:expr, $weight:expr ) => {{
+        if !$meter.can_consume($weight) {
+            return ($meter.consumed(), false);
+        }
+        $meter.consume($weight);
+        ($weight, true)
+    }};
+}
+
+#[macro_export]
+macro_rules! LoopRemovePrefixWithWeightMeter {
+    ( $meter:expr, $weight:expr, $storage:ty, $netuid:expr ) => {{
+        let remaining_ref_time = $meter.limit().ref_time();
+        let write_ref_time = $weight.ref_time();
+
+        let limit = remaining_ref_time
+            .checked_div(write_ref_time)
+            .unwrap_or_default();
+
+        let limit = u32::try_from(limit).unwrap_or(u32::MAX);
+
+        let result: $crate::MultiRemovalResults = <$storage>::clear_prefix($netuid, limit, None);
+        ($meter.consumed(), result.maybe_cursor.is_none())
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame_support::weights::WeightMeter;
+    const REF_TIME_WEIGHT: u64 = 100;
+    const PROOF_SIZE_WEIGHT: u64 = 100;
 
     #[test]
     fn netuid_has_u16_bin_repr() {
         assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
+
+    fn test_weight(remaining_weight: Weight, weight: Weight) -> (Weight, bool) {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        WeightMeterWrapper!(weight_meter, weight);
+        (weight_meter.consumed(), true)
+    }
+
+    #[test]
+    fn test_weight_meter_wrapper() {
+        // Enough budget for one (ref, proof) unit of `weight`.
+        let remaining_weight = Weight::from_parts(REF_TIME_WEIGHT * 2, PROOF_SIZE_WEIGHT * 2);
+        let weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
+        let used = test_weight(remaining_weight, weight);
+        assert_eq!(used, (weight, true));
+
+        // Not enough to consume 3x ref and 3x proof in one step.
+        let used = test_weight(
+            remaining_weight,
+            Weight::from_parts(REF_TIME_WEIGHT * 3, PROOF_SIZE_WEIGHT * 3),
+        );
+        assert_eq!(used, (Weight::zero(), false));
     }
 }

@@ -349,7 +349,9 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(_netuid: NetUid) {}
+    fn purge_netuid(_netuid: NetUid, _remaining_weight: Weight) -> (Weight, bool) {
+        (Weight::from_parts(0, 0), true)
+    }
 }
 
 parameter_types! {

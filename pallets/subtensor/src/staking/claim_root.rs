@@ -1,6 +1,7 @@
 use super::*;
-use frame_support::weights::Weight;
+use frame_support::weights::{Weight, WeightMeter};
 use sp_core::Get;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
@@ -131,6 +132,10 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
+        if DissolvedNetworks::<T>::get().contains(&netuid) {
+            log::debug!("root claim on subnet {netuid} is skipped, network is dissolved");
+            return; // no-op
+        }
         // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
@@ -422,15 +427,70 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Claim all root dividends for subnet and remove all associated data.
-    pub fn finalize_all_subnet_root_dividends(netuid: NetUid) {
-        let hotkeys = RootClaimable::<T>::iter_keys().collect::<Vec<_>>();
+    pub fn clean_up_root_claimable_for_subnet(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
 
-        for hotkey in hotkeys.iter() {
-            RootClaimable::<T>::mutate(hotkey, |claimable| {
+        let mut to_remove_map = BTreeMap::<T::AccountId, BTreeMap<NetUid, I96F32>>::new();
+
+        let mut read_all = true;
+
+        let iter = match LastKeptRawKey::<T>::get() {
+            Some(raw_key) => RootClaimable::<T>::iter_from(raw_key),
+            None => RootClaimable::<T>::iter(),
+        };
+
+        // Iterate directly without collecting to avoid unnecessary allocation
+        for (hotkey, _) in iter {
+            let can_consume = weight_meter.can_consume(T::DbWeight::get().reads(2));
+            if !can_consume {
+                read_all = false;
+                LastKeptRawKey::<T>::set(Some(RootClaimable::<T>::hashed_key_for(&hotkey)));
+                break;
+            }
+            weight_meter.consume(T::DbWeight::get().reads(2));
+
+            let mut claimable = RootClaimable::<T>::get(&hotkey);
+            if claimable.contains_key(&netuid) {
+                let can_consume = weight_meter.can_consume(T::DbWeight::get().writes(1));
+                if !can_consume {
+                    read_all = false;
+                    LastKeptRawKey::<T>::set(Some(RootClaimable::<T>::hashed_key_for(&hotkey)));
+                    break;
+                }
+
                 claimable.remove(&netuid);
-            });
+                to_remove_map.insert(hotkey.clone(), claimable);
+            }
         }
 
-        let _ = RootClaimed::<T>::clear_prefix((netuid,), u32::MAX, None);
+        if read_all {
+            LastKeptRawKey::<T>::set(None);
+        }
+
+        // write weight already consumed in advance
+        for (hotkey, claimable) in to_remove_map.iter() {
+            RootClaimable::<T>::insert(hotkey, claimable);
+        }
+
+        (weight_meter.consumed(), read_all)
+    }
+
+    pub fn clean_up_root_claimed_for_subnet(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let weight_meter = WeightMeter::with_limit(remaining_weight);
+
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            RootClaimed::<T>,
+            (netuid,)
+        );
+
+        (weight_meter.consumed(), true)
     }
 }

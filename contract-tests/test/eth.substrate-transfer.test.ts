@@ -137,10 +137,10 @@ describe("Balance transfers between substrate and EVM", () => {
         const tx = api.tx.EVM.call({
             source: source,
             target: target,
-            // it is U256 in the extrinsic. 
+            // it is U256 in the extrinsic.
             value: [raoToEth(tao(1)), tao(0), tao(0), tao(0)],
             gas_limit: BigInt(1000000),
-            // it is U256 in the extrinsic. 
+            // it is U256 in the extrinsic.
             max_fee_per_gas: [BigInt(10e9), BigInt(0), BigInt(0), BigInt(0)],
             max_priority_fee_per_gas: undefined,
             input: Binary.fromText(""),
@@ -309,7 +309,7 @@ describe("Balance transfers between substrate and EVM", () => {
                 // it is U256 in the extrinsic, the value is more than u64::MAX
                 value: [raoToEth(tao(1)), tao(0), tao(0), tao(1)],
                 gas_limit: BigInt(1000000),
-                // it is U256 in the extrinsic. 
+                // it is U256 in the extrinsic.
                 max_fee_per_gas: [BigInt(10e9), BigInt(0), BigInt(0), BigInt(0)],
                 max_priority_fee_per_gas: undefined,
                 input: Binary.fromText(""),

@@ -23,7 +23,10 @@ use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::DispatchError;
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token, TokenReserve};
+use subtensor_runtime_common::{
+    AlphaBalance, LoopRemovePrefixWithWeightMeter, NetUid, TaoBalance, Token, TokenReserve,
+    WeightMeterWrapper,
+};
 
 // ============================
 //	==== Benchmark Imports =====
@@ -83,6 +86,7 @@ pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
+    use crate::weights::WeightInfo;
     use frame_support::Twox64Concat;
     use frame_support::{
         BoundedVec,
@@ -91,6 +95,7 @@ pub mod pallet {
         traits::{
             OriginTrait, QueryPreimage, StorePreimage, UnfilteredDispatchable, tokens::fungible,
         },
+        weights::Weight,
     };
     use frame_system::pallet_prelude::*;
     use pallet_drand::types::RoundNumber;
@@ -347,6 +352,53 @@ pub mod pallet {
             /// Subnets to keep alpha emissions (swap everything else).
             subnets: BTreeSet<NetUid>,
         },
+    }
+    /// Enum for the dissolved networks cleanup phase.
+    #[derive(
+        Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, DecodeWithMemTracking,
+    )]
+    pub enum DissolvedNetworksCleanupPhaseEnum {
+        #[default]
+        /// Phase 1: Remove root dividend claimable entries for the subnet.
+        CleanSubnetRootDividendsRootClaimable,
+        /// Phase 2: Remove root dividend claimed entries for the subnet.
+        CleanSubnetRootDividendsRootClaimed,
+        /// Phase 7: Clear protocol liquidity for the subnet on the swap layer.
+        ClearProtocolLiquidity,
+        /// Phase 3: Get the total alpha value for the subnet.
+        DestroyAlphaInOutStakesGetTotalAlphaValue,
+        /// Phase 3: Destroy alpha in and out stakes for the subnet.
+        DestroyAlphaInOutStakesSettleStakes,
+        /// Phase 4: Clean alpha entries for the subnet.
+        DestroyAlphaInOutStakesCleanAlpha,
+        /// Phase 5: Clear hotkey totals for the subnet.
+        DestroyAlphaInOutStakesClearHotkeyTotals,
+        /// Phase 6: Clear locks for the subnet.
+        DestroyAlphaInOutStakesClearLocks,
+        /// Phase 6: Destroy alpha in and out stakes for the subnet.
+        DestroyAlphaInOutStakes,
+        /// Phase 8: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
+        PurgeNetuid,
+        /// Recovery / legacy: scalar `Network*` removal; the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
+        RemoveNetworkParameters,
+        /// Phase 9: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
+        RemoveNetworkMapParameters,
+        /// Phase 10: Clear root-network weight entries referencing this netuid.
+        RemoveNetworkWeights,
+        /// Phase 11: Remove childkey take entries for this netuid.
+        RemoveNetworkChildkeyTake,
+        /// Phase 12: Remove child key bindings for this netuid.
+        RemoveNetworkChildkeys,
+        /// Phase 13: Remove parent key bindings for this netuid.
+        RemoveNetworkParentkeys,
+        /// Phase 14: Remove last hotkey emission records for this netuid.
+        RemoveNetworkLastHotkeyEmissionOnNetuid,
+        /// Phase 15: Remove total hotkey alpha last epoch entries for this netuid.
+        RemoveNetworkTotalHotkeyAlphaLastEpoch,
+        /// Phase 16: Remove transaction key last-block rate limit entries for this netuid.
+        RemoveNetworkTransactionKeyLastBlock,
+        /// Phase 17: Remove staking operation rate limiter entries for this netuid.
+        RemoveNetworkStakingOperationRateLimiter,
     }
 
     /// The Max Burn HalfLife Settable
@@ -2054,6 +2106,26 @@ pub mod pallet {
     pub type SubtokenEnabled<T> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultFalse<T>>;
 
+    /// --- ITEM ( dissolved_networks ) Networks dissolved but some storage not removed yet
+    #[pallet::storage]
+    pub type DissolvedNetworks<T> = StorageValue<_, Vec<NetUid>, ValueQuery>;
+
+    /// --- ITEM ( dissolved_networks_cleanup_phase ) Networks dissolved data cleanup phase.
+    #[pallet::storage]
+    pub type DissolvedNetworksCleanupPhase<T> =
+        StorageValue<_, DissolvedNetworksCleanupPhaseEnum, OptionQuery>;
+
+    /// --- ITEM ( last_kept_raw_key ) Last kept raw key for the next iteration.
+    /// It is only used during clean the data for dissolved networks.
+    #[pallet::storage]
+    pub type LastKeptRawKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+    #[pallet::storage]
+    pub type DissolvedSubnetTotalAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
+
+    #[pallet::storage]
+    pub type DissolvedSubnetSettledAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
+
     // =======================================
     // ==== VotingPower Storage  ====
     // =======================================
@@ -2855,5 +2927,5 @@ impl<T> ProxyInterface<T> for () {
 
 /// Pallets that hold per-subnet commitments implement this to purge all state for `netuid`.
 pub trait CommitmentsInterface {
-    fn purge_netuid(netuid: NetUid);
+    fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool);
 }
