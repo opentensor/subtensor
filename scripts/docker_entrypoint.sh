@@ -36,21 +36,33 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-echo "entrypoint: ensuring permissions for base path: ${base_path}"
-mkdir -p "$base_path"
-chown -R subtensor:subtensor "$base_path"
+# If the container is already running as a non-root user (e.g. a hardened
+# Kubernetes securityContext with runAsUser != 0), `chown` and `gosu` will
+# both fail with "operation not permitted". In that case the operator has
+# already arranged correct UID/GID + filesystem permissions out-of-band, so
+# we skip the privilege-changing path entirely and exec node-subtensor
+# directly. Closes opentensor/subtensor#2475.
+if [ "$(id -u)" = "0" ]; then
+    echo "entrypoint: ensuring permissions for base path: ${base_path}"
+    mkdir -p "$base_path"
+    chown -R subtensor:subtensor "$base_path"
 
-# Check if a chain spec was provided and if it's an existing file
-if [ -n "$chain_spec" ] && [ -f "$chain_spec" ]; then
-    echo "entrypoint: ensuring permissions for chain spec: ${chain_spec}"
-    chown subtensor:subtensor "$chain_spec"
+    # Check if a chain spec was provided and if it's an existing file
+    if [ -n "$chain_spec" ] && [ -f "$chain_spec" ]; then
+        echo "entrypoint: ensuring permissions for chain spec: ${chain_spec}"
+        chown subtensor:subtensor "$chain_spec"
+    fi
+
+    # Also check for the hardcoded /tmp/blockchain directory
+    if [ -d "/tmp/blockchain" ]; then
+        chown -R subtensor:subtensor /tmp/blockchain
+    fi
+
+    # Execute node-subtensor with the original, unmodified arguments
+    echo "executing: gosu subtensor node-subtensor $original_args"
+    exec gosu subtensor node-subtensor $original_args
+else
+    echo "entrypoint: running as non-root UID $(id -u); skipping chown + gosu"
+    echo "executing: node-subtensor $original_args"
+    exec node-subtensor $original_args
 fi
-
-# Also check for the hardcoded /tmp/blockchain directory
-if [ -d "/tmp/blockchain" ]; then
-    chown -R subtensor:subtensor /tmp/blockchain
-fi
-
-# Execute node-subtensor with the original, unmodified arguments
-echo "executing: gosu subtensor node-subtensor $original_args"
-exec gosu subtensor node-subtensor $original_args
