@@ -193,11 +193,12 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// Per-poll tally. Doubles as the index of *active* polls: every
-    /// poll has an entry between `on_poll_created` and `on_poll_completed`,
-    /// and nowhere else. The cap on simultaneously-live polls comes from
-    /// the [`Polls`] provider, which is the only producer of
-    /// `on_poll_created` events.
+    /// Per-poll tally. Doubles as the index of polls this backend
+    /// owns: every poll whose scheme matches `T::Scheme` has an entry
+    /// between `on_poll_created` and `on_poll_completed`, and nowhere
+    /// else. Polls of other schemes never get one. The cap on
+    /// simultaneously-live polls comes from the [`Polls`] provider,
+    /// which is the only producer of `on_poll_created` events.
     #[pallet::storage]
     pub type TallyOf<T: Config> =
         StorageMap<_, Twox64Concat, PollIndexOf<T>, SignedVoteTally, OptionQuery>;
@@ -285,9 +286,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         // `on_poll_completed` only enqueues per-voter cleanup; this
-        // hook is what actually frees the storage. Spreading the work
-        // across idle blocks keeps the synchronous completion path
-        // O(1) regardless of voter-set size.
+        // hook is what actually frees the storage. Draining lazily
+        // here keeps the producer-facing completion path O(1)
+        // regardless of voter-set size.
         fn on_idle(_n: BlockNumberFor<T>, remaining: Weight) -> Weight {
             Pallet::<T>::drain_pending_cleanup(remaining)
         }
@@ -505,9 +506,10 @@ impl<T: Config> Pallet<T> {
                     }
                 }
                 Some(c) => {
-                    // If the cursor exceeds `CleanupCursorMaxLen`, drop it:
-                    // the next pass restarts the prefix and re-iterates
-                    // already-removed entries: slower but correct.
+                    // If the cursor exceeds `CleanupCursorMaxLen` it
+                    // gets dropped here; the next pass then restarts
+                    // the prefix and re-iterates already-removed
+                    // entries (slower but still correct).
                     let bounded = BoundedVec::<u8, T::CleanupCursorMaxLen>::try_from(c).ok();
                     if let Some(head) = queue.iter_mut().next() {
                         *head = (poll, bounded);

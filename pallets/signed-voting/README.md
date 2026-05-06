@@ -40,10 +40,10 @@ back through it.
 
 | Event              | What the pallet does                                     |
 | ------------------ | -------------------------------------------------------- |
-| `on_poll_created`  | Snapshot the voter set into `VoterSetOf` (sorted), seed `TallyOf` with `total = snapshot.len()`. |
+| `on_poll_created`  | Snapshot the voter set into `VoterSetOf` (sorted and deduplicated), seed `TallyOf` with `total = snapshot.len()`. Skipped for polls whose scheme does not match `T::Scheme`, or if a tally already exists for the index. |
 | `vote`             | Verify eligibility against the snapshot via `binary_search`, update `VotingFor` and `TallyOf`, push the new tally to the producer. |
 | `remove_vote`      | Roll back the caller's `VotingFor` entry, decrement `TallyOf`, push the new tally to the producer. |
-| `on_poll_completed`| Remove `TallyOf` and `VoterSetOf` synchronously; enqueue the poll on `PendingCleanup` for lazy `VotingFor` cleanup. |
+| `on_poll_completed`| Remove `TallyOf` and `VoterSetOf` synchronously; enqueue the poll on `PendingCleanup` for lazy `VotingFor` cleanup. No-op if no tally exists for the index. |
 | `on_idle`          | Drain `PendingCleanup` head in `CleanupChunkSize` chunks until the queue is empty or the idle budget is exhausted. |
 
 ## Design notes
@@ -74,18 +74,26 @@ idle blocks; the resume cursor returned by `clear_prefix` is persisted
 between passes so already-removed entries are not re-iterated.
 
 If `on_idle` cannot keep up and the queue overflows
-`MaxPendingCleanup`, the pallet emits `CleanupQueueFull` and leaks the
-overflowing poll's `VotingFor` entries (correctness is preserved
-because the entries are unread once `TallyOf` is gone). The runtime
-should size `MaxPendingCleanup` to ≥ the producer's cap on
-simultaneously active polls.
+`MaxPendingCleanup`, the pallet emits `CleanupQueueFull`, logs an
+error, and leaks the overflowing poll's `VotingFor` entries.
+Correctness is preserved (the entries are unread once `TallyOf` is
+gone) but the storage is only reclaimable via a follow-up migration.
+
+Sizing `MaxPendingCleanup` is a throughput question, not just a
+simultaneous-active-poll question: drain rate (`on_idle` budget,
+`CleanupChunkSize`) must keep up with completion rate over time.
+Setting it to a small multiple of the producer's `MaxQueued` gives
+headroom for bursts where many polls complete in close succession
+while `on_idle` is starved by full blocks. The pallet's
+`integrity_test` rejects a zero value for `MaxPendingCleanup`,
+`CleanupChunkSize`, or `MaxVoterSetSize` at boot.
 
 ## Configuration
 
 ```rust
 parameter_types! {
     pub const SignedVotingMaxVoterSetSize:    u32 = 64;   // ≥ widest track's voter set
-    pub const SignedVotingMaxPendingCleanup:  u32 = 20;   // ≥ producer's MaxQueued
+    pub const SignedVotingMaxPendingCleanup:  u32 = 40;   // ≥ producer's MaxQueued, with headroom for bursts
     pub const SignedVotingCleanupChunkSize:   u32 = 16;   // entries per idle drain step
     pub const SignedVotingCleanupCursorMaxLen:u32 = 128;  // bound for clear_prefix cursor
 }
