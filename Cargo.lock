@@ -8391,6 +8391,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex",
+ "libsecp256k1",
  "log",
  "pallet-admin-utils",
  "pallet-alpha-assets",

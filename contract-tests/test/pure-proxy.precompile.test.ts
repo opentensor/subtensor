@@ -28,6 +28,12 @@ async function getTransferCallCode(api: TypedApi<typeof devnet>, receiver: KeyPa
     return [...data]
 }
 
+async function getRemarkCallCode(api: TypedApi<typeof devnet>) {
+    const unsignedTx = api.tx.System.remark({ remark: new Uint8Array([1, 2, 3]) });
+    const encodedCallDataBytes = await unsignedTx.getEncodedData();
+    return [...encodedCallDataBytes.asBytes()];
+}
+
 async function getProxies(api: TypedApi<typeof devnet>, address: string) {
     const entries = await api.query.Proxy.Proxies.getEntries()
     const result = []
@@ -206,5 +212,44 @@ describe("Test pure proxy precompile", () => {
             assert.equal(Number(proxyInfo[1]), type, "proxy_type should match")
             assert.equal(Number(proxyInfo[2]), delay, "delay should match")
         }
+    })
+
+    it("Call createPureProxy with Validate type", async () => {
+        const validateType = 18;
+        const validateWallet = generateRandomEthersWallet();
+        await forceSetBalanceToEthAddress(api, validateWallet.address);
+
+        const proxiesBefore = await getProxies(api, convertH160ToSS58(validateWallet.address));
+        const contract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, validateWallet);
+
+        const tx = await contract.createPureProxy(validateType, 0, 0);
+        await tx.wait();
+
+        const proxiesAfter = await getProxies(api, convertH160ToSS58(validateWallet.address));
+        assert.equal(proxiesAfter.length, proxiesBefore.length + 1, "validate pure proxy should be created");
+    })
+
+    it("Call addProxy with Validate type, then reject non-Validate call", async () => {
+        const validateType = 18;
+        const ownerWallet = generateRandomEthersWallet();
+        const delegateWallet = generateRandomEthersWallet();
+        await forceSetBalanceToEthAddress(api, ownerWallet.address);
+        await forceSetBalanceToEthAddress(api, delegateWallet.address);
+
+        const ownerContract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, ownerWallet);
+        const addProxyTx = await ownerContract.addProxy(convertH160ToPublicKey(delegateWallet.address), validateType, 0);
+        await addProxyTx.wait();
+
+        const delegateContract = new ethers.Contract(IPROXY_ADDRESS, IProxyABI, delegateWallet);
+        const remarkCall = await getRemarkCallCode(api);
+
+        await assert.rejects(
+            async () => {
+                const tx = await delegateContract.proxyCall(convertH160ToPublicKey(ownerWallet.address), [validateType], remarkCall);
+                await tx.wait();
+            },
+            undefined,
+            "validate proxy should reject a remark call"
+        );
     })
 });

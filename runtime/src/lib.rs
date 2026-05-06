@@ -817,6 +817,34 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 c,
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::claim_root { .. })
             ),
+            ProxyType::Validate => {
+                matches!(
+                    c,
+                    RuntimeCall::SubtensorModule(
+                        pallet_subtensor::Call::serve_axon { .. }
+                            | pallet_subtensor::Call::serve_axon_tls { .. }
+                            | pallet_subtensor::Call::associate_evm_key { .. }
+                            | pallet_subtensor::Call::set_weights { .. }
+                            | pallet_subtensor::Call::set_mechanism_weights { .. }
+                            | pallet_subtensor::Call::batch_set_weights { .. }
+                            | pallet_subtensor::Call::commit_weights { .. }
+                            | pallet_subtensor::Call::commit_mechanism_weights { .. }
+                            | pallet_subtensor::Call::batch_commit_weights { .. }
+                            | pallet_subtensor::Call::reveal_weights { .. }
+                            | pallet_subtensor::Call::reveal_mechanism_weights { .. }
+                            | pallet_subtensor::Call::batch_reveal_weights { .. }
+                            | pallet_subtensor::Call::commit_timelocked_weights { .. }
+                            | pallet_subtensor::Call::commit_crv3_mechanism_weights { .. }
+                            | pallet_subtensor::Call::commit_timelocked_mechanism_weights { .. }
+                    ) | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
+                ) || matches!(
+                    c,
+                    RuntimeCall::Proxy(pallet_subtensor_proxy::Call::add_proxy {
+                        proxy_type: ProxyType::Validate,
+                        ..
+                    })
+                )
+            }
         }
     }
     fn is_superset(&self, o: &Self) -> bool {
