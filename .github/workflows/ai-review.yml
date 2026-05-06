@@ -1,0 +1,300 @@
+name: ai-review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review (skeptic only — used for the testnet→main standalone gate or manual reruns)'
+        required: true
+        type: number
+      persona:
+        description: 'Which persona to run'
+        required: true
+        type: choice
+        default: 'skeptic'
+        options: [skeptic, auditor, both]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  decide:
+    name: decide
+    runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.compute.outputs.pr_number }}
+      head_sha: ${{ steps.compute.outputs.head_sha }}
+      head_ref: ${{ steps.compute.outputs.head_ref }}
+      base_ref: ${{ steps.compute.outputs.base_ref }}
+      head_owner: ${{ steps.compute.outputs.head_owner }}
+      is_fork: ${{ steps.compute.outputs.is_fork }}
+      run_skeptic: ${{ steps.compute.outputs.run_skeptic }}
+      run_auditor: ${{ steps.compute.outputs.run_auditor }}
+    steps:
+      - id: compute
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_PR: ${{ github.event.inputs.pr_number }}
+          INPUT_PERSONA: ${{ github.event.inputs.persona }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            PR="$INPUT_PR"
+            PERSONA="$INPUT_PERSONA"
+          else
+            PR='${{ github.event.pull_request.number }}'
+            PERSONA=""
+          fi
+
+          PR_JSON=$(gh pr view "$PR" --repo "${{ github.repository }}" \
+            --json number,headRefName,baseRefName,headRefOid,headRepository,headRepositoryOwner)
+
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r '.headRefOid')
+          HEAD_REF=$(echo "$PR_JSON" | jq -r '.headRefName')
+          BASE_REF=$(echo "$PR_JSON" | jq -r '.baseRefName')
+          HEAD_OWNER=$(echo "$PR_JSON" | jq -r '.headRepositoryOwner.login')
+          BASE_OWNER='${{ github.repository_owner }}'
+          if [[ "$HEAD_OWNER" == "$BASE_OWNER" ]]; then
+            IS_FORK=false
+          else
+            IS_FORK=true
+          fi
+
+          if [[ -n "$PERSONA" ]]; then
+            case "$PERSONA" in
+              skeptic) RUN_SKEPTIC=true; RUN_AUDITOR=false ;;
+              auditor) RUN_SKEPTIC=false; RUN_AUDITOR=true ;;
+              both)    RUN_SKEPTIC=true; RUN_AUDITOR=true ;;
+            esac
+          else
+            # Default routing per branch policy:
+            #   testnet -> main : skeptic only (final security gate before mainnet)
+            #   anything else   : both
+            if [[ "$BASE_REF" == "main" && "$HEAD_REF" == "testnet" ]]; then
+              RUN_SKEPTIC=true; RUN_AUDITOR=false
+            else
+              RUN_SKEPTIC=true; RUN_AUDITOR=true
+            fi
+          fi
+
+          {
+            echo "pr_number=$PR"
+            echo "head_sha=$HEAD_SHA"
+            echo "head_ref=$HEAD_REF"
+            echo "base_ref=$BASE_REF"
+            echo "head_owner=$HEAD_OWNER"
+            echo "is_fork=$IS_FORK"
+            echo "run_skeptic=$RUN_SKEPTIC"
+            echo "run_auditor=$RUN_AUDITOR"
+          } >> "$GITHUB_OUTPUT"
+
+  wait-for-checks:
+    name: wait-for-checks
+    needs: decide
+    runs-on: ubuntu-latest
+    outputs:
+      passed: ${{ steps.poll.outputs.passed }}
+    steps:
+      - id: poll
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ needs.decide.outputs.head_sha }}
+        # Poll for "Check Rust" jobs to all succeed. Other CI workflows are
+        # ignored on purpose (some are flaky). Timeout: 60 min.
+        timeout-minutes: 65
+        run: |
+          set -euo pipefail
+          REQUIRED_NAMES='cargo-fmt cargo-clippy-default-features cargo-check-lints cargo-clippy-all-features cargo-test cargo-fix check-feature-propagation'
+          deadline=$(( $(date +%s) + 60*60 ))
+          while true; do
+            now=$(date +%s)
+            if (( now > deadline )); then
+              echo "Timed out waiting for Check Rust to complete"
+              echo "passed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            # Pull all check runs for this SHA, filter to the ones we care about.
+            ALL=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
+              --paginate --jq '.check_runs[] | {name, status, conclusion}')
+            ALL_PASSED=true
+            ANY_RUNNING=false
+            for required in $REQUIRED_NAMES; do
+              row=$(echo "$ALL" | jq -c "select(.name==\"$required\")" | tail -1)
+              if [[ -z "$row" ]]; then
+                ANY_RUNNING=true   # not yet reported
+                ALL_PASSED=false
+                continue
+              fi
+              status=$(echo "$row" | jq -r '.status')
+              conclusion=$(echo "$row" | jq -r '.conclusion')
+              if [[ "$status" != "completed" ]]; then
+                ANY_RUNNING=true
+                ALL_PASSED=false
+              elif [[ "$conclusion" != "success" ]]; then
+                echo "Check '$required' concluded as '$conclusion' — not running AI review."
+                echo "passed=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            done
+
+            if $ALL_PASSED; then
+              echo "All required Check Rust jobs passed."
+              echo "passed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 30
+          done
+
+  skeptic:
+    name: skeptic
+    needs: [decide, wait-for-checks]
+    if: needs.decide.outputs.run_skeptic == 'true' && needs.wait-for-checks.outputs.passed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.decide.outputs.head_sha }}
+          fetch-depth: 0
+
+      - name: Run Claude (skeptic persona)
+        uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ needs.decide.outputs.pr_number }}
+          BASE_REF: ${{ needs.decide.outputs.base_ref }}
+          HEAD_REF: ${{ needs.decide.outputs.head_ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Static-analysis only. NO cargo / npm / make / scripts. gh + git read
+          # commands are explicitly enumerated; everything else is denied.
+          allowed_tools: |
+            Read,Grep,Glob,
+            Bash(gh pr view:*),
+            Bash(gh pr list:*),
+            Bash(gh api:*),
+            Bash(gh search:*),
+            Bash(git log:*),
+            Bash(git diff:*),
+            Bash(git show:*),
+            Bash(git blame:*),
+            Bash(git rev-parse:*)
+          claude_args: |
+            --append-system-prompt-file .github/ai-review/common.md
+            --append-system-prompt-file .github/ai-review/skeptic.md
+          prompt: |
+            You are operating as the Skeptic persona on PR #${{ needs.decide.outputs.pr_number }}
+            (${{ needs.decide.outputs.head_ref }} -> ${{ needs.decide.outputs.base_ref }}).
+            Follow your persona instructions exactly. Post your verdict as a sticky
+            comment ending in <!-- ai-review:skeptic -->.
+
+      - name: Parse verdict and set check status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ needs.decide.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          # Find the most recent comment with our marker.
+          BODY=$(gh pr view "$PR" --json comments \
+            --jq '.comments | map(select(.body | contains("<!-- ai-review:skeptic -->"))) | last | .body // ""')
+          if [[ -z "$BODY" ]]; then
+            echo "::error::Skeptic did not post a verdict comment."
+            exit 1
+          fi
+          VERDICT=$(echo "$BODY" | grep -oE 'VERDICT:[[:space:]]*\[(SAFE|VULNERABLE|MALICIOUS)\]' | head -1 || true)
+          echo "Detected verdict: $VERDICT"
+          case "$VERDICT" in
+            *SAFE*)        exit 0 ;;
+            *VULNERABLE*)  echo "::error::Skeptic flagged vulnerabilities."; exit 1 ;;
+            *MALICIOUS*)   echo "::error::Skeptic flagged the PR as malicious."; exit 1 ;;
+            *)             echo "::error::No parseable verdict in skeptic comment."; exit 1 ;;
+          esac
+
+  auditor:
+    name: auditor
+    needs: [decide, wait-for-checks, skeptic]
+    if: needs.decide.outputs.run_auditor == 'true' && needs.wait-for-checks.outputs.passed == 'true' && needs.skeptic.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.decide.outputs.head_sha }}
+          fetch-depth: 0
+          # Token must allow pushing back to the PR branch when not a fork
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity (for auto-fix commits)
+        if: needs.decide.outputs.is_fork == 'false'
+        run: |
+          git config user.name 'subtensor-ai-review[bot]'
+          git config user.email 'subtensor-ai-review@users.noreply.github.com'
+
+      - name: Run Claude (auditor persona)
+        uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ needs.decide.outputs.pr_number }}
+          BASE_REF: ${{ needs.decide.outputs.base_ref }}
+          HEAD_REF: ${{ needs.decide.outputs.head_ref }}
+          IS_FORK: ${{ needs.decide.outputs.is_fork }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Auditor may compile/test (skeptic has cleared the diff). It may
+          # also run fix_rust.sh and push commits when the PR is not from a fork.
+          # Heavy node spin-up is gated by the auditor:run-node label.
+          allowed_tools: |
+            Read,Write,Edit,Grep,Glob,
+            Bash(gh:*),
+            Bash(git:*),
+            Bash(cargo:*),
+            Bash(rustup:*),
+            Bash(./scripts/fix_rust.sh),
+            Bash(./scripts/localnet.sh),
+            Bash(jq:*),
+            Bash(grep:*),
+            Bash(rg:*),
+            Bash(find:*)
+          claude_args: |
+            --append-system-prompt-file .github/ai-review/common.md
+            --append-system-prompt-file .github/ai-review/auditor.md
+          prompt: |
+            You are operating as the Auditor persona on PR #${{ needs.decide.outputs.pr_number }}
+            (${{ needs.decide.outputs.head_ref }} -> ${{ needs.decide.outputs.base_ref }}).
+            The Skeptic has cleared this PR. is_fork=${{ needs.decide.outputs.is_fork }}.
+            Follow your persona instructions exactly. Post your verdict as a sticky
+            comment ending in <!-- ai-review:auditor -->.
+
+      - name: Parse verdict and set check status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ needs.decide.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          BODY=$(gh pr view "$PR" --json comments \
+            --jq '.comments | map(select(.body | contains("<!-- ai-review:auditor -->"))) | last | .body // ""')
+          if [[ -z "$BODY" ]]; then
+            echo "::error::Auditor did not post a verdict comment."
+            exit 1
+          fi
+          if echo "$BODY" | grep -qE 'VERDICT:[[:space:]]*👍'; then
+            exit 0
+          elif echo "$BODY" | grep -qE 'VERDICT:[[:space:]]*👎'; then
+            echo "::error::Auditor blocked the PR."
+            exit 1
+          else
+            echo "::error::No parseable verdict in auditor comment."
+            exit 1
+          fi
