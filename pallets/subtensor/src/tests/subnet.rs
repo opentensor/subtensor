@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use super::mock::*;
 use crate::subnets::symbols::{DEFAULT_SYMBOL, SYMBOLS};
 use crate::*;
