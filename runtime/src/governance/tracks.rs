@@ -3,7 +3,7 @@
 
 use pallet_referenda::{
     ApprovalAction, DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack,
-    TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo,
+    TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo, track_name,
 };
 use sp_runtime::Perbill;
 
@@ -32,19 +32,11 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
             Self::VotingScheme,
         >,
     > {
-        fn name(s: &[u8]) -> [u8; MAX_TRACK_NAME_LEN] {
-            let mut out = [0u8; MAX_TRACK_NAME_LEN];
-            out.iter_mut()
-                .zip(s.iter())
-                .for_each(|(dst, src)| *dst = *src);
-            out
-        }
-
         [
             RefTrack {
                 id: 0u8,
                 info: RefTrackInfo {
-                    name: name(b"triumvirate"),
+                    name: track_name(b"triumvirate"),
                     proposer_set: Some(GovernanceMemberSet::Single(
                         GovernanceCollectiveId::Proposers,
                     )),
@@ -70,7 +62,7 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
             RefTrack {
                 id: 1u8,
                 info: RefTrackInfo {
-                    name: name(b"review"),
+                    name: track_name(b"review"),
                     proposer_set: None,
                     voter_set: GovernanceMemberSet::Union(alloc::vec![
                         GovernanceCollectiveId::Economic,

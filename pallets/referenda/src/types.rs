@@ -25,6 +25,14 @@ pub const MAX_TRACK_NAME_LEN: usize = 32;
 /// Fixed-width track name. Padded with zeros if shorter than the maximum.
 pub type TrackName = [u8; MAX_TRACK_NAME_LEN];
 
+/// Pad `s` into a `TrackName`, truncating if it exceeds the fixed width.
+pub fn track_name(s: &[u8]) -> TrackName {
+    let mut out = [0u8; MAX_TRACK_NAME_LEN];
+    let len = s.len().min(MAX_TRACK_NAME_LEN);
+    out[..len].copy_from_slice(&s[..len]);
+    out
+}
+
 /// Monotonic referendum identifier. Issued by `submit`.
 pub type ReferendumIndex = u32;
 

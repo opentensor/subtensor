@@ -354,6 +354,13 @@ pub mod pallet {
         fn integrity_test() {
             T::Tracks::check_integrity().expect("pallet-referenda: invalid track configuration");
         }
+
+        #[cfg(feature = "try-runtime")]
+        fn try_state(
+            _n: BlockNumberFor<T>,
+        ) -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+            Pallet::<T>::do_try_state()
+        }
     }
 
     #[pallet::call]
@@ -501,6 +508,23 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// An empty voter set silently breaks delegation: `schedule_for_review`
+    /// would create a review child no one can vote on, and the Adjustable
+    /// state machine would lapse it to `Enacted` after `initial_delay`.
+    /// Genesis can legitimately observe empty voter sets before the
+    /// stake-ranking warmup populates collectives; that is a separate
+    /// concern and not enforced here.
+    #[cfg(any(feature = "try-runtime", test))]
+    pub fn do_try_state() -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
+        for track in T::Tracks::tracks() {
+            ensure!(
+                !track.info.voter_set.is_empty(),
+                "pallet-referenda: track has empty voter set"
+            );
+        }
+        Ok(())
+    }
+
     /// Used by `PassOrFail` paths that leave the referendum `Ongoing`
     /// without a vote-driven decision.
     fn expire_or_rearm_deadline(
@@ -735,6 +759,9 @@ impl<T: Config> Pallet<T> {
         else {
             return None;
         };
+        if track_info.voter_set.is_empty() {
+            return None;
+        }
 
         let now = T::BlockNumberProvider::current_block_number();
         let when = now.saturating_add(initial_delay);

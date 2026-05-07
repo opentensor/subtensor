@@ -612,15 +612,23 @@ fn schedule_for_review_returns_none_for_invalid_targets() {
     TestState::default().build_and_execute(|| {
         let bounded = <Test as Config>::Preimages::bound(make_call()).unwrap();
 
-        // Unknown track id.
         assert!(
             Pallet::<Test>::schedule_for_review(bounded.clone(), U256::from(PROPOSER), 99u8)
                 .is_none()
         );
 
-        // PassOrFail track (Review handoff requires Adjustable).
         assert!(
-            Pallet::<Test>::schedule_for_review(bounded, U256::from(PROPOSER), TRACK_PASS_OR_FAIL,)
+            Pallet::<Test>::schedule_for_review(
+                bounded.clone(),
+                U256::from(PROPOSER),
+                TRACK_PASS_OR_FAIL,
+            )
+            .is_none()
+        );
+
+        let _guard = EmptyReviewVoterSetGuard::new();
+        assert!(
+            Pallet::<Test>::schedule_for_review(bounded, U256::from(PROPOSER), TRACK_ADJUSTABLE)
                 .is_none()
         );
     });
@@ -672,6 +680,29 @@ fn do_approve_review_failure_expires_at_deadline() {
 
         assert!(matches!(status_of(parent), ReferendumStatus::Expired(_)));
         assert_concluded(parent, 0);
+    });
+}
+
+#[test]
+fn do_approve_fails_closed_when_review_voter_set_is_empty() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+
+        let _guard = EmptyReviewVoterSetGuard::new();
+
+        vote(VOTER_A, parent, true);
+        vote(VOTER_B, parent, true);
+        run_to_block(current_block() + 2);
+
+        assert!(matches!(status_of(parent), ReferendumStatus::Ongoing(_)));
+        assert!(ReferendumStatusFor::<Test>::get(parent + 1).is_none());
+
+        let events = referenda_events();
+        assert!(events.iter().any(|e| matches!(
+            e,
+            Event::ReviewSchedulingFailed { index, track }
+                if *index == parent && *track == TRACK_ADJUSTABLE
+        )));
     });
 }
 
@@ -1088,6 +1119,21 @@ fn integrity_test_passes_for_valid_track_table() {
     TestState::default().build_and_execute(|| {
         use frame_support::traits::Hooks;
         Pallet::<Test>::integrity_test();
+    });
+}
+
+#[test]
+fn try_state_passes_with_populated_voter_sets() {
+    TestState::default().build_and_execute(|| {
+        assert!(Pallet::<Test>::do_try_state().is_ok());
+    });
+}
+
+#[test]
+fn try_state_fails_when_a_track_has_empty_voter_set() {
+    TestState::default().build_and_execute(|| {
+        let _guard = EmptyReviewVoterSetGuard::new();
+        assert!(Pallet::<Test>::do_try_state().is_err());
     });
 }
 

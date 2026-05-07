@@ -182,24 +182,12 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Self::VotingScheme,
         >,
     > {
-        let mut triumvirate_name = [0u8; 32];
-        triumvirate_name[..11].copy_from_slice(b"triumvirate");
-
-        let mut review_name = [0u8; 32];
-        review_name[..6].copy_from_slice(b"review");
-
-        let mut delegating_name = [0u8; 32];
-        delegating_name[..10].copy_from_slice(b"delegating");
-
-        let mut closed_name = [0u8; 32];
-        closed_name[..6].copy_from_slice(b"closed");
-
         vec![
             // Track 0: PassOrFail with Execute on approval.
             Track {
                 id: 0,
                 info: TrackInfo {
-                    name: triumvirate_name,
+                    name: track_name(b"triumvirate"),
                     proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -215,7 +203,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Track {
                 id: 1,
                 info: TrackInfo {
-                    name: review_name,
+                    name: track_name(b"review"),
                     proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -230,7 +218,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Track {
                 id: 2,
                 info: TrackInfo {
-                    name: delegating_name,
+                    name: track_name(b"delegating"),
                     proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -246,7 +234,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Track {
                 id: 3,
                 info: TrackInfo {
-                    name: closed_name,
+                    name: track_name(b"closed"),
                     proposer_set: None,
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -261,6 +249,12 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
         ]
         .into_iter()
         .filter(|t| !(t.id == 1 && review_track_hidden()))
+        .map(|mut t| {
+            if t.id == 1 && review_voter_set_empty() {
+                t.info.voter_set = MemberSet::Union(alloc::vec![]);
+            }
+            t
+        })
     }
 
     fn authorize_proposal(
@@ -281,6 +275,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
 thread_local! {
     static AUTHORIZE_PROPOSAL_RESULT: RefCell<bool> = const { RefCell::new(true) };
     static HIDE_REVIEW_TRACK: RefCell<bool> = const { RefCell::new(false) };
+    static EMPTY_REVIEW_VOTER_SET: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Set the value returned by `TestTracks::authorize_proposal` for the current thread.
@@ -295,8 +290,7 @@ pub struct HideReviewTrackGuard {
 
 impl HideReviewTrackGuard {
     pub fn new() -> Self {
-        let previous =
-            HIDE_REVIEW_TRACK.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
+        let previous = HIDE_REVIEW_TRACK.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
         Self { previous }
     }
 }
@@ -310,6 +304,30 @@ impl Drop for HideReviewTrackGuard {
 
 fn review_track_hidden() -> bool {
     HIDE_REVIEW_TRACK.with(|r| *r.borrow())
+}
+
+#[must_use = "the guard restores visibility on drop; bind it to a local"]
+pub struct EmptyReviewVoterSetGuard {
+    previous: bool,
+}
+
+impl EmptyReviewVoterSetGuard {
+    pub fn new() -> Self {
+        let previous =
+            EMPTY_REVIEW_VOTER_SET.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
+        Self { previous }
+    }
+}
+
+impl Drop for EmptyReviewVoterSetGuard {
+    fn drop(&mut self) {
+        let prev = self.previous;
+        EMPTY_REVIEW_VOTER_SET.with(|r| *r.borrow_mut() = prev);
+    }
+}
+
+fn review_voter_set_empty() -> bool {
+    EMPTY_REVIEW_VOTER_SET.with(|r| *r.borrow())
 }
 
 pub struct TestCollectives;
