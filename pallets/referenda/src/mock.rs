@@ -15,7 +15,6 @@ use crate::{self as pallet_referenda, *};
 use pallet_multi_collective::{
     self, Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo,
 };
-use subtensor_runtime_common::OnMembersChanged;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -50,12 +49,6 @@ pub enum CollectiveId {
     Triumvirate,
     Economic,
     Building,
-}
-
-impl pallet_multi_collective::CanRotate for CollectiveId {
-    fn can_rotate(&self) -> bool {
-        matches!(self, Self::Economic | Self::Building)
-    }
 }
 
 #[derive(
@@ -96,15 +89,19 @@ impl subtensor_runtime_common::SetLike<U256> for MemberSet {
         }
     }
     fn len(&self) -> u32 {
+        self.to_vec().len() as u32
+    }
+    fn to_vec(&self) -> Vec<U256> {
         match self {
             MemberSet::Single(id) => <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
                 U256,
                 CollectiveId,
-            >>::member_count(*id),
+            >>::members_of(*id),
             // Mirrors the production `GovernanceMemberSet` impl: members can
             // overlap across collectives but a dual member can only vote
             // once. Sum-of-`member_count` would inflate `total` and bias
-            // thresholds upward; dedup so `len()` is the true cardinality.
+            // thresholds upward; dedup so the returned set has the true
+            // cardinality.
             MemberSet::Union(ids) => {
                 let mut accounts: Vec<U256> = Vec::new();
                 for id in ids {
@@ -117,7 +114,7 @@ impl subtensor_runtime_common::SetLike<U256> for MemberSet {
                 }
                 accounts.sort();
                 accounts.dedup();
-                accounts.len() as u32
+                accounts
             }
         }
     }
@@ -327,20 +324,6 @@ impl CollectivesInfo<u64, [u8; 32]> for TestCollectives {
     }
 }
 
-pub struct VoteCleanup;
-impl OnMembersChanged<CollectiveId, U256> for VoteCleanup {
-    fn on_members_changed(_id: CollectiveId, _incoming: &[U256], outgoing: &[U256]) {
-        for who in outgoing {
-            SignedVoting::remove_votes_for(who);
-        }
-    }
-
-    fn weight() -> Weight {
-        // Test mock: weights aren't billed in unit tests, return zero.
-        Weight::zero()
-    }
-}
-
 parameter_types! {
     pub const MaxMembers: u32 = 32;
 }
@@ -352,7 +335,8 @@ impl pallet_multi_collective::Config for Test {
     type RemoveOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SwapOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SetOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
-    type OnMembersChanged = VoteCleanup;
+    type RotateOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
+    type OnMembersChanged = ();
     type OnNewTerm = ();
     type MaxMembers = MaxMembers;
     type WeightInfo = ();
@@ -375,11 +359,20 @@ impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for ReferendaMockMcB
 
 parameter_types! {
     pub const SignedScheme: VotingScheme = VotingScheme::Signed;
+    pub const VoterSetSize: u32 = 32;
+    pub const MaxPendingCleanup: u32 = 32;
+    pub const CleanupChunkSize: u32 = 4;
+    pub const CleanupCursorMaxLen: u32 = 128;
 }
 
 impl pallet_signed_voting::Config for Test {
     type Scheme = SignedScheme;
     type Polls = Referenda;
+    type MaxVoterSetSize = VoterSetSize;
+    type MaxPendingCleanup = MaxPendingCleanup;
+    type CleanupChunkSize = CleanupChunkSize;
+    type CleanupCursorMaxLen = CleanupCursorMaxLen;
+    type WeightInfo = ();
 }
 
 parameter_types! {
