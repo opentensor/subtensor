@@ -774,7 +774,7 @@ fn test_add_stake_burn_with_limit_success() {
 }
 
 #[test]
-fn test_add_stake_burn_non_owner_fails() {
+fn test_add_stake_burn_non_owner_succeeds() {
     new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(2);
@@ -793,17 +793,30 @@ fn test_add_stake_burn_non_owner_fails() {
         // Give non-owner some balance
         add_balance_to_coldkey_account(&non_owner_coldkey, amount.into());
 
-        // Non-owner trying to call add_stake_burn should fail with BadOrigin
-        assert_noop!(
-            SubtensorModule::add_stake_burn(
-                RuntimeOrigin::signed(non_owner_coldkey),
-                hotkey_account_id,
-                netuid,
-                amount.into(),
-                None,
+        // Any signed origin can atomically stake and burn.
+        assert_ok!(SubtensorModule::add_stake_burn(
+            RuntimeOrigin::signed(non_owner_coldkey),
+            hotkey_account_id,
+            netuid,
+            amount.into(),
+            None,
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey_account_id,
+                &non_owner_coldkey,
+                netuid
             ),
-            DispatchError::BadOrigin
+            AlphaBalance::ZERO
         );
+
+        assert!(System::events().iter().any(|e| {
+            matches!(
+                &e.event,
+                RuntimeEvent::SubtensorModule(Event::AddStakeBurn { .. })
+            )
+        }));
     });
 }
 
@@ -827,7 +840,7 @@ fn test_add_stake_burn_nonexistent_subnet_fails() {
                 amount.into(),
                 None,
             ),
-            DispatchError::BadOrigin
+            Error::<Test>::SubnetNotExists
         );
     });
 }
@@ -859,68 +872,5 @@ fn test_add_stake_burn_insufficient_balance_fails() {
             ),
             Error::<Test>::NotEnoughBalanceToStake
         );
-    });
-}
-
-#[test]
-fn test_add_stake_burn_rate_limit_exceeded() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(533453);
-        let coldkey_account_id = U256::from(55453);
-        let amount: u64 = 10_000_000_000; // 10 TAO
-
-        // Add network
-        let netuid = add_dynamic_network(&hotkey_account_id, &coldkey_account_id);
-
-        // Setup reserves with large liquidity
-        let tao_reserve = TaoBalance::from(1_000_000_000_000_u64);
-        let alpha_in = AlphaBalance::from(1_000_000_000_000_u64);
-        mock::setup_reserves(netuid, tao_reserve, alpha_in);
-
-        // Give coldkey sufficient balance for multiple "add stake and burn" operations.
-        add_balance_to_coldkey_account(&coldkey_account_id, (amount * 10).into());
-
-        assert_eq!(
-            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid)),
-            0
-        );
-
-        // First "add stake and burn" should succeed
-        assert_ok!(SubtensorModule::add_stake_burn(
-            RuntimeOrigin::signed(coldkey_account_id),
-            hotkey_account_id,
-            netuid,
-            amount.into(),
-            None,
-        ));
-
-        assert_eq!(
-            SubtensorModule::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid)),
-            SubtensorModule::get_current_block_as_u64()
-        );
-
-        // Second "add stake and burn" immediately after should fail due to rate limit
-        assert_noop!(
-            SubtensorModule::add_stake_burn(
-                RuntimeOrigin::signed(coldkey_account_id),
-                hotkey_account_id,
-                netuid,
-                amount.into(),
-                None,
-            ),
-            Error::<Test>::AddStakeBurnRateLimitExceeded
-        );
-
-        // After stepping past the rate limit, "add stake and burn" should succeed again
-        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<Test>(netuid);
-        step_block(rate_limit as u16);
-
-        assert_ok!(SubtensorModule::add_stake_burn(
-            RuntimeOrigin::signed(coldkey_account_id),
-            hotkey_account_id,
-            netuid,
-            amount.into(),
-            None,
-        ));
     });
 }

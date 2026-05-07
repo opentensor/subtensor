@@ -120,6 +120,8 @@ impl<T: Config> Pallet<T> {
         // 11) counters
         RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, registration_cost.into());
+
+        // Record TAO inflow
         Self::record_tao_inflow(netuid, actual_burn_amount);
 
         // 12) event
