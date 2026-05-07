@@ -654,7 +654,7 @@ fn test_owner_cut_base() {
             1_000_000_000_000_u64.into(),
             1_000_000_000_000_u64.into(),
         );
-        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tempo_unchecked(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0.into()); // No cut
@@ -664,7 +664,7 @@ fn test_owner_cut_base() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_swapped --exact --show-output --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_pending_emission --exact --show-output --nocapture
 #[test]
 fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
@@ -676,10 +676,13 @@ fn test_pending_emission() {
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
         mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
+        LastEpochBlock::<Test>::insert(netuid, 0);
+        System::set_block_number(10);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(1_000_000_000)); // Add root weight.
+        System::set_block_number(12);
         SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
-        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tempo_unchecked(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         // Set moving price > 1.0
@@ -2456,7 +2459,7 @@ fn test_distribute_emission_zero_emission() {
         let miner_ck = U256::from(6);
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -2544,7 +2547,7 @@ fn test_run_coinbase_not_started() {
         let miner_ck = U256::from(6);
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -2639,7 +2642,7 @@ fn test_run_coinbase_not_started_start_after() {
         let miner_ck = U256::from(6);
         let init_stake: u64 = 100_000_000_000_000;
         let tempo = 2;
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
         // Set weight-set limit to 0.
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
 
@@ -2706,6 +2709,12 @@ fn test_run_coinbase_not_started_start_after() {
             FirstEmissionBlockNumber::<Test>::get(netuid),
             Some(current_block + 1)
         );
+
+        // Advance the block past `LastEpochBlock + tempo` so the state-based
+        // scheduler is due again (the previous `run_coinbase` advanced it).
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
+        next_block_no_epoch(netuid);
 
         // Run coinbase with emission.
         let emission_credit = SubtensorModule::mint_tao(100_000_000.into());
@@ -2970,6 +2979,7 @@ fn test_zero_shares_zero_emission() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_mining_emission_distribution_with_no_root_sell --exact --show-output --nocapture
 #[test]
 fn test_mining_emission_distribution_with_no_root_sell() {
     new_test_ext(1).execute_with(|| {
@@ -3097,13 +3107,14 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             AlphaBalance::ZERO,
             "Root alpha divs should be zero"
         );
+        step_block(1);
         let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &miner_hotkey,
             &miner_coldkey,
             netuid,
         );
         // Run again but with some root stake
-        step_block(subnet_tempo - 2);
+        step_block(subnet_tempo);
         assert_abs_diff_eq!(
             PendingServerEmission::<Test>::get(netuid).to_u64(),
             U96F32::saturating_from_num(per_block_emission)
@@ -3273,6 +3284,7 @@ fn test_mining_emission_distribution_with_root_sell() {
         // Run run_coinbase until emissions are drained
         step_block(subnet_tempo);
 
+        LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         let old_root_alpha_divs = PendingRootAlphaDivs::<Test>::get(netuid);
         let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &miner_hotkey,
@@ -3582,8 +3594,8 @@ fn test_coinbase_drain_pending_resets_blockssincelaststep() {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         Tempo::<Test>::insert(netuid0, 100);
-        // Ensure the block number we use is the tempo block
-        let block_number = 98;
+        LastEpochBlock::<Test>::insert(netuid0, 0);
+        let block_number = 102;
         assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
 
         let blocks_since_last_step_before = 12345678;
@@ -3595,8 +3607,7 @@ fn test_coinbase_drain_pending_resets_blockssincelaststep() {
 
         let blocks_since_last_step_after = BlocksSinceLastStep::<Test>::get(netuid0);
         assert_eq!(blocks_since_last_step_after, 0);
-        // Also check LastMechansimStepBlock is set to the block number we ran on
-        assert_eq!(LastMechansimStepBlock::<Test>::get(netuid0), block_number);
+        assert_eq!(LastMechansimStepBlock::<Test>::get(netuid0), 12345);
     });
 }
 
@@ -3606,8 +3617,8 @@ fn test_coinbase_drain_pending_gets_counters_and_resets_them() {
         let zero = U96F32::saturating_from_num(0);
         let netuid0 = add_dynamic_network(&U256::from(1), &U256::from(2));
         Tempo::<Test>::insert(netuid0, 100);
-        // Ensure the block number we use is the tempo block
-        let block_number = 98;
+        LastEpochBlock::<Test>::insert(netuid0, 0);
+        let block_number = 102;
         assert!(SubtensorModule::should_run_epoch(netuid0, block_number));
 
         let pending_server_em = AlphaBalance::from(123434534);

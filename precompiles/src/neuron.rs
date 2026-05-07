@@ -303,7 +303,7 @@ mod tests {
         pallet_subtensor::Pallet::<Runtime>::set_burn(netuid, REGISTRATION_BURN.into());
         pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
         pallet_subtensor::Pallet::<Runtime>::set_weights_set_rate_limit(netuid, 0);
-        pallet_subtensor::Pallet::<Runtime>::set_tempo(netuid, TEMPO);
+        pallet_subtensor::Pallet::<Runtime>::set_tempo_unchecked(netuid, TEMPO);
         pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, true);
         pallet_subtensor::Pallet::<Runtime>::set_reveal_period(netuid, REVEAL_PERIOD)
             .expect("reveal period setup should succeed");

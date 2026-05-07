@@ -2230,7 +2230,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo_before_next_reveal: u16 = 200;
         log::info!("Changing tempo to {tempo_before_next_reveal}");
-        SubtensorModule::set_tempo(netuid, tempo_before_next_reveal);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo_before_next_reveal);
 
         step_epochs(1, netuid);
         log::info!(
@@ -2263,7 +2263,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo: u16 = 150;
         log::info!("Changing tempo to {tempo}");
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
 
         step_epochs(1, netuid);
         log::info!(
@@ -2286,7 +2286,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo: u16 = 1050;
         log::info!("Changing tempo to {tempo}");
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -2300,7 +2300,7 @@ fn test_tempo_change_during_commit_reveal_process() {
 
         let tempo: u16 = 805;
         log::info!("Changing tempo to {tempo}");
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, tempo);
 
         step_epochs(1, netuid);
         log::info!(
@@ -3148,7 +3148,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         // Step 2: Change tempo and reveal period after commit
         let new_tempo: u16 = 50;
         let new_reveal_period: u64 = 2;
-        SubtensorModule::set_tempo(netuid, new_tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, new_tempo);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, new_reveal_period));
         log::info!(
             "Changed tempo to {new_tempo} and reveal period to {new_reveal_period}"
@@ -3202,7 +3202,7 @@ fn test_tempo_and_reveal_period_change_during_commit_reveal_process() {
         // Step 4: Change tempo and reveal period again after reveal
         let new_tempo_after_reveal: u16 = 200;
         let new_reveal_period_after_reveal: u64 = 1;
-        SubtensorModule::set_tempo(netuid, new_tempo_after_reveal);
+        SubtensorModule::set_tempo_unchecked(netuid, new_tempo_after_reveal);
         assert_ok!(SubtensorModule::set_reveal_period(
             netuid,
             new_reveal_period_after_reveal
@@ -4271,7 +4271,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         }
 
         // ==== Modify Network Parameters During Commits ====
-        SubtensorModule::set_tempo(netuid, 150);
+        SubtensorModule::set_tempo_unchecked(netuid, 150);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, 7));
         log::info!("Changed tempo to 150 and reveal_period to 7 during commits.");
 
@@ -4317,7 +4317,7 @@ fn test_highly_concurrent_commits_and_reveals_with_multiple_hotkeys() {
         }
 
         // ==== Change Network Parameters Again ====
-        SubtensorModule::set_tempo(netuid, 200);
+        SubtensorModule::set_tempo_unchecked(netuid, 200);
         assert_ok!(SubtensorModule::set_reveal_period(netuid, 10));
         log::info!("Changed tempo to 200 and reveal_period to 10 after initial reveals.");
 
@@ -6288,6 +6288,7 @@ fn test_get_first_block_of_epoch_large_epoch() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::weights::test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next --exact --show-output --nocapture
 #[test]
 fn test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next() {
     new_test_ext(1).execute_with(|| {
@@ -6312,10 +6313,17 @@ fn test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next() {
                 expected_epoch
             );
 
-            // From here, blocks_until_next_epoch should point to the start of next epoch
-            let until_next = SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
             let next_first = SubtensorModule::get_first_block_of_epoch(netuid, expected_epoch + 1);
-            assert_eq!(current_block + until_next + 1, next_first); // +1 since until is blocks to end, +1 to start next
+
+            // From here, blocks_until_next_auto_epoch should point to the next firing under the
+            // state-based scheduler: `LastEpochBlock + tempo + 1`.
+            let last_epoch_block = LastEpochBlock::<Test>::get(netuid);
+            let expected_next_firing = last_epoch_block
+                .saturating_add(tempo as u64)
+                .saturating_add(1);
+            let until_next =
+                SubtensorModule::blocks_until_next_auto_epoch(netuid, tempo, current_block);
+            assert_eq!(current_block + until_next, expected_next_firing);
 
             // Advance to near end of this epoch
             let last_block = next_first.saturating_sub(1);
@@ -6326,10 +6334,14 @@ fn test_get_first_block_of_epoch_step_blocks_and_assert_with_until_next() {
                 expected_epoch
             );
 
-            // Until next from near end
+            // Until next from near end — same invariant against the post-step state.
+            let last_epoch_block = LastEpochBlock::<Test>::get(netuid);
+            let expected_next_firing = last_epoch_block
+                .saturating_add(tempo as u64)
+                .saturating_add(1);
             let until_next_end =
-                SubtensorModule::blocks_until_next_epoch(netuid, tempo, current_block);
-            assert_eq!(current_block + until_next_end + 1, next_first);
+                SubtensorModule::blocks_until_next_auto_epoch(netuid, tempo, current_block);
+            assert_eq!(current_block + until_next_end, expected_next_firing);
         }
     });
 }

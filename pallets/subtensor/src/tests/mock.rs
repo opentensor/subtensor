@@ -690,9 +690,9 @@ pub(crate) fn next_block_no_epoch(netuid: NetUid) -> u64 {
     let high_tempo: u16 = u16::MAX - 1;
     let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
 
-    SubtensorModule::set_tempo(netuid, high_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, high_tempo);
     let new_block = next_block();
-    SubtensorModule::set_tempo(netuid, old_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, old_tempo);
 
     new_block
 }
@@ -703,26 +703,24 @@ pub(crate) fn run_to_block_no_epoch(netuid: NetUid, n: u64) {
     let high_tempo: u16 = u16::MAX - 1;
     let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
 
-    SubtensorModule::set_tempo(netuid, high_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, high_tempo);
     run_to_block(n);
-    SubtensorModule::set_tempo(netuid, old_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, old_tempo);
 }
 
 #[allow(dead_code)]
 pub(crate) fn step_epochs(count: u16, netuid: NetUid) {
     for _ in 0..count {
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
+        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_auto_epoch(
             netuid,
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
         );
         log::info!("Blocks to next epoch: {blocks_to_next_epoch:?}");
+        // Step to the auto-epoch block — `on_initialize` at that block fires
+        // the epoch and advances `LastEpochBlock`, then move one block past
+        // it to mirror the legacy stepping cadence.
         step_block(blocks_to_next_epoch as u16);
-
-        assert!(SubtensorModule::should_run_epoch(
-            netuid,
-            SubtensorModule::get_current_block_as_u64()
-        ));
         step_block(1);
     }
 }

@@ -806,6 +806,9 @@ fn test_claim_root_with_run_coinbase() {
                 .into();
         assert_eq!(initial_stake, 0u64);
 
+        // To trigger the epoch, block should be > tempo. So we advance it before
+        System::set_block_number(2);
+
         let block_emissions = SubtensorModule::mint_tao(1_000_000u64.into());
         SubtensorModule::run_coinbase(block_emissions);
 
@@ -992,6 +995,7 @@ fn test_populate_staking_maps() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::claim_root::test_claim_root_coinbase_distribution --exact --show-output
 #[test]
 fn test_claim_root_coinbase_distribution() {
     new_test_ext(1).execute_with(|| {
@@ -1001,6 +1005,9 @@ fn test_claim_root_coinbase_distribution() {
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
 
         Tempo::<Test>::insert(netuid, 1);
+        // Re-anchor the state-based scheduler at the current block
+        // The 2nd step will fire the tempo
+        crate::LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 200_000_000u64;

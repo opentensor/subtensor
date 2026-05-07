@@ -106,7 +106,7 @@ pub fn run_to_block_no_epoch(netuid: NetUid, n: u64) {
 
 pub fn step_epochs(count: u16, netuid: NetUid) {
     for _ in 0..count {
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_epoch(
+        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_auto_epoch(
             netuid,
             SubtensorModule::get_tempo(netuid),
             SubtensorModule::get_current_block_as_u64(),
