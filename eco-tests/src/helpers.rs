@@ -87,9 +87,9 @@ pub fn next_block_no_epoch(netuid: NetUid) -> u64 {
     let high_tempo: u16 = u16::MAX - 1;
     let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
 
-    SubtensorModule::set_tempo(netuid, high_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, high_tempo);
     let new_block = next_block();
-    SubtensorModule::set_tempo(netuid, old_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, old_tempo);
 
     new_block
 }
@@ -99,9 +99,9 @@ pub fn run_to_block_no_epoch(netuid: NetUid, n: u64) {
     let high_tempo: u16 = u16::MAX - 1;
     let old_tempo: u16 = SubtensorModule::get_tempo(netuid);
 
-    SubtensorModule::set_tempo(netuid, high_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, high_tempo);
     run_to_block(n);
-    SubtensorModule::set_tempo(netuid, old_tempo);
+    SubtensorModule::set_tempo_unchecked(netuid, old_tempo);
 }
 
 pub fn step_epochs(count: u16, netuid: NetUid) {
