@@ -622,6 +622,13 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         // Run coinbase
         SubtensorModule::run_coinbase(emission_credit);
 
+        // New behavior: chain-bought alpha is cached instead of recycled.
+        // The cached amount remains part of outstanding alpha supply.
+        assert!(
+            !SubnetProtocolAlpha::<Test>::get(netuid1).is_zero()
+                || !SubnetProtocolAlpha::<Test>::get(netuid2).is_zero()
+        );
+
         // Get the prices after the run_coinbase
         let price_1_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
         let price_2_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid2);
@@ -631,11 +638,13 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         assert_eq!(
             u64::from(SubnetAlphaOut::<Test>::get(netuid2)),
             21_000_000_000_000_000_u64
+                .saturating_add(u64::from(SubnetProtocolAlpha::<Test>::get(netuid2)))
         );
         assert!(u64::from(SubnetAlphaIn::<Test>::get(netuid2)) < initial_alpha);
         assert_eq!(
             u64::from(SubnetAlphaOut::<Test>::get(netuid2)),
             21_000_000_000_000_000_u64
+                .saturating_add(u64::from(SubnetProtocolAlpha::<Test>::get(netuid2)))
         );
 
         assert!(price_1_after > price_1_before);

@@ -102,7 +102,9 @@ impl<T: Config> Pallet<T> {
                             if let Ok(buy_swap_result_ok) = buy_swap_result {
                                 let bought_alpha: AlphaBalance =
                                     buy_swap_result_ok.amount_paid_out.into();
-                                Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+                                SubnetProtocolAlpha::<T>::mutate(*netuid_i, |total| {
+                                    *total = total.saturating_add(bought_alpha);
+                                });
 
                                 // Record actual excess TAO that entered pool.
                                 let actual_excess: TaoBalance = buy_swap_result_ok.amount_paid_in;
