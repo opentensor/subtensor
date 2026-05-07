@@ -1671,12 +1671,16 @@ use pallet_multi_collective::{
 )]
 pub enum GovernanceCollectiveId {
     /// Accounts authorized to submit proposals on the triumvirate track.
+    #[codec(index = 0)]
     Proposers,
     /// Three-member approval body for track 0.
+    #[codec(index = 1)]
     Triumvirate,
     /// Top validators — one half of the collective oversight voter set.
+    #[codec(index = 2)]
     Economic,
     /// Top subnet owners — one half of the collective oversight voter set.
+    #[codec(index = 3)]
     Building,
 }
 
