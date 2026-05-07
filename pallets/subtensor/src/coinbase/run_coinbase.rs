@@ -1045,10 +1045,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the number of blocks remaining before the next automatic epoch under the
-    /// stateful scheduler (period `tempo + 1`, anchored on `LastEpochBlock`). Used by the
-    /// admin-freeze-window predicate and external tooling. Returns `u64::MAX` when
+    /// stateful scheduler (period `tempo + 1`, anchored on `LastEpochBlock`). Does NOT account for:
+    ///     - `PendingEpochAt` (owner-triggered manual fire — could happen sooner),
+    ///     - `BlocksSinceLastStep > MAX_TEMPO` safety-net,
+    ///     - per-block-cap defer (could push the actual fire one or more blocks later)
+    /// Used by the admin-freeze-window predicate and external tooling. Returns `u64::MAX` when
     /// `tempo == 0` (legacy defensive short-circuit).
-    pub fn blocks_until_next_epoch(netuid: NetUid, tempo: u16, block_number: u64) -> u64 {
+    pub fn blocks_until_next_auto_epoch(netuid: NetUid, tempo: u16, block_number: u64) -> u64 {
         if tempo == 0 {
             return u64::MAX;
         }

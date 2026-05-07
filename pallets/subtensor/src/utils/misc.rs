@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         if pending > 0 && pending > current_block {
             return true;
         }
-        let remaining = Self::blocks_until_next_epoch(netuid, tempo, current_block);
+        let remaining = Self::blocks_until_next_auto_epoch(netuid, tempo, current_block);
         let window = AdminFreezeWindow::<T>::get() as u64;
         remaining < window
     }
