@@ -805,6 +805,7 @@ impl<T: Config> Pallet<T> {
             T::Scheduler::reschedule_named(task_name(index), DispatchTime::After(Zero::zero()))
         {
             Self::report_scheduler_error(index, "reschedule_task", err);
+            return;
         }
 
         let now = T::BlockNumberProvider::current_block_number();

@@ -789,6 +789,36 @@ fn adjustable_fast_tracks_at_threshold_and_reaches_enacted() {
 }
 
 #[test]
+fn do_fast_track_fails_closed_when_reschedule_fails() {
+    use frame_support::traits::schedule::v3::Named;
+
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+
+        // Drop the wrapper task so reschedule_named fails with NotFound.
+        assert!(
+            <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::cancel_named(task_name(index))
+                .is_ok()
+        );
+
+        Pallet::<Test>::do_fast_track(index);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Ongoing(_)));
+        let events = referenda_events();
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, Event::FastTracked { .. }))
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::SchedulerOperationFailed { index: i } if *i == index))
+        );
+    });
+}
+
+#[test]
 fn adjustable_cancels_at_threshold_and_cleans_up_task() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
