@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use super::mock::*;
 use crate::subnets::symbols::{DEFAULT_SYMBOL, SYMBOLS};
 use crate::*;
@@ -974,5 +974,79 @@ fn test_cannot_register_system_hotkey() {
             );
             assert!(!SubtensorModule::coldkey_owns_hotkey(&coldkey, &account_id),);
         }
+    });
+}
+
+#[test]
+fn test_burned_register_increases_subnet_tao_flow() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let coldkey = U256::from(77);
+        let hotkey = U256::from(88);
+
+        add_network(netuid, 13, 0);
+        mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
+
+        let burn = 1_000u64;
+        SubtensorModule::set_burn(netuid, burn.into());
+        let flow_before = SubnetTaoFlow::<Test>::get(netuid);
+
+        add_balance_to_coldkey_account(
+            &coldkey,
+            ExistentialDeposit::get() + burn.into() + 10u64.into(),
+        );
+
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            netuid,
+            hotkey
+        ));
+
+        assert_eq!(
+            SubnetTaoFlow::<Test>::get(netuid),
+            flow_before + burn as i64
+        );
+    });
+}
+
+#[test]
+fn test_register_network_gives_owner_no_initial_alpha_distribution() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(5001);
+        let owner_hotkey = U256::from(5002);
+        let lock_cost = SubtensorModule::get_network_lock_cost();
+        let netuids_before = SubtensorModule::get_all_subnet_netuids();
+
+        add_balance_to_coldkey_account(
+            &owner_coldkey,
+            ExistentialDeposit::get() + lock_cost.into(),
+        );
+
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(owner_coldkey),
+            owner_hotkey
+        ));
+
+        let netuid = SubtensorModule::get_all_subnet_netuids()
+            .into_iter()
+            .find(|netuid| !netuids_before.contains(netuid))
+            .expect("new subnet should be added");
+
+        assert_eq!(SubnetOwner::<Test>::get(netuid), owner_coldkey);
+        assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), owner_hotkey);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid), AlphaBalance::ZERO);
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &owner_hotkey,
+                &owner_coldkey,
+                netuid
+            ),
+            AlphaBalance::ZERO
+        );
+        assert!(
+            Lock::<Test>::iter_prefix((&owner_coldkey, netuid))
+                .next()
+                .is_none()
+        );
     });
 }

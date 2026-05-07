@@ -30,8 +30,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // Reset per-block root sell counters from the previous block.
-        // Root sells (step 8 in block_step) happen after coinbase, so their
-        // accumulated values are consumed here at the start of the next block.
+        // Root sells happen after coinbase, so their accumulated values
+        // are consumed here at the start of the next block.
         let _ = SubnetRootSellTao::<T>::clear(u32::MAX, None);
 
         // --- 1. Get all subnets (excluding root).
@@ -131,9 +131,9 @@ impl<T: Config> Pallet<T> {
                 let alpha_in_i =
                     AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
                 SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
-                SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(alpha_in_i);
-                });
+
+                // Mint alpha and resolve to alpha reserve
+                Self::resolve_to_alpha_in(Self::mint_alpha(*netuid_i, alpha_in_i));
 
                 // Inject TAO in.
                 let injected_tao: TaoBalance =
@@ -260,9 +260,9 @@ impl<T: Config> Pallet<T> {
 
             let alpha_created: AlphaBalance = AlphaBalance::from(tou64!(alpha_out_i));
             SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_created);
-            SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_created);
-            });
+
+            // Mint and resolve outstanding alpha
+            Self::resolve_to_alpha_out(Self::mint_alpha(*netuid_i, alpha_created));
 
             // Calculate the owner cut.
             let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
@@ -624,6 +624,9 @@ impl<T: Config> Pallet<T> {
             if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
                 Self::distribute_leased_network_dividends(lease_id, owner_cut);
             }
+
+            // Auto-lock owner's cut
+            Self::auto_lock_owner_cut(netuid, owner_cut);
         }
 
         // Distribute mining incentives.
