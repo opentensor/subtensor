@@ -1836,19 +1836,11 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
     type Id = GovernanceCollectiveId;
 
     fn collectives() -> impl Iterator<Item = McCollective<Self::Id, BlockNumber, [u8; 32]>> {
-        fn name(s: &[u8]) -> [u8; 32] {
-            let mut out = [0u8; 32];
-            out.iter_mut()
-                .zip(s.iter())
-                .for_each(|(dst, src)| *dst = *src);
-            out
-        }
-
         [
             McCollective {
                 id: GovernanceCollectiveId::Proposers,
                 info: McCollectiveInfo {
-                    name: name(b"otf"),
+                    name: pad_name(b"otf"),
                     min_members: 1,
                     max_members: Some(20),
                     term_duration: None,
@@ -1857,7 +1849,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
             McCollective {
                 id: GovernanceCollectiveId::Triumvirate,
                 info: McCollectiveInfo {
-                    name: name(b"triumvirate"),
+                    name: pad_name(b"triumvirate"),
                     min_members: 3,
                     max_members: Some(3),
                     term_duration: None,
@@ -1866,7 +1858,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
             McCollective {
                 id: GovernanceCollectiveId::Economic,
                 info: McCollectiveInfo {
-                    name: name(b"economic"),
+                    name: pad_name(b"economic"),
                     min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),
@@ -1875,7 +1867,7 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
             McCollective {
                 id: GovernanceCollectiveId::Building,
                 info: McCollectiveInfo {
-                    name: name(b"building"),
+                    name: pad_name(b"building"),
                     min_members: 1,
                     max_members: Some(16),
                     term_duration: Some(GovernanceCollectiveTermDuration::get()),

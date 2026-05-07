@@ -10,6 +10,7 @@ use frame_support::{derive_impl, pallet_prelude::*, parameter_types, traits::Equ
 use frame_system::{EnsureRoot, limits};
 use sp_core::U256;
 use sp_runtime::{BuildStorage, Perbill, traits::IdentityLookup};
+use subtensor_runtime_common::pad_name;
 
 use crate::{self as pallet_referenda, *};
 use pallet_multi_collective::{
@@ -187,7 +188,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Track {
                 id: 0,
                 info: TrackInfo {
-                    name: track_name(b"triumvirate"),
+                    name: pad_name(b"triumvirate"),
                     proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -203,7 +204,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Track {
                 id: 1,
                 info: TrackInfo {
-                    name: track_name(b"review"),
+                    name: pad_name(b"review"),
                     proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -218,7 +219,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Track {
                 id: 2,
                 info: TrackInfo {
-                    name: track_name(b"delegating"),
+                    name: pad_name(b"delegating"),
                     proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -234,7 +235,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Track {
                 id: 3,
                 info: TrackInfo {
-                    name: track_name(b"closed"),
+                    name: pad_name(b"closed"),
                     proposer_set: None,
                     voter_set: MemberSet::Single(CollectiveId::Triumvirate),
                     voting_scheme: VotingScheme::Signed,
@@ -340,11 +341,7 @@ impl CollectivesInfo<u64, [u8; 32]> for TestCollectives {
             Collective {
                 id: CollectiveId::Proposers,
                 info: CollectiveInfo {
-                    name: {
-                        let mut n = [0u8; 32];
-                        n[..9].copy_from_slice(b"proposers");
-                        n
-                    },
+                    name: pad_name(b"proposers"),
                     min_members: 1,
                     max_members: Some(5),
                     term_duration: None,
@@ -353,11 +350,7 @@ impl CollectivesInfo<u64, [u8; 32]> for TestCollectives {
             Collective {
                 id: CollectiveId::Triumvirate,
                 info: CollectiveInfo {
-                    name: {
-                        let mut n = [0u8; 32];
-                        n[..11].copy_from_slice(b"triumvirate");
-                        n
-                    },
+                    name: pad_name(b"triumvirate"),
                     min_members: 1,
                     max_members: Some(3),
                     term_duration: None,

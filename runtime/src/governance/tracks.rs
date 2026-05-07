@@ -3,8 +3,9 @@
 
 use pallet_referenda::{
     ApprovalAction, DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack,
-    TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo, track_name,
+    TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo,
 };
+use subtensor_runtime_common::pad_name;
 use sp_runtime::Perbill;
 
 use crate::{
@@ -36,7 +37,7 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
             RefTrack {
                 id: 0u8,
                 info: RefTrackInfo {
-                    name: track_name(b"triumvirate"),
+                    name: pad_name(b"triumvirate"),
                     proposer_set: Some(GovernanceMemberSet::Single(
                         GovernanceCollectiveId::Proposers,
                     )),
@@ -62,7 +63,7 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
             RefTrack {
                 id: 1u8,
                 info: RefTrackInfo {
-                    name: track_name(b"review"),
+                    name: pad_name(b"review"),
                     proposer_set: None,
                     voter_set: GovernanceMemberSet::Union(alloc::vec![
                         GovernanceCollectiveId::Economic,
