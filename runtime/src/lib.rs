@@ -1654,7 +1654,6 @@ use pallet_multi_collective::{
     Collective as McCollective, CollectiveInfo as McCollectiveInfo,
     CollectiveInspect as McCollectiveInspect, CollectivesInfo as McCollectivesInfo,
 };
-use subtensor_runtime_common::OnMembersChanged as McOnMembersChanged;
 /// Identifier of a collective managed by `pallet-multi-collective`.
 #[derive(
     Copy,
@@ -1679,19 +1678,6 @@ pub enum GovernanceCollectiveId {
     Economic,
     /// Top subnet owners — one half of the collective oversight voter set.
     Building,
-}
-
-impl pallet_multi_collective::CanRotate for GovernanceCollectiveId {
-    fn can_rotate(&self) -> bool {
-        match self {
-            // Ranked by on-chain stake / subnet data — rotated by
-            // `governance::collective_management::CollectiveManagement::on_new_term`.
-            Self::Economic | Self::Building => true,
-            // Curated by Root via the membership extrinsics; no ranking
-            // source, so `force_rotate` would be a no-op.
-            Self::Proposers | Self::Triumvirate => false,
-        }
-    }
 }
 
 /// Voting scheme for each referenda track. Only `Signed` is supported; the
@@ -1843,42 +1829,6 @@ impl McCollectivesInfo<BlockNumber, [u8; 32]> for SubtensorCollectives {
             },
         ]
         .into_iter()
-    }
-}
-
-/// Routes membership removals from `pallet-multi-collective` into
-/// `pallet-signed-voting` so a member leaving a collective mid-referendum
-/// has their vote reverted.
-pub struct GovernanceVoteCleanup;
-
-impl McOnMembersChanged<GovernanceCollectiveId, AccountId> for GovernanceVoteCleanup {
-    fn on_members_changed(
-        _collective_id: GovernanceCollectiveId,
-        _incoming: &[AccountId],
-        outgoing: &[AccountId],
-    ) {
-        for who in outgoing {
-            SignedVoting::remove_votes_for(who);
-        }
-    }
-
-    fn weight() -> Weight {
-        // Worst-case `remove_votes_for` for every outgoing member. For
-        // each, the implementation iterates every entry in `TallyOf`
-        // (bounded by `ReferendaMaxQueued`) and, for each poll where the
-        // voter is recorded, takes the vote and updates the tally —
-        // which in turn calls `Polls::on_tally_updated`.
-        let outgoing_max = MultiCollectiveMaxMembers::get() as u64;
-        let polls_max = ReferendaMaxQueued::get() as u64;
-        let db = <Runtime as frame_system::Config>::DbWeight::get();
-        // Per-poll: VotingFor::take + TallyOf::get + TallyOf::insert
-        // (= 2 reads + 2 writes), plus the cost of `on_tally_updated`.
-        let per_poll =
-            db.reads_writes(2, 2)
-                .saturating_add(<Referenda as subtensor_runtime_common::Polls<
-                AccountId,
-            >>::on_tally_updated_weight());
-        per_poll.saturating_mul(outgoing_max.saturating_mul(polls_max))
     }
 }
 

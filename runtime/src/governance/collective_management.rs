@@ -12,7 +12,6 @@
 use alloc::vec::Vec;
 
 use frame_support::pallet_prelude::*;
-use pallet_multi_collective::CanRotate;
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::TaoBalance;
 
@@ -52,27 +51,14 @@ impl pallet_multi_collective::OnNewTerm<GovernanceCollectiveId> for CollectiveMa
     }
 
     fn on_new_term(collective_id: GovernanceCollectiveId) -> Weight {
-        // Gate via the inherent `GovernanceCollectiveId::can_rotate()`.
-        // The pallet is policy-agnostic — `force_rotate` will route any
-        // existing id through this hook, so we silently no-op here for
-        // curated collectives (Proposers / Triumvirate) rather than
-        // attempt a ranking pass against data we don't have.
-        if !collective_id.can_rotate() {
-            log::debug!(
-                target: "runtime::collective-management",
-                "on_new_term({:?}) — non-rotating collective; no-op.",
-                collective_id,
-            );
-            return Weight::zero();
-        }
-
+        // The pallet is policy-agnostic; `force_rotate` will route any
+        // existing id through this hook even for curated collectives
+        // (Proposers / Triumvirate), so we silently no-op for those
+        // rather than attempt a ranking pass against data we don't have.
         match collective_id {
             GovernanceCollectiveId::Economic => Self::rotate_economic(),
             GovernanceCollectiveId::Building => Self::rotate_building(),
-            // Unreachable: `can_rotate()` returns false for these.
-            GovernanceCollectiveId::Proposers | GovernanceCollectiveId::Triumvirate => {
-                Weight::zero()
-            }
+            _ => Weight::zero(),
         }
     }
 }
