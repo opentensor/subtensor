@@ -462,4 +462,20 @@ impl<T: Config> Pallet<T> {
             _ => None,
         }
     }
+
+    /// Returns whether the owner cut is enabled for the given subnet.
+    ///
+    /// Returns `true` if the owner cut is enabled for the subnet, otherwise `false`.
+    pub fn get_owner_cut_enabled(netuid: NetUid) -> bool {
+        OwnerCutEnabled::<T>::get(netuid)
+    }
+
+    /// Sets whether the owner cut is enabled for the given subnet.
+    ///
+    /// # Parameters
+    /// - `netuid`: The identifier of the subnet to update.
+    /// - `value`: `true` to enable the owner cut for the subnet, `false` to disable it.
+    pub fn set_owner_cut_enabled_flag(netuid: NetUid, value: bool) {
+        OwnerCutEnabled::<T>::insert(netuid, value);
+    }
 }
