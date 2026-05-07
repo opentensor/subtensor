@@ -260,6 +260,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             },
         ]
         .into_iter()
+        .filter(|t| !(t.id == 1 && review_track_hidden()))
     }
 
     fn authorize_proposal(
@@ -279,11 +280,36 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
 
 thread_local! {
     static AUTHORIZE_PROPOSAL_RESULT: RefCell<bool> = const { RefCell::new(true) };
+    static HIDE_REVIEW_TRACK: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Set the value returned by `TestTracks::authorize_proposal` for the current thread.
 pub fn set_authorize_proposal(result: bool) {
     AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow_mut() = result);
+}
+
+#[must_use = "the guard restores visibility on drop; bind it to a local"]
+pub struct HideReviewTrackGuard {
+    previous: bool,
+}
+
+impl HideReviewTrackGuard {
+    pub fn new() -> Self {
+        let previous =
+            HIDE_REVIEW_TRACK.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
+        Self { previous }
+    }
+}
+
+impl Drop for HideReviewTrackGuard {
+    fn drop(&mut self) {
+        let prev = self.previous;
+        HIDE_REVIEW_TRACK.with(|r| *r.borrow_mut() = prev);
+    }
+}
+
+fn review_track_hidden() -> bool {
+    HIDE_REVIEW_TRACK.with(|r| *r.borrow())
 }
 
 pub struct TestCollectives;

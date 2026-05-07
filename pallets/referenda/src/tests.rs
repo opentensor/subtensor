@@ -627,6 +627,76 @@ fn schedule_for_review_returns_none_for_invalid_targets() {
 }
 
 #[test]
+fn do_approve_fails_closed_when_review_target_is_unusable() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+        let submitted = current_block();
+
+        let _guard = HideReviewTrackGuard::new();
+
+        vote(VOTER_A, parent, true);
+        vote(VOTER_B, parent, true);
+        run_to_block(current_block() + 2);
+
+        assert!(matches!(status_of(parent), ReferendumStatus::Ongoing(_)));
+        assert!(ReferendumStatusFor::<Test>::get(parent + 1).is_none());
+
+        let events = referenda_events();
+        assert!(!events.iter().any(|e| matches!(e, Event::Approved { .. })));
+        assert!(!events.iter().any(|e| matches!(e, Event::Delegated { .. })));
+        assert!(!events.iter().any(|e| matches!(e, Event::Enacted { .. })));
+        assert!(events.iter().any(|e| matches!(
+            e,
+            Event::ReviewSchedulingFailed { index, track }
+                if *index == parent && *track == TRACK_ADJUSTABLE
+        )));
+
+        let deadline = submitted + DECISION_PERIOD;
+        assert_eq!(scheduler_alarm_block(parent), Some(deadline));
+    });
+}
+
+#[test]
+fn do_approve_review_failure_expires_at_deadline() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+
+        let _guard = HideReviewTrackGuard::new();
+
+        vote(VOTER_A, parent, true);
+        vote(VOTER_B, parent, true);
+        run_to_block(current_block() + 2);
+        assert!(matches!(status_of(parent), ReferendumStatus::Ongoing(_)));
+
+        run_to_block(current_block() + DECISION_PERIOD + 1);
+
+        assert!(matches!(status_of(parent), ReferendumStatus::Expired(_)));
+        assert_concluded(parent, 0);
+    });
+}
+
+#[test]
+fn do_approve_review_recovers_when_track_is_restored() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+
+        {
+            let _guard = HideReviewTrackGuard::new();
+            vote(VOTER_A, parent, true);
+            vote(VOTER_B, parent, true);
+            run_to_block(current_block() + 2);
+            assert!(matches!(status_of(parent), ReferendumStatus::Ongoing(_)));
+        }
+
+        assert_ok!(Referenda::advance_referendum(RuntimeOrigin::root(), parent));
+
+        let child = parent + 1;
+        assert!(matches!(status_of(parent), ReferendumStatus::Delegated(_)));
+        assert!(matches!(status_of(child), ReferendumStatus::Ongoing(_)));
+    });
+}
+
+#[test]
 fn adjustable_lapses_to_enacted_when_no_decisive_votes() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));

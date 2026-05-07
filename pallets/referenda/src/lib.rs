@@ -280,37 +280,40 @@ pub mod pallet {
             track: TrackIdOf<T>,
             proposer: T::AccountId,
         },
-        /// Approval threshold reached. The call has been scheduled for
-        /// dispatch on this referendum's index.
+        /// Approved on an `Execute` track; the call is scheduled for
+        /// dispatch. Review tracks emit `Delegated` or
+        /// `ReviewSchedulingFailed` instead.
         Approved { index: ReferendumIndex },
-        /// Approved with `ApprovalAction::Review`. The call has been handed
-        /// off to a fresh referendum at `review` on `track`. No `Submitted`
-        /// event is emitted for the child.
+        /// Approved on a `Review` track; the call has been handed off to
+        /// the child review referendum at `review`.
         Delegated {
             index: ReferendumIndex,
             review: ReferendumIndex,
             track: TrackIdOf<T>,
         },
+        /// Review handoff failed; the parent stays `Ongoing` and retries
+        /// on the next vote or expires at the deadline.
+        ReviewSchedulingFailed {
+            index: ReferendumIndex,
+            track: TrackIdOf<T>,
+        },
         /// Rejection threshold reached.
         Rejected { index: ReferendumIndex },
-        /// Cancel threshold reached. The scheduled task has been cancelled.
+        /// Cancel threshold reached; the scheduled call has been cancelled.
         Cancelled { index: ReferendumIndex },
         /// Privileged termination via `KillOrigin`.
         Killed { index: ReferendumIndex },
-        /// Decision period elapsed without crossing approve or reject
-        /// thresholds.
+        /// Decision period elapsed without crossing approve or reject.
         Expired { index: ReferendumIndex },
-        /// Fast-track threshold reached. The scheduled task has been moved
-        /// to run next block.
+        /// Fast-track threshold reached; the call now runs next block.
         FastTracked { index: ReferendumIndex },
         /// The referendum's call has been dispatched at block `when`.
         Enacted {
             index: ReferendumIndex,
             when: BlockNumberFor<T>,
         },
-        /// A scheduler operation failed for this referendum. Surfaced for
-        /// off-chain observability; the pallet does not roll back the
-        /// surrounding state change.
+        /// A scheduler operation failed; surfaced for observability. The
+        /// pallet does not roll back the surrounding state change.
         SchedulerOperationFailed { index: ReferendumIndex },
     }
 
@@ -498,6 +501,22 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// Used by `PassOrFail` paths that leave the referendum `Ongoing`
+    /// without a vote-driven decision.
+    fn expire_or_rearm_deadline(
+        index: ReferendumIndex,
+        submitted: BlockNumberFor<T>,
+        decision_period: BlockNumberFor<T>,
+    ) {
+        let deadline = submitted.saturating_add(decision_period);
+        let now = T::BlockNumberProvider::current_block_number();
+        if now >= deadline {
+            Self::do_expire(index);
+        } else if let Err(err) = Self::set_alarm(index, deadline) {
+            Self::report_scheduler_error(index, "set_alarm", err);
+        }
+    }
+
     /// Log a scheduler failure and emit `SchedulerOperationFailed` for
     /// off-chain observability. Used in scheduled-call contexts where
     /// `Err` cannot be propagated to a caller.
@@ -533,21 +552,11 @@ impl<T: Config> Pallet<T> {
                 };
 
                 if tally.approval >= *approve_threshold {
-                    Self::do_approve(index, &info, on_approval);
+                    Self::do_approve(index, &info, on_approval, *decision_period);
                 } else if tally.rejection >= *reject_threshold {
                     Self::do_reject(index);
                 } else {
-                    // No decision yet. Expire only if the deadline has
-                    // passed; otherwise restore the deadline alarm so the
-                    // expiry will eventually fire if no further votes
-                    // arrive.
-                    let deadline = info.submitted.saturating_add(*decision_period);
-                    let now = T::BlockNumberProvider::current_block_number();
-                    if now >= deadline {
-                        Self::do_expire(index);
-                    } else if let Err(err) = Self::set_alarm(index, deadline) {
-                        Self::report_scheduler_error(index, "set_alarm", err);
-                    }
+                    Self::expire_or_rearm_deadline(index, info.submitted, *decision_period);
                 }
             }
             Proposal::Review => {
@@ -640,20 +649,15 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(event);
     }
 
-    /// Apply the configured `on_approval` action.
-    ///
-    /// `Execute` schedules the call on this index for next-block dispatch
-    /// and arms a follow-up alarm so the status promotes to `Enacted` once
-    /// the task has run.
-    ///
-    /// `Review` hands the call off to a fresh Adjustable referendum on the
-    /// configured track. The parent concludes as `Delegated`. If the review
-    /// track is missing or not Adjustable, falls through to `Execute` so the
-    /// approved call is not lost.
+    /// Apply the configured `on_approval` action. Both `Execute` and
+    /// `Review` fail closed on scheduler error: the parent stays
+    /// `Ongoing` with the deadline alarm re-armed so the approved call
+    /// cannot dispatch without going through the configured path.
     fn do_approve(
         index: ReferendumIndex,
         info: &ReferendumInfoOf<T>,
         on_approval: &ApprovalAction<TrackIdOf<T>>,
+        decision_period: BlockNumberFor<T>,
     ) {
         let Proposal::Action(bounded_call) = &info.proposal else {
             // Reachable only on a configuration mismatch (track strategy
@@ -661,10 +665,18 @@ impl<T: Config> Pallet<T> {
             return;
         };
 
-        if let ApprovalAction::Review { track } = on_approval
-            && let Some(review) =
+        if let ApprovalAction::Review { track } = on_approval {
+            let Some(review) =
                 Self::schedule_for_review(bounded_call.clone(), info.proposer.clone(), *track)
-        {
+            else {
+                Self::deposit_event(Event::<T>::ReviewSchedulingFailed {
+                    index,
+                    track: *track,
+                });
+                Self::expire_or_rearm_deadline(index, info.submitted, decision_period);
+                return;
+            };
+
             let now = T::BlockNumberProvider::current_block_number();
             Self::conclude(
                 index,
@@ -678,24 +690,26 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Execute path (also the Review fallback when the review track is
-        // unusable: better to dispatch than to drop the approved call).
         if let Err(err) = Self::schedule_enactment(
             index,
             DispatchTime::After(Zero::zero()),
             bounded_call.clone(),
         ) {
             Self::report_scheduler_error(index, "schedule_enactment", err);
+            Self::expire_or_rearm_deadline(index, info.submitted, decision_period);
+            return;
         }
+
         let now = T::BlockNumberProvider::current_block_number();
         Self::conclude(
             index,
             ReferendumStatus::Approved(now),
             Event::<T>::Approved { index },
         );
-        // Follow-up alarm fires at `now + 2`: the task is at `now + 1`, so
-        // by `now + 2` the scheduler has had a chance to dispatch it. Set
-        // after `conclude` because `conclude` cancels any pending alarm.
+
+        // Re-arm at `now + 2` so `transition_to_enacted` can promote
+        // `Approved -> Enacted` once the `now + 1` task has dispatched.
+        // Must run after `conclude`, which cancels any pending alarm.
         let alarm_at = now.saturating_add(One::one()).saturating_add(One::one());
         if let Err(err) = Self::set_alarm(index, alarm_at) {
             Self::report_scheduler_error(index, "set_alarm", err);
@@ -771,8 +785,6 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Conclude as `Rejected`. Reached when rejection crosses
-    /// `reject_threshold` on a `PassOrFail` track.
     fn do_reject(index: ReferendumIndex) {
         let now = T::BlockNumberProvider::current_block_number();
         Self::conclude(
@@ -782,8 +794,6 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Conclude as `Expired`. Reached when the decision period ends without
-    /// crossing approve or reject thresholds.
     fn do_expire(index: ReferendumIndex) {
         let now = T::BlockNumberProvider::current_block_number();
         Self::conclude(
@@ -793,8 +803,6 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Reschedule the task to run next block and arm the follow-up alarm
-    /// for the `FastTracked -> Enacted` transition.
     fn do_fast_track(index: ReferendumIndex) {
         if let Err(err) =
             T::Scheduler::reschedule_named(task_name(index), DispatchTime::After(Zero::zero()))
@@ -818,9 +826,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Cancel the scheduled task and conclude as `Cancelled`. Reached when
-    /// rejection crosses `cancel_threshold` on an `Adjustable` track. The
-    /// scheduler emits its own `Canceled` event for the underlying task.
+    /// The scheduler emits its own `Canceled` event for the underlying task.
     fn do_cancel(index: ReferendumIndex) {
         if let Err(err) = T::Scheduler::cancel_named(task_name(index)) {
             Self::report_scheduler_error(index, "cancel_task", err);
