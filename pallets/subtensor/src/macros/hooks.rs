@@ -391,6 +391,17 @@ mod hooks {
 
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::set(Some(
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkIsNetworkMember,
+                                ));
+                            }
+                            (weight_used, done)
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkIsNetworkMember => {
+                            let (weight_used, done) =
+                                Self::remove_network_is_network_member(*netuid, remaining_weight);
+
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::set(Some(
                                     DissolvedNetworksCleanupPhaseEnum::RemoveNetworkParameters,
                                 ));
                             }

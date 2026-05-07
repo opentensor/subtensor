@@ -19,7 +19,6 @@ use super::*;
 use frame_support::weights::{Weight, WeightMeter};
 use safe_math::*;
 use sp_std::collections::btree_map::BTreeMap;
-use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::{I64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUid, NetUidStorageIndex, TaoBalance, Token};
 impl<T: Config> Pallet<T> {
@@ -226,9 +225,6 @@ impl<T: Config> Pallet<T> {
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
 
-        // `DissolvedNetworksCleanupPhase` is filled on the first `on_idle` step for this netuid
-        // when still `None` (see `remove_data_for_dissolved_networks`).
-
         log::info!("NetworkRemoved( netuid:{netuid:?} )");
 
         // --- Emit the NetworkRemoved event
@@ -242,17 +238,6 @@ impl<T: Config> Pallet<T> {
         remaining_weight: Weight,
     ) -> (Weight, bool) {
         let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
-        // IsNetworkMember depends on Keys
-        let mut keys_set = BTreeSet::new();
-        for (_uid, key) in Keys::<T>::iter_prefix(netuid) {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
-            if !keys_set.contains(&key) {
-                WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-                IsNetworkMember::<T>::remove(&key, netuid);
-                keys_set.insert(key);
-            }
-        }
 
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
@@ -587,6 +572,47 @@ impl<T: Config> Pallet<T> {
         }
 
         (weight_meter.consumed(), true)
+    }
+
+    pub fn remove_network_is_network_member(
+        netuid: NetUid,
+        remaining_weight: Weight,
+    ) -> (Weight, bool) {
+        let r = T::DbWeight::get().reads(1);
+        let w = T::DbWeight::get().writes(1);
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let mut read_all = true;
+
+        let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
+        let iter = match LastKeptRawKey::<T>::get() {
+            Some(raw_key) => Keys::<T>::iter_from(raw_key),
+            None => Keys::<T>::iter(),
+        };
+        for (nu, uid, hotkey) in iter {
+            if !weight_meter.can_consume(r) {
+                read_all = false;
+                LastKeptRawKey::<T>::set(Some(Keys::<T>::hashed_key_for(nu, uid)));
+                break;
+            }
+            weight_meter.consume(r);
+            if nu == netuid {
+                if !weight_meter.can_consume(w) {
+                    read_all = false;
+                    LastKeptRawKey::<T>::set(Some(Keys::<T>::hashed_key_for(nu, uid)));
+                    break;
+                }
+                weight_meter.consume(w);
+                to_rm.push(hotkey);
+            }
+        }
+        if read_all {
+            LastKeptRawKey::<T>::set(None);
+        }
+
+        for hot in to_rm {
+            IsNetworkMember::<T>::remove(&hot, netuid);
+        }
+        (weight_meter.consumed(), read_all)
     }
 
     pub fn remove_network_weights(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {

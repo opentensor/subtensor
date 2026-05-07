@@ -379,6 +379,8 @@ pub mod pallet {
         DestroyAlphaInOutStakes,
         /// Phase 8: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
         PurgeNetuid,
+        /// Phase 7: Remove is network member entries for the subnet.
+        RemoveNetworkIsNetworkMember,
         /// Recovery / legacy: scalar `Network*` removal; the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
         RemoveNetworkParameters,
         /// Phase 9: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
