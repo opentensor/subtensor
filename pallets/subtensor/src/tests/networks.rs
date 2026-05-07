@@ -3,7 +3,7 @@
 use super::mock::*;
 use crate::migrations::migrate_network_immunity_period;
 use crate::*;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, weights::Weight};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
@@ -1515,6 +1515,22 @@ fn register_network_prunes_and_recycles_netuid() {
 }
 
 #[test]
+fn get_subnet_account_id_some_while_dissolved_cleanup_pending() {
+    new_test_ext(1).execute_with(|| {
+        let cold = U256::from(44_001);
+        let hot = U256::from(44_002);
+        let net = add_dynamic_network(&hot, &cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        assert!(!SubtensorModule::if_subnet_exist(net));
+        assert!(DissolvedNetworks::<Test>::get().contains(&net));
+        assert!(
+            SubtensorModule::get_subnet_account_id(net).is_some(),
+            "subnet TAO account must stay derivable during async dissolve cleanup"
+        );
+    });
+}
+
+#[test]
 fn register_network_skips_dissolved_netuid() {
     new_test_ext(0).execute_with(|| {
         let dissolved = NetUid::from(1);
@@ -2856,6 +2872,112 @@ fn registered_subnet_counter_survives_dissolve_and_bumps_on_reregistration() {
             SubtensorModule::get_registered_subnet_counter(netuid),
             2,
             "re-registration must bump counter"
+        );
+    });
+}
+
+#[test]
+fn dissolve_async_cleanup_leaves_phase_unset_until_idle_finishes() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(910);
+        let owner_hot = U256::from(911);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        assert!(
+            DissolvedNetworks::<Test>::get().contains(&net),
+            "dissolved netuid should be queued for on_idle cleanup"
+        );
+        assert!(
+            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            "global cleanup phase is only driven from on_idle (not from do_dissolve_network)"
+        );
+
+        run_block_idle();
+
+        assert!(
+            !DissolvedNetworks::<Test>::get().contains(&net),
+            "idle cleanup should drain the dissolved net from the queue"
+        );
+        assert!(
+            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            "when the queue is empty, global cleanup phase storage must be cleared"
+        );
+    });
+}
+
+#[test]
+fn dissolve_on_idle_weight_used_never_exceeds_limit() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(920);
+        let owner_hot = U256::from(921);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        let limit = Weight::from_parts(50_000, 50_000);
+        let used = SubtensorModule::on_idle(0, limit);
+        assert!(
+            used.ref_time() <= limit.ref_time() && used.proof_size() <= limit.proof_size(),
+            "reported weight must respect the on_idle budget (used={used:?} limit={limit:?})"
+        );
+    });
+}
+
+#[test]
+fn dissolve_full_on_idle_emits_dissolved_network_data_cleaned_and_clears_phase() {
+    // `frame_system::Pallet::events()` stays empty at block #0 in the test externalities;
+    // use a non-zero block like other event-asserting tests (`recycle_alpha`, etc.).
+    new_test_ext(1).execute_with(|| {
+        let owner_cold = U256::from(930);
+        let owner_hot = U256::from(931);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+        System::reset_events();
+        run_block_idle();
+
+        assert!(
+            System::events().iter().any(|e| {
+                matches!(
+                    &e.event,
+                    RuntimeEvent::SubtensorModule(Event::DissolvedNetworkDataCleaned { netuid: n })
+                        if *n == net
+                )
+            }),
+            "expected DissolvedNetworkDataCleaned after async dissolve pipeline"
+        );
+        assert!(
+            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            "global cleanup phase storage must be cleared when the queue is empty"
+        );
+    });
+}
+
+#[test]
+fn dissolve_two_networks_fifo_cleanup_drains_queue() {
+    new_test_ext(0).execute_with(|| {
+        let n1 = add_dynamic_network(&U256::from(940), &U256::from(941));
+        let n2 = add_dynamic_network(&U256::from(942), &U256::from(943));
+
+        assert_ok!(SubtensorModule::do_dissolve_network(n1));
+        assert_ok!(SubtensorModule::do_dissolve_network(n2));
+        assert_eq!(DissolvedNetworks::<Test>::get(), vec![n1, n2]);
+
+        let mut guard = 0u32;
+        while !DissolvedNetworks::<Test>::get().is_empty() {
+            guard = guard.saturating_add(1);
+            assert!(
+                guard < 256,
+                "dissolve cleanup should drain in finite idle passes (guard={guard})"
+            );
+            run_block_idle();
+        }
+
+        assert!(!SubtensorModule::if_subnet_exist(n1));
+        assert!(!SubtensorModule::if_subnet_exist(n2));
+        assert!(
+            DissolvedNetworksCleanupPhase::<Test>::get().is_none(),
+            "no stale phase after queue drain"
         );
     });
 }

@@ -4,13 +4,13 @@ use super::mock::run_block_idle;
 use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::*;
 use crate::{
-    DefaultMinRootClaimAmount, DissolvedNetworks, Error, MAX_NUM_ROOT_CLAIMS,
+    DefaultMinRootClaimAmount, DissolvedNetworks, Error, LastKeptRawKey, MAX_NUM_ROOT_CLAIMS,
     MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys,
-    PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, StakingColdkeys,
+    PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
     StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice, SubnetTAO,
     SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
 };
-use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
+use crate::{RootClaimType, RootClaimTypeEnum};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
@@ -18,7 +18,7 @@ use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
@@ -1384,6 +1384,90 @@ fn test_claim_root_on_network_deregistration() {
             netuid, &hotkey, &coldkey,
         )));
         assert!(!RootClaimable::<Test>::get(hotkey).contains_key(&netuid));
+    });
+}
+
+#[test]
+fn root_claim_on_subnet_is_noop_when_subnet_is_dissolved_queue() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(41_001);
+        let owner_hotkey = U256::from(41_002);
+        let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let coldkey = U256::from(41_003);
+        let hotkey = U256::from(41_004);
+        register_ok_neuron(netuid, hotkey, coldkey, 111);
+
+        let mut claimable = BTreeMap::new();
+        claimable.insert(netuid, I96F32::from(9_000_000i32));
+        RootClaimable::<Test>::insert(hotkey, claimable);
+
+        DissolvedNetworks::<Test>::put(vec![netuid]);
+
+        let before = RootClaimable::<Test>::get(hotkey).clone();
+        SubtensorModule::root_claim_on_subnet(
+            &hotkey,
+            &coldkey,
+            netuid,
+            RootClaimTypeEnum::Swap,
+            true,
+        );
+        assert_eq!(
+            RootClaimable::<Test>::get(hotkey),
+            before,
+            "dissolved subnets must not process root claims during async cleanup"
+        );
+    });
+}
+
+#[test]
+fn clean_up_root_claimable_for_subnet_removes_only_that_netuid_per_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(42_001);
+        let owner_hotkey = U256::from(42_002);
+        let net = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let hk1 = U256::from(42_010);
+        let hk2 = U256::from(42_011);
+
+        let mut m1 = BTreeMap::new();
+        m1.insert(net, I96F32::from(100i32));
+        m1.insert(NetUid::ROOT, I96F32::from(50i32));
+        let mut m2 = BTreeMap::new();
+        m2.insert(net, I96F32::from(200i32));
+
+        RootClaimable::<Test>::insert(hk1, m1);
+        RootClaimable::<Test>::insert(hk2, m2);
+        LastKeptRawKey::<Test>::kill();
+
+        let (_w, done) = SubtensorModule::clean_up_root_claimable_for_subnet(
+            net,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
+        assert!(done, "full weight should scan and update all claimable maps");
+
+        assert!(!RootClaimable::<Test>::get(hk1).contains_key(&net));
+        assert!(RootClaimable::<Test>::get(hk1).contains_key(&NetUid::ROOT));
+        assert!(!RootClaimable::<Test>::get(hk2).contains_key(&net));
+    });
+}
+
+#[test]
+fn clean_up_root_claimed_for_subnet_clears_claimed_nmap_prefix() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(43_001);
+        let owner_hotkey = U256::from(43_002);
+        let net = add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        let hk = U256::from(43_010);
+        let ck = U256::from(43_011);
+
+        RootClaimed::<Test>::insert((net, hk, ck), 123u128);
+        assert!(RootClaimed::<Test>::contains_key((net, hk, ck)));
+
+        let (_w, done) = SubtensorModule::clean_up_root_claimed_for_subnet(
+            net,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
+        assert!(done);
+        assert!(!RootClaimed::<Test>::contains_key((net, hk, ck)));
     });
 }
 

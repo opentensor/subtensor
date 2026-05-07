@@ -2474,6 +2474,74 @@ fn test_clear_protocol_liquidity_green_path() {
     });
 }
 
+/// `do_clear_protocol_liquidity` must seed `CleanUpPhase` when unset (entry path used by subtensor dissolve).
+#[test]
+fn clear_protocol_liquidity_seeds_cleanup_phase_when_none() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(156);
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+        CleanUpPhase::<Test>::kill();
+        assert!(CleanUpPhase::<Test>::get().is_none());
+
+        let (_consumed, done) =
+            Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(
+            done,
+            "unbounded weight budget should finish swap cleanup for a freshly initialized v3 subnet"
+        );
+        assert!(
+            CleanUpPhase::<Test>::get().is_none(),
+            "completed cleanup must reset CleanUpPhase"
+        );
+        assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
+    });
+}
+
+/// Weight returned is **consumed** work, bounded by the caller's limit (used by on_idle accounting).
+#[test]
+fn clear_protocol_liquidity_reports_consumed_weight_within_limit() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(157);
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+        CleanUpPhase::<Test>::kill();
+
+        let limit = Weight::from_parts(200_000_000, 200_000_000);
+        let (consumed, _done) = Pallet::<Test>::do_clear_protocol_liquidity(netuid, limit);
+        assert!(
+            consumed.ref_time() <= limit.ref_time()
+                && consumed.proof_size() <= limit.proof_size(),
+            "consumed weight must not exceed budget (consumed={consumed:?} limit={limit:?})"
+        );
+    });
+}
+
+/// Ensure multi-call progression with a small per-call budget still reaches a full wipe.
+#[test]
+fn clear_protocol_liquidity_resumes_until_done_with_small_budget() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(158);
+        assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
+        CleanUpPhase::<Test>::kill();
+
+        let tiny = Weight::from_parts(5_000, 5_000);
+        let mut done_global = false;
+        for _ in 0..50_000 {
+            let (_c, done) = Pallet::<Test>::do_clear_protocol_liquidity(netuid, tiny);
+            if done {
+                done_global = true;
+                break;
+            }
+        }
+
+        assert!(
+            done_global,
+            "iterative small-budget calls should eventually clear protocol liquidity"
+        );
+        assert!(CleanUpPhase::<Test>::get().is_none());
+        assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
+    });
+}
+
 fn as_tuple(
     (t_used, a_used, t_rem, a_rem): (TaoBalance, AlphaBalance, TaoBalance, AlphaBalance),
 ) -> (u64, u64, u64, u64) {
