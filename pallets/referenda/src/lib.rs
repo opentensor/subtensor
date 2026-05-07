@@ -336,6 +336,11 @@ pub mod pallet {
         /// invariants. Indicates a configuration mismatch (typically a
         /// track's strategy changed under live referenda via runtime upgrade).
         Unreachable,
+        /// The track's voter set is empty at submit time. With no eligible
+        /// voters the tally would freeze at zero and the threshold logic
+        /// would drive the referendum to a pre-determined outcome (lapse
+        /// to enacted on `Adjustable`, expire on `PassOrFail`).
+        EmptyVoterSet,
     }
 
     #[pallet::hooks]
@@ -377,6 +382,11 @@ pub mod pallet {
                 T::Tracks::authorize_proposal(&track_info, &call),
                 Error::<T>::ProposalNotAuthorized
             );
+            // Refuse a poll whose voter set is currently empty. With no
+            // eligible voters the threshold checks resolve to a fixed
+            // outcome regardless of the call's merits; on `Adjustable`
+            // tracks that outcome is enactment at `initial_delay`.
+            ensure!(!track_info.voter_set.is_empty(), Error::<T>::EmptyVoterSet);
             let active = ActiveCount::<T>::get();
             ensure!(active < T::MaxQueued::get(), Error::<T>::QueueFull);
 

@@ -210,6 +210,34 @@ fn submit_rejects_invalid_origins_and_tracks() {
     });
 }
 
+/// A track whose voter set is currently empty would mathematically
+/// freeze its tally at zero and drive the referendum to a fixed
+/// outcome regardless of merit (auto-enactment on `Adjustable`,
+/// expiry on `PassOrFail`). `submit` must refuse rather than create
+/// such a referendum.
+#[test]
+fn submit_rejects_when_voter_set_is_empty() {
+    TestState {
+        proposers: vec![U256::from(PROPOSER)],
+        // Triumvirate is the voter set for tracks 0/1/2; leave it empty
+        // so `voter_set.is_empty()` triggers at submit time.
+        triumvirate: vec![],
+    }
+    .build_and_execute(|| {
+        assert_noop!(
+            Referenda::submit(
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                TRACK_PASS_OR_FAIL,
+                Box::new(make_call()),
+            ),
+            Error::<Test>::EmptyVoterSet
+        );
+        // No state mutated: index counter unchanged, no referendum stored.
+        assert_eq!(ReferendumCount::<Test>::get(), 0);
+        assert_eq!(ActiveCount::<Test>::get(), 0);
+    });
+}
+
 #[test]
 fn submit_rejects_call_when_authorize_proposal_returns_false() {
     TestState::default().build_and_execute(|| {
