@@ -334,7 +334,8 @@ pub enum ReferendumStatus<AccountId, Id, Call, BlockNumber> {
     /// Cancel threshold reached on an `Adjustable` track. The scheduled
     /// task was cancelled.
     Cancelled(BlockNumber),
-    /// The referendum's call has been dispatched. Terminal.
+    /// The dispatch attempt completed. Terminal regardless of whether
+    /// the inner call returned `Ok` or `Err`.
     Enacted(BlockNumber),
     /// Terminated by [`Config::KillOrigin`](crate::Config::KillOrigin)
     /// before reaching a vote-driven outcome.

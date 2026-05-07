@@ -31,9 +31,21 @@
 //!
 //! `advance_referendum` is the single state-machine entry point. For an
 //! `Ongoing` referendum it dispatches into the appropriate threshold or
-//! timing logic; for a referendum already in `Approved` or `FastTracked`
-//! it transitions to `Enacted` once the underlying scheduled task has
-//! actually run (deferring if it has not).
+//! timing logic; on terminal statuses it is a no-op.
+//!
+//! ## Dispatch wrapping
+//!
+//! Approval (Execute) and Adjustable submission both schedule a wrapper
+//! call `Pallet::enact(index, call)` rather than the governed call
+//! directly. The scheduler invokes the wrapper with `RawOrigin::Root` at
+//! the configured time; `enact` dispatches the inner call and marks the
+//! referendum `Enacted` in the same call. Dispatch and `Enacted` are
+//! atomic; the pallet never has to infer dispatch from scheduler-internal
+//! state. `enact` no-ops on terminal-no-dispatch statuses, so a stale
+//! wrapper task that fires after a failed scheduler cancel (e.g. inside
+//! `kill` or `do_cancel`) cannot dispatch. The submit-time preimage is
+//! dropped at scheduling time since the wrapper is the sole reference to
+//! the inner call from then on.
 //!
 //! ## State machine
 //!
@@ -48,7 +60,7 @@
 //!                       │  └───┬───┘
 //!                       │      │
 //!                       │      │ alarm fires:
-//!                       │      ├─ approve_threshold + Execute  ─► Approved ─► Enacted
+//!                       │      ├─ approve_threshold + Execute  ─► Approved ─► enact ─► Enacted
 //!                       │      ├─ approve_threshold + Review   ─► Delegated (terminal)
 //!                       │      ├─ reject_threshold             ─► Rejected  (terminal)
 //!                       │      ├─ deadline reached             ─► Expired   (terminal)
@@ -61,27 +73,26 @@
 //! ```text
 //!                            submit
 //!                              │
-//!                              │ schedule task at  submitted + initial_delay
-//!                              │ schedule reaper at submitted + initial_delay + 1
+//!                              │ schedule enact(index) at submitted + initial_delay
 //!                              ▼
 //!     vote re-arms alarm   ┌───────┐   kill
 //!     (now + 1)         ┌─►│Ongoing│───────────────────────────► Killed    (terminal)
 //!                       │  └───┬───┘
 //!                       │      │
+//!                       │      ├─ enact fires (natural)        ─► Enacted     (terminal)
 //!                       │      │ alarm fires:
-//!                       │      ├─ task already ran (lapse)    ─► Enacted     (terminal)
-//!                       │      ├─ fast_track_threshold        ─► FastTracked ─► Enacted
+//!                       │      ├─ fast_track_threshold        ─► FastTracked ─► enact ─► Enacted
 //!                       │      ├─ cancel_threshold            ─► Cancelled   (terminal)
-//!                       │      └─ otherwise: do_adjust_delay  ─► move task earlier,
-//!                       └──────┘                                 restore reaper alarm
+//!                       │      └─ otherwise: do_adjust_delay  ─► move enact task earlier,
+//!                       └──────┘                                 stay Ongoing
 //! ```
 //!
 //! ## Status taxonomy
 //!
 //! * `Ongoing`: voting in progress.
 //! * `Approved`: vote crossed `approve_threshold` on a `PassOrFail` track
-//!   with `ApprovalAction::Execute`. Call scheduled on this index;
-//!   transitions to `Enacted` once it has dispatched.
+//!   with `ApprovalAction::Execute`. The `enact(index)` wrapper is
+//!   scheduled on this index and will mark `Enacted` when it dispatches.
 //! * `Delegated`: vote crossed `approve_threshold` on a `PassOrFail` track
 //!   with `ApprovalAction::Review`. The call now lives on a fresh
 //!   referendum on the configured review track; this index is a terminal
@@ -90,13 +101,11 @@
 //! * `Expired`: `PassOrFail` decision period elapsed without crossing
 //!   either threshold.
 //! * `FastTracked`: vote crossed `fast_track_threshold` on an `Adjustable`
-//!   track. Scheduled task moved to next block; transitions to `Enacted`.
+//!   track. Wrapper rescheduled to next block; marks `Enacted` on dispatch.
 //! * `Cancelled`: vote crossed `cancel_threshold` on an `Adjustable`
-//!   track. Scheduled task cancelled.
-//! * `Enacted`: the referendum's call has dispatched. Reached either
-//!   from `Approved` / `FastTracked` after dispatch, or directly when an
-//!   `Adjustable` task ran on its own schedule with no vote-driven
-//!   decision (the lapse path).
+//!   track. Wrapper cancelled and `PendingDispatch` cleared.
+//! * `Enacted`: the dispatch attempt completed. The `Enacted` event
+//!   carries the inner call's result via an `Option<DispatchError>`.
 //! * `Killed`: privileged termination via `KillOrigin`.
 //!
 //! ## Alarm and task discipline
@@ -105,16 +114,10 @@
 //! most one enactment task (`task_name(index)`). [`set_alarm`] is
 //! idempotent: it cancels any prior alarm with the same name before
 //! scheduling a new one. `conclude` cancels the alarm so terminal-state
-//! referenda do not waste scheduler dispatches. Callers that need a
-//! follow-up alarm (the `Approved -> Enacted` and
-//! `FastTracked -> Enacted` transitions) call `set_alarm` after
-//! `conclude`.
+//! referenda do not waste scheduler dispatches.
 //!
 //! `Adjustable` enactment tasks can move earlier (fast-track, linear
-//! interpolation) but never later than `submitted + initial_delay`. The
-//! reaper alarm is anchored at `submitted + initial_delay + 1` so it
-//! always fires after the natural execution time, catching any path that
-//! reaches the deadline without a vote-driven decision.
+//! interpolation) but never later than `submitted + initial_delay`.
 //!
 //! ## Runtime configuration check
 //!
@@ -128,7 +131,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use frame_support::{
-    dispatch::DispatchResult,
+    dispatch::{DispatchResult, GetDispatchInfo},
     pallet_prelude::*,
     sp_runtime::{
         Perbill, Saturating,
@@ -177,6 +180,7 @@ pub mod pallet {
         /// pallet's own `advance_referendum` are dispatched through this.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+            + GetDispatchInfo
             + From<Call<Self>>
             + IsType<<Self as frame_system::Config>::RuntimeCall>
             + From<frame_system::Call<Self>>;
@@ -307,10 +311,13 @@ pub mod pallet {
         Expired { index: ReferendumIndex },
         /// Fast-track threshold reached; the call now runs next block.
         FastTracked { index: ReferendumIndex },
-        /// The referendum's call has been dispatched at block `when`.
+        /// The dispatch attempt completed at block `when`. `error` is
+        /// `None` if the inner call returned `Ok`, otherwise it carries
+        /// the failure.
         Enacted {
             index: ReferendumIndex,
             when: BlockNumberFor<T>,
+            error: Option<DispatchError>,
         },
         /// A scheduler operation failed; surfaced for observability. The
         /// pallet does not roll back the surrounding state change.
@@ -418,11 +425,6 @@ pub mod pallet {
                 DecisionStrategy::Adjustable { initial_delay, .. } => {
                     let when = now.saturating_add(initial_delay);
                     Self::schedule_enactment(index, DispatchTime::At(when), bounded_call)?;
-                    // Reaper alarm: fires one block after the natural
-                    // execution time so that even with no votes, the
-                    // referendum reaches a terminal state and releases its
-                    // active slot.
-                    Self::set_alarm(index, when.saturating_add(One::one()))?;
                     Proposal::Review
                 }
             };
@@ -460,7 +462,9 @@ pub mod pallet {
 
             // Best-effort cleanup. The task entry may be absent (`PassOrFail`
             // has no enactment task before approval); a missing task is
-            // expected and not reported.
+            // expected and not reported. If `cancel_named` fails and the
+            // wrapper task still fires, `enact` no-ops on the terminal
+            // status.
             let _ = T::Scheduler::cancel_named(task_name(index));
             if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
                 Self::report_scheduler_error(index, "cancel_alarm", err);
@@ -487,20 +491,62 @@ pub mod pallet {
         pub fn advance_referendum(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
 
-            let now = T::BlockNumberProvider::current_block_number();
             let status =
                 ReferendumStatusFor::<T>::get(index).ok_or(Error::<T>::ReferendumNotFound)?;
 
-            match status {
-                ReferendumStatus::Ongoing(info) => Self::advance_ongoing(index, info)?,
-                ReferendumStatus::Approved(_) | ReferendumStatus::FastTracked(_) => {
-                    Self::transition_to_enacted(index, now);
-                }
-                _ => {
-                    // Terminal state: nothing further to do. Reached when an
-                    // alarm fires after a manual kill or a delegated handoff.
-                }
+            if let ReferendumStatus::Ongoing(info) = status {
+                Self::advance_ongoing(index, info)?;
             }
+
+            Ok(())
+        }
+
+        /// Dispatch `call` and mark the referendum `Enacted`. Invoked by
+        /// the scheduler with `RawOrigin::Root` at the configured dispatch
+        /// time; root may also call this directly to retry a stuck
+        /// referendum if the scheduler dropped its task.
+        ///
+        /// No-op when the referendum is in a terminal-no-dispatch state
+        /// (`Cancelled`, `Killed`, `Rejected`, `Expired`, `Delegated`,
+        /// `Enacted`), so a stale wrapper task that fires after a failed
+        /// scheduler cancel cannot dispatch.
+        #[pallet::call_index(3)]
+        #[pallet::weight(
+            T::WeightInfo::advance_referendum()
+                .saturating_add(call.get_dispatch_info().call_weight)
+        )]
+        pub fn enact(
+            origin: OriginFor<T>,
+            index: ReferendumIndex,
+            call: Box<CallOf<T>>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let Some(status) = ReferendumStatusFor::<T>::get(index) else {
+                return Ok(());
+            };
+            match status {
+                ReferendumStatus::Ongoing(_)
+                | ReferendumStatus::Approved(_)
+                | ReferendumStatus::FastTracked(_) => {}
+                _ => return Ok(()),
+            }
+
+            let error = call
+                .dispatch(frame_system::RawOrigin::Root.into())
+                .err()
+                .map(|post| post.error);
+
+            let now = T::BlockNumberProvider::current_block_number();
+            Self::conclude(
+                index,
+                ReferendumStatus::Enacted(now),
+                Event::<T>::Enacted {
+                    index,
+                    when: now,
+                    error,
+                },
+            );
 
             Ok(())
         }
@@ -593,32 +639,6 @@ impl<T: Config> Pallet<T> {
                     return Err(Error::<T>::Unreachable.into());
                 };
 
-                // The task ran on its own schedule with no decisive votes.
-                // Lapse directly to `Enacted` rather than running threshold
-                // logic (which would falsely conclude as fast-tracked).
-                if Self::next_task_dispatch_time(index).is_none() {
-                    Self::do_lapse_to_enacted(index);
-                    return Ok(());
-                }
-
-                // Reaper position reached but the task is still queued —
-                // it was postponed by the scheduler under weight pressure.
-                // Don't run threshold logic here (with no votes,
-                // `do_adjust_delay` would fall through to `do_fast_track`
-                // and conclude as `FastTracked` even though no member
-                // fast-tracked); re-arm and wait for the task to dispatch.
-                let reaper_at = info
-                    .submitted
-                    .saturating_add(*initial_delay)
-                    .saturating_add(One::one());
-                let now = T::BlockNumberProvider::current_block_number();
-                if now >= reaper_at {
-                    if let Err(err) = Self::set_alarm(index, now.saturating_add(One::one())) {
-                        Self::report_scheduler_error(index, "set_alarm", err);
-                    }
-                    return Ok(());
-                }
-
                 if tally.approval >= *fast_track_threshold {
                     Self::do_fast_track(index);
                 } else if tally.rejection >= *cancel_threshold {
@@ -638,31 +658,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Promote an `Approved` or `FastTracked` referendum to `Enacted` once
-    /// its scheduled task has run. If the task is still queued (the alarm
-    /// fired before the task could be dispatched, typically under block
-    /// weight pressure), re-arm the alarm and leave the status unchanged.
-    fn transition_to_enacted(index: ReferendumIndex, now: BlockNumberFor<T>) {
-        if Self::next_task_dispatch_time(index).is_some() {
-            let next = now.saturating_add(One::one());
-            if let Err(err) = Self::set_alarm(index, next) {
-                Self::report_scheduler_error(index, "set_alarm", err);
-            }
-            return;
-        }
-
-        let when = now.saturating_sub(One::one());
-        ReferendumStatusFor::<T>::insert(index, ReferendumStatus::Enacted(when));
-        Self::deposit_event(Event::<T>::Enacted { index, when });
-    }
-
     /// Move a referendum to a terminal status: cancel any pending alarm,
     /// store the new status, decrement `ActiveCount`, notify subscribers
-    /// via `OnPollCompleted`, and emit `event`. Callers that need a
-    /// follow-up alarm (the `Approved -> Enacted` and
-    /// `FastTracked -> Enacted` transitions) must call `set_alarm` AFTER
-    /// this function, since `conclude` cancels whatever alarm is currently
-    /// scheduled.
+    /// via `OnPollCompleted`, and emit `event`.
     fn conclude(index: ReferendumIndex, status: ReferendumStatusOf<T>, event: Event<T>) {
         if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
             Self::report_scheduler_error(index, "cancel_alarm", err);
@@ -689,6 +687,7 @@ impl<T: Config> Pallet<T> {
             return;
         };
 
+        // Proposal needs to be delegated to the review track.
         if let ApprovalAction::Review { track } = on_approval {
             let Some(review) =
                 Self::schedule_for_review(bounded_call.clone(), info.proposer.clone(), *track)
@@ -714,6 +713,7 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
+        // Normal proposal execution path.
         if let Err(err) = Self::schedule_enactment(
             index,
             DispatchTime::After(Zero::zero()),
@@ -730,14 +730,6 @@ impl<T: Config> Pallet<T> {
             ReferendumStatus::Approved(now),
             Event::<T>::Approved { index },
         );
-
-        // Re-arm at `now + 2` so `transition_to_enacted` can promote
-        // `Approved -> Enacted` once the `now + 1` task has dispatched.
-        // Must run after `conclude`, which cancels any pending alarm.
-        let alarm_at = now.saturating_add(One::one()).saturating_add(One::one());
-        if let Err(err) = Self::set_alarm(index, alarm_at) {
-            Self::report_scheduler_error(index, "set_alarm", err);
-        }
     }
 
     /// Create a fresh Adjustable referendum on `track` carrying the approved
@@ -767,17 +759,9 @@ impl<T: Config> Pallet<T> {
         let when = now.saturating_add(initial_delay);
         let new_index = ReferendumCount::<T>::get();
 
-        // Run the failable scheduler operations first. Commit storage only
-        // after both succeed so a partial failure cannot leave a child
-        // referendum stuck `Ongoing`.
         if let Err(err) = Self::schedule_enactment(new_index, DispatchTime::At(when), bounded_call)
         {
             Self::report_scheduler_error(new_index, "schedule_enactment", err);
-            return None;
-        }
-        if let Err(err) = Self::set_alarm(new_index, when.saturating_add(One::one())) {
-            Self::report_scheduler_error(new_index, "set_alarm", err);
-            let _ = T::Scheduler::cancel_named(task_name(new_index));
             return None;
         }
 
@@ -796,20 +780,6 @@ impl<T: Config> Pallet<T> {
         T::OnPollCreated::on_poll_created(new_index);
 
         Some(new_index)
-    }
-
-    /// Record `Enacted` directly without an intermediate decided state. Used
-    /// when an Adjustable referendum's task ran on its own schedule with no
-    /// vote-driven decision. The recorded block is `now - 1`, matching the
-    /// reaper alarm's position one block after the natural execution time.
-    fn do_lapse_to_enacted(index: ReferendumIndex) {
-        let now = T::BlockNumberProvider::current_block_number();
-        let when = now.saturating_sub(One::one());
-        Self::conclude(
-            index,
-            ReferendumStatus::Enacted(when),
-            Event::<T>::Enacted { index, when },
-        );
     }
 
     fn do_reject(index: ReferendumIndex) {
@@ -843,17 +813,11 @@ impl<T: Config> Pallet<T> {
             ReferendumStatus::FastTracked(now),
             Event::<T>::FastTracked { index },
         );
-
-        // Task at `now + 1`; alarm at `now + 2` catches the post-dispatch
-        // state. Set after `conclude` since `conclude` cancels any pending
-        // alarm.
-        let alarm_at = now.saturating_add(One::one()).saturating_add(One::one());
-        if let Err(err) = Self::set_alarm(index, alarm_at) {
-            Self::report_scheduler_error(index, "set_alarm", err);
-        }
     }
 
     /// The scheduler emits its own `Canceled` event for the underlying task.
+    /// If `cancel_named` fails and the wrapper still fires, `enact` no-ops
+    /// on the `Cancelled` status.
     fn do_cancel(index: ReferendumIndex) {
         if let Err(err) = T::Scheduler::cancel_named(task_name(index)) {
             Self::report_scheduler_error(index, "cancel_task", err);
@@ -904,13 +868,6 @@ impl<T: Config> Pallet<T> {
         {
             Self::report_scheduler_error(index, "reschedule_task", err);
         }
-
-        let natural_alarm = submitted
-            .saturating_add(initial_delay)
-            .saturating_add(One::one());
-        if let Err(err) = Self::set_alarm(index, natural_alarm) {
-            Self::report_scheduler_error(index, "set_alarm", err);
-        }
     }
 
     /// Schedule (or replace) the alarm for `index` to fire at `when`.
@@ -932,18 +889,28 @@ impl<T: Config> Pallet<T> {
 
     /// Schedule the enactment task for `index`. Called once per index in the
     /// referendum lifecycle.
+    /// Schedule `Pallet::enact(index, call)` to fire at `desired`. The
+    /// wrapper carries the inner call and dispatches it on fire, making
+    /// the `Ongoing/Approved/FastTracked -> Enacted` transition atomic
+    /// with dispatch. The submit-time preimage is dropped here since the
+    /// wrapper is now the sole reference to the inner call.
     fn schedule_enactment(
         index: ReferendumIndex,
         desired: DispatchTime<BlockNumberFor<T>>,
-        call: BoundedCallOf<T>,
+        bounded_call: BoundedCallOf<T>,
     ) -> DispatchResult {
+        let (inner, _) = T::Preimages::realize(&bounded_call)?;
+        let wrapper = T::Preimages::bound(CallOf::<T>::from(Call::enact {
+            index,
+            call: Box::new(inner),
+        }))?;
         T::Scheduler::schedule_named(
             task_name(index),
             desired,
             None,
             0, // highest priority
             frame_system::RawOrigin::Root.into(),
-            call,
+            wrapper,
         )?;
         Ok(())
     }

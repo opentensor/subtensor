@@ -136,7 +136,7 @@ fn submit_pass_or_fail_records_state_and_schedules_deadline_alarm() {
 }
 
 #[test]
-fn submit_adjustable_records_state_and_schedules_task_with_reaper() {
+fn submit_adjustable_schedules_enact_wrapper_at_initial_delay() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
         let now = current_block();
@@ -152,7 +152,7 @@ fn submit_adjustable_records_state_and_schedules_task_with_reaper() {
             Pallet::<Test>::next_task_dispatch_time(index),
             Some(now + INITIAL_DELAY)
         );
-        assert_eq!(scheduler_alarm_block(index), Some(now + INITIAL_DELAY + 1));
+        assert!(scheduler_alarm_block(index).is_none());
     });
 }
 
@@ -333,12 +333,20 @@ fn kill_rejects_already_finalized_referendum_for_every_terminal_status() {
             Error::<Test>::ReferendumFinalized
         );
 
-        // Approved.
+        // Approved (transient state between vote-driven approval and enact).
         let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
         vote(VOTER_A, i, true);
         vote(VOTER_B, i, true);
-        run_to_block(current_block() + 2);
+        run_to_block(current_block() + 1);
         assert!(matches!(status_of(i), ReferendumStatus::Approved(_)));
+        assert_noop!(
+            Referenda::kill(RuntimeOrigin::root(), i),
+            Error::<Test>::ReferendumFinalized
+        );
+
+        // Enacted (after the wrapper dispatches).
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(i), ReferendumStatus::Enacted(_)));
         assert_noop!(
             Referenda::kill(RuntimeOrigin::root(), i),
             Error::<Test>::ReferendumFinalized
@@ -399,18 +407,14 @@ fn pass_or_fail_approves_at_threshold_and_reaches_enacted() {
 
         vote(VOTER_A, index, true);
         vote(VOTER_B, index, true);
-        run_to_block(current_block() + 2);
+        run_to_block(current_block() + 1);
 
-        // Intermediate state: Approved with follow-up alarm.
         assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
-        assert_concluded(index, 0);
-        assert!(scheduler_alarm_block(index).is_some());
         assert!(has_event(
             |e| matches!(e, Event::Approved { index: i } if *i == index)
         ));
 
-        // Run forward: Enacted is reached after the task dispatches.
-        run_to_block(current_block() + 5);
+        run_to_block(current_block() + 1);
         assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
         assert!(has_event(
             |e| matches!(e, Event::Enacted { index: i, .. } if *i == index)
@@ -425,7 +429,7 @@ fn pass_or_fail_unanimous_aye_also_approves() {
         vote(VOTER_A, index, true);
         vote(VOTER_B, index, true);
         vote(VOTER_C, index, true);
-        run_to_block(current_block() + 2);
+        run_to_block(current_block() + 1);
         assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
     });
 }
@@ -500,7 +504,7 @@ fn pass_or_fail_decisive_vote_at_last_block_of_deadline_approves() {
         run_to_block(submitted + DECISION_PERIOD - 1);
         vote(VOTER_A, index, true);
         vote(VOTER_B, index, true);
-        run_to_block(current_block() + 2);
+        run_to_block(current_block() + 1);
 
         assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
     });
@@ -869,12 +873,7 @@ fn adjustable_late_vote_when_target_is_in_the_past_fast_tracks() {
 }
 
 #[test]
-fn adjustable_reaper_alarm_restored_after_non_decisive_vote() {
-    // Regression: a non-decisive vote on an Adjustable referendum used to
-    // leave the alarm at `now + 1`. After that alarm fired, no further
-    // alarm was scheduled and the referendum could sit Ongoing past the
-    // natural execution time. The fix restores the reaper alarm in
-    // `do_adjust_delay`.
+fn adjustable_non_decisive_vote_still_reaches_enacted_via_enact_wrapper() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
         let submitted = current_block();
@@ -882,14 +881,8 @@ fn adjustable_reaper_alarm_restored_after_non_decisive_vote() {
         vote(VOTER_A, index, true);
         run_to_block(current_block() + 3);
         assert!(Referenda::is_ongoing(index));
-        assert_eq!(
-            scheduler_alarm_block(index),
-            Some(submitted + INITIAL_DELAY + 1),
-            "reaper alarm must be restored"
-        );
 
-        // No further votes; should still reach Enacted.
-        run_to_block(submitted + INITIAL_DELAY + 5);
+        run_to_block(submitted + INITIAL_DELAY + 1);
         assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
     });
 }
@@ -1134,6 +1127,90 @@ fn try_state_fails_when_a_track_has_empty_voter_set() {
     TestState::default().build_and_execute(|| {
         let _guard = EmptyReviewVoterSetGuard::new();
         assert!(Pallet::<Test>::do_try_state().is_err());
+    });
+}
+
+#[test]
+fn enact_rejects_non_root_origin() {
+    TestState::default().build_and_execute(|| {
+        assert_noop!(
+            Referenda::enact(
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                0,
+                Box::new(make_call())
+            ),
+            DispatchError::BadOrigin
+        );
+    });
+}
+
+#[test]
+fn enact_noops_on_terminal_status_so_stale_task_cannot_dispatch() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), index));
+        assert!(matches!(status_of(index), ReferendumStatus::Killed(_)));
+
+        assert_ok!(Referenda::enact(
+            RuntimeOrigin::root(),
+            index,
+            Box::new(make_call())
+        ));
+        assert!(matches!(status_of(index), ReferendumStatus::Killed(_)));
+    });
+}
+
+#[test]
+fn enact_noops_on_unknown_index() {
+    TestState::default().build_and_execute(|| {
+        assert_ok!(Referenda::enact(
+            RuntimeOrigin::root(),
+            999,
+            Box::new(make_call())
+        ));
+    });
+}
+
+#[test]
+fn enact_event_carries_dispatch_error_when_inner_call_returns_error() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+
+        // pallet_balances::transfer_keep_alive requires a signed origin;
+        // dispatching with Root yields BadOrigin.
+        let bad_call = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+            dest: U256::from(VOTER_A),
+            value: 1,
+        });
+
+        assert_ok!(Referenda::enact(
+            RuntimeOrigin::root(),
+            index,
+            Box::new(bad_call)
+        ));
+
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert!(has_event(|e| matches!(
+            e,
+            Event::Enacted { index: i, error: Some(_), .. } if *i == index
+        )));
+    });
+}
+
+#[test]
+fn enact_event_error_is_none_when_inner_call_succeeds() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        run_to_block(current_block() + 2);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert!(has_event(|e| matches!(
+            e,
+            Event::Enacted { index: i, error: None, .. } if *i == index
+        )));
     });
 }
 
