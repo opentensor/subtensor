@@ -2483,8 +2483,10 @@ fn clear_protocol_liquidity_seeds_cleanup_phase_when_none() {
         CleanUpPhase::<Test>::kill();
         assert!(CleanUpPhase::<Test>::get().is_none());
 
-        let (_consumed, done) =
-            Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        let (_consumed, done) = Pallet::<Test>::do_clear_protocol_liquidity(
+            netuid,
+            Weight::from_parts(u64::MAX, u64::MAX),
+        );
         assert!(
             done,
             "unbounded weight budget should finish swap cleanup for a freshly initialized v3 subnet"
@@ -2508,8 +2510,7 @@ fn clear_protocol_liquidity_reports_consumed_weight_within_limit() {
         let limit = Weight::from_parts(200_000_000, 200_000_000);
         let (consumed, _done) = Pallet::<Test>::do_clear_protocol_liquidity(netuid, limit);
         assert!(
-            consumed.ref_time() <= limit.ref_time()
-                && consumed.proof_size() <= limit.proof_size(),
+            consumed.ref_time() <= limit.ref_time() && consumed.proof_size() <= limit.proof_size(),
             "consumed weight must not exceed budget (consumed={consumed:?} limit={limit:?})"
         );
     });

@@ -1442,7 +1442,10 @@ fn clean_up_root_claimable_for_subnet_removes_only_that_netuid_per_hotkey() {
             net,
             Weight::from_parts(u64::MAX, u64::MAX),
         );
-        assert!(done, "full weight should scan and update all claimable maps");
+        assert!(
+            done,
+            "full weight should scan and update all claimable maps"
+        );
 
         assert!(!RootClaimable::<Test>::get(hk1).contains_key(&net));
         assert!(RootClaimable::<Test>::get(hk1).contains_key(&NetUid::ROOT));
