@@ -87,6 +87,8 @@ The governance system consists of three main actors working together:
 
 When a proposal has been approved by the Triumvirate, it is scheduled in 1 hour (configurable) and enters the "Delay Period" where the Economic and Building Collectives can vote to delay, cancel or fast-track the proposal.
 
+The Delay Period runs on a separate referenda track (track 1, "review") that is **not directly submittable** by proposers. Its only entry point is the `ApprovalAction::Review` handoff fired by the Triumvirate track on approval. This guarantees that every proposal reaching collective oversight has cleared Triumvirate approval first; there is no path that lets a proposer skip the Triumvirate and schedule a root call straight into the delay period.
+
 1. Both collectives can vote aye/nay on the proposal, with votes aggregated across all 32 collective members
 2. Delay is calculated using **net score** (nays - ayes) and applies an exponential function based on a configurable delay factor.
 

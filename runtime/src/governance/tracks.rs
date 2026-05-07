@@ -62,13 +62,16 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                     },
                 },
             },
+            // `proposer_set: None` is load-bearing: it makes track 1
+            // reachable only via Track 0's `ApprovalAction::Review` handoff.
+            // Setting it to `Some(_)` would let a proposer schedule a root
+            // call for auto-dispatch at `now + initial_delay`, bypassing
+            // Triumvirate approval.
             RefTrack {
                 id: 1u8,
                 info: RefTrackInfo {
                     name: name(b"review"),
-                    proposer_set: Some(GovernanceMemberSet::Single(
-                        GovernanceCollectiveId::Proposers,
-                    )),
+                    proposer_set: None,
                     voter_set: GovernanceMemberSet::Union(alloc::vec![
                         GovernanceCollectiveId::Economic,
                         GovernanceCollectiveId::Building,
@@ -83,5 +86,37 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
             },
         ]
         .into_iter()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pallet_referenda::TracksInfo;
+
+    #[test]
+    fn track_0_triumvirate_is_directly_submittable() {
+        let track_0 = SubtensorTracks::tracks()
+            .find(|t| t.id == 0u8)
+            .expect("track 0 (triumvirate) must exist");
+
+        assert!(
+            track_0.info.proposer_set.is_some(),
+            "track 0 must have a proposer_set; without it there is no \
+             on-chain entry point into governance."
+        );
+    }
+
+    #[test]
+    fn track_1_review_is_not_directly_submittable() {
+        let track_1 = SubtensorTracks::tracks()
+            .find(|t| t.id == 1u8)
+            .expect("track 1 (review) must exist");
+
+        assert!(
+            track_1.info.proposer_set.is_none(),
+            "track 1 must have proposer_set: None; Some(_) would let a \
+             proposer schedule a root call without Triumvirate approval."
+        );
     }
 }
