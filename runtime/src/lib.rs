@@ -1727,19 +1727,23 @@ impl SetLike<AccountId> for GovernanceMemberSet {
     }
 
     fn len(&self) -> u32 {
+        self.to_vec().len() as u32
+    }
+
+    fn to_vec(&self) -> Vec<AccountId> {
         match self {
             Self::Single(id) => <MultiCollective as McCollectiveInspect<
                 AccountId,
                 GovernanceCollectiveId,
-            >>::member_count(*id),
+            >>::members_of(*id),
             // Union members can overlap (a coldkey may be both a top
             // validator on Economic and a top subnet owner on Building).
             // A naive sum of `member_count` inflates the denominator that
             // signed-voting captures as `total` at poll creation; dual
             // members count twice in `total` but can vote at most once,
             // biasing both `fast_track_threshold` and `cancel_threshold`
-            // upward in proportion to the overlap. Deduplicate so `len()`
-            // returns the true cardinality of accounts satisfying
+            // upward in proportion to the overlap. Deduplicate so the
+            // returned set has the true cardinality of accounts satisfying
             // `contains`.
             Self::Union(ids) => {
                 let mut accounts: Vec<AccountId> = Vec::new();
@@ -1751,7 +1755,7 @@ impl SetLike<AccountId> for GovernanceMemberSet {
                 }
                 accounts.sort();
                 accounts.dedup();
-                accounts.len() as u32
+                accounts
             }
         }
     }
@@ -1761,6 +1765,28 @@ parameter_types! {
     /// Storage bound on `pallet-multi-collective::Members<_>`. Must be ≥ the
     /// largest `max_members` declared in `SubtensorCollectives`.
     pub const MultiCollectiveMaxMembers: u32 = 20;
+    /// Storage bound on `pallet-signed-voting::VoterSetOf<_>`. Must be ≥
+    /// the largest voter set any track can produce. Tracks built from
+    /// unions of governance collectives are bounded by the sum of those
+    /// collectives' caps; the current widest track (`Union(Economic,
+    /// Building)`) has a cap of 32, so 64 leaves headroom for a future
+    /// three-way union or a larger collective.
+    pub const SignedVotingMaxVoterSetSize: u32 = 64;
+    /// Storage bound on `pallet-signed-voting::PendingCleanup`. Sized to
+    /// 2x `ReferendaMaxQueued` so a window where `on_idle` is starved
+    /// (full blocks, weight pressure) and many polls complete in close
+    /// succession does not overflow the queue. Overflow is recoverable
+    /// only via off-chain migration, so the bound is set conservatively.
+    pub const SignedVotingMaxPendingCleanup: u32 = 40;
+    /// Number of `VotingFor` entries cleared per `on_idle` drain step.
+    /// Tunes how aggressively idle blocks reclaim storage; one full poll
+    /// (worst case `MaxVoterSetSize`) drains in `MaxVoterSetSize / chunk`
+    /// idle blocks.
+    pub const SignedVotingCleanupChunkSize: u32 = 16;
+    /// Storage bound on the resume cursor stored in `PendingCleanup`.
+    /// 128 bytes covers the partial trie key for any
+    /// `(poll, account)` double map produced by FRAME's storage layer.
+    pub const SignedVotingCleanupCursorMaxLen: u32 = 128;
     /// Maximum number of active referenda across all tracks.
     pub const ReferendaMaxQueued: u32 = 20;
     pub const GovernanceSignedScheme: GovernanceVotingScheme = GovernanceVotingScheme::Signed;
@@ -1777,6 +1803,30 @@ parameter_types! {
     /// collective: 180 days mainnet / 100 blocks fast-runtime.
     pub const GovernanceMinSubnetAge: BlockNumber = prod_or_fast!(180 * DAYS, 100);
 }
+
+// Compile-time guards on the relationships between the constants above.
+// A misconfiguration here would degrade signed-voting silently (oversized
+// voter set collapses to an empty snapshot, queue overflow leaks state),
+// so catch the obvious foot-guns at build time.
+const _: () = {
+    // The widest track today is `Union(Economic, Building)` after
+    // dedup; bound it conservatively by the sum of the per-collective
+    // caps, which is the upper bound before dedup runs.
+    let widest_union = (GovernanceRankedCollectiveSize::get() as u64) * 2;
+    assert!(
+        SignedVotingMaxVoterSetSize::get() as u64 >= widest_union,
+        "SignedVotingMaxVoterSetSize must fit the widest track's voter set",
+    );
+    assert!(
+        SignedVotingMaxVoterSetSize::get() >= MultiCollectiveMaxMembers::get(),
+        "SignedVotingMaxVoterSetSize must fit any single-collective track",
+    );
+    assert!(
+        SignedVotingMaxPendingCleanup::get() >= ReferendaMaxQueued::get(),
+        "SignedVotingMaxPendingCleanup must absorb at least one full \
+         simultaneous-completion event from `pallet-referenda`",
+    );
+};
 
 /// Static list of collectives. Adding a variant to `GovernanceCollectiveId`
 /// forces an update here via exhaustive `match` in runtime tests.
@@ -1843,7 +1893,8 @@ impl pallet_multi_collective::Config for Runtime {
     type RemoveOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type SetOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
-    type OnMembersChanged = GovernanceVoteCleanup;
+    type RotateOrigin = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
+    type OnMembersChanged = ();
     type OnNewTerm = governance::collective_management::CollectiveManagement;
     type MaxMembers = MultiCollectiveMaxMembers;
     type WeightInfo = pallet_multi_collective::weights::SubstrateWeight<Runtime>;
@@ -1873,6 +1924,49 @@ impl pallet_multi_collective::BenchmarkHelper<GovernanceCollectiveId>
 impl pallet_signed_voting::Config for Runtime {
     type Scheme = GovernanceSignedScheme;
     type Polls = Referenda;
+    type MaxVoterSetSize = SignedVotingMaxVoterSetSize;
+    type MaxPendingCleanup = SignedVotingMaxPendingCleanup;
+    type CleanupChunkSize = SignedVotingCleanupChunkSize;
+    type CleanupCursorMaxLen = SignedVotingCleanupCursorMaxLen;
+    type WeightInfo = pallet_signed_voting::weights::SubstrateWeight<Runtime>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = SignedVotingBenchmarkHelper;
+}
+
+/// Benchmark bootstrap for `pallet-signed-voting`. Submits a real
+/// referendum on the `Adjustable` track (which uses
+/// `GovernanceVotingScheme::Signed`) so the benchmark sees an ongoing
+/// poll whose scheme matches `Config::Scheme`.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct SignedVotingBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_signed_voting::benchmarking::BenchmarkHelper<Runtime> for SignedVotingBenchmarkHelper {
+    fn ongoing_poll() -> u32 {
+        let proposer = <ReferendaBenchmarkHelper as pallet_referenda::BenchmarkHelper<
+            u8,
+            AccountId,
+            RuntimeCall,
+        >>::proposer();
+        let track = <ReferendaBenchmarkHelper as pallet_referenda::BenchmarkHelper<
+            u8,
+            AccountId,
+            RuntimeCall,
+        >>::track_adjustable();
+        let call = <ReferendaBenchmarkHelper as pallet_referenda::BenchmarkHelper<
+            u8,
+            AccountId,
+            RuntimeCall,
+        >>::call();
+        let index = pallet_referenda::ReferendumCount::<Runtime>::get();
+        Referenda::submit(
+            frame_system::RawOrigin::Signed(proposer).into(),
+            track,
+            sp_std::boxed::Box::new(call),
+        )
+        .expect("submit must succeed in benchmark setup");
+        index
+    }
 }
 
 impl pallet_referenda::Config for Runtime {
@@ -2051,6 +2145,8 @@ mod benches {
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
         [pallet_referenda, Referenda]
+        [pallet_signed_voting, SignedVoting]
+        [pallet_multi_collective, MultiCollective]
     );
 }
 
