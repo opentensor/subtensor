@@ -975,10 +975,7 @@ pub mod pallet {
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
                 Error::<T>::SubnetDoesNotExist
             );
-            pallet_subtensor::Pallet::<T>::set_tempo_unchecked(netuid, tempo);
-            // Cycle reset on every successful set_tempo
-            let now = pallet_subtensor::Pallet::<T>::get_current_block_as_u64();
-            pallet_subtensor::LastEpochBlock::<T>::insert(netuid, now);
+            pallet_subtensor::Pallet::<T>::apply_tempo_with_cycle_reset(netuid, tempo);
             log::debug!("TempoSet( netuid: {netuid:?} tempo: {tempo:?} ) ");
             Ok(())
         }

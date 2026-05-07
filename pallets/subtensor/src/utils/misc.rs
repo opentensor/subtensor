@@ -115,6 +115,15 @@ impl<T: Config> Pallet<T> {
         Tempo::<T>::insert(netuid, tempo);
         Self::deposit_event(Event::TempoSet(netuid, tempo));
     }
+
+    /// Sets `Tempo` and resets the state-based scheduler anchor `LastEpochBlock`
+    /// to the current block
+    pub fn apply_tempo_with_cycle_reset(netuid: NetUid, tempo: u16) {
+        Self::set_tempo_unchecked(netuid, tempo);
+        let now = Self::get_current_block_as_u64();
+        LastEpochBlock::<T>::insert(netuid, now);
+    }
+
     pub fn set_last_adjustment_block(netuid: NetUid, last_adjustment_block: u64) {
         LastAdjustmentBlock::<T>::insert(netuid, last_adjustment_block);
     }

@@ -27,13 +27,9 @@ impl<T: Config> Pallet<T> {
 
         let now = Self::get_current_block_as_u64();
 
-        Tempo::<T>::insert(netuid, tempo);
-        // Cycle reset on every successful set_tempo
-        LastEpochBlock::<T>::insert(netuid, now);
+        Self::apply_tempo_with_cycle_reset(netuid, tempo);
 
         tx.set_last_block_on_subnet::<T>(&who, netuid, now);
-
-        Self::deposit_event(Event::TempoSet(netuid, tempo));
         Ok(())
     }
 
