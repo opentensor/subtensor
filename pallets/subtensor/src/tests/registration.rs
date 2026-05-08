@@ -46,7 +46,8 @@ fn test_registration_ok() {
         mock::setup_reserves(netuid, DEFAULT_RESERVE.into(), DEFAULT_RESERVE.into());
 
         // Make burn small and stable for this test.
-        SubtensorModule::set_burn(netuid, 1_000u64.into());
+        let burn = 1_000_u64;
+        SubtensorModule::set_burn(netuid, burn.into());
 
         let hotkey = U256::from(1);
         let coldkey = U256::from(667);
@@ -77,6 +78,9 @@ fn test_registration_ok() {
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, uid),
             AlphaBalance::ZERO
         );
+
+        // TAO inflow recorded
+        assert_eq!(SubnetTaoFlow::<Test>::get(netuid), burn as i64);
     });
 }
 

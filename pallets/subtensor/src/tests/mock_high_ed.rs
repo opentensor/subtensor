@@ -36,12 +36,13 @@ frame_support::construct_runtime!(
         Balances: pallet_balances = 2,
         Shield: pallet_shield = 3,
         SubtensorModule: crate = 4,
-        Scheduler: pallet_scheduler = 5,
-        Preimage: pallet_preimage = 6,
-        Drand: pallet_drand = 7,
-        Swap: pallet_subtensor_swap = 8,
-        Crowdloan: pallet_crowdloan = 9,
-        Proxy: pallet_subtensor_proxy = 10,
+        AlphaAssets: pallet_alpha_assets = 5,
+        Scheduler: pallet_scheduler = 6,
+        Preimage: pallet_preimage = 7,
+        Drand: pallet_drand = 8,
+        Swap: pallet_subtensor_swap = 9,
+        Crowdloan: pallet_crowdloan = 10,
+        Proxy: pallet_subtensor_proxy = 11,
     }
 );
 
@@ -88,6 +89,8 @@ impl pallet_shield::Config for Test {
     type ExtrinsicDecryptor = ();
     type WeightInfo = ();
 }
+
+impl pallet_alpha_assets::Config for Test {}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
@@ -282,6 +285,7 @@ impl crate::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
