@@ -10,12 +10,7 @@ import {
     devRegisterSubnet,
     devSudoSetLockReductionInterval,
 } from "../../../../utils/dev-helpers.js";
-import {
-    buildSignedOrder,
-    FAR_FUTURE,
-    filterEvents,
-    registerLimitOrderTypes,
-} from "../../../../utils/limit-orders.js";
+import { buildSignedOrder, FAR_FUTURE, filterEvents, registerLimitOrderTypes } from "../../../../utils/limit-orders.js";
 
 // execute_batched_orders — all-buy batch.  Own subnet, own file.
 
@@ -56,12 +51,8 @@ describeSuite({
             id: "T01",
             title: "all buyers receive alpha and GroupExecutionSummary is emitted",
             test: async () => {
-                const aliceStakeBefore = await devGetAlphaStake(
-                    polkadotJs, aliceHotKey.address, alice.address, netuid
-                );
-                const bobStakeBefore = await devGetAlphaStake(
-                    polkadotJs, bobHotKey.address, bob.address, netuid
-                );
+                const aliceStakeBefore = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
+                const bobStakeBefore = await devGetAlphaStake(polkadotJs, bobHotKey.address, bob.address, netuid);
 
                 const orderAlice = buildSignedOrder(polkadotJs, {
                     signer: alice,
@@ -97,14 +88,10 @@ describeSuite({
                 expect(filterEvents(events, "OrderExecuted").length).toBe(2);
                 expect(filterEvents(events, "GroupExecutionSummary").length).toBe(1);
 
-                const aliceStakeAfter = await devGetAlphaStake(
-                    polkadotJs, aliceHotKey.address, alice.address, netuid
-                );
+                const aliceStakeAfter = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 expect(aliceStakeAfter).toBeGreaterThan(aliceStakeBefore);
 
-                const bobStakeAfter = await devGetAlphaStake(
-                    polkadotJs, bobHotKey.address, bob.address, netuid
-                );
+                const bobStakeAfter = await devGetAlphaStake(polkadotJs, bobHotKey.address, bob.address, netuid);
                 expect(bobStakeAfter).toBeGreaterThan(bobStakeBefore);
             },
         });

@@ -28,9 +28,7 @@ export async function devAddStake(
     amount: bigint
 ): Promise<void> {
     await context.createBlock([
-        await polkadotJs.tx.subtensorModule
-            .addStake(hotkey, netuid, amount)
-            .signAsync(coldkey),
+        await polkadotJs.tx.subtensorModule.addStake(hotkey, netuid, amount).signAsync(coldkey),
     ]);
 }
 
@@ -38,13 +36,9 @@ export async function devAssociateHotKey(
     polkadotJs: ApiPromise,
     context: any,
     coldkey: KeyringPair,
-    hotkey: string,
+    hotkey: string
 ): Promise<void> {
-    await context.createBlock([
-        await polkadotJs.tx.subtensorModule
-            .tryAssociateHotkey(hotkey)
-            .signAsync(coldkey),
-    ]);
+    await context.createBlock([await polkadotJs.tx.subtensorModule.tryAssociateHotkey(hotkey).signAsync(coldkey)]);
 }
 
 export async function devGetAlphaStake(
@@ -53,11 +47,7 @@ export async function devGetAlphaStake(
     coldkey: string,
     netuid: number
 ): Promise<bigint> {
-    const value = (await polkadotJs.query.subtensorModule.alphaV2(
-        hotkey,
-        coldkey,
-        netuid
-    ));
+    const value = await polkadotJs.query.subtensorModule.alphaV2(hotkey, coldkey, netuid);
 
     const mantissa = value.mantissa;
     const exponent = value.exponent;
@@ -73,17 +63,13 @@ export async function devGetAlphaStake(
     return result;
 }
 
-
 export async function devSudoSetLockReductionInterval(
     polkadotJs: ApiPromise,
     context: any,
     alice: KeyringPair,
-    interval: number): Promise<void> {
-    await context.createBlock([
-        await polkadotJs.tx.adminUtils
-            .sudoSetLockReductionInterval(interval)
-            .signAsync(alice),
-    ]);
+    interval: number
+): Promise<void> {
+    await context.createBlock([await polkadotJs.tx.adminUtils.sudoSetLockReductionInterval(interval).signAsync(alice)]);
 }
 
 export async function devRegisterSubnet(
@@ -92,15 +78,9 @@ export async function devRegisterSubnet(
     alice: KeyringPair,
     hotkey: KeyringPair
 ): Promise<number> {
-    await context.createBlock([
-        await polkadotJs.tx.subtensorModule
-            .registerNetwork(hotkey.address)
-            .signAsync(alice),
-    ]);
+    await context.createBlock([await polkadotJs.tx.subtensorModule.registerNetwork(hotkey.address).signAsync(alice)]);
     const events = (await polkadotJs.query.system.events()) as any;
-    const netuid = (events as any[])
-        .filter((e: any) => e.event.method === "NetworkAdded")[0]
-        .event.data[0].toNumber();
+    const netuid = (events as any[]).filter((e: any) => e.event.method === "NetworkAdded")[0].event.data[0].toNumber();
     return netuid;
 }
 
@@ -111,19 +91,14 @@ export async function devEnableSubtoken(
     netuid: number
 ): Promise<void> {
     await context.createBlock([
-        await polkadotJs.tx.sudo
-            .sudo(polkadotJs.tx.adminUtils.sudoSetSubtokenEnabled(netuid, true))
-            .signAsync(alice),
+        await polkadotJs.tx.sudo.sudo(polkadotJs.tx.adminUtils.sudoSetSubtokenEnabled(netuid, true)).signAsync(alice),
     ]);
 }
 export async function devExecuteOrders(
     polkadotJs: ApiPromise,
     context: any,
     alice: KeyringPair,
-    orders: SignedOrder[]): Promise<void> {
-    await context.createBlock([
-        await polkadotJs.tx.limitOrders
-            .executeOrders(orders)
-            .signAsync(alice),
-    ]);
+    orders: SignedOrder[]
+): Promise<void> {
+    await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders(orders).signAsync(alice)]);
 }

@@ -10,12 +10,7 @@ import {
     devRegisterSubnet,
     devSudoSetLockReductionInterval,
 } from "../../../../utils/dev-helpers.js";
-import {
-    buildSignedOrder,
-    FAR_FUTURE,
-    filterEvents,
-    registerLimitOrderTypes,
-} from "../../../../utils/limit-orders.js";
+import { buildSignedOrder, FAR_FUTURE, filterEvents, registerLimitOrderTypes } from "../../../../utils/limit-orders.js";
 
 describeSuite({
     id: "DEV_SUB_LIMIT_ORDERS_BATCH_SELL",
@@ -59,11 +54,9 @@ describeSuite({
             title: "all sellers receive TAO and GroupExecutionSummary is emitted",
             test: async () => {
                 const aliceTaoBefore = (
-                    await polkadotJs.query.system.account(alice.address) as any
+                    (await polkadotJs.query.system.account(alice.address)) as any
                 ).data.free.toBigInt();
-                const bobTaoBefore = (
-                    await polkadotJs.query.system.account(bob.address) as any
-                ).data.free.toBigInt();
+                const bobTaoBefore = ((await polkadotJs.query.system.account(bob.address)) as any).data.free.toBigInt();
 
                 const orderAlice = buildSignedOrder(polkadotJs, {
                     signer: alice,
@@ -100,11 +93,9 @@ describeSuite({
                 expect(filterEvents(events, "GroupExecutionSummary").length).toBe(1);
 
                 const aliceTaoAfter = (
-                    await polkadotJs.query.system.account(alice.address) as any
+                    (await polkadotJs.query.system.account(alice.address)) as any
                 ).data.free.toBigInt();
-                const bobTaoAfter = (
-                    await polkadotJs.query.system.account(bob.address) as any
-                ).data.free.toBigInt();
+                const bobTaoAfter = ((await polkadotJs.query.system.account(bob.address)) as any).data.free.toBigInt();
 
                 expect(aliceTaoAfter).toBeGreaterThan(aliceTaoBefore);
                 expect(bobTaoAfter).toBeGreaterThan(bobTaoBefore);

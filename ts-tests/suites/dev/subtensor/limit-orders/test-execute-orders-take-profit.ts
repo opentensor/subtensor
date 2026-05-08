@@ -2,7 +2,16 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { tao, generateKeyringPair } from "../../../../utils";
-import { devForceSetBalance, devAddStake, devGetAlphaStake, devAssociateHotKey, devEnableSubtoken, devRegisterSubnet, devSudoSetLockReductionInterval, devExecuteOrders } from "../../../../utils/dev-helpers.js";
+import {
+    devForceSetBalance,
+    devAddStake,
+    devGetAlphaStake,
+    devAssociateHotKey,
+    devEnableSubtoken,
+    devRegisterSubnet,
+    devSudoSetLockReductionInterval,
+    devExecuteOrders,
+} from "../../../../utils/dev-helpers.js";
 import {
     buildSignedOrder,
     FAR_FUTURE,
@@ -56,15 +65,8 @@ describeSuite({
             id: "T01",
             title: "TakeProfit executes when price >= limit_price",
             test: async () => {
-                const stakeBefore = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
-                const taoBalanceBefore = (
-                    await polkadotJs.query.system.account(alice.address)
-                ).data.free.toBigInt();
+                const stakeBefore = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
+                const taoBalanceBefore = (await polkadotJs.query.system.account(alice.address)).data.free.toBigInt();
 
                 // limit_price = 1 RAO — current price (~1 TAO/alpha) is always >= 1
                 const signed = buildSignedOrder(polkadotJs, {
@@ -80,7 +82,7 @@ describeSuite({
                 });
 
                 await devExecuteOrders(polkadotJs, context, alice, [signed]);
-                
+
                 const events = await polkadotJs.query.system.events();
                 expect(filterEvents(events, "OrderExecuted").length).toBe(1);
                 expect(filterEvents(events, "OrderSkipped").length).toBe(0);
@@ -89,18 +91,11 @@ describeSuite({
                 expect(await getOrderStatus(polkadotJs, id)).toBe("Fulfilled");
 
                 // Alpha stake should have decreased
-                const stakeAfter = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
+                const stakeAfter = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 expect(stakeAfter).toBeLessThan(stakeBefore);
 
                 // TAO balance should have increased
-                const taoBalanceAfter = (
-                    await polkadotJs.query.system.account(alice.address)
-                ).data.free.toBigInt();
+                const taoBalanceAfter = (await polkadotJs.query.system.account(alice.address)).data.free.toBigInt();
                 expect(taoBalanceAfter).toBeGreaterThan(taoBalanceBefore);
             },
         });

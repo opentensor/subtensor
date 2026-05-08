@@ -9,11 +9,7 @@ import {
     devRegisterSubnet,
     devSudoSetLockReductionInterval,
 } from "../../../../utils/dev-helpers.js";
-import {
-    buildSignedOrder,
-    FAR_FUTURE,
-    registerLimitOrderTypes,
-} from "../../../../utils/limit-orders.js";
+import { buildSignedOrder, FAR_FUTURE, registerLimitOrderTypes } from "../../../../utils/limit-orders.js";
 
 // Hard-fail cases for execute_batched_orders — no pool interaction needed,
 // all batches fail before reaching the swap step.  Single subnet is fine.
@@ -80,9 +76,7 @@ describeSuite({
                 const {
                     result: [attempt],
                 } = await context.createBlock([
-                    await polkadotJs.tx.limitOrders
-                        .executeBatchedOrders(netuid, [valid, tampered])
-                        .signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeBatchedOrders(netuid, [valid, tampered]).signAsync(alice),
                 ]);
 
                 // The whole extrinsic should fail — hard-fail on invalid signature
@@ -151,9 +145,7 @@ describeSuite({
                 const {
                     result: [attempt],
                 } = await context.createBlock([
-                    await polkadotJs.tx.limitOrders
-                        .executeBatchedOrders(0, [order])
-                        .signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeBatchedOrders(0, [order]).signAsync(alice),
                 ]);
 
                 expect(attempt.successful).toEqual(false);

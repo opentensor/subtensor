@@ -2,7 +2,14 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { generateKeyringPair, tao } from "../../../../utils";
-import { devForceSetBalance, devAssociateHotKey, devEnableSubtoken, devRegisterSubnet, devSudoSetLockReductionInterval, devExecuteOrders } from "../../../../utils/dev-helpers.js";
+import {
+    devForceSetBalance,
+    devAssociateHotKey,
+    devEnableSubtoken,
+    devRegisterSubnet,
+    devSudoSetLockReductionInterval,
+    devExecuteOrders,
+} from "../../../../utils/dev-helpers.js";
 import {
     buildSignedOrder,
     FAR_FUTURE,
@@ -34,14 +41,14 @@ describeSuite({
             bob = context.keyring.bob;
             feeRecipient = generateKeyringPair();
             registerLimitOrderTypes(polkadotJs);
-             
+
             await devForceSetBalance(polkadotJs, context, alice.address, tao(10_000));
             await devForceSetBalance(polkadotJs, context, bob.address, tao(10_000));
-             
+
             await devSudoSetLockReductionInterval(polkadotJs, context, alice, 1);
-             
+
             netuid = await devRegisterSubnet(polkadotJs, context, alice, aliceHotKey);
-             
+
             // ENable subtoken
             await devEnableSubtoken(polkadotJs, context, alice, netuid);
             // associate hotkeys

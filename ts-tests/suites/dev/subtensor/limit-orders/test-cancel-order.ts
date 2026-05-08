@@ -131,9 +131,7 @@ describeSuite({
                 });
 
                 // Cancel first
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.cancelOrder(signed.order).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.cancelOrder(signed.order).signAsync(alice)]);
 
                 // Now try to execute
                 await devExecuteOrders(polkadotJs, context, alice, [signed]);

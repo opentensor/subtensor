@@ -60,10 +60,10 @@ describeSuite({
                 const feeRecipient2 = generateKeyringPair();
 
                 const r1Before = (
-                    await polkadotJs.query.system.account(feeRecipient1.address) as any
+                    (await polkadotJs.query.system.account(feeRecipient1.address)) as any
                 ).data.free.toBigInt();
                 const r2Before = (
-                    await polkadotJs.query.system.account(feeRecipient2.address) as any
+                    (await polkadotJs.query.system.account(feeRecipient2.address)) as any
                 ).data.free.toBigInt();
 
                 const orderAlice = buildSignedOrder(polkadotJs, {
@@ -100,10 +100,10 @@ describeSuite({
                 expect(filterEvents(events, "OrderExecuted").length).toBe(2);
 
                 const r1After = (
-                    await polkadotJs.query.system.account(feeRecipient1.address) as any
+                    (await polkadotJs.query.system.account(feeRecipient1.address)) as any
                 ).data.free.toBigInt();
                 const r2After = (
-                    await polkadotJs.query.system.account(feeRecipient2.address) as any
+                    (await polkadotJs.query.system.account(feeRecipient2.address)) as any
                 ).data.free.toBigInt();
 
                 // Both recipients must have received some fee
@@ -119,7 +119,7 @@ describeSuite({
                 const sharedRecipient = generateKeyringPair();
 
                 const recipientBefore = (
-                    await polkadotJs.query.system.account(sharedRecipient.address) as any
+                    (await polkadotJs.query.system.account(sharedRecipient.address)) as any
                 ).data.free.toBigInt();
 
                 const orderAlice = buildSignedOrder(polkadotJs, {
@@ -156,7 +156,7 @@ describeSuite({
                 expect(filterEvents(events, "OrderExecuted").length).toBe(2);
 
                 const recipientAfter = (
-                    await polkadotJs.query.system.account(sharedRecipient.address) as any
+                    (await polkadotJs.query.system.account(sharedRecipient.address)) as any
                 ).data.free.toBigInt();
 
                 // Should have received fees from both orders in a single transfer

@@ -2,7 +2,16 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { tao, generateKeyringPair } from "../../../../utils";
-import { devForceSetBalance, devAddStake, devGetAlphaStake, devAssociateHotKey, devEnableSubtoken, devRegisterSubnet, devSudoSetLockReductionInterval, devExecuteOrders } from "../../../../utils/dev-helpers.js";
+import {
+    devForceSetBalance,
+    devAddStake,
+    devGetAlphaStake,
+    devAssociateHotKey,
+    devEnableSubtoken,
+    devRegisterSubnet,
+    devSudoSetLockReductionInterval,
+    devExecuteOrders,
+} from "../../../../utils/dev-helpers.js";
 
 import {
     buildSignedOrder,
@@ -57,16 +66,8 @@ describeSuite({
             id: "T01",
             title: "StopLoss executes when price <= limit_price",
             test: async () => {
-                const stakeBefore = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
-                const taoBalanceBefore = (
-                    await polkadotJs.query.system.account(alice.address)
-                ).data.free.toBigInt();
-
+                const stakeBefore = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
+                const taoBalanceBefore = (await polkadotJs.query.system.account(alice.address)).data.free.toBigInt();
 
                 // TODO: discover why limit price of 100 is enough here (I think its close to 1 the ratio?)
                 const signed = buildSignedOrder(polkadotJs, {
@@ -90,17 +91,10 @@ describeSuite({
                 const id = orderId(polkadotJs, signed.order);
                 expect(await getOrderStatus(polkadotJs, id)).toBe("Fulfilled");
 
-                const stakeAfter = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
+                const stakeAfter = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 expect(stakeAfter).toBeLessThan(stakeBefore);
 
-                const taoBalanceAfter = (
-                    await polkadotJs.query.system.account(alice.address)
-                ).data.free.toBigInt();
+                const taoBalanceAfter = (await polkadotJs.query.system.account(alice.address)).data.free.toBigInt();
                 expect(taoBalanceAfter).toBeGreaterThan(taoBalanceBefore);
             },
         });

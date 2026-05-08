@@ -90,12 +90,7 @@ describeSuite({
                 expect(filled).toBe(BigInt(firstFill));
 
                 // Alpha stake should have increased (partial buy occurred).
-                const stakeAfter = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
+                const stakeAfter = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 expect(stakeAfter).toBeGreaterThan(0n);
             },
         });

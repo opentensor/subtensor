@@ -162,10 +162,7 @@ export async function getAlphaPrice(api: TypedApi<typeof subtensor>, netuid: num
 }
 
 /** Enable the subtoken for a subnet (required for swaps to work). */
-export async function enableSubtoken(
-    api: TypedApi<typeof subtensor>,
-    netuid: number
-): Promise<void> {
+export async function enableSubtoken(api: TypedApi<typeof subtensor>, netuid: number): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
     const internalCall = api.tx.AdminUtils.sudo_set_subtoken_enabled({
@@ -177,10 +174,7 @@ export async function enableSubtoken(
 }
 
 /** Sudo-enable or disable the limit-orders pallet. */
-export async function setPalletStatus(
-    api: TypedApi<typeof subtensor>,
-    enabled: boolean
-): Promise<void> {
+export async function setPalletStatus(api: TypedApi<typeof subtensor>, enabled: boolean): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
     const tx = api.tx.Sudo.sudo({
@@ -200,10 +194,7 @@ export async function getOrderStatus(
 }
 
 /** Read the on-chain OrderStatus and return the PartiallyFilled amount, or null. */
-export async function getPartiallyFilledAmount(
-    polkadotJs: any,
-    id: `0x${string}`
-): Promise<bigint | null> {
+export async function getPartiallyFilledAmount(polkadotJs: any, id: `0x${string}`): Promise<bigint | null> {
     const result = await polkadotJs.query.limitOrders.orders(id);
     if (result.isNone) return null;
     const status = result.unwrap();
@@ -241,7 +232,7 @@ export async function computeNetAmount(
     netuid: number,
     buySideTao: bigint,
     sellSideAlpha: bigint,
-    side: "Buy" | "Sell",
+    side: "Buy" | "Sell"
 ): Promise<bigint> {
     // price_scaled = floor(price_actual * 1e9)  [RAO per alpha * 1e9 / 1e9 = dimensionless]
     const priceRaw = await polkadotJs.call.swapRuntimeApi.currentAlphaPrice(netuid);

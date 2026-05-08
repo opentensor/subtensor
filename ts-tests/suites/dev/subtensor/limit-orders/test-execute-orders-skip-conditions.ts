@@ -64,9 +64,7 @@ describeSuite({
                     feeRecipient: alice.address,
                 });
 
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
                 expect(filterEvents(events, "OrderSkipped").length).toBe(1);
@@ -91,9 +89,7 @@ describeSuite({
                     feeRecipient: alice.address,
                 });
 
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
                 expect(filterEvents(events, "OrderSkipped").length).toBe(1);
@@ -117,9 +113,7 @@ describeSuite({
                     feeRecipient: alice.address,
                 });
 
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
                 expect(filterEvents(events, "OrderSkipped").length).toBe(1);
@@ -149,9 +143,7 @@ describeSuite({
                     order: { V1: { ...signed.order.V1, amount: tao(999) } },
                 };
 
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([tampered]).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders([tampered]).signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
                 expect(filterEvents(events, "OrderSkipped").length).toBe(1);
@@ -174,9 +166,7 @@ describeSuite({
                     feeRecipient: alice.address,
                 });
 
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
                 expect(filterEvents(events, "OrderSkipped").length).toBe(1);
@@ -202,14 +192,10 @@ describeSuite({
                 });
 
                 // First execution — should succeed.
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice)]);
 
                 // Second attempt — order already Fulfilled, must be skipped.
-                await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice),
-                ]);
+                await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
                 expect(filterEvents(events, "OrderSkipped").length).toBe(1);
@@ -258,9 +244,7 @@ describeSuite({
                 });
 
                 await context.createBlock([
-                    await polkadotJs.tx.limitOrders
-                        .executeOrders([valid, expired, priceNotMet])
-                        .signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeOrders([valid, expired, priceNotMet]).signAsync(alice),
                 ]);
 
                 const events = await polkadotJs.query.system.events();

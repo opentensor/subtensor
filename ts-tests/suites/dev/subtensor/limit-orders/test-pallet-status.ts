@@ -3,12 +3,7 @@ import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { tao } from "../../../../utils";
 import { devForceSetBalance } from "../../../../utils/dev-helpers.js";
-import {
-    buildSignedOrder,
-    FAR_FUTURE,
-    filterEvents,
-    registerLimitOrderTypes,
-} from "../../../../utils/limit-orders.js";
+import { buildSignedOrder, FAR_FUTURE, filterEvents, registerLimitOrderTypes } from "../../../../utils/limit-orders.js";
 
 describeSuite({
     id: "DEV_SUB_LIMIT_ORDERS_STATUS",
@@ -30,9 +25,7 @@ describeSuite({
             title: "root can disable the pallet",
             test: async () => {
                 await context.createBlock([
-                    await polkadotJs.tx.sudo
-                        .sudo(polkadotJs.tx.limitOrders.setPalletStatus(false))
-                        .signAsync(alice),
+                    await polkadotJs.tx.sudo.sudo(polkadotJs.tx.limitOrders.setPalletStatus(false)).signAsync(alice),
                 ]);
 
                 const events = await polkadotJs.query.system.events();
@@ -88,9 +81,7 @@ describeSuite({
                 const {
                     result: [attempt],
                 } = await context.createBlock([
-                    await polkadotJs.tx.limitOrders
-                        .executeBatchedOrders(1, [signed])
-                        .signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeBatchedOrders(1, [signed]).signAsync(alice),
                 ]);
 
                 expect(attempt.successful).toEqual(false);
@@ -103,9 +94,7 @@ describeSuite({
             title: "root can re-enable the pallet",
             test: async () => {
                 await context.createBlock([
-                    await polkadotJs.tx.sudo
-                        .sudo(polkadotJs.tx.limitOrders.setPalletStatus(true))
-                        .signAsync(alice),
+                    await polkadotJs.tx.sudo.sudo(polkadotJs.tx.limitOrders.setPalletStatus(true)).signAsync(alice),
                 ]);
 
                 const events = await polkadotJs.query.system.events();

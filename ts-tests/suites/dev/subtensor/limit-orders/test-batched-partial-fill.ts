@@ -76,9 +76,7 @@ describeSuite({
                 // Submit first partial fill (50 out of 100 TAO) via execute_batched_orders.
                 const firstEnvelope = { ...signed, partial_fill: firstFill };
                 await context.createBlock([
-                    await polkadotJs.tx.limitOrders
-                        .executeBatchedOrders(netuid, [firstEnvelope])
-                        .signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeBatchedOrders(netuid, [firstEnvelope]).signAsync(alice),
                 ]);
 
                 const events = await polkadotJs.query.system.events();
@@ -90,12 +88,7 @@ describeSuite({
                 expect(filled).toBe(BigInt(firstFill));
 
                 // Alpha stake should have increased from the partial buy.
-                const stakeAfter = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
+                const stakeAfter = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 expect(stakeAfter).toBeGreaterThan(0n);
             },
         });
@@ -127,9 +120,7 @@ describeSuite({
                 // First fill: 100 / 200.
                 const firstEnvelope = { ...signed, partial_fill: firstFill };
                 await context.createBlock([
-                    await polkadotJs.tx.limitOrders
-                        .executeBatchedOrders(netuid, [firstEnvelope])
-                        .signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeBatchedOrders(netuid, [firstEnvelope]).signAsync(alice),
                 ]);
 
                 expect(await getOrderStatus(polkadotJs, id)).toBe("PartiallyFilled");
@@ -138,9 +129,7 @@ describeSuite({
                 // Second fill: the remaining 100 — completes the order.
                 const secondEnvelope = { ...signed, partial_fill: secondFill };
                 await context.createBlock([
-                    await polkadotJs.tx.limitOrders
-                        .executeBatchedOrders(netuid, [secondEnvelope])
-                        .signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeBatchedOrders(netuid, [secondEnvelope]).signAsync(alice),
                 ]);
 
                 const events = await polkadotJs.query.system.events();

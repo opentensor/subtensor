@@ -59,12 +59,8 @@ describeSuite({
             id: "T01",
             title: "sell side dominates: both orders fulfilled, net sell hits pool",
             test: async () => {
-                const aliceStakeBefore = await devGetAlphaStake(
-                    polkadotJs, aliceHotKey.address, alice.address, netuid
-                );
-                const bobTaoBefore = (
-                    await polkadotJs.query.system.account(bob.address) as any
-                ).data.free.toBigInt();
+                const aliceStakeBefore = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
+                const bobTaoBefore = ((await polkadotJs.query.system.account(bob.address)) as any).data.free.toBigInt();
 
                 // Alice buys 10 TAO, Bob sells 200 alpha (~200 TAO equiv)
                 // → net sell ~190 alpha hits the pool
@@ -93,9 +89,7 @@ describeSuite({
                 });
 
                 // Read price before the swap — pallet uses pre-swap price for netting
-                const expectedNetAmount = await computeNetAmount(
-                    polkadotJs, netuid, tao(10), tao(200), "Sell"
-                );
+                const expectedNetAmount = await computeNetAmount(polkadotJs, netuid, tao(10), tao(200), "Sell");
 
                 await context.createBlock([
                     await polkadotJs.tx.limitOrders
@@ -117,14 +111,10 @@ describeSuite({
                 // actual_out > 0 proves the pool returned TAO
                 expect(summaryData[3].toBigInt()).toBeGreaterThan(0n);
 
-                const aliceStakeAfter = await devGetAlphaStake(
-                    polkadotJs, aliceHotKey.address, alice.address, netuid
-                );
+                const aliceStakeAfter = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 expect(aliceStakeAfter).toBeGreaterThan(aliceStakeBefore);
 
-                const bobTaoAfter = (
-                    await polkadotJs.query.system.account(bob.address) as any
-                ).data.free.toBigInt();
+                const bobTaoAfter = ((await polkadotJs.query.system.account(bob.address)) as any).data.free.toBigInt();
                 expect(bobTaoAfter).toBeGreaterThan(bobTaoBefore);
             },
         });

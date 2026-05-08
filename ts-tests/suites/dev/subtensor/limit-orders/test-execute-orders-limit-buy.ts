@@ -2,7 +2,15 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { tao, generateKeyringPair } from "../../../../utils";
-import { devForceSetBalance, devGetAlphaStake, devAssociateHotKey, devEnableSubtoken, devRegisterSubnet, devSudoSetLockReductionInterval, devExecuteOrders } from "../../../../utils/dev-helpers.js";
+import {
+    devForceSetBalance,
+    devGetAlphaStake,
+    devAssociateHotKey,
+    devEnableSubtoken,
+    devRegisterSubnet,
+    devSudoSetLockReductionInterval,
+    devExecuteOrders,
+} from "../../../../utils/dev-helpers.js";
 import {
     buildSignedOrder,
     FAR_FUTURE,
@@ -35,17 +43,17 @@ describeSuite({
             aliceHotKey = generateKeyringPair("sr25519");
             bob = context.keyring.bob;
             bobHotKey = generateKeyringPair("sr25519");
- 
+
             registerLimitOrderTypes(polkadotJs);
             chainId = await fetchChainId(polkadotJs);
 
             await devForceSetBalance(polkadotJs, context, alice.address, tao(10_000));
             await devForceSetBalance(polkadotJs, context, bob.address, tao(10_000));
- 
+
             await devSudoSetLockReductionInterval(polkadotJs, context, alice, 1);
- 
+
             netuid = await devRegisterSubnet(polkadotJs, context, alice, aliceHotKey);
- 
+
             // ENable subtoken
             await devEnableSubtoken(polkadotJs, context, alice, netuid);
             // associate hotkeys
@@ -57,15 +65,8 @@ describeSuite({
             id: "T01",
             title: "LimitBuy executes when price condition is met",
             test: async () => {
-                const stakeBefore = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
-                const taoBalanceBefore = (
-                    await polkadotJs.query.system.account(alice.address)
-                ).data.free.toBigInt();
+                const stakeBefore = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
+                const taoBalanceBefore = (await polkadotJs.query.system.account(alice.address)).data.free.toBigInt();
 
                 // TODO: why here far future?
                 const signed = buildSignedOrder(polkadotJs, {
@@ -92,18 +93,11 @@ describeSuite({
                 expect(await getOrderStatus(polkadotJs, id)).toBe("Fulfilled");
 
                 // Alpha stake should have increased
-                const stakeAfter = await devGetAlphaStake(
-                    polkadotJs,
-                    aliceHotKey.address,
-                    alice.address,
-                    netuid
-                );
+                const stakeAfter = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 expect(stakeAfter).toBeGreaterThan(stakeBefore);
 
                 // TAO balance should have decreased
-                const taoBalanceAfter = (
-                    await polkadotJs.query.system.account(alice.address)
-                ).data.free.toBigInt();
+                const taoBalanceAfter = (await polkadotJs.query.system.account(alice.address)).data.free.toBigInt();
                 expect(taoBalanceAfter).toBeLessThan(taoBalanceBefore);
             },
         });
