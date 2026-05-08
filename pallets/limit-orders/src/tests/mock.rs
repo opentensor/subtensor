@@ -534,6 +534,7 @@ pub fn netuid() -> NetUid {
 
 pub const FAR_FUTURE: u64 = u64::MAX;
 
+#[allow(clippy::too_many_arguments)]
 pub fn make_signed_order(
     keyring: AccountKeyring,
     hotkey: AccountId,
@@ -572,6 +573,7 @@ pub fn make_signed_order(
 
 /// Build a signed order with partial fills enabled and a relayer set.
 /// `partial_fill` is the fill amount to inject into the `SignedOrder` envelope.
+#[allow(clippy::too_many_arguments)]
 pub fn make_partial_fill_order(
     keyring: AccountKeyring,
     hotkey: AccountId,

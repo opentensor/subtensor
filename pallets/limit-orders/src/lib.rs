@@ -182,6 +182,7 @@ pub(crate) struct OrderEntry<AccountId> {
 // ── Pallet ───────────────────────────────────────────────────────────────────
 
 #[frame_support::pallet]
+#[allow(clippy::expect_used)]
 pub mod pallet {
     use super::*;
     use crate::weights::WeightInfo as _;
@@ -956,6 +957,7 @@ pub mod pallet {
         ///
         /// `price_limit` encodes the tightest slippage constraint across all dominant-side
         /// orders: a ceiling for buy-dominant swaps, a floor for sell-dominant swaps.
+        #[allow(clippy::too_many_arguments)]
         fn net_pool_swap(
             total_buy_net: u128,
             total_sell_net: u128,
@@ -1010,6 +1012,7 @@ pub mod pallet {
         ///
         /// - Buy-dominant: total alpha = pool output + sell-side alpha (passed through).
         /// - Sell-dominant: total alpha = buy-side TAO converted at `current_price`.
+        #[allow(clippy::too_many_arguments)]
         pub(crate) fn distribute_alpha_pro_rata(
             buys: &BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
             actual_out: u128,
@@ -1068,6 +1071,7 @@ pub mod pallet {
         ///
         /// Fee on TAO output: `ppb(share)` is withheld from each seller's payout and
         /// left in the pallet account. Returns the total sell-side fee TAO accumulated.
+        #[allow(clippy::too_many_arguments)]
         pub(crate) fn distribute_tao_pro_rata(
             sells: &BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
             actual_out: u128,
@@ -1185,6 +1189,7 @@ pub mod pallet {
 
         /// Convert a TAO amount to alpha at `price` (TAO/alpha).
         /// Returns 0 when `price` is zero.
+        #[allow(clippy::arithmetic_side_effects)]
         fn tao_to_alpha(tao: u128, price: U96F32) -> u128 {
             if price == U96F32::from_num(0u32) {
                 return 0u128;

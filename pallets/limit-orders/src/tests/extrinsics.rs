@@ -1725,6 +1725,7 @@ fn root_disables_and_extrinsics_are_filtered() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Build a signed order with a specific `max_slippage` value.
+#[allow(clippy::too_many_arguments)]
 fn make_signed_order_with_slippage(
     keyring: AccountKeyring,
     hotkey: AccountId,

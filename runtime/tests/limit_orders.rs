@@ -81,8 +81,8 @@ fn setup_buyer_seller(
         initial_alpha,
     );
     seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
-    SubtensorModule::create_account_if_non_existent(alice_id, charlie_id);
-    SubtensorModule::create_account_if_non_existent(bob_id, dave_id);
+    let _ = SubtensorModule::create_account_if_non_existent(alice_id, charlie_id);
+    let _ = SubtensorModule::create_account_if_non_existent(bob_id, dave_id);
 }
 
 struct OrderParams {
@@ -397,7 +397,7 @@ fn limit_buy_order_executes_and_stakes_alpha() {
         fund_account(&alice_id);
 
         // Create the hot-key association.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // limit_price = u64::MAX → current_price (1.0) ≤ MAX → condition always met.
         let signed = make_signed_order(
@@ -450,7 +450,7 @@ fn take_profit_order_executes_and_unstakes_alpha() {
         setup_subnet(netuid);
 
         // Create the hot-key association.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // Seed Alice with staked alpha through Bob so she has something to sell.
         let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
@@ -514,7 +514,7 @@ fn stop_loss_order_executes_and_unstakes_alpha() {
         setup_subnet(netuid);
 
         // Create the hot-key association.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // Seed Alice with staked alpha through Bob so she has something to sell.
         let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
@@ -1106,7 +1106,7 @@ fn execute_orders_valid_and_invalid_mixed() {
         fund_account(&alice_id);
 
         // Create the hotkey association for Alice so buy_alpha succeeds.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // Timestamp at 100_000 ms — Bob's order (expiry 50_000) will be expired.
         pallet_timestamp::Now::<Runtime>::put(100_000u64);
@@ -1219,7 +1219,7 @@ fn execute_orders_skips_order_below_minimum_stake() {
         fund_account(&alice_id);
 
         // Create the hotkey association so that is not the reason for skipping.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // amount = 1 is well below min_default_stake(), triggering AmountTooLow.
         let signed = make_signed_order(
@@ -1265,7 +1265,7 @@ fn execute_orders_skips_order_for_nonexistent_subnet() {
         fund_account(&alice_id);
 
         // Create the hotkey association so that is not the reason for skipping.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         let signed = make_signed_order(
             alice,
@@ -1324,7 +1324,7 @@ fn execute_orders_fee_forwarded_to_recipient() {
         fund_account(&alice_id);
 
         // Create the hotkey association Alice → Bob.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // Charlie starts with zero balance — verify before submitting.
         assert_eq!(
@@ -1620,7 +1620,7 @@ fn execute_orders_stoploss_max_slippage_exceeds_pool_price_skipped() {
         setup_dynamic_subnet(netuid);
 
         // Alice needs staked alpha so the sell can debit her position.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
         let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob_id,
@@ -1689,7 +1689,7 @@ fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
 
         setup_dynamic_subnet(netuid);
 
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
         let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &bob_id,
@@ -1766,7 +1766,7 @@ fn execute_orders_partial_fill_then_complete() {
         add_balance_to_coldkey_account(&alice_id, TaoBalance::from(order_amount * 2u64));
 
         // Create the hotkey association Alice → Bob.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // Build the base signed order — this exact payload is re-used for both submissions.
         let first_signed = make_partial_fill_order(
@@ -1847,7 +1847,7 @@ fn execute_batched_orders_partial_fill_then_complete() {
         add_balance_to_coldkey_account(&alice_id, TaoBalance::from(order_amount * 2u64));
 
         // Create the hotkey association Alice → Bob.
-        SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
 
         // Build the base signed order — identical payload reused in both batches.
         let first_signed = make_partial_fill_order(

@@ -181,7 +181,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
 
     #[cfg(feature = "runtime-benchmarks")]
     fn set_up_acc_for_benchmark(hotkey: &T::AccountId, coldkey: &T::AccountId) {
-        Self::create_account_if_non_existent(coldkey, hotkey);
+        let _ = Self::create_account_if_non_existent(coldkey, hotkey);
         let credit = Self::mint_tao(TaoBalance::from(1_000_000_000_000_u64));
         let _ = Self::spend_tao(coldkey, credit, TaoBalance::from(1_000_000_000_000_u64));
     }
