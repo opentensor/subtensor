@@ -17,7 +17,7 @@ use sp_core::{H256, Pair};
 use sp_keyring::Sr25519Keyring as AccountKeyring;
 use sp_runtime::{
     AccountId32, BuildStorage, MultiSignature,
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
 };
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
@@ -120,6 +120,9 @@ thread_local! {
     /// Key: (hotkey, coldkey, netuid) — mirrors `StakingOperationRateLimiter` in subtensor.
     pub static RATE_LIMITS: RefCell<std::collections::HashSet<(AccountId, AccountId, NetUid)>> =
         RefCell::new(std::collections::HashSet::new());
+    /// Registered (coldkey, hotkey) ownership pairs — mirrors `Owner` storage in subtensor.
+    pub static HOTKEY_REGISTRATIONS: RefCell<std::collections::HashSet<(AccountId, AccountId)>> =
+        RefCell::new(std::collections::HashSet::new());
 }
 
 pub struct MockSwap;
@@ -145,6 +148,7 @@ impl MockSwap {
         ALPHA_BALANCES.with(|b| b.borrow_mut().clear());
         TAO_BALANCES.with(|b| b.borrow_mut().clear());
         RATE_LIMITS.with(|r| r.borrow_mut().clear());
+        HOTKEY_REGISTRATIONS.with(|r| r.borrow_mut().clear());
         MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow_mut() = false);
     }
     pub fn is_rate_limited(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> bool {
@@ -399,6 +403,20 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         );
     }
 
+    fn register_pallet_hotkey(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+    ) -> frame_support::pallet_prelude::DispatchResult {
+        HOTKEY_REGISTRATIONS.with(|r| {
+            r.borrow_mut().insert((coldkey.clone(), hotkey.clone()));
+        });
+        Ok(())
+    }
+
+    fn pallet_hotkey_registered(coldkey: &AccountId, hotkey: &AccountId) -> bool {
+        HOTKEY_REGISTRATIONS.with(|r| r.borrow().contains(&(coldkey.clone(), hotkey.clone())))
+    }
+
     fn transfer_staked_alpha(
         from_coldkey: &AccountId,
         from_hotkey: &AccountId,
@@ -612,6 +630,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     ext.execute_with(|| {
         System::set_block_number(1);
         MockSwap::clear_log();
+        // Simulate genesis_build: claim pallet hotkey ownership so set_pallet_status(true) succeeds.
+        let pallet_acct: AccountId = LimitOrdersPalletId::get().into_account_truncating();
+        let _ = MockSwap::register_pallet_hotkey(&pallet_acct, &PalletHotkeyAccount::get());
     });
     ext
 }

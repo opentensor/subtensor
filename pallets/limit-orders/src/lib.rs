@@ -332,6 +332,47 @@ pub mod pallet {
         RelayerRequiredForPartialFill,
         /// The order's chain_id does not match the current chain.
         ChainIdMismatch,
+        /// The pallet hotkey has not been registered to the pallet account.
+        /// Call on_runtime_upgrade or wait for genesis to complete registration
+        /// before enabling the pallet.
+        PalletHotkeyNotRegistered,
+    }
+
+    // ── Hooks ─────────────────────────────────────────────────────────────────
+
+    // ── Genesis ───────────────────────────────────────────────────────────────
+
+    #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T: Config> {
+        #[serde(skip)]
+        pub _phantom: core::marker::PhantomData<T>,
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+        fn build(&self) {
+            let _ = T::SwapInterface::register_pallet_hotkey(
+                &Pallet::<T>::pallet_account(),
+                &T::PalletHotkey::get(),
+            );
+        }
+    }
+
+    // ── Hooks ─────────────────────────────────────────────────────────────────
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let pallet_acct = Self::pallet_account();
+            let pallet_hotkey = T::PalletHotkey::get();
+            if T::SwapInterface::pallet_hotkey_registered(&pallet_acct, &pallet_hotkey) {
+                return T::DbWeight::get().reads(1);
+            }
+            let _ = T::SwapInterface::register_pallet_hotkey(&pallet_acct, &pallet_hotkey);
+            // 1 read (already-registered check) + 3 writes (Owner, OwnedHotkeys, StakingHotkeys)
+            T::DbWeight::get().reads_writes(1, 3)
+        }
     }
 
     // ── Extrinsics ────────────────────────────────────────────────────────────
@@ -445,6 +486,16 @@ pub mod pallet {
         pub fn set_pallet_status(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             ensure_root(origin)?;
 
+            if enabled {
+                ensure!(
+                    T::SwapInterface::pallet_hotkey_registered(
+                        &Self::pallet_account(),
+                        &T::PalletHotkey::get(),
+                    ),
+                    Error::<T>::PalletHotkeyNotRegistered
+                );
+            }
+
             LimitOrdersEnabled::<T>::set(enabled);
 
             Self::deposit_event(Event::LimitOrdersPalletStatusChanged { enabled });
@@ -477,7 +528,7 @@ pub mod pallet {
                     }
                 }
                 Some(slippage) => {
-                    let delta = slippage * limit_price;
+                    let delta = slippage.mul_floor(limit_price);
                     if is_buy {
                         limit_price.saturating_add(delta)
                     } else {
@@ -636,7 +687,7 @@ pub mod pallet {
                 // partial fill validations have passed, it is safe here to do this
                 let tao_in = TaoBalance::from(signed_order.partial_fill.unwrap_or(order.amount));
                 // Deduct fee from TAO input before swapping.
-                let fee_tao = TaoBalance::from(order.fee_rate * tao_in.to_u64());
+                let fee_tao = TaoBalance::from(order.fee_rate.mul_floor(tao_in.to_u64()));
                 let tao_after_fee = tao_in.saturating_sub(fee_tao);
 
                 let alpha_out = T::SwapInterface::buy_alpha(
@@ -667,7 +718,7 @@ pub mod pallet {
                 )?;
 
                 // Deduct fee from TAO output and forward to the order's fee recipient.
-                let fee_tao = TaoBalance::from(order.fee_rate * tao_out.to_u64());
+                let fee_tao = TaoBalance::from(order.fee_rate.mul_floor(tao_out.to_u64()));
                 Self::forward_fee(&order.signer, &order.fee_recipient, fee_tao);
                 (alpha_in.to_u64(), tao_out.saturating_sub(fee_tao).to_u64())
             };
@@ -703,7 +754,7 @@ pub mod pallet {
             let (valid_buys, valid_sells) =
                 Self::validate_and_classify(netuid, &orders, now_ms, current_price, relayer)?;
 
-            let executed_count = (valid_buys.len() + valid_sells.len()) as u32;
+            let executed_count = valid_buys.len().saturating_add(valid_sells.len()) as u32;
             if executed_count == 0 {
                 return Ok(());
             }
@@ -834,7 +885,7 @@ pub mod pallet {
                 let amount_in = signed_order.partial_fill.unwrap_or(order.amount);
                 let net = if order.order_type.is_buy() {
                     // Buy: fee on TAO input — net is the amount that reaches the pool.
-                    amount_in.saturating_sub(order.fee_rate * amount_in)
+                    amount_in.saturating_sub(order.fee_rate.mul_floor(amount_in))
                 } else {
                     // Sell: fee on TAO output — full alpha enters the pool; the fee is
                     // deducted from the TAO payout later in `distribute_tao_pro_rata`.
@@ -1045,7 +1096,7 @@ pub mod pallet {
                 } else {
                     0u64
                 };
-                let fee = e.fee_rate * gross_share;
+                let fee = e.fee_rate.mul_floor(gross_share);
                 let net_share = gross_share.saturating_sub(fee);
 
                 if fee > 0 {

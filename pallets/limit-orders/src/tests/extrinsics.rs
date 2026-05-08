@@ -1236,8 +1236,8 @@ fn execute_batched_orders_fees_charged_on_both_sides_when_matched_internally() {
         // Pool returns 9 TAO (mocked) for that residual.
         // total_tao for sellers = 9 (pool) + 990 (buy passthrough) = 999.
         // Bob gross_share = 999 * 1_000/1_000 = 999.
-        // Sell fee = 1% of 999 = 9.99 → rounds to 10 TAO; Bob nets 989 TAO.
-        // fee_recipient total = buy_fee(10) + sell_fee(10) = 20 TAO.
+        // Sell fee = mul_floor(1%, 999) = floor(9.99) = 9; Bob nets 990 TAO.
+        // fee_recipient total = buy_fee(10) + sell_fee(9) = 19 TAO.
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         MockSwap::set_sell_tao_return(9);
@@ -1275,10 +1275,10 @@ fn execute_batched_orders_fees_charged_on_both_sides_when_matched_internally() {
             bounded(vec![alice_buy, bob_sell]),
         ));
 
-        // Both sides charged: fee_recipient gets buy fee (10) + sell fee (10) = 20.
-        assert_eq!(MockSwap::tao_balance(&fee_recipient()), 20);
-        // Bob receives 989 TAO after sell-side fee.
-        assert_eq!(MockSwap::tao_balance(&bob()), 989);
+        // Both sides charged: fee_recipient gets buy fee (10) + sell fee (9) = 19.
+        assert_eq!(MockSwap::tao_balance(&fee_recipient()), 19);
+        // Bob receives 990 TAO after sell-side fee (999 gross - 9 fee).
+        assert_eq!(MockSwap::tao_balance(&bob()), 990);
     });
 }
 
@@ -1518,11 +1518,11 @@ fn execute_batched_orders_fees_batched_for_shared_recipient() {
 ///   pool returns 18 TAO for residual
 ///   total TAO for sellers = 18 + 1_980 = 1_998
 ///   each seller gross_share = 1_998 * 1_000 / 2_000 = 999
-///   sell fee = 1% * 999 = 10 TAO each
+///   sell fee = mul_floor(1%, 999) = floor(9.99) = 9 TAO each
 ///
 /// Expected:
-///   ferdie          receives 10 (Alice) + 10 (Bob)     = 20 TAO (1 transfer)
-///   fee_recipient() receives 10 (Charlie) + 10 (Eve)   = 20 TAO (1 transfer)
+///   ferdie          receives 10 (Alice) + 10 (Bob)   = 20 TAO (1 transfer)
+///   fee_recipient() receives 9 (Charlie) + 9 (Eve)   = 18 TAO (1 transfer)
 #[test]
 fn execute_batched_orders_four_orders_two_fee_recipients() {
     new_test_ext().execute_with(|| {
@@ -1610,8 +1610,8 @@ fn execute_batched_orders_four_orders_two_fee_recipients() {
             .collect();
         assert_eq!(fp_transfers.len(), 1, "single transfer to fee_recipient");
         assert_eq!(
-            fp_transfers[0].2, 20,
-            "fee_recipient receives 20 TAO in sell fees"
+            fp_transfers[0].2, 18,
+            "fee_recipient receives 18 TAO in sell fees"
         );
     });
 }

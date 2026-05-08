@@ -165,6 +165,16 @@ pub trait OrderSwapInterface<AccountId> {
     #[cfg(feature = "runtime-benchmarks")]
     fn set_up_netuid_for_benchmark(_netuid: NetUid) {}
 
+    /// Register `hotkey` as owned by `coldkey`.
+    ///
+    /// Called during `on_genesis` and `on_runtime_upgrade` to claim ownership of
+    /// the pallet's hotkey before any external actor can register it. Safe to call
+    /// multiple times — is a no-op if the hotkey account already exists.
+    fn register_pallet_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> DispatchResult;
+
+    /// Returns `true` if `coldkey` is the registered owner of `hotkey`.
+    fn pallet_hotkey_registered(coldkey: &AccountId, hotkey: &AccountId) -> bool;
+
     /// Set up accounts for benchmark execution.
     ///
     /// Called once per order before the benchmarked extrinsic runs. Implementations

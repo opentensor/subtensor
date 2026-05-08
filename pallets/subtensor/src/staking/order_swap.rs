@@ -160,6 +160,14 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Ok(())
     }
 
+    fn register_pallet_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> DispatchResult {
+        Self::create_account_if_non_existent(coldkey, hotkey)
+    }
+
+    fn pallet_hotkey_registered(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool {
+        Self::coldkey_owns_hotkey(coldkey, hotkey)
+    }
+
     #[cfg(feature = "runtime-benchmarks")]
     fn set_up_netuid_for_benchmark(netuid: NetUid) {
         if !Self::if_subnet_exist(netuid) {
