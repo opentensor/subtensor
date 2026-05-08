@@ -931,7 +931,7 @@ fn test_register_network_gives_owner_no_initial_alpha_distribution() {
         let netuid = SubtensorModule::get_all_subnet_netuids()
             .into_iter()
             .find(|netuid| !netuids_before.contains(netuid))
-            .expect("new subnet should be added");
+            .unwrap();
 
         assert_eq!(SubnetOwner::<Test>::get(netuid), owner_coldkey);
         assert_eq!(SubnetOwnerHotkey::<Test>::get(netuid), owner_hotkey);
