@@ -311,5 +311,8 @@ mod errors {
         ActivityCutoffFactorMilliOutOfBounds,
         /// `trigger_epoch` called while a previously triggered epoch is still pending.
         EpochTriggerAlreadyPending,
+        /// Owner-side `set_tempo`/`trigger_epoch` blocked because commit-reveal is enabled
+        /// for this subnet
+        DynamicTempoBlockedByCommitReveal,
     }
 }
