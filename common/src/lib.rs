@@ -516,7 +516,7 @@ mod tests {
     // --- LoopRemovePrefixWithWeightMeter integration (stub storage) ---
 
     thread_local! {
-        static LAST_CLEAR_LIMIT: Cell<u32> = Cell::new(0);
+        static LAST_CLEAR_LIMIT: Cell<u32> = const { Cell::new(0) };
     }
 
     /// Stub: all keys removed in one batch; obeys `limit` for debugging assertions.
