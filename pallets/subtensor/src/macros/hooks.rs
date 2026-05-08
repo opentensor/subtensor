@@ -247,7 +247,7 @@ mod hooks {
         // 		- The subnet to clean dissolved-network data for.
         //
         // # Returns:
-        // 	* 'Weight': The weight remaining after the cleanup step.
+        // 	* 'Weight': The weight used for the cleanup step.
         //
         fn remove_data_for_dissolved_networks(remaining_weight: Weight, netuid: &NetUid) -> Weight {
             let mut weight_meter =

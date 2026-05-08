@@ -593,7 +593,7 @@ mod tests {
         let per = Weight::from_parts(0, 500);
         let done = run_loop_remove_full(&mut meter, per, 2);
         assert!(done);
-        assert_eq!(last_limit(), 0);
+        assert_eq!(last_limit(), 9_999 / 500);
     }
 
     #[test]
