@@ -14,7 +14,6 @@ use frame_support::{
     },
 };
 use frame_system::pallet_prelude::*;
-use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{SetLike, VoteTally};
 
 use crate::Config;
@@ -138,7 +137,9 @@ pub enum DecisionStrategy<TrackId, BlockNumber> {
 }
 
 /// What happens when a `PassOrFail` referendum is approved.
-#[derive(Clone, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(
+    Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
+)]
 pub enum ApprovalAction<TrackId> {
     /// Schedule the call for next-block dispatch on this referendum's index.
     Execute,
@@ -288,7 +289,6 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
 }
 
 /// Per-referendum data captured at submit time and updated as votes arrive.
-#[freeze_struct("8ac1985db9ed5344")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Debug,
 )]
@@ -304,6 +304,11 @@ pub struct ReferendumInfo<AccountId, TrackId, Call, BlockNumber> {
     pub submitted: BlockNumber,
     /// Latest tally observed from the voting pallet.
     pub tally: VoteTally,
+    /// Snapshot of the track's decision strategy taken at submit time.
+    /// State-machine evaluation reads from this snapshot, so a runtime
+    /// upgrade that changes track config does not change the rules under
+    /// which a live referendum resolves.
+    pub decision_strategy: DecisionStrategy<TrackId, BlockNumber>,
 }
 
 /// Lifecycle status of a referendum. Each terminal variant carries the

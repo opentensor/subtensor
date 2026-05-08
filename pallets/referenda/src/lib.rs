@@ -126,6 +126,25 @@
 //! `ApprovalAction::Review { track }` references a track that exists and
 //! uses the `Adjustable` strategy. A misconfigured runtime panics at boot
 //! with a precise cause.
+//!
+//! ## Track-config snapshotting
+//!
+//! `submit` snapshots the track's [`DecisionStrategy`] into
+//! [`ReferendumInfo`]. State-machine evaluation reads the snapshot, not
+//! the live track table. Runtime upgrades that change thresholds, swap
+//! strategy, or remove a track therefore only affect *new* submissions;
+//! live referenda continue to resolve under the rules they started with.
+//!
+//! Voter-set membership stays dynamic by design (collective members
+//! naturally come and go), so percentages reflect current membership.
+//!
+//! Removing a track from the runtime is safe for the state machine but
+//! freezes the tally on any in-flight referendum (signed-voting refuses
+//! new votes when [`Polls::voter_set_of`] returns `None`). All paths are
+//! still terminal: PassOrFail resolves on the frozen tally or expires at
+//! `decision_period`; Adjustable runs at `initial_delay`. To drop a
+//! track cleanly, ship a migration that resolves (kills, concludes, or
+//! reassigns) live referenda on that track before the upgrade.
 
 extern crate alloc;
 
@@ -440,18 +459,18 @@ pub mod pallet {
             ActiveCount::<T>::put(active.saturating_add(1));
             ActivePerProposer::<T>::insert(&proposer, active_per_proposer.saturating_add(1));
 
-            let proposal = match track_info.decision_strategy {
+            let proposal = match &track_info.decision_strategy {
                 DecisionStrategy::PassOrFail {
                     decision_period, ..
                 } => {
                     // Deadline alarm: fires at the decision period's end to
                     // expire the referendum if no decision has been reached.
-                    Self::set_alarm(index, now.saturating_add(decision_period))?;
+                    Self::set_alarm(index, now.saturating_add(*decision_period))?;
                     let bounded_call = T::Preimages::bound(*call)?;
                     Proposal::Action(bounded_call)
                 }
                 DecisionStrategy::Adjustable { initial_delay, .. } => {
-                    let when = now.saturating_add(initial_delay);
+                    let when = now.saturating_add(*initial_delay);
                     Self::schedule_enactment(index, DispatchTime::At(when), call)?;
                     Proposal::Review
                 }
@@ -463,6 +482,7 @@ pub mod pallet {
                 proposer: proposer.clone(),
                 submitted: now,
                 tally: VoteTally::default(),
+                decision_strategy: track_info.decision_strategy,
             };
             ReferendumStatusFor::<T>::insert(index, ReferendumStatus::Ongoing(info));
 
@@ -644,7 +664,6 @@ impl<T: Config> Pallet<T> {
     /// runs threshold checks against the deadline; Adjustable also handles
     /// the natural-execution case (task already ran).
     fn advance_ongoing(index: ReferendumIndex, info: ReferendumInfoOf<T>) -> DispatchResult {
-        let track_info = T::Tracks::info(info.track).ok_or(Error::<T>::BadTrack)?;
         let tally = info.tally;
 
         match &info.proposal {
@@ -654,7 +673,7 @@ impl<T: Config> Pallet<T> {
                     approve_threshold,
                     reject_threshold,
                     on_approval,
-                } = &track_info.decision_strategy
+                } = &info.decision_strategy
                 else {
                     return Err(Error::<T>::Unreachable.into());
                 };
@@ -672,7 +691,7 @@ impl<T: Config> Pallet<T> {
                     initial_delay,
                     fast_track_threshold,
                     cancel_threshold,
-                } = &track_info.decision_strategy
+                } = &info.decision_strategy
                 else {
                     return Err(Error::<T>::Unreachable.into());
                 };
@@ -718,9 +737,7 @@ impl<T: Config> Pallet<T> {
             ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
             ActivePerProposer::<T>::mutate(&info.proposer, |c| *c = c.saturating_sub(1));
             T::OnPollCompleted::on_poll_completed(index);
-            if releases_preimage
-                && let Proposal::Action(bounded) = info.proposal
-            {
+            if releases_preimage && let Proposal::Action(bounded) = info.proposal {
                 T::Preimages::drop(&bounded);
             }
         }
@@ -774,11 +791,9 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        if let Err(err) = Self::schedule_enactment(
-            index,
-            DispatchTime::After(Zero::zero()),
-            Box::new(inner),
-        ) {
+        if let Err(err) =
+            Self::schedule_enactment(index, DispatchTime::After(Zero::zero()), Box::new(inner))
+        {
             Self::report_scheduler_error(index, "schedule_enactment", err);
             Self::expire_or_rearm_deadline(index, info.submitted, decision_period);
             return;
@@ -808,7 +823,7 @@ impl<T: Config> Pallet<T> {
         track: TrackIdOf<T>,
     ) -> Option<ReferendumIndex> {
         let track_info = T::Tracks::info(track)?;
-        let DecisionStrategy::Adjustable { initial_delay, .. } = track_info.decision_strategy
+        let DecisionStrategy::Adjustable { initial_delay, .. } = &track_info.decision_strategy
         else {
             return None;
         };
@@ -817,7 +832,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let now = T::BlockNumberProvider::current_block_number();
-        let when = now.saturating_add(initial_delay);
+        let when = now.saturating_add(*initial_delay);
         let new_index = ReferendumCount::<T>::get();
 
         if let Err(err) = Self::schedule_enactment(new_index, DispatchTime::At(when), call) {
@@ -835,6 +850,7 @@ impl<T: Config> Pallet<T> {
             proposer,
             submitted: now,
             tally: VoteTally::default(),
+            decision_strategy: track_info.decision_strategy,
         };
         ReferendumStatusFor::<T>::insert(new_index, ReferendumStatus::Ongoing(new_info));
 

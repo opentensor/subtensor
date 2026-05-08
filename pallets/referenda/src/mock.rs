@@ -254,6 +254,13 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             if t.id == 1 && review_voter_set_empty() {
                 t.info.voter_set = MemberSet::Union(alloc::vec![]);
             }
+            if t.id == 0 && track0_swapped_to_adjustable() {
+                t.info.decision_strategy = DecisionStrategy::Adjustable {
+                    initial_delay: 100,
+                    fast_track_threshold: Perbill::from_percent(75),
+                    cancel_threshold: Perbill::from_percent(51),
+                };
+            }
             t
         })
     }
@@ -275,8 +282,6 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
 
 thread_local! {
     static AUTHORIZE_PROPOSAL_RESULT: RefCell<bool> = const { RefCell::new(true) };
-    static HIDE_REVIEW_TRACK: RefCell<bool> = const { RefCell::new(false) };
-    static EMPTY_REVIEW_VOTER_SET: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Set the value returned by `TestTracks::authorize_proposal` for the current thread.
@@ -284,52 +289,51 @@ pub fn set_authorize_proposal(result: bool) {
     AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow_mut() = result);
 }
 
-#[must_use = "the guard restores visibility on drop; bind it to a local"]
-pub struct HideReviewTrackGuard {
-    previous: bool,
+/// Define a thread-local boolean toggle that flips on `Guard::new()` and
+/// restores its prior value on `Drop`. Used to simulate runtime-state
+/// mutations from tests without leaking across cases.
+macro_rules! define_bool_guard {
+    ($flag:ident, $guard:ident, $is_active:ident) => {
+        thread_local! {
+            static $flag: RefCell<bool> = const { RefCell::new(false) };
+        }
+
+        #[must_use = "the guard restores the prior value on drop; bind it to a local"]
+        pub struct $guard {
+            previous: bool,
+        }
+
+        impl $guard {
+            pub fn new() -> Self {
+                let previous = $flag.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
+                Self { previous }
+            }
+        }
+
+        impl Drop for $guard {
+            fn drop(&mut self) {
+                let prev = self.previous;
+                $flag.with(|r| *r.borrow_mut() = prev);
+            }
+        }
+
+        fn $is_active() -> bool {
+            $flag.with(|r| *r.borrow())
+        }
+    };
 }
 
-impl HideReviewTrackGuard {
-    pub fn new() -> Self {
-        let previous = HIDE_REVIEW_TRACK.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
-        Self { previous }
-    }
-}
-
-impl Drop for HideReviewTrackGuard {
-    fn drop(&mut self) {
-        let prev = self.previous;
-        HIDE_REVIEW_TRACK.with(|r| *r.borrow_mut() = prev);
-    }
-}
-
-fn review_track_hidden() -> bool {
-    HIDE_REVIEW_TRACK.with(|r| *r.borrow())
-}
-
-#[must_use = "the guard restores visibility on drop; bind it to a local"]
-pub struct EmptyReviewVoterSetGuard {
-    previous: bool,
-}
-
-impl EmptyReviewVoterSetGuard {
-    pub fn new() -> Self {
-        let previous =
-            EMPTY_REVIEW_VOTER_SET.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
-        Self { previous }
-    }
-}
-
-impl Drop for EmptyReviewVoterSetGuard {
-    fn drop(&mut self) {
-        let prev = self.previous;
-        EMPTY_REVIEW_VOTER_SET.with(|r| *r.borrow_mut() = prev);
-    }
-}
-
-fn review_voter_set_empty() -> bool {
-    EMPTY_REVIEW_VOTER_SET.with(|r| *r.borrow())
-}
+define_bool_guard!(HIDE_REVIEW_TRACK, HideReviewTrackGuard, review_track_hidden);
+define_bool_guard!(
+    EMPTY_REVIEW_VOTER_SET,
+    EmptyReviewVoterSetGuard,
+    review_voter_set_empty
+);
+define_bool_guard!(
+    SWAP_PASS_OR_FAIL_TRACK_TO_ADJUSTABLE,
+    SwapTrack0ToAdjustableGuard,
+    track0_swapped_to_adjustable
+);
 
 pub struct TestCollectives;
 

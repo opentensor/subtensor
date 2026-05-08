@@ -660,12 +660,8 @@ fn killing_child_does_not_change_parent_delegated_status() {
 fn schedule_for_review_returns_none_for_invalid_targets() {
     TestState::default().build_and_execute(|| {
         assert!(
-            Pallet::<Test>::schedule_for_review(
-                Box::new(make_call()),
-                U256::from(PROPOSER),
-                99u8,
-            )
-            .is_none()
+            Pallet::<Test>::schedule_for_review(Box::new(make_call()), U256::from(PROPOSER), 99u8,)
+                .is_none()
         );
 
         assert!(
@@ -1547,5 +1543,36 @@ fn schedule_for_review_increments_per_proposer_even_above_cap() {
             ActivePerProposer::<Test>::get(U256::from(PROPOSER)),
             cap + 1
         );
+    });
+}
+
+#[test]
+fn submit_snapshots_decision_strategy_into_referendum_info() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        match status_of(index) {
+            ReferendumStatus::Ongoing(info) => {
+                assert!(matches!(
+                    info.decision_strategy,
+                    DecisionStrategy::PassOrFail { .. }
+                ));
+            }
+            _ => panic!("expected Ongoing"),
+        }
+    });
+}
+
+#[test]
+fn live_referendum_uses_snapshot_when_track_strategy_changes_at_runtime() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+
+        let _guard = SwapTrack0ToAdjustableGuard::new();
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        run_to_block(current_block() + 1);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
     });
 }
