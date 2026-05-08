@@ -840,10 +840,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Clear **protocol-owned** liquidity and wipe all swap state for `netuid`.
-    pub fn do_clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
-        let limit_in = remaining_weight;
-        let mut remaining_weight = remaining_weight;
-
+    pub fn do_clear_protocol_liquidity(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         if CleanUpPhase::<T>::get().is_none() {
             CleanUpPhase::<T>::set(Some(
                 CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
@@ -859,57 +856,50 @@ impl<T: Config> Pallet<T> {
                 "==== current_phase in do_clear_protocol_liquidity is: {:?}",
                 current_phase
             );
-            let (weight_used, done) = match current_phase {
+            let done = match current_phase {
                 Some(CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity) => {
-                    let (weight_used, done) = Self::do_clear_protocol_liquidity_remove_liquidity(
-                        netuid,
-                        remaining_weight,
-                    );
+                    let done =
+                        Self::do_clear_protocol_liquidity_remove_liquidity(netuid, weight_meter);
                     if done {
                         CleanUpPhase::<T>::set(Some(
                             CleanUpPhaseEnum::ClearProtocolLiquidityTickIndexBitmapWords,
                         ));
                     }
-                    (weight_used, done)
+                    done
                 }
                 Some(CleanUpPhaseEnum::ClearProtocolLiquidityTickIndexBitmapWords) => {
-                    let (weight_used, done) =
-                        Self::do_clear_tick_index_bitmap_words(netuid, remaining_weight);
+                    let done = Self::do_clear_tick_index_bitmap_words(netuid, weight_meter);
                     if done {
                         CleanUpPhase::<T>::set(Some(
                             CleanUpPhaseEnum::ClearProtocolLiquidityParameters,
                         ));
                     }
-                    (weight_used, done)
+                    done
                 }
                 Some(CleanUpPhaseEnum::ClearProtocolLiquidityParameters) => {
-                    let (weight_used, done) =
-                        Self::do_clear_protocol_liquidity_parameters(netuid, remaining_weight);
+                    let done = Self::do_clear_protocol_liquidity_parameters(netuid, weight_meter);
                     if done {
                         CleanUpPhase::<T>::set(None);
                     }
-                    (weight_used, done)
+                    done
                 }
                 None => break,
             };
 
             phase_done = done;
-            remaining_weight = remaining_weight.saturating_sub(weight_used);
         }
 
-        let consumed = limit_in.saturating_sub(remaining_weight);
-        (consumed, CleanUpPhase::<T>::get().is_none())
+        CleanUpPhase::<T>::get().is_none()
     }
 
     pub fn do_clear_protocol_liquidity_remove_liquidity(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let read_weight = T::DbWeight::get().reads(1);
         let remove_weight = T::DbWeight::get()
             .reads_writes(2, 2)
             .saturating_add(T::DbWeight::get().reads(1));
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         WeightMeterWrapper!(weight_meter, read_weight);
@@ -953,15 +943,13 @@ impl<T: Config> Pallet<T> {
             CleanUpLastKey::<T>::set(None);
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn do_clear_protocol_liquidity_parameters(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
@@ -998,16 +986,15 @@ impl<T: Config> Pallet<T> {
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         EnabledUserLiquidity::<T>::remove(netuid);
 
-        (weight_meter.consumed(), true)
+        true
     }
 
     pub fn do_clear_tick_index_bitmap_words(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let read_weight = T::DbWeight::get().reads(1);
         let remove_weight = T::DbWeight::get().reads_writes(3, 3);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let iter = match CleanUpLastKey::<T>::get() {
@@ -1039,7 +1026,7 @@ impl<T: Config> Pallet<T> {
             CleanUpLastKey::<T>::set(None);
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 }
 
@@ -1164,8 +1151,8 @@ impl<T: Config> SwapHandler for Pallet<T> {
         Self::max_price_inner()
     }
 
-    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
-        Self::do_clear_protocol_liquidity(netuid, remaining_weight)
+    fn clear_protocol_liquidity(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
+        Self::do_clear_protocol_liquidity(netuid, weight_meter)
     }
     fn adjust_protocol_liquidity(netuid: NetUid, tao_delta: TaoBalance, alpha_delta: AlphaBalance) {
         Self::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);

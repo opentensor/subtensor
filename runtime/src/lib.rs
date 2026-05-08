@@ -873,8 +873,11 @@ impl ProxyInterface<AccountId> for Proxier {
 
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
-    fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
-        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid, remaining_weight)
+    fn purge_netuid(
+        netuid: NetUid,
+        weight_meter: &mut frame_support::weights::WeightMeter,
+    ) -> bool {
+        pallet_commitments::Pallet::<Runtime>::purge_netuid(netuid, weight_meter)
     }
 }
 

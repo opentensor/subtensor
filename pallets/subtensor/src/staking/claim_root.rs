@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
     ) {
         if DissolvedNetworks::<T>::get().contains(&netuid) {
             log::debug!("root claim on subnet {netuid} is skipped, network is dissolved");
-            return; // no-op
+            return;
         }
         // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
@@ -422,10 +422,8 @@ impl<T: Config> Pallet<T> {
     /// Claim all root dividends for subnet and remove all associated data.
     pub fn clean_up_root_claimable_for_subnet(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let mut to_remove_map = BTreeMap::<T::AccountId, BTreeMap<NetUid, I96F32>>::new();
 
         let mut read_all = true;
@@ -468,15 +466,13 @@ impl<T: Config> Pallet<T> {
             RootClaimable::<T>::insert(hotkey, claimable);
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn clean_up_root_claimed_for_subnet(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
-        let weight_meter = WeightMeter::with_limit(remaining_weight);
-
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
@@ -484,6 +480,6 @@ impl<T: Config> Pallet<T> {
             (netuid,)
         );
 
-        (weight_meter.consumed(), true)
+        true
     }
 }

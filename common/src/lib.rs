@@ -448,34 +448,40 @@ impl TypeInfo for NetUidStorageIndex {
 #[macro_export]
 macro_rules! WeightMeterWrapper {
     ( $meter:expr, $weight:expr ) => {{
-        if !$meter.can_consume($weight) {
-            return ($meter.consumed(), false);
+        if !$meter.can_consume($weight.clone()) {
+            return false;
         }
-        $meter.consume($weight);
-        ($weight, true)
+        $meter.consume($weight.clone());
     }};
 }
 
 #[macro_export]
 macro_rules! LoopRemovePrefixWithWeightMeter {
     ( $meter:expr, $weight:expr, $storage:ty, $netuid:expr ) => {{
-        let remaining_ref_time = $meter.limit().ref_time();
-        let write_ref_time = $weight.ref_time();
+        let limit = $meter
+            .remaining()
+            .checked_div_per_component(&$weight.clone());
+        match limit {
+            Some(limit) => {
+                let limit = u32::try_from(limit).unwrap_or(u32::MAX);
+                let result: $crate::MultiRemovalResults =
+                    <$storage>::clear_prefix($netuid, limit, None);
+                $meter.consume($weight.saturating_mul(result.backend.into()));
 
-        let limit = remaining_ref_time
-            .checked_div(write_ref_time)
-            .unwrap_or_default();
-
-        let limit = u32::try_from(limit).unwrap_or(u32::MAX);
-
-        let result: $crate::MultiRemovalResults = <$storage>::clear_prefix($netuid, limit, None);
-        ($meter.consumed(), result.maybe_cursor.is_none())
+                let remove_all = result.maybe_cursor.is_none();
+                if !remove_all {
+                    return false;
+                }
+            }
+            None => return false,
+        }
     }};
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use core::cell::Cell;
     use frame_support::weights::WeightMeter;
     const REF_TIME_WEIGHT: u64 = 100;
     const PROOF_SIZE_WEIGHT: u64 = 100;
@@ -485,10 +491,9 @@ mod tests {
         assert_eq!(NetUid(5).encode(), 5u16.encode());
     }
 
-    fn test_weight(remaining_weight: Weight, weight: Weight) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+    fn test_weight(weight_meter: &mut WeightMeter, weight: Weight) -> bool {
         WeightMeterWrapper!(weight_meter, weight);
-        (weight_meter.consumed(), true)
+        true
     }
 
     #[test]
@@ -496,14 +501,145 @@ mod tests {
         // Enough budget for one (ref, proof) unit of `weight`.
         let remaining_weight = Weight::from_parts(REF_TIME_WEIGHT * 2, PROOF_SIZE_WEIGHT * 2);
         let weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
-        let used = test_weight(remaining_weight, weight);
-        assert_eq!(used, (weight, true));
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        assert!(test_weight(&mut weight_meter, weight));
 
         // Not enough to consume 3x ref and 3x proof in one step.
-        let used = test_weight(
-            remaining_weight,
+        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
+        let consumed = test_weight(
+            &mut weight_meter,
             Weight::from_parts(REF_TIME_WEIGHT * 3, PROOF_SIZE_WEIGHT * 3),
         );
-        assert_eq!(used, (Weight::zero(), false));
+        assert!(!consumed);
+    }
+
+    // --- LoopRemovePrefixWithWeightMeter integration (stub storage) ---
+
+    thread_local! {
+        static LAST_CLEAR_LIMIT: Cell<u32> = Cell::new(0);
+    }
+
+    /// Stub: all keys removed in one batch; obeys `limit` for debugging assertions.
+    struct LoopRemoveStubFull;
+    impl LoopRemoveStubFull {
+        fn clear_prefix<K>(_prefix: K, limit: u32, _maybe: Option<&[u8]>) -> MultiRemovalResults {
+            LAST_CLEAR_LIMIT.with(|c| c.set(limit));
+            MultiRemovalResults {
+                maybe_cursor: None,
+                backend: limit,
+                unique: limit,
+                loops: if limit == 0 { 0 } else { 1 },
+            }
+        }
+    }
+
+    /// Stub: always reports partial removal (cursor set).
+    struct LoopRemoveStubPartial;
+    impl LoopRemoveStubPartial {
+        fn clear_prefix<K>(_prefix: K, _limit: u32, _maybe: Option<&[u8]>) -> MultiRemovalResults {
+            MultiRemovalResults {
+                maybe_cursor: Some(vec![0xAB]),
+                backend: 1,
+                unique: 1,
+                loops: 1,
+            }
+        }
+    }
+
+    fn last_limit() -> u32 {
+        LAST_CLEAR_LIMIT.with(|c| c.get())
+    }
+
+    fn run_loop_remove_full(meter: &mut WeightMeter, per_item: Weight, netuid: u16) -> bool {
+        LoopRemovePrefixWithWeightMeter!(meter, per_item, LoopRemoveStubFull, netuid);
+        true
+    }
+
+    fn run_loop_remove_partial(meter: &mut WeightMeter, per_item: Weight) -> bool {
+        LoopRemovePrefixWithWeightMeter!(meter, per_item, LoopRemoveStubPartial, 0u16);
+        true
+    }
+
+    #[test]
+    fn loop_remove_clear_limit_is_budget_over_per_write_ref_time() {
+        LAST_CLEAR_LIMIT.with(|c| c.set(0));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000, 0));
+        let per = Weight::from_parts(200, 0);
+        let done = run_loop_remove_full(&mut meter, per, 7);
+        assert!(done);
+        assert_eq!(last_limit(), 25, "5000 / 200 = 25 deletions per batch");
+        assert_eq!(
+            meter.consumed().ref_time(),
+            5_000,
+            "charges write_ref_time * limit_64"
+        );
+        assert_eq!(meter.consumed().proof_size(), 0);
+    }
+
+    #[test]
+    fn loop_remove_zero_remaining_ref_time_yields_zero_limit() {
+        LAST_CLEAR_LIMIT.with(|c| c.set(u32::MAX));
+        let mut meter = WeightMeter::with_limit(Weight::zero());
+        let done = run_loop_remove_full(&mut meter, Weight::from_parts(100, 0), 1);
+        assert!(done);
+        assert_eq!(last_limit(), 0);
+    }
+
+    #[test]
+    fn loop_remove_zero_write_ref_time_uses_zero_limit_via_checked_div() {
+        LAST_CLEAR_LIMIT.with(|c| c.set(u32::MAX));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(9_999, 9_999));
+        // Non-zero proof_size does not affect the macro (ref_time-only math).
+        let per = Weight::from_parts(0, 500);
+        let done = run_loop_remove_full(&mut meter, per, 2);
+        assert!(done);
+        assert_eq!(last_limit(), 0);
+    }
+
+    #[test]
+    fn loop_remove_limit_truncates_to_u32_max_when_budget_huge() {
+        LAST_CLEAR_LIMIT.with(|c| c.set(0));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(u64::MAX, 0));
+        let per = Weight::from_parts(1, 0);
+        let done = run_loop_remove_full(&mut meter, per, 3);
+        assert!(done);
+        assert_eq!(last_limit(), u32::MAX);
+    }
+
+    #[test]
+    fn loop_remove_partial_cursor_returns_false_from_enclosing_fn() {
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(100_001, 0));
+        let before = meter.consumed();
+        let done = run_loop_remove_partial(&mut meter, Weight::from_parts(400, 0));
+        assert!(!done);
+        assert!(
+            meter.consumed().ref_time() > before.ref_time(),
+            "batch cost applied before early return"
+        );
+        assert!(
+            meter.consumed().all_lte(meter.limit()),
+            "consumption must stay within the meter limit for this call"
+        );
+    }
+
+    #[test]
+    fn loop_remove_second_full_pass_uses_remaining_budget() {
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000, 0));
+        let per = Weight::from_parts(100, 0);
+        assert!(run_loop_remove_full(&mut meter, per, 0));
+        LAST_CLEAR_LIMIT.with(|c| c.set(u32::MAX));
+        let _ = run_loop_remove_full(&mut meter, per, 0);
+        assert_eq!(last_limit(), 0);
+    }
+
+    #[test]
+    fn loop_remove_exact_multiple_consumes_full_budget_ref_component() {
+        LAST_CLEAR_LIMIT.with(|c| c.set(0));
+        let mut meter = WeightMeter::with_limit(Weight::from_parts(800, 0));
+        let per = Weight::from_parts(100, 0);
+        let done = run_loop_remove_full(&mut meter, per, 99);
+        assert!(done);
+        assert_eq!(last_limit(), 8);
+        assert_eq!(meter.consumed().ref_time(), 800);
     }
 }

@@ -14,28 +14,32 @@ use subtensor_swap_interface::{Order, SwapHandler};
 /// Run the same α-out destroy steps as `remove_data_for_dissolved_networks` (post-root-cleanup).
 fn destroy_alpha_in_out_stakes_full_pipeline_for_test(netuid: NetUid) {
     let w = Weight::from_parts(u64::MAX, u64::MAX);
+    let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
     assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(netuid, w).1,
+        SubtensorModule::destroy_alpha_in_out_stakes_get_total_alpha_value(
+            netuid,
+            &mut weight_meter
+        ),
         "destroy_alpha_in_out_stakes_get_total_alpha_value incomplete"
     );
     assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, w).1,
+        SubtensorModule::destroy_alpha_in_out_stakes_settle_stakes(netuid, &mut weight_meter),
         "destroy_alpha_in_out_stakes_settle_stakes incomplete"
     );
     assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, w).1,
+        SubtensorModule::destroy_alpha_in_out_stakes_clean_alpha(netuid, &mut weight_meter),
         "destroy_alpha_in_out_stakes_clean_alpha incomplete"
     );
     assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals(netuid, w).1,
+        SubtensorModule::destroy_alpha_in_out_stakes_clear_hotkey_totals(netuid, &mut weight_meter),
         "destroy_alpha_in_out_stakes_clear_hotkey_totals incomplete"
     );
     assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes_clear_locks(netuid, w).1,
+        SubtensorModule::destroy_alpha_in_out_stakes_clear_locks(netuid, &mut weight_meter),
         "destroy_alpha_in_out_stakes_clear_locks incomplete"
     );
     assert!(
-        SubtensorModule::destroy_alpha_in_out_stakes(netuid, w).1,
+        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter),
         "destroy_alpha_in_out_stakes incomplete"
     );
 }
@@ -1083,10 +1087,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // Run the path under test
-        SubtensorModule::destroy_alpha_in_out_stakes(
-            netuid,
-            Weight::from_parts(u64::MAX, u64::MAX),
-        );
+        let mut weight_meter =
+            frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
 
         // Owner received their refund…
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1133,10 +1136,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // Run the path under test
-        SubtensorModule::destroy_alpha_in_out_stakes(
-            netuid,
-            Weight::from_parts(u64::MAX, u64::MAX),
-        );
+        let mut weight_meter =
+            frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
 
         // No refund for non‑legacy
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
@@ -1171,10 +1173,9 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         SubnetOwnerCut::<Test>::put(32_768u16); // ~50%
 
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
-        SubtensorModule::destroy_alpha_in_out_stakes(
-            netuid,
-            Weight::from_parts(u64::MAX, u64::MAX),
-        );
+        let mut weight_meter =
+            frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
         let owner_after = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // No refund possible when lock = 0

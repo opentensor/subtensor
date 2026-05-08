@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use core::ops::Neg;
 
-use frame_support::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, weights::WeightMeter};
 use substrate_fixed::types::U96F32;
 use subtensor_macros::freeze_struct;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
@@ -39,7 +39,7 @@ pub trait SwapHandler {
 
     fn approx_fee_amount<T: Token>(netuid: NetUid, amount: T) -> T;
     fn current_alpha_price(netuid: NetUid) -> U96F32;
-    fn clear_protocol_liquidity(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool);
+    fn clear_protocol_liquidity(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool;
     fn get_protocol_tao(netuid: NetUid) -> TaoBalance;
     fn max_price<C: Token>() -> C;
     fn min_price<C: Token>() -> C;

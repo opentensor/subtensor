@@ -426,10 +426,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn destroy_alpha_in_out_stakes(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
-        // 1) Initialize the weight meter from the remaining weight.
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
+    pub fn destroy_alpha_in_out_stakes(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
@@ -511,15 +508,14 @@ impl<T: Config> Pallet<T> {
             let _ = Self::transfer_tao_from_subnet(netuid, &owner_coldkey, refund);
         }
 
-        (weight_meter.consumed(), true)
+        true
     }
 
     pub fn destroy_alpha_in_out_stakes_get_total_alpha_value(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
         let mut total_alpha_value_u128: u128 = 0;
 
@@ -597,16 +593,15 @@ impl<T: Config> Pallet<T> {
             LastKeptRawKey::<T>::set(None);
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn destroy_alpha_in_out_stakes_settle_stakes(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
@@ -614,7 +609,7 @@ impl<T: Config> Pallet<T> {
             Some(value) => value,
             None => {
                 log::warn!("DissolvedSubnetTotalAlphaValue not set");
-                return (weight_meter.consumed(), false);
+                return false;
             }
         };
         let mut settled_alpha_value_u128 =
@@ -787,16 +782,15 @@ impl<T: Config> Pallet<T> {
             DissolvedSubnetSettledAlphaValue::<T>::set(Some(settled_alpha_value_u128));
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn destroy_alpha_in_out_stakes_clean_alpha(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
         //    - track hotkeys to clear pool totals.
 
@@ -866,16 +860,15 @@ impl<T: Config> Pallet<T> {
             LastKeptRawKey::<T>::set(None);
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn destroy_alpha_in_out_stakes_clear_hotkey_totals(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
         let mut hotkeys_to_remove: Vec<T::AccountId> = Vec::new();
 
@@ -917,17 +910,16 @@ impl<T: Config> Pallet<T> {
             TotalHotkeySharesV2::<T>::remove(&hotkey, netuid);
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn destroy_alpha_in_out_stakes_clear_locks(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
         let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let iter = match LastKeptRawKey::<T>::get() {
@@ -973,6 +965,6 @@ impl<T: Config> Pallet<T> {
             LastKeptRawKey::<T>::set(None);
         }
 
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 }

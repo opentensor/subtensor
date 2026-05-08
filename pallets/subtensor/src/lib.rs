@@ -16,6 +16,7 @@ use frame_support::{
     pallet_macros::import_section,
     pallet_prelude::*,
     traits::tokens::fungible,
+    weights::WeightMeter,
 };
 use pallet_balances::Call as BalancesCall;
 // use pallet_scheduler as Scheduler;
@@ -386,7 +387,7 @@ pub mod pallet {
         /// Phase 9: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
         RemoveNetworkMapParameters,
         /// Phase 10: Clear root-network weight entries referencing this netuid.
-        RemoveNetworkWeights,
+        RemoveNetworkUpdateWeightsOnRoot,
         /// Phase 11: Remove childkey take entries for this netuid.
         RemoveNetworkChildkeyTake,
         /// Phase 12: Remove child key bindings for this netuid.
@@ -2900,5 +2901,5 @@ impl<T> ProxyInterface<T> for () {
 
 /// Pallets that hold per-subnet commitments implement this to purge all state for `netuid`.
 pub trait CommitmentsInterface {
-    fn purge_netuid(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool);
+    fn purge_netuid(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool;
 }

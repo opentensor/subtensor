@@ -16,7 +16,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use frame_support::weights::{Weight, WeightMeter};
+use frame_support::weights::WeightMeter;
 use safe_math::*;
 use sp_std::collections::btree_map::BTreeMap;
 use substrate_fixed::types::{I64F64, U96F32};
@@ -233,12 +233,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn remove_network_map_parameters(
-        netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
+    pub fn remove_network_map_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
@@ -385,12 +380,10 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- Final removal logging.
-        (weight_meter.consumed(), true)
+        true
     }
 
-    pub fn remove_network_parameters(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
+    pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetOwner::<T>::remove(netuid);
 
@@ -571,16 +564,15 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
 
-        (weight_meter.consumed(), true)
+        true
     }
 
     pub fn remove_network_is_network_member(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
@@ -612,14 +604,16 @@ impl<T: Config> Pallet<T> {
         for hot in to_rm {
             IsNetworkMember::<T>::remove(&hot, netuid);
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
-    pub fn remove_network_weights(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
-
+    pub fn remove_network_update_weights_on_root(
+        netuid: NetUid,
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let mut map = BTreeMap::new();
         let mut read_all = true;
+        let netuid_u16 = u16::from(netuid);
 
         let root = NetUidStorageIndex::ROOT;
         let iter = match LastKeptRawKey::<T>::get() {
@@ -642,7 +636,7 @@ impl<T: Config> Pallet<T> {
             let mut need_update = false;
             for (subnet_id, weight) in modified_weights.iter_mut() {
                 // If the root network had a weight pointing to this netuid, set it to 0
-                if subnet_id == &u16::from(netuid) {
+                if *subnet_id == netuid_u16 {
                     if *weight != 0 {
                         need_update = true;
                     }
@@ -670,16 +664,12 @@ impl<T: Config> Pallet<T> {
         for (uid_i, weights_i) in map.iter() {
             Weights::<T>::insert(NetUidStorageIndex::ROOT, uid_i, weights_i.clone());
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
-    pub fn remove_network_childkey_take(
-        netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+    pub fn remove_network_childkey_take(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
@@ -711,13 +701,12 @@ impl<T: Config> Pallet<T> {
         for hot in to_rm {
             ChildkeyTake::<T>::remove(&hot, netuid);
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
-    pub fn remove_network_childkeys(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
+    pub fn remove_network_childkeys(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
@@ -749,13 +738,12 @@ impl<T: Config> Pallet<T> {
         for hot in to_rm {
             ChildKeys::<T>::remove(&hot, netuid);
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
-    pub fn remove_network_parentkeys(netuid: NetUid, remaining_weight: Weight) -> (Weight, bool) {
+    pub fn remove_network_parentkeys(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
@@ -787,16 +775,15 @@ impl<T: Config> Pallet<T> {
         for hot in to_rm {
             ParentKeys::<T>::remove(&hot, netuid);
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn remove_network_last_hotkey_emission_on_netuid(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
@@ -832,16 +819,15 @@ impl<T: Config> Pallet<T> {
         for hot in to_rm {
             LastHotkeyEmissionOnNetuid::<T>::remove(&hot, netuid);
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn remove_network_total_hotkey_alpha_last_epoch(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<T::AccountId> = sp_std::vec::Vec::new();
@@ -879,16 +865,15 @@ impl<T: Config> Pallet<T> {
         for hot in to_rm {
             TotalHotkeyAlphaLastEpoch::<T>::remove(&hot, netuid);
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn remove_network_transaction_key_last_block(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<(T::AccountId, u16)> = sp_std::vec::Vec::new();
@@ -924,16 +909,15 @@ impl<T: Config> Pallet<T> {
         for (hot, name) in to_rm {
             TransactionKeyLastBlock::<T>::remove((hot, netuid, name));
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     pub fn remove_network_staking_operation_rate_limiter(
         netuid: NetUid,
-        remaining_weight: Weight,
-    ) -> (Weight, bool) {
+        weight_meter: &mut WeightMeter,
+    ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
-        let mut weight_meter = WeightMeter::with_limit(remaining_weight);
         let mut read_all = true;
 
         let mut to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> = sp_std::vec::Vec::new();
@@ -969,7 +953,7 @@ impl<T: Config> Pallet<T> {
         for (hot, cold) in to_rm {
             StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
         }
-        (weight_meter.consumed(), read_all)
+        read_all
     }
 
     #[allow(clippy::arithmetic_side_effects)]

@@ -78,6 +78,23 @@ fn tick_to_price(tick: TickIndex) -> f64 {
     }
 }
 
+struct ClearProtocolLiquidityResult {
+    consumed: Weight,
+    done: bool,
+}
+
+fn clear_protocol_liquidity_with_meter(
+    netuid: NetUid,
+    limit: Weight,
+) -> ClearProtocolLiquidityResult {
+    let mut weight_meter = frame_support::weights::WeightMeter::with_limit(limit);
+    let done = Pallet::<Test>::do_clear_protocol_liquidity(netuid, &mut weight_meter);
+    ClearProtocolLiquidityResult {
+        consumed: weight_meter.consumed(),
+        done,
+    }
+}
+
 mod dispatchables {
     use super::*;
 
@@ -1967,7 +1984,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
         CleanUpPhase::<Test>::set(Some(
             CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
         ));
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // ASSERT: positions cleared (both user and protocol)
         assert_eq!(
@@ -2052,7 +2069,7 @@ fn test_liquidate_v3_removes_positions_ticks_and_state() {
 
 //         // Users-only dissolve, then clear protocol liquidity/state.
 //         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
-//         Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX)));
+//         clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
 //         // ASSERT: positions & ticks gone, state reset
 //         assert_eq!(
@@ -2097,7 +2114,7 @@ fn test_liquidate_non_v3_uninitialized_ok_and_clears() {
         );
 
         // ACT
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
         assert_ok!(Pallet::<Test>::do_dissolve_all_liquidity_providers(netuid));
 
         // ASSERT: Defensive clears leave no residues and do not panic
@@ -2157,7 +2174,7 @@ fn test_liquidate_idempotent() {
         CleanUpPhase::<Test>::set(Some(
             CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
         ));
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // State remains empty
         assert!(
@@ -2253,7 +2270,7 @@ fn refund_alpha_single_provider_exact() {
         );
 
         // Clear protocol liquidity and V3 state now.
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // --- State is cleared.
         assert!(Ticks::<Test>::iter_prefix(netuid).next().is_none());
@@ -2422,7 +2439,7 @@ fn test_clear_protocol_liquidity_green_path() {
         CleanUpPhase::<Test>::set(Some(
             CleanUpPhaseEnum::ClearProtocolLiquidityRemoveLiquidity,
         ));
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         // --- Assert: all protocol positions removed ---
         let prot_positions_after =
@@ -2457,7 +2474,7 @@ fn test_clear_protocol_liquidity_green_path() {
         assert!(!EnabledUserLiquidity::<Test>::contains_key(netuid));
 
         // --- And it's idempotent ---
-        Pallet::<Test>::do_clear_protocol_liquidity(netuid, Weight::from_parts(u64::MAX, u64::MAX));
+        clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
 
         assert!(
             Positions::<Test>::iter_prefix_values((netuid, protocol_id))
@@ -2483,12 +2500,10 @@ fn clear_protocol_liquidity_seeds_cleanup_phase_when_none() {
         CleanUpPhase::<Test>::kill();
         assert!(CleanUpPhase::<Test>::get().is_none());
 
-        let (_consumed, done) = Pallet::<Test>::do_clear_protocol_liquidity(
-            netuid,
-            Weight::from_parts(u64::MAX, u64::MAX),
-        );
+        let result =
+            clear_protocol_liquidity_with_meter(netuid, Weight::from_parts(u64::MAX, u64::MAX));
         assert!(
-            done,
+            result.done,
             "unbounded weight budget should finish swap cleanup for a freshly initialized v3 subnet"
         );
         assert!(
@@ -2508,10 +2523,12 @@ fn clear_protocol_liquidity_reports_consumed_weight_within_limit() {
         CleanUpPhase::<Test>::kill();
 
         let limit = Weight::from_parts(200_000_000, 200_000_000);
-        let (consumed, _done) = Pallet::<Test>::do_clear_protocol_liquidity(netuid, limit);
+        let result = clear_protocol_liquidity_with_meter(netuid, limit);
         assert!(
-            consumed.ref_time() <= limit.ref_time() && consumed.proof_size() <= limit.proof_size(),
-            "consumed weight must not exceed budget (consumed={consumed:?} limit={limit:?})"
+            result.consumed.ref_time() <= limit.ref_time()
+                && result.consumed.proof_size() <= limit.proof_size(),
+            "consumed weight must not exceed budget (consumed={:?} limit={limit:?})",
+            result.consumed
         );
     });
 }
@@ -2527,8 +2544,8 @@ fn clear_protocol_liquidity_resumes_until_done_with_small_budget() {
         let tiny = Weight::from_parts(5_000, 5_000);
         let mut done_global = false;
         for _ in 0..50_000 {
-            let (_c, done) = Pallet::<Test>::do_clear_protocol_liquidity(netuid, tiny);
-            if done {
+            let result = clear_protocol_liquidity_with_meter(netuid, tiny);
+            if result.done {
                 done_global = true;
                 break;
             }

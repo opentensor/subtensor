@@ -1438,10 +1438,9 @@ fn clean_up_root_claimable_for_subnet_removes_only_that_netuid_per_hotkey() {
         RootClaimable::<Test>::insert(hk2, m2);
         LastKeptRawKey::<Test>::kill();
 
-        let (_w, done) = SubtensorModule::clean_up_root_claimable_for_subnet(
-            net,
-            Weight::from_parts(u64::MAX, u64::MAX),
-        );
+        let mut weight_meter =
+            frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        let done = SubtensorModule::clean_up_root_claimable_for_subnet(net, &mut weight_meter);
         assert!(
             done,
             "full weight should scan and update all claimable maps"
@@ -1465,10 +1464,9 @@ fn clean_up_root_claimed_for_subnet_clears_claimed_nmap_prefix() {
         RootClaimed::<Test>::insert((net, hk, ck), 123u128);
         assert!(RootClaimed::<Test>::contains_key((net, hk, ck)));
 
-        let (_w, done) = SubtensorModule::clean_up_root_claimed_for_subnet(
-            net,
-            Weight::from_parts(u64::MAX, u64::MAX),
-        );
+        let mut weight_meter =
+            frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        let done = SubtensorModule::clean_up_root_claimed_for_subnet(net, &mut weight_meter);
         assert!(done);
         assert!(!RootClaimed::<Test>::contains_key((net, hk, ck)));
     });
@@ -2164,10 +2162,10 @@ fn test_clean_up_root_claimed_for_subnet_clears_target_preserves_other_netuid() 
         RootClaimed::<Test>::insert((netuid_target, &hotkey, &c_b), 20u128);
         RootClaimed::<Test>::insert((netuid_other, &hotkey, &c_other), 99u128);
 
-        let (_consumed, done) = SubtensorModule::clean_up_root_claimed_for_subnet(
-            netuid_target,
-            Weight::from_parts(u64::MAX, u64::MAX),
-        );
+        let mut weight_meter =
+            frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        let done =
+            SubtensorModule::clean_up_root_claimed_for_subnet(netuid_target, &mut weight_meter);
         assert!(done, "enough weight should complete cleanup");
 
         assert_eq!(

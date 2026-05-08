@@ -22,6 +22,11 @@ use frame_support::{
 };
 use frame_system::{Pallet as System, RawOrigin};
 
+fn purge_netuid_with_meter(netuid: NetUid, limit: Weight) -> bool {
+    let mut weight_meter = frame_support::weights::WeightMeter::with_limit(limit);
+    Pallet::<Test>::purge_netuid(netuid, &mut weight_meter)
+}
+
 #[test]
 fn manual_data_type_info() {
     let mut registry = scale_info::Registry::new();
@@ -2266,7 +2271,7 @@ fn purge_netuid_clears_only_that_netuid() {
         assert!(TimelockedIndex::<Test>::get().contains(&(net_a, who_a1)));
 
         // Act
-        Pallet::<Test>::purge_netuid(net_a, Weight::from_parts(u64::MAX, u64::MAX));
+        purge_netuid_with_meter(net_a, Weight::from_parts(u64::MAX, u64::MAX));
 
         // NET A: everything cleared
         assert_eq!(CommitmentOf::<Test>::iter_prefix(net_a).count(), 0);
@@ -2299,7 +2304,7 @@ fn purge_netuid_clears_only_that_netuid() {
         assert!(idx_after.contains(&(net_b, who_b)));
 
         // Idempotency
-        Pallet::<Test>::purge_netuid(net_a, Weight::from_parts(u64::MAX, u64::MAX));
+        purge_netuid_with_meter(net_a, Weight::from_parts(u64::MAX, u64::MAX));
         assert_eq!(CommitmentOf::<Test>::iter_prefix(net_a).count(), 0);
         assert!(!TimelockedIndex::<Test>::get().contains(&(net_a, who_a1)));
     });
@@ -2347,7 +2352,7 @@ fn purge_netuid_under_budget_may_skip_timelock_update_while_clearing_maps() {
         // this reliably fails at the final `WeightMeterWrapper!` inside `purge_netuid`.
         let budget = write1.saturating_sub(Weight::from_parts(1, 1));
 
-        let (_used, done) = Pallet::<Test>::purge_netuid(net_a, budget);
+        let done = purge_netuid_with_meter(net_a, budget);
         assert!(
             !done,
             "final timelock-index write uses WeightMeterWrapper and must fail when under-budget"
@@ -2358,8 +2363,8 @@ fn purge_netuid_under_budget_may_skip_timelock_update_while_clearing_maps() {
         );
 
         // Full budget finishes (including timelock index), even if prior pass already cleared maps.
-        let (_used2, done2) = Pallet::<Test>::purge_netuid(net_a, Weight::from_parts(u64::MAX, u64::MAX));
-        assert!(done2);
+        let done = purge_netuid_with_meter(net_a, Weight::from_parts(u64::MAX, u64::MAX));
+        assert!(done);
         assert!(CommitmentOf::<Test>::get(net_a, who_a).is_none());
         assert!(!TimelockedIndex::<Test>::get().contains(&(net_a, who_a)));
     });
