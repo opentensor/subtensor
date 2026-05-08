@@ -461,6 +461,40 @@ fn pass_or_fail_approves_at_threshold_and_reaches_enacted() {
 }
 
 #[test]
+fn alarm_driven_completion_does_not_emit_scheduler_operation_failed() {
+    TestState::default().build_and_execute(|| {
+        let approved = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, approved, true);
+        vote(VOTER_B, approved, true);
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(approved), ReferendumStatus::Approved(_)));
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(approved), ReferendumStatus::Enacted(_)));
+
+        let rejected = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        vote(VOTER_A, rejected, false);
+        vote(VOTER_B, rejected, false);
+        run_to_block(current_block() + 2);
+        assert!(matches!(status_of(rejected), ReferendumStatus::Rejected(_)));
+
+        let expired = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        let submitted = current_block();
+        run_to_block(submitted + DECISION_PERIOD);
+        assert!(matches!(status_of(expired), ReferendumStatus::Expired(_)));
+
+        assert!(
+            !System::events()
+                .iter()
+                .any(|record| matches!(
+                    record.event,
+                    RuntimeEvent::Referenda(Event::SchedulerOperationFailed { .. })
+                )),
+            "no SchedulerOperationFailed should fire on routine alarm-driven completions",
+        );
+    });
+}
+
+#[test]
 fn pass_or_fail_unanimous_aye_also_approves() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));

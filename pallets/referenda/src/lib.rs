@@ -20,9 +20,8 @@
 //! ## Lifecycle
 //!
 //! `submit` records a referendum, schedules the relevant scheduler entries
-//! (an alarm for `PassOrFail`; an enactment task plus a reaper alarm for
-//! `Adjustable`), and notifies subscribers via
-//! [`OnPollCreated::on_poll_created`].
+//! (an alarm for `PassOrFail`; an enactment task for `Adjustable`), and
+//! notifies subscribers via [`OnPollCreated::on_poll_created`].
 //!
 //! Tally updates arrive through [`Polls::on_tally_updated`]. The hook is
 //! intentionally side-effect-light: it stores the new tally and arms an
@@ -103,7 +102,7 @@
 //! * `FastTracked`: vote crossed `fast_track_threshold` on an `Adjustable`
 //!   track. Wrapper rescheduled to next block; marks `Enacted` on dispatch.
 //! * `Cancelled`: vote crossed `cancel_threshold` on an `Adjustable`
-//!   track. Wrapper cancelled and `PendingDispatch` cleared.
+//!   track. Wrapper cancelled and [`EnactmentTask`] cleared.
 //! * `Enacted`: the dispatch attempt completed. The `Enacted` event
 //!   carries the inner call's result via an `Option<DispatchError>`.
 //! * `Killed`: privileged termination via `KillOrigin`.
@@ -113,8 +112,7 @@
 //! Each referendum has at most one alarm (`alarm_name(index)`) and at
 //! most one enactment task (`task_name(index)`). [`set_alarm`] is
 //! idempotent: it cancels any prior alarm with the same name before
-//! scheduling a new one. `conclude` cancels the alarm so terminal-state
-//! referenda do not waste scheduler dispatches.
+//! scheduling a new one.
 //!
 //! `Adjustable` enactment tasks can move earlier (fast-track, linear
 //! interpolation) but never later than `submitted + initial_delay`.
@@ -298,6 +296,13 @@ pub mod pallet {
     pub type ActivePerProposer<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
+    /// Status of every referendum that has been submitted, keyed by index.
+    /// Entries persist after the referendum reaches a terminal state so the
+    /// outcome remains queryable for audit.
+    #[pallet::storage]
+    pub type ReferendumStatusFor<T: Config> =
+        StorageMap<_, Blake2_128Concat, ReferendumIndex, ReferendumStatusOf<T>, OptionQuery>;
+
     /// Wrapper preimage handle for any referendum with a scheduled enactment
     /// task. Present iff `task_name(index)` is currently in the scheduler's
     /// agenda. Used to release the scheduler's preimage ref on cancel paths,
@@ -306,13 +311,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type EnactmentTask<T: Config> =
         StorageMap<_, Blake2_128Concat, ReferendumIndex, BoundedCallOf<T>, OptionQuery>;
-
-    /// Status of every referendum that has been submitted, keyed by index.
-    /// Entries persist after the referendum reaches a terminal state so the
-    /// outcome remains queryable for audit.
-    #[pallet::storage]
-    pub type ReferendumStatusFor<T: Config> =
-        StorageMap<_, Blake2_128Concat, ReferendumIndex, ReferendumStatusOf<T>, OptionQuery>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -396,9 +394,6 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        /// Validate the runtime track table once at startup. Delegates to
-        /// [`TracksInfo::check_integrity`]; a misconfiguration panics with
-        /// the trait's diagnostic.
         fn integrity_test() {
             T::Tracks::check_integrity().expect("pallet-referenda: invalid track configuration");
         }
@@ -429,9 +424,6 @@ pub mod pallet {
             let proposer = ensure_signed(origin)?;
             let track_info = T::Tracks::info(track).ok_or(Error::<T>::BadTrack)?;
 
-            // All validation runs before any state mutation. The capacity
-            // check is bounded on currently-active referenda, not on
-            // lifetime submissions.
             let Some(ref proposer_set) = track_info.proposer_set else {
                 return Err(Error::<T>::TrackNotSubmittable.into());
             };
@@ -440,10 +432,6 @@ pub mod pallet {
                 T::Tracks::authorize_proposal(&track_info, &call),
                 Error::<T>::ProposalNotAuthorized
             );
-            // Refuse a poll whose voter set is currently empty. With no
-            // eligible voters the threshold checks resolve to a fixed
-            // outcome regardless of the call's merits; on `Adjustable`
-            // tracks that outcome is enactment at `initial_delay`.
             ensure!(!track_info.voter_set.is_empty(), Error::<T>::EmptyVoterSet);
             let active = ActiveCount::<T>::get();
             ensure!(active < T::MaxQueued::get(), Error::<T>::QueueFull);
@@ -463,8 +451,6 @@ pub mod pallet {
                 DecisionStrategy::PassOrFail {
                     decision_period, ..
                 } => {
-                    // Deadline alarm: fires at the decision period's end to
-                    // expire the referendum if no decision has been reached.
                     Self::set_alarm(index, now.saturating_add(*decision_period))?;
                     let bounded_call = T::Preimages::bound(*call)?;
                     Proposal::Action(bounded_call)
@@ -642,8 +628,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Used by `PassOrFail` paths that leave the referendum `Ongoing`
-    /// without a vote-driven decision.
+    /// PassOrFail no-decision branch: expire if the deadline has elapsed,
+    /// otherwise re-arm the deadline alarm.
     fn expire_or_rearm_deadline(
         index: ReferendumIndex,
         submitted: BlockNumberFor<T>,
@@ -658,9 +644,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Log a scheduler failure and emit `SchedulerOperationFailed` for
-    /// off-chain observability. Used in scheduled-call contexts where
-    /// `Err` cannot be propagated to a caller.
+    /// Used in scheduled-call contexts where `Err` cannot be propagated
+    /// to a caller; surfaces the failure off-chain instead.
     fn report_scheduler_error(index: ReferendumIndex, operation: &str, err: DispatchError) {
         log::error!(
             target: "runtime::referenda",
@@ -672,10 +657,8 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::SchedulerOperationFailed { index });
     }
 
-    /// Evaluate the state of an `Ongoing` referendum and dispatch to the
-    /// appropriate action helper. Branches on the proposal kind: PassOrFail
-    /// runs threshold checks against the deadline; Adjustable also handles
-    /// the natural-execution case (task already ran).
+    /// Run threshold checks on an `Ongoing` referendum and dispatch to
+    /// the appropriate action helper based on the proposal kind.
     fn advance_ongoing(index: ReferendumIndex, info: ReferendumInfoOf<T>) -> DispatchResult {
         let tally = info.tally;
 
@@ -728,17 +711,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Move a referendum to a terminal status: cancel any pending alarm,
-    /// store the new status, and emit `event`. Only the first transition
-    /// out of `Ongoing` releases the proposer's per-proposer slot,
-    /// decrements `ActiveCount`, and notifies `OnPollCompleted`.
-    /// Subsequent terminal-to-terminal transitions (Approved -> Enacted,
-    /// FastTracked -> Enacted) only update the status and emit the event.
     fn conclude(index: ReferendumIndex, status: ReferendumStatusOf<T>, event: Event<T>) {
-        if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
-            Self::report_scheduler_error(index, "cancel_alarm", err);
-        }
-
         let releases_preimage = matches!(
             status,
             ReferendumStatus::Rejected(_)
@@ -762,10 +735,10 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(event);
     }
 
-    /// Apply the configured `on_approval` action. Both `Execute` and
-    /// `Review` fail closed on scheduler error: the parent stays
-    /// `Ongoing` with the deadline alarm re-armed so the approved call
-    /// cannot dispatch without going through the configured path.
+    /// Both `Execute` and `Review` fail closed on scheduler error: the
+    /// parent stays `Ongoing` with the deadline alarm re-armed so the
+    /// approved call cannot dispatch without going through the configured
+    /// path.
     fn do_approve(
         index: ReferendumIndex,
         info: &ReferendumInfoOf<T>,
@@ -826,15 +799,10 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Create a fresh Adjustable referendum on `track` carrying the approved
-    /// call. The new referendum's slot is claimed against `ActiveCount`; the
-    /// caller's `conclude` on the parent releases its slot, so the net change
-    /// to `ActiveCount` is zero. No `Submitted` event is emitted (the child
-    /// is created by approval, not user submission).
-    ///
-    /// Returns the new index on success. Returns `None` if the track is
-    /// missing or not Adjustable, or if any scheduler operation fails. On
-    /// failure no storage is committed so the caller can fall back cleanly.
+    /// The child claims a slot against `ActiveCount`; the caller's
+    /// `conclude` on the parent releases its slot, so the net change is
+    /// zero. No `Submitted` event is emitted: the child is created by
+    /// approval, not by user submission.
     fn schedule_for_review(
         call: Box<CallOf<T>>,
         proposer: T::AccountId,
@@ -931,16 +899,10 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Move the scheduled task earlier based on the current tally.
-    ///
-    /// Computes a linear interpolation: at `approval = 0`, the delay equals
-    /// `initial_delay`; as approval approaches `fast_track_threshold`, the
-    /// delay shrinks toward zero. The dispatch target is anchored at
-    /// `submitted` so repeated reschedules cannot drift the call forward.
-    /// If elapsed time has already caught up to the interpolated target,
-    /// fast-track immediately. Otherwise restores the natural-execution
-    /// alarm at `submitted + initial_delay + 1` so the referendum cannot
-    /// end up without a pending alarm after voting stops.
+    /// Linear interpolation: at `approval = 0` the delay equals
+    /// `initial_delay`; as approval approaches `fast_track_threshold` it
+    /// shrinks toward zero. The target is anchored at `submitted` so
+    /// repeated reschedules cannot drift the call forward.
     fn do_adjust_delay(
         index: ReferendumIndex,
         tally: &VoteTally,
@@ -970,9 +932,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Schedule (or replace) the alarm for `index` to fire at `when`.
-    /// Cancels any prior alarm with the same name first so callers do not
-    /// need to track whether one is currently pending.
+    /// Idempotent: cancels any prior alarm with the same name first, so
+    /// callers do not need to track whether one is currently pending.
     fn set_alarm(index: ReferendumIndex, when: BlockNumberFor<T>) -> Result<(), DispatchError> {
         let _ = T::Scheduler::cancel_named(alarm_name(index));
         let call = T::Preimages::bound(CallOf::<T>::from(Call::advance_referendum { index }))?;
@@ -988,11 +949,10 @@ impl<T: Config> Pallet<T> {
         res.map(|_| ())
     }
 
-    /// Schedule `Pallet::enact(index, call)` to fire at `desired`. The
-    /// wrapper carries the inner call and dispatches it on fire, making
+    /// Wraps the inner call in `Pallet::enact { index, call }`, making
     /// the `Ongoing/Approved/FastTracked -> Enacted` transition atomic
-    /// with dispatch. The wrapper handle is parked in [`EnactmentTask`]
-    /// so cancel paths can release the scheduler's preimage ref.
+    /// with dispatch. Parks the handle in [`EnactmentTask`] so cancel
+    /// paths can release the scheduler's preimage ref.
     fn schedule_enactment(
         index: ReferendumIndex,
         desired: DispatchTime<BlockNumberFor<T>>,
@@ -1013,8 +973,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Return the `Ongoing` info for `index`, or an error if the referendum
-    /// is finalized or absent.
+    /// Disambiguates `ReferendumNotFound` from `ReferendumFinalized` for
+    /// callers that need that distinction.
     fn ensure_ongoing(index: ReferendumIndex) -> Result<ReferendumInfoOf<T>, DispatchError> {
         match ReferendumStatusFor::<T>::get(index) {
             Some(ReferendumStatus::Ongoing(info)) => Ok(info),
@@ -1023,8 +983,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Next scheduled dispatch time of the enactment task, or `None` if no
-    /// task with that name is currently queued.
+    /// `None` when no task with that name is currently queued.
     fn next_task_dispatch_time(index: ReferendumIndex) -> Option<BlockNumberFor<T>> {
         <T::Scheduler as ScheduleNamed<
             BlockNumberFor<T>,

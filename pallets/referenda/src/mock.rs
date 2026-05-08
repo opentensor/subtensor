@@ -184,7 +184,6 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
         >,
     > {
         vec![
-            // Track 0: PassOrFail with Execute on approval.
             Track {
                 id: 0,
                 info: TrackInfo {
@@ -200,7 +199,6 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
                     },
                 },
             },
-            // Track 1: Adjustable.
             Track {
                 id: 1,
                 info: TrackInfo {
@@ -215,7 +213,6 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
                     },
                 },
             },
-            // Track 2: PassOrFail with Review handoff to track 1.
             Track {
                 id: 2,
                 info: TrackInfo {
@@ -231,7 +228,6 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
                     },
                 },
             },
-            // Track 3: PassOrFail with no proposer set (not submittable).
             Track {
                 id: 3,
                 info: TrackInfo {
@@ -284,7 +280,6 @@ thread_local! {
     static AUTHORIZE_PROPOSAL_RESULT: RefCell<bool> = const { RefCell::new(true) };
 }
 
-/// Set the value returned by `TestTracks::authorize_proposal` for the current thread.
 pub fn set_authorize_proposal(result: bool) {
     AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow_mut() = result);
 }
@@ -494,7 +489,6 @@ impl TestState {
             System::set_block_number(1);
             set_authorize_proposal(true);
 
-            // Set up collectives via root origin
             for p in &self.proposers {
                 pallet_multi_collective::Pallet::<Test>::add_member(
                     RuntimeOrigin::root(),

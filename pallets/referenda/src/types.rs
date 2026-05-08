@@ -1,17 +1,9 @@
 //! Type definitions for the referenda pallet.
-//!
-//! Split into a separate module so the pallet logic in `lib.rs` stays
-//! focused on behavior. The runtime-facing trait [`TracksInfo`] and its
-//! associated types live here; pallet-side aliases over `Config` follow at
-//! the bottom of the file.
 
 use frame_support::{
     pallet_prelude::*,
     sp_runtime::Perbill,
-    traits::{
-        Bounded, LockIdentifier,
-        schedule::v3::{Anon as ScheduleAnon, TaskName},
-    },
+    traits::{Bounded, LockIdentifier, schedule::v3::TaskName},
 };
 use frame_system::pallet_prelude::*;
 use subtensor_runtime_common::{SetLike, VoteTally};
@@ -48,19 +40,11 @@ pub type CallOf<T> = <T as Config>::RuntimeCall;
 /// hash plus length; the actual call bytes live in the preimage pallet.
 pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
 
-/// Address type returned by anonymous scheduler entries. Currently unused
-/// by the pallet logic but kept so runtimes can implement
-/// [`Config::Scheduler`] with either the anon or named scheduler.
-pub type ScheduleAddressOf<T> = <<T as Config>::Scheduler as ScheduleAnon<
-    BlockNumberFor<T>,
-    CallOf<T>,
-    PalletsOriginOf<T>,
->>::Address;
-
 /// The runtime's track table type.
 pub type TracksOf<T> = <T as Config>::Tracks;
 
-/// The id type used to identify tracks in the runtime configuration.
+/// Stable identifier used to reference a track from referenda and from
+/// `ApprovalAction::Review`.
 pub type TrackIdOf<T> =
     <TracksOf<T> as TracksInfo<TrackName, AccountIdOf<T>, CallOf<T>, BlockNumberFor<T>>>::Id;
 
@@ -73,15 +57,15 @@ pub type VotingSchemeOf<T> = <TracksOf<T> as TracksInfo<
     BlockNumberFor<T>,
 >>::VotingScheme;
 
-/// The set of accounts allowed to vote on a track.
+/// Set of accounts entitled to vote on referenda on a track.
 pub type VoterSetOf<T> =
     <TracksOf<T> as TracksInfo<TrackName, AccountIdOf<T>, CallOf<T>, BlockNumberFor<T>>>::VoterSet;
 
-/// Convenience alias for [`ReferendumStatus`] specialized to the runtime.
+/// [`ReferendumStatus`] specialized to the runtime configuration.
 pub type ReferendumStatusOf<T> =
     ReferendumStatus<AccountIdOf<T>, TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>>;
 
-/// Convenience alias for [`ReferendumInfo`] specialized to the runtime.
+/// [`ReferendumInfo`] specialized to the runtime configuration.
 pub type ReferendumInfoOf<T> =
     ReferendumInfo<AccountIdOf<T>, TrackIdOf<T>, BoundedCallOf<T>, BlockNumberFor<T>>;
 
@@ -113,11 +97,11 @@ pub enum DecisionStrategy<TrackId, BlockNumber> {
         /// Number of blocks after submission within which a decision must
         /// be reached. Past this point the referendum expires.
         decision_period: BlockNumber,
-        /// Approval ratio needed to pass.
+        /// Approval ratio required to pass.
         approve_threshold: Perbill,
-        /// Rejection ratio needed to fail.
+        /// Rejection ratio required to fail.
         reject_threshold: Perbill,
-        /// What to do once the proposal is approved.
+        /// Action taken once the referendum is approved.
         on_approval: ApprovalAction<TrackId>,
     },
     /// Timing decision over a call already scheduled at submit time. The
@@ -153,24 +137,24 @@ pub enum ApprovalAction<TrackId> {
     },
 }
 
-/// Per-track configuration carried in the runtime.
+/// Per-track configuration carried in the runtime track table.
 #[derive(Clone, Debug)]
 pub struct TrackInfo<TrackId, Name, BlockNumber, ProposerSet, VoterSet, VotingScheme> {
     /// Display name. Padded to fixed width.
     pub name: Name,
-    /// Set of accounts allowed to submit referenda on this track. `None`
-    /// means the track is currently closed to new submissions; existing
+    /// Accounts allowed to submit referenda on this track. `None` means
+    /// the track is currently closed to new submissions; existing
     /// referenda continue their lifecycle normally.
     pub proposer_set: Option<ProposerSet>,
-    /// Voting scheme tag. Used by the voting layer to route tally updates.
+    /// Voting scheme tag. Routes tally updates to the correct backend.
     pub voting_scheme: VotingScheme,
-    /// Set of accounts entitled to vote on referenda on this track.
+    /// Accounts entitled to vote on referenda on this track.
     pub voter_set: VoterSet,
     /// How outcomes are decided on this track.
     pub decision_strategy: DecisionStrategy<TrackId, BlockNumber>,
 }
 
-/// A track entry in the runtime track table. Pairs an id with its
+/// A track entry in the runtime track table: an id paired with its
 /// configuration.
 #[derive(Clone, Debug)]
 pub struct Track<Id, Name, BlockNumber, ProposerSet, VoterSet, VotingScheme> {
@@ -187,11 +171,11 @@ pub struct Track<Id, Name, BlockNumber, ProposerSet, VoterSet, VotingScheme> {
 pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
     /// Stable identifier for a track.
     type Id: Parameter + MaxEncodedLen + Copy + Ord + PartialOrd + Send + Sync + 'static;
-    /// Set of accounts allowed to submit referenda.
+    /// Accounts allowed to submit referenda.
     type ProposerSet: SetLike<AccountId>;
     /// Voting scheme tag carried on each track.
     type VotingScheme: PartialEq;
-    /// Set of accounts entitled to vote.
+    /// Accounts entitled to vote.
     type VoterSet: SetLike<AccountId>;
 
     /// Iterate over every track defined in the runtime.
@@ -205,11 +189,6 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
             Self::VotingScheme,
         >,
     >;
-
-    /// Iterate over the ids of every defined track.
-    fn track_ids() -> impl Iterator<Item = Self::Id> {
-        Self::tracks().map(|x| x.id)
-    }
 
     /// Look up the configuration for a single track id.
     fn info(
@@ -297,12 +276,12 @@ pub struct ReferendumInfo<AccountId, TrackId, Call, BlockNumber> {
     pub track: TrackId,
     /// What this referendum proposes.
     pub proposal: Proposal<Call>,
-    /// The signed account that submitted the referendum.
+    /// Account that submitted the referendum.
     pub proposer: AccountId,
-    /// Block at which the referendum was submitted. Used to anchor
-    /// timing computations in `Adjustable` strategies.
+    /// Submission block. Anchors timing computations in `Adjustable`
+    /// strategies.
     pub submitted: BlockNumber,
-    /// Latest tally observed from the voting pallet.
+    /// Latest tally observed from the voting layer.
     pub tally: VoteTally,
     /// Snapshot of the track's decision strategy taken at submit time.
     /// State-machine evaluation reads from this snapshot, so a runtime
