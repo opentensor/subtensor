@@ -367,8 +367,9 @@ fn kill_rejects_non_kill_origin_and_unknown_index() {
 
 #[test]
 fn kill_rejects_already_finalized_referendum_for_every_terminal_status() {
-    // Drive each conclusion path, then attempt to kill: must always fail
-    // with `ReferendumFinalized`.
+    // `kill` accepts states that still hold scheduler hooks
+    // (`Ongoing`, `Approved`, `FastTracked`); it must reject every other
+    // terminal status with `ReferendumFinalized`.
     TestState::default().build_and_execute(|| {
         // Killed.
         let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
@@ -378,19 +379,11 @@ fn kill_rejects_already_finalized_referendum_for_every_terminal_status() {
             Error::<Test>::ReferendumFinalized
         );
 
-        // Approved (transient state between vote-driven approval and enact).
+        // Enacted (after the wrapper dispatches).
         let i = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
         vote(VOTER_A, i, true);
         vote(VOTER_B, i, true);
-        run_to_block(current_block() + 1);
-        assert!(matches!(status_of(i), ReferendumStatus::Approved(_)));
-        assert_noop!(
-            Referenda::kill(RuntimeOrigin::root(), i),
-            Error::<Test>::ReferendumFinalized
-        );
-
-        // Enacted (after the wrapper dispatches).
-        run_to_block(current_block() + 1);
+        run_to_block(current_block() + 2);
         assert!(matches!(status_of(i), ReferendumStatus::Enacted(_)));
         assert_noop!(
             Referenda::kill(RuntimeOrigin::root(), i),
@@ -1574,5 +1567,59 @@ fn live_referendum_uses_snapshot_when_track_strategy_changes_at_runtime() {
         run_to_block(current_block() + 1);
 
         assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+    });
+}
+
+#[test]
+fn kill_succeeds_on_approved_and_releases_wrapper_preimage() {
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(call.clone()),
+        ));
+        let index = ReferendumCount::<Test>::get() - 1;
+        let wrapper_hash = enact_wrapper_hash(index, call);
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+        assert!(preimage_exists(&wrapper_hash));
+
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), index));
+        assert!(matches!(status_of(index), ReferendumStatus::Killed(_)));
+        assert!(!preimage_exists(&wrapper_hash));
+        assert!(EnactmentTask::<Test>::get(index).is_none());
+        assert!(has_event(
+            |e| matches!(e, Event::Killed { index: i } if *i == index)
+        ));
+    });
+}
+
+#[test]
+fn kill_succeeds_on_fast_tracked_and_releases_wrapper_preimage() {
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_ADJUSTABLE,
+            Box::new(call.clone()),
+        ));
+        let index = ReferendumCount::<Test>::get() - 1;
+        let wrapper_hash = enact_wrapper_hash(index, call);
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        vote(VOTER_C, index, true);
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::FastTracked(_)));
+        assert!(preimage_exists(&wrapper_hash));
+
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), index));
+        assert!(matches!(status_of(index), ReferendumStatus::Killed(_)));
+        assert!(!preimage_exists(&wrapper_hash));
+        assert!(EnactmentTask::<Test>::get(index).is_none());
     });
 }

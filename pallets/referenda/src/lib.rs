@@ -497,8 +497,11 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Privileged termination of an ongoing referendum. Cancels any
-        /// pending scheduler entries and concludes as `Killed`.
+        /// Privileged termination of a referendum that has not yet
+        /// dispatched. Accepts `Ongoing`, `Approved`, and `FastTracked`
+        /// — i.e. anything still holding scheduler hooks. Cancels the
+        /// pending scheduler entries, releases the wrapper preimage, and
+        /// concludes as `Killed`. Already-terminal statuses are rejected.
         #[pallet::call_index(1)]
         #[pallet::weight(
             T::WeightInfo::kill().saturating_add(T::OnPollCompleted::weight())
@@ -506,7 +509,17 @@ pub mod pallet {
         pub fn kill(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
             T::KillOrigin::ensure_origin(origin)?;
 
-            Self::ensure_ongoing(index)?;
+            let status =
+                ReferendumStatusFor::<T>::get(index).ok_or(Error::<T>::ReferendumNotFound)?;
+            ensure!(
+                matches!(
+                    status,
+                    ReferendumStatus::Ongoing(_)
+                        | ReferendumStatus::Approved(_)
+                        | ReferendumStatus::FastTracked(_)
+                ),
+                Error::<T>::ReferendumFinalized
+            );
 
             // Best-effort cleanup. The task entry may be absent (`PassOrFail`
             // has no enactment task before approval); a missing task is
@@ -725,22 +738,27 @@ impl<T: Config> Pallet<T> {
         if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
             Self::report_scheduler_error(index, "cancel_alarm", err);
         }
+
         let releases_preimage = matches!(
             status,
             ReferendumStatus::Rejected(_)
                 | ReferendumStatus::Expired(_)
                 | ReferendumStatus::Killed(_)
         );
+
         let prior = ReferendumStatusFor::<T>::get(index);
         ReferendumStatusFor::<T>::insert(index, status);
+
         if let Some(ReferendumStatus::Ongoing(info)) = prior {
             ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
             ActivePerProposer::<T>::mutate(&info.proposer, |c| *c = c.saturating_sub(1));
             T::OnPollCompleted::on_poll_completed(index);
+
             if releases_preimage && let Proposal::Action(bounded) = info.proposal {
                 T::Preimages::drop(&bounded);
             }
         }
+
         Self::deposit_event(event);
     }
 
