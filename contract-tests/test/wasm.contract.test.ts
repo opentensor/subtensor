@@ -61,7 +61,7 @@ describe("Test wasm contract", () => {
         assert.ok(stake > BigInt(0))
     }
 
-    async function getContractStake() {
+    async function getContractStake(): Promise<bigint> {
         const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
             convertPublicKeyToSs58(hotkey.publicKey),
             contractAddress,
@@ -69,7 +69,7 @@ describe("Test wasm contract", () => {
         ))?.stake
 
         assert.ok(stake !== undefined)
-        return stake
+        return stake as bigint
     }
 
     async function initSecondColdAndHotkey() {
@@ -180,8 +180,6 @@ describe("Test wasm contract", () => {
         await addStakeViaContract(true)
         const stake = await getContractStake()
 
-        assert.ok(stake !== undefined)
-
         let amount = stake / BigInt(2)
         const message = inkClient.message("remove_stake")
         const data = message.encode({
@@ -194,8 +192,6 @@ describe("Test wasm contract", () => {
 
         const stakeAfterAddStake = await getContractStake()
 
-        assert.ok(stakeAfterAddStake !== undefined)
-        assert.ok(stake !== undefined)
         assert.ok(stakeAfterAddStake < stake)
     })
 
@@ -204,7 +200,7 @@ describe("Test wasm contract", () => {
         // Get stake before unstake_all
         const stakeBefore = await getContractStake()
 
-        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore > BigInt(0))
 
         // Call unstake_all
         const unstakeMessage = inkClient.message("unstake_all")
@@ -216,7 +212,6 @@ describe("Test wasm contract", () => {
         // Verify stake is now zero
         const stakeAfter = await getContractStake()
 
-        assert.ok(stakeAfter !== undefined)
         assert.equal(stakeAfter, BigInt(0))
     })
 
@@ -225,7 +220,7 @@ describe("Test wasm contract", () => {
         // Get stake before unstake_all_alpha
         const stakeBefore = await getContractStake()
 
-        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore > BigInt(0))
 
         // Call unstake_all_alpha
         const message = inkClient.message("unstake_all_alpha")
@@ -237,7 +232,6 @@ describe("Test wasm contract", () => {
         // Verify stake is now zero
         const stakeAfter = await getContractStake()
 
-        assert.ok(stakeAfter !== undefined)
         assert.equal(stakeAfter, BigInt(0))
     })
 
@@ -253,7 +247,7 @@ describe("Test wasm contract", () => {
             netuid,
         ))?.stake || BigInt(0)
 
-        assert.ok(originStakeBefore !== undefined && originStakeBefore > BigInt(0))
+        assert.ok(originStakeBefore > BigInt(0))
 
         // Move stake
         const moveAmount = originStakeBefore / BigInt(2)
@@ -276,9 +270,8 @@ describe("Test wasm contract", () => {
             netuid,
         ))?.stake
 
-        assert.ok(originStakeAfter !== undefined)
         assert.ok(destStakeAfter !== undefined)
-        assert.ok(originStakeAfter < originStakeBefore!)
+        assert.ok(originStakeAfter < originStakeBefore)
         assert.ok(destStakeAfter > destStakeBefore)
     })
 
@@ -294,7 +287,7 @@ describe("Test wasm contract", () => {
             netuid,
         ))?.stake
 
-        assert.ok(stakeBeforeOrigin !== undefined && stakeBeforeOrigin > BigInt(0))
+        assert.ok(stakeBeforeOrigin > BigInt(0))
         assert.ok(stakeBeforeDest !== undefined)
 
         // Transfer stake
@@ -318,9 +311,8 @@ describe("Test wasm contract", () => {
             netuid,
         ))?.stake
 
-        assert.ok(stakeAfterOrigin !== undefined)
         assert.ok(stakeAfterDest !== undefined)
-        assert.ok(stakeAfterOrigin < stakeBeforeOrigin!)
+        assert.ok(stakeAfterOrigin < stakeBeforeOrigin)
         assert.ok(stakeAfterDest > stakeBeforeDest!)
     })
 
@@ -335,7 +327,7 @@ describe("Test wasm contract", () => {
             netuid + 1,
         ))?.stake || BigInt(0)
 
-        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore > BigInt(0))
 
         // Swap stake
         const swapAmount = stakeBefore / BigInt(2)
@@ -357,7 +349,6 @@ describe("Test wasm contract", () => {
             netuid + 1,
         ))?.stake
 
-        assert.ok(stakeAfter !== undefined)
         assert.ok(stakeAfter2 !== undefined)
         assert.ok(stakeAfter < stakeBefore)
         assert.ok(stakeAfter2 > stakeBefore2)
@@ -365,8 +356,6 @@ describe("Test wasm contract", () => {
 
     it("Can add stake with limit", async () => {
         const stakeBefore = await getContractStake()
-
-        assert.ok(stakeBefore !== undefined)
 
         const message = inkClient.message("add_stake_limit")
         const data = message.encode({
@@ -381,15 +370,14 @@ describe("Test wasm contract", () => {
         // Verify stake was added
         const stakeAfter = await getContractStake()
 
-        assert.ok(stakeAfter !== undefined)
-        assert.ok(stakeAfter > stakeBefore!)
+        assert.ok(stakeAfter > stakeBefore)
     })
 
     it("Can remove stake with limit", async () => {
         await addStakeViaContract(true)
         const stakeBefore = await getContractStake()
 
-        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore > BigInt(0))
 
         const message = inkClient.message("remove_stake_limit")
         const data = message.encode({
@@ -403,8 +391,7 @@ describe("Test wasm contract", () => {
 
         const stakeAfter = await getContractStake()
 
-        assert.ok(stakeAfter !== undefined)
-        assert.ok(stakeAfter < stakeBefore!)
+        assert.ok(stakeAfter < stakeBefore)
     })
 
     it("Can swap stake with limit", async () => {
@@ -418,7 +405,7 @@ describe("Test wasm contract", () => {
             netuid + 1,
         ))?.stake
 
-        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore > BigInt(0))
         assert.ok(stakeBefore2 !== undefined)
 
         const message = inkClient.message("swap_stake_limit")
@@ -440,7 +427,6 @@ describe("Test wasm contract", () => {
             netuid + 1,
         ))?.stake
 
-        assert.ok(stakeAfter !== undefined)
         assert.ok(stakeAfter2 !== undefined)
         assert.ok(stakeAfter < stakeBefore)
         assert.ok(stakeAfter2 > stakeBefore2)
@@ -450,7 +436,7 @@ describe("Test wasm contract", () => {
         await addStakeViaContract(true)
         const stakeBefore = await getContractStake()
 
-        assert.ok(stakeBefore !== undefined && stakeBefore > BigInt(0))
+        assert.ok(stakeBefore > BigInt(0))
 
         const message = inkClient.message("remove_stake_full_limit")
         const data = message.encode({
@@ -462,8 +448,7 @@ describe("Test wasm contract", () => {
 
         const stakeAfter = await getContractStake()
 
-        assert.ok(stakeAfter !== undefined)
-        assert.ok(stakeAfter < stakeBefore!)
+        assert.ok(stakeAfter < stakeBefore)
     })
 
     it("Can set coldkey auto stake hotkey", async () => {
@@ -554,6 +539,7 @@ describe("Test wasm contract", () => {
     it("Can burn alpha from contract stake", async () => {
         await addStakeViaContract(true)
         const stakeBefore = await getContractStake()
+        const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
 
         const message = inkClient.message("burn_alpha")
         const data = message.encode({
@@ -564,8 +550,10 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
         const stakeAfter = await getContractStake()
+        const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
 
         assert.ok(stakeAfter < stakeBefore)
+        assert.equal(alphaOutAfter, alphaOutBefore)
     })
 
     it("Can add stake and recycle resulting alpha", async () => {
