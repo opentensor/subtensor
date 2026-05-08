@@ -30,6 +30,31 @@ fn make_call() -> RuntimeCall {
     RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] })
 }
 
+/// Encoded length exceeds the 128-byte `BoundedInline` cap so the preimage
+/// is stored as `Lookup` and contributes to the on-chain refcount, which is
+/// what the preimage-cleanup tests assert against.
+fn make_lookup_call() -> RuntimeCall {
+    RuntimeCall::System(frame_system::Call::<Test>::remark {
+        remark: vec![0u8; 256],
+    })
+}
+
+fn preimage_hash(call: &RuntimeCall) -> sp_core::H256 {
+    use sp_runtime::traits::Hash as HashT;
+    <Test as frame_system::Config>::Hashing::hash_of(call)
+}
+
+fn preimage_exists(hash: &sp_core::H256) -> bool {
+    pallet_preimage::RequestStatusFor::<Test>::contains_key(hash)
+}
+
+fn enact_wrapper_hash(index: ReferendumIndex, inner: RuntimeCall) -> sp_core::H256 {
+    preimage_hash(&RuntimeCall::Referenda(crate::Call::<Test>::enact {
+        index,
+        call: Box::new(inner),
+    }))
+}
+
 fn submit_on(track: u8, proposer: U256) -> ReferendumIndex {
     let index = ReferendumCount::<Test>::get();
     assert_ok!(Referenda::submit(
@@ -634,16 +659,18 @@ fn killing_child_does_not_change_parent_delegated_status() {
 #[test]
 fn schedule_for_review_returns_none_for_invalid_targets() {
     TestState::default().build_and_execute(|| {
-        let bounded = <Test as Config>::Preimages::bound(make_call()).unwrap();
-
         assert!(
-            Pallet::<Test>::schedule_for_review(bounded.clone(), U256::from(PROPOSER), 99u8)
-                .is_none()
+            Pallet::<Test>::schedule_for_review(
+                Box::new(make_call()),
+                U256::from(PROPOSER),
+                99u8,
+            )
+            .is_none()
         );
 
         assert!(
             Pallet::<Test>::schedule_for_review(
-                bounded.clone(),
+                Box::new(make_call()),
                 U256::from(PROPOSER),
                 TRACK_PASS_OR_FAIL,
             )
@@ -652,8 +679,12 @@ fn schedule_for_review_returns_none_for_invalid_targets() {
 
         let _guard = EmptyReviewVoterSetGuard::new();
         assert!(
-            Pallet::<Test>::schedule_for_review(bounded, U256::from(PROPOSER), TRACK_ADJUSTABLE)
-                .is_none()
+            Pallet::<Test>::schedule_for_review(
+                Box::new(make_call()),
+                U256::from(PROPOSER),
+                TRACK_ADJUSTABLE,
+            )
+            .is_none()
         );
     });
 }
@@ -1379,6 +1410,124 @@ fn delegated_handoff_keeps_proposer_active_count_at_one() {
 }
 
 #[test]
+fn rejected_drops_submit_time_preimage() {
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        let hash = preimage_hash(&call);
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(call),
+        ));
+        let index = ReferendumCount::<Test>::get() - 1;
+        assert!(preimage_exists(&hash));
+
+        vote(VOTER_A, index, false);
+        vote(VOTER_B, index, false);
+        run_to_block(current_block() + 2);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Rejected(_)));
+        assert!(!preimage_exists(&hash));
+    });
+}
+
+#[test]
+fn expired_drops_submit_time_preimage() {
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        let hash = preimage_hash(&call);
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(call),
+        ));
+        let index = ReferendumCount::<Test>::get() - 1;
+        let submitted = current_block();
+        assert!(preimage_exists(&hash));
+
+        run_to_block(submitted + DECISION_PERIOD);
+        assert!(matches!(status_of(index), ReferendumStatus::Expired(_)));
+        assert!(!preimage_exists(&hash));
+    });
+}
+
+#[test]
+fn killed_drops_submit_time_preimage_when_action_was_pending() {
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        let hash = preimage_hash(&call);
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(call),
+        ));
+        let index = ReferendumCount::<Test>::get() - 1;
+        assert!(preimage_exists(&hash));
+
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), index));
+        assert!(matches!(status_of(index), ReferendumStatus::Killed(_)));
+        assert!(!preimage_exists(&hash));
+    });
+}
+
+#[test]
+fn approve_then_enact_drops_both_submit_and_wrapper_preimages() {
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        let submit_hash = preimage_hash(&call);
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(call.clone()),
+        ));
+        let index = ReferendumCount::<Test>::get() - 1;
+        let wrapper_hash = enact_wrapper_hash(index, call);
+        assert!(preimage_exists(&submit_hash));
+        assert!(!preimage_exists(&wrapper_hash));
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+        assert!(!preimage_exists(&submit_hash));
+        assert!(preimage_exists(&wrapper_hash));
+
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert!(!preimage_exists(&wrapper_hash));
+    });
+}
+
+#[test]
+fn adjustable_cancel_drops_wrapper_preimage() {
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        let submit_hash = preimage_hash(&call);
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_ADJUSTABLE,
+            Box::new(call.clone()),
+        ));
+        let index = ReferendumCount::<Test>::get() - 1;
+        let wrapper_hash = enact_wrapper_hash(index, call);
+        assert!(!preimage_exists(&submit_hash));
+        assert!(preimage_exists(&wrapper_hash));
+
+        vote(VOTER_A, index, false);
+        vote(VOTER_B, index, false);
+        vote(VOTER_C, index, false);
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Cancelled(_)));
+        assert!(!preimage_exists(&wrapper_hash));
+    });
+}
+
+#[test]
 fn schedule_for_review_increments_per_proposer_even_above_cap() {
     let cap = <Test as Config>::MaxActivePerProposer::get();
     TestState::default().build_and_execute(|| {
@@ -1387,11 +1536,12 @@ fn schedule_for_review_increments_per_proposer_even_above_cap() {
         }
         assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), cap);
 
-        let bounded = <Test as Config>::Preimages::bound(make_call())
-            .expect("bound must succeed in test setup");
-        let child =
-            Pallet::<Test>::schedule_for_review(bounded, U256::from(PROPOSER), TRACK_ADJUSTABLE)
-                .expect("schedule_for_review must succeed");
+        let child = Pallet::<Test>::schedule_for_review(
+            Box::new(make_call()),
+            U256::from(PROPOSER),
+            TRACK_ADJUSTABLE,
+        )
+        .expect("schedule_for_review must succeed");
         assert!(matches!(status_of(child), ReferendumStatus::Ongoing(_)));
         assert_eq!(
             ActivePerProposer::<Test>::get(U256::from(PROPOSER)),

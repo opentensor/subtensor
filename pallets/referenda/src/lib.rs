@@ -279,6 +279,15 @@ pub mod pallet {
     pub type ActivePerProposer<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
+    /// Wrapper preimage handle for any referendum with a scheduled enactment
+    /// task. Present iff `task_name(index)` is currently in the scheduler's
+    /// agenda. Used to release the scheduler's preimage ref on cancel paths,
+    /// since `Scheduler::cancel_named` via the trait API does not drop the
+    /// preimage it requested at schedule time.
+    #[pallet::storage]
+    pub type EnactmentTask<T: Config> =
+        StorageMap<_, Blake2_128Concat, ReferendumIndex, BoundedCallOf<T>, OptionQuery>;
+
     /// Status of every referendum that has been submitted, keyed by index.
     /// Entries persist after the referendum reaches a terminal state so the
     /// outcome remains queryable for audit.
@@ -426,7 +435,6 @@ pub mod pallet {
             );
 
             let now = T::BlockNumberProvider::current_block_number();
-            let bounded_call = T::Preimages::bound(*call)?;
             let index = ReferendumCount::<T>::get();
             ReferendumCount::<T>::put(index.saturating_add(1));
             ActiveCount::<T>::put(active.saturating_add(1));
@@ -439,11 +447,12 @@ pub mod pallet {
                     // Deadline alarm: fires at the decision period's end to
                     // expire the referendum if no decision has been reached.
                     Self::set_alarm(index, now.saturating_add(decision_period))?;
+                    let bounded_call = T::Preimages::bound(*call)?;
                     Proposal::Action(bounded_call)
                 }
                 DecisionStrategy::Adjustable { initial_delay, .. } => {
                     let when = now.saturating_add(initial_delay);
-                    Self::schedule_enactment(index, DispatchTime::At(when), bounded_call)?;
+                    Self::schedule_enactment(index, DispatchTime::At(when), call)?;
                     Proposal::Review
                 }
             };
@@ -487,6 +496,12 @@ pub mod pallet {
             let _ = T::Scheduler::cancel_named(task_name(index));
             if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
                 Self::report_scheduler_error(index, "cancel_alarm", err);
+            }
+            // `Scheduler::cancel_named` via the trait API does not drop the
+            // preimage it requested at schedule time; balance manually so the
+            // wrapper preimage is fully released.
+            if let Some(wrapper) = EnactmentTask::<T>::take(index) {
+                T::Preimages::drop(&wrapper);
             }
 
             let now = T::BlockNumberProvider::current_block_number();
@@ -555,6 +570,10 @@ pub mod pallet {
                 .dispatch(frame_system::RawOrigin::Root.into())
                 .err()
                 .map(|post| post.error);
+
+            // Tracking entry only; the scheduler drops the wrapper preimage
+            // ref itself once the dispatch returns to it.
+            EnactmentTask::<T>::remove(index);
 
             let now = T::BlockNumberProvider::current_block_number();
             Self::conclude(
@@ -678,21 +697,32 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Move a referendum to a terminal status: cancel any pending alarm,
-    /// store the new status, and emit `event`. On the first transition out
-    /// of `Ongoing`, also release the proposer's per-proposer slot, decrement
-    /// `ActiveCount`, and notify subscribers via `OnPollCompleted`.
-    /// Subsequent transitions between non-Ongoing states (Approved → Enacted,
-    /// FastTracked → Enacted) leave those counters and the subscriber alone.
+    /// store the new status, and emit `event`. Only the first transition
+    /// out of `Ongoing` releases the proposer's per-proposer slot,
+    /// decrements `ActiveCount`, and notifies `OnPollCompleted`.
+    /// Subsequent terminal-to-terminal transitions (Approved -> Enacted,
+    /// FastTracked -> Enacted) only update the status and emit the event.
     fn conclude(index: ReferendumIndex, status: ReferendumStatusOf<T>, event: Event<T>) {
         if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
             Self::report_scheduler_error(index, "cancel_alarm", err);
         }
+        let releases_preimage = matches!(
+            status,
+            ReferendumStatus::Rejected(_)
+                | ReferendumStatus::Expired(_)
+                | ReferendumStatus::Killed(_)
+        );
         let prior = ReferendumStatusFor::<T>::get(index);
         ReferendumStatusFor::<T>::insert(index, status);
         if let Some(ReferendumStatus::Ongoing(info)) = prior {
             ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
             ActivePerProposer::<T>::mutate(&info.proposer, |c| *c = c.saturating_sub(1));
             T::OnPollCompleted::on_poll_completed(index);
+            if releases_preimage
+                && let Proposal::Action(bounded) = info.proposal
+            {
+                T::Preimages::drop(&bounded);
+            }
         }
         Self::deposit_event(event);
     }
@@ -713,10 +743,14 @@ impl<T: Config> Pallet<T> {
             return;
         };
 
-        // Proposal needs to be delegated to the review track.
+        let Ok((inner, _)) = T::Preimages::peek(bounded_call) else {
+            Self::expire_or_rearm_deadline(index, info.submitted, decision_period);
+            return;
+        };
+
         if let ApprovalAction::Review { track } = on_approval {
             let Some(review) =
-                Self::schedule_for_review(bounded_call.clone(), info.proposer.clone(), *track)
+                Self::schedule_for_review(Box::new(inner), info.proposer.clone(), *track)
             else {
                 Self::deposit_event(Event::<T>::ReviewSchedulingFailed {
                     index,
@@ -725,6 +759,7 @@ impl<T: Config> Pallet<T> {
                 Self::expire_or_rearm_deadline(index, info.submitted, decision_period);
                 return;
             };
+            T::Preimages::drop(bounded_call);
 
             let now = T::BlockNumberProvider::current_block_number();
             Self::conclude(
@@ -739,16 +774,16 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Normal proposal execution path.
         if let Err(err) = Self::schedule_enactment(
             index,
             DispatchTime::After(Zero::zero()),
-            bounded_call.clone(),
+            Box::new(inner),
         ) {
             Self::report_scheduler_error(index, "schedule_enactment", err);
             Self::expire_or_rearm_deadline(index, info.submitted, decision_period);
             return;
         }
+        T::Preimages::drop(bounded_call);
 
         let now = T::BlockNumberProvider::current_block_number();
         Self::conclude(
@@ -768,7 +803,7 @@ impl<T: Config> Pallet<T> {
     /// missing or not Adjustable, or if any scheduler operation fails. On
     /// failure no storage is committed so the caller can fall back cleanly.
     fn schedule_for_review(
-        bounded_call: BoundedCallOf<T>,
+        call: Box<CallOf<T>>,
         proposer: T::AccountId,
         track: TrackIdOf<T>,
     ) -> Option<ReferendumIndex> {
@@ -785,8 +820,7 @@ impl<T: Config> Pallet<T> {
         let when = now.saturating_add(initial_delay);
         let new_index = ReferendumCount::<T>::get();
 
-        if let Err(err) = Self::schedule_enactment(new_index, DispatchTime::At(when), bounded_call)
-        {
+        if let Err(err) = Self::schedule_enactment(new_index, DispatchTime::At(when), call) {
             Self::report_scheduler_error(new_index, "schedule_enactment", err);
             return None;
         }
@@ -850,6 +884,10 @@ impl<T: Config> Pallet<T> {
         if let Err(err) = T::Scheduler::cancel_named(task_name(index)) {
             Self::report_scheduler_error(index, "cancel_task", err);
         }
+        // See `kill` for the rationale on the manual preimage drop.
+        if let Some(wrapper) = EnactmentTask::<T>::take(index) {
+            T::Preimages::drop(&wrapper);
+        }
 
         let now = T::BlockNumberProvider::current_block_number();
         Self::conclude(
@@ -904,42 +942,40 @@ impl<T: Config> Pallet<T> {
     fn set_alarm(index: ReferendumIndex, when: BlockNumberFor<T>) -> Result<(), DispatchError> {
         let _ = T::Scheduler::cancel_named(alarm_name(index));
         let call = T::Preimages::bound(CallOf::<T>::from(Call::advance_referendum { index }))?;
-        T::Scheduler::schedule_named(
+        let res = T::Scheduler::schedule_named(
             alarm_name(index),
             DispatchTime::At(when),
             None,
             0, // highest priority
             frame_system::RawOrigin::Root.into(),
-            call,
-        )?;
-        Ok(())
+            call.clone(),
+        );
+        T::Preimages::drop(&call);
+        res.map(|_| ())
     }
 
-    /// Schedule the enactment task for `index`. Called once per index in the
-    /// referendum lifecycle.
     /// Schedule `Pallet::enact(index, call)` to fire at `desired`. The
     /// wrapper carries the inner call and dispatches it on fire, making
     /// the `Ongoing/Approved/FastTracked -> Enacted` transition atomic
-    /// with dispatch. The submit-time preimage is dropped here since the
-    /// wrapper is now the sole reference to the inner call.
+    /// with dispatch. The wrapper handle is parked in [`EnactmentTask`]
+    /// so cancel paths can release the scheduler's preimage ref.
     fn schedule_enactment(
         index: ReferendumIndex,
         desired: DispatchTime<BlockNumberFor<T>>,
-        bounded_call: BoundedCallOf<T>,
+        call: Box<CallOf<T>>,
     ) -> DispatchResult {
-        let (inner, _) = T::Preimages::realize(&bounded_call)?;
-        let wrapper = T::Preimages::bound(CallOf::<T>::from(Call::enact {
-            index,
-            call: Box::new(inner),
-        }))?;
-        T::Scheduler::schedule_named(
+        let wrapper = T::Preimages::bound(CallOf::<T>::from(Call::enact { index, call }))?;
+        let res = T::Scheduler::schedule_named(
             task_name(index),
             desired,
             None,
             0, // highest priority
             frame_system::RawOrigin::Root.into(),
-            wrapper,
-        )?;
+            wrapper.clone(),
+        );
+        T::Preimages::drop(&wrapper);
+        res?;
+        EnactmentTask::<T>::insert(index, wrapper);
         Ok(())
     }
 
