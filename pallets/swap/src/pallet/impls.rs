@@ -897,8 +897,10 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> bool {
         let read_weight = T::DbWeight::get().reads(1);
+        // weights for do_remove_liquidity function
         let do_remove_liquidity_weight = T::DbWeight::get().reads_writes(2, 6);
         let mut read_all = true;
+        let mut to_remove: Vec<PositionId> = Vec::new();
 
         WeightMeterWrapper!(weight_meter, read_weight);
         let protocol_account = Self::protocol_account_id();
@@ -917,28 +919,31 @@ impl<T: Config> Pallet<T> {
             }
             weight_meter.consume(read_weight);
 
-            if owner != protocol_account {
+            if owner != protocol_account.clone() {
                 continue;
             }
 
             if !weight_meter.can_consume(do_remove_liquidity_weight) {
                 read_all = false;
-                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(
-                    Positions::<T>::hashed_key_for((netuid, &owner, pos_id)),
-                )));
+                let key = Positions::<T>::hashed_key_for((netuid, &owner, pos_id));
+                CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(key)));
                 break;
             }
             weight_meter.consume(do_remove_liquidity_weight);
 
+            to_remove.push(pos_id);
+        }
+
+        if read_all {
+            CleanUpLastKey::<T>::set(None);
+        }
+
+        for pos_id in to_remove {
             if let Err(e) = Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
                 log::debug!(
                     "clear_protocol_liquidity: force-close failed: netuid={netuid:?}, pos_id={pos_id:?}, err={e:?}"
                 );
             }
-        }
-
-        if read_all {
-            CleanUpLastKey::<T>::set(None);
         }
 
         read_all
@@ -992,6 +997,7 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> bool {
         let read_weight = T::DbWeight::get().reads(1);
+        // weights for remove_liquidity_at_index ActiveTickIndexManager::<T>::remove
         let remove_weight = T::DbWeight::get().reads_writes(3, 3);
         let mut read_all = true;
 
