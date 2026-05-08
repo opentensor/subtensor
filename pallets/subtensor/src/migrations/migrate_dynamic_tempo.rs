@@ -9,14 +9,16 @@ use scale_info::prelude::string::String;
 ///    post-upgrade epoch lands on the same block as the legacy modulo formula
 ///    `(block + netuid + 1) % (tempo + 1) == 0`. The new scheduler period is
 ///    `tempo + 1` (next firing at `LastEpochBlock + tempo + 1`).
-/// 2. Defensively clamps `Tempo` values in `(0, MIN_TEMPO) ∪ (MAX_TEMPO, u16::MAX]`
-///    into `[MIN_TEMPO, MAX_TEMPO]`. Subnets with `Tempo == 0` are left as-is — the
-///    legacy short-circuit keeps them dormant and matches their pre-upgrade behaviour.
-/// 3. Converts each subnet's existing `ActivityCutoff[netuid]` (absolute block count)
+///    Existing `Tempo[netuid]` values are preserved as-is regardless of whether
+///    they fall inside `[MIN_TEMPO, MAX_TEMPO]`. Owner-side `set_tempo` enforces
+///    the bounds for new updates; root-side `sudo_set_tempo` can still write any
+///    `u16`. Subnets with `Tempo == 0` are left as-is — the legacy short-circuit
+///    keeps them dormant and matches their pre-upgrade behaviour.
+/// 2. Converts each subnet's existing `ActivityCutoff[netuid]` (absolute block count)
 ///    into `ActivityCutoffFactorMilli[netuid]` (per-mille of `tempo`) so that
 ///    `factor * tempo / 1000 ≈ old_cutoff` post-upgrade. Production defaults
-///    (`tempo=360`, `cutoff=5000`) round-trip to 4999 blocks (1-block delta from
-///    integer division, ≈0.02%). Out-of-range factors are clamped to
+///    (`tempo=360`, `cutoff=5000`) round-trip to 5000 blocks exactly via ceiling
+///    division. Out-of-range factors are clamped to
 ///    `[MIN_ACTIVITY_CUTOFF_FACTOR_MILLI, MAX_ACTIVITY_CUTOFF_FACTOR_MILLI]` —
 ///    extreme historical cutoffs may shift to the nearest representable factor.
 pub fn migrate_dynamic_tempo<T: Config>() -> Weight {
@@ -34,7 +36,6 @@ pub fn migrate_dynamic_tempo<T: Config>() -> Weight {
 
     let current_block = Pallet::<T>::get_current_block_as_u64();
     let mut visited: u64 = 0;
-    let mut tempo_clamped: u64 = 0;
     let mut last_epoch_seeded: u64 = 0;
     let mut activity_factor_seeded: u64 = 0;
     let mut activity_factor_clamped: u64 = 0;
@@ -46,21 +47,12 @@ pub fn migrate_dynamic_tempo<T: Config>() -> Weight {
 
     for netuid in netuids.into_iter() {
         visited = visited.saturating_add(1);
-        let mut tempo = Tempo::<T>::get(netuid);
+        let tempo = Tempo::<T>::get(netuid);
         reads = reads.saturating_add(1);
 
         if tempo == 0 {
             // Legacy `tempo == 0` short-circuit preserved; do not seed `LastEpochBlock`.
             continue;
-        }
-
-        // Defensive bounds clamp.
-        let clamped = tempo.clamp(MIN_TEMPO, MAX_TEMPO);
-        if clamped != tempo {
-            tempo = clamped;
-            Tempo::<T>::insert(netuid, tempo);
-            tempo_clamped = tempo_clamped.saturating_add(1);
-            writes = writes.saturating_add(1);
         }
 
         // Compute next-epoch block under the *legacy* modulo formula and back-fill
@@ -107,7 +99,7 @@ pub fn migrate_dynamic_tempo<T: Config>() -> Weight {
     total_weight = total_weight.saturating_add(T::DbWeight::get().reads_writes(reads, writes));
 
     log::info!(
-        "Dynamic tempo migration: visited={visited}, tempo_clamped={tempo_clamped}, last_epoch_seeded={last_epoch_seeded}, activity_factor_seeded={activity_factor_seeded}, activity_factor_clamped={activity_factor_clamped}"
+        "Dynamic tempo migration: visited={visited}, last_epoch_seeded={last_epoch_seeded}, activity_factor_seeded={activity_factor_seeded}, activity_factor_clamped={activity_factor_clamped}"
     );
 
     HasMigrationRun::<T>::insert(&mig_name, true);
