@@ -897,9 +897,7 @@ impl<T: Config> Pallet<T> {
         weight_meter: &mut WeightMeter,
     ) -> bool {
         let read_weight = T::DbWeight::get().reads(1);
-        let remove_weight = T::DbWeight::get()
-            .reads_writes(2, 2)
-            .saturating_add(T::DbWeight::get().reads(1));
+        let do_remove_liquidity_weight = T::DbWeight::get().reads_writes(2, 6);
         let mut read_all = true;
 
         WeightMeterWrapper!(weight_meter, read_weight);
@@ -923,14 +921,14 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            if !weight_meter.can_consume(remove_weight) {
+            if !weight_meter.can_consume(do_remove_liquidity_weight) {
                 read_all = false;
                 CleanUpLastKey::<T>::set(Some(BoundedVec::truncate_from(
                     Positions::<T>::hashed_key_for((netuid, &owner, pos_id)),
                 )));
                 break;
             }
-            weight_meter.consume(remove_weight);
+            weight_meter.consume(do_remove_liquidity_weight);
 
             if let Err(e) = Self::do_remove_liquidity(netuid, &protocol_account, pos_id) {
                 log::debug!(

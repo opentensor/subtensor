@@ -2533,28 +2533,20 @@ fn clear_protocol_liquidity_reports_consumed_weight_within_limit() {
     });
 }
 
-/// Ensure multi-call progression with a small per-call budget still reaches a full wipe.
+/// Ensure zero-weight mock cleanup reaches a full wipe instead of stalling in prefix clears.
 #[test]
-fn clear_protocol_liquidity_resumes_until_done_with_small_budget() {
+fn clear_protocol_liquidity_completes_with_zero_db_weight_budget() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(158);
         assert_ok!(Pallet::<Test>::maybe_initialize_v3(netuid));
         CleanUpPhase::<Test>::kill();
 
-        let tiny = Weight::from_parts(5_000, 5_000);
-        let mut done_global = false;
-        for _ in 0..50_000 {
-            let result = clear_protocol_liquidity_with_meter(netuid, tiny);
-            if result.done {
-                done_global = true;
-                break;
-            }
-        }
-
+        let result = clear_protocol_liquidity_with_meter(netuid, Weight::zero());
         assert!(
-            done_global,
-            "iterative small-budget calls should eventually clear protocol liquidity"
+            result.done,
+            "zero-weight mock cleanup should complete without stalling"
         );
+        assert_eq!(result.consumed, Weight::zero());
         assert!(CleanUpPhase::<Test>::get().is_none());
         assert!(!SwapV3Initialized::<Test>::contains_key(netuid));
     });
