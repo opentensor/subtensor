@@ -1,7 +1,8 @@
 #![allow(
+    clippy::arithmetic_side_effects,
     clippy::expect_used,
-    clippy::unwrap_used,
-    clippy::arithmetic_side_effects
+    clippy::indexing_slicing,
+    clippy::unwrap_used
 )]
 
 use approx::assert_abs_diff_eq;
@@ -9,7 +10,7 @@ use frame_support::weights::Weight;
 use frame_support::{assert_noop, assert_ok};
 use sp_core::U256;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AlphaBalance, TaoBalance};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
@@ -678,6 +679,66 @@ fn test_move_stake_same_coldkey_same_subnet_allowed() {
 }
 
 #[test]
+fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_hotkey() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_sender = U256::from(1);
+        let coldkey_receiver = U256::from(5);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
+
+        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
+        let lock_half = total / 2.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey_sender,
+            netuid,
+            &hotkey,
+            lock_half,
+        ));
+
+        let sender_lock_before =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should exist");
+        let hotkey_lock_before =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should exist");
+
+        step_block(1);
+
+        let transfer_amount = total;
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(coldkey_sender),
+            coldkey_receiver,
+            hotkey,
+            netuid,
+            netuid,
+            transfer_amount,
+        ));
+
+        let expected_sender_lock = SubtensorModule::roll_forward_lock(
+            sender_lock_before,
+            SubtensorModule::get_current_block_as_u64(),
+        );
+
+        assert!(Lock::<Test>::get((coldkey_sender, netuid, hotkey)).is_none());
+
+        let receiver_lock = Lock::<Test>::get((coldkey_receiver, netuid, hotkey))
+            .expect("receiver lock should exist after transfer");
+        assert_eq!(receiver_lock.locked_mass, expected_sender_lock.locked_mass);
+        assert_eq!(
+            receiver_lock.unlocked_mass,
+            expected_sender_lock.unlocked_mass
+        );
+        assert!(receiver_lock.conviction > U64F64::from_num(0));
+        assert!(receiver_lock.conviction <= expected_sender_lock.conviction);
+
+        let hotkey_lock_after =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should remain");
+        assert_eq!(
+            hotkey_lock_after.locked_mass,
+            hotkey_lock_before.locked_mass
+        );
+    });
+}
+
+#[test]
 fn test_move_stake_cross_subnet_blocked_by_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
@@ -716,39 +777,6 @@ fn test_move_stake_cross_subnet_blocked_by_lock() {
 }
 
 #[test]
-fn test_transfer_stake_cross_coldkey_blocked_by_lock() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_sender = U256::from(1);
-        let coldkey_receiver = U256::from(5);
-        let hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(coldkey_sender, hotkey, 100_000_000_000);
-
-        let total = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey_sender, netuid);
-        assert_ok!(SubtensorModule::do_lock_stake(
-            &coldkey_sender,
-            netuid,
-            &hotkey,
-            total,
-        ));
-
-        step_block(1);
-
-        let alpha = get_alpha(&hotkey, &coldkey_sender, netuid);
-        assert_noop!(
-            SubtensorModule::do_transfer_stake(
-                RuntimeOrigin::signed(coldkey_sender),
-                coldkey_receiver,
-                hotkey,
-                netuid,
-                netuid,
-                alpha,
-            ),
-            Error::<Test>::StakeUnavailable
-        );
-    });
-}
-
-#[test]
 fn test_transfer_stake_cross_coldkey_allowed_partial() {
     new_test_ext(1).execute_with(|| {
         let coldkey_sender = U256::from(1);
@@ -765,6 +793,9 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
             lock_half,
         ));
 
+        let sender_lock_before =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should exist");
+
         step_block(1);
 
         // Transfer the unlocked portion
@@ -778,6 +809,22 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
             netuid,
             transfer_amount,
         ));
+
+        let sender_lock_after =
+            Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should remain");
+        assert_eq!(
+            sender_lock_after.locked_mass,
+            sender_lock_before.locked_mass
+        );
+        assert_eq!(
+            sender_lock_after.unlocked_mass,
+            SubtensorModule::roll_forward_lock(
+                sender_lock_before,
+                SubtensorModule::get_current_block_as_u64()
+            )
+            .unlocked_mass
+        );
+        assert!(Lock::<Test>::get((coldkey_receiver, netuid, hotkey)).is_none());
     });
 }
 
@@ -1321,6 +1368,190 @@ fn test_coldkey_swap_lock_blocks_unstake() {
     });
 }
 
+#[test]
+// When both coldkeys already have unlocked-only lock state on the same subnet, the destination
+// hotkey key should be preserved and unlocked_mass should be accumulated onto that record.
+fn test_coldkey_swap_adds_unlocked_mass_into_existing_destination_lock() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(10);
+        let old_hotkey = U256::from(2);
+        let new_hotkey = U256::from(20);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+        let old_unlocked = AlphaBalance::from(4_000u64);
+        let new_unlocked = AlphaBalance::from(6_000u64);
+
+        // Seed unlocked-only lock rows on both coldkeys so the helper has to merge into
+        // the destination record instead of creating a second lock entry on the subnet.
+        SubtensorModule::insert_lock_state(
+            &old_coldkey,
+            netuid,
+            &old_hotkey,
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                unlocked_mass: old_unlocked,
+                conviction: U64F64::from_num(0),
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        SubtensorModule::insert_lock_state(
+            &new_coldkey,
+            netuid,
+            &new_hotkey,
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                unlocked_mass: new_unlocked,
+                conviction: U64F64::from_num(0),
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+
+        SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey);
+
+        assert!(
+            Lock::<Test>::iter_prefix((old_coldkey, netuid))
+                .next()
+                .is_none()
+        );
+        assert!(Lock::<Test>::get((new_coldkey, netuid, old_hotkey)).is_none());
+
+        let merged_lock = Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
+            .expect("destination lock should remain under its original hotkey key");
+        assert_eq!(merged_lock.locked_mass, AlphaBalance::ZERO);
+        assert_eq!(merged_lock.unlocked_mass, old_unlocked + new_unlocked);
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+    });
+}
+
+#[test]
+// When the destination already has a lock row on the subnet, the destination hotkey key should
+// be preserved, but locked_mass and conviction should be overwritten by the source lock.
+fn test_coldkey_swap_overwrites_destination_locked_mass_and_conviction() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(10);
+        let old_hotkey = U256::from(2);
+        let new_hotkey = U256::from(20);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+
+        let old_locked = AlphaBalance::from(7_000u64);
+        let old_unlocked = AlphaBalance::from(4_000u64);
+        let old_conviction = U64F64::from_num(77);
+
+        let new_locked = AlphaBalance::from(999u64);
+        let new_unlocked = AlphaBalance::from(6_000u64);
+        let new_conviction = U64F64::from_num(11);
+
+        SubtensorModule::insert_lock_state(
+            &old_coldkey,
+            netuid,
+            &old_hotkey,
+            LockState {
+                locked_mass: old_locked,
+                unlocked_mass: old_unlocked,
+                conviction: old_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+        SubtensorModule::insert_lock_state(
+            &new_coldkey,
+            netuid,
+            &new_hotkey,
+            LockState {
+                locked_mass: new_locked,
+                unlocked_mass: new_unlocked,
+                conviction: new_conviction,
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+
+        SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey);
+
+        assert!(
+            Lock::<Test>::iter_prefix((old_coldkey, netuid))
+                .next()
+                .is_none()
+        );
+        assert!(Lock::<Test>::get((new_coldkey, netuid, old_hotkey)).is_none());
+
+        let merged_lock = Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
+            .expect("destination lock should remain under its original hotkey key");
+        assert_eq!(merged_lock.locked_mass, old_locked);
+        assert_eq!(merged_lock.conviction, old_conviction);
+        assert_eq!(merged_lock.unlocked_mass, old_unlocked + new_unlocked);
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+    });
+}
+
+#[test]
+// The public coldkey swap extrinsic runs inside a storage layer, so a late failure rolls back the earlier writes.
+fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let old_hotkey = U256::from(2);
+        let new_coldkey = U256::from(3);
+        let blocked_hotkey = U256::from(4);
+        let netuid = setup_subnet_with_stake(old_coldkey, old_hotkey, 100_000_000_000);
+
+        let original_stake = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &old_hotkey,
+            &old_coldkey,
+            netuid,
+        );
+        assert!(!original_stake.is_zero());
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            AlphaBalance::ZERO
+        );
+
+        // Seed a lock directly on the destination coldkey so the swap reaches ActiveLockExists
+        // without tripping the earlier "already associated" guard.
+        SubtensorModule::insert_lock_state(
+            &new_coldkey,
+            netuid,
+            &blocked_hotkey,
+            LockState {
+                locked_mass: 1u64.into(),
+                unlocked_mass: AlphaBalance::ZERO,
+                conviction: U64F64::from_num(0),
+                last_update: SubtensorModule::get_current_block_as_u64(),
+            },
+        );
+
+        assert_noop!(
+            SubtensorModule::swap_coldkey(
+                RuntimeOrigin::root(),
+                old_coldkey,
+                new_coldkey,
+                TaoBalance::ZERO,
+            ),
+            Error::<Test>::ActiveLockExists
+        );
+
+        // The failed extrinsic should roll back the earlier stake transfer.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &old_coldkey,
+                netuid
+            ),
+            original_stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &old_hotkey,
+                &new_coldkey,
+                netuid
+            ),
+            AlphaBalance::ZERO
+        );
+    });
+}
+
 // =========================================================================
 // GROUP 12: Hotkey swap interaction
 // =========================================================================
@@ -1782,6 +2013,95 @@ fn test_emissions_do_not_break_lock_invariant() {
         // Available becomes emission_amount
         let available = SubtensorModule::available_stake(&coldkey, netuid);
         assert_eq!(available, emission_amount);
+    });
+}
+
+#[test]
+fn test_epoch_distribution_auto_locks_owner_cut() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let subnet_tempo = 10;
+        let stake = 100_000_000_000u64;
+
+        SubtensorModule::set_tempo(netuid, subnet_tempo);
+        SubtensorModule::set_ck_burn(0);
+        setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
+
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
+
+        add_balance_to_coldkey_account(
+            &validator_coldkey,
+            TaoBalance::from(stake) + ExistentialDeposit::get(),
+        );
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            netuid,
+            stake.into()
+        ));
+
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_allowed_validators(netuid, 1);
+        step_block(subnet_tempo);
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+
+        let owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &subnet_owner_hotkey).unwrap();
+        let validator_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &validator_hotkey).unwrap();
+        let miner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &miner_hotkey).unwrap();
+        let uid_count = [
+            owner_uid as usize,
+            validator_uid as usize,
+            miner_uid as usize,
+        ]
+        .into_iter()
+        .max()
+        .unwrap()
+            + 1;
+
+        // Setup YUMA so that the next epoch produces non-zero subnet emissions.
+        Weights::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            validator_uid,
+            vec![(miner_uid, 0xFFFF)],
+        );
+        BlockAtRegistration::<Test>::set(netuid, owner_uid, 1);
+        BlockAtRegistration::<Test>::set(netuid, validator_uid, 1);
+        BlockAtRegistration::<Test>::set(netuid, miner_uid, 1);
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2; uid_count]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        let mut validator_permit = vec![false; uid_count];
+        validator_permit[validator_uid as usize] = true;
+        ValidatorPermit::<Test>::insert(netuid, validator_permit);
+
+        let owner_stake_before = get_alpha(&subnet_owner_hotkey, &subnet_owner_coldkey, netuid);
+        assert!(
+            Lock::<Test>::iter_prefix((subnet_owner_coldkey, netuid))
+                .next()
+                .is_none()
+        );
+
+        // Advance to the next epoch so owner cut is distributed and auto-locked.
+        step_block(subnet_tempo);
+
+        let owner_stake_after = get_alpha(&subnet_owner_hotkey, &subnet_owner_coldkey, netuid);
+        let owner_cut_locked = owner_stake_after - owner_stake_before;
+        assert!(owner_cut_locked > AlphaBalance::ZERO);
+
+        let owner_lock = Lock::<Test>::get((subnet_owner_coldkey, netuid, subnet_owner_hotkey))
+            .expect("owner cut should be auto-locked to the subnet owner's hotkey");
+        assert_eq!(owner_lock.locked_mass, owner_cut_locked);
+        assert_eq!(owner_lock.unlocked_mass, AlphaBalance::ZERO);
     });
 }
 
