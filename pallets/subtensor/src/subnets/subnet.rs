@@ -211,7 +211,6 @@ impl<T: Config> Pallet<T> {
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
         // Keep the locked TAO in the pool instead of recycling the excess.
-        // Mint the owner alpha separately at the median subnet alpha price.
         // Size the pool alpha reserve from the total TAO reserve at that same price.
         let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
         let total_pool_tao: TaoBalance = if actual_tao_lock_amount >= pool_initial_tao {
@@ -219,8 +218,6 @@ impl<T: Config> Pallet<T> {
         } else {
             pool_initial_tao
         };
-        let owner_alpha_tao_equivalent: TaoBalance =
-            total_pool_tao.saturating_sub(pool_initial_tao);
 
         let total_pool_alpha: AlphaBalance = U96F32::saturating_from_num(total_pool_tao.to_u64())
             .safe_div(median_subnet_alpha_price)
@@ -228,12 +225,7 @@ impl<T: Config> Pallet<T> {
             .saturating_to_num::<u64>()
             .into();
 
-        let owner_alpha_stake: AlphaBalance =
-            U96F32::saturating_from_num(owner_alpha_tao_equivalent.to_u64())
-                .safe_div(median_subnet_alpha_price)
-                .saturating_floor()
-                .saturating_to_num::<u64>()
-                .into();
+        let owner_alpha_stake = AlphaBalance::ZERO;
 
         // With the full lock retained in the reserve, this will normally be zero.
         let tao_recycled_for_registration = actual_tao_lock_amount.saturating_sub(total_pool_tao);
@@ -249,15 +241,6 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaOut::<T>::insert(netuid_to_register, owner_alpha_stake);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
         RAORecycledForRegistration::<T>::insert(netuid_to_register, tao_recycled_for_registration);
-
-        if !owner_alpha_stake.is_zero() {
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                &coldkey,
-                netuid_to_register,
-                owner_alpha_stake,
-            );
-        }
 
         if tao_recycled_for_registration > TaoBalance::ZERO {
             Self::recycle_tao(tao_recycled_for_registration);
