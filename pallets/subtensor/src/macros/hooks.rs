@@ -265,7 +265,7 @@ mod hooks {
             // only reason for phase_done to be false is if the weight limit is reached
             while phase_done {
                 if let Some(phase) = DissolvedNetworksCleanupPhase::<T>::get() {
-                    log::error!(
+                    log::debug!(
                         "dissolved_networks phase: {:?} for netuid: {:?}",
                         phase,
                         netuid
