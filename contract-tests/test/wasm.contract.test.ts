@@ -1,15 +1,14 @@
-import { getDevnetApi, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate"
 import { devnet, MultiAddress } from "@polkadot-api/descriptors";
-import { Binary, TypedApi } from "polkadot-api";
+import { getInkClient, InkClient, } from "@polkadot-api/ink-contracts";
+import { KeyPair } from "@polkadot-labs/hdkd-helpers";
 import * as assert from "assert";
+import fs from "fs";
+import { Binary, TypedApi } from "polkadot-api";
 import { contracts } from "../.papi/descriptors";
-import { getInkClient, InkClient, } from "@polkadot-api/ink-contracts"
-import { forceSetBalanceToSs58Address, startCall, burnedRegister, setTargetRegistrationsPerInterval, setAdminFreezeWindow } from "../src/subtensor";
-import fs from "fs"
 import { convertPublicKeyToSs58 } from "../src/address-utils";
-import { addNewSubnetwork, sendWasmContractExtrinsic } from "../src/subtensor";
 import { tao } from "../src/balance-math";
-import { KeyPair } from "@polkadot-labs/hdkd-helpers"
+import { getDevnetApi, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate";
+import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, sendWasmContractExtrinsic, setAdminFreezeWindow, setTargetRegistrationsPerInterval, startCall } from "../src/subtensor";
 
 const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
 const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
@@ -442,7 +441,7 @@ describe("Test wasm contract", () => {
         const data = message.encode({
             hotkey: Binary.fromBytes(hotkey.publicKey),
             netuid: netuid,
-            limit_price: tao(60),
+            limit_price: undefined,
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
@@ -539,7 +538,7 @@ describe("Test wasm contract", () => {
     it("Can burn alpha from contract stake", async () => {
         await addStakeViaContract(true)
         const stakeBefore = await getContractStake()
-        const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+        const alphaBurnedBefore = await api.query.AlphaAssets.AlphaBurned.getValue(netuid)
 
         const message = inkClient.message("burn_alpha")
         const data = message.encode({
@@ -550,10 +549,10 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
 
         const stakeAfter = await getContractStake()
-        const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+        const alphaBurnedAfter = await api.query.AlphaAssets.AlphaBurned.getValue(netuid)
 
         assert.ok(stakeAfter < stakeBefore)
-        assert.equal(alphaOutAfter, alphaOutBefore)
+        assert.ok(alphaBurnedBefore < alphaBurnedAfter)
     })
 
     it("Can add stake and recycle resulting alpha", async () => {
@@ -876,7 +875,7 @@ describe("Test wasm contract", () => {
         const data = message.encode({
             hotkey: Binary.fromBytes(hotkey.publicKey),
             netuid,
-            limit_price: tao(60),
+            limit_price: undefined,
         })
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
         const stakeAfter = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
