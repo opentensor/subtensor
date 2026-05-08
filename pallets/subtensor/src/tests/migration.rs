@@ -4365,12 +4365,16 @@ fn test_migrate_dynamic_tempo_aligns_first_post_upgrade_fire() {
         let tempo: u16 = 360;
 
         add_network(netuid, tempo, 0);
-        run_to_block(1234);
+        let current_block = 1234u64;
+        run_to_block(current_block);
 
-        // Snapshot legacy formula's next-fire block at the migration moment.
-        let legacy_blocks_until_next =
-            crate::Pallet::<Test>::blocks_until_next_auto_epoch(netuid, tempo, 1234);
-        let expected_next_fire = 1234u64 + legacy_blocks_until_next;
+        // Compute next-fire block
+        let netuid_plus_one = (u16::from(netuid) as u64) + 1;
+        let tempo_plus_one = (tempo as u64) + 1;
+        let adjusted = current_block + netuid_plus_one;
+        let remainder = adjusted % tempo_plus_one;
+        let legacy_blocks_until_next = (tempo as u64) - remainder;
+        let expected_next_fire = current_block + legacy_blocks_until_next;
 
         crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
 
