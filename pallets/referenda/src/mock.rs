@@ -414,6 +414,7 @@ impl pallet_signed_voting::Config for Test {
 
 parameter_types! {
     pub const MaxQueued: u32 = 10;
+    pub const MaxActivePerProposer: u32 = 3;
 }
 
 impl pallet_referenda::Config for Test {
@@ -421,6 +422,7 @@ impl pallet_referenda::Config for Test {
     type Scheduler = Scheduler;
     type Preimages = Preimage;
     type MaxQueued = MaxQueued;
+    type MaxActivePerProposer = MaxActivePerProposer;
     type KillOrigin = EnsureRoot<U256>;
     type Tracks = TestTracks;
     type BlockNumberProvider = System;

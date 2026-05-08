@@ -1789,6 +1789,11 @@ parameter_types! {
     pub const SignedVotingCleanupCursorMaxLen: u32 = 128;
     /// Maximum number of active referenda across all tracks.
     pub const ReferendaMaxQueued: u32 = 20;
+    /// Maximum number of active referenda a single proposer may hold.
+    /// Bounds queue surface a single account can occupy under
+    /// `ReferendaMaxQueued`, limiting the blast radius of one compromised
+    /// or misbehaving proposer.
+    pub const ReferendaMaxActivePerProposer: u32 = 5;
     pub const GovernanceSignedScheme: GovernanceVotingScheme = GovernanceVotingScheme::Signed;
     /// 60 days mainnet / 100 blocks fast-runtime.
     pub const GovernanceCollectiveTermDuration: BlockNumber = prod_or_fast!(432_000, 100);
@@ -1966,6 +1971,7 @@ impl pallet_referenda::Config for Runtime {
     type Scheduler = Scheduler;
     type Preimages = Preimage;
     type MaxQueued = ReferendaMaxQueued;
+    type MaxActivePerProposer = ReferendaMaxActivePerProposer;
     type KillOrigin = EnsureRoot<AccountId>;
     type Tracks = governance::tracks::SubtensorTracks;
     type BlockNumberProvider = System;

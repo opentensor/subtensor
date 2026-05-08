@@ -255,35 +255,55 @@ fn submit_rejects_call_when_authorize_proposal_returns_false() {
 
 #[test]
 fn submit_caps_at_max_queued_and_recycles_after_kill() {
-    TestState::default().build_and_execute(|| {
-        // Fill exactly to MaxQueued = 10.
-        for _ in 0..10 {
-            assert_ok!(Referenda::submit(
-                RuntimeOrigin::signed(U256::from(PROPOSER)),
-                TRACK_PASS_OR_FAIL,
-                Box::new(make_call()),
-            ));
-        }
-        assert_eq!(ActiveCount::<Test>::get(), 10);
+    let max_queued = <Test as Config>::MaxQueued::get();
+    let per_proposer = <Test as Config>::MaxActivePerProposer::get();
+    let proposer_count = max_queued.div_ceil(per_proposer);
+    let proposers: Vec<U256> = (1..=proposer_count).map(U256::from).collect();
 
-        // 11th submission rejected.
+    TestState {
+        proposers: proposers.clone(),
+        ..Default::default()
+    }
+    .build_and_execute(|| {
+        let mut submitted = 0u32;
+        'fill: for proposer in &proposers {
+            for _ in 0..per_proposer {
+                if submitted == max_queued {
+                    break 'fill;
+                }
+                assert_ok!(Referenda::submit(
+                    RuntimeOrigin::signed(*proposer),
+                    TRACK_PASS_OR_FAIL,
+                    Box::new(make_call()),
+                ));
+                submitted += 1;
+            }
+        }
+        assert_eq!(ActiveCount::<Test>::get(), max_queued);
+
+        let next_proposer = U256::from(proposer_count + 1);
+        pallet_multi_collective::Pallet::<Test>::add_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Proposers,
+            next_proposer,
+        )
+        .unwrap();
         assert_noop!(
             Referenda::submit(
-                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                RuntimeOrigin::signed(next_proposer),
                 TRACK_PASS_OR_FAIL,
                 Box::new(make_call()),
             ),
             Error::<Test>::QueueFull
         );
 
-        // Killing one frees the slot for reuse.
         assert_ok!(Referenda::kill(RuntimeOrigin::root(), 5));
         assert_ok!(Referenda::submit(
-            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            RuntimeOrigin::signed(next_proposer),
             TRACK_PASS_OR_FAIL,
             Box::new(make_call()),
         ));
-        assert_eq!(ActiveCount::<Test>::get(), 10);
+        assert_eq!(ActiveCount::<Test>::get(), max_queued);
     });
 }
 
@@ -1257,5 +1277,125 @@ fn vote_after_termination_does_not_mutate_referenda_state() {
         assert_eq!(ActiveCount::<Test>::get(), active_before);
         assert_eq!(status_of(index), status_before);
         assert!(scheduler_alarm_block(index).is_none());
+    });
+}
+
+#[test]
+fn submit_caps_at_per_proposer_quota_and_recycles_after_kill() {
+    let cap = <Test as Config>::MaxActivePerProposer::get();
+    TestState::default().build_and_execute(|| {
+        let mut indices = Vec::new();
+        for _ in 0..cap {
+            indices.push(submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER)));
+        }
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), cap);
+
+        assert_noop!(
+            Referenda::submit(
+                RuntimeOrigin::signed(U256::from(PROPOSER)),
+                TRACK_PASS_OR_FAIL,
+                Box::new(make_call()),
+            ),
+            Error::<Test>::ProposerQuotaExceeded
+        );
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER_B)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(make_call()),
+        ));
+
+        assert_ok!(Referenda::kill(RuntimeOrigin::root(), indices[0]));
+        assert_eq!(
+            ActivePerProposer::<Test>::get(U256::from(PROPOSER)),
+            cap - 1
+        );
+
+        assert_ok!(Referenda::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            TRACK_PASS_OR_FAIL,
+            Box::new(make_call()),
+        ));
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), cap);
+    });
+}
+
+#[test]
+fn approve_then_enact_only_decrements_active_count_once() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        assert_eq!(ActiveCount::<Test>::get(), 1);
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 1);
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Approved(_)));
+        assert_eq!(ActiveCount::<Test>::get(), 0);
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 0);
+
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert_eq!(ActiveCount::<Test>::get(), 0);
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 0);
+    });
+}
+
+#[test]
+fn fast_track_then_enact_only_decrements_active_count_once() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        assert_eq!(ActiveCount::<Test>::get(), 1);
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 1);
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, true);
+        vote(VOTER_C, index, true);
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::FastTracked(_)));
+        assert_eq!(ActiveCount::<Test>::get(), 0);
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 0);
+
+        run_to_block(current_block() + 1);
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert_eq!(ActiveCount::<Test>::get(), 0);
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 0);
+    });
+}
+
+#[test]
+fn delegated_handoff_keeps_proposer_active_count_at_one() {
+    TestState::default().build_and_execute(|| {
+        let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 1);
+
+        vote(VOTER_A, parent, true);
+        vote(VOTER_B, parent, true);
+        run_to_block(current_block() + 2);
+
+        assert!(matches!(status_of(parent), ReferendumStatus::Delegated(_)));
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), 1);
+    });
+}
+
+#[test]
+fn schedule_for_review_increments_per_proposer_even_above_cap() {
+    let cap = <Test as Config>::MaxActivePerProposer::get();
+    TestState::default().build_and_execute(|| {
+        for _ in 0..cap {
+            submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
+        }
+        assert_eq!(ActivePerProposer::<Test>::get(U256::from(PROPOSER)), cap);
+
+        let bounded = <Test as Config>::Preimages::bound(make_call())
+            .expect("bound must succeed in test setup");
+        let child =
+            Pallet::<Test>::schedule_for_review(bounded, U256::from(PROPOSER), TRACK_ADJUSTABLE)
+                .expect("schedule_for_review must succeed");
+        assert!(matches!(status_of(child), ReferendumStatus::Ongoing(_)));
+        assert_eq!(
+            ActivePerProposer::<Test>::get(U256::from(PROPOSER)),
+            cap + 1
+        );
     });
 }

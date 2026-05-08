@@ -204,6 +204,11 @@ pub mod pallet {
         /// rejected with [`Error::QueueFull`] when this is reached.
         type MaxQueued: Get<u32>;
 
+        /// Maximum number of simultaneously-active referenda that a single
+        /// proposer may hold. Bounds the queue surface a single account can
+        /// occupy when many proposers compete for [`MaxQueued`] slots.
+        type MaxActivePerProposer: Get<u32>;
+
         /// Origin authorized to terminate an ongoing referendum via `kill`.
         type KillOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -267,6 +272,12 @@ pub mod pallet {
     /// [`ReferendumCount`], which only ever grows.
     #[pallet::storage]
     pub type ActiveCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// Per-proposer count of currently-ongoing referenda. Bounded by
+    /// [`Config::MaxActivePerProposer`].
+    #[pallet::storage]
+    pub type ActivePerProposer<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
     /// Status of every referendum that has been submitted, keyed by index.
     /// Entries persist after the referendum reaches a terminal state so the
@@ -338,6 +349,8 @@ pub mod pallet {
         ProposalNotAuthorized,
         /// Active-referenda cap (`MaxQueued`) reached.
         QueueFull,
+        /// Per-proposer active-referenda cap (`MaxActivePerProposer`) reached.
+        ProposerQuotaExceeded,
         /// A scheduler operation failed at submit time.
         SchedulerError,
         /// The specified referendum does not exist.
@@ -406,12 +419,18 @@ pub mod pallet {
             ensure!(!track_info.voter_set.is_empty(), Error::<T>::EmptyVoterSet);
             let active = ActiveCount::<T>::get();
             ensure!(active < T::MaxQueued::get(), Error::<T>::QueueFull);
+            let active_per_proposer = ActivePerProposer::<T>::get(&proposer);
+            ensure!(
+                active_per_proposer < T::MaxActivePerProposer::get(),
+                Error::<T>::ProposerQuotaExceeded
+            );
 
             let now = T::BlockNumberProvider::current_block_number();
             let bounded_call = T::Preimages::bound(*call)?;
             let index = ReferendumCount::<T>::get();
             ReferendumCount::<T>::put(index.saturating_add(1));
             ActiveCount::<T>::put(active.saturating_add(1));
+            ActivePerProposer::<T>::insert(&proposer, active_per_proposer.saturating_add(1));
 
             let proposal = match track_info.decision_strategy {
                 DecisionStrategy::PassOrFail {
@@ -659,15 +678,22 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Move a referendum to a terminal status: cancel any pending alarm,
-    /// store the new status, decrement `ActiveCount`, notify subscribers
-    /// via `OnPollCompleted`, and emit `event`.
+    /// store the new status, and emit `event`. On the first transition out
+    /// of `Ongoing`, also release the proposer's per-proposer slot, decrement
+    /// `ActiveCount`, and notify subscribers via `OnPollCompleted`.
+    /// Subsequent transitions between non-Ongoing states (Approved → Enacted,
+    /// FastTracked → Enacted) leave those counters and the subscriber alone.
     fn conclude(index: ReferendumIndex, status: ReferendumStatusOf<T>, event: Event<T>) {
         if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
             Self::report_scheduler_error(index, "cancel_alarm", err);
         }
+        let prior = ReferendumStatusFor::<T>::get(index);
         ReferendumStatusFor::<T>::insert(index, status);
-        ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
-        T::OnPollCompleted::on_poll_completed(index);
+        if let Some(ReferendumStatus::Ongoing(info)) = prior {
+            ActiveCount::<T>::mutate(|c| *c = c.saturating_sub(1));
+            ActivePerProposer::<T>::mutate(&info.proposer, |c| *c = c.saturating_sub(1));
+            T::OnPollCompleted::on_poll_completed(index);
+        }
         Self::deposit_event(event);
     }
 
@@ -767,6 +793,7 @@ impl<T: Config> Pallet<T> {
 
         ReferendumCount::<T>::put(new_index.saturating_add(1));
         ActiveCount::<T>::mutate(|c| *c = c.saturating_add(1));
+        ActivePerProposer::<T>::mutate(&proposer, |c| *c = c.saturating_add(1));
 
         let new_info = ReferendumInfo {
             track,

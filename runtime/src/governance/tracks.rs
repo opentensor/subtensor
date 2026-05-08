@@ -5,8 +5,8 @@ use pallet_referenda::{
     ApprovalAction, DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack,
     TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo,
 };
-use subtensor_runtime_common::pad_name;
 use sp_runtime::Perbill;
+use subtensor_runtime_common::pad_name;
 
 use crate::{
     AccountId, BlockNumber, GovernanceCollectiveId, GovernanceCollectiveInitialDelay,
