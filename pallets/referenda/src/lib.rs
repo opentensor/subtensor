@@ -507,15 +507,13 @@ pub mod pallet {
                 Error::<T>::ReferendumFinalized
             );
 
-            // Best-effort cleanup. The task entry may be absent (`PassOrFail`
-            // has no enactment task before approval); a missing task is
-            // expected and not reported. If `cancel_named` fails and the
-            // wrapper task still fires, `enact` no-ops on the terminal
-            // status.
+            // Best-effort cleanup. Either entry may legitimately be absent:
+            // PassOrFail has no enactment task before approval, and the alarm
+            // for Approved/FastTracked has already fired (it is what drove
+            // the transition). If a cancel fails and the wrapper task still
+            // dispatches, `enact` no-ops on the terminal status.
             let _ = T::Scheduler::cancel_named(task_name(index));
-            if let Err(err) = T::Scheduler::cancel_named(alarm_name(index)) {
-                Self::report_scheduler_error(index, "cancel_alarm", err);
-            }
+            let _ = T::Scheduler::cancel_named(alarm_name(index));
             // `Scheduler::cancel_named` via the trait API does not drop the
             // preimage it requested at schedule time; balance manually so the
             // wrapper preimage is fully released.
