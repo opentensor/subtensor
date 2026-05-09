@@ -131,7 +131,7 @@ pub trait RuntimeReadWrite {
     fn remove_stake_full_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         netuid: u16,
-        limit_price: u64,
+        limit_price: Option<u64>,
     );
 
     #[ink(function = 12)]
@@ -255,7 +255,7 @@ pub trait RuntimeReadWrite {
     fn caller_remove_stake_full_limit(
         hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
         netuid: u16,
-        limit_price: u64,
+        limit_price: Option<u64>,
     );
 
     #[ink(function = 31)]
@@ -508,7 +508,7 @@ mod bittensor {
             &self,
             hotkey: [u8; 32],
             netuid: u16,
-            limit_price: u64,
+            limit_price: Option<u64>,
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
@@ -766,7 +766,7 @@ mod bittensor {
             &self,
             hotkey: [u8; 32],
             netuid: u16,
-            limit_price: u64,
+            limit_price: Option<u64>,
         ) -> Result<(), ReadWriteErrorCode> {
             self.env()
                 .extension()
