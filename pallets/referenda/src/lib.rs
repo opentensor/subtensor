@@ -932,11 +932,11 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Idempotent: cancels any prior alarm with the same name first, so
-    /// callers do not need to track whether one is currently pending.
+    /// Idempotent: cancels any prior alarm with the same name, so callers
+    /// do not need to track whether one is currently pending.
     fn set_alarm(index: ReferendumIndex, when: BlockNumberFor<T>) -> Result<(), DispatchError> {
-        let _ = T::Scheduler::cancel_named(alarm_name(index));
         let call = T::Preimages::bound(CallOf::<T>::from(Call::advance_referendum { index }))?;
+        let _ = T::Scheduler::cancel_named(alarm_name(index));
         let res = T::Scheduler::schedule_named(
             alarm_name(index),
             DispatchTime::At(when),
