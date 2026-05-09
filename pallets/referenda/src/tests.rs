@@ -483,12 +483,10 @@ fn alarm_driven_completion_does_not_emit_scheduler_operation_failed() {
         assert!(matches!(status_of(expired), ReferendumStatus::Expired(_)));
 
         assert!(
-            !System::events()
-                .iter()
-                .any(|record| matches!(
-                    record.event,
-                    RuntimeEvent::Referenda(Event::SchedulerOperationFailed { .. })
-                )),
+            !System::events().iter().any(|record| matches!(
+                record.event,
+                RuntimeEvent::Referenda(Event::SchedulerOperationFailed { .. })
+            )),
             "no SchedulerOperationFailed should fire on routine alarm-driven completions",
         );
     });
@@ -700,7 +698,7 @@ fn schedule_for_review_returns_none_for_invalid_targets() {
             .is_none()
         );
 
-        let _guard = EmptyReviewVoterSetGuard::new();
+        let _guard = EmptyReviewVoterSetGuard::new(true);
         assert!(
             Pallet::<Test>::schedule_for_review(
                 Box::new(make_call()),
@@ -718,7 +716,7 @@ fn do_approve_fails_closed_when_review_target_is_unusable() {
         let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
         let submitted = current_block();
 
-        let _guard = HideReviewTrackGuard::new();
+        let _guard = HideReviewTrackGuard::new(true);
 
         vote(VOTER_A, parent, true);
         vote(VOTER_B, parent, true);
@@ -747,7 +745,7 @@ fn do_approve_review_failure_expires_at_deadline() {
     TestState::default().build_and_execute(|| {
         let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
 
-        let _guard = HideReviewTrackGuard::new();
+        let _guard = HideReviewTrackGuard::new(true);
 
         vote(VOTER_A, parent, true);
         vote(VOTER_B, parent, true);
@@ -766,7 +764,7 @@ fn do_approve_fails_closed_when_review_voter_set_is_empty() {
     TestState::default().build_and_execute(|| {
         let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
 
-        let _guard = EmptyReviewVoterSetGuard::new();
+        let _guard = EmptyReviewVoterSetGuard::new(true);
 
         vote(VOTER_A, parent, true);
         vote(VOTER_B, parent, true);
@@ -790,7 +788,7 @@ fn do_approve_review_recovers_when_track_is_restored() {
         let parent = submit_on(TRACK_DELEGATING, U256::from(PROPOSER));
 
         {
-            let _guard = HideReviewTrackGuard::new();
+            let _guard = HideReviewTrackGuard::new(true);
             vote(VOTER_A, parent, true);
             vote(VOTER_B, parent, true);
             run_to_block(current_block() + 2);
@@ -1210,13 +1208,210 @@ fn parallel_referenda_have_independent_lifecycles() {
 
 #[test]
 fn integrity_test_passes_for_valid_track_table() {
-    // The mock's track table satisfies both invariants: ids are unique and
-    // the only `ApprovalAction::Review { track: 1 }` points at track 1
-    // which uses the Adjustable strategy.
     TestState::default().build_and_execute(|| {
         use frame_support::traits::Hooks;
         Pallet::<Test>::integrity_test();
     });
+}
+
+fn check_integrity() -> Result<(), &'static str> {
+    <TestTracks as TracksInfo<TrackName, U256, RuntimeCall, u64>>::check_integrity()
+}
+
+fn passorfail_track(id: u8) -> MockTrack {
+    MockTrack {
+        id,
+        info: TrackInfo {
+            name: subtensor_runtime_common::pad_name(b"test"),
+            proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
+            voter_set: MemberSet::Single(CollectiveId::Triumvirate),
+            voting_scheme: VotingScheme::Signed,
+            decision_strategy: DecisionStrategy::PassOrFail {
+                decision_period: 20,
+                approve_threshold: Perbill::from_percent(60),
+                reject_threshold: Perbill::from_percent(60),
+                on_approval: ApprovalAction::Execute,
+            },
+        },
+    }
+}
+
+fn adjustable_track(id: u8) -> MockTrack {
+    MockTrack {
+        id,
+        info: TrackInfo {
+            name: subtensor_runtime_common::pad_name(b"test"),
+            proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
+            voter_set: MemberSet::Single(CollectiveId::Triumvirate),
+            voting_scheme: VotingScheme::Signed,
+            decision_strategy: DecisionStrategy::Adjustable {
+                initial_delay: 100,
+                fast_track_threshold: Perbill::from_percent(75),
+                cancel_threshold: Perbill::from_percent(51),
+            },
+        },
+    }
+}
+
+fn assert_check_integrity_err(tracks: Vec<MockTrack>, expected: &str) {
+    TestState::default().build_and_execute(|| {
+        let _guard = OverrideTracksGuard::new(tracks);
+        assert_eq!(check_integrity(), Err(expected));
+    });
+}
+
+#[test]
+fn check_integrity_rejects_duplicate_track_ids() {
+    assert_check_integrity_err(
+        vec![passorfail_track(0), passorfail_track(0)],
+        "track ids must be unique",
+    );
+}
+
+#[test]
+fn check_integrity_rejects_review_referencing_unknown_track() {
+    let mut t = passorfail_track(0);
+    if let DecisionStrategy::PassOrFail {
+        ref mut on_approval,
+        ..
+    } = t.info.decision_strategy
+    {
+        *on_approval = ApprovalAction::Review { track: 99 };
+    }
+    assert_check_integrity_err(vec![t], "ApprovalAction::Review references unknown track");
+}
+
+#[test]
+fn check_integrity_rejects_review_referencing_passorfail_track() {
+    let mut t = passorfail_track(0);
+    if let DecisionStrategy::PassOrFail {
+        ref mut on_approval,
+        ..
+    } = t.info.decision_strategy
+    {
+        *on_approval = ApprovalAction::Review { track: 1 };
+    }
+    let target = passorfail_track(1);
+    assert_check_integrity_err(
+        vec![t, target],
+        "ApprovalAction::Review target track must be Adjustable",
+    );
+}
+
+#[test]
+fn try_state_rejects_some_empty_proposer_set() {
+    TestState::default().build_and_execute(|| {
+        let mut t = passorfail_track(0);
+        t.info.proposer_set = Some(MemberSet::Union(vec![]));
+        let _guard = OverrideTracksGuard::new(vec![t]);
+        assert!(Pallet::<Test>::do_try_state().is_err());
+    });
+}
+
+#[test]
+fn try_state_accepts_none_proposer_set() {
+    TestState::default().build_and_execute(|| {
+        let mut t = passorfail_track(0);
+        t.info.proposer_set = None;
+        let _guard = OverrideTracksGuard::new(vec![t]);
+        assert!(Pallet::<Test>::do_try_state().is_ok());
+    });
+}
+
+#[test]
+fn check_integrity_rejects_zero_decision_period() {
+    let mut t = passorfail_track(0);
+    if let DecisionStrategy::PassOrFail {
+        ref mut decision_period,
+        ..
+    } = t.info.decision_strategy
+    {
+        *decision_period = 0;
+    }
+    assert_check_integrity_err(vec![t], "PassOrFail: decision_period must be non-zero");
+}
+
+#[test]
+fn check_integrity_rejects_zero_approve_threshold() {
+    let mut t = passorfail_track(0);
+    if let DecisionStrategy::PassOrFail {
+        ref mut approve_threshold,
+        ..
+    } = t.info.decision_strategy
+    {
+        *approve_threshold = Perbill::zero();
+    }
+    assert_check_integrity_err(vec![t], "PassOrFail: approve_threshold must be non-zero");
+}
+
+#[test]
+fn check_integrity_rejects_zero_reject_threshold() {
+    let mut t = passorfail_track(0);
+    if let DecisionStrategy::PassOrFail {
+        ref mut reject_threshold,
+        ..
+    } = t.info.decision_strategy
+    {
+        *reject_threshold = Perbill::zero();
+    }
+    assert_check_integrity_err(vec![t], "PassOrFail: reject_threshold must be non-zero");
+}
+
+#[test]
+fn check_integrity_rejects_zero_initial_delay() {
+    let mut t = adjustable_track(0);
+    if let DecisionStrategy::Adjustable {
+        ref mut initial_delay,
+        ..
+    } = t.info.decision_strategy
+    {
+        *initial_delay = 0;
+    }
+    assert_check_integrity_err(vec![t], "Adjustable: initial_delay must be non-zero");
+}
+
+#[test]
+fn check_integrity_rejects_zero_fast_track_threshold() {
+    let mut t = adjustable_track(0);
+    if let DecisionStrategy::Adjustable {
+        ref mut fast_track_threshold,
+        ..
+    } = t.info.decision_strategy
+    {
+        *fast_track_threshold = Perbill::zero();
+    }
+    assert_check_integrity_err(vec![t], "Adjustable: fast_track_threshold must be non-zero");
+}
+
+#[test]
+fn check_integrity_rejects_zero_cancel_threshold() {
+    let mut t = adjustable_track(0);
+    if let DecisionStrategy::Adjustable {
+        ref mut cancel_threshold,
+        ..
+    } = t.info.decision_strategy
+    {
+        *cancel_threshold = Perbill::zero();
+    }
+    assert_check_integrity_err(vec![t], "Adjustable: cancel_threshold must be non-zero");
+}
+
+#[test]
+fn check_integrity_rejects_adjustable_thresholds_summing_to_at_most_100_percent() {
+    let mut t = adjustable_track(0);
+    if let DecisionStrategy::Adjustable {
+        ref mut fast_track_threshold,
+        ref mut cancel_threshold,
+        ..
+    } = t.info.decision_strategy
+    {
+        *fast_track_threshold = Perbill::from_percent(50);
+        *cancel_threshold = Perbill::from_percent(50);
+    }
+    assert_check_integrity_err(
+        vec![t],
+        "Adjustable: fast_track_threshold + cancel_threshold must exceed 100%",
+    );
 }
 
 #[test]
@@ -1229,7 +1424,7 @@ fn try_state_passes_with_populated_voter_sets() {
 #[test]
 fn try_state_fails_when_a_track_has_empty_voter_set() {
     TestState::default().build_and_execute(|| {
-        let _guard = EmptyReviewVoterSetGuard::new();
+        let _guard = EmptyReviewVoterSetGuard::new(true);
         assert!(Pallet::<Test>::do_try_state().is_err());
     });
 }
@@ -1594,7 +1789,7 @@ fn live_referendum_uses_snapshot_when_track_strategy_changes_at_runtime() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_PASS_OR_FAIL, U256::from(PROPOSER));
 
-        let _guard = SwapTrack0ToAdjustableGuard::new();
+        let _guard = SwapTrack0ToAdjustableGuard::new(true);
 
         vote(VOTER_A, index, true);
         vote(VOTER_B, index, true);

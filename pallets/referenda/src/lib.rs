@@ -611,10 +611,18 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    /// An empty voter set silently breaks delegation: `schedule_for_review`
-    /// would create a review child no one can vote on, and the Adjustable
-    /// state machine would lapse it to `Enacted` after `initial_delay`.
-    /// Genesis can legitimately observe empty voter sets before the
+    /// Runtime-state invariants. Live against populated state, so this
+    /// runs from `try_state` rather than `integrity_test`.
+    ///
+    /// * Voter set non-empty: an empty voter set silently breaks
+    ///   delegation. `schedule_for_review` would create a review child no
+    ///   one can vote on, and the Adjustable state machine would lapse it
+    ///   to `Enacted` after `initial_delay`.
+    /// * `proposer_set: Some(_)` non-empty: `Some(empty)` silently closes
+    ///   the track to all submissions; if that is intended, the track
+    ///   must declare `proposer_set: None` to make it explicit.
+    ///
+    /// Genesis can legitimately observe empty sets before the
     /// stake-ranking warmup populates collectives; that is a separate
     /// concern and not enforced here.
     #[cfg(any(feature = "try-runtime", test))]
@@ -624,6 +632,12 @@ impl<T: Config> Pallet<T> {
                 !track.info.voter_set.is_empty(),
                 "pallet-referenda: track has empty voter set"
             );
+            if let Some(set) = &track.info.proposer_set {
+                ensure!(
+                    !set.is_empty(),
+                    "pallet-referenda: track has Some(empty) proposer_set; use None"
+                );
+            }
         }
         Ok(())
     }

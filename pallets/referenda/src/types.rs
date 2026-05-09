@@ -2,7 +2,7 @@
 
 use frame_support::{
     pallet_prelude::*,
-    sp_runtime::Perbill,
+    sp_runtime::{Perbill, traits::Zero},
     traits::{Bounded, LockIdentifier, schedule::v3::TaskName},
 };
 use frame_system::pallet_prelude::*;
@@ -222,9 +222,10 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
         true
     }
 
-    /// Validate the runtime track table once at startup.
+    /// Validate the runtime track table once at startup. Returns `Err`
+    /// with a static message describing the first broken invariant.
     ///
-    /// Returns `Err` with a static message if either invariant is broken:
+    /// Structural invariants:
     ///
     /// 1. Track ids are unique. Lookups by id silently pick the first
     ///    match, so duplicates would mask later entries.
@@ -232,7 +233,22 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
     ///    that exists and uses the `Adjustable` strategy. Otherwise an
     ///    approval that delegates would either find no track or hand off
     ///    to a track that cannot model a review.
-    fn check_integrity() -> Result<(), &'static str> {
+    ///
+    /// Per-strategy parameter invariants (the threshold comparisons in
+    /// `advance_ongoing` are `>=`, so a zero threshold against the
+    /// default-zero tally auto-concludes on first alarm fire):
+    ///
+    /// * `PassOrFail`: `decision_period`, `approve_threshold`, and
+    ///   `reject_threshold` must all be non-zero.
+    /// * `Adjustable`: `initial_delay`, `fast_track_threshold`, and
+    ///   `cancel_threshold` must all be non-zero, and
+    ///   `fast_track_threshold + cancel_threshold > 100%` so the cancel
+    ///   branch cannot be masked by a fast-track that fires first on the
+    ///   same tally split.
+    fn check_integrity() -> Result<(), &'static str>
+    where
+        BlockNumber: Zero,
+    {
         let tracks: alloc::vec::Vec<_> = Self::tracks().collect();
 
         let mut ids: alloc::vec::Vec<_> = tracks.iter().map(|t| t.id).collect();
@@ -244,21 +260,58 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
         }
 
         for track in &tracks {
-            if let DecisionStrategy::PassOrFail {
-                on_approval:
-                    ApprovalAction::Review {
+            match &track.info.decision_strategy {
+                DecisionStrategy::PassOrFail {
+                    decision_period,
+                    approve_threshold,
+                    reject_threshold,
+                    on_approval,
+                } => {
+                    if decision_period.is_zero() {
+                        return Err("PassOrFail: decision_period must be non-zero");
+                    }
+                    if *approve_threshold == Perbill::zero() {
+                        return Err("PassOrFail: approve_threshold must be non-zero");
+                    }
+                    if *reject_threshold == Perbill::zero() {
+                        return Err("PassOrFail: reject_threshold must be non-zero");
+                    }
+                    if let ApprovalAction::Review {
                         track: review_track,
-                    },
-                ..
-            } = &track.info.decision_strategy
-            {
-                let referenced = Self::info(*review_track)
-                    .ok_or("ApprovalAction::Review references unknown track")?;
-                if !matches!(
-                    referenced.decision_strategy,
-                    DecisionStrategy::Adjustable { .. }
-                ) {
-                    return Err("ApprovalAction::Review target track must be Adjustable");
+                    } = on_approval
+                    {
+                        let referenced = Self::info(*review_track)
+                            .ok_or("ApprovalAction::Review references unknown track")?;
+                        if !matches!(
+                            referenced.decision_strategy,
+                            DecisionStrategy::Adjustable { .. }
+                        ) {
+                            return Err("ApprovalAction::Review target track must be Adjustable");
+                        }
+                    }
+                }
+                DecisionStrategy::Adjustable {
+                    initial_delay,
+                    fast_track_threshold,
+                    cancel_threshold,
+                } => {
+                    if initial_delay.is_zero() {
+                        return Err("Adjustable: initial_delay must be non-zero");
+                    }
+                    if *fast_track_threshold == Perbill::zero() {
+                        return Err("Adjustable: fast_track_threshold must be non-zero");
+                    }
+                    if *cancel_threshold == Perbill::zero() {
+                        return Err("Adjustable: cancel_threshold must be non-zero");
+                    }
+                    let sum = fast_track_threshold
+                        .deconstruct()
+                        .saturating_add(cancel_threshold.deconstruct());
+                    if sum <= Perbill::one().deconstruct() {
+                        return Err(
+                            "Adjustable: fast_track_threshold + cancel_threshold must exceed 100%",
+                        );
+                    }
                 }
             }
         }

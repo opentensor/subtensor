@@ -167,6 +167,8 @@ impl pallet_scheduler::Config for Test {
 
 pub struct TestTracks;
 
+pub type MockTrack = Track<u8, TrackName, u64, MemberSet, MemberSet, VotingScheme>;
+
 impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
     type Id = u8;
     type ProposerSet = MemberSet;
@@ -183,6 +185,11 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             Self::VotingScheme,
         >,
     > {
+        let overridden = current_track_override();
+        if !overridden.is_empty() {
+            return overridden.into_iter();
+        }
+
         vec![
             Track {
                 id: 0,
@@ -259,6 +266,8 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             }
             t
         })
+        .collect::<Vec<_>>()
+        .into_iter()
     }
 
     fn authorize_proposal(
@@ -284,50 +293,70 @@ pub fn set_authorize_proposal(result: bool) {
     AUTHORIZE_PROPOSAL_RESULT.with(|r| *r.borrow_mut() = result);
 }
 
-/// Define a thread-local boolean toggle that flips on `Guard::new()` and
-/// restores its prior value on `Drop`. Used to simulate runtime-state
-/// mutations from tests without leaking across cases.
-macro_rules! define_bool_guard {
-    ($flag:ident, $guard:ident, $is_active:ident) => {
+/// Define a thread-local whose value can be temporarily replaced via an
+/// RAII guard. The previous value is restored when the guard drops.
+/// Used to simulate runtime-state mutations from tests without leaking
+/// across cases.
+macro_rules! define_scoped_state {
+    ($flag:ident, $guard:ident, $reader:ident, $ty:ty, $default:expr) => {
         thread_local! {
-            static $flag: RefCell<bool> = const { RefCell::new(false) };
+            static $flag: RefCell<$ty> = const { RefCell::new($default) };
         }
 
         #[must_use = "the guard restores the prior value on drop; bind it to a local"]
         pub struct $guard {
-            previous: bool,
+            previous: Option<$ty>,
         }
 
         impl $guard {
-            pub fn new() -> Self {
-                let previous = $flag.with(|r| core::mem::replace(&mut *r.borrow_mut(), true));
+            pub fn new(value: $ty) -> Self {
+                let previous =
+                    Some($flag.with(|r| core::mem::replace(&mut *r.borrow_mut(), value)));
                 Self { previous }
             }
         }
 
         impl Drop for $guard {
             fn drop(&mut self) {
-                let prev = self.previous;
-                $flag.with(|r| *r.borrow_mut() = prev);
+                if let Some(prev) = self.previous.take() {
+                    $flag.with(|r| *r.borrow_mut() = prev);
+                }
             }
         }
 
-        fn $is_active() -> bool {
-            $flag.with(|r| *r.borrow())
+        fn $reader() -> $ty {
+            $flag.with(|r| r.borrow().clone())
         }
     };
 }
 
-define_bool_guard!(HIDE_REVIEW_TRACK, HideReviewTrackGuard, review_track_hidden);
-define_bool_guard!(
+define_scoped_state!(
+    HIDE_REVIEW_TRACK,
+    HideReviewTrackGuard,
+    review_track_hidden,
+    bool,
+    false
+);
+define_scoped_state!(
     EMPTY_REVIEW_VOTER_SET,
     EmptyReviewVoterSetGuard,
-    review_voter_set_empty
+    review_voter_set_empty,
+    bool,
+    false
 );
-define_bool_guard!(
+define_scoped_state!(
     SWAP_PASS_OR_FAIL_TRACK_TO_ADJUSTABLE,
     SwapTrack0ToAdjustableGuard,
-    track0_swapped_to_adjustable
+    track0_swapped_to_adjustable,
+    bool,
+    false
+);
+define_scoped_state!(
+    TRACKS_OVERRIDE,
+    OverrideTracksGuard,
+    current_track_override,
+    Vec<MockTrack>,
+    Vec::new()
 );
 
 pub struct TestCollectives;
