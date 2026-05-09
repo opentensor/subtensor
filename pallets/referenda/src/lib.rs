@@ -973,13 +973,10 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Disambiguates `ReferendumNotFound` from `ReferendumFinalized` for
-    /// callers that need that distinction.
-    fn ensure_ongoing(index: ReferendumIndex) -> Result<ReferendumInfoOf<T>, DispatchError> {
-        match ReferendumStatusFor::<T>::get(index) {
-            Some(ReferendumStatus::Ongoing(info)) => Ok(info),
-            Some(_) => Err(Error::<T>::ReferendumFinalized.into()),
-            None => Err(Error::<T>::ReferendumNotFound.into()),
+    fn ongoing_info(index: ReferendumIndex) -> Option<ReferendumInfoOf<T>> {
+        match ReferendumStatusFor::<T>::get(index)? {
+            ReferendumStatus::Ongoing(info) => Some(info),
+            _ => None,
         }
     }
 
@@ -1000,23 +997,21 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
     type VoterSet = VoterSetOf<T>;
 
     fn is_ongoing(index: Self::Index) -> bool {
-        Self::ensure_ongoing(index).is_ok()
+        Self::ongoing_info(index).is_some()
     }
 
     fn voting_scheme_of(index: Self::Index) -> Option<Self::VotingScheme> {
-        Self::ensure_ongoing(index)
-            .ok()
-            .and_then(|info| T::Tracks::info(info.track).map(|t| t.voting_scheme))
+        let info = Self::ongoing_info(index)?;
+        T::Tracks::info(info.track).map(|t| t.voting_scheme)
     }
 
     fn voter_set_of(index: Self::Index) -> Option<Self::VoterSet> {
-        Self::ensure_ongoing(index)
-            .ok()
-            .and_then(|info| T::Tracks::info(info.track).map(|t| t.voter_set))
+        let info = Self::ongoing_info(index)?;
+        T::Tracks::info(info.track).map(|t| t.voter_set)
     }
 
     fn on_tally_updated(index: Self::Index, tally: &VoteTally) {
-        let Some(mut info) = Self::ensure_ongoing(index).ok() else {
+        let Some(mut info) = Self::ongoing_info(index) else {
             return;
         };
         let now = T::BlockNumberProvider::current_block_number();
