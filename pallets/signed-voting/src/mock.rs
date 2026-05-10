@@ -64,7 +64,7 @@ impl SetLike<U256> for SimpleVoterSet {
 #[derive(Clone)]
 pub struct PollState {
     pub is_ongoing: bool,
-    pub scheme: VotingScheme,
+    pub scheme: Option<VotingScheme>,
     pub voter_set: Vec<U256>,
 }
 
@@ -92,7 +92,7 @@ impl Polls<U256> for MockPolls {
     }
 
     fn voting_scheme_of(index: Self::Index) -> Option<Self::VotingScheme> {
-        POLLS_STATE.with(|p| p.borrow().get(&index).map(|s| s.scheme))
+        POLLS_STATE.with(|p| p.borrow().get(&index).and_then(|s| s.scheme))
     }
 
     fn voter_set_of(index: Self::Index) -> Option<Self::VoterSet> {
@@ -120,7 +120,7 @@ pub fn start_poll(index: u32, scheme: VotingScheme, voter_set: Vec<U256>) {
             index,
             PollState {
                 is_ongoing: true,
-                scheme,
+                scheme: Some(scheme),
                 voter_set,
             },
         );
@@ -164,6 +164,17 @@ pub fn rotate_voter_in(index: u32, who: U256) {
     });
 }
 
+/// Simulate a producer that reports `is_ongoing = true` while
+/// `voting_scheme_of` returns `None`. Used to reach the `PollNotFound`
+/// branch in `ensure_valid_voting_scheme`.
+pub fn force_scheme_none(index: u32) {
+    POLLS_STATE.with(|p| {
+        if let Some(s) = p.borrow_mut().get_mut(&index) {
+            s.scheme = None;
+        }
+    });
+}
+
 pub fn take_tally_updates() -> Vec<(u32, VoteTally)> {
     TALLY_UPDATES.with(|t| t.borrow_mut().drain(..).collect())
 }
@@ -188,12 +199,67 @@ impl frame_system::Config for Test {
     type DbWeight = RocksDbWeight;
 }
 
+macro_rules! define_scoped_state {
+    ($flag:ident, $guard:ident, $reader:ident, $ty:ty, $default:expr) => {
+        thread_local! {
+            static $flag: RefCell<$ty> = const { RefCell::new($default) };
+        }
+
+        #[must_use = "the guard restores the prior value on drop; bind it to a local"]
+        pub struct $guard {
+            previous: Option<$ty>,
+        }
+
+        impl $guard {
+            pub fn new(value: $ty) -> Self {
+                let previous =
+                    Some($flag.with(|r| core::mem::replace(&mut *r.borrow_mut(), value)));
+                Self { previous }
+            }
+        }
+
+        impl Drop for $guard {
+            fn drop(&mut self) {
+                if let Some(prev) = self.previous.take() {
+                    $flag.with(|r| *r.borrow_mut() = prev);
+                }
+            }
+        }
+
+        fn $reader() -> $ty {
+            $flag.with(|r| *r.borrow())
+        }
+    };
+}
+
+define_scoped_state!(
+    MAX_VOTER_SET_SIZE,
+    MaxVoterSetSizeGuard,
+    max_voter_set_size,
+    u32,
+    256
+);
+define_scoped_state!(
+    MAX_PENDING_CLEANUP,
+    MaxPendingCleanupGuard,
+    max_pending_cleanup,
+    u32,
+    32
+);
+define_scoped_state!(
+    CLEANUP_CHUNK_SIZE,
+    CleanupChunkSizeGuard,
+    cleanup_chunk_size,
+    u32,
+    4
+);
+
 parameter_types! {
     pub const TestScheme: VotingScheme = VotingScheme::Signed;
-    pub const TestMaxVoterSetSize: u32 = 256;
-    pub const TestMaxPendingCleanup: u32 = 32;
-    pub const TestCleanupChunkSize: u32 = 4;
     pub const TestCleanupCursorMaxLen: u32 = 128;
+    pub TestMaxVoterSetSize: u32 = max_voter_set_size();
+    pub TestMaxPendingCleanup: u32 = max_pending_cleanup();
+    pub TestCleanupChunkSize: u32 = cleanup_chunk_size();
 }
 
 impl pallet_signed_voting::Config for Test {
@@ -223,7 +289,7 @@ impl pallet_signed_voting::benchmarking::BenchmarkHelper<Test> for MockBenchmark
                 index,
                 PollState {
                     is_ongoing: true,
-                    scheme: VotingScheme::Signed,
+                    scheme: Some(VotingScheme::Signed),
                     // Voter set populated directly by the benchmark via
                     // `populate_snapshot`.
                     voter_set: alloc::vec::Vec::new(),

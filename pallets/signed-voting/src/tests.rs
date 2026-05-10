@@ -558,15 +558,16 @@ fn on_poll_created_skips_polls_with_mismatched_scheme() {
 }
 
 #[test]
-fn on_poll_created_dedups_duplicate_voters_in_snapshot() {
+fn on_poll_created_sorts_and_dedups_voter_set() {
     TestState::build_and_execute(|| {
         let alice = U256::from(1);
         let bob = U256::from(2);
-        start_poll(0, VotingScheme::Signed, vec![alice, bob, alice, bob, alice]);
+        let carol = U256::from(3);
+        start_poll(0, VotingScheme::Signed, vec![carol, bob, alice, bob, carol]);
 
         let snapshot = VoterSetOf::<Test>::get(0u32).expect("snapshot stored");
-        assert_eq!(snapshot.len(), 2);
-        assert_eq!(TallyOf::<Test>::get(0u32).unwrap().total, 2);
+        assert_eq!(snapshot.to_vec(), vec![alice, bob, carol]);
+        assert_eq!(TallyOf::<Test>::get(0u32).unwrap().total, 3);
     });
 }
 
@@ -657,7 +658,7 @@ fn on_poll_completed_no_ops_when_no_local_tally() {
 }
 
 #[test]
-fn on_poll_completed_emits_cleanup_queue_full_when_queue_is_full() {
+fn on_poll_completed_emits_cleanup_queue_full_and_leaks_voting_for() {
     TestState::build_and_execute(|| {
         let cap = TestMaxPendingCleanup::get();
         for i in 0..cap {
@@ -665,7 +666,13 @@ fn on_poll_completed_emits_cleanup_queue_full_when_queue_is_full() {
             complete_poll(i);
         }
         let extra = cap;
-        start_poll(extra, VotingScheme::Signed, vec![U256::from(99)]);
+        let leaker = U256::from(99);
+        start_poll(extra, VotingScheme::Signed, vec![leaker]);
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(leaker),
+            extra,
+            true,
+        ));
         complete_poll(extra);
 
         let events = signed_voting_events();
@@ -678,6 +685,11 @@ fn on_poll_completed_emits_cleanup_queue_full_when_queue_is_full() {
             extra
         );
         assert_eq!(PendingCleanup::<Test>::get().len(), cap as usize);
+        assert_eq!(
+            VotingFor::<Test>::get(extra, leaker),
+            Some(true),
+            "overflow path must leak VotingFor for the rejected poll",
+        );
     });
 }
 
@@ -928,4 +940,136 @@ fn tally_conversion_short_circuits_zero_total_to_default() {
     assert_eq!(vote_tally.approval, Perbill::zero());
     assert_eq!(vote_tally.rejection, Perbill::zero());
     assert_eq!(vote_tally.abstention, Perbill::one());
+}
+
+#[test]
+fn tally_conversion_saturates_rejection_when_all_nay() {
+    let tally = SignedVoteTally {
+        ayes: 0,
+        nays: 3,
+        total: 3,
+    };
+    let vote_tally: VoteTally = tally.into();
+
+    assert_eq!(vote_tally.approval, Perbill::zero());
+    assert_eq!(vote_tally.rejection, Perbill::one());
+    assert_eq!(vote_tally.abstention, Perbill::zero());
+}
+
+#[test]
+fn integrity_test_passes_for_default_config() {
+    SignedVotingPallet::<Test>::integrity_test();
+}
+
+#[test]
+#[should_panic(expected = "CleanupChunkSize must be non-zero")]
+fn integrity_test_panics_when_cleanup_chunk_size_is_zero() {
+    let _g = CleanupChunkSizeGuard::new(0);
+    SignedVotingPallet::<Test>::integrity_test();
+}
+
+#[test]
+#[should_panic(expected = "MaxPendingCleanup must be non-zero")]
+fn integrity_test_panics_when_max_pending_cleanup_is_zero() {
+    let _g = MaxPendingCleanupGuard::new(0);
+    SignedVotingPallet::<Test>::integrity_test();
+}
+
+#[test]
+#[should_panic(expected = "MaxVoterSetSize must be non-zero")]
+fn integrity_test_panics_when_max_voter_set_size_is_zero() {
+    let _g = MaxVoterSetSizeGuard::new(0);
+    SignedVotingPallet::<Test>::integrity_test();
+}
+
+#[test]
+fn vote_returns_poll_not_found_when_producer_reports_no_scheme() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice]);
+        force_scheme_none(0);
+
+        assert_noop!(
+            SignedVotingPallet::<Test>::vote(RuntimeOrigin::signed(alice), 0u32, true),
+            Error::<Test>::PollNotFound
+        );
+    });
+}
+
+#[test]
+fn vote_returns_tally_missing_on_internal_inconsistency() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice]);
+        TallyOf::<Test>::remove(0u32);
+
+        assert_noop!(
+            SignedVotingPallet::<Test>::vote(RuntimeOrigin::signed(alice), 0u32, true),
+            Error::<Test>::TallyMissing
+        );
+    });
+}
+
+#[test]
+fn remove_vote_returns_tally_missing_on_internal_inconsistency() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice]);
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+            true,
+        ));
+        TallyOf::<Test>::remove(0u32);
+
+        assert_noop!(
+            SignedVotingPallet::<Test>::remove_vote(RuntimeOrigin::signed(alice), 0u32),
+            Error::<Test>::TallyMissing
+        );
+    });
+}
+
+#[test]
+fn vote_returns_voter_set_missing_on_internal_inconsistency() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(0, VotingScheme::Signed, vec![alice]);
+        VoterSetOf::<Test>::remove(0u32);
+
+        assert_noop!(
+            SignedVotingPallet::<Test>::vote(RuntimeOrigin::signed(alice), 0u32, true),
+            Error::<Test>::VoterSetMissing
+        );
+    });
+}
+
+#[test]
+fn remove_vote_invokes_polls_on_tally_updated() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        start_poll(
+            0,
+            VotingScheme::Signed,
+            vec![alice, U256::from(2), U256::from(3)],
+        );
+        assert_ok!(SignedVotingPallet::<Test>::vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+            true,
+        ));
+        let _ = take_tally_updates();
+
+        assert_ok!(SignedVotingPallet::<Test>::remove_vote(
+            RuntimeOrigin::signed(alice),
+            0u32,
+        ));
+
+        let updates = take_tally_updates();
+        assert_eq!(updates.len(), 1);
+        let (idx, tally) = &updates[0];
+        assert_eq!(*idx, 0);
+        assert_eq!(tally.approval, Perbill::zero());
+        assert_eq!(tally.rejection, Perbill::zero());
+        assert_eq!(tally.abstention, Perbill::one());
+    });
 }
