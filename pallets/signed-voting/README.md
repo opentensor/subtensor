@@ -92,19 +92,20 @@ while `on_idle` is starved by full blocks. The pallet's
 
 ```rust
 parameter_types! {
-    pub const SignedVotingMaxVoterSetSize:    u32 = 64;   // ≥ widest track's voter set
-    pub const SignedVotingMaxPendingCleanup:  u32 = 40;   // ≥ producer's MaxQueued, with headroom for bursts
-    pub const SignedVotingCleanupChunkSize:   u32 = 16;   // entries per idle drain step
-    pub const SignedVotingCleanupCursorMaxLen:u32 = 128;  // bound for clear_prefix cursor
+    pub const Scheme:               VotingScheme = VotingScheme::Signed;
+    pub const MaxVoterSetSize:      u32 = 64;   // ≥ widest track's voter set
+    pub const MaxPendingCleanup:    u32 = 40;   // ≥ producer's MaxQueued, with headroom for bursts
+    pub const CleanupChunkSize:     u32 = 16;   // entries per idle drain step
+    pub const CleanupCursorMaxLen:  u32 = 128;  // bound for clear_prefix cursor
 }
 
 impl pallet_signed_voting::Config for Runtime {
-    type Scheme              = GovernanceSignedScheme;
+    type Scheme              = Scheme;
     type Polls               = Referenda;
-    type MaxVoterSetSize     = SignedVotingMaxVoterSetSize;
-    type MaxPendingCleanup   = SignedVotingMaxPendingCleanup;
-    type CleanupChunkSize    = SignedVotingCleanupChunkSize;
-    type CleanupCursorMaxLen = SignedVotingCleanupCursorMaxLen;
+    type MaxVoterSetSize     = MaxVoterSetSize;
+    type MaxPendingCleanup   = MaxPendingCleanup;
+    type CleanupChunkSize    = CleanupChunkSize;
+    type CleanupCursorMaxLen = CleanupCursorMaxLen;
     type WeightInfo          = pallet_signed_voting::weights::SubstrateWeight<Runtime>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper     = SignedVotingBenchmarkHelper;

@@ -72,20 +72,20 @@ the next breaking change to `Members<_>` or any future persisted state.
 
 ```rust
 parameter_types! {
-    pub const MultiCollectiveMaxMembers: u32 = 20;
+    pub const MaxMembers: u32 = 20;
 }
 
 impl pallet_multi_collective::Config for Runtime {
-    type CollectiveId    = GovernanceCollectiveId;
-    type Collectives     = SubtensorCollectives;
+    type CollectiveId    = CollectiveId;
+    type Collectives     = Collectives;
     type AddOrigin       = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type RemoveOrigin    = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type SwapOrigin      = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type SetOrigin       = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type RotateOrigin    = AsEnsureOriginWithArg<EnsureRoot<AccountId>>;
     type OnMembersChanged = ();
-    type OnNewTerm       = CollectiveManagement;
-    type MaxMembers      = MultiCollectiveMaxMembers;
+    type OnNewTerm       = TermManagement;
+    type MaxMembers      = MaxMembers;
     type WeightInfo      = pallet_multi_collective::weights::SubstrateWeight<Runtime>;
 }
 ```

@@ -169,19 +169,19 @@ bump.
 
 ```rust
 parameter_types! {
-    pub const ReferendaMaxQueued: u32 = 20;
-    pub const ReferendaMaxActivePerProposer: u32 = 5;
+    pub const MaxQueued: u32 = 20;
+    pub const MaxActivePerProposer: u32 = 5;
 }
 
 impl pallet_referenda::Config for Runtime {
     type RuntimeCall          = RuntimeCall;
     type Scheduler            = Scheduler;
     type Preimages            = Preimage;
-    type MaxQueued            = ReferendaMaxQueued;
-    type MaxActivePerProposer = ReferendaMaxActivePerProposer;
+    type MaxQueued            = MaxQueued;
+    type MaxActivePerProposer = MaxActivePerProposer;
     type KillOrigin           = EnsureRoot<AccountId>;
-    type Tracks               = governance::tracks::SubtensorTracks;
-    type AdjustmentCurve      = governance::tracks::LinearAdjustmentCurve;
+    type Tracks               = tracks::Tracks;
+    type AdjustmentCurve      = tracks::LinearAdjustmentCurve;
     type BlockNumberProvider  = System;
     type OnPollCreated        = SignedVoting;
     type OnPollCompleted      = SignedVoting;

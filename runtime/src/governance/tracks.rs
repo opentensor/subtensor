@@ -1,27 +1,47 @@
-//! Static list of referenda tracks. Track 0 is the triumvirate
-//! approval track; track 1 is the collective oversight (Review) track.
+//! Static list of referenda tracks. Track 0 is the triumvirate approval
+//! track; track 1 is the collective oversight (Review) track.
 
 use pallet_referenda::{
-    ApprovalAction, DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack,
+    AdjustmentCurve, ApprovalAction, DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack,
     TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo,
 };
+use runtime_common::prod_or_fast;
 use sp_runtime::Perbill;
-use subtensor_runtime_common::pad_name;
-
-use crate::{
-    AccountId, BlockNumber, GovernanceCollectiveId, GovernanceCollectiveInitialDelay,
-    GovernanceMemberSet, GovernanceTriumvirateDecisionPeriod, GovernanceVotingScheme, RuntimeCall,
+use subtensor_runtime_common::{
+    pad_name,
+    time::{DAYS, HOURS},
 };
 
-pub struct SubtensorTracks;
+use super::collectives::CollectiveId;
+use super::{MemberSet, VotingScheme};
+use crate::{AccountId, BlockNumber, RuntimeCall};
 
-impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber>
-    for SubtensorTracks
-{
+const TRIUMVIRATE_DECISION_PERIOD: BlockNumber = prod_or_fast!(7 * DAYS, 50);
+
+const REVIEW_INITIAL_DELAY: BlockNumber = prod_or_fast!(24 * HOURS, 30);
+
+/// Upper bound on the Review dispatch delay, reached as net rejection
+/// approaches `cancel_threshold`.
+const REVIEW_MAX_DELAY: BlockNumber = prod_or_fast!(2 * DAYS, 60);
+
+/// Identity curve: net votes shift the delay by an equal amount per unit of
+/// net, regardless of position in the trend. Each marginal vote in the
+/// undecided range moves the dispatch target by the same fixed step.
+/// Configured as `pallet_referenda::Config::AdjustmentCurve` for the runtime;
+/// see [`AdjustmentCurve`] for the semantics of `progress`.
+pub struct LinearAdjustmentCurve;
+impl AdjustmentCurve for LinearAdjustmentCurve {
+    fn apply(progress: Perbill) -> Perbill {
+        progress
+    }
+}
+
+pub struct Tracks;
+impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber> for Tracks {
     type Id = u8;
-    type ProposerSet = GovernanceMemberSet;
-    type VotingScheme = GovernanceVotingScheme;
-    type VoterSet = GovernanceMemberSet;
+    type ProposerSet = MemberSet;
+    type VotingScheme = VotingScheme;
+    type VoterSet = MemberSet;
 
     fn tracks() -> impl Iterator<
         Item = RefTrack<
@@ -38,14 +58,11 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                 id: 0u8,
                 info: RefTrackInfo {
                     name: pad_name(b"triumvirate"),
-                    proposer_set: Some(GovernanceMemberSet::Single(
-                        GovernanceCollectiveId::Proposers,
-                    )),
-                    voter_set: GovernanceMemberSet::Single(GovernanceCollectiveId::Triumvirate),
-                    voting_scheme: GovernanceVotingScheme::Signed,
+                    proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
+                    voter_set: MemberSet::Single(CollectiveId::Triumvirate),
+                    voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::PassOrFail {
-                        decision_period: GovernanceTriumvirateDecisionPeriod::get(),
-                        // 2/3 approval
+                        decision_period: TRIUMVIRATE_DECISION_PERIOD,
                         approve_threshold: Perbill::from_rational(2u32, 3u32),
                         reject_threshold: Perbill::from_rational(2u32, 3u32),
                         // Approved triumvirate decisions hand off to the
@@ -55,23 +72,24 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                     },
                 },
             },
-            // `proposer_set: None` is load-bearing: it makes track 1
-            // reachable only via Track 0's `ApprovalAction::Review` handoff.
-            // Setting it to `Some(_)` would let a proposer schedule a root
-            // call for auto-dispatch at `now + initial_delay`, bypassing
-            // Triumvirate approval.
+            // `proposer_set: None` is load-bearing: it makes track 1 reachable
+            // only via Track 0's `ApprovalAction::Review` handoff. Setting it
+            // to `Some(_)` would let a proposer schedule a root call for
+            // auto-dispatch at `now + initial_delay`, bypassing Triumvirate
+            // approval.
             RefTrack {
                 id: 1u8,
                 info: RefTrackInfo {
                     name: pad_name(b"review"),
                     proposer_set: None,
-                    voter_set: GovernanceMemberSet::Union(alloc::vec![
-                        GovernanceCollectiveId::Economic,
-                        GovernanceCollectiveId::Building,
+                    voter_set: MemberSet::Union(alloc::vec![
+                        CollectiveId::Economic,
+                        CollectiveId::Building,
                     ]),
-                    voting_scheme: GovernanceVotingScheme::Signed,
+                    voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::Adjustable {
-                        initial_delay: GovernanceCollectiveInitialDelay::get(),
+                        initial_delay: REVIEW_INITIAL_DELAY,
+                        max_delay: REVIEW_MAX_DELAY,
                         fast_track_threshold: Perbill::from_percent(75),
                         cancel_threshold: Perbill::from_percent(51),
                     },
@@ -80,6 +98,8 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
         ]
         .into_iter()
     }
+
+    // TODO: handle authorize proposal check
 }
 
 #[cfg(test)]
@@ -89,7 +109,7 @@ mod tests {
 
     #[test]
     fn track_0_triumvirate_is_directly_submittable() {
-        let track_0 = SubtensorTracks::tracks()
+        let track_0 = Tracks::tracks()
             .find(|t| t.id == 0u8)
             .expect("track 0 (triumvirate) must exist");
 
@@ -102,7 +122,7 @@ mod tests {
 
     #[test]
     fn track_1_review_is_not_directly_submittable() {
-        let track_1 = SubtensorTracks::tracks()
+        let track_1 = Tracks::tracks()
             .find(|t| t.id == 1u8)
             .expect("track 1 (review) must exist");
 
