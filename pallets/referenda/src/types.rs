@@ -107,11 +107,17 @@ pub enum DecisionStrategy<TrackId, BlockNumber> {
     },
     /// Timing decision over a call already scheduled at submit time. The
     /// call runs after `initial_delay` by default. Voters can fast-track,
-    /// cancel, or shift the dispatch time via linear interpolation between
-    /// those extremes (target moves earlier as approval rises, never later).
+    /// cancel, or shift the dispatch time via interpolation on net votes:
+    /// net approval pulls the target earlier toward `submitted`, net
+    /// rejection pushes it later toward `submitted + max_delay`.
     Adjustable {
-        /// Default delay between submission and dispatch.
+        /// Default delay between submission and dispatch when net votes
+        /// are zero.
         initial_delay: BlockNumber,
+        /// Upper bound on the dispatch delay. Reached as net rejection
+        /// approaches `cancel_threshold`. Must be `>= initial_delay`;
+        /// equal disables the rejection-side extension.
+        max_delay: BlockNumber,
         /// Approval ratio at which the task is rescheduled to next block
         /// and the referendum concludes as `FastTracked`.
         fast_track_threshold: Perbill,
@@ -242,13 +248,14 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
     /// * `PassOrFail`: `decision_period`, `approve_threshold`, and
     ///   `reject_threshold` must all be non-zero.
     /// * `Adjustable`: `initial_delay`, `fast_track_threshold`, and
-    ///   `cancel_threshold` must all be non-zero, and
-    ///   `fast_track_threshold + cancel_threshold > 100%` so the cancel
-    ///   branch cannot be masked by a fast-track that fires first on the
-    ///   same tally split.
+    ///   `cancel_threshold` must all be non-zero;
+    ///   `max_delay >= initial_delay` (else net rejection cannot extend
+    ///   the delay); and `fast_track_threshold + cancel_threshold > 100%`
+    ///   so the cancel branch cannot be masked by a fast-track that
+    ///   fires first on the same tally split.
     fn check_integrity() -> Result<(), &'static str>
     where
-        BlockNumber: Zero,
+        BlockNumber: Zero + PartialOrd,
     {
         let tracks: alloc::vec::Vec<_> = Self::tracks().collect();
 
@@ -293,11 +300,15 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
                 }
                 DecisionStrategy::Adjustable {
                     initial_delay,
+                    max_delay,
                     fast_track_threshold,
                     cancel_threshold,
                 } => {
                     if initial_delay.is_zero() {
                         return Err("Adjustable: initial_delay must be non-zero");
+                    }
+                    if max_delay < initial_delay {
+                        return Err("Adjustable: max_delay must be >= initial_delay");
                     }
                     if *fast_track_threshold == Perbill::zero() {
                         return Err("Adjustable: fast_track_threshold must be non-zero");
@@ -319,6 +330,14 @@ pub trait TracksInfo<Name, AccountId, Call, BlockNumber> {
 
         Ok(())
     }
+}
+
+/// Curve applied to net-vote progress on `Adjustable` tracks. Maps
+/// `progress` (the position of the net vote between zero and the
+/// side-specific threshold) to the fraction of the delay range to
+/// apply.
+pub trait AdjustmentCurve {
+    fn apply(progress: Perbill) -> Perbill;
 }
 
 /// Per-referendum data captured at submit time and updated as votes arrive.

@@ -82,8 +82,9 @@
 //!                       │      │ alarm fires:
 //!                       │      ├─ fast_track_threshold        ─► FastTracked ─► enact ─► Enacted
 //!                       │      ├─ cancel_threshold            ─► Cancelled   (terminal)
-//!                       │      └─ otherwise: do_adjust_delay  ─► move enact task earlier,
-//!                       └──────┘                                 stay Ongoing
+//!                       │      └─ otherwise: do_adjust_delay  ─► move enact task (earlier
+//!                       └──────┘                                 on net approval, later on
+//!                                                                net rejection), stay Ongoing
 //! ```
 //!
 //! `kill` is also accepted from `Approved` (PassOrFail) and
@@ -118,8 +119,13 @@
 //! idempotent: it cancels any prior alarm with the same name before
 //! scheduling a new one.
 //!
-//! `Adjustable` enactment tasks can move earlier (fast-track, linear
-//! interpolation) but never later than `submitted + initial_delay`.
+//! `Adjustable` enactment tasks can move earlier or later than the
+//! initial schedule via interpolation on net votes (see
+//! `do_adjust_delay`): net approval shrinks the delay toward zero,
+//! net rejection extends it toward the track's `max_delay` before
+//! the cancel threshold fires. The mapping from net-vote progress to
+//! delay fraction is shaped by [`Config::AdjustmentCurve`], which the
+//! runtime supplies; the pallet itself stays curve-agnostic.
 //!
 //! ## Runtime configuration check
 //!
@@ -132,7 +138,8 @@
 //! * `PassOrFail` tracks have non-zero `decision_period`,
 //!   `approve_threshold`, and `reject_threshold`.
 //! * `Adjustable` tracks have non-zero `initial_delay`,
-//!   `fast_track_threshold`, and `cancel_threshold`, with
+//!   `fast_track_threshold`, and `cancel_threshold`;
+//!   `max_delay >= initial_delay`; and
 //!   `fast_track_threshold + cancel_threshold > 100%` so the cancel
 //!   branch cannot be masked by a fast-track that fires first on the
 //!   same tally split.
@@ -245,6 +252,11 @@ pub mod pallet {
         /// Track configuration. Defines the proposer set, voter set, voting
         /// scheme, and decision strategy for each track id.
         type Tracks: TracksInfo<TrackName, Self::AccountId, CallOf<Self>, BlockNumberFor<Self>>;
+
+        /// Curve applied to net-vote progress on `Adjustable` tracks. Not
+        /// snapshotted: a runtime upgrade that swaps the impl affects all
+        /// in-flight referenda.
+        type AdjustmentCurve: AdjustmentCurve;
 
         /// Source of "now" used for scheduling decisions. Typically
         /// `frame_system::Pallet<T>`; configurable for runtimes that
@@ -743,6 +755,7 @@ impl<T: Config> Pallet<T> {
             Proposal::Review => {
                 let DecisionStrategy::Adjustable {
                     initial_delay,
+                    max_delay,
                     fast_track_threshold,
                     cancel_threshold,
                 } = &info.decision_strategy
@@ -760,7 +773,9 @@ impl<T: Config> Pallet<T> {
                         &tally,
                         info.submitted,
                         *initial_delay,
+                        *max_delay,
                         *fast_track_threshold,
+                        *cancel_threshold,
                     );
                 }
             }
@@ -957,21 +972,37 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    /// Linear interpolation: at `approval = 0` the delay equals
-    /// `initial_delay`; as approval approaches `fast_track_threshold` it
-    /// shrinks toward zero. The target is anchored at `submitted` so
-    /// repeated reschedules cannot drift the call forward.
+    /// Interpolation on net votes (approval - rejection), shaped by
+    /// [`Config::AdjustmentCurve`]. At net = 0 the delay equals
+    /// `initial_delay`. Net approval shrinks the delay toward zero as the
+    /// net approaches `fast_track_threshold`; net rejection extends it
+    /// toward `max_delay` as the net approaches `-cancel_threshold`. The
+    /// target is anchored at `submitted` so repeated reschedules cannot
+    /// drift the call.
     fn do_adjust_delay(
         index: ReferendumIndex,
         tally: &VoteTally,
         submitted: BlockNumberFor<T>,
         initial_delay: BlockNumberFor<T>,
+        max_delay: BlockNumberFor<T>,
         fast_track_threshold: Perbill,
+        cancel_threshold: Perbill,
     ) {
-        let gap = fast_track_threshold.saturating_sub(tally.approval);
-        let fraction =
-            Perbill::from_rational(gap.deconstruct(), fast_track_threshold.deconstruct());
-        let computed_delay: BlockNumberFor<T> = fraction.mul_floor(initial_delay);
+        let computed_delay: BlockNumberFor<T> = if tally.approval >= tally.rejection {
+            let net = tally.approval.saturating_sub(tally.rejection);
+            let progress =
+                Perbill::from_rational(net.deconstruct(), fast_track_threshold.deconstruct());
+            let curved = T::AdjustmentCurve::apply(progress);
+            let remaining = Perbill::one().saturating_sub(curved);
+            remaining.mul_floor(initial_delay)
+        } else {
+            let net = tally.rejection.saturating_sub(tally.approval);
+            let progress =
+                Perbill::from_rational(net.deconstruct(), cancel_threshold.deconstruct());
+            let curved = T::AdjustmentCurve::apply(progress);
+            let max_extension = max_delay.saturating_sub(initial_delay);
+            initial_delay.saturating_add(curved.mul_floor(max_extension))
+        };
         let target = submitted.saturating_add(computed_delay);
 
         let now = T::BlockNumberProvider::current_block_number();
@@ -980,11 +1011,12 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Skip the scheduler call when the target did not move. The scheduler
-        // rejects no-op reschedules with `RescheduleNoChange`.
-        if Self::next_task_dispatch_time(index) != Some(target)
-            && let Err(err) =
-                T::Scheduler::reschedule_named(task_name(index), DispatchTime::At(target))
+        // Avoid `RescheduleNoChange` when the target is unchanged.
+        if Self::next_task_dispatch_time(index) == Some(target) {
+            return;
+        }
+
+        if let Err(err) = T::Scheduler::reschedule_named(task_name(index), DispatchTime::At(target))
         {
             Self::report_scheduler_error(index, "reschedule_task", err);
         }
@@ -1079,7 +1111,7 @@ impl<T: Config> Polls<T::AccountId> for Pallet<T> {
 
         // Defer evaluation by one block. The hook stores the new tally; the
         // alarm fires next block and runs `advance_referendum` from a clean
-        // dispatch context, avoiding re-entrancy with the voting pallet.
+        // dispatch context, avoiding re-entrancy with caller.
         if let Err(err) = Self::set_alarm(index, now.saturating_add(One::one())) {
             Self::report_scheduler_error(index, "set_alarm", err);
         }

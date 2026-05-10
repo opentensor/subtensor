@@ -39,7 +39,7 @@ strategy.
 | Strategy | Decision | Outcome |
 | -------- | -------- | ------- |
 | `PassOrFail` | Approve / reject by deadline. | On approval the call is dispatched directly, or handed off to a child review referendum filed on an `Adjustable` track. On rejection or deadline elapse the referendum terminates. |
-| `Adjustable` | Timing decision over an already-scheduled call. | Submit schedules the call at `submitted + initial_delay`. Voters can fast-track it sooner, cancel it, or shift the dispatch time via linear interpolation between zero approval and `fast_track_threshold`. |
+| `Adjustable` | Timing decision over an already-scheduled call. | Submit schedules the call at `submitted + initial_delay`. Voters can fast-track it sooner, cancel it, or shift the dispatch time via interpolation on net votes: net approval shrinks the delay toward zero, net rejection extends it toward the track's `max_delay` before the cancel threshold fires. The shape of that interpolation is set by `Config::AdjustmentCurve`. |
 
 ## Extrinsics
 
@@ -84,8 +84,8 @@ strategy.
                   │      │ alarm fires:
                   │      ├─ fast_track_threshold    ─► FastTracked ─► enact ─► Enacted
                   │      ├─ cancel_threshold        ─► Cancelled
-                  │      └─ otherwise               ─► reschedule enact earlier
-                  └──────┘
+                  │      └─ otherwise               ─► reschedule enact (earlier on
+                  └──────┘                             net approval, later on net rejection)
 ```
 
 `kill` is also accepted from `Approved` and `FastTracked` until
@@ -129,6 +129,18 @@ referenda one account can hold. This caps the blast radius of a
 compromised proposer key when many proposers compete for the global
 `MaxQueued` slots.
 
+### Adjustment curve
+
+The mapping from net-vote progress to delay fraction is supplied by
+the runtime as `Config::AdjustmentCurve`. The pallet calls
+`AdjustmentCurve::apply(progress)` on each side, where `progress` is
+the position of the net vote between zero and the side-specific
+threshold (`fast_track_threshold` for net approval,
+`cancel_threshold` for net rejection). The same curve is applied to
+both sides for symmetry. The choice is runtime-global and not
+snapshotted: a runtime upgrade that swaps the impl takes effect for
+all in-flight referenda on the next state-machine evaluation.
+
 ## Integrity check
 
 `integrity_test` runs at runtime construction and panics on a
@@ -140,9 +152,11 @@ misconfigured track table:
 - `PassOrFail` with zero `decision_period`, `approve_threshold`, or
   `reject_threshold`.
 - `Adjustable` with zero `initial_delay`, `fast_track_threshold`, or
-  `cancel_threshold`, or with `fast_track_threshold + cancel_threshold
-  ≤ 100%` so the cancel branch could be masked by a fast-track that
-  fires first on the same tally split.
+  `cancel_threshold`; with `max_delay < initial_delay` (so net
+  rejection cannot extend the delay); or with
+  `fast_track_threshold + cancel_threshold ≤ 100%` so the cancel
+  branch could be masked by a fast-track that fires first on the same
+  tally split.
 
 ## Migrations
 
@@ -167,6 +181,7 @@ impl pallet_referenda::Config for Runtime {
     type MaxActivePerProposer = ReferendaMaxActivePerProposer;
     type KillOrigin           = EnsureRoot<AccountId>;
     type Tracks               = governance::tracks::SubtensorTracks;
+    type AdjustmentCurve      = governance::tracks::LinearAdjustmentCurve;
     type BlockNumberProvider  = System;
     type OnPollCreated        = SignedVoting;
     type OnPollCompleted      = SignedVoting;

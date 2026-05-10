@@ -963,20 +963,130 @@ fn adjustable_zero_approval_keeps_full_initial_delay() {
 }
 
 #[test]
-fn adjustable_partial_approval_pulls_target_earlier() {
+fn adjustable_progresses_through_approval_curve_into_fast_track() {
     TestState::default().build_and_execute(|| {
         let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
-        let submitted = current_block();
+        let start = current_block();
+        let initial_target = start + INITIAL_DELAY;
 
         vote(VOTER_A, index, true);
-        run_to_block(current_block() + 2);
+        run_to_block(start + 1);
+        let after_one = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert!(after_one < initial_target);
 
-        let new_target = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
-        assert!(new_target < submitted + INITIAL_DELAY);
+        vote(VOTER_B, index, true);
+        run_to_block(start + 2);
+        let after_two = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
         assert!(
-            new_target >= submitted,
-            "target cannot move earlier than submission block"
+            after_two < after_one,
+            "each successive aye should pull the target strictly earlier"
         );
+
+        vote(VOTER_C, index, true);
+        run_to_block(start + 5);
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert!(has_event(
+            |e| matches!(e, Event::FastTracked { index: i } if *i == index)
+        ));
+    });
+}
+
+#[test]
+fn adjustable_progresses_through_rejection_curve_into_cancel() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let start = current_block();
+        let initial_target = start + INITIAL_DELAY;
+
+        vote(VOTER_A, index, false);
+        run_to_block(start + 1);
+        let after_one = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert!(after_one > initial_target);
+
+        vote(VOTER_B, index, false);
+        run_to_block(start + 2);
+        assert!(matches!(status_of(index), ReferendumStatus::Cancelled(_)));
+        assert!(has_event(
+            |e| matches!(e, Event::Cancelled { index: i } if *i == index)
+        ));
+    });
+}
+
+#[test]
+fn adjustable_delayed_then_accelerated_fast_tracks_via_past_target() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let start = current_block();
+        let initial_target = start + INITIAL_DELAY;
+
+        // Push the enactment task past `initial_target` with a nay.
+        vote(VOTER_A, index, false);
+        run_to_block(start + 1);
+        let extended = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert!(extended > initial_target);
+
+        // Cross the original deadline without firing (target is now extended).
+        run_to_block(initial_target + 10);
+
+        // Counter-vote pulls the recomputed target back to `initial_target`,
+        // which is already in the past; `do_adjust_delay` flips to fast-track.
+        vote(VOTER_B, index, true);
+        run_to_block(initial_target + 15);
+
+        assert!(matches!(status_of(index), ReferendumStatus::Enacted(_)));
+        assert!(has_event(
+            |e| matches!(e, Event::FastTracked { index: i } if *i == index)
+        ));
+    });
+}
+
+#[test]
+fn adjustable_balanced_votes_keep_initial_delay() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let start = current_block();
+
+        vote(VOTER_A, index, true);
+        vote(VOTER_B, index, false);
+        run_to_block(start + 1);
+
+        assert_eq!(
+            Pallet::<Test>::next_task_dispatch_time(index),
+            Some(start + INITIAL_DELAY),
+            "net-zero votes should leave the target at initial_delay"
+        );
+    });
+}
+
+#[test]
+fn adjustable_repeated_flips_return_target_to_same_value() {
+    TestState::default().build_and_execute(|| {
+        let index = submit_on(TRACK_ADJUSTABLE, U256::from(PROPOSER));
+        let start = current_block();
+        let initial_target = start + INITIAL_DELAY;
+
+        vote(VOTER_A, index, false);
+        run_to_block(start + 1);
+        let nay_1 = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert!(nay_1 > initial_target);
+
+        vote(VOTER_A, index, true);
+        run_to_block(start + 2);
+        let aye_1 = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert!(aye_1 < initial_target);
+
+        vote(VOTER_A, index, false);
+        run_to_block(start + 3);
+        let nay_2 = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert_eq!(
+            nay_1, nay_2,
+            "flipping back to the same tally should land at the same target"
+        );
+
+        vote(VOTER_A, index, true);
+        run_to_block(start + 4);
+        let aye_2 = Pallet::<Test>::next_task_dispatch_time(index).unwrap();
+        assert_eq!(aye_1, aye_2);
     });
 }
 
@@ -1327,6 +1437,7 @@ fn adjustable_track(id: u8) -> MockTrack {
             voting_scheme: VotingScheme::Signed,
             decision_strategy: DecisionStrategy::Adjustable {
                 initial_delay: 100,
+                max_delay: 200,
                 fast_track_threshold: Perbill::from_percent(75),
                 cancel_threshold: Perbill::from_percent(51),
             },
@@ -1475,6 +1586,18 @@ fn check_integrity_rejects_zero_cancel_threshold() {
         *cancel_threshold = Perbill::zero();
     }
     assert_check_integrity_err(vec![t], "Adjustable: cancel_threshold must be non-zero");
+}
+
+#[test]
+fn check_integrity_rejects_max_delay_below_initial_delay() {
+    let mut t = adjustable_track(0);
+    if let DecisionStrategy::Adjustable {
+        ref mut max_delay, ..
+    } = t.info.decision_strategy
+    {
+        *max_delay = 50;
+    }
+    assert_check_integrity_err(vec![t], "Adjustable: max_delay must be >= initial_delay");
 }
 
 #[test]

@@ -215,6 +215,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
                     voting_scheme: VotingScheme::Signed,
                     decision_strategy: DecisionStrategy::Adjustable {
                         initial_delay: 100,
+                        max_delay: 200,
                         fast_track_threshold: Perbill::from_percent(75),
                         cancel_threshold: Perbill::from_percent(51),
                     },
@@ -260,6 +261,7 @@ impl TracksInfo<TrackName, U256, RuntimeCall, u64> for TestTracks {
             if t.id == 0 && track0_swapped_to_adjustable() {
                 t.info.decision_strategy = DecisionStrategy::Adjustable {
                     initial_delay: 100,
+                    max_delay: 200,
                     fast_track_threshold: Perbill::from_percent(75),
                     cancel_threshold: Perbill::from_percent(51),
                 };
@@ -445,6 +447,13 @@ parameter_types! {
     pub const MaxActivePerProposer: u32 = 3;
 }
 
+pub struct LinearCurve;
+impl pallet_referenda::AdjustmentCurve for LinearCurve {
+    fn apply(progress: Perbill) -> Perbill {
+        progress
+    }
+}
+
 impl pallet_referenda::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Scheduler = Scheduler;
@@ -453,6 +462,7 @@ impl pallet_referenda::Config for Test {
     type MaxActivePerProposer = MaxActivePerProposer;
     type KillOrigin = EnsureRoot<U256>;
     type Tracks = TestTracks;
+    type AdjustmentCurve = LinearCurve;
     type BlockNumberProvider = System;
     type OnPollCreated = SignedVoting;
     type OnPollCompleted = SignedVoting;
