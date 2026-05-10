@@ -570,3 +570,212 @@ pub fn referenda_events() -> Vec<crate::Event<Test>> {
         })
         .collect()
 }
+
+/// Test helpers
+
+pub const PROPOSER: u128 = 1;
+pub const PROPOSER_B: u128 = 2;
+pub const VOTER_A: u128 = 101;
+pub const VOTER_B: u128 = 102;
+pub const VOTER_C: u128 = 103;
+
+pub const TRACK_PASS_OR_FAIL: u8 = 0;
+pub const TRACK_ADJUSTABLE: u8 = 1;
+pub const TRACK_DELEGATING: u8 = 2;
+pub const TRACK_NO_PROPOSER_SET: u8 = 3;
+
+pub const DECISION_PERIOD: u64 = 20;
+pub const INITIAL_DELAY: u64 = 100;
+
+pub fn make_call() -> RuntimeCall {
+    RuntimeCall::System(frame_system::Call::<Test>::remark { remark: vec![] })
+}
+
+/// Encoded length exceeds the 128-byte `BoundedInline` cap so the preimage
+/// is stored as `Lookup` and contributes to the on-chain refcount, which is
+/// what the preimage-cleanup tests assert against.
+pub fn make_lookup_call() -> RuntimeCall {
+    RuntimeCall::System(frame_system::Call::<Test>::remark {
+        remark: vec![0u8; 256],
+    })
+}
+
+pub fn preimage_hash(call: &RuntimeCall) -> sp_core::H256 {
+    use sp_runtime::traits::Hash as HashT;
+    <Test as frame_system::Config>::Hashing::hash_of(call)
+}
+
+pub fn preimage_exists(hash: &sp_core::H256) -> bool {
+    pallet_preimage::RequestStatusFor::<Test>::contains_key(hash)
+}
+
+pub fn enact_wrapper_hash(index: crate::ReferendumIndex, inner: RuntimeCall) -> sp_core::H256 {
+    preimage_hash(&RuntimeCall::Referenda(crate::Call::<Test>::enact {
+        index,
+        call: Box::new(inner),
+    }))
+}
+
+pub fn submit_on(track: u8, proposer: U256) -> crate::ReferendumIndex {
+    use frame_support::assert_ok;
+    let index = crate::ReferendumCount::<Test>::get();
+    assert_ok!(crate::Pallet::<Test>::submit(
+        RuntimeOrigin::signed(proposer),
+        track,
+        Box::new(make_call()),
+    ));
+    index
+}
+
+pub fn vote(voter: u128, index: crate::ReferendumIndex, aye: bool) {
+    use frame_support::assert_ok;
+    assert_ok!(pallet_signed_voting::Pallet::<Test>::vote(
+        RuntimeOrigin::signed(U256::from(voter)),
+        index,
+        aye,
+    ));
+}
+
+pub fn status_of(index: crate::ReferendumIndex) -> crate::ReferendumStatusOf<Test> {
+    crate::ReferendumStatusFor::<Test>::get(index).expect("referendum should exist")
+}
+
+pub fn current_block() -> u64 {
+    System::block_number()
+}
+
+pub fn scheduler_alarm_block(index: crate::ReferendumIndex) -> Option<u64> {
+    use frame_support::traits::schedule::v3::Named;
+    <Scheduler as Named<u64, RuntimeCall, OriginCaller>>::next_dispatch_time(crate::alarm_name(
+        index,
+    ))
+    .ok()
+}
+
+pub fn signed_tally_exists(index: crate::ReferendumIndex) -> bool {
+    pallet_signed_voting::TallyOf::<Test>::get(index).is_some()
+}
+
+pub fn has_event(matcher: impl Fn(&crate::Event<Test>) -> bool) -> bool {
+    referenda_events().iter().any(matcher)
+}
+
+/// Assert the standard "concluded and cleaned up" invariants for a terminal
+/// referendum: not Ongoing, no tally, no pending alarm, and the slot has
+/// been released from `ActiveCount`.
+pub fn assert_concluded(index: crate::ReferendumIndex, expected_active_after: u32) {
+    use subtensor_runtime_common::Polls;
+    assert!(!crate::Pallet::<Test>::is_ongoing(index));
+    assert!(!signed_tally_exists(index));
+    assert_eq!(crate::ActiveCount::<Test>::get(), expected_active_after);
+    // Conclude cancels the alarm; only Approved/FastTracked re-arm a new
+    // one for the Enacted transition.
+    if !matches!(
+        crate::ReferendumStatusFor::<Test>::get(index),
+        Some(crate::ReferendumStatus::Approved(_)) | Some(crate::ReferendumStatus::FastTracked(_))
+    ) {
+        assert!(scheduler_alarm_block(index).is_none());
+    }
+}
+
+/// Drive the referendum forward up to `max_blocks` or until it leaves
+/// `Ongoing`.
+pub fn drive_to_terminal(index: crate::ReferendumIndex, max_blocks: u64) {
+    use subtensor_runtime_common::Polls;
+    let stop = current_block() + max_blocks;
+    while current_block() < stop && crate::Pallet::<Test>::is_ongoing(index) {
+        run_to_block(current_block() + 1);
+    }
+}
+
+pub fn drive_to_status<F: Fn() -> crate::ReferendumIndex>(
+    submit: F,
+    drive: impl Fn(crate::ReferendumIndex),
+) -> crate::ReferendumIndex {
+    let i = submit();
+    drive(i);
+    i
+}
+
+pub fn check_integrity() -> Result<(), &'static str> {
+    <TestTracks as crate::TracksInfo<crate::TrackName, U256, RuntimeCall, u64>>::check_integrity()
+}
+
+pub fn passorfail_track(id: u8) -> MockTrack {
+    MockTrack {
+        id,
+        info: crate::TrackInfo {
+            name: subtensor_runtime_common::pad_name(b"test"),
+            proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
+            voter_set: MemberSet::Single(CollectiveId::Triumvirate),
+            voting_scheme: VotingScheme::Signed,
+            decision_strategy: crate::DecisionStrategy::PassOrFail {
+                decision_period: 20,
+                approve_threshold: Perbill::from_percent(60),
+                reject_threshold: Perbill::from_percent(60),
+                on_approval: crate::ApprovalAction::Execute,
+            },
+        },
+    }
+}
+
+pub fn adjustable_track(id: u8) -> MockTrack {
+    MockTrack {
+        id,
+        info: crate::TrackInfo {
+            name: subtensor_runtime_common::pad_name(b"test"),
+            proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
+            voter_set: MemberSet::Single(CollectiveId::Triumvirate),
+            voting_scheme: VotingScheme::Signed,
+            decision_strategy: crate::DecisionStrategy::Adjustable {
+                initial_delay: 100,
+                max_delay: 200,
+                fast_track_threshold: Perbill::from_percent(75),
+                cancel_threshold: Perbill::from_percent(51),
+            },
+        },
+    }
+}
+
+pub fn assert_check_integrity_err(tracks: Vec<MockTrack>, expected: &str) {
+    TestState::default().build_and_execute(|| {
+        let _guard = OverrideTracksGuard::new(tracks);
+        assert_eq!(check_integrity(), Err(expected));
+    });
+}
+
+pub fn assert_kill_drops_wrapper_after(
+    track: u8,
+    voters: &[u128],
+    is_intermediate: impl Fn(&crate::ReferendumStatusOf<Test>) -> bool,
+) {
+    use frame_support::assert_ok;
+    TestState::default().build_and_execute(|| {
+        let call = make_lookup_call();
+        assert_ok!(crate::Pallet::<Test>::submit(
+            RuntimeOrigin::signed(U256::from(PROPOSER)),
+            track,
+            Box::new(call.clone()),
+        ));
+        let index = crate::ReferendumCount::<Test>::get() - 1;
+        let wrapper_hash = enact_wrapper_hash(index, call);
+
+        for v in voters {
+            vote(*v, index, true);
+        }
+        run_to_block(current_block() + 1);
+        assert!(is_intermediate(&status_of(index)));
+        assert!(preimage_exists(&wrapper_hash));
+
+        assert_ok!(crate::Pallet::<Test>::kill(RuntimeOrigin::root(), index));
+        assert!(matches!(
+            status_of(index),
+            crate::ReferendumStatus::Killed(_)
+        ));
+        assert!(!preimage_exists(&wrapper_hash));
+        assert!(crate::EnactmentTask::<Test>::get(index).is_none());
+        assert!(has_event(
+            |e| matches!(e, crate::Event::Killed { index: i } if *i == index)
+        ));
+    });
+}

@@ -15,7 +15,8 @@
 //!   to an `Adjustable` review track via `ApprovalAction::Review`).
 //! * `Adjustable`: a timing decision over an already-scheduled call. The call
 //!   runs after `initial_delay` by default. Voters can fast-track it sooner,
-//!   cancel it entirely, or shift the dispatch time via linear interpolation.
+//!   cancel it entirely, or shift the dispatch time via a curve-shaped
+//!   interpolation on net votes.
 //!
 //! ## Lifecycle
 //!
