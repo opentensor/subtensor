@@ -417,10 +417,10 @@ pub struct ReferendaMockMcBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for ReferendaMockMcBenchmarkHelper {
     fn collective() -> CollectiveId {
-        CollectiveId::Alpha
+        CollectiveId::Proposers
     }
     fn rotatable_collective() -> CollectiveId {
-        CollectiveId::Alpha
+        CollectiveId::Proposers
     }
 }
 
@@ -440,6 +440,40 @@ impl pallet_signed_voting::Config for Test {
     type CleanupChunkSize = CleanupChunkSize;
     type CleanupCursorMaxLen = CleanupCursorMaxLen;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = SignedVotingMockBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct SignedVotingMockBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_signed_voting::benchmarking::BenchmarkHelper<Test> for SignedVotingMockBenchmarkHelper {
+    fn ongoing_poll() -> u32 {
+        let proposer = <TestBenchmarkHelper as pallet_referenda::BenchmarkHelper<
+            u8,
+            U256,
+            RuntimeCall,
+        >>::proposer();
+        let track = <TestBenchmarkHelper as pallet_referenda::BenchmarkHelper<
+            u8,
+            U256,
+            RuntimeCall,
+        >>::track_adjustable();
+        let call = <TestBenchmarkHelper as pallet_referenda::BenchmarkHelper<
+            u8,
+            U256,
+            RuntimeCall,
+        >>::call();
+        let index = crate::ReferendumCount::<Test>::get();
+        crate::Pallet::<Test>::submit(
+            frame_system::RawOrigin::Signed(proposer).into(),
+            track,
+            Box::new(call),
+        )
+        .expect("submit must succeed in benchmark setup");
+        index
+    }
 }
 
 parameter_types! {
