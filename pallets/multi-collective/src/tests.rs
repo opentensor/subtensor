@@ -1,11 +1,11 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use frame_support::{assert_noop, assert_ok, traits::Hooks};
+use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Hooks, weights::Weight};
 use sp_core::U256;
 use sp_runtime::DispatchError;
 
 use crate::{
-    Collective, CollectiveInfo, CollectiveInspect, Error, Event as CollectiveEvent,
+    Collective, CollectiveInfo, CollectiveInspect, Error, Event as CollectiveEvent, OnNewTerm,
     Pallet as MultiCollective, mock::*,
 };
 
@@ -17,7 +17,10 @@ fn add_member_happy_path() {
         let tail = U256::from(8);
         let between = U256::from(4);
 
-        // Insert into an empty collective.
+        // Exercises the four insertion positions that `binary_search` can
+        // return: empty list, before the first element, after the last,
+        // and into the middle. A regression replacing the sorted insert
+        // with `push` would only be caught by the head and middle cases.
         assert_ok!(MultiCollective::<Test>::add_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -32,7 +35,6 @@ fn add_member_happy_path() {
             &mid
         ));
 
-        // Insert at the head (new account sorts before the existing one).
         assert_ok!(MultiCollective::<Test>::add_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -43,7 +45,6 @@ fn add_member_happy_path() {
             vec![head, mid]
         );
 
-        // Insert at the tail.
         assert_ok!(MultiCollective::<Test>::add_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -54,7 +55,6 @@ fn add_member_happy_path() {
             vec![head, mid, tail]
         );
 
-        // Insert into the middle of an existing list.
         assert_ok!(MultiCollective::<Test>::add_member(
             RuntimeOrigin::root(),
             CollectiveId::Alpha,
@@ -612,13 +612,18 @@ fn swap_member_rejects_self_swap() {
     });
 }
 
+/// Beta has `min_members = 2, max_members = 3`. Swap is count-invariant
+/// and skips both bounds checks, so it must succeed at either end.
+/// Setup walks the collective from min to max via `add_member`, then
+/// swaps once at each bound.
 #[test]
-fn swap_member_works_at_min_bound() {
+fn swap_member_works_at_bounds() {
     TestState::build_and_execute(|| {
-        // Beta has min_members = 2. Seed exactly at the floor.
         let alice = U256::from(1);
         let bob = U256::from(2);
         let carol = U256::from(3);
+        let dave = U256::from(4);
+        let erin = U256::from(5);
 
         for who in [alice, bob] {
             assert_ok!(MultiCollective::<Test>::add_member(
@@ -628,15 +633,13 @@ fn swap_member_works_at_min_bound() {
             ));
         }
 
-        // Count-invariant swap is allowed even at min: swap doesn't go
-        // through the `TooFewMembers` check.
+        // At min: swap alice for carol.
         assert_ok!(MultiCollective::<Test>::swap_member(
             RuntimeOrigin::root(),
             CollectiveId::Beta,
             alice,
             carol,
         ));
-
         assert_eq!(MultiCollective::<Test>::member_count(CollectiveId::Beta), 2);
         assert!(!MultiCollective::<Test>::is_member(
             CollectiveId::Beta,
@@ -646,42 +649,29 @@ fn swap_member_works_at_min_bound() {
             CollectiveId::Beta,
             &carol
         ));
-    });
-}
 
-#[test]
-fn swap_member_works_at_max_bound() {
-    TestState::build_and_execute(|| {
-        // Beta has max_members = 3. Seed exactly at the ceiling.
-        let alice = U256::from(1);
-        let bob = U256::from(2);
-        let carol = U256::from(3);
-        let dave = U256::from(4);
+        // Grow to max, then at max: swap carol for dave.
+        assert_ok!(MultiCollective::<Test>::add_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Beta,
+            dave,
+        ));
+        assert_eq!(MultiCollective::<Test>::member_count(CollectiveId::Beta), 3);
 
-        for who in [alice, bob, carol] {
-            assert_ok!(MultiCollective::<Test>::add_member(
-                RuntimeOrigin::root(),
-                CollectiveId::Beta,
-                who,
-            ));
-        }
-
-        // Same count-invariance: swap at max is allowed.
         assert_ok!(MultiCollective::<Test>::swap_member(
             RuntimeOrigin::root(),
             CollectiveId::Beta,
-            alice,
-            dave,
+            carol,
+            erin,
         ));
-
         assert_eq!(MultiCollective::<Test>::member_count(CollectiveId::Beta), 3);
         assert!(!MultiCollective::<Test>::is_member(
             CollectiveId::Beta,
-            &alice
+            &carol
         ));
         assert!(MultiCollective::<Test>::is_member(
             CollectiveId::Beta,
-            &dave
+            &erin
         ));
     });
 }
@@ -709,7 +699,6 @@ fn set_members_replaces_list() {
             vec![c, d, e],
         ));
 
-        // Storage is the new list, in the passed order.
         assert_eq!(
             MultiCollective::<Test>::members_of(CollectiveId::Alpha),
             vec![c, d, e]
@@ -938,13 +927,11 @@ fn on_initialize_no_rotation_between_boundaries() {
 #[test]
 fn on_initialize_fires_rotation_at_modulo_boundary() {
     TestState::build_and_execute(|| {
-        // Delta (td=50) first fires at block 50.
+        // Delta (td=50) first fires at block 50. The "no rotation between
+        // boundaries" property is covered by
+        // `on_initialize_no_rotation_between_boundaries`.
         run_to_block(50);
         assert_eq!(take_new_term_log(), vec![CollectiveId::Delta]);
-
-        // 51..=99: no boundary for Delta (next at 100) or Beta (first at 100).
-        run_to_block(99);
-        assert!(take_new_term_log().is_empty());
     });
 }
 
@@ -1237,5 +1224,240 @@ fn integrity_test_panics_on_min_exceeds_info_max() {
 fn integrity_test_panics_on_term_duration_zero() {
     with_collectives_override(bad_term_duration_zero, || {
         <MultiCollective<Test> as Hooks<u64>>::integrity_test();
+    });
+}
+
+// `OnMembersChanged` payload tests. The pallet's events show what changed
+// in storage but not what was passed to the hook, so an argument-order
+// regression (e.g. swapping `incoming` and `outgoing`) would not be
+// caught by the event assertions alone.
+
+#[test]
+fn on_members_changed_payload_for_add_member() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        assert_ok!(MultiCollective::<Test>::add_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            alice,
+        ));
+        assert_eq!(
+            take_members_changed_log(),
+            vec![MembersChangedCall {
+                collective_id: CollectiveId::Alpha,
+                incoming: vec![alice],
+                outgoing: vec![],
+            }]
+        );
+    });
+}
+
+#[test]
+fn on_members_changed_payload_for_remove_member() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        for who in [alice, bob] {
+            assert_ok!(MultiCollective::<Test>::add_member(
+                RuntimeOrigin::root(),
+                CollectiveId::Alpha,
+                who,
+            ));
+        }
+        let _ = take_members_changed_log();
+
+        assert_ok!(MultiCollective::<Test>::remove_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            bob,
+        ));
+        assert_eq!(
+            take_members_changed_log(),
+            vec![MembersChangedCall {
+                collective_id: CollectiveId::Alpha,
+                incoming: vec![],
+                outgoing: vec![bob],
+            }]
+        );
+    });
+}
+
+#[test]
+fn on_members_changed_payload_for_swap_member() {
+    TestState::build_and_execute(|| {
+        let alice = U256::from(1);
+        let bob = U256::from(2);
+        for who in [alice, bob] {
+            assert_ok!(MultiCollective::<Test>::add_member(
+                RuntimeOrigin::root(),
+                CollectiveId::Alpha,
+                who,
+            ));
+        }
+        let _ = take_members_changed_log();
+
+        let carol = U256::from(3);
+        assert_ok!(MultiCollective::<Test>::swap_member(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            alice,
+            carol,
+        ));
+        assert_eq!(
+            take_members_changed_log(),
+            vec![MembersChangedCall {
+                collective_id: CollectiveId::Alpha,
+                incoming: vec![carol],
+                outgoing: vec![alice],
+            }]
+        );
+    });
+}
+
+#[test]
+fn on_members_changed_payload_for_set_members() {
+    TestState::build_and_execute(|| {
+        let a = U256::from(1);
+        let b = U256::from(2);
+        let c = U256::from(3);
+        let d = U256::from(4);
+        for who in [a, b, c] {
+            assert_ok!(MultiCollective::<Test>::add_member(
+                RuntimeOrigin::root(),
+                CollectiveId::Alpha,
+                who,
+            ));
+        }
+        let _ = take_members_changed_log();
+
+        assert_ok!(MultiCollective::<Test>::set_members(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            vec![b, c, d],
+        ));
+        assert_eq!(
+            take_members_changed_log(),
+            vec![MembersChangedCall {
+                collective_id: CollectiveId::Alpha,
+                incoming: vec![d],
+                outgoing: vec![a],
+            }]
+        );
+    });
+}
+
+// `do_try_state` direct tests. The extrinsics maintain the invariants by
+// construction, so corrupting `Members` storage manually is the only way
+// to exercise each failure branch.
+
+fn write_raw_members(id: CollectiveId, members: Vec<U256>) {
+    let bounded = BoundedVec::try_from(members).expect("test fixture must fit MaxMembers");
+    crate::pallet::Members::<Test>::insert(id, bounded);
+}
+
+#[test]
+fn try_state_passes_on_valid_storage() {
+    TestState::build_and_execute(|| {
+        for who in [U256::from(1), U256::from(2)] {
+            assert_ok!(MultiCollective::<Test>::add_member(
+                RuntimeOrigin::root(),
+                CollectiveId::Alpha,
+                who,
+            ));
+        }
+        assert!(MultiCollective::<Test>::do_try_state().is_ok());
+    });
+}
+
+#[test]
+fn try_state_rejects_unsorted_storage() {
+    TestState::build_and_execute(|| {
+        write_raw_members(CollectiveId::Alpha, vec![U256::from(2), U256::from(1)]);
+        assert!(MultiCollective::<Test>::do_try_state().is_err());
+    });
+}
+
+#[test]
+fn try_state_rejects_orphan_collective_row() {
+    TestState::build_and_execute(|| {
+        // `Unknown` is reachable via the storage map's `Blake2_128Concat`
+        // hash but is not registered in `TestCollectives::collectives()`.
+        write_raw_members(CollectiveId::Unknown, vec![U256::from(1)]);
+        assert!(MultiCollective::<Test>::do_try_state().is_err());
+    });
+}
+
+#[test]
+fn try_state_rejects_count_exceeding_info_max() {
+    TestState::build_and_execute(|| {
+        // Beta declares max_members = 3; four entries fit the BoundedVec
+        // bound (T::MaxMembers = 32) but violate the per-collective cap.
+        let four: Vec<U256> = (1..=4u32).map(U256::from).collect();
+        write_raw_members(CollectiveId::Beta, four);
+        assert!(MultiCollective::<Test>::do_try_state().is_err());
+    });
+}
+
+/// `set_members` sorts its input before writing. Without this step,
+/// downstream `binary_search` and `compute_members_diff_sorted` calls
+/// would silently observe an unsorted storage entry; pinning the sort
+/// here guards against a regression that drops the `sorted.sort()` call.
+#[test]
+fn set_members_sorts_input() {
+    TestState::build_and_execute(|| {
+        let a = U256::from(1);
+        let b = U256::from(2);
+        let c = U256::from(3);
+
+        assert_ok!(MultiCollective::<Test>::set_members(
+            RuntimeOrigin::root(),
+            CollectiveId::Alpha,
+            vec![c, a, b],
+        ));
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![a, b, c]
+        );
+    });
+}
+
+/// `force_rotate` returns `Some(actual_weight)` equal to
+/// `WeightInfo::force_rotate() + OnNewTerm::on_new_term(...)`. The mock's
+/// `WeightInfo` is `()` (zero), so the post-info weight should equal the
+/// hook's reported cost, which we set explicitly here.
+#[test]
+fn force_rotate_returns_post_info_weight() {
+    TestState::build_and_execute(|| {
+        let hook_weight = Weight::from_parts(123_456, 0);
+        set_new_term_weight(hook_weight);
+
+        let post = MultiCollective::<Test>::force_rotate(RuntimeOrigin::root(), CollectiveId::Beta)
+            .expect("force_rotate succeeds for Beta");
+
+        assert_eq!(post.actual_weight, Some(hook_weight));
+    });
+}
+
+/// The pallet ships a tuple impl of `OnNewTerm` so a runtime can fan a
+/// rotation out to multiple handlers. The mock wires a single impl, so
+/// without this test the tuple expansion is not exercised by `cargo test`.
+#[test]
+fn on_new_term_tuple_impl_dispatches_to_each_member() {
+    TestState::build_and_execute(|| {
+        set_new_term_weight(Weight::from_parts(7, 0));
+
+        let combined = <(TestOnNewTerm, TestOnNewTerm) as OnNewTerm<CollectiveId>>::on_new_term(
+            CollectiveId::Beta,
+        );
+
+        assert_eq!(combined, Weight::from_parts(14, 0));
+        assert_eq!(
+            take_new_term_log(),
+            vec![CollectiveId::Beta, CollectiveId::Beta]
+        );
+
+        let weight = <(TestOnNewTerm, TestOnNewTerm) as OnNewTerm<CollectiveId>>::weight();
+        assert_eq!(weight, Weight::from_parts(14, 0));
     });
 }

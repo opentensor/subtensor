@@ -18,7 +18,8 @@ use frame_system::EnsureRoot;
 use sp_core::U256;
 
 use crate::{
-    self as pallet_multi_collective, Collective, CollectiveInfo, CollectivesInfo, OnNewTerm,
+    self as pallet_multi_collective, Collective, CollectiveInfo, CollectivesInfo, OnMembersChanged,
+    OnNewTerm,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -67,7 +68,7 @@ pub fn name_bytes(s: &[u8]) -> [u8; 32] {
 
 pub struct TestCollectives;
 
-// Optional override used by Section 8 integrity-test panic tests. When set,
+// Optional override used by the integrity-test panic tests. When set,
 // `TestCollectives::collectives()` returns the override's output instead of
 // the default config. A function pointer is used (not a Vec) so the type
 // stays `Copy`.
@@ -154,15 +155,18 @@ impl CollectivesInfo<u64, [u8; 32]> for TestCollectives {
     }
 }
 
-// --- Recording stub for the `OnNewTerm` hook ---
+// --- Recording stubs for the pallet's two hooks ---
 //
-// `OnMembersChanged` observations go through the pallet's `Event` enum
-// (MemberAdded / MemberRemoved / MemberSwapped / MembersSet); see
-// `multi_collective_events()` below. `OnNewTerm` has no corresponding event,
-// so we keep a thread_local log for the rotation tests in Section 6.
+// `OnNewTerm` has no event counterpart; the rotation tests need the log to
+// observe firings. `OnMembersChanged` is observable indirectly through the
+// pallet's events, but the events do not show what was passed to the hook,
+// so the recorder lets the hook-payload tests pin the exact arguments.
 
 thread_local! {
     static NEW_TERM_LOG: RefCell<Vec<CollectiveId>> = const { RefCell::new(Vec::new()) };
+    static NEW_TERM_WEIGHT: RefCell<Weight> = const { RefCell::new(Weight::zero()) };
+    static MEMBERS_CHANGED_LOG: RefCell<Vec<MembersChangedCall>> =
+        const { RefCell::new(Vec::new()) };
 }
 
 pub struct TestOnNewTerm;
@@ -170,7 +174,44 @@ pub struct TestOnNewTerm;
 impl OnNewTerm<CollectiveId> for TestOnNewTerm {
     fn on_new_term(id: CollectiveId) -> Weight {
         NEW_TERM_LOG.with(|log| log.borrow_mut().push(id));
-        Weight::zero()
+        NEW_TERM_WEIGHT.with(|w| *w.borrow())
+    }
+
+    fn weight() -> Weight {
+        NEW_TERM_WEIGHT.with(|w| *w.borrow())
+    }
+}
+
+/// Drain and return the recorded `OnNewTerm` calls since the last drain.
+pub fn take_new_term_log() -> Vec<CollectiveId> {
+    NEW_TERM_LOG.with(|log| log.borrow_mut().drain(..).collect())
+}
+
+/// Set the weight that `TestOnNewTerm::on_new_term` reports back. Used by
+/// `force_rotate` to assert that the post-info weight is the static
+/// `WeightInfo::force_rotate()` plus the actual hook weight.
+pub fn set_new_term_weight(weight: Weight) {
+    NEW_TERM_WEIGHT.with(|w| *w.borrow_mut() = weight);
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct MembersChangedCall {
+    pub collective_id: CollectiveId,
+    pub incoming: Vec<U256>,
+    pub outgoing: Vec<U256>,
+}
+
+pub struct TestOnMembersChanged;
+
+impl OnMembersChanged<CollectiveId, U256> for TestOnMembersChanged {
+    fn on_members_changed(collective_id: CollectiveId, incoming: &[U256], outgoing: &[U256]) {
+        MEMBERS_CHANGED_LOG.with(|log| {
+            log.borrow_mut().push(MembersChangedCall {
+                collective_id,
+                incoming: incoming.to_vec(),
+                outgoing: outgoing.to_vec(),
+            })
+        });
     }
 
     fn weight() -> Weight {
@@ -178,9 +219,9 @@ impl OnNewTerm<CollectiveId> for TestOnNewTerm {
     }
 }
 
-/// Drain and return the recorded `OnNewTerm` calls since the last drain.
-pub fn take_new_term_log() -> Vec<CollectiveId> {
-    NEW_TERM_LOG.with(|log| log.borrow_mut().drain(..).collect())
+/// Drain and return the recorded `OnMembersChanged` calls since the last drain.
+pub fn take_members_changed_log() -> Vec<MembersChangedCall> {
+    MEMBERS_CHANGED_LOG.with(|log| log.borrow_mut().drain(..).collect())
 }
 
 /// Returns the `pallet_multi_collective::Event<Test>` values recorded in
@@ -218,7 +259,7 @@ impl pallet_multi_collective::Config for Test {
     type SwapOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type SetOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type RotateOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
-    type OnMembersChanged = ();
+    type OnMembersChanged = TestOnMembersChanged;
     type OnNewTerm = TestOnNewTerm;
     type MaxMembers = MaxMembers;
     type WeightInfo = ();
@@ -267,6 +308,8 @@ impl TestState {
             // events buffer.
             System::set_block_number(1);
             let _ = take_new_term_log();
+            let _ = take_members_changed_log();
+            set_new_term_weight(Weight::zero());
             test();
         });
     }

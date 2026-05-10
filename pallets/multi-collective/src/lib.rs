@@ -56,6 +56,10 @@ mod tests;
 pub mod weights;
 pub use weights::WeightInfo;
 
+/// Recommended fixed length for the `Name` parameter of `CollectivesInfo`.
+/// The pallet itself does not enforce this, but the runtime's
+/// `CollectivesInfo` impl is expected to use `[u8; MAX_COLLECTIVE_NAME_LEN]`
+/// so that names round-trip a stable, encodable type.
 pub const MAX_COLLECTIVE_NAME_LEN: usize = 32;
 type CollectiveName = [u8; MAX_COLLECTIVE_NAME_LEN];
 
@@ -246,6 +250,9 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #![deny(clippy::expect_used)]
 
+        /// Add `who` to `collective_id`.
+        ///
+        /// Errors: `CollectiveNotFound`, `AlreadyMember`, `TooManyMembers`.
         #[pallet::call_index(0)]
         #[pallet::weight(
             T::WeightInfo::add_member().saturating_add(T::OnMembersChanged::weight())
@@ -281,6 +288,8 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Remove `who` from `collective_id`. Refuses to drop the
+        /// member count to or below `CollectiveInfo::min_members`.
         #[pallet::call_index(1)]
         #[pallet::weight(
             T::WeightInfo::remove_member().saturating_add(T::OnMembersChanged::weight())
@@ -314,6 +323,10 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Atomically replace `remove` with `add` in `collective_id`.
+        /// Member count is preserved, so a swap is allowed even when
+        /// the collective sits at its `min_members` or `max_members`
+        /// bound. Swap-with-self is rejected.
         #[pallet::call_index(2)]
         #[pallet::weight(
             T::WeightInfo::swap_member().saturating_add(T::OnMembersChanged::weight())
@@ -363,6 +376,9 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Replace the full membership of `collective_id` with `members`.
+        /// The input may be in any order but must contain no duplicates;
+        /// the call does not silently deduplicate.
         #[pallet::call_index(3)]
         #[pallet::weight(
             T::WeightInfo::set_members().saturating_add(T::OnMembersChanged::weight())
@@ -412,20 +428,16 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Manually trigger the `OnNewTerm` hook for `collective_id`,
-        /// outside of the natural `n % term_duration == 0` schedule in
-        /// `on_initialize`. Used for the very first population (the
-        /// natural rotation only fires after the first term boundary,
-        /// which can be days or months in) and as a privileged override
-        /// during incidents.
+        /// Trigger a rotation of `collective_id` on demand, ahead of its
+        /// scheduled cadence. Used to bootstrap the first term (the
+        /// natural cadence only fires after the first term boundary,
+        /// which can be days or months away) and as a privileged
+        /// override during incidents.
         ///
-        /// Restricted to collectives whose `CollectiveInfo::term_duration`
-        /// is `Some(_)`. Curated collectives (Triumvirate, Proposers) are
-        /// managed directly via `add_member` / `remove_member` /
-        /// `swap_member` / `set_members` and have no rotation hook, so
-        /// refusing the call here surfaces a misconfigured rotate
-        /// extrinsic as `CollectiveDoesNotRotate` instead of silently
-        /// consuming weight.
+        /// Only valid for collectives that have a configured rotation
+        /// cadence. Calls against a non-rotating collective fail with
+        /// `CollectiveDoesNotRotate` rather than silently consuming
+        /// weight.
         #[pallet::call_index(4)]
         #[pallet::weight(
             T::WeightInfo::force_rotate().saturating_add(T::OnNewTerm::weight())
