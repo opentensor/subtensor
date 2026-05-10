@@ -86,6 +86,10 @@
 //!                       └──────┘                                 stay Ongoing
 //! ```
 //!
+//! `kill` is also accepted from `Approved` (PassOrFail) and
+//! `FastTracked` (Adjustable) until `enact` dispatches: the wrapper task
+//! is cancelled and the inner call never runs.
+//!
 //! ## Status taxonomy
 //!
 //! * `Ongoing`: voting in progress.
@@ -120,10 +124,20 @@
 //! ## Runtime configuration check
 //!
 //! [`Pallet::integrity_test`] runs at startup and asserts that the track
-//! table is well-formed: track ids are unique, and every
-//! `ApprovalAction::Review { track }` references a track that exists and
-//! uses the `Adjustable` strategy. A misconfigured runtime panics at boot
-//! with a precise cause.
+//! table is well-formed:
+//!
+//! * Track ids are unique.
+//! * Every `ApprovalAction::Review { track }` references a track that
+//!   exists and uses the `Adjustable` strategy.
+//! * `PassOrFail` tracks have non-zero `decision_period`,
+//!   `approve_threshold`, and `reject_threshold`.
+//! * `Adjustable` tracks have non-zero `initial_delay`,
+//!   `fast_track_threshold`, and `cancel_threshold`, with
+//!   `fast_track_threshold + cancel_threshold > 100%` so the cancel
+//!   branch cannot be masked by a fast-track that fires first on the
+//!   same tally split.
+//!
+//! A misconfigured runtime panics at boot with a precise cause.
 //!
 //! ## Track-config snapshotting
 //!
@@ -316,48 +330,83 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// A new referendum was submitted.
         Submitted {
+            /// Index assigned to the new referendum.
             index: ReferendumIndex,
+            /// Track the referendum was filed against.
             track: TrackIdOf<T>,
+            /// Account that submitted the referendum.
             proposer: T::AccountId,
         },
-        /// Approved on an `Execute` track; the call is scheduled for
-        /// dispatch. Review tracks emit `Delegated` or
-        /// `ReviewSchedulingFailed` instead.
-        Approved { index: ReferendumIndex },
-        /// Approved on a `Review` track; the call has been handed off to
-        /// the child review referendum at `review`.
+        /// The approval threshold was crossed and the call has been
+        /// scheduled for direct dispatch.
+        Approved {
+            /// Referendum that was approved.
+            index: ReferendumIndex,
+        },
+        /// The approval threshold was crossed and the call was handed
+        /// off to a child review referendum.
         Delegated {
+            /// Parent referendum that approved the handoff.
             index: ReferendumIndex,
+            /// New referendum that now carries the call.
             review: ReferendumIndex,
+            /// Track the new referendum was filed against.
             track: TrackIdOf<T>,
         },
-        /// Review handoff failed; the parent stays `Ongoing` and retries
-        /// on the next vote or expires at the deadline.
+        /// Approval was reached on a review handoff but the child
+        /// referendum could not be created. The parent stays ongoing
+        /// and will retry on the next vote or expire at its deadline.
         ReviewSchedulingFailed {
+            /// Parent referendum whose handoff failed.
             index: ReferendumIndex,
+            /// Track the handoff was attempting to file against.
             track: TrackIdOf<T>,
         },
-        /// Rejection threshold reached.
-        Rejected { index: ReferendumIndex },
-        /// Cancel threshold reached; the scheduled call has been cancelled.
-        Cancelled { index: ReferendumIndex },
-        /// Privileged termination via `KillOrigin`.
-        Killed { index: ReferendumIndex },
-        /// Decision period elapsed without crossing approve or reject.
-        Expired { index: ReferendumIndex },
-        /// Fast-track threshold reached; the call now runs next block.
-        FastTracked { index: ReferendumIndex },
-        /// The dispatch attempt completed at block `when`. `error` is
-        /// `None` if the inner call returned `Ok`, otherwise it carries
-        /// the failure.
-        Enacted {
+        /// The rejection threshold was crossed.
+        Rejected {
+            /// Referendum that was rejected.
             index: ReferendumIndex,
+        },
+        /// The cancel threshold was crossed and the scheduled call has
+        /// been cancelled.
+        Cancelled {
+            /// Referendum that was cancelled.
+            index: ReferendumIndex,
+        },
+        /// The referendum was terminated by a privileged origin before
+        /// dispatch.
+        Killed {
+            /// Referendum that was killed.
+            index: ReferendumIndex,
+        },
+        /// The decision period elapsed without crossing the approve or
+        /// reject threshold.
+        Expired {
+            /// Referendum that expired.
+            index: ReferendumIndex,
+        },
+        /// The fast-track threshold was crossed and the call now runs
+        /// in the next block.
+        FastTracked {
+            /// Referendum that was fast-tracked.
+            index: ReferendumIndex,
+        },
+        /// The dispatch attempt completed.
+        Enacted {
+            /// Referendum that was enacted.
+            index: ReferendumIndex,
+            /// Block at which dispatch ran.
             when: BlockNumberFor<T>,
+            /// `None` if the inner call returned `Ok`, otherwise the
+            /// failure returned by the dispatch.
             error: Option<DispatchError>,
         },
-        /// A scheduler operation failed; surfaced for observability. The
-        /// pallet does not roll back the surrounding state change.
-        SchedulerOperationFailed { index: ReferendumIndex },
+        /// A scheduler operation failed. Surfaced for observability;
+        /// the pallet does not roll back the surrounding state change.
+        SchedulerOperationFailed {
+            /// Referendum the failed operation was acting on.
+            index: ReferendumIndex,
+        },
     }
 
     #[pallet::error]
@@ -372,22 +421,20 @@ pub mod pallet {
         ReferendumFinalized,
         /// The proposal is not authorized for this track.
         ProposalNotAuthorized,
-        /// Active-referenda cap (`MaxQueued`) reached.
+        /// The active-referenda cap has been reached.
         QueueFull,
-        /// Per-proposer active-referenda cap (`MaxActivePerProposer`) reached.
+        /// The per-proposer active-referenda cap has been reached.
         ProposerQuotaExceeded,
         /// A scheduler operation failed at submit time.
         SchedulerError,
         /// The specified referendum does not exist.
         ReferendumNotFound,
-        /// Reached a state combination that should be prevented by submit-time
-        /// invariants. Indicates a configuration mismatch (typically a
-        /// track's strategy changed under live referenda via runtime upgrade).
+        /// Reached a state combination that should be prevented by
+        /// submit-time invariants. Indicates a configuration mismatch.
         Unreachable,
-        /// The track's voter set is empty at submit time. With no eligible
-        /// voters the tally would freeze at zero and the threshold logic
-        /// would drive the referendum to a pre-determined outcome (lapse
-        /// to enacted on `Adjustable`, expire on `PassOrFail`).
+        /// The track's voter set is empty. With no eligible voters the
+        /// tally would freeze at zero and the referendum would resolve
+        /// to a pre-determined outcome.
         EmptyVoterSet,
     }
 
@@ -407,10 +454,11 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Submit a new referendum on `track` carrying `call`. The proposal
-        /// type is derived from the track's strategy: `Action(call)` for
-        /// `PassOrFail`, `Review` for `Adjustable` (with the call scheduled
-        /// for dispatch after `initial_delay`).
+        /// Submit a new referendum on `track` carrying `call`. On a
+        /// pass-or-fail track the call is held until the approval
+        /// threshold is reached; on an adjustable track the call is
+        /// scheduled for dispatch immediately and voting only adjusts
+        /// when it runs.
         #[pallet::call_index(0)]
         #[pallet::weight(
             T::WeightInfo::submit().saturating_add(T::OnPollCreated::weight())
@@ -450,7 +498,8 @@ pub mod pallet {
                 DecisionStrategy::PassOrFail {
                     decision_period, ..
                 } => {
-                    Self::set_alarm(index, now.saturating_add(*decision_period))?;
+                    let when = now.saturating_add(*decision_period);
+                    Self::set_alarm(index, when)?;
                     let bounded_call = T::Preimages::bound(*call)?;
                     Proposal::Action(bounded_call)
                 }
@@ -483,10 +532,9 @@ pub mod pallet {
         }
 
         /// Privileged termination of a referendum that has not yet
-        /// dispatched. Accepts `Ongoing`, `Approved`, and `FastTracked`
-        /// — i.e. anything still holding scheduler hooks. Cancels the
-        /// pending scheduler entries, releases the wrapper preimage, and
-        /// concludes as `Killed`. Already-terminal statuses are rejected.
+        /// dispatched. Cancels any pending scheduler entries, releases
+        /// the wrapper preimage, and records the referendum as killed.
+        /// Already-terminal referenda are rejected.
         #[pallet::call_index(1)]
         #[pallet::weight(
             T::WeightInfo::kill().saturating_add(T::OnPollCompleted::weight())
@@ -529,8 +577,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Drive the state machine for `index`. Invoked by the alarm and
-        /// available as a privileged extrinsic for manual recovery.
+        /// Drive the state machine for `index`. Invoked by the alarm
+        /// and available as a privileged extrinsic for manual recovery
+        /// if the alarm has been dropped.
         #[pallet::call_index(2)]
         #[pallet::weight(
             // Worst-case bound: the approve-with-`Review` branch fires both hooks.
@@ -551,15 +600,13 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Dispatch `call` and mark the referendum `Enacted`. Invoked by
-        /// the scheduler with `RawOrigin::Root` at the configured dispatch
-        /// time; root may also call this directly to retry a stuck
-        /// referendum if the scheduler dropped its task.
+        /// Dispatch `call` and mark the referendum as enacted.
+        /// Invoked by the scheduler at the configured dispatch time;
+        /// root may also call it directly to retry a referendum whose
+        /// scheduled task was lost.
         ///
-        /// No-op when the referendum is in a terminal-no-dispatch state
-        /// (`Cancelled`, `Killed`, `Rejected`, `Expired`, `Delegated`,
-        /// `Enacted`), so a stale wrapper task that fires after a failed
-        /// scheduler cancel cannot dispatch.
+        /// No-op on terminal-no-dispatch statuses, so a stale task
+        /// that fires after a cancel cannot run the call twice.
         #[pallet::call_index(3)]
         #[pallet::weight(
             T::WeightInfo::advance_referendum()
