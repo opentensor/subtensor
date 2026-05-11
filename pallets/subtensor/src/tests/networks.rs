@@ -672,9 +672,7 @@ fn dissolve_clears_auto_stake_destination_preventing_stale_routing() {
         assert_ok!(SubtensorModule::do_dissolve_network(net));
 
         assert!(AutoStakeDestination::<Test>::get(staker_cold, net).is_none());
-        assert!(
-            AutoStakeDestinationColdkeys::<Test>::get(stale_dest_hot, net).is_empty()
-        );
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(stale_dest_hot, net).is_empty());
     });
 }
 
