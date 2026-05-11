@@ -5,7 +5,7 @@ use crate::*;
 use frame_support::{assert_ok, weights::Weight};
 use sp_core::U256;
 use subtensor_runtime_common::{AlphaBalance, TaoBalance};
-use subtensor_swap_interface::{SwapHandler};
+use subtensor_swap_interface::SwapHandler;
 
 // Import required types from the correct locations
 use pallet_commitments::pallet::Pallet as CommitmentsPallet;
@@ -53,13 +53,15 @@ fn test_remove_data_for_dissolved_networks_all_phases() {
         assert_ok!(CommitmentsPallet::<Test>::set_commitment(
             <Test as frame_system::Config>::RuntimeOrigin::signed(owner_hot),
             netuid,
-            Box::new(CommitmentInfo::<<Test as pallet_commitments::Config>::MaxFields> {
-                fields: BoundedVec::try_from(vec![Data::Raw(
-                    BoundedVec::try_from(vec![1, 2, 3]).unwrap()
-                )])
-                .unwrap(),
-                ..Default::default()
-            })
+            Box::new(
+                CommitmentInfo::<<Test as pallet_commitments::Config>::MaxFields> {
+                    fields: BoundedVec::try_from(vec![Data::Raw(
+                        BoundedVec::try_from(vec![1, 2, 3]).unwrap()
+                    )])
+                    .unwrap(),
+                    ..Default::default()
+                }
+            )
         ));
 
         // Add some lock data - balance already added above
@@ -215,13 +217,15 @@ fn test_purge_netuid() {
         assert_ok!(CommitmentsPallet::<Test>::set_commitment(
             <Test as frame_system::Config>::RuntimeOrigin::signed(owner_hot),
             netuid,
-            Box::new(CommitmentInfo::<<Test as pallet_commitments::Config>::MaxFields> {
-                fields: BoundedVec::try_from(vec![Data::Raw(
-                    BoundedVec::try_from(vec![1, 2, 3]).unwrap()
-                )])
-                .unwrap(),
-                ..Default::default()
-            })
+            Box::new(
+                CommitmentInfo::<<Test as pallet_commitments::Config>::MaxFields> {
+                    fields: BoundedVec::try_from(vec![Data::Raw(
+                        BoundedVec::try_from(vec![1, 2, 3]).unwrap()
+                    )])
+                    .unwrap(),
+                    ..Default::default()
+                }
+            )
         ));
 
         // Verify commitment exists
@@ -230,7 +234,8 @@ fn test_purge_netuid() {
         // Test the purge function
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-        let result = <Test as crate::Config>::CommitmentsInterface::purge_netuid(netuid, &mut weight_meter);
+        let result =
+            <Test as crate::Config>::CommitmentsInterface::purge_netuid(netuid, &mut weight_meter);
         assert!(
             result,
             "purge_netuid should return true when it successfully purges data"
@@ -320,13 +325,15 @@ fn test_remove_data_for_dissolved_networks_via_on_idle() {
         assert_ok!(CommitmentsPallet::<Test>::set_commitment(
             <Test as frame_system::Config>::RuntimeOrigin::signed(owner_hot),
             netuid,
-            Box::new(CommitmentInfo::<<Test as pallet_commitments::Config>::MaxFields> {
-                fields: BoundedVec::try_from(vec![Data::Raw(
-                    BoundedVec::try_from(vec![1, 2, 3]).unwrap()
-                )])
-                .unwrap(),
-                ..Default::default()
-            })
+            Box::new(
+                CommitmentInfo::<<Test as pallet_commitments::Config>::MaxFields> {
+                    fields: BoundedVec::try_from(vec![Data::Raw(
+                        BoundedVec::try_from(vec![1, 2, 3]).unwrap()
+                    )])
+                    .unwrap(),
+                    ..Default::default()
+                }
+            )
         ));
 
         // Now test the full dissolution cleanup process by running on_idle multiple times
@@ -632,33 +639,54 @@ fn test_clean_up_hotkey_swap_records() {
         LastHotkeySwapOnNetuid::<Test>::insert(netuid_2, coldkey_other_new, swap_block_other_new);
 
         // Before calling the function, verify the records exist
-        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, coldkey_old));
-        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, coldkey_new));
-        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, coldkey_other));
-        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, coldkey_other_new));
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(
+            netuid_1,
+            coldkey_old
+        ));
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(
+            netuid_1,
+            coldkey_new
+        ));
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(
+            netuid_2,
+            coldkey_other
+        ));
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(
+            netuid_2,
+            coldkey_other_new
+        ));
 
         // Call the function and get the returned weight
-        let returned_weight = SubtensorModule::clean_up_hotkey_swap_records(
-            block_number.into(),
-        );
+        let returned_weight = SubtensorModule::clean_up_hotkey_swap_records(block_number.into());
 
         // After the function call, for netuid_1:
         //   - The old record (coldkey_old, swap_block_old) should be removed because swap_block_old + interval < block_number
         //     (0 + 100 < 101 -> 100 < 101 -> true)
         //   - The new record (coldkey_new, swap_block_new) should remain because swap_block_new + interval >= block_number
         //     (101 + 100 >= 101 -> 201 >= 101 -> true)
-        assert!(!LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, coldkey_old),
-                "Old hotkey swap record for netuid_1 should have been removed");
-        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, coldkey_new),
-                "New hotkey swap record for netuid_1 should still exist");
+        assert!(
+            !LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, coldkey_old),
+            "Old hotkey swap record for netuid_1 should have been removed"
+        );
+        assert!(
+            LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, coldkey_new),
+            "New hotkey swap record for netuid_1 should still exist"
+        );
         // For netuid_2, since it was not processed (netuid_2 % interval != block_number % interval), both records should remain
-        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, coldkey_other),
-                "Hotkey swap record for netuid_2 should remain untouched");
-        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, coldkey_other_new),
-                "Hotkey swap record for netuid_2 should remain untouched");
+        assert!(
+            LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, coldkey_other),
+            "Hotkey swap record for netuid_2 should remain untouched"
+        );
+        assert!(
+            LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, coldkey_other_new),
+            "Hotkey swap record for netuid_2 should remain untouched"
+        );
 
         // We can also check that the weight returned is reasonable (non-zero and not max)
         // Note: Weight comparison is tricky, but we can at least check it's not zero
-        assert!(returned_weight.ref_time() > 0, "Returned weight should have positive ref_time");
+        assert!(
+            returned_weight.ref_time() > 0,
+            "Returned weight should have positive ref_time"
+        );
     });
 }

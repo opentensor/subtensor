@@ -19,8 +19,10 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{EnsureRoot, RawOrigin, limits, offchain::CreateTransactionBase};
+use pallet_commitments::pallet::Pallet as CommitmentsPallet;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use scale_info::TypeInfo;
 use share_pool::SafeFloat;
 use sp_core::{ConstU64, Get, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
@@ -31,11 +33,9 @@ use sp_runtime::{
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance, ConstTao};
+use subtensor_runtime_common::{AuthorshipInfo, ConstTao, NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-use scale_info::TypeInfo;
-use pallet_commitments::pallet::Pallet as CommitmentsPallet;
 
 // Local definitions for pallet_commitments associated types
 pub struct TestMaxFields;
@@ -376,7 +376,6 @@ impl crate::Config for Test {
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
-
 }
 
 // Swap-related parameter types
