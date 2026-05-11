@@ -35,6 +35,7 @@ interface ISubnet {
         string memory additional
     ) external payable;
     function getServingRateLimit(uint16 netuid) external view returns (uint64);
+    function getNetworkRegisteredBlock(uint16 netuid) external view returns (uint64);
 }
 
 interface INeuron {
@@ -221,6 +222,10 @@ contract PrecompileWrapper {
 
     function getServingRateLimit(uint16 netuid) external view returns (uint64) {
         return subnet.getServingRateLimit(netuid);
+    }
+
+    function getNetworkRegisteredBlock(uint16 netuid) external view returns (uint64) {
+        return subnet.getNetworkRegisteredBlock(netuid);
     }
 
     // ============ Neuron Functions ============

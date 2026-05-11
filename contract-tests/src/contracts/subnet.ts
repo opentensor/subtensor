@@ -299,6 +299,25 @@ export const ISubnetABI = [
                 type: "uint16",
             },
         ],
+        name: "getNetworkRegisteredBlock",
+        outputs: [
+            {
+                internalType: "uint64",
+                name: "",
+                type: "uint64",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+        inputs: [
+            {
+                internalType: "uint16",
+                name: "netuid",
+                type: "uint16",
+            },
+        ],
         name: "getServingRateLimit",
         outputs: [
             {

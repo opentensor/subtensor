@@ -88,6 +88,15 @@ describe("PrecompileWrapper - Direct Call Tests", () => {
             assert.ok(rateLimitViaWrapper !== undefined, "Rate limit should be not undefined");
         });
 
+        it("Should get network registered block via wrapper", async () => {
+            const onchainValue = await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid);
+
+            const valueViaWrapper = Number(await wrapperContract.getNetworkRegisteredBlock(netuid));
+
+            assert.ok(valueViaWrapper > 0, "Network registered block should be greater than 0");
+            assert.equal(valueViaWrapper, onchainValue, "Network registered block should match on-chain value");
+        });
+
         it("Should register network with details via wrapper", async () => {
             const newHotkey = getRandomSubstrateKeypair();
             await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(newHotkey.publicKey));
