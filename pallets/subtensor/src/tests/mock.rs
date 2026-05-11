@@ -31,9 +31,53 @@ use sp_runtime::{
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use substrate_fixed::types::U64F64;
-use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
+use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance, ConstTao};
 use subtensor_swap_interface::{Order, SwapHandler};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use scale_info::TypeInfo;
+use pallet_commitments::pallet::Pallet as CommitmentsPallet;
+
+// Local definitions for pallet_commitments associated types
+pub struct TestMaxFields;
+impl Get<u32> for TestMaxFields {
+    fn get() -> u32 {
+        16
+    }
+}
+impl TypeInfo for TestMaxFields {
+    type Identity = Self;
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::new("TestMaxFields", module_path!()))
+            .composite(scale_info::build::Fields::unit())
+    }
+}
+
+pub struct TestCanCommit;
+impl pallet_commitments::CanCommit<U256> for TestCanCommit {
+    fn can_commit(_netuid: NetUid, _who: &U256) -> bool {
+        true
+    }
+}
+
+pub struct MockTempoInterface;
+impl pallet_commitments::GetTempoInterface for MockTempoInterface {
+    fn get_epoch_index(netuid: NetUid, cur_block: u64) -> u64 {
+        let tempo: u64 = 360; // Default tempo
+        let tempo_plus_one: u64 = tempo.saturating_add(1);
+        let netuid_plus_one: u64 = (u16::from(netuid) as u64).saturating_add(1);
+        let block_with_offset: u64 = cur_block.saturating_add(netuid_plus_one);
+
+        block_with_offset.checked_div(tempo_plus_one).unwrap_or(0)
+    }
+}
+
+// Implement OnMetadataCommitment for U256 by creating a local wrapper type
+pub struct TestOnMetadataCommitment;
+impl pallet_commitments::OnMetadataCommitment<U256> for TestOnMetadataCommitment {
+    fn on_metadata_commitment(_netuid: NetUid, _who: &U256) {}
+}
+
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
@@ -51,7 +95,8 @@ frame_support::construct_runtime!(
         Drand: pallet_drand = 9,
         Swap: pallet_subtensor_swap = 10,
         Crowdloan: pallet_crowdloan = 11,
-        Proxy: pallet_subtensor_proxy = 12,
+        Commitments: pallet_commitments = 12,
+        Proxy: pallet_subtensor_proxy = 13,
     }
 );
 
@@ -331,6 +376,7 @@ impl crate::Config for Test {
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
+
 }
 
 // Swap-related parameter types
@@ -357,6 +403,18 @@ impl pallet_subtensor_swap::Config for Test {
     type BenchmarkHelper = ();
 }
 
+// Implement pallet_commitments::Config for Test
+impl pallet_commitments::Config for Test {
+    type Currency = Balances;
+    type WeightInfo = ();
+    type CanCommit = TestCanCommit;
+    type OnMetadataCommitment = TestOnMetadataCommitment;
+    type MaxFields = TestMaxFields;
+    type InitialDeposit = ConstTao<0>;
+    type FieldDeposit = ConstTao<0>;
+    type TempoInterface = MockTempoInterface;
+}
+
 pub struct OriginPrivilegeCmp;
 
 impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
@@ -368,10 +426,10 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
     fn purge_netuid(
-        _netuid: NetUid,
-        _weight_meter: &mut frame_support::weights::WeightMeter,
+        netuid: NetUid,
+        weight_meter: &mut frame_support::weights::WeightMeter,
     ) -> bool {
-        true
+        CommitmentsPallet::<Test>::purge_netuid(netuid, weight_meter)
     }
 }
 

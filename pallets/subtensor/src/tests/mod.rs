@@ -34,3 +34,5 @@ mod tao;
 mod uids;
 mod voting_power;
 mod weights;
+mod remove_data_tests;
+mod requested_functions_tests;
