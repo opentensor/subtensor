@@ -22,6 +22,24 @@ pub enum FunctionId {
     AddProxyV1 = 13,
     RemoveProxyV1 = 14,
     GetAlphaPriceV1 = 15,
+    RecycleAlphaV1 = 16,
+    BurnAlphaV1 = 17,
+    AddStakeRecycleV1 = 18,
+    AddStakeBurnV1 = 19,
+    CallerAddStakeV1 = 20,
+    CallerRemoveStakeV1 = 21,
+    CallerUnstakeAllV1 = 22,
+    CallerUnstakeAllAlphaV1 = 23,
+    CallerMoveStakeV1 = 24,
+    CallerTransferStakeV1 = 25,
+    CallerSwapStakeV1 = 26,
+    CallerAddStakeLimitV1 = 27,
+    CallerRemoveStakeLimitV1 = 28,
+    CallerSwapStakeLimitV1 = 29,
+    CallerRemoveStakeFullLimitV1 = 30,
+    CallerSetColdkeyAutoStakeHotkeyV1 = 31,
+    CallerAddProxyV1 = 32,
+    CallerRemoveProxyV1 = 33,
 }
 
 #[ink::chain_extension(extension = 0x1000)]
@@ -130,6 +148,127 @@ pub trait RuntimeReadWrite {
 
     #[ink(function = 15)]
     fn get_alpha_price(netuid: u16) -> u64;
+
+    #[ink(function = 16)]
+    fn recycle_alpha(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        amount: u64,
+        netuid: u16,
+    ) -> u64;
+
+    #[ink(function = 17)]
+    fn burn_alpha(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        amount: u64,
+        netuid: u16,
+    ) -> u64;
+
+    #[ink(function = 18)]
+    fn add_stake_recycle(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+    ) -> u64;
+
+    #[ink(function = 19)]
+    fn add_stake_burn(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+    ) -> u64;
+
+    #[ink(function = 20)]
+    fn caller_add_stake(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+    );
+
+    #[ink(function = 21)]
+    fn caller_remove_stake(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+    );
+
+    #[ink(function = 22)]
+    fn caller_unstake_all(hotkey: <CustomEnvironment as ink::env::Environment>::AccountId);
+
+    #[ink(function = 23)]
+    fn caller_unstake_all_alpha(hotkey: <CustomEnvironment as ink::env::Environment>::AccountId);
+
+    #[ink(function = 24)]
+    fn caller_move_stake(
+        origin_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        destination_hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
+    );
+
+    #[ink(function = 25)]
+    fn caller_transfer_stake(
+        destination_coldkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
+    );
+
+    #[ink(function = 26)]
+    fn caller_swap_stake(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
+    );
+
+    #[ink(function = 27)]
+    fn caller_add_stake_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+        limit_price: u64,
+        allow_partial: bool,
+    );
+
+    #[ink(function = 28)]
+    fn caller_remove_stake_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        amount: u64,
+        limit_price: u64,
+        allow_partial: bool,
+    );
+
+    #[ink(function = 29)]
+    fn caller_swap_stake_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        origin_netuid: u16,
+        destination_netuid: u16,
+        amount: u64,
+        limit_price: u64,
+        allow_partial: bool,
+    );
+
+    #[ink(function = 30)]
+    fn caller_remove_stake_full_limit(
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+        netuid: u16,
+        limit_price: u64,
+    );
+
+    #[ink(function = 31)]
+    fn caller_set_coldkey_auto_stake_hotkey(
+        netuid: u16,
+        hotkey: <CustomEnvironment as ink::env::Environment>::AccountId,
+    );
+
+    #[ink(function = 32)]
+    fn caller_add_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
+
+    #[ink(function = 33)]
+    fn caller_remove_proxy(delegate: <CustomEnvironment as ink::env::Environment>::AccountId);
 }
 
 #[ink::scale_derive(Encode, Decode, TypeInfo)]
@@ -411,6 +550,256 @@ mod bittensor {
                 .extension()
                 .get_alpha_price(netuid)
                 .map_err(|_e| ReadWriteErrorCode::ReadFailed)
+        }
+
+        #[ink(message)]
+        pub fn recycle_alpha(
+            &self,
+            hotkey: [u8; 32],
+            amount: u64,
+            netuid: u16,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .recycle_alpha(hotkey.into(), amount, netuid)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn burn_alpha(
+            &self,
+            hotkey: [u8; 32],
+            amount: u64,
+            netuid: u16,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .burn_alpha(hotkey.into(), amount, netuid)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn add_stake_recycle(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .add_stake_recycle(hotkey.into(), netuid, amount)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn add_stake_burn(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+        ) -> Result<u64, ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .add_stake_burn(hotkey.into(), netuid, amount)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_add_stake(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_add_stake(hotkey.into(), netuid, amount)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_remove_stake(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_remove_stake(hotkey.into(), netuid, amount)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_unstake_all(&self, hotkey: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_unstake_all(hotkey.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_unstake_all_alpha(&self, hotkey: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_unstake_all_alpha(hotkey.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_move_stake(
+            &self,
+            origin_hotkey: [u8; 32],
+            destination_hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_move_stake(
+                    origin_hotkey.into(),
+                    destination_hotkey.into(),
+                    origin_netuid,
+                    destination_netuid,
+                    amount,
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_transfer_stake(
+            &self,
+            destination_coldkey: [u8; 32],
+            hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_transfer_stake(
+                    destination_coldkey.into(),
+                    hotkey.into(),
+                    origin_netuid,
+                    destination_netuid,
+                    amount,
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_swap_stake(
+            &self,
+            hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_swap_stake(hotkey.into(), origin_netuid, destination_netuid, amount)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_add_stake_limit(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_add_stake_limit(hotkey.into(), netuid, amount, limit_price, allow_partial)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_remove_stake_limit(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_remove_stake_limit(
+                    hotkey.into(),
+                    netuid,
+                    amount,
+                    limit_price,
+                    allow_partial,
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_swap_stake_limit(
+            &self,
+            hotkey: [u8; 32],
+            origin_netuid: u16,
+            destination_netuid: u16,
+            amount: u64,
+            limit_price: u64,
+            allow_partial: bool,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_swap_stake_limit(
+                    hotkey.into(),
+                    origin_netuid,
+                    destination_netuid,
+                    amount,
+                    limit_price,
+                    allow_partial,
+                )
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_remove_stake_full_limit(
+            &self,
+            hotkey: [u8; 32],
+            netuid: u16,
+            limit_price: u64,
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_remove_stake_full_limit(hotkey.into(), netuid, limit_price)
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_set_coldkey_auto_stake_hotkey(
+            &self,
+            netuid: u16,
+            hotkey: [u8; 32],
+        ) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_set_coldkey_auto_stake_hotkey(netuid, hotkey.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_add_proxy(&self, delegate: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_add_proxy(delegate.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
+        }
+
+        #[ink(message)]
+        pub fn caller_remove_proxy(&self, delegate: [u8; 32]) -> Result<(), ReadWriteErrorCode> {
+            self.env()
+                .extension()
+                .caller_remove_proxy(delegate.into())
+                .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
     }
 }

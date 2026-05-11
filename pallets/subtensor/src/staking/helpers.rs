@@ -265,6 +265,9 @@ impl<T: Config> Pallet<T> {
                         hotkey, coldkey, netuid, alpha,
                     );
                 }
+
+                // Reduce lock (if exists) by the cleaned stake amount
+                Self::force_reduce_lock(coldkey, netuid, alpha_stake);
             }
         }
     }
@@ -282,13 +285,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
         T::SwapInterface::is_user_liquidity_enabled(netuid)
-    }
-
-    pub fn recycle_subnet_alpha(netuid: NetUid, amount: AlphaBalance) {
-        // TODO: record recycled alpha in a tracker
-        SubnetAlphaOut::<T>::mutate(netuid, |total| {
-            *total = total.saturating_sub(amount);
-        });
     }
 
     /// The function clears Alpha map in batches. Each run will check ALPHA_MAP_BATCH_SIZE
@@ -388,10 +384,6 @@ impl<T: Config> Pallet<T> {
 
             AlphaV2MapLastKey::<T>::put(new_starting_key);
         }
-    }
-
-    pub fn burn_subnet_alpha(_netuid: NetUid, _amount: AlphaBalance) {
-        // Do nothing; TODO: record burned alpha in a tracker
     }
 
     /// Several alpha iteration helpers that merge key space from Alpha and AlphaV2 maps

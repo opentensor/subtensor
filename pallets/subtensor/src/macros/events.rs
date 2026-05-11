@@ -572,5 +572,41 @@ mod events {
             /// Whether delegation is now enabled.
             enabled: bool,
         },
+
+        /// Stake has been locked to a hotkey on a subnet.
+        StakeLocked {
+            /// The coldkey that locked the stake.
+            coldkey: T::AccountId,
+            /// The hotkey the stake is locked to.
+            hotkey: T::AccountId,
+            /// The subnet the stake is locked on.
+            netuid: NetUid,
+            /// The alpha amount locked.
+            amount: AlphaBalance,
+        },
+
+        /// Stake has been unlocked from a hotkey on a subnet.
+        StakeUnlocked {
+            /// The coldkey that unlocked the stake.
+            coldkey: T::AccountId,
+            /// The hotkey the stake was locked to.
+            hotkey: T::AccountId,
+            /// The subnet the stake was locked on.
+            netuid: NetUid,
+            /// The alpha amount unlocked.
+            amount: AlphaBalance,
+        },
+
+        /// Stake has been unlocked from a hotkey on a subnet.
+        LockMoved {
+            /// The coldkey that moved the lock.
+            coldkey: T::AccountId,
+            /// The hotkey the lock was moved from.
+            origin_hotkey: T::AccountId,
+            /// The hotkey the lock was moved to.
+            destination_hotkey: T::AccountId,
+            /// The subnet the lock is on.
+            netuid: NetUid,
+        },
     }
 }

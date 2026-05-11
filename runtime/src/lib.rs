@@ -74,7 +74,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use stp_shield::ShieldedTransaction;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_precompiles::Precompiles;
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -273,7 +273,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 403,
+    spec_version: 406,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -380,7 +380,7 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = Nonce;
     type Block = Block;
-    type SingleBlockMigrations = Migrations;
+    type SingleBlockMigrations = ();
     type MultiBlockMigrator = ();
     type PreInherents = ();
     type PostInherents = ();
@@ -526,6 +526,8 @@ impl pallet_balances::Config for Runtime {
     type MaxFreezes = ConstU32<50>;
     type DoneSlashHandler = ();
 }
+
+impl pallet_alpha_assets::Config for Runtime {}
 
 // Implement AuthorshipInfo trait for Runtime to satisfy pallet transaction
 // fee OnUnbalanced trait bounds
@@ -1200,6 +1202,7 @@ impl pallet_subtensor::Config for Runtime {
     type GetCommitments = GetCommitmentsStruct;
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
@@ -1682,11 +1685,12 @@ construct_runtime!(
         Swap: pallet_subtensor_swap = 28,
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
+        AlphaAssets: pallet_alpha_assets = 31,
 
         // Governance
-        MultiCollective: pallet_multi_collective = 31,
-        SignedVoting: pallet_signed_voting = 32,
-        Referenda: pallet_referenda = 33,
+        MultiCollective: pallet_multi_collective = 32,
+        SignedVoting: pallet_signed_voting = 33,
+        Referenda: pallet_referenda = 34,
     }
 );
 
@@ -2542,6 +2546,14 @@ impl_runtime_apis! {
 
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
+        }
+
+        fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64 {
+            SubtensorModule::hotkey_conviction(&hotkey, netuid)
+        }
+
+        fn get_most_convicted_hotkey_on_subnet(netuid: NetUid) -> Option<AccountId32> {
+            SubtensorModule::subnet_king(netuid)
         }
     }
 

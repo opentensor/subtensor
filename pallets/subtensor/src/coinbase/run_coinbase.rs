@@ -28,6 +28,12 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "Running coinbase for block {current_block:?} with block emission: {block_emission:?}"
         );
+
+        // Reset per-block root sell counters from the previous block.
+        // Root sells happen after coinbase, so their accumulated values
+        // are consumed here at the start of the next block.
+        let _ = SubnetRootSellTao::<T>::clear(u32::MAX, None);
+
         // --- 1. Get all subnets (excluding root).
         let subnets: Vec<NetUid> = Self::get_all_subnet_netuids()
             .into_iter()
@@ -97,6 +103,11 @@ impl<T: Config> Pallet<T> {
                                 let bought_alpha: AlphaBalance =
                                     buy_swap_result_ok.amount_paid_out.into();
                                 Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+
+                                // Record actual excess TAO that entered pool.
+                                let actual_excess: TaoBalance = buy_swap_result_ok.amount_paid_in;
+                                SubnetExcessTao::<T>::insert(*netuid_i, actual_excess);
+                                Self::record_protocol_inflow(*netuid_i, actual_excess);
                             }
                         }
                         Err(remainder) => {
@@ -113,9 +124,9 @@ impl<T: Config> Pallet<T> {
                 let alpha_in_i =
                     AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
                 SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
-                SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(alpha_in_i);
-                });
+
+                // Mint alpha and resolve to alpha reserve
+                Self::resolve_to_alpha_in(Self::mint_alpha(*netuid_i, alpha_in_i));
 
                 // Inject TAO in.
                 let injected_tao: TaoBalance =
@@ -132,6 +143,9 @@ impl<T: Config> Pallet<T> {
                             TotalStake::<T>::mutate(|total| {
                                 *total = total.saturating_add(injected_tao);
                             });
+
+                            // Record emission injection as protocol inflow.
+                            Self::record_protocol_inflow(*netuid_i, injected_tao);
                         }
                         Err(remainder) => {
                             remaining_credit = remainder;
@@ -239,9 +253,9 @@ impl<T: Config> Pallet<T> {
 
             let alpha_created: AlphaBalance = AlphaBalance::from(tou64!(alpha_out_i));
             SubnetAlphaOutEmission::<T>::insert(*netuid_i, alpha_created);
-            SubnetAlphaOut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(alpha_created);
-            });
+
+            // Mint and resolve outstanding alpha
+            Self::resolve_to_alpha_out(Self::mint_alpha(*netuid_i, alpha_created));
 
             // Calculate the owner cut.
             let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
@@ -575,6 +589,9 @@ impl<T: Config> Pallet<T> {
             if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
                 Self::distribute_leased_network_dividends(lease_id, owner_cut);
             }
+
+            // Auto-lock owner's cut
+            Self::auto_lock_owner_cut(netuid, owner_cut);
         }
 
         // Distribute mining incentives.
