@@ -106,6 +106,9 @@ pub mod pallet {
         /// The receiver of the signal for when a new term of a collective has started.
         type OnNewTerm: OnNewTerm<Self::CollectiveId>;
 
+        /// Admission policy for `try_join`.
+        type AdmissionPolicy: AdmissionPolicy<Self::AccountId, Self::CollectiveId>;
+
         /// The maximum number of members per collective.
         ///
         /// This is used for benchmarking. Re-run the benchmarks if this changes.
@@ -191,6 +194,15 @@ pub mod pallet {
             /// member list.
             outgoing: Vec<T::AccountId>,
         },
+        /// An account joined a collective.
+        MemberJoined {
+            /// Collective the account joined.
+            collective_id: T::CollectiveId,
+            /// Account that joined.
+            who: T::AccountId,
+            /// Members evicted during the join.
+            evicted: Vec<T::AccountId>,
+        },
     }
 
     #[pallet::error]
@@ -211,6 +223,10 @@ pub mod pallet {
         /// rotate. Such collectives are curated directly through the
         /// membership operations and have no rotation hook to trigger.
         CollectiveDoesNotRotate,
+        /// Account is not eligible for this collective.
+        NotEligible,
+        /// Account does not outrank the lowest member of a full collective.
+        RankTooLow,
     }
 
     #[pallet::hooks]
@@ -459,6 +475,91 @@ pub mod pallet {
             )
             .into())
         }
+
+        /// Self-nominate the caller for `collective_id`. Admission is
+        /// gated by the runtime's `AdmissionPolicy`; ineligible
+        /// incumbents are evicted in the same call.
+        #[pallet::call_index(5)]
+        #[pallet::weight(
+            T::WeightInfo::try_join().saturating_add(T::OnMembersChanged::weight())
+        )]
+        pub fn try_join(origin: OriginFor<T>, collective_id: T::CollectiveId) -> DispatchResult {
+            let candidate = ensure_signed(origin)?;
+            let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
+
+            let old_members = Members::<T>::get(collective_id);
+            ensure!(
+                old_members.binary_search(&candidate).is_err(),
+                Error::<T>::AlreadyMember
+            );
+            ensure!(
+                T::AdmissionPolicy::is_eligible(collective_id, &candidate),
+                Error::<T>::NotEligible
+            );
+
+            // Evict ineligible members, bounded by the `min_members` floor.
+            let mut evict_budget = (old_members.len() as u32).saturating_sub(info.min_members);
+            let mut new_members: Vec<T::AccountId> = Vec::with_capacity(old_members.len() + 1);
+            for m in old_members.iter() {
+                if evict_budget > 0 && !T::AdmissionPolicy::is_eligible(collective_id, m) {
+                    evict_budget = evict_budget.saturating_sub(1);
+                } else {
+                    new_members.push(m.clone());
+                }
+            }
+
+            let pos = new_members
+                .binary_search(&candidate)
+                .err()
+                .ok_or(Error::<T>::AlreadyMember)?;
+            let has_room = info
+                .max_members
+                .is_none_or(|max| (new_members.len() as u32) < max);
+
+            let insert_at = if has_room {
+                pos
+            } else {
+                let candidate_rank = T::AdmissionPolicy::rank(collective_id, &candidate);
+                let lowest = new_members
+                    .iter()
+                    .enumerate()
+                    .map(|(i, m)| (i, T::AdmissionPolicy::rank(collective_id, m)))
+                    .min_by_key(|(_, r)| *r);
+                match lowest {
+                    Some((idx, lowest_rank)) if candidate_rank > lowest_rank => {
+                        new_members.remove(idx);
+                        // Removing at `idx` shifts positions strictly
+                        // greater than `idx` down by one.
+                        if idx < pos {
+                            pos.saturating_sub(1)
+                        } else {
+                            pos
+                        }
+                    }
+                    _ => return Err(Error::<T>::RankTooLow.into()),
+                }
+            };
+
+            new_members.insert(insert_at, candidate.clone());
+
+            let bounded = BoundedVec::try_from(new_members.clone())
+                .map_err(|_| Error::<T>::TooManyMembers)?;
+            Members::<T>::insert(collective_id, bounded);
+
+            let (incoming, outgoing) =
+                <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(
+                    &new_members,
+                    &old_members,
+                );
+
+            T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
+            Self::deposit_event(Event::MemberJoined {
+                collective_id,
+                who: candidate,
+                evicted: outgoing,
+            });
+            Ok(())
+        }
     }
 }
 
@@ -625,6 +726,30 @@ impl<CollectiveId: Clone> OnNewTerm<CollectiveId> for Tuple {
         let mut weight = Weight::zero();
         for_tuples!( #( weight.saturating_accrue(Tuple::weight()); )* );
         weight
+    }
+}
+
+/// Per-collective admission policy used by `try_join`.
+pub trait AdmissionPolicy<AccountId, CollectiveId> {
+    /// Ranking signal type. Higher compares better.
+    type Rank: Ord + Copy;
+
+    /// Whether `who` may belong to `collective_id`.
+    fn is_eligible(collective_id: CollectiveId, who: &AccountId) -> bool;
+
+    /// Rank of `who` for `collective_id`.
+    fn rank(collective_id: CollectiveId, who: &AccountId) -> Self::Rank;
+}
+
+/// Rejects every join. Default for runtimes that do not use `try_join`.
+impl<AccountId, CollectiveId> AdmissionPolicy<AccountId, CollectiveId> for () {
+    type Rank = u128;
+
+    fn is_eligible(_: CollectiveId, _: &AccountId) -> bool {
+        false
+    }
+    fn rank(_: CollectiveId, _: &AccountId) -> Self::Rank {
+        0
     }
 }
 
