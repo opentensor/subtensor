@@ -461,6 +461,10 @@ fn dissolve_clears_all_per_subnet_storages() {
         // EVM association indexed by (netuid, uid)
         AssociatedEvmAddress::<Test>::insert(net, 0u16, (sp_core::H160::zero(), 1u64));
 
+        // Auto-stake destination (cold,netuid) -> hot + reverse index
+        AutoStakeDestination::<Test>::insert(owner_cold, net, owner_hot);
+        AutoStakeDestinationColdkeys::<Test>::mutate(owner_hot, net, |v| v.push(owner_cold));
+
         // (Optional) subnet -> lease link
         SubnetUidToLeaseId::<Test>::insert(net, 42u32);
 
@@ -626,10 +630,51 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Subnet -> lease link
         assert!(!SubnetUidToLeaseId::<Test>::contains_key(net));
 
+        // Auto-stake destination + reverse index cleared
+        assert!(AutoStakeDestination::<Test>::get(owner_cold, net).is_none());
+        assert!(AutoStakeDestinationColdkeys::<Test>::get(owner_hot, net).is_empty());
+
         // ------------------------------------------------------------------
         // Final subnet removal confirmation
         // ------------------------------------------------------------------
         assert!(!SubtensorModule::if_subnet_exist(net));
+    });
+}
+
+// Focused regression for the AutoStakeDestination orphan: without cleanup on
+// dissolve, a stale (coldkey, netuid) → hotkey mapping would survive the
+// subnet's dissolution and silently redirect mining incentive when the same
+// netuid is later re-registered (see `coinbase::run_coinbase` auto-stake
+// path). This test proves the cleanup wipes both halves of the index.
+#[test]
+fn dissolve_clears_auto_stake_destination_preventing_stale_routing() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(101);
+        let owner_hot = U256::from(102);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        let staker_cold = U256::from(201);
+        let stale_dest_hot = U256::from(202);
+
+        AutoStakeDestination::<Test>::insert(staker_cold, net, stale_dest_hot);
+        AutoStakeDestinationColdkeys::<Test>::mutate(stale_dest_hot, net, |v| v.push(staker_cold));
+
+        // Sanity: both halves of the index are populated before dissolve.
+        assert_eq!(
+            AutoStakeDestination::<Test>::get(staker_cold, net),
+            Some(stale_dest_hot)
+        );
+        assert_eq!(
+            AutoStakeDestinationColdkeys::<Test>::get(stale_dest_hot, net),
+            vec![staker_cold]
+        );
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        assert!(AutoStakeDestination::<Test>::get(staker_cold, net).is_none());
+        assert!(
+            AutoStakeDestinationColdkeys::<Test>::get(stale_dest_hot, net).is_empty()
+        );
     });
 }
 
