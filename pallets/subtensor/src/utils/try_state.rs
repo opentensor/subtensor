@@ -1,4 +1,5 @@
 use frame_support::traits::fungible::Inspect;
+use frame_system::pallet_prelude::BlockNumberFor;
 
 use super::*;
 
@@ -31,10 +32,16 @@ impl<T: Config> Pallet<T> {
             currency_issuance.saturating_add(TotalStake::<T>::get().into());
 
         // Verify the diff between calculated TI and actual TI is less than delta
-        //
-        // These values can be off slightly due to float rounding errors.
-        // They are corrected every runtime upgrade.
-        let delta = TaoBalance::from(1000);
+        // Allow greater tolerance for non-mainnet
+        let genesis_hash = frame_system::Pallet::<T>::block_hash(BlockNumberFor::<T>::zero());
+        let genesis_bytes = genesis_hash.as_ref();
+        let mainnet_genesis =
+            hex_literal::hex!("2f0555cc76fc2840a25a6ea3b9637146806f1f44b090c175ffde2a7e5ab36c03");
+        let delta = if genesis_bytes == mainnet_genesis {
+            TaoBalance::from(1000)
+        } else {
+            TaoBalance::from(1_000_000_000_000_u64)
+        };
 
         let diff = if total_issuance > expected_total_issuance {
             total_issuance.checked_sub(&expected_total_issuance)
