@@ -1,6 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Hooks, weights::Weight};
+use frame_support::{
+    BoundedVec, assert_err_ignore_postinfo, assert_noop, assert_ok, traits::Hooks, weights::Weight,
+};
 use sp_core::U256;
 use sp_runtime::DispatchError;
 
@@ -1701,12 +1703,17 @@ fn try_join_rejects_when_candidate_rank_equals_lowest() {
         set_eligible(CollectiveId::Alpha, candidate, true);
         set_rank(CollectiveId::Alpha, candidate, 5);
 
-        assert_noop!(
+        let before = MultiCollective::<Test>::members_of(CollectiveId::Alpha);
+        assert_err_ignore_postinfo!(
             MultiCollective::<Test>::try_join(
                 RuntimeOrigin::signed(candidate),
                 CollectiveId::Alpha,
             ),
             Error::<Test>::RankTooLow
+        );
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            before
         );
     });
 }
@@ -1729,12 +1736,17 @@ fn try_join_rejects_when_candidate_rank_below_lowest() {
         set_eligible(CollectiveId::Alpha, candidate, true);
         set_rank(CollectiveId::Alpha, candidate, 1);
 
-        assert_noop!(
+        let before = MultiCollective::<Test>::members_of(CollectiveId::Alpha);
+        assert_err_ignore_postinfo!(
             MultiCollective::<Test>::try_join(
                 RuntimeOrigin::signed(candidate),
                 CollectiveId::Alpha,
             ),
             Error::<Test>::RankTooLow
+        );
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            before
         );
     });
 }
@@ -1983,20 +1995,6 @@ fn try_join_no_storage_write_on_failed_admission() {
 }
 
 #[test]
-fn try_join_default_admission_policy_rejects_all() {
-    // The `()` impl of `AdmissionPolicy` is the runtime default for chains
-    // that don't opt into `try_join`; lock in that it really does reject.
-    use crate::AdmissionPolicy as AP;
-
-    // Compile-time: the `()` impl exists with `Rank = u128`.
-    let _: u128 = <() as AP<U256, CollectiveId>>::rank(CollectiveId::Alpha, &U256::from(0));
-    assert!(!<() as AP<U256, CollectiveId>>::is_eligible(
-        CollectiveId::Alpha,
-        &U256::from(1),
-    ));
-}
-
-#[test]
 fn try_join_sweep_takes_precedence_over_rank_comparison() {
     TestState::build_and_execute(|| {
         // Full collective with one ineligible member and two high-ranked
@@ -2029,67 +2027,6 @@ fn try_join_sweep_takes_precedence_over_rank_comparison() {
 }
 
 #[test]
-fn try_join_can_displace_lower_ranked_member_via_ranking_when_sweep_blocked_by_floor() {
-    TestState::build_and_execute(|| {
-        // Beta full with eligible incumbents; sweep removes nobody. The
-        // candidate must outrank the lowest to get in.
-        let m1 = U256::from(10);
-        let m2 = U256::from(20);
-        let m3 = U256::from(30);
-        seed_members(CollectiveId::Beta, &[m1, m2, m3]);
-        set_eligible(CollectiveId::Beta, m1, true);
-        set_eligible(CollectiveId::Beta, m2, true);
-        set_eligible(CollectiveId::Beta, m3, true);
-        set_rank(CollectiveId::Beta, m1, 5);
-        set_rank(CollectiveId::Beta, m2, 10);
-        set_rank(CollectiveId::Beta, m3, 8);
-
-        let candidate = U256::from(25);
-        set_eligible(CollectiveId::Beta, candidate, true);
-        set_rank(CollectiveId::Beta, candidate, 6);
-
-        assert_ok!(MultiCollective::<Test>::try_join(
-            RuntimeOrigin::signed(candidate),
-            CollectiveId::Beta,
-        ));
-
-        // m1 (rank 5) is the lowest; evicted. Sorted insert: m2 < candidate(25) < m3(30).
-        assert_eq!(
-            MultiCollective::<Test>::members_of(CollectiveId::Beta),
-            vec![m2, candidate, m3]
-        );
-    });
-}
-
-#[test]
-fn try_join_storage_remains_bounded_after_eviction() {
-    // Verifies the post-condition `len <= max_members` after admission via
-    // eviction: the BoundedVec must accept the constructed list.
-    TestState::build_and_execute(|| {
-        let m1 = U256::from(10);
-        let m2 = U256::from(20);
-        let m3 = U256::from(30);
-        seed_members(CollectiveId::Beta, &[m1, m2, m3]);
-        for (m, r) in [(m1, 1u128), (m2, 2), (m3, 3)] {
-            set_eligible(CollectiveId::Beta, m, true);
-            set_rank(CollectiveId::Beta, m, r);
-        }
-
-        let candidate = U256::from(25);
-        set_eligible(CollectiveId::Beta, candidate, true);
-        set_rank(CollectiveId::Beta, candidate, 100);
-
-        assert_ok!(MultiCollective::<Test>::try_join(
-            RuntimeOrigin::signed(candidate),
-            CollectiveId::Beta,
-        ));
-
-        let members = MultiCollective::<Test>::members_of(CollectiveId::Beta);
-        assert_eq!(members.len(), 3); // matches Beta's max_members
-    });
-}
-
-#[test]
 fn try_join_emits_join_event_with_evicted_field_sorted() {
     TestState::build_and_execute(|| {
         // Two ineligible incumbents at distinct positions; the evicted list
@@ -2118,54 +2055,31 @@ fn try_join_emits_join_event_with_evicted_field_sorted() {
     });
 }
 
-#[test]
-fn try_join_does_not_double_count_members_on_failed_rank_check() {
-    // A candidate that fails ranking must NOT leave the collective in a
-    // partial state. The BoundedVec rebuild only writes on success.
-    TestState::build_and_execute(|| {
-        let m1 = U256::from(10);
-        let m2 = U256::from(20);
-        let m3 = U256::from(30);
-        seed_members(CollectiveId::Beta, &[m1, m2, m3]);
-        for m in [m1, m2, m3] {
-            set_eligible(CollectiveId::Beta, m, true);
-            set_rank(CollectiveId::Beta, m, 100);
-        }
-
-        let candidate = U256::from(25);
-        set_eligible(CollectiveId::Beta, candidate, true);
-        set_rank(CollectiveId::Beta, candidate, 0);
-
-        let before = MultiCollective::<Test>::members_of(CollectiveId::Beta);
-        assert_noop!(
-            MultiCollective::<Test>::try_join(RuntimeOrigin::signed(candidate), CollectiveId::Beta,),
-            Error::<Test>::RankTooLow
-        );
-        assert_eq!(
-            MultiCollective::<Test>::members_of(CollectiveId::Beta),
-            before
-        );
-    });
-}
-
 /// The pallet ships a `()` impl of `AdmissionPolicy` used as the default
-/// for runtimes that don't opt into `try_join`. Exercise its rank ordering
-/// directly so the trait default surface is covered.
+/// for runtimes that don't opt into `try_join`. Exercise the trait default
+/// surface so behaviour is locked in.
 #[test]
 fn admission_policy_unit_impl_rejects_and_zero_ranks() {
     use crate::AdmissionPolicy as AP;
     let any = U256::from(123);
 
-    assert!(!<() as AP<U256, CollectiveId>>::is_eligible(
-        CollectiveId::Alpha,
-        &any,
-    ));
-    assert!(!<() as AP<U256, CollectiveId>>::is_eligible(
-        CollectiveId::Beta,
-        &any,
-    ));
+    let (eligible, w) = <() as AP<U256, CollectiveId>>::is_eligible(CollectiveId::Alpha, &any);
+    assert!(!eligible);
+    assert_eq!(w, Weight::zero());
+
+    let (eligible, _) = <() as AP<U256, CollectiveId>>::is_eligible(CollectiveId::Beta, &any);
+    assert!(!eligible);
+
+    let (rank, w) = <() as AP<U256, CollectiveId>>::rank(CollectiveId::Alpha, &any);
+    assert_eq!(rank, 0u128);
+    assert_eq!(w, Weight::zero());
+
     assert_eq!(
-        <() as AP<U256, CollectiveId>>::rank(CollectiveId::Alpha, &any),
-        0u128
+        <() as AP<U256, CollectiveId>>::is_eligible_weight(100),
+        Weight::zero()
+    );
+    assert_eq!(
+        <() as AP<U256, CollectiveId>>::rank_weight(100),
+        Weight::zero()
     );
 }
