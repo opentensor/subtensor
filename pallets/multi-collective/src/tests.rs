@@ -1461,3 +1461,711 @@ fn on_new_term_tuple_impl_dispatches_to_each_member() {
         assert_eq!(weight, Weight::from_parts(14, 0));
     });
 }
+
+#[test]
+fn try_join_admits_into_empty_collective() {
+    TestState::build_and_execute(|| {
+        let candidate = U256::from(7);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Alpha,
+        ));
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![candidate]
+        );
+        assert_eq!(
+            take_members_changed_log(),
+            vec![MembersChangedCall {
+                collective_id: CollectiveId::Alpha,
+                incoming: vec![candidate],
+                outgoing: vec![],
+            }]
+        );
+        assert_eq!(
+            multi_collective_events(),
+            vec![CollectiveEvent::MemberJoined {
+                collective_id: CollectiveId::Alpha,
+                who: candidate,
+                evicted: vec![],
+            }]
+        );
+    });
+}
+
+#[test]
+fn try_join_preserves_sort_invariant_for_all_insert_positions() {
+    TestState::build_and_execute(|| {
+        let head = U256::from(1);
+        let mid = U256::from(5);
+        let tail = U256::from(9);
+        let between_low = U256::from(3);
+        let between_high = U256::from(7);
+
+        // Seed the middle; subsequent inserts must land at head, after the
+        // middle, before the tail, and at the very end. Mark the seed as
+        // eligible so the sweep doesn't evict it.
+        seed_members(CollectiveId::Alpha, &[mid]);
+        set_eligible(CollectiveId::Alpha, mid, true);
+
+        for c in [head, tail, between_low, between_high] {
+            set_eligible(CollectiveId::Alpha, c, true);
+            assert_ok!(MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(c),
+                CollectiveId::Alpha,
+            ));
+        }
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![head, between_low, mid, between_high, tail]
+        );
+    });
+}
+
+#[test]
+fn try_join_requires_signed_origin() {
+    TestState::build_and_execute(|| {
+        assert_noop!(
+            MultiCollective::<Test>::try_join(RuntimeOrigin::root(), CollectiveId::Alpha),
+            DispatchError::BadOrigin,
+        );
+        assert_noop!(
+            MultiCollective::<Test>::try_join(RuntimeOrigin::none(), CollectiveId::Alpha),
+            DispatchError::BadOrigin,
+        );
+    });
+}
+
+#[test]
+fn try_join_fails_for_unknown_collective() {
+    TestState::build_and_execute(|| {
+        let candidate = U256::from(1);
+        set_eligible(CollectiveId::Unknown, candidate, true);
+
+        assert_noop!(
+            MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(candidate),
+                CollectiveId::Unknown,
+            ),
+            Error::<Test>::CollectiveNotFound
+        );
+    });
+}
+
+#[test]
+fn try_join_rejects_already_member() {
+    TestState::build_and_execute(|| {
+        let candidate = U256::from(4);
+        seed_members(CollectiveId::Alpha, &[candidate]);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+
+        assert_noop!(
+            MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(candidate),
+                CollectiveId::Alpha,
+            ),
+            Error::<Test>::AlreadyMember
+        );
+    });
+}
+
+#[test]
+fn try_join_rejects_ineligible_candidate() {
+    TestState::build_and_execute(|| {
+        let candidate = U256::from(4);
+        assert_noop!(
+            MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(candidate),
+                CollectiveId::Alpha,
+            ),
+            Error::<Test>::NotEligible
+        );
+
+        // Marking the candidate eligible for a *different* collective does
+        // not unlock admission into Alpha.
+        set_eligible(CollectiveId::Beta, candidate, true);
+        assert_noop!(
+            MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(candidate),
+                CollectiveId::Alpha,
+            ),
+            Error::<Test>::NotEligible
+        );
+    });
+}
+
+#[test]
+fn try_join_evicts_lowest_ranked_when_full_and_candidate_outranks() {
+    TestState::build_and_execute(|| {
+        // Alpha caps at 5. Fill with five members of strictly ascending ranks.
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        let m4 = U256::from(40);
+        let m5 = U256::from(50);
+        seed_members(CollectiveId::Alpha, &[m1, m2, m3, m4, m5]);
+        for (m, r) in [(m1, 1u128), (m2, 2), (m3, 3), (m4, 4), (m5, 5)] {
+            set_eligible(CollectiveId::Alpha, m, true);
+            set_rank(CollectiveId::Alpha, m, r);
+        }
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+        set_rank(CollectiveId::Alpha, candidate, 99);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Alpha,
+        ));
+
+        // m1 had the lowest rank; it gets evicted. Sorted insert places the
+        // candidate between m2 (id=20) and m3 (id=30).
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![m2, candidate, m3, m4, m5]
+        );
+        assert_eq!(
+            multi_collective_events().last(),
+            Some(&CollectiveEvent::MemberJoined {
+                collective_id: CollectiveId::Alpha,
+                who: candidate,
+                evicted: vec![m1],
+            })
+        );
+        assert_eq!(
+            take_members_changed_log().last(),
+            Some(&MembersChangedCall {
+                collective_id: CollectiveId::Alpha,
+                incoming: vec![candidate],
+                outgoing: vec![m1],
+            })
+        );
+    });
+}
+
+#[test]
+fn try_join_full_collective_evicts_correctly_when_lowest_id_is_above_candidate() {
+    TestState::build_and_execute(|| {
+        // Setup forces the lowest-rank member to live at an index greater
+        // than the candidate's insertion position. The replacement-index
+        // adjustment in `try_join` must not double-decrement.
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        let m4 = U256::from(40);
+        let m5 = U256::from(50);
+        seed_members(CollectiveId::Alpha, &[m1, m2, m3, m4, m5]);
+        // m5 (account id = 50) is the lowest-ranked member.
+        for (m, r) in [(m1, 9u128), (m2, 8), (m3, 7), (m4, 6), (m5, 1)] {
+            set_eligible(CollectiveId::Alpha, m, true);
+            set_rank(CollectiveId::Alpha, m, r);
+        }
+
+        let candidate = U256::from(15);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+        set_rank(CollectiveId::Alpha, candidate, 5);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Alpha,
+        ));
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![m1, candidate, m2, m3, m4]
+        );
+    });
+}
+
+#[test]
+fn try_join_rejects_when_candidate_rank_equals_lowest() {
+    TestState::build_and_execute(|| {
+        // Tie at the bottom: `try_join`'s eviction rule is strict `>`, so
+        // an equal-rank candidate must not displace the incumbent.
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        let m4 = U256::from(40);
+        let m5 = U256::from(50);
+        seed_members(CollectiveId::Alpha, &[m1, m2, m3, m4, m5]);
+        for m in [m1, m2, m3, m4, m5] {
+            set_eligible(CollectiveId::Alpha, m, true);
+            set_rank(CollectiveId::Alpha, m, 5);
+        }
+
+        let candidate = U256::from(7);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+        set_rank(CollectiveId::Alpha, candidate, 5);
+
+        assert_noop!(
+            MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(candidate),
+                CollectiveId::Alpha,
+            ),
+            Error::<Test>::RankTooLow
+        );
+    });
+}
+
+#[test]
+fn try_join_rejects_when_candidate_rank_below_lowest() {
+    TestState::build_and_execute(|| {
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        let m4 = U256::from(40);
+        let m5 = U256::from(50);
+        seed_members(CollectiveId::Alpha, &[m1, m2, m3, m4, m5]);
+        for (m, r) in [(m1, 5u128), (m2, 6), (m3, 7), (m4, 8), (m5, 9)] {
+            set_eligible(CollectiveId::Alpha, m, true);
+            set_rank(CollectiveId::Alpha, m, r);
+        }
+
+        let candidate = U256::from(99);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+        set_rank(CollectiveId::Alpha, candidate, 1);
+
+        assert_noop!(
+            MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(candidate),
+                CollectiveId::Alpha,
+            ),
+            Error::<Test>::RankTooLow
+        );
+    });
+}
+
+#[test]
+fn try_join_does_not_consult_rank_when_max_members_is_unbounded() {
+    TestState::build_and_execute(|| {
+        // Gamma has `max_members = None`. Even with a very low rank for the
+        // candidate, admission must succeed once eligibility is set.
+        for who in [U256::from(1), U256::from(2), U256::from(3)] {
+            set_eligible(CollectiveId::Gamma, who, true);
+            assert_ok!(MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(who),
+                CollectiveId::Gamma,
+            ));
+        }
+
+        let candidate = U256::from(4);
+        set_eligible(CollectiveId::Gamma, candidate, true);
+        set_rank(CollectiveId::Gamma, candidate, 0);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Gamma,
+        ));
+        assert!(MultiCollective::<Test>::is_member(
+            CollectiveId::Gamma,
+            &candidate
+        ));
+    });
+}
+
+#[test]
+fn try_join_sweep_evicts_ineligible_incumbents() {
+    TestState::build_and_execute(|| {
+        // Alpha's min_members is 0, so the sweep can drain freely.
+        // Two ineligible incumbents must be evicted before the join.
+        let inc1 = U256::from(10);
+        let inc2 = U256::from(20);
+        seed_members(CollectiveId::Alpha, &[inc1, inc2]);
+        // Incumbents have no eligibility marker → ineligible by default.
+
+        let candidate = U256::from(15);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Alpha,
+        ));
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![candidate]
+        );
+        assert_eq!(
+            multi_collective_events().last(),
+            Some(&CollectiveEvent::MemberJoined {
+                collective_id: CollectiveId::Alpha,
+                who: candidate,
+                evicted: vec![inc1, inc2],
+            })
+        );
+        // OnMembersChanged outgoing is sorted (computed by
+        // `compute_members_diff_sorted`).
+        assert_eq!(
+            take_members_changed_log().last(),
+            Some(&MembersChangedCall {
+                collective_id: CollectiveId::Alpha,
+                incoming: vec![candidate],
+                outgoing: vec![inc1, inc2],
+            })
+        );
+    });
+}
+
+#[test]
+fn try_join_sweep_respects_min_members_floor() {
+    TestState::build_and_execute(|| {
+        // Beta's min_members is 2, max 3. Fill with 3 ineligible incumbents.
+        // The sweep can drop the collective to its floor (2) but no further,
+        // so exactly ONE incumbent is evicted. With one slot freed and the
+        // collective now under cap, the candidate joins without invoking
+        // ranking on the remaining (ineligible) incumbents.
+        let inc1 = U256::from(10);
+        let inc2 = U256::from(20);
+        let inc3 = U256::from(30);
+        seed_members(CollectiveId::Beta, &[inc1, inc2, inc3]);
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Beta, candidate, true);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Beta,
+        ));
+
+        // The first incumbent (head of the list) is the one evicted.
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Beta),
+            vec![inc2, candidate, inc3]
+        );
+        assert_eq!(
+            multi_collective_events().last(),
+            Some(&CollectiveEvent::MemberJoined {
+                collective_id: CollectiveId::Beta,
+                who: candidate,
+                evicted: vec![inc1],
+            })
+        );
+    });
+}
+
+#[test]
+fn try_join_sweep_then_rank_when_floor_blocks_full_sweep() {
+    TestState::build_and_execute(|| {
+        // Beta: min=2, max=3. Two eligible incumbents at the floor and one
+        // higher-ranked ineligible incumbent above the floor. The sweep
+        // evicts the ineligible incumbent (budget=1), freeing one slot, so
+        // the candidate joins without ranking.
+        //
+        // This is distinct from the all-eligible case below, where the
+        // sweep removes nobody and ranking decides.
+        let inc1 = U256::from(10); // eligible, will stay
+        let inc2 = U256::from(20); // eligible, will stay
+        let inc3 = U256::from(30); // ineligible, evicted
+        seed_members(CollectiveId::Beta, &[inc1, inc2, inc3]);
+        set_eligible(CollectiveId::Beta, inc1, true);
+        set_eligible(CollectiveId::Beta, inc2, true);
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Beta, candidate, true);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Beta,
+        ));
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Beta),
+            vec![inc1, inc2, candidate]
+        );
+    });
+}
+
+#[test]
+fn try_join_falls_through_to_ranking_when_all_incumbents_eligible() {
+    TestState::build_and_execute(|| {
+        // Beta full and every incumbent eligible: sweep frees nothing, and
+        // ranking must displace the lowest if the candidate outranks.
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        seed_members(CollectiveId::Beta, &[m1, m2, m3]);
+        for (m, r) in [(m1, 1u128), (m2, 2), (m3, 3)] {
+            set_eligible(CollectiveId::Beta, m, true);
+            set_rank(CollectiveId::Beta, m, r);
+        }
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Beta, candidate, true);
+        set_rank(CollectiveId::Beta, candidate, 10);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Beta,
+        ));
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Beta),
+            vec![m2, candidate, m3]
+        );
+        assert_eq!(
+            multi_collective_events().last(),
+            Some(&CollectiveEvent::MemberJoined {
+                collective_id: CollectiveId::Beta,
+                who: candidate,
+                evicted: vec![m1],
+            })
+        );
+    });
+}
+
+#[test]
+fn try_join_full_with_unbounded_min_can_evict_lowest_ranked_after_partial_sweep() {
+    TestState::build_and_execute(|| {
+        // Alpha's min_members is 0 so the sweep is allowed to drain everyone;
+        // the candidate has lower rank than every incumbent but the sweep
+        // empties the collective, so admission succeeds without any rank
+        // comparison.
+        let incs: Vec<U256> = (1u64..=5).map(U256::from).collect();
+        seed_members(CollectiveId::Alpha, &incs);
+        for (i, m) in incs.iter().enumerate() {
+            // Mark each incumbent as eligible only intermittently to make
+            // sure the sweep handles mixed eligibility correctly. Even ones
+            // stay, odd ones go.
+            if i % 2 == 0 {
+                set_eligible(CollectiveId::Alpha, *m, true);
+                set_rank(CollectiveId::Alpha, *m, 100);
+            }
+        }
+
+        let candidate = U256::from(99);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+        set_rank(CollectiveId::Alpha, candidate, 0);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Alpha,
+        ));
+
+        // Survivors: the even-indexed members (indices 0,2,4 → ids 1,3,5).
+        let expected: Vec<U256> = [1u64, 3, 5, 99].into_iter().map(U256::from).collect();
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            expected
+        );
+    });
+}
+
+#[test]
+fn try_join_no_storage_write_on_failed_admission() {
+    // `assert_noop` already checks the storage hash; this test additionally
+    // proves the explicit invariants: members list unchanged, no events
+    // emitted, no OnMembersChanged call.
+    TestState::build_and_execute(|| {
+        let inc = U256::from(10);
+        seed_members(CollectiveId::Alpha, &[inc]);
+
+        let candidate = U256::from(20);
+        // Not eligible → noop.
+        assert_noop!(
+            MultiCollective::<Test>::try_join(
+                RuntimeOrigin::signed(candidate),
+                CollectiveId::Alpha,
+            ),
+            Error::<Test>::NotEligible
+        );
+
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![inc]
+        );
+        assert!(take_members_changed_log().is_empty());
+        assert!(multi_collective_events().is_empty());
+    });
+}
+
+#[test]
+fn try_join_default_admission_policy_rejects_all() {
+    // The `()` impl of `AdmissionPolicy` is the runtime default for chains
+    // that don't opt into `try_join`; lock in that it really does reject.
+    use crate::AdmissionPolicy as AP;
+
+    // Compile-time: the `()` impl exists with `Rank = u128`.
+    let _: u128 = <() as AP<U256, CollectiveId>>::rank(CollectiveId::Alpha, &U256::from(0));
+    assert!(!<() as AP<U256, CollectiveId>>::is_eligible(
+        CollectiveId::Alpha,
+        &U256::from(1),
+    ));
+}
+
+#[test]
+fn try_join_sweep_takes_precedence_over_rank_comparison() {
+    TestState::build_and_execute(|| {
+        // Full collective with one ineligible member and two high-ranked
+        // eligible members. The candidate's rank is *lower* than every
+        // eligible incumbent's, but the sweep evicts the ineligible
+        // incumbent first, freeing a slot, and the candidate joins without
+        // ranking being consulted at all.
+        let bad = U256::from(10);
+        let good1 = U256::from(20);
+        let good2 = U256::from(30);
+        seed_members(CollectiveId::Alpha, &[bad, good1, good2]);
+        set_eligible(CollectiveId::Alpha, good1, true);
+        set_eligible(CollectiveId::Alpha, good2, true);
+        set_rank(CollectiveId::Alpha, good1, u128::MAX);
+        set_rank(CollectiveId::Alpha, good2, u128::MAX);
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+        set_rank(CollectiveId::Alpha, candidate, 0);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Alpha,
+        ));
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Alpha),
+            vec![good1, candidate, good2]
+        );
+    });
+}
+
+#[test]
+fn try_join_can_displace_lower_ranked_member_via_ranking_when_sweep_blocked_by_floor() {
+    TestState::build_and_execute(|| {
+        // Beta full with eligible incumbents; sweep removes nobody. The
+        // candidate must outrank the lowest to get in.
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        seed_members(CollectiveId::Beta, &[m1, m2, m3]);
+        set_eligible(CollectiveId::Beta, m1, true);
+        set_eligible(CollectiveId::Beta, m2, true);
+        set_eligible(CollectiveId::Beta, m3, true);
+        set_rank(CollectiveId::Beta, m1, 5);
+        set_rank(CollectiveId::Beta, m2, 10);
+        set_rank(CollectiveId::Beta, m3, 8);
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Beta, candidate, true);
+        set_rank(CollectiveId::Beta, candidate, 6);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Beta,
+        ));
+
+        // m1 (rank 5) is the lowest; evicted. Sorted insert: m2 < candidate(25) < m3(30).
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Beta),
+            vec![m2, candidate, m3]
+        );
+    });
+}
+
+#[test]
+fn try_join_storage_remains_bounded_after_eviction() {
+    // Verifies the post-condition `len <= max_members` after admission via
+    // eviction: the BoundedVec must accept the constructed list.
+    TestState::build_and_execute(|| {
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        seed_members(CollectiveId::Beta, &[m1, m2, m3]);
+        for (m, r) in [(m1, 1u128), (m2, 2), (m3, 3)] {
+            set_eligible(CollectiveId::Beta, m, true);
+            set_rank(CollectiveId::Beta, m, r);
+        }
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Beta, candidate, true);
+        set_rank(CollectiveId::Beta, candidate, 100);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Beta,
+        ));
+
+        let members = MultiCollective::<Test>::members_of(CollectiveId::Beta);
+        assert_eq!(members.len(), 3); // matches Beta's max_members
+    });
+}
+
+#[test]
+fn try_join_emits_join_event_with_evicted_field_sorted() {
+    TestState::build_and_execute(|| {
+        // Two ineligible incumbents at distinct positions; the evicted list
+        // in the event is expected to be sorted (ChangeMembers diff yields
+        // sorted slices).
+        let high = U256::from(40);
+        let low = U256::from(15);
+        seed_members(CollectiveId::Alpha, &[high, low]);
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Alpha, candidate, true);
+
+        assert_ok!(MultiCollective::<Test>::try_join(
+            RuntimeOrigin::signed(candidate),
+            CollectiveId::Alpha,
+        ));
+
+        assert_eq!(
+            multi_collective_events().last().expect("event emitted"),
+            &CollectiveEvent::MemberJoined {
+                collective_id: CollectiveId::Alpha,
+                who: candidate,
+                evicted: vec![low, high],
+            },
+        );
+    });
+}
+
+#[test]
+fn try_join_does_not_double_count_members_on_failed_rank_check() {
+    // A candidate that fails ranking must NOT leave the collective in a
+    // partial state. The BoundedVec rebuild only writes on success.
+    TestState::build_and_execute(|| {
+        let m1 = U256::from(10);
+        let m2 = U256::from(20);
+        let m3 = U256::from(30);
+        seed_members(CollectiveId::Beta, &[m1, m2, m3]);
+        for m in [m1, m2, m3] {
+            set_eligible(CollectiveId::Beta, m, true);
+            set_rank(CollectiveId::Beta, m, 100);
+        }
+
+        let candidate = U256::from(25);
+        set_eligible(CollectiveId::Beta, candidate, true);
+        set_rank(CollectiveId::Beta, candidate, 0);
+
+        let before = MultiCollective::<Test>::members_of(CollectiveId::Beta);
+        assert_noop!(
+            MultiCollective::<Test>::try_join(RuntimeOrigin::signed(candidate), CollectiveId::Beta,),
+            Error::<Test>::RankTooLow
+        );
+        assert_eq!(
+            MultiCollective::<Test>::members_of(CollectiveId::Beta),
+            before
+        );
+    });
+}
+
+/// The pallet ships a `()` impl of `AdmissionPolicy` used as the default
+/// for runtimes that don't opt into `try_join`. Exercise its rank ordering
+/// directly so the trait default surface is covered.
+#[test]
+fn admission_policy_unit_impl_rejects_and_zero_ranks() {
+    use crate::AdmissionPolicy as AP;
+    let any = U256::from(123);
+
+    assert!(!<() as AP<U256, CollectiveId>>::is_eligible(
+        CollectiveId::Alpha,
+        &any,
+    ));
+    assert!(!<() as AP<U256, CollectiveId>>::is_eligible(
+        CollectiveId::Beta,
+        &any,
+    ));
+    assert_eq!(
+        <() as AP<U256, CollectiveId>>::rank(CollectiveId::Alpha, &any),
+        0u128
+    );
+}
