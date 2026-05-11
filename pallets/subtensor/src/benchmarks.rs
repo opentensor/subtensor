@@ -2190,10 +2190,11 @@ mod pallet_benchmarks {
             netuid,
         );
 
-        assert!(
-            Lock::<T>::iter_prefix((coldkey, netuid))
-                .any(|(locked_hotkey, _)| locked_hotkey == hotkey_dest)
-        );
+        // Lock moving temporarily disabled
+        // assert!(
+        //     Lock::<T>::iter_prefix((coldkey, netuid))
+        //         .any(|(locked_hotkey, _)| locked_hotkey == hotkey_dest)
+        // );
     }
 
     impl_benchmark_test_suite!(
