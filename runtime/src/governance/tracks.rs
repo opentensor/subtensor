@@ -98,8 +98,6 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
         ]
         .into_iter()
     }
-
-    // TODO: handle authorize proposal check
 }
 
 #[cfg(test)]

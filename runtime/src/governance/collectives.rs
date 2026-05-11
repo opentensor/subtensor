@@ -11,8 +11,11 @@ use crate::{AccountId, BlockNumber, Runtime};
 /// Minimum subnet age for a subnet owner to be eligible for the Building collective.
 pub const MIN_SUBNET_AGE: BlockNumber = prod_or_fast!(180 * DAYS, 100);
 
-/// Target size of each ranked collective (Economic + Building).
-pub const RANKED_SIZE: u32 = 16;
+/// Target size of the Economic ranked collective.
+pub const ECONOMIC_SIZE: u32 = 16;
+
+/// Target size of the Building ranked collective.
+pub const BUILDING_SIZE: u32 = 16;
 
 /// Time before a collective rotation is triggered.
 const TERM_DURATION: BlockNumber = prod_or_fast!(60 * DAYS, 100);
@@ -76,7 +79,7 @@ impl CollectivesInfo<BlockNumber, [u8; 32]> for Collectives {
                 info: CollectiveInfo {
                     name: pad_name(b"economic"),
                     min_members: 1,
-                    max_members: Some(RANKED_SIZE),
+                    max_members: Some(ECONOMIC_SIZE),
                     term_duration: Some(TERM_DURATION),
                 },
             },
@@ -85,7 +88,7 @@ impl CollectivesInfo<BlockNumber, [u8; 32]> for Collectives {
                 info: CollectiveInfo {
                     name: pad_name(b"building"),
                     min_members: 1,
-                    max_members: Some(RANKED_SIZE),
+                    max_members: Some(BUILDING_SIZE),
                     term_duration: Some(TERM_DURATION),
                 },
             },
@@ -128,12 +131,12 @@ impl OnNewTerm<CollectiveId> for TermManagement {
 
 impl TermManagement {
     fn rotate_economic() -> Weight {
-        let (members, query_weight) = Self::top_validators(RANKED_SIZE);
+        let (members, query_weight) = Self::top_validators(ECONOMIC_SIZE);
         Self::apply_rotation(CollectiveId::Economic, members, query_weight)
     }
 
     fn rotate_building() -> Weight {
-        let (members, query_weight) = Self::top_subnet_owners(RANKED_SIZE, MIN_SUBNET_AGE);
+        let (members, query_weight) = Self::top_subnet_owners(BUILDING_SIZE, MIN_SUBNET_AGE);
         Self::apply_rotation(CollectiveId::Building, members, query_weight)
     }
 

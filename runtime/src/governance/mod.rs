@@ -124,9 +124,15 @@ pub enum VotingScheme {
 
 parameter_types! {
     pub const Scheme: VotingScheme = VotingScheme::Signed;
+    /// Headroom over the widest track's voter set (see guard below).
     pub const MaxVoterSetSize: u32 = 64;
+    /// 2x `MaxQueued` for headroom; queue overflow leaks `VotingFor` storage.
     pub const MaxPendingCleanup: u32 = 40;
+    /// `VotingFor` entries drained per `on_idle` step. A full poll drains
+    /// in `MaxVoterSetSize / CleanupChunkSize` idle blocks.
     pub const CleanupChunkSize: u32 = 16;
+    /// Resume cursor for chunked cleanup; 128 bytes covers any FRAME
+    /// double-map partial trie key.
     pub const CleanupCursorMaxLen: u32 = 128;
 }
 
@@ -223,10 +229,11 @@ impl pallet_referenda::BenchmarkHelper<u8, AccountId, RuntimeCall> for Referenda
 // voter set collapses to an empty snapshot, queue overflow leaks state),
 // so catch the obvious foot-guns at build time.
 const _: () = {
-    // The widest track today is `Union(Economic, Building)` after
-    // dedup; bound it conservatively by the sum of the per-collective
-    // caps, which is the upper bound before dedup runs.
-    let widest_union = (collectives::RANKED_SIZE as u64) * 2;
+    // The widest track today is `Union(Economic, Building)`. Union members
+    // can overlap (a coldkey may sit in both), so this sum is an upper
+    // bound on the voter set's true cardinality before `MemberSet::Union`'s
+    // dedup runs.
+    let widest_union = (collectives::ECONOMIC_SIZE as u64) + (collectives::BUILDING_SIZE as u64);
     assert!(
         MaxVoterSetSize::get() as u64 >= widest_union,
         "MaxVoterSetSize must fit the widest track's voter set",
