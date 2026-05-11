@@ -59,7 +59,6 @@ fn test_remove_data_for_dissolved_networks_all_phases() {
                         BoundedVec::try_from(vec![1, 2, 3]).unwrap()
                     )])
                     .unwrap(),
-                    ..Default::default()
                 }
             )
         ));
@@ -223,7 +222,6 @@ fn test_purge_netuid() {
                         BoundedVec::try_from(vec![1, 2, 3]).unwrap()
                     )])
                     .unwrap(),
-                    ..Default::default()
                 }
             )
         ));
@@ -331,7 +329,6 @@ fn test_remove_data_for_dissolved_networks_via_on_idle() {
                         BoundedVec::try_from(vec![1, 2, 3]).unwrap()
                     )])
                     .unwrap(),
-                    ..Default::default()
                 }
             )
         ));
