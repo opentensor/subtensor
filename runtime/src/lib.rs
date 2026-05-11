@@ -884,7 +884,7 @@ impl CommitmentsInterface for CommitmentsI {
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
-    pub const MaxScheduledPerBlock: u32 = 70;
+    pub const MaxScheduledPerBlock: u32 = 50;
 }
 
 /// Used the compare the privilege of an origin inside the scheduler.
