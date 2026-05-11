@@ -92,13 +92,13 @@ async function setupTwoSubnetsWithClaimable(
     await addStake(api, owner2Coldkey, owner2Hotkey.address, netuid2, tao(50));
 
     log("Waiting 30 blocks for RootClaimable to accumulate on both subnets...");
-    await waitForBlocks(api, 30);
+    await waitForBlocks(api, 90);
 
     return { oldHotkey, oldHotkeyColdkey, newHotkey, netuid1, netuid2 };
 }
 
 describeSuite({
-    id: "0203_swap_hotkey_root_claimable",
+    id: "02.04_claim-root_hotkey_swap",
     title: "▶ swap_hotkey RootClaimable per-subnet transfer",
     foundationMethods: "zombie",
     testCases: ({ it, context, log }) => {
