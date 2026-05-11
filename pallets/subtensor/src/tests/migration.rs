@@ -1124,6 +1124,45 @@ fn test_migrate_rate_limit_keys() {
 }
 
 #[test]
+fn test_migrate_remove_add_stake_burn_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_remove_add_stake_burn_rate_limit";
+        let netuid = NetUid::from(1);
+        let other_netuid = NetUid::from(2);
+        let preserved_netuid = NetUid::from(3);
+        let add_stake_burn_key = RateLimitKey::AddStakeBurn(netuid);
+        let other_add_stake_burn_key = RateLimitKey::AddStakeBurn(other_netuid);
+        let preserved_key = RateLimitKey::SetSNOwnerHotkey(preserved_netuid);
+
+        SubtensorModule::set_rate_limited_last_block(&add_stake_burn_key, 100);
+        SubtensorModule::set_rate_limited_last_block(&other_add_stake_burn_key, 200);
+        SubtensorModule::set_rate_limited_last_block(&preserved_key, 300);
+
+        let weight =
+            crate::migrations::migrate_remove_add_stake_burn_rate_limit::migrate_remove_add_stake_burn_rate_limit::<Test>();
+
+        assert!(
+            HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()),
+            "Migration should be marked as executed"
+        );
+        assert!(!weight.is_zero(), "Migration weight should be non-zero");
+
+        assert_eq!(
+            SubtensorModule::get_rate_limited_last_block(&add_stake_burn_key),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_rate_limited_last_block(&other_add_stake_burn_key),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_rate_limited_last_block(&preserved_key),
+            300
+        );
+    });
+}
+
+#[test]
 fn test_migrate_fix_staking_hot_keys() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &[u8] = b"migrate_fix_staking_hot_keys";
