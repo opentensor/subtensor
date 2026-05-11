@@ -588,3 +588,77 @@ fn test_destroy_alpha_in_out_stakes() {
         assert!(result, "destroy_alpha_in_out_stakes should return true when it successfully processes the netuid");
     });
 }
+
+#[test]
+fn test_clean_up_hotkey_swap_records() {
+    new_test_ext(0).execute_with(|| {
+        // Create two subnets: netuid 1 and netuid 2
+        let owner_cold = U256::from(1001);
+        let owner_hot = U256::from(1002);
+        let netuid_1 = add_dynamic_network(&owner_hot, &owner_cold);
+        assert_eq!(netuid_1, 1.into());
+
+        let owner_cold_2 = U256::from(2001);
+        let owner_hot_2 = U256::from(2002);
+        let netuid_2 = add_dynamic_network(&owner_hot_2, &owner_cold_2);
+        assert_eq!(netuid_2, 2.into());
+
+        // We will choose a block number such that block_number % interval == 1
+        // With the default interval of 15, we use block_number = 16 (16 % 15 = 1)
+        // So only netuid_1 (which is 1) will be processed because 1 % 15 == 1
+        let block_number: u64 = 16; // 16 % 15 = 1
+
+        // Insert some hotkey swap records for netuid_1
+        // We'll insert two records: one old (should be removed) and one new (should remain)
+        let coldkey_old = U256::from(3001);
+        let coldkey_new = U256::from(3002);
+        // Set an old swap block number: old enough to be removed
+        let swap_block_old: u64 = 0; // This is definitely < block_number - interval (101 - 100 = 1)
+        // Set a new swap block number: recent enough to remain
+        let swap_block_new: u64 = 101; // This is >= block_number - interval (1) so should remain
+
+        // Insert the records
+        LastHotkeySwapOnNetuid::<Test>::insert(netuid_1, &coldkey_old, swap_block_old);
+        LastHotkeySwapOnNetuid::<Test>::insert(netuid_1, &coldkey_new, swap_block_new);
+
+        // Insert some hotkey swap records for netuid_2 (should not be processed because 2 % 100 != 1)
+        let coldkey_other = U256::from(4001);
+        let swap_block_other: u64 = 0; // old, but netuid_2 won't be processed
+        LastHotkeySwapOnNetuid::<Test>::insert(netuid_2, &coldkey_other, swap_block_other);
+
+        // Also insert a record for netuid_2 with a new swap block number to show it remains untouched
+        let coldkey_other_new = U256::from(4002);
+        let swap_block_other_new: u64 = 101;
+        LastHotkeySwapOnNetuid::<Test>::insert(netuid_2, &coldkey_other_new, swap_block_other_new);
+
+        // Before calling the function, verify the records exist
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, &coldkey_old));
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, &coldkey_new));
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, &coldkey_other));
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, &coldkey_other_new));
+
+        // Call the function and get the returned weight
+        let returned_weight = SubtensorModule::clean_up_hotkey_swap_records(
+            block_number.into(),
+        );
+
+        // After the function call, for netuid_1:
+        //   - The old record (coldkey_old, swap_block_old) should be removed because swap_block_old + interval < block_number
+        //     (0 + 100 < 101 -> 100 < 101 -> true)
+        //   - The new record (coldkey_new, swap_block_new) should remain because swap_block_new + interval >= block_number
+        //     (101 + 100 >= 101 -> 201 >= 101 -> true)
+        assert!(!LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, &coldkey_old),
+                "Old hotkey swap record for netuid_1 should have been removed");
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_1, &coldkey_new),
+                "New hotkey swap record for netuid_1 should still exist");
+        // For netuid_2, since it was not processed (netuid_2 % interval != block_number % interval), both records should remain
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, &coldkey_other),
+                "Hotkey swap record for netuid_2 should remain untouched");
+        assert!(LastHotkeySwapOnNetuid::<Test>::contains_key(netuid_2, &coldkey_other_new),
+                "Hotkey swap record for netuid_2 should remain untouched");
+
+        // We can also check that the weight returned is reasonable (non-zero and not max)
+        // Note: Weight comparison is tricky, but we can at least check it's not zero
+        assert!(returned_weight.ref_time() > 0, "Returned weight should have positive ref_time");
+    });
+}
