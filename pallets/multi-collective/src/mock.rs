@@ -261,17 +261,27 @@ pub struct TestAdmissionPolicy;
 impl AdmissionPolicy<U256, CollectiveId> for TestAdmissionPolicy {
     type Rank = u128;
 
-    fn is_eligible(collective_id: CollectiveId, who: &U256) -> bool {
-        ELIGIBILITY.with(|e| {
+    fn is_eligible(collective_id: CollectiveId, who: &U256) -> (bool, Weight) {
+        let eligible = ELIGIBILITY.with(|e| {
             e.borrow()
                 .get(&(collective_id, *who))
                 .copied()
                 .unwrap_or(false)
-        })
+        });
+        (eligible, Weight::zero())
     }
 
-    fn rank(collective_id: CollectiveId, who: &U256) -> Self::Rank {
-        RANKS.with(|r| r.borrow().get(&(collective_id, *who)).copied().unwrap_or(0))
+    fn rank(collective_id: CollectiveId, who: &U256) -> (Self::Rank, Weight) {
+        let rank = RANKS.with(|r| r.borrow().get(&(collective_id, *who)).copied().unwrap_or(0));
+        (rank, Weight::zero())
+    }
+
+    fn is_eligible_weight(_: u32) -> Weight {
+        Weight::zero()
+    }
+
+    fn rank_weight(_: u32) -> Weight {
+        Weight::zero()
     }
 }
 
@@ -323,7 +333,7 @@ impl pallet_multi_collective::Config for Test {
 pub struct TestBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for TestBenchmarkHelper {
+impl pallet_multi_collective::BenchmarkHelper<Test> for TestBenchmarkHelper {
     fn collective() -> CollectiveId {
         // Gamma: max_members = None, min_members = 0 → can fill to MaxMembers
         // and drain to empty without tripping the per-collective bounds.
@@ -333,6 +343,17 @@ impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for TestBenchmarkHel
     fn rotatable_collective() -> CollectiveId {
         // Beta has term_duration = Some(100).
         CollectiveId::Beta
+    }
+
+    fn try_join_collective() -> CollectiveId {
+        // Delta: min=1, max=32 — bounded so the `try_join` benchmark
+        // exercises the ranking / eviction path.
+        CollectiveId::Delta
+    }
+
+    fn prime_admission(collective_id: CollectiveId, who: &U256, rank: u32) {
+        set_eligible(collective_id, *who, true);
+        set_rank(collective_id, *who, rank as u128);
     }
 }
 

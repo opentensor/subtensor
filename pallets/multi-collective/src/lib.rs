@@ -38,7 +38,7 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use frame_support::{
-    dispatch::DispatchResult,
+    dispatch::{DispatchErrorWithPostInfo, DispatchResult},
     pallet_prelude::*,
     traits::{ChangeMembers, EnsureOriginWithArg},
 };
@@ -122,21 +122,30 @@ pub mod pallet {
 
         /// Helper for setting up cross-pallet state needed by benchmarks.
         #[cfg(feature = "runtime-benchmarks")]
-        type BenchmarkHelper: BenchmarkHelper<Self::CollectiveId>;
+        type BenchmarkHelper: BenchmarkHelper<Self>;
     }
 
     /// Benchmark setup helper. The runtime supplies a non-rotatable
-    /// collective for member-management benchmarks and a rotatable one for
-    /// `force_rotate`.
+    /// collective for member-management benchmarks, a rotatable one for
+    /// `force_rotate`, and a `try_join`-friendly collective whose
+    /// admission policy can be primed for the join benchmark.
     #[cfg(feature = "runtime-benchmarks")]
-    pub trait BenchmarkHelper<CollectiveId> {
+    pub trait BenchmarkHelper<T: Config> {
         /// A collective whose `info.max_members` allows reaching `MaxMembers`
         /// and whose `info.min_members == 0`, so member-management
         /// benchmarks can fill and drain freely.
-        fn collective() -> CollectiveId;
+        fn collective() -> T::CollectiveId;
         /// A collective whose `CollectiveInfo::term_duration` is `Some`,
         /// for the `force_rotate` benchmark.
-        fn rotatable_collective() -> CollectiveId;
+        fn rotatable_collective() -> T::CollectiveId;
+        /// A bounded collective (`info.max_members.is_some()`) whose
+        /// `AdmissionPolicy` can be primed via `prime_admission` so the
+        /// `try_join` benchmark runs against the eviction path.
+        fn try_join_collective() -> T::CollectiveId;
+        /// Prepare on-chain state so `AdmissionPolicy::is_eligible` returns
+        /// `true` for `who` on `collective_id` and `rank` reflects the
+        /// supplied magnitude.
+        fn prime_admission(collective_id: T::CollectiveId, who: &T::AccountId, rank: u32);
     }
 
     /// Members of each collective, kept sorted by `AccountId`.
@@ -480,30 +489,50 @@ pub mod pallet {
         /// gated by the runtime's `AdmissionPolicy`; ineligible
         /// incumbents are evicted in the same call.
         #[pallet::call_index(5)]
-        #[pallet::weight(
-            T::WeightInfo::try_join().saturating_add(T::OnMembersChanged::weight())
-        )]
-        pub fn try_join(origin: OriginFor<T>, collective_id: T::CollectiveId) -> DispatchResult {
+        #[pallet::weight({
+            let max = T::MaxMembers::get();
+            T::WeightInfo::try_join(max)
+                .saturating_add(T::AdmissionPolicy::is_eligible_weight(max.saturating_add(1)))
+                .saturating_add(T::AdmissionPolicy::rank_weight(max.saturating_add(1)))
+                .saturating_add(T::OnMembersChanged::weight())
+        })]
+        pub fn try_join(
+            origin: OriginFor<T>,
+            collective_id: T::CollectiveId,
+        ) -> DispatchResultWithPostInfo {
             let candidate = ensure_signed(origin)?;
             let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
 
             let old_members = Members::<T>::get(collective_id);
+            let n = old_members.len() as u32;
             ensure!(
                 old_members.binary_search(&candidate).is_err(),
                 Error::<T>::AlreadyMember
             );
-            ensure!(
-                T::AdmissionPolicy::is_eligible(collective_id, &candidate),
-                Error::<T>::NotEligible
-            );
+
+            let mut policy_weight = Weight::zero();
+
+            let (eligible, w) = T::AdmissionPolicy::is_eligible(collective_id, &candidate);
+            policy_weight.saturating_accrue(w);
+            ensure!(eligible, Error::<T>::NotEligible);
 
             // Evict ineligible members, bounded by the `min_members` floor.
             let mut evict_budget = (old_members.len() as u32).saturating_sub(info.min_members);
             let mut new_members: Vec<T::AccountId> = Vec::with_capacity(old_members.len() + 1);
             for m in old_members.iter() {
-                if evict_budget > 0 && !T::AdmissionPolicy::is_eligible(collective_id, m) {
-                    evict_budget = evict_budget.saturating_sub(1);
+                let keep = if evict_budget > 0 {
+                    let (m_eligible, w) = T::AdmissionPolicy::is_eligible(collective_id, m);
+                    policy_weight.saturating_accrue(w);
+                    if !m_eligible {
+                        evict_budget = evict_budget.saturating_sub(1);
+                        false
+                    } else {
+                        true
+                    }
                 } else {
+                    true
+                };
+                if keep {
                     new_members.push(m.clone());
                 }
             }
@@ -519,12 +548,19 @@ pub mod pallet {
             let insert_at = if has_room {
                 pos
             } else {
-                let candidate_rank = T::AdmissionPolicy::rank(collective_id, &candidate);
+                let (candidate_rank, w) = T::AdmissionPolicy::rank(collective_id, &candidate);
+                policy_weight.saturating_accrue(w);
+
                 let lowest = new_members
                     .iter()
                     .enumerate()
-                    .map(|(i, m)| (i, T::AdmissionPolicy::rank(collective_id, m)))
+                    .map(|(i, m)| {
+                        let (rank, w) = T::AdmissionPolicy::rank(collective_id, m);
+                        policy_weight.saturating_accrue(w);
+                        (i, rank)
+                    })
                     .min_by_key(|(_, r)| *r);
+
                 match lowest {
                     Some((idx, lowest_rank)) if candidate_rank > lowest_rank => {
                         new_members.remove(idx);
@@ -536,7 +572,13 @@ pub mod pallet {
                             pos
                         }
                     }
-                    _ => return Err(Error::<T>::RankTooLow.into()),
+                    _ => {
+                        let actual = T::WeightInfo::try_join(n).saturating_add(policy_weight);
+                        return Err(DispatchErrorWithPostInfo {
+                            post_info: Some(actual).into(),
+                            error: Error::<T>::RankTooLow.into(),
+                        });
+                    }
                 }
             };
 
@@ -558,7 +600,13 @@ pub mod pallet {
                 who: candidate,
                 evicted: outgoing,
             });
-            Ok(())
+
+            Ok(Some(
+                T::WeightInfo::try_join(n)
+                    .saturating_add(policy_weight)
+                    .saturating_add(T::OnMembersChanged::weight()),
+            )
+            .into())
         }
     }
 }
@@ -734,22 +782,39 @@ pub trait AdmissionPolicy<AccountId, CollectiveId> {
     /// Ranking signal type. Higher compares better.
     type Rank: Ord + Copy;
 
-    /// Whether `who` may belong to `collective_id`.
-    fn is_eligible(collective_id: CollectiveId, who: &AccountId) -> bool;
+    /// Whether `who` may belong to `collective_id`. The returned weight is
+    /// the cost actually consumed by this call, which `try_join` accumulates
+    /// to refund the pre-charged worst case.
+    fn is_eligible(collective_id: CollectiveId, who: &AccountId) -> (bool, Weight);
 
-    /// Rank of `who` for `collective_id`.
-    fn rank(collective_id: CollectiveId, who: &AccountId) -> Self::Rank;
+    /// Rank of `who` for `collective_id`. The returned weight is the cost
+    /// actually consumed by this call.
+    fn rank(collective_id: CollectiveId, who: &AccountId) -> (Self::Rank, Weight);
+
+    /// Cumulative upper bound on `n` calls to `is_eligible`. Used to
+    /// pre-charge `try_join`.
+    fn is_eligible_weight(n: u32) -> Weight;
+
+    /// Cumulative upper bound on `n` calls to `rank`. Used to pre-charge
+    /// `try_join`.
+    fn rank_weight(n: u32) -> Weight;
 }
 
 /// Rejects every join. Default for runtimes that do not use `try_join`.
 impl<AccountId, CollectiveId> AdmissionPolicy<AccountId, CollectiveId> for () {
     type Rank = u128;
 
-    fn is_eligible(_: CollectiveId, _: &AccountId) -> bool {
-        false
+    fn is_eligible(_: CollectiveId, _: &AccountId) -> (bool, Weight) {
+        (false, Weight::zero())
     }
-    fn rank(_: CollectiveId, _: &AccountId) -> Self::Rank {
-        0
+    fn rank(_: CollectiveId, _: &AccountId) -> (Self::Rank, Weight) {
+        (0, Weight::zero())
+    }
+    fn is_eligible_weight(_: u32) -> Weight {
+        Weight::zero()
+    }
+    fn rank_weight(_: u32) -> Weight {
+        Weight::zero()
     }
 }
 

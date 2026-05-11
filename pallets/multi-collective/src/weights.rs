@@ -22,6 +22,7 @@ pub trait WeightInfo {
     fn swap_member() -> Weight;
     fn set_members() -> Weight;
     fn force_rotate() -> Weight;
+    fn try_join(n: u32) -> Weight;
 }
 
 /// Placeholder zero weights; overwritten by the benchmark output.
@@ -32,6 +33,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn swap_member() -> Weight { Weight::zero() }
     fn set_members() -> Weight { Weight::zero() }
     fn force_rotate() -> Weight { Weight::zero() }
+    fn try_join(_n: u32) -> Weight { Weight::zero() }
 }
 
 impl WeightInfo for () {
@@ -40,4 +42,5 @@ impl WeightInfo for () {
     fn swap_member() -> Weight { Weight::zero() }
     fn set_members() -> Weight { Weight::zero() }
     fn force_rotate() -> Weight { Weight::zero() }
+    fn try_join(_n: u32) -> Weight { Weight::zero() }
 }
