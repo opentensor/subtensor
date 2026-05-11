@@ -68,7 +68,7 @@ async function setupTwoSubnetsWithClaimable(
     log(`Created netuid2: ${netuid2}`);
 
     for (const netuid of [netuid1, netuid2]) {
-        await sudoSetTempo(api, netuid, 1);
+        await sudoSetTempo(api, netuid, 5);
         await sudoSetEmaPriceHalvingPeriod(api, netuid, 1);
         await sudoSetRootClaimThreshold(api, netuid, 0n);
     }
