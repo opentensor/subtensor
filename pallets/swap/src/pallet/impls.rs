@@ -11,6 +11,7 @@ use frame_support::{
 };
 use safe_math::*;
 use sp_arithmetic::{helpers_128bit, traits::Zero};
+use sp_std::vec::Vec;
 
 use crate::{
     SqrtPrice,
