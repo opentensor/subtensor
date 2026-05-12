@@ -812,6 +812,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
                     )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_subnet_emission_enabled { .. }
+                    )
             ),
             ProxyType::RootClaim => matches!(
                 c,
