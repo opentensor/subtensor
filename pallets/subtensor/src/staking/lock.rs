@@ -13,7 +13,9 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         lock_state: LockState,
     ) {
-        if !lock_state.locked_mass.is_zero() || lock_state.conviction > U64F64::saturating_from_num(0) {
+        if !lock_state.locked_mass.is_zero()
+            || lock_state.conviction > U64F64::saturating_from_num(0)
+        {
             Lock::<T>::insert((coldkey, netuid, hotkey), lock_state);
         } else {
             // If there is no record previously, this is a no-op
@@ -22,7 +24,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn insert_hotkey_lock_state(netuid: NetUid, hotkey: &T::AccountId, lock_state: LockState) {
-        if !lock_state.locked_mass.is_zero() || lock_state.conviction > U64F64::saturating_from_num(0) {
+        if !lock_state.locked_mass.is_zero()
+            || lock_state.conviction > U64F64::saturating_from_num(0)
+        {
             HotkeyLock::<T>::insert(netuid, hotkey, lock_state);
         } else {
             HotkeyLock::<T>::remove(netuid, hotkey);
@@ -361,10 +365,15 @@ impl<T: Config> Pallet<T> {
     ///
     /// The hotkey and netuid remain the same, only the coldkey changes.
     ///
-    /// The new coldkey is guaranteed to have no active locks (checked in ensure_no_active_locks),
-    /// so we can simply transfer the locks "as is" without rolling them forward and the
+    /// The new coldkey must have no active locks, so we can transfer the locks
+    /// "as is" without rolling them forward and the
     /// HotkeyLock map does not change (because it only contains totals, not individual coldkey locks).
-    pub fn swap_coldkey_locks(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+    pub fn swap_coldkey_locks(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) -> DispatchResult {
+        Self::ensure_no_active_locks(new_coldkey)?;
+
         let mut locks_to_transfer: Vec<(NetUid, T::AccountId, LockState)> = Vec::new();
 
         // Gather locks for old coldkey
@@ -377,6 +386,8 @@ impl<T: Config> Pallet<T> {
             Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
             Self::insert_lock_state(new_coldkey, netuid, &hotkey, lock);
         }
+
+        Ok(())
     }
 
     /// Swap all locks made to the old_hotkey to new_hotkey on all netuids
@@ -529,8 +540,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// First, this function rolls the lock forward and checks if amount is over available
     /// stake and if it is, the stake that's over the available amount on the destination
-    /// coldkey is locked in the same way as the original stake: If original stake is locked to 
-    /// a hotkey, it remains actively locked to the same hotkey
+    /// coldkey is locked in the same way as the original stake: If original stake is locked to
+    /// a hotkey, it remains locked to the same hotkey. Conviction is moved proportionally to
+    /// the moved locked amount of alpha. For example, if 20% of locked alpha is moved, then
+    /// also 20% of conviction is moved.
     pub fn transfer_lock(
         origin_coldkey: &T::AccountId,
         destination_coldkey: &T::AccountId,
@@ -599,21 +612,18 @@ impl<T: Config> Pallet<T> {
             }
 
             let locked_transfer = remaining_to_transfer.min(source_lock.locked_mass);
-            let conviction_transfer =
-                if locked_transfer.is_zero() || source_lock.locked_mass.is_zero() {
-                    U64F64::saturating_from_num(0)
-                } else {
-                    // Conviction never exceeds locked_mass, so we can scale it proportionally
-                    // using integer arithmetic without overflowing fixed-point multiplication.
-                    let conviction_u128 = source_lock.conviction.saturating_to_num::<u128>();
-                    let locked_transfer_u128 = locked_transfer.to_u64() as u128;
-                    let source_locked_u128 = source_lock.locked_mass.to_u64() as u128;
-                    let transferred_conviction_u128 = conviction_u128
-                        .saturating_mul(locked_transfer_u128)
-                        .checked_div(source_locked_u128)
-                        .unwrap_or(0);
-                    U64F64::saturating_from_num(transferred_conviction_u128)
-                };
+            let conviction_transfer = if locked_transfer.is_zero()
+                || source_lock.locked_mass.is_zero()
+            {
+                U64F64::saturating_from_num(0)
+            } else {
+                let locked_transfer = U64F64::saturating_from_num(locked_transfer.to_u64());
+                let source_locked = U64F64::saturating_from_num(source_lock.locked_mass.to_u64());
+                let transferred_proportion = locked_transfer.safe_div(source_locked);
+                source_lock
+                    .conviction
+                    .saturating_mul(transferred_proportion)
+            };
 
             source_lock.locked_mass = source_lock.locked_mass.saturating_sub(locked_transfer);
             source_lock.conviction = source_lock.conviction.saturating_sub(conviction_transfer);

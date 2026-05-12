@@ -491,7 +491,7 @@ fn test_roll_forward_locked_mass_no_change() {
         ));
 
         // Advance one full tau via direct block number jump (step_block overflows u16 for tau=216000)
-        let tau = MaturityRate::<Test>::get();
+        let tau = TauBlocks::<Test>::get();
         let target = System::block_number() + tau;
         System::set_block_number(target);
 
@@ -503,7 +503,7 @@ fn test_roll_forward_locked_mass_no_change() {
 }
 
 #[test]
-fn test_roll_forward_conviction_converges_to_lock() {
+fn test_roll_forward_conviction_converges_to_zero() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -529,21 +529,14 @@ fn test_roll_forward_conviction_converges_to_lock() {
         // After more time, conviction should be even higher
         step_block(1000);
         let c2 = SubtensorModule::get_conviction(&coldkey, netuid);
-        println!("c1 = {}", c1);
-        println!("c2 = {}", c2);
-        // assert!(c2 > c1);
+        assert!(c2 > c1);
 
-        // After a very long time (many taus), conviction is close to lock amount
-        let tau = MaturityRate::<Test>::get();
+        // After a very long time (many taus), conviction is close to zero
+        let tau = TauBlocks::<Test>::get();
         let target = System::block_number() + tau * 1000;
         System::set_block_number(target);
         let c_late = SubtensorModule::get_conviction(&coldkey, netuid);
-        println!("c_late = {}", c_late);
-        assert_abs_diff_eq!(
-            c_late.to_num::<f64>(),
-            u64::from(lock_amount) as f64,
-            epsilon = 0.0000001
-        );
+        assert_abs_diff_eq!(c_late.to_num::<f64>(), 0., epsilon = 0.0000001);
     });
 }
 
@@ -552,7 +545,6 @@ fn test_roll_forward_no_change_when_now_equals_last_update() {
     new_test_ext(1).execute_with(|| {
         let lock = LockState {
             locked_mass: 5000.into(),
-            unlocked_mass: 0.into(),
             conviction: U64F64::from_num(1234),
             last_update: 100,
         };
@@ -679,7 +671,7 @@ fn test_move_stake_same_coldkey_same_subnet_allowed() {
 }
 
 #[test]
-fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_hotkey() {
+fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
     new_test_ext(1).execute_with(|| {
         let coldkey_sender = U256::from(1);
         let coldkey_receiver = U256::from(5);
@@ -722,10 +714,6 @@ fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_hotkey() {
         let receiver_lock = Lock::<Test>::get((coldkey_receiver, netuid, hotkey))
             .expect("receiver lock should exist after transfer");
         assert_eq!(receiver_lock.locked_mass, expected_sender_lock.locked_mass);
-        assert_eq!(
-            receiver_lock.unlocked_mass,
-            expected_sender_lock.unlocked_mass
-        );
         assert!(receiver_lock.conviction > U64F64::from_num(0));
         assert!(receiver_lock.conviction <= expected_sender_lock.conviction);
 
@@ -814,15 +802,7 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
             Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should remain");
         assert_eq!(
             sender_lock_after.locked_mass,
-            sender_lock_before.locked_mass
-        );
-        assert_eq!(
-            sender_lock_after.unlocked_mass,
-            SubtensorModule::roll_forward_lock(
-                sender_lock_before,
-                SubtensorModule::get_current_block_as_u64()
-            )
-            .unlocked_mass
+            SubtensorModule::roll_forward_lock(sender_lock_before, 2).locked_mass
         );
         assert!(Lock::<Test>::get((coldkey_receiver, netuid, hotkey)).is_none());
     });
@@ -1133,7 +1113,7 @@ fn test_reduce_lock_removes_dust() {
         ));
 
         // Advance many taus so everything decays well below dust (100)
-        let tau = MaturityRate::<Test>::get();
+        let tau = TauBlocks::<Test>::get();
         let target = System::block_number() + tau * 50;
         System::set_block_number(target);
 
@@ -1167,7 +1147,6 @@ fn test_reduce_lock_partial_reduction() {
             (coldkey, netuid, hotkey),
             LockState {
                 locked_mass: lock_amount,
-                unlocked_mass: 0.into(),
                 conviction,
                 last_update: now,
             },
@@ -1177,7 +1156,6 @@ fn test_reduce_lock_partial_reduction() {
             hotkey,
             LockState {
                 locked_mass: lock_amount,
-                unlocked_mass: 0.into(),
                 conviction,
                 last_update: now,
             },
@@ -1242,13 +1220,11 @@ fn test_reduce_lock_two_coldkeys() {
         // Mock a non-zero conviction for both coldkeys
         let lock1 = Lock::<Test>::get((coldkey1, netuid, hotkey)).unwrap_or(LockState {
             locked_mass: 0.into(),
-            unlocked_mass: 0.into(),
             conviction: U64F64::from_num(1234),
             last_update: System::block_number(),
         });
         let lock2 = Lock::<Test>::get((coldkey2, netuid, hotkey)).unwrap_or(LockState {
             locked_mass: 0.into(),
-            unlocked_mass: 0.into(),
             conviction: U64F64::from_num(1234),
             last_update: System::block_number(),
         });
@@ -1259,7 +1235,6 @@ fn test_reduce_lock_two_coldkeys() {
             hotkey,
             LockState {
                 locked_mass: 0.into(),
-                unlocked_mass: 0.into(),
                 conviction: U64F64::from_num(1234 * 2),
                 last_update: System::block_number(),
             },
@@ -1369,28 +1344,25 @@ fn test_coldkey_swap_lock_blocks_unstake() {
 }
 
 #[test]
-// When both coldkeys already have unlocked-only lock state on the same subnet, the destination
-// hotkey key should be preserved and unlocked_mass should be accumulated onto that record.
-fn test_coldkey_swap_adds_unlocked_mass_into_existing_destination_lock() {
+// Conviction-only destination lock state is not active, so direct coldkey lock transfer is allowed.
+fn test_coldkey_swap_allows_destination_conviction_only_lock() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
         let old_hotkey = U256::from(2);
         let new_hotkey = U256::from(20);
         let netuid = subtensor_runtime_common::NetUid::from(1);
-        let old_unlocked = AlphaBalance::from(4_000u64);
-        let new_unlocked = AlphaBalance::from(6_000u64);
 
-        // Seed unlocked-only lock rows on both coldkeys so the helper has to merge into
-        // the destination record instead of creating a second lock entry on the subnet.
+        let old_conviction = U64F64::from_num(77);
+        let new_conviction = U64F64::from_num(11);
+
         SubtensorModule::insert_lock_state(
             &old_coldkey,
             netuid,
             &old_hotkey,
             LockState {
                 locked_mass: AlphaBalance::ZERO,
-                unlocked_mass: old_unlocked,
-                conviction: U64F64::from_num(0),
+                conviction: old_conviction,
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
         );
@@ -1400,33 +1372,35 @@ fn test_coldkey_swap_adds_unlocked_mass_into_existing_destination_lock() {
             &new_hotkey,
             LockState {
                 locked_mass: AlphaBalance::ZERO,
-                unlocked_mass: new_unlocked,
-                conviction: U64F64::from_num(0),
+                conviction: new_conviction,
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
         );
 
-        SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey);
+        assert_ok!(SubtensorModule::swap_coldkey_locks(
+            &old_coldkey,
+            &new_coldkey
+        ));
 
         assert!(
             Lock::<Test>::iter_prefix((old_coldkey, netuid))
                 .next()
                 .is_none()
         );
-        assert!(Lock::<Test>::get((new_coldkey, netuid, old_hotkey)).is_none());
+        assert!(Lock::<Test>::get((new_coldkey, netuid, new_hotkey)).is_some());
 
-        let merged_lock = Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
-            .expect("destination lock should remain under its original hotkey key");
-        assert_eq!(merged_lock.locked_mass, AlphaBalance::ZERO);
-        assert_eq!(merged_lock.unlocked_mass, old_unlocked + new_unlocked);
-        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
+        let swapped_lock = Lock::<Test>::get((new_coldkey, netuid, old_hotkey))
+            .expect("source lock should be transferred");
+        assert_eq!(swapped_lock.locked_mass, AlphaBalance::ZERO);
+        assert_eq!(swapped_lock.conviction, old_conviction);
+        assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 2);
     });
 }
 
 #[test]
-// When the destination already has a lock row on the subnet, the destination hotkey key should
-// be preserved, but locked_mass and conviction should be overwritten by the source lock.
-fn test_coldkey_swap_overwrites_destination_locked_mass_and_conviction() {
+// When the destination already has an active lock, coldkey lock transfer should fail
+// before mutating either coldkey's lock state.
+fn test_coldkey_swap_rejects_destination_lock() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -1435,11 +1409,9 @@ fn test_coldkey_swap_overwrites_destination_locked_mass_and_conviction() {
         let netuid = subtensor_runtime_common::NetUid::from(1);
 
         let old_locked = AlphaBalance::from(7_000u64);
-        let old_unlocked = AlphaBalance::from(4_000u64);
         let old_conviction = U64F64::from_num(77);
 
         let new_locked = AlphaBalance::from(999u64);
-        let new_unlocked = AlphaBalance::from(6_000u64);
         let new_conviction = U64F64::from_num(11);
 
         SubtensorModule::insert_lock_state(
@@ -1448,7 +1420,6 @@ fn test_coldkey_swap_overwrites_destination_locked_mass_and_conviction() {
             &old_hotkey,
             LockState {
                 locked_mass: old_locked,
-                unlocked_mass: old_unlocked,
                 conviction: old_conviction,
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
@@ -1459,26 +1430,28 @@ fn test_coldkey_swap_overwrites_destination_locked_mass_and_conviction() {
             &new_hotkey,
             LockState {
                 locked_mass: new_locked,
-                unlocked_mass: new_unlocked,
                 conviction: new_conviction,
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
         );
 
-        SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey);
-
-        assert!(
-            Lock::<Test>::iter_prefix((old_coldkey, netuid))
-                .next()
-                .is_none()
+        assert_noop!(
+            SubtensorModule::swap_coldkey_locks(&old_coldkey, &new_coldkey),
+            Error::<Test>::ActiveLockExists
         );
-        assert!(Lock::<Test>::get((new_coldkey, netuid, old_hotkey)).is_none());
 
-        let merged_lock = Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
-            .expect("destination lock should remain under its original hotkey key");
-        assert_eq!(merged_lock.locked_mass, old_locked);
-        assert_eq!(merged_lock.conviction, old_conviction);
-        assert_eq!(merged_lock.unlocked_mass, old_unlocked + new_unlocked);
+        let source_lock = Lock::<Test>::get((old_coldkey, netuid, old_hotkey))
+            .expect("source lock should remain after failed transfer");
+        assert_eq!(source_lock.locked_mass, old_locked);
+        assert_eq!(source_lock.conviction, old_conviction);
+        let destination_lock = Lock::<Test>::get((new_coldkey, netuid, new_hotkey))
+            .expect("destination lock should remain after failed transfer");
+        assert_eq!(destination_lock.locked_mass, new_locked);
+        assert_eq!(destination_lock.conviction, new_conviction);
+        assert!(
+            Lock::<Test>::get((new_coldkey, netuid, old_hotkey)).is_none(),
+            "source lock should not be inserted under destination coldkey"
+        );
         assert_eq!(Lock::<Test>::iter_prefix((new_coldkey, netuid)).count(), 1);
     });
 }
@@ -1516,7 +1489,6 @@ fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
             &blocked_hotkey,
             LockState {
                 locked_mass: 1u64.into(),
-                unlocked_mass: AlphaBalance::ZERO,
                 conviction: U64F64::from_num(0),
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
@@ -1864,6 +1836,7 @@ fn test_clear_small_nomination_checks_lock() {
 // clearing the tiny nomination should reduce the lock state only by that tiny alpha amount.
 fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
     new_test_ext(1).execute_with(|| {
+        // Large stake, subnet owner, and large lock receiver
         let coldkey_large = U256::from(100);
         let hotkey_large = U256::from(101);
         let netuid = setup_subnet_with_stake(coldkey_large, hotkey_large, 100_000_000_000);
@@ -1875,6 +1848,7 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             &hotkey_tiny
         ));
 
+        // Coldkey that is going to stake and lock
         let nominator = U256::from(200);
         let large_tao = TaoBalance::from(50_000_000_000u64);
         let tiny_tao = TaoBalance::from(1_000_000u64);
@@ -1916,14 +1890,12 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             total_before,
         ));
 
-        let unlocked_before = AlphaBalance::from(tiny_alpha_before.to_u64() + 1_000);
         let conviction_before = U64F64::from_num(tiny_alpha_before.to_u64() + 2_000);
         let last_update = SubtensorModule::get_current_block_as_u64();
         Lock::<Test>::insert(
             (nominator, netuid, hotkey_large),
             LockState {
                 locked_mass: total_before,
-                unlocked_mass: unlocked_before,
                 conviction: conviction_before,
                 last_update,
             },
@@ -1933,7 +1905,6 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             hotkey_large,
             LockState {
                 locked_mass: total_before,
-                unlocked_mass: AlphaBalance::ZERO,
                 conviction: conviction_before,
                 last_update,
             },
@@ -1951,17 +1922,18 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
         assert_eq!(tiny_alpha_after, AlphaBalance::ZERO);
 
         // Only the tiny alpha amount should be shaved off the coldkey lock state.
+        // Conviction is reduced proportionally
         let lock_after = Lock::<Test>::get((nominator, netuid, hotkey_large)).unwrap();
-        let tiny_alpha_fixed = U64F64::from_num(tiny_alpha_before.to_u64());
         assert!(!lock_after.locked_mass.is_zero());
         assert_eq!(lock_after.locked_mass, total_before - tiny_alpha_before);
-        assert!(!lock_after.unlocked_mass.is_zero());
-        assert_eq!(
-            lock_after.unlocked_mass,
-            unlocked_before - tiny_alpha_before
-        );
         assert!(lock_after.conviction != U64F64::from_num(0));
-        assert_eq!(lock_after.conviction, conviction_before - tiny_alpha_fixed);
+        let expected_conviction = conviction_before.to_num::<f64>()
+            * (1. - u64::from(tiny_alpha_before) as f64 / u64::from(total_before) as f64);
+        assert_abs_diff_eq!(
+            lock_after.conviction.to_num::<f64>(),
+            expected_conviction,
+            epsilon = expected_conviction / 1000000.
+        );
 
         // The aggregate hotkey lock on the locked hotkey should also only shrink by the tiny amount.
         let hotkey_lock_after = HotkeyLock::<Test>::get(netuid, hotkey_large).unwrap();
@@ -1969,9 +1941,10 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             hotkey_lock_after.locked_mass,
             total_before - tiny_alpha_before
         );
-        assert_eq!(
-            hotkey_lock_after.conviction,
-            conviction_before - tiny_alpha_fixed
+        assert_abs_diff_eq!(
+            hotkey_lock_after.conviction.to_num::<f64>(),
+            expected_conviction,
+            epsilon = expected_conviction / 1000000.
         );
     });
 }
@@ -2009,7 +1982,7 @@ fn test_emissions_do_not_break_lock_invariant() {
         assert!(total_alpha_after >= locked);
 
         // Available becomes emission_amount
-        let available = SubtensorModule::available_stake(&coldkey, netuid);
+        let available = SubtensorModule::available_to_unstake(&coldkey, netuid);
         assert_eq!(available, emission_amount);
     });
 }
@@ -2099,7 +2072,6 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
         let owner_lock = Lock::<Test>::get((subnet_owner_coldkey, netuid, subnet_owner_hotkey))
             .expect("owner cut should be auto-locked to the subnet owner's hotkey");
         assert_eq!(owner_lock.locked_mass, owner_cut_locked);
-        assert_eq!(owner_lock.unlocked_mass, AlphaBalance::ZERO);
     });
 }
 
