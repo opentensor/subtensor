@@ -36,6 +36,7 @@ jobs:
       head_ref: ${{ steps.compute.outputs.head_ref }}
       base_ref: ${{ steps.compute.outputs.base_ref }}
       head_owner: ${{ steps.compute.outputs.head_owner }}
+      author: ${{ steps.compute.outputs.author }}
       is_fork: ${{ steps.compute.outputs.is_fork }}
       run_skeptic: ${{ steps.compute.outputs.run_skeptic }}
       run_auditor: ${{ steps.compute.outputs.run_auditor }}
@@ -57,12 +58,13 @@ jobs:
           fi
 
           PR_JSON=$(gh pr view "$PR" --repo "${{ github.repository }}" \
-            --json number,headRefName,baseRefName,headRefOid,headRepository,headRepositoryOwner)
+            --json number,headRefName,baseRefName,headRefOid,headRepository,headRepositoryOwner,author)
 
           HEAD_SHA=$(echo "$PR_JSON" | jq -r '.headRefOid')
           HEAD_REF=$(echo "$PR_JSON" | jq -r '.headRefName')
           BASE_REF=$(echo "$PR_JSON" | jq -r '.baseRefName')
           HEAD_OWNER=$(echo "$PR_JSON" | jq -r '.headRepositoryOwner.login')
+          AUTHOR=$(echo "$PR_JSON" | jq -r '.author.login')
           BASE_OWNER='${{ github.repository_owner }}'
           if [[ "$HEAD_OWNER" == "$BASE_OWNER" ]]; then
             IS_FORK=false
@@ -93,6 +95,7 @@ jobs:
             echo "head_ref=$HEAD_REF"
             echo "base_ref=$BASE_REF"
             echo "head_owner=$HEAD_OWNER"
+            echo "author=$AUTHOR"
             echo "is_fork=$IS_FORK"
             echo "run_skeptic=$RUN_SKEPTIC"
             echo "run_auditor=$RUN_AUDITOR"
@@ -110,8 +113,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           SHA: ${{ needs.decide.outputs.head_sha }}
-        # Poll for "Check Rust" jobs to all succeed. Other CI workflows are
-        # ignored on purpose (some are flaky). Timeout: 60 min.
         timeout-minutes: 65
         run: |
           set -euo pipefail
@@ -125,22 +126,18 @@ jobs:
               exit 0
             fi
 
-            # Pull all check runs for this SHA, filter to the ones we care about.
             ALL=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
               --paginate --jq '.check_runs[] | {name, status, conclusion}')
             ALL_PASSED=true
-            ANY_RUNNING=false
             for required in $REQUIRED_NAMES; do
               row=$(echo "$ALL" | jq -c "select(.name==\"$required\")" | tail -1)
               if [[ -z "$row" ]]; then
-                ANY_RUNNING=true   # not yet reported
                 ALL_PASSED=false
                 continue
               fi
               status=$(echo "$row" | jq -r '.status')
               conclusion=$(echo "$row" | jq -r '.conclusion')
               if [[ "$status" != "completed" ]]; then
-                ANY_RUNNING=true
                 ALL_PASSED=false
               elif [[ "$conclusion" != "success" ]]; then
                 echo "Check '$required' concluded as '$conclusion' — not running AI review."
@@ -169,57 +166,88 @@ jobs:
           ref: ${{ needs.decide.outputs.head_sha }}
           fetch-depth: 0
 
-      - name: Run Claude (skeptic persona)
-        uses: anthropics/claude-code-action@v1
+      - name: Run Codex (skeptic persona)
+        id: codex
+        uses: openai/codex-action@v1
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ needs.decide.outputs.pr_number }}
           BASE_REF: ${{ needs.decide.outputs.base_ref }}
           HEAD_REF: ${{ needs.decide.outputs.head_ref }}
-          AUTHOR: ${{ github.event.pull_request.user.login }}
+          AUTHOR: ${{ needs.decide.outputs.author }}
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Static-analysis only. NO cargo / npm / make / scripts. gh + git read
-          # commands are explicitly enumerated; everything else is denied.
-          allowed_tools: |
-            Read,Grep,Glob,
-            Bash(gh pr view:*),
-            Bash(gh pr list:*),
-            Bash(gh api:*),
-            Bash(gh search:*),
-            Bash(git log:*),
-            Bash(git diff:*),
-            Bash(git show:*),
-            Bash(git blame:*),
-            Bash(git rev-parse:*)
-          claude_args: |
-            --append-system-prompt-file .github/ai-review/common.md
-            --append-system-prompt-file .github/ai-review/skeptic.md
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # read-only sandbox = no filesystem writes. Tool restriction is
+          # enforced primarily by the persona prompt: skeptic.md explicitly
+          # forbids cargo/npm/build commands. drop-sudo prevents privilege
+          # escalation that could touch secrets.
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          output-file: skeptic-output.md
           prompt: |
-            You are operating as the Skeptic persona on PR #${{ needs.decide.outputs.pr_number }}
-            (${{ needs.decide.outputs.head_ref }} -> ${{ needs.decide.outputs.base_ref }}).
-            Follow your persona instructions exactly. Post your verdict as a sticky
-            comment ending in <!-- ai-review:skeptic -->.
+            You are running as the **Skeptic** persona reviewing PR #${{ needs.decide.outputs.pr_number }}
+            in the opentensor/subtensor repository.
 
-      - name: Parse verdict and set check status
+            Branch: `${{ needs.decide.outputs.head_ref }}` -> `${{ needs.decide.outputs.base_ref }}`
+            Author: `${{ needs.decide.outputs.author }}`
+
+            **Read these files in full and follow them as your operating instructions:**
+
+            1. `.github/ai-review/common.md` — shared review context, severity tags, branch policy
+            2. `.github/ai-review/skeptic.md` — your persona's full operating procedure
+            3. `.github/copilot-instructions.md` — domain threat model (treat as supplementary context)
+
+            Your only output should be the verdict comment as specified by `skeptic.md`. The verdict
+            line must appear at the very top, on its own line, in the form:
+
+                VERDICT: [SAFE]
+                VERDICT: [VULNERABLE]
+                VERDICT: [MALICIOUS]
+
+            End your output with the literal HTML marker `<!-- ai-review:skeptic -->`.
+
+            Hard rules (also stated in skeptic.md): do NOT compile, build, install, or run any
+            code from this PR. Static analysis only. You may use `gh`, `git log`, `git show`,
+            `git diff`, `grep`, and read files. You may not invoke `cargo`, `npm`, `make`,
+            `docker`, or any script that executes PR code.
+
+      - name: Post sticky comment (skeptic verdict)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ needs.decide.outputs.pr_number }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Find the most recent comment with our marker.
-          BODY=$(gh pr view "$PR" --json comments \
-            --jq '.comments | map(select(.body | contains("<!-- ai-review:skeptic -->"))) | last | .body // ""')
-          if [[ -z "$BODY" ]]; then
-            echo "::error::Skeptic did not post a verdict comment."
+          if [[ ! -s skeptic-output.md ]]; then
+            echo "::error::Codex produced no output."
             exit 1
           fi
-          VERDICT=$(echo "$BODY" | grep -oE 'VERDICT:[[:space:]]*\[(SAFE|VULNERABLE|MALICIOUS)\]' | head -1 || true)
+          MARKER='<!-- ai-review:skeptic -->'
+          if ! grep -qF "$MARKER" skeptic-output.md; then
+            echo "$MARKER" >> skeptic-output.md
+          fi
+          # Find existing sticky comment by marker; edit if present, else create.
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | tail -1)
+          if [[ -n "$EXISTING_ID" ]]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING_ID" \
+              -F body=@skeptic-output.md >/dev/null
+          else
+            gh pr comment "$PR" --repo "$REPO" --body-file skeptic-output.md
+          fi
+
+      - name: Parse verdict and set check status
+        env:
+          MARKER: '<!-- ai-review:skeptic -->'
+        run: |
+          set -euo pipefail
+          VERDICT=$(grep -oE 'VERDICT:[[:space:]]*\[(SAFE|VULNERABLE|MALICIOUS)\]' skeptic-output.md | head -1 || true)
           echo "Detected verdict: $VERDICT"
           case "$VERDICT" in
             *SAFE*)        exit 0 ;;
             *VULNERABLE*)  echo "::error::Skeptic flagged vulnerabilities."; exit 1 ;;
             *MALICIOUS*)   echo "::error::Skeptic flagged the PR as malicious."; exit 1 ;;
-            *)             echo "::error::No parseable verdict in skeptic comment."; exit 1 ;;
+            *)             echo "::error::No parseable verdict in skeptic output."; exit 1 ;;
           esac
 
   auditor:
@@ -233,7 +261,6 @@ jobs:
         with:
           ref: ${{ needs.decide.outputs.head_sha }}
           fetch-depth: 0
-          # Token must allow pushing back to the PR branch when not a fork
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git identity (for auto-fix commits)
@@ -242,59 +269,87 @@ jobs:
           git config user.name 'subtensor-ai-review[bot]'
           git config user.email 'subtensor-ai-review@users.noreply.github.com'
 
-      - name: Run Claude (auditor persona)
-        uses: anthropics/claude-code-action@v1
+      - name: Run Codex (auditor persona)
+        id: codex
+        uses: openai/codex-action@v1
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ needs.decide.outputs.pr_number }}
           BASE_REF: ${{ needs.decide.outputs.base_ref }}
           HEAD_REF: ${{ needs.decide.outputs.head_ref }}
           IS_FORK: ${{ needs.decide.outputs.is_fork }}
-          AUTHOR: ${{ github.event.pull_request.user.login }}
+          AUTHOR: ${{ needs.decide.outputs.author }}
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Auditor may compile/test (skeptic has cleared the diff). It may
-          # also run fix_rust.sh and push commits when the PR is not from a fork.
-          # Heavy node spin-up is gated by the auditor:run-node label.
-          allowed_tools: |
-            Read,Write,Edit,Grep,Glob,
-            Bash(gh:*),
-            Bash(git:*),
-            Bash(cargo:*),
-            Bash(rustup:*),
-            Bash(./scripts/fix_rust.sh),
-            Bash(./scripts/localnet.sh),
-            Bash(jq:*),
-            Bash(grep:*),
-            Bash(rg:*),
-            Bash(find:*)
-          claude_args: |
-            --append-system-prompt-file .github/ai-review/common.md
-            --append-system-prompt-file .github/ai-review/auditor.md
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # workspace-write = auditor may run fix_rust.sh, cargo, etc. Skeptic
+          # has cleared the diff so executing it is acceptable. drop-sudo still
+          # prevents the model from reading its own API key.
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          output-file: auditor-output.md
           prompt: |
-            You are operating as the Auditor persona on PR #${{ needs.decide.outputs.pr_number }}
-            (${{ needs.decide.outputs.head_ref }} -> ${{ needs.decide.outputs.base_ref }}).
-            The Skeptic has cleared this PR. is_fork=${{ needs.decide.outputs.is_fork }}.
-            Follow your persona instructions exactly. Post your verdict as a sticky
-            comment ending in <!-- ai-review:auditor -->.
+            You are running as the **Auditor** persona reviewing PR #${{ needs.decide.outputs.pr_number }}
+            in the opentensor/subtensor repository.
 
-      - name: Parse verdict and set check status
+            Branch: `${{ needs.decide.outputs.head_ref }}` -> `${{ needs.decide.outputs.base_ref }}`
+            Author: `${{ needs.decide.outputs.author }}`
+            is_fork: `${{ needs.decide.outputs.is_fork }}`  (when true, you cannot push commits — fall back to suggestion blocks)
+
+            **Read these files in full and follow them as your operating instructions:**
+
+            1. `.github/ai-review/common.md` — shared review context
+            2. `.github/ai-review/auditor.md` — your persona's full operating procedure
+            3. `.github/copilot-instructions.md` — domain rules to enforce
+
+            The Skeptic has already cleared this PR. You may run builds, tests, and scripts —
+            but do so only when a finding requires runtime confirmation, not by default.
+
+            Your final stdout must be the verdict comment as specified in `auditor.md`. The
+            verdict line must be at the top in the form:
+
+                VERDICT: 👍
+                VERDICT: 👎
+
+            End your output with the literal HTML marker `<!-- ai-review:auditor -->`.
+
+            For auto-fixes (lints, spec_version bump, Cargo.lock): when is_fork is `false`,
+            commit them in a single commit titled `chore: auditor auto-fix` and push to the
+            PR branch. When is_fork is `true`, do NOT attempt to push — emit suggestion blocks
+            in the verdict comment instead.
+
+      - name: Post sticky comment (auditor verdict)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ needs.decide.outputs.pr_number }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          BODY=$(gh pr view "$PR" --json comments \
-            --jq '.comments | map(select(.body | contains("<!-- ai-review:auditor -->"))) | last | .body // ""')
-          if [[ -z "$BODY" ]]; then
-            echo "::error::Auditor did not post a verdict comment."
+          if [[ ! -s auditor-output.md ]]; then
+            echo "::error::Codex produced no output."
             exit 1
           fi
-          if echo "$BODY" | grep -qE 'VERDICT:[[:space:]]*👍'; then
+          MARKER='<!-- ai-review:auditor -->'
+          if ! grep -qF "$MARKER" auditor-output.md; then
+            echo "$MARKER" >> auditor-output.md
+          fi
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | tail -1)
+          if [[ -n "$EXISTING_ID" ]]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING_ID" \
+              -F body=@auditor-output.md >/dev/null
+          else
+            gh pr comment "$PR" --repo "$REPO" --body-file auditor-output.md
+          fi
+
+      - name: Parse verdict and set check status
+        run: |
+          set -euo pipefail
+          if grep -qE 'VERDICT:[[:space:]]*👍' auditor-output.md; then
             exit 0
-          elif echo "$BODY" | grep -qE 'VERDICT:[[:space:]]*👎'; then
+          elif grep -qE 'VERDICT:[[:space:]]*👎' auditor-output.md; then
             echo "::error::Auditor blocked the PR."
             exit 1
           else
-            echo "::error::No parseable verdict in auditor comment."
+            echo "::error::No parseable verdict in auditor output."
             exit 1
           fi
