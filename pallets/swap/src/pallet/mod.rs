@@ -32,8 +32,11 @@ mod pallet {
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
     pub enum CleanUpPhaseEnum {
         #[default]
+        /// Phase 1: Clear protocol liquidity remove liquidity.
         ClearProtocolLiquidityRemoveLiquidity,
+        /// Phase 2: Clear protocol liquidity tick index bitmap words.
         ClearProtocolLiquidityTickIndexBitmapWords,
+        /// Phase 3: Clear protocol liquidity parameters.
         ClearProtocolLiquidityParameters,
     }
 

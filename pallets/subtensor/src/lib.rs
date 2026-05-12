@@ -360,47 +360,47 @@ pub mod pallet {
     )]
     pub enum DissolvedNetworksCleanupPhaseEnum {
         #[default]
-        /// Phase 1: Remove root dividend claimable entries for the subnet.
+        /// Phase 1.1: Remove root dividend claimable entries for the subnet.
         CleanSubnetRootDividendsRootClaimable,
-        /// Phase 2: Remove root dividend claimed entries for the subnet.
+        /// Phase 1.2: Remove root dividend claimed entries for the subnet.
         CleanSubnetRootDividendsRootClaimed,
-        /// Phase 7: Clear protocol liquidity for the subnet on the swap layer.
-        ClearProtocolLiquidity,
-        /// Phase 3: Get the total alpha value for the subnet.
+        /// Phase 2.1: Get the total alpha value for the subnet.
         DestroyAlphaInOutStakesGetTotalAlphaValue,
-        /// Phase 3: Destroy alpha in and out stakes for the subnet.
+        /// Phase 2.2: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakesSettleStakes,
-        /// Phase 4: Clean alpha entries for the subnet.
+        /// Phase 2.3: Clean alpha entries for the subnet.
         DestroyAlphaInOutStakesCleanAlpha,
-        /// Phase 5: Clear hotkey totals for the subnet.
+        /// Phase 2.4: Clear hotkey totals for the subnet.
         DestroyAlphaInOutStakesClearHotkeyTotals,
-        /// Phase 6: Clear locks for the subnet.
+        /// Phase 2.5: Clear locks for the subnet.
         DestroyAlphaInOutStakesClearLocks,
-        /// Phase 6: Destroy alpha in and out stakes for the subnet.
+        /// Phase 2.6: Destroy alpha in and out stakes for the subnet.
         DestroyAlphaInOutStakes,
-        /// Phase 8: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
+        /// Phase 3: Clear protocol liquidity for the subnet on the swap layer.
+        ClearProtocolLiquidity,
+        /// Phase 4: Remove scalar `Network*` parameters, then continue with map and index cleanup phases.
         PurgeNetuid,
-        /// Phase 7: Remove is network member entries for the subnet.
+        /// Phase 5.1: Remove is network member entries for the subnet.
         RemoveNetworkIsNetworkMember,
-        /// Recovery / legacy: scalar `Network*` removal; the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
+        /// Phase 5.2: Recovery / legacy: scalar `Network*` removal; the hook advances to map cleanup like `PurgeNetuid` after `remove_network_parameters` completes.
         RemoveNetworkParameters,
-        /// Phase 9: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
+        /// Phase 5.3: Remove map-backed subnet storage (keys, axons, per-mechanism weights, etc.).
         RemoveNetworkMapParameters,
-        /// Phase 10: Clear root-network weight entries referencing this netuid.
+        /// Phase 5.4: Clear root-network weight entries referencing this netuid.
         RemoveNetworkUpdateWeightsOnRoot,
-        /// Phase 11: Remove childkey take entries for this netuid.
+        /// Phase 5.5: Remove childkey take entries for this netuid.
         RemoveNetworkChildkeyTake,
-        /// Phase 12: Remove child key bindings for this netuid.
+        /// Phase 5.6: Remove child key bindings for this netuid.
         RemoveNetworkChildkeys,
-        /// Phase 13: Remove parent key bindings for this netuid.
+        /// Phase 5.7: Remove parent key bindings for this netuid.
         RemoveNetworkParentkeys,
-        /// Phase 14: Remove last hotkey emission records for this netuid.
+        /// Phase 5.8: Remove last hotkey emission records for this netuid.
         RemoveNetworkLastHotkeyEmissionOnNetuid,
-        /// Phase 15: Remove total hotkey alpha last epoch entries for this netuid.
+        /// Phase 5.9: Remove total hotkey alpha last epoch entries for this netuid.
         RemoveNetworkTotalHotkeyAlphaLastEpoch,
-        /// Phase 16: Remove transaction key last-block rate limit entries for this netuid.
+        /// Phase 5.10: Remove transaction key last-block rate limit entries for this netuid.
         RemoveNetworkTransactionKeyLastBlock,
-        /// Phase 17: Remove staking operation rate limiter entries for this netuid.
+        /// Phase 5.11: Remove staking operation rate limiter entries for this netuid.
         RemoveNetworkStakingOperationRateLimiter,
     }
 
