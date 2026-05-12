@@ -435,15 +435,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2) Owner / lock cost.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(4));
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let lock_cost: TaoBalance = Self::get_subnet_locked_balance(netuid);
 
         // Determine if this subnet is eligible for a lock refund (legacy).
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let reg_at: u64 = NetworkRegisteredAt::<T>::get(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
 
         let start_block: u64 = NetworkRegistrationStartBlock::<T>::get();
         let should_refund_owner: bool = reg_at < start_block;
@@ -482,15 +479,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(4));
         SubnetAlphaIn::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetAlphaInProvided::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetAlphaOut::<T>::remove(netuid);
 
         // Clear the locked balance on the subnet.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Self::set_subnet_locked_balance(netuid, TaoBalance::ZERO);
 
         // 8) Finalize lock handling:

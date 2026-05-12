@@ -296,13 +296,10 @@ impl<T: Config> Pallet<T> {
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
 
         for subid in 0..mechanisms {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(1, 2));
             let netuid_index = Self::get_mechanism_storage_index(netuid, subid.into());
 
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             LastUpdate::<T>::remove(netuid_index);
-
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             Incentive::<T>::remove(netuid_index);
 
             LoopRemovePrefixWithWeightMeter!(
@@ -347,11 +344,9 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(3));
         RevealPeriodEpochs::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MechanismCountCurrent::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MechanismEmissionSplit::<T>::remove(netuid);
 
         // Last hotkey swap (DMAP where netuid is FIRST key → easy)
@@ -371,11 +366,9 @@ impl<T: Config> Pallet<T> {
                 SubnetLeaseShares<T>,
                 lease_id
             );
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(3));
             SubnetLeases::<T>::remove(lease_id);
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             AccumulatedLeaseDividends::<T>::remove(lease_id);
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             SubnetUidToLeaseId::<T>::remove(netuid);
         }
 
@@ -384,190 +377,89 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(80));
         SubnetOwner::<T>::remove(netuid);
-
-        // --- 2. Remove network count.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetworkN::<T>::remove(netuid);
-
-        // --- 5. Remove various network-related storages.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         NetworkRegisteredAt::<T>::remove(netuid);
-
-        // --- 9. Remove various network-related parameters.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Active::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Emission::<T>::remove(netuid);
-
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Consensus::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Dividends::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ValidatorPermit::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ValidatorTrust::<T>::remove(netuid);
-
-        // --- 10. Erase network parameters.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Tempo::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Kappa::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Difficulty::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxAllowedUids::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ImmunityPeriod::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ActivityCutoff::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MinAllowedWeights::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         RegistrationsThisInterval::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         POWRegistrationsThisInterval::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BurnRegistrationsThisInterval::<T>::remove(netuid);
-
-        // --- 11. AMM / price / accounting.
-        // SubnetTAO, SubnetAlpha{In,InProvided,Out} are already cleared during dissolve/destroy.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetAlphaInEmission::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetAlphaOutEmission::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetTaoInEmission::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetVolume::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetMovingPrice::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetTaoFlow::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetEmaTaoFlow::<T>::remove(netuid);
         SubnetProtocolFlow::<T>::remove(netuid);
         SubnetEmaProtocolFlow::<T>::remove(netuid);
         SubnetExcessTao::<T>::remove(netuid);
         SubnetRootSellTao::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
-
-        // --- 13. Token / mechanism / registration toggles.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         TokenSymbol::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetMechanism::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetOwnerHotkey::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         NetworkRegistrationAllowed::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         NetworkPowRegistrationAllowed::<T>::remove(netuid);
-
-        // --- 14. Locks & toggles.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         TransferToggle::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubnetLocked::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LargestLocked::<T>::remove(netuid);
-
-        // --- 15. Mechanism step / emissions bookkeeping.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FirstEmissionBlockNumber::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingValidatorEmission::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingServerEmission::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingRootAlphaDivs::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         PendingOwnerCut::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BlocksSinceLastStep::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LastMechansimStepBlock::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LastAdjustmentBlock::<T>::remove(netuid);
-
-        // --- 16. Serving / rho / curves, and other per-net controls.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ServingRateLimit::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Rho::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AlphaSigmoidSteepness::<T>::remove(netuid);
-
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxAllowedValidators::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsMovingAverage::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsPenalty::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BondsResetOn::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         WeightsSetRateLimit::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ValidatorPruneLen::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ScalingLawPower::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         TargetRegistrationsPerInterval::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         CommitRevealWeightsEnabled::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BurnHalfLife::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         BurnIncreaseMult::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Burn::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MinBurn::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxBurn::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MinDifficulty::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxDifficulty::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         RegistrationsThisBlock::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         EMAPriceHalvingBlocks::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         RAORecycledForRegistration::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         MaxRegistrationsPerBlock::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         WeightsVersionKey::<T>::remove(netuid);
-
-        // --- 17. Subtoken / feature flags.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LiquidAlphaOn::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         Yuma3On::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AlphaValues::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SubtokenEnabled::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         ImmuneOwnerUidsLimit::<T>::remove(netuid);
-
-        // --- 18. Consensus aux vectors.
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         StakeWeight::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         LoadedEmission::<T>::remove(netuid);
-
-        // --- 20. Identity maps across versions (netuid-scoped).
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));
         }
-
         true
     }
 

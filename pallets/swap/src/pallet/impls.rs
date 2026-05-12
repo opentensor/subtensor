@@ -972,21 +972,14 @@ impl<T: Config> Pallet<T> {
             (netuid,)
         );
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(8));
         FeeGlobalTao::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeGlobalAlpha::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         CurrentLiquidity::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         CurrentTick::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         AlphaSqrtPrice::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         SwapV3Initialized::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         FeeRate::<T>::remove(netuid);
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
         EnabledUserLiquidity::<T>::remove(netuid);
 
         true
