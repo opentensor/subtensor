@@ -87,9 +87,9 @@ fn validate_and_classify_separates_buys_and_sells() {
             bob(),
             netuid(),
             OrderType::LimitBuy,
-            1_000u64,     // amount in TAO
-            2_000_000u64, // limit_price: willing to pay up to 2 TAO/alpha (price=1 < 2 ✓)
-            2_000_000u64, // expiry ms
+            1_000u64,         // amount in TAO
+            2_000_000_000u64, // limit_price: willing to pay up to 2 TAO/alpha in ×10⁹ scale (scaled=1_000_000_000 ≤ 2_000_000_000 ✓)
+            2_000_000u64,     // expiry ms
             Perbill::zero(),
             fee_recipient(),
             None,
@@ -99,8 +99,8 @@ fn validate_and_classify_separates_buys_and_sells() {
             alice(),
             netuid(),
             OrderType::TakeProfit,
-            500u64, // amount in alpha
-            1u64,   // limit_price: sell if price >= 1 TAO/alpha (price=1 >= 1 ✓)
+            500u64,           // amount in alpha
+            1_000_000_000u64, // limit_price: sell if price >= 1 TAO/alpha in ×10⁹ scale (scaled=1_000_000_000 >= 1_000_000_000 ✓)
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
@@ -148,7 +148,7 @@ fn validate_and_classify_fails_for_wrong_netuid() {
             NetUid::from(99u16), // different netuid
             OrderType::LimitBuy,
             1_000u64,
-            2_000_000u64,
+            2_000_000_000u64, // 2.0 in ×10⁹ scale
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
@@ -182,7 +182,7 @@ fn validate_and_classify_fails_for_expired_order() {
             netuid(),
             OrderType::LimitBuy,
             1_000u64,
-            2_000_000u64,
+            2_000_000_000u64, // 2.0 in ×10⁹ scale
             2_000_000u64, // expiry already past
             Perbill::zero(),
             fee_recipient(),
@@ -206,7 +206,7 @@ fn validate_and_classify_fails_for_expired_order() {
 #[test]
 fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
     new_test_ext().execute_with(|| {
-        // Price = 3.0 TAO/alpha, buyer's limit = 2.0 → price > limit → hard failure.
+        // Price = 3.0 TAO/alpha, scaled = 3_000_000_000, buyer's limit = 2_000_000_000 (2.0 in ×10⁹) → scaled > limit → hard failure.
         MockTime::set(1_000_000);
         let order = make_signed_order(
             AccountKeyring::Alice,
@@ -214,7 +214,7 @@ fn validate_and_classify_fails_for_price_condition_not_met_for_buy() {
             netuid(),
             OrderType::LimitBuy,
             1_000u64,
-            2u64, // limit_price = 2 TAO/alpha
+            2_000_000_000u64, // 2.0 in ×10⁹ scale
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
@@ -246,7 +246,7 @@ fn validate_and_classify_fails_for_already_processed_order() {
             netuid(),
             OrderType::LimitBuy,
             1_000u64,
-            2_000_000u64,
+            2_000_000_000u64, // 2.0 in ×10⁹ scale
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
@@ -393,14 +393,15 @@ fn validate_and_classify_stores_effective_swap_limit_for_buy() {
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
 
-        // 1% slippage on limit_price=1000 → ceiling = 1010.
+        // 1% slippage on limit_price=2_000_000_000 (2.0 in ×10⁹) → ceiling = 2_020_000_000.
+        // price=1.0, scaled=1_000_000_000 <= 2_000_000_000 ✓.
         let order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::LimitBuy,
             500u64,
-            1_000u64,
+            2_000_000_000u64, // 2.0 in ×10⁹ scale
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
@@ -431,7 +432,7 @@ fn validate_and_classify_stores_effective_swap_limit_for_buy() {
         )
         .expect("should succeed");
 
-        assert_eq!(buys[0].effective_swap_limit, 1_010);
+        assert_eq!(buys[0].effective_swap_limit, 2_020_000_000);
     });
 }
 
@@ -439,15 +440,15 @@ fn validate_and_classify_stores_effective_swap_limit_for_buy() {
 fn validate_and_classify_stores_effective_swap_limit_for_sell() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
-        // Price must be >= limit_price for TakeProfit to trigger.
-        // limit_price=1000, 1% slippage → floor = 990.
+        // Price must be >= limit_price (in ×10⁹ scale) for TakeProfit to trigger.
+        // limit_price=1_000_000_000 (1.0 in ×10⁹), 1% slippage → floor = 990_000_000.
         let new_inner = crate::Order {
             signer: AccountKeyring::Alice.to_account_id(),
             hotkey: bob(),
             netuid: netuid(),
             order_type: OrderType::TakeProfit,
             amount: 500u64,
-            limit_price: 1_000u64,
+            limit_price: 1_000_000_000u64, // 1.0 in ×10⁹ scale
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),
@@ -469,12 +470,12 @@ fn validate_and_classify_stores_effective_swap_limit_for_sell() {
             netuid(),
             &orders,
             1_000_000u64,
-            U96F32::from_num(2_000u32), // current_price=2000 >= limit_price=1000 ✓
+            U96F32::from_num(2u32), // current_price=2.0, scaled=2_000_000_000 >= limit_price=1_000_000_000 ✓
             bob(),
         )
         .expect("should succeed");
 
-        assert_eq!(sells[0].effective_swap_limit, 990);
+        assert_eq!(sells[0].effective_swap_limit, 990_000_000);
     });
 }
 
@@ -1507,7 +1508,7 @@ fn is_order_valid_expired_order_returns_error() {
 fn is_order_valid_price_condition_not_met_returns_error() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
-        // Price 5.0 > limit_price 2 → LimitBuy condition (price ≤ limit) not met.
+        // Price 5.0, scaled = 5_000_000_000 > limit_price 2_000_000_000 (2.0 in ×10⁹) → LimitBuy condition (scaled ≤ limit) not met.
         MockSwap::set_price(5.0);
         let keyring = AccountKeyring::Alice;
         let order = crate::VersionedOrder::V1(crate::Order {
@@ -1516,7 +1517,7 @@ fn is_order_valid_price_condition_not_met_returns_error() {
             netuid: netuid(),
             order_type: OrderType::LimitBuy,
             amount: 1_000,
-            limit_price: 2,
+            limit_price: 2_000_000_000, // 2.0 in ×10⁹ scale
             expiry: u64::MAX,
             fee_rate: Perbill::zero(),
             fee_recipient: fee_recipient(),

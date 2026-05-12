@@ -219,14 +219,14 @@ fn execute_orders_sell_order_fulfilled() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
         MockSwap::set_price(2.0);
-        // Price = 2.0 ≥ limit = 1 → condition met.
+        // Price = 2.0, scaled = 2_000_000_000 ≥ limit = 1_000_000_000 → condition met.
         let signed = make_signed_order(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::TakeProfit,
             500,
-            1,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -256,14 +256,14 @@ fn execute_orders_stop_loss_order_fulfilled() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
         MockSwap::set_price(0.5);
-        // Price = 0.5 ≤ limit = 1.0 → condition met.
+        // Price = 0.5, scaled = 500_000_000 ≤ limit = 1_000_000_000 → condition met.
         let signed = make_signed_order(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::StopLoss,
             500,
-            1, // raw limit_price = 1 TAO/alpha
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -292,14 +292,14 @@ fn execute_orders_stop_loss_order_fulfilled() {
 fn execute_orders_stop_loss_price_not_met_skipped() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
-        MockSwap::set_price(2.0); // price 2.0 > limit 1.0 → stop loss condition not met
+        MockSwap::set_price(2.0); // price 2.0, scaled=2_000_000_000 > limit 1_000_000_000 → stop loss condition not met
         let signed = make_signed_order(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::StopLoss,
             500,
-            1, // raw limit_price = 1 TAO/alpha
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -357,14 +357,14 @@ fn execute_orders_expired_order_skipped() {
 fn execute_orders_price_not_met_skipped() {
     new_test_ext().execute_with(|| {
         MockTime::set(1_000_000);
-        MockSwap::set_price(5.0); // price 5.0 > limit 2 → buy condition not met
+        MockSwap::set_price(5.0); // price 5.0, scaled=5_000_000_000 > limit 2_000_000_000 → buy condition not met
         let signed = make_signed_order(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::LimitBuy,
             1_000,
-            2,
+            2_000_000_000, // 2.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -377,6 +377,79 @@ fn execute_orders_price_not_met_skipped() {
             bounded(vec![signed])
         ));
 
+        assert!(Orders::<Test>::get(id).is_none());
+        assert_event(Event::OrderSkipped {
+            order_id: id,
+            reason: Error::<Test>::PriceConditionNotMet.into(),
+        });
+    });
+}
+
+// Regression tests: with the ×10⁹ scale fix, sub-unity prices can be meaningfully
+// expressed as limit_price values.  A price of 0.5 TAO/alpha is represented as
+// 500_000_000 in ×10⁹ scale, enabling fine-grained TakeProfit thresholds below 1.0.
+#[test]
+fn take_profit_sub_unity_price_executes_when_limit_met() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        // Market price = 0.5 TAO/alpha → scaled = 500_000_000.
+        MockSwap::set_price(0.5);
+
+        // limit_price = 400_000_000 (0.4 in ×10⁹ scale).
+        // TakeProfit condition: scaled_price (500_000_000) >= limit_price (400_000_000) ✓
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::TakeProfit,
+            500,
+            400_000_000, // 0.4 in ×10⁹ scale — below current price of 0.5
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
+
+        // Executes: 500_000_000 >= 400_000_000 → condition met.
+        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+    });
+}
+
+#[test]
+fn take_profit_sub_unity_price_skipped_when_limit_not_met() {
+    new_test_ext().execute_with(|| {
+        MockTime::set(1_000_000);
+        // Market price = 0.5 TAO/alpha → scaled = 500_000_000.
+        MockSwap::set_price(0.5);
+
+        // limit_price = 600_000_000 (0.6 in ×10⁹ scale).
+        // TakeProfit condition: scaled_price (500_000_000) >= limit_price (600_000_000) → FALSE.
+        let signed = make_signed_order(
+            AccountKeyring::Alice,
+            bob(),
+            netuid(),
+            OrderType::TakeProfit,
+            500,
+            600_000_000, // 0.6 in ×10⁹ scale — above current price of 0.5
+            FAR_FUTURE,
+            Perbill::zero(),
+            fee_recipient(),
+            None,
+        );
+        let id = order_id(&signed.order);
+
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie()),
+            bounded(vec![signed])
+        ));
+
+        // Skipped: 500_000_000 >= 600_000_000 is false.
         assert!(Orders::<Test>::get(id).is_none());
         assert_event(Event::OrderSkipped {
             order_id: id,
@@ -836,16 +909,16 @@ fn execute_batched_orders_price_condition_not_met_fails_entire_batch() {
         // Price condition not met is a hard-fail in execute_batched_orders —
         // unlike execute_orders where it silently skips the order.
         MockTime::set(1_000_000);
-        MockSwap::set_price(100.0); // current price = 100
+        MockSwap::set_price(100.0); // current price = 100, scaled = 100_000_000_000
 
-        // LimitBuy requires current_price <= limit_price; with limit_price=1 this fails.
+        // LimitBuy requires scaled_price <= limit_price; with limit_price=1_000_000_000 (1.0) this fails.
         let order = make_signed_order(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::LimitBuy,
             1_000,
-            1, // limit_price = 1, far below current price of 100
+            1_000_000_000, // 1.0 in ×10⁹ scale, far below scaled price of 100_000_000_000
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -1802,7 +1875,7 @@ fn execute_orders_sell_no_slippage_passes_zero_to_pool() {
             netuid(),
             OrderType::TakeProfit,
             500,
-            1,
+            1_000_000_000, // 1.0 in ×10⁹ scale; price=2.0 (scaled=2_000_000_000) >= 1_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -1824,14 +1897,14 @@ fn execute_orders_buy_one_percent_slippage_passes_ceiling_to_pool() {
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
 
-        // limit_price=1000, 1% slippage → ceiling = 1010.
+        // limit_price=1_000_000_000 (1.0 in ×10⁹), 1% slippage → ceiling = 1_010_000_000.
         let signed = make_signed_order_with_slippage(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::LimitBuy,
             1_000,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale; price=1.0 (scaled=1_000_000_000) <= 1_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -1843,7 +1916,7 @@ fn execute_orders_buy_one_percent_slippage_passes_ceiling_to_pool() {
             bounded(vec![signed])
         ));
 
-        assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![1_010]);
+        assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![1_010_000_000]);
     });
 }
 
@@ -1854,14 +1927,14 @@ fn execute_orders_sell_one_percent_slippage_passes_floor_to_pool() {
         // Price must be >= limit_price for TakeProfit to trigger.
         MockSwap::set_price(2_000.0);
 
-        // limit_price=1000, 1% slippage → floor = 990.
+        // limit_price=1_000_000_000 (1.0 in ×10⁹), 1% slippage → floor = 990_000_000.
         let signed = make_signed_order_with_slippage(
             AccountKeyring::Alice,
             bob(),
             netuid(),
             OrderType::TakeProfit,
             500,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale; price=2000.0 (scaled=2T) >= 1_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -1873,7 +1946,7 @@ fn execute_orders_sell_one_percent_slippage_passes_floor_to_pool() {
             bounded(vec![signed])
         ));
 
-        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990]);
+        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990_000_000]);
     });
 }
 
@@ -1885,10 +1958,11 @@ fn execute_orders_sell_one_percent_slippage_passes_floor_to_pool() {
 fn execute_batched_orders_buy_dominant_uses_min_ceiling() {
     new_test_ext().execute_with(|| {
         // 3 buy orders with different slippage constraints.
-        //   Alice: limit=1000, 2% → ceiling=1020
-        //   Bob:   limit=1000, 1% → ceiling=1010  ← tightest
-        //   Charlie (as signer, not relayer): limit=1000, 3% → ceiling=1030
-        // Expected pool price_limit = min(1020, 1010, 1030) = 1010.
+        //   Alice: limit=1_000_000_000, 2% → ceiling=1_020_000_000
+        //   Bob:   limit=1_000_000_000, 1% → ceiling=1_010_000_000  ← tightest
+        //   Charlie (as signer, not relayer): limit=1_000_000_000, 3% → ceiling=1_030_000_000
+        // Expected pool price_limit = min(1_020_000_000, 1_010_000_000, 1_030_000_000) = 1_010_000_000.
+        // price=1.0, scaled=1_000_000_000 <= 1_000_000_000 ✓ for all LimitBuy orders.
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         MockSwap::set_buy_alpha_return(500);
@@ -1902,11 +1976,11 @@ fn execute_batched_orders_buy_dominant_uses_min_ceiling() {
             netuid(),
             OrderType::LimitBuy,
             600,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(2)), // ceiling = 1020
+            Some(Perbill::from_percent(2)), // ceiling = 1_020_000_000
         );
         let bob_order = make_signed_order_with_slippage(
             AccountKeyring::Bob,
@@ -1914,11 +1988,11 @@ fn execute_batched_orders_buy_dominant_uses_min_ceiling() {
             netuid(),
             OrderType::LimitBuy,
             200,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(1)), // ceiling = 1010 ← tightest
+            Some(Perbill::from_percent(1)), // ceiling = 1_010_000_000 ← tightest
         );
         let dave_order = make_signed_order_with_slippage(
             AccountKeyring::Dave,
@@ -1926,11 +2000,11 @@ fn execute_batched_orders_buy_dominant_uses_min_ceiling() {
             netuid(),
             OrderType::LimitBuy,
             200,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(3)), // ceiling = 1030
+            Some(Perbill::from_percent(3)), // ceiling = 1_030_000_000
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -1939,8 +2013,8 @@ fn execute_batched_orders_buy_dominant_uses_min_ceiling() {
             bounded(vec![alice_order, bob_order, dave_order]),
         ));
 
-        // Net pool swap must have been called with the tightest ceiling = 1010.
-        assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![1_010]);
+        // Net pool swap must have been called with the tightest ceiling = 1_010_000_000.
+        assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![1_010_000_000]);
     });
 }
 
@@ -1948,11 +2022,12 @@ fn execute_batched_orders_buy_dominant_uses_min_ceiling() {
 fn execute_batched_orders_sell_dominant_uses_max_floor() {
     new_test_ext().execute_with(|| {
         // 3 sell orders with different slippage constraints.
-        //   Alice: limit=1000, 3% → floor=970
-        //   Bob:   limit=1000, 1% → floor=990  ← tightest (highest floor)
-        //   Dave:  limit=1000, 2% → floor=980
-        // Expected pool price_limit = max(970, 990, 980) = 990.
-        // Price must be >= limit_price=1000 for TakeProfit to trigger.
+        //   Alice: limit=1_000_000_000, 3% → floor=970_000_000
+        //   Bob:   limit=1_000_000_000, 1% → floor=990_000_000  ← tightest (highest floor)
+        //   Dave:  limit=1_000_000_000, 2% → floor=980_000_000
+        // Expected pool price_limit = max(970_000_000, 990_000_000, 980_000_000) = 990_000_000.
+        // Price must be >= limit_price=1_000_000_000 (1.0 in ×10⁹) for TakeProfit to trigger.
+        // price=2000.0, scaled=2_000_000_000_000 >= 1_000_000_000 ✓.
         MockTime::set(1_000_000);
         MockSwap::set_price(2_000.0);
         MockSwap::set_sell_tao_return(500);
@@ -1966,11 +2041,11 @@ fn execute_batched_orders_sell_dominant_uses_max_floor() {
             netuid(),
             OrderType::TakeProfit,
             600,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(3)), // floor = 970
+            Some(Perbill::from_percent(3)), // floor = 970_000_000
         );
         let bob_order = make_signed_order_with_slippage(
             AccountKeyring::Bob,
@@ -1978,11 +2053,11 @@ fn execute_batched_orders_sell_dominant_uses_max_floor() {
             netuid(),
             OrderType::TakeProfit,
             200,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(1)), // floor = 990 ← tightest
+            Some(Perbill::from_percent(1)), // floor = 990_000_000 ← tightest
         );
         let dave_order = make_signed_order_with_slippage(
             AccountKeyring::Dave,
@@ -1990,11 +2065,11 @@ fn execute_batched_orders_sell_dominant_uses_max_floor() {
             netuid(),
             OrderType::TakeProfit,
             200,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(2)), // floor = 980
+            Some(Perbill::from_percent(2)), // floor = 980_000_000
         );
 
         assert_ok!(LimitOrders::execute_batched_orders(
@@ -2003,8 +2078,8 @@ fn execute_batched_orders_sell_dominant_uses_max_floor() {
             bounded(vec![alice_order, bob_order, dave_order]),
         ));
 
-        // Net pool swap must have been called with the tightest floor = 990.
-        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990]);
+        // Net pool swap must have been called with the tightest floor = 990_000_000.
+        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990_000_000]);
     });
 }
 
@@ -2052,14 +2127,16 @@ fn execute_batched_orders_no_slippage_uses_unconstrained_limits() {
 #[test]
 fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
     new_test_ext().execute_with(|| {
-        // Price = 2000 — above all TakeProfit limits (≥1000 ✓) and below StopLoss limit (≤5000 ✓).
+        // Price = 2000 — scaled = 2_000_000_000_000.
+        // TakeProfit triggers when scaled_price >= limit_price (2T >= 1_000_000_000 ✓).
+        // StopLoss triggers when scaled_price <= limit_price (2T <= 5_000_000_000_000 ✓).
         MockTime::set(1_000_000);
         MockSwap::set_price(2_000.0);
         MockSwap::set_sell_tao_return(500);
 
-        // Alice TakeProfit: limit=1000, 3% → floor=970.
-        // Bob TakeProfit:   limit=1000, 1% → floor=990.  ← tightest
-        // Dave StopLoss:    limit=5000, None → floor=0.
+        // Alice TakeProfit: limit=1_000_000_000 (1.0), 3% → floor=970_000_000.
+        // Bob TakeProfit:   limit=1_000_000_000 (1.0), 1% → floor=990_000_000.  ← tightest
+        // Dave StopLoss:    limit=5_000_000_000_000 (5000.0), None → floor=0.
         MockSwap::set_alpha_balance(alice(), dave(), netuid(), 600);
         MockSwap::set_alpha_balance(bob(), dave(), netuid(), 200);
         MockSwap::set_alpha_balance(dave(), alice(), netuid(), 200);
@@ -2070,7 +2147,7 @@ fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
             netuid(),
             OrderType::TakeProfit,
             600,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -2082,7 +2159,7 @@ fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
             netuid(),
             OrderType::TakeProfit,
             200,
-            1_000,
+            1_000_000_000, // 1.0 in ×10⁹ scale
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -2094,7 +2171,7 @@ fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
             netuid(),
             OrderType::StopLoss,
             200,
-            5_000,
+            5_000_000_000_000, // 5000.0 in ×10⁹ scale; scaled_price 2T <= 5T ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -2116,8 +2193,8 @@ fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
         assert_eq!(Orders::<Test>::get(bob_id), Some(OrderStatus::Fulfilled));
         assert_eq!(Orders::<Test>::get(dave_id), Some(OrderStatus::Fulfilled));
 
-        // Pool called once with the tightest TakeProfit floor (990), not 0 from StopLoss.
-        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990]);
+        // Pool called once with the tightest TakeProfit floor (990_000_000), not 0 from StopLoss.
+        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990_000_000]);
     });
 }
 
@@ -2125,18 +2202,19 @@ fn execute_batched_orders_takeprofit_and_stoploss_coexist_sell_dominant() {
 ///
 /// The offset StopLoss is settled internally at spot price; it does not contribute
 /// to the pool's price ceiling (which comes only from the dominant buy side).
-/// pool_price_limit = min(buy_ceilings) = 101.
+/// pool_price_limit = min(buy_ceilings) = 1_010_000_000.
 #[test]
 fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
     new_test_ext().execute_with(|| {
-        // Price = 1. LimitBuy triggers (1 ≤ 100 ✓). StopLoss triggers (1 ≤ 5 ✓).
+        // Price = 1.0, scaled = 1_000_000_000.
+        // LimitBuy triggers (scaled <= limit ✓). StopLoss triggers (scaled <= limit ✓).
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         MockSwap::set_buy_alpha_return(900);
 
-        // Alice LimitBuy: limit=100, 2% → ceiling=102.
-        // Bob   LimitBuy: limit=100, 1% → ceiling=101.  ← tightest
-        // Dave  StopLoss: limit=5,   None → floor=0 (offset side, not used for pool limit).
+        // Alice LimitBuy: limit=1_000_000_000 (1.0), 2% → ceiling=1_020_000_000.
+        // Bob   LimitBuy: limit=1_000_000_000 (1.0), 1% → ceiling=1_010_000_000.  ← tightest
+        // Dave  StopLoss: limit=2_000_000_000 (2.0), None → floor=0 (offset side, not used for pool limit).
         MockSwap::set_tao_balance(alice(), 600);
         MockSwap::set_tao_balance(bob(), 400);
         MockSwap::set_alpha_balance(dave(), alice(), netuid(), 100);
@@ -2147,7 +2225,7 @@ fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
             netuid(),
             OrderType::LimitBuy,
             600,
-            100,
+            1_000_000_000, // 1.0 in ×10⁹ scale; scaled=1_000_000_000 <= 1_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -2159,7 +2237,7 @@ fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
             netuid(),
             OrderType::LimitBuy,
             400,
-            100,
+            1_000_000_000, // 1.0 in ×10⁹ scale; scaled=1_000_000_000 <= 1_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -2171,7 +2249,7 @@ fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
             netuid(),
             OrderType::StopLoss,
             100,
-            5,
+            2_000_000_000, // 2.0 in ×10⁹ scale; scaled=1_000_000_000 <= 2_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
@@ -2193,8 +2271,8 @@ fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
         assert_eq!(Orders::<Test>::get(bob_id), Some(OrderStatus::Fulfilled));
         assert_eq!(Orders::<Test>::get(dave_id), Some(OrderStatus::Fulfilled));
 
-        // Pool buy called with min(102, 101) = 101. StopLoss's floor (0) is ignored on buy side.
-        assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![101]);
+        // Pool buy called with min(1_020_000_000, 1_010_000_000) = 1_010_000_000. StopLoss's floor (0) is ignored on buy side.
+        assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![1_010_000_000]);
     });
 }
 
@@ -2207,8 +2285,8 @@ fn execute_batched_orders_limitbuy_and_stoploss_offset_coexist_buy_dominant() {
 #[test]
 fn execute_batched_orders_stoploss_narrow_slippage_breaks_batch() {
     new_test_ext().execute_with(|| {
-        // StopLoss: limit=100, triggers at price=50 (50 ≤ 100 ✓).
-        // 1% slippage → floor=99. Market is at 50 → pool cannot deliver ≥99.
+        // StopLoss: limit=100_000_000_000 (100.0 in ×10⁹), triggers at price=50 (scaled=50_000_000_000 ≤ 100_000_000_000 ✓).
+        // 1% slippage → floor=99_000_000_000. Market is at 50 → pool cannot deliver ≥99_000_000_000.
         MockTime::set(1_000_000);
         MockSwap::set_price(50.0);
         MockSwap::set_sell_tao_return(100); // non-zero so SwapReturnedZero is not the cause
@@ -2221,11 +2299,11 @@ fn execute_batched_orders_stoploss_narrow_slippage_breaks_batch() {
             netuid(),
             OrderType::StopLoss,
             200,
-            100,
+            100_000_000_000, // 100.0 in ×10⁹ scale; scaled=50_000_000_000 <= 100_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(1)), // floor=99, but market=50 → pool rejects
+            Some(Perbill::from_percent(1)), // floor=99_000_000_000, but market=50 → pool rejects
         );
 
         assert_noop!(
@@ -2244,9 +2322,10 @@ fn execute_batched_orders_stoploss_narrow_slippage_breaks_batch() {
 ///
 /// Note: `DispatchError::Other` has `#[codec(skip)]` on its string field, so the reason
 /// string is lost when stored in the event log. We verify the skip via storage absence
-/// and by asserting the floor (99) was actually passed to the pool — which is what caused
-/// the rejection. The `execute_batched_orders` variant below uses `assert_noop!` (checks
-/// the return value directly, no storage round-trip) and can verify the string.
+/// and by asserting the floor (99_000_000_000 = 100_000_000_000 - 1%) was actually passed
+/// to the pool — which is what caused the rejection. The `execute_batched_orders` variant
+/// below uses `assert_noop!` (checks the return value directly, no storage round-trip) and
+/// can verify the string.
 #[test]
 fn execute_orders_stoploss_narrow_slippage_skips_order() {
     new_test_ext().execute_with(|| {
@@ -2261,11 +2340,11 @@ fn execute_orders_stoploss_narrow_slippage_skips_order() {
             netuid(),
             OrderType::StopLoss,
             200,
-            100,
+            100_000_000_000, // 100.0 in ×10⁹ scale; scaled=50_000_000_000 <= 100_000_000_000 ✓
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(Perbill::from_percent(1)), // floor=99, but market=50 → pool rejects
+            Some(Perbill::from_percent(1)), // floor=99_000_000_000, but market=50 → pool rejects
         );
         let id = order_id(&stoploss.order);
 
@@ -2287,9 +2366,9 @@ fn execute_orders_stoploss_narrow_slippage_skips_order() {
             "expected OrderSkipped event for this order"
         );
 
-        // The sell was attempted with the correct floor (99 = 100 - 1%).
+        // The sell was attempted with the correct floor (99_000_000_000 = 100_000_000_000 - 1%).
         // This is the value that exceeded the market price and caused the rejection.
-        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![99]);
+        assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![99_000_000_000]);
     });
 }
 

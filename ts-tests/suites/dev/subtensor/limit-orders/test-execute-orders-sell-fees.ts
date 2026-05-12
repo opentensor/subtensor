@@ -72,7 +72,7 @@ describeSuite({
                     netuid,
                     orderType: "TakeProfit",
                     amount: tao(100),
-                    limitPrice: 1n, // always met
+                    limitPrice: 1_000_000_000n, // always met when price >= 1 TAO/alpha (×10⁹ scale)
                     expiry: FAR_FUTURE,
                     feeRate: PERBILL_ONE_PERCENT,
                     feeRecipient: feeRecipient.address,

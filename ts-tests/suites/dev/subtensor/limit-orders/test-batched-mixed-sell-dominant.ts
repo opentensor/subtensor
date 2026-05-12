@@ -82,7 +82,7 @@ describeSuite({
                     netuid,
                     orderType: "TakeProfit",
                     amount: tao(200),
-                    limitPrice: 1n,
+                    limitPrice: 1_000_000_000n,
                     expiry: FAR_FUTURE,
                     feeRate: 0,
                     feeRecipient: bob.address,

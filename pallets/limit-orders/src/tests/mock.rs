@@ -278,7 +278,11 @@ impl OrderSwapInterface<AccountId> for MockSwap {
             })
         });
         if MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow()) {
-            let price = MOCK_PRICE.with(|p| p.borrow().to_num::<u64>());
+            let price = MOCK_PRICE.with(|p| {
+                p.borrow()
+                    .saturating_mul(U96F32::from_num(1_000_000_000u64))
+                    .saturating_to_num::<u64>()
+            });
             if price > limit_price.to_u64() {
                 return Err(frame_support::pallet_prelude::DispatchError::Other(
                     "price limit exceeded",
@@ -328,7 +332,11 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         });
         // Only enforce if a non-zero floor was requested (0 means no constraint).
         if MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow()) && limit_price.to_u64() > 0 {
-            let price = MOCK_PRICE.with(|p| p.borrow().to_num::<u64>());
+            let price = MOCK_PRICE.with(|p| {
+                p.borrow()
+                    .saturating_mul(U96F32::from_num(1_000_000_000u64))
+                    .saturating_to_num::<u64>()
+            });
             if price < limit_price.to_u64() {
                 return Err(frame_support::pallet_prelude::DispatchError::Other(
                     "price limit exceeded",

@@ -526,16 +526,16 @@ fn stop_loss_order_executes_and_unstakes_alpha() {
         );
         seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
 
-        // limit_price = 1 → current_price (1.0) ≤ 1.0 → StopLoss condition always met.
-        // Using 1 (not u64::MAX) because limit_price also acts as the minimum TAO output
-        // in sell_alpha — u64::MAX would make the swap always fail.
+        // limit_price = 1_000_000_000 (1.0 × 10⁹) → scaled_price (1_000_000_000) ≤ 1_000_000_000
+        // → StopLoss condition always met. Stable mechanism ignores the AMM floor, so any
+        // value ≥ 1_000_000_000 works here.
         let signed = make_signed_order(
             alice,
             bob_id.clone(),
             netuid,
             OrderType::StopLoss,
             min_default_stake().into(), // sell min_default_stake alpha units
-            1,                          // price floor — current price 1.0 ≤ 1.0, always met
+            1_000_000_000,             // price ceiling in ×10⁹ scale (1.0) — always met
             u64::MAX,
             Perbill::zero(),
             charlie_id.clone(),
@@ -1599,13 +1599,9 @@ fn batched_multiple_fee_recipients_each_receive_correct_amount() {
 ///
 /// Setup:
 ///   Dynamic subnet, equal reserves → pool price = 1.0 (raw ratio, i.e. 1 rao/alpha).
-///   limit_price = 2  →  StopLoss trigger: 1.0 ≤ 2.0 ✓  (price has fallen to the trigger)
-///   max_slippage = 10 %  →  floor = 2 − 10% × 2.
-///     Note: `Perbill::from_percent(10) * 2 = 0` (integer truncation), so floor = 2.
-///   After the ×10⁹ scale in `order_swap.rs`:
-///     AMM price_limit = 2 × 10⁹ = 2_000_000_000
-///     limit_sqrt_price = √(2_000_000_000 / 10⁹) = √2 ≈ 1.414
-///   Pool sqrt_price = √1.0 = 1.0  →  1.0 > 1.414 is false  →  PriceLimitExceeded
+///   limit_price = 2_000_000_000 (2.0 × 10⁹)  →  StopLoss trigger: 1.0 ≤ 2.0 ✓
+///   max_slippage = 10%  →  effective AMM floor = 2_000_000_000 − 10% × 2_000_000_000 = 1_800_000_000.
+///   Pool price = 1_000_000_000 (1.0 × 10⁹) < 1_800_000_000  →  PriceLimitExceeded.
 ///   `execute_orders` catches the error and skips the order (no storage write).
 ///   Because `sell_alpha` is `#[transactional]`, the stake decrement is rolled back.
 #[test]
@@ -1629,16 +1625,16 @@ fn execute_orders_stoploss_max_slippage_exceeds_pool_price_skipped() {
             initial_alpha,
         );
 
-        // limit_price = 2: StopLoss triggers when price ≤ 2.0; pool is at 1.0 → met.
-        // max_slippage sets a floor: Perbill integer truncation gives floor = 2 - 0 = 2.
-        // After ×10⁹ scaling, AMM limit_sqrt = √2 ≈ 1.414 > pool sqrt 1.0 → rejected.
+        // limit_price = 2_000_000_000 (2.0 × 10⁹): StopLoss triggers when price ≤ 2.0; pool is at 1.0 → met.
+        // max_slippage = 10%  →  effective AMM floor = 1_800_000_000.
+        // Pool price = 1_000_000_000 < 1_800_000_000  →  PriceLimitExceeded → order skipped.
         let signed = make_signed_order_with_slippage_rt(
             alice,
             bob_id.clone(),
             netuid,
             OrderType::StopLoss,
             min_default_stake().into(),
-            2, // trigger at price 2.0; pool is at 1.0 — condition met
+            2_000_000_000, // trigger at price 2.0 × 10⁹; pool is at 1.0 — condition met
             u64::MAX,
             Perbill::zero(),
             charlie_id.clone(),

@@ -68,14 +68,15 @@ describeSuite({
                 const stakeBefore = await devGetAlphaStake(polkadotJs, aliceHotKey.address, alice.address, netuid);
                 const taoBalanceBefore = (await polkadotJs.query.system.account(alice.address)).data.free.toBigInt();
 
-                // limit_price = 1 RAO — current price (~1 TAO/alpha) is always >= 1
+                // limit_price = 1_000_000_000 (1.0 TAO/alpha in ×10⁹ scale) — current price after
+                // devAddStake(tao(1000)) is above 1.0 TAO/alpha, so this condition is always met
                 const signed = buildSignedOrder(polkadotJs, {
                     signer: alice,
                     hotkey: aliceHotKey.address,
                     netuid,
                     orderType: "TakeProfit",
                     amount: tao(100),
-                    limitPrice: 1n,
+                    limitPrice: 1_000_000_000n,
                     expiry: FAR_FUTURE,
                     feeRate: 0,
                     feeRecipient: alice.address,

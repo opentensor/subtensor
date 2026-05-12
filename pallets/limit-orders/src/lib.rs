@@ -60,7 +60,7 @@ impl OrderType {
 /// Only its H256 hash is stored on-chain; the full struct is submitted by the
 /// admin at execution time (or by the user at cancellation time).
 #[allow(clippy::multiple_bound_locations)] // bounds on AccountId required by FRAME derives
-#[freeze_struct("bb268090054f462e")]
+#[freeze_struct("b5e575cbffa6c1d6")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
@@ -76,9 +76,11 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub order_type: OrderType,
     /// Input amount: TAO (raw) for Buy, alpha (raw) for Sell.
     pub amount: u64,
-    /// Price threshold in TAO/alpha (raw units, same scale as
-    /// `OrderSwapInterface::current_alpha_price`).
+    /// Price threshold in ×10⁹ scale (same as the `current_alpha_price` RPC endpoint).
+    /// A value of `1_000_000_000` represents a price of 1.0 TAO/alpha.
+    /// Sub-unity prices (e.g. 0.5 TAO/alpha) are expressed as `500_000_000`.
     /// Buy: maximum acceptable price.  Sell: minimum acceptable price.
+    /// `u64::MAX` means no ceiling (buy at any price); `0` means no floor (sell at any price).
     pub limit_price: u64,
     /// Unix timestamp in milliseconds after which this order must not be executed.
     pub expiry: u64,
@@ -599,12 +601,17 @@ pub mod pallet {
                 Error::<T>::OrderCancelled
             );
             ensure!(now_ms <= order.expiry, Error::<T>::OrderExpired);
+            // Scale current_price to ×10⁹ to match the limit_price field, which is
+            // expressed in the same ×10⁹ scale as the `current_alpha_price` RPC endpoint.
+            // This allows sub-unity prices (e.g. 0.5 TAO/alpha = 500_000_000) to be
+            // represented and compared correctly.
+            let scaled_price = current_price
+                .saturating_mul(U96F32::from_num(1_000_000_000u64))
+                .saturating_to_num::<u64>();
             ensure!(
                 match order.order_type {
-                    OrderType::TakeProfit =>
-                        current_price >= U96F32::saturating_from_num(order.limit_price),
-                    OrderType::StopLoss | OrderType::LimitBuy =>
-                        current_price <= U96F32::saturating_from_num(order.limit_price),
+                    OrderType::TakeProfit => scaled_price >= order.limit_price,
+                    OrderType::StopLoss | OrderType::LimitBuy => scaled_price <= order.limit_price,
                 },
                 Error::<T>::PriceConditionNotMet
             );

@@ -32,13 +32,10 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
                 Error::<T>::NotEnoughBalanceToStake
             );
         }
-        // `limit_price` arrives in the same units as `current_alpha_price()` (a raw ratio
-        // where 1.0 ≈ 1 unit/alpha).  The AMM encodes its price_limit as `price × 10⁹`
-        // (matching the rao-per-TAO precision convention), so we scale up here before
-        // handing off to `stake_into_subnet`.  saturating_mul handles the no-ceiling case
-        // (limit_price = u64::MAX) by saturating to u64::MAX, which the AMM interprets as
-        // an astronomically high ceiling that current prices never reach.
-        let amm_limit = TaoBalance::from(limit_price.to_u64().saturating_mul(1_000_000_000));
+        // `limit_price` is already in ×10⁹ scale (same as the `current_alpha_price` RPC
+        // endpoint), which is also the scale the AMM uses for its price_limit argument.
+        // Pass it directly without any scaling.  u64::MAX means "no ceiling".
+        let amm_limit = limit_price;
         let alpha_out =
             Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false, false)?;
         if validate {
@@ -80,10 +77,10 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             );
             Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid)?;
         }
-        // Same ×10⁹ scaling as in buy_alpha: limit_price is in current_alpha_price() units;
-        // the AMM expects price × 10⁹.  For the no-floor case (limit_price = 0) the result
-        // is 0, which the AMM treats as "no lower bound".
-        let amm_limit = TaoBalance::from(limit_price.to_u64().saturating_mul(1_000_000_000));
+        // `limit_price` is already in ×10⁹ scale (same as the `current_alpha_price` RPC
+        // endpoint), which is also the scale the AMM uses for its price_limit argument.
+        // Pass it directly without any scaling.  0 means "no floor".
+        let amm_limit = limit_price;
         let tao_out = Self::unstake_from_subnet(
             hotkey,
             coldkey,
