@@ -174,7 +174,9 @@ mod hooks {
                 // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
                 .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
                 // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
-                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>());
+                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>())
+                // Backfill `RootRegisteredHotkeyCount` from the root-subnet `Keys` map
+                .saturating_add(migrations::migrate_init_root_registered_hotkey_count::migrate_init_root_registered_hotkey_count::<T>());
             weight
         }
 
