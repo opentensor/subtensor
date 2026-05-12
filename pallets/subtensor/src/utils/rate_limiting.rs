@@ -204,6 +204,7 @@ pub enum Hyperparameter {
     MaxAllowedUids = 25,
     BurnHalfLife = 26,
     BurnIncreaseMult = 27,
+    SubnetEmissionEnabled = 28,
 }
 
 impl<T: Config> Pallet<T> {

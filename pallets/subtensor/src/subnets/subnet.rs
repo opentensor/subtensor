@@ -302,6 +302,10 @@ impl<T: Config> Pallet<T> {
         Self::set_yuma3_enabled(netuid, true);
         Self::set_burn(netuid, DefaultNeuronBurnCost::<T>::get());
 
+        // New subnets should never inherit a prior subnet owner's disabled state
+        // when a netuid is reused after pruning/dissolve.
+        SubnetEmissionEnabled::<T>::insert(netuid, true);
+
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
             Tempo::<T>::insert(netuid, Tempo::<T>::get(netuid));

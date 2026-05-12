@@ -76,6 +76,18 @@ impl<T: Config> Pallet<T> {
     ) {
         let mut remaining_credit = credit;
         for netuid_i in subnets_to_emit_to.iter() {
+            if !SubnetEmissionEnabled::<T>::get(*netuid_i) {
+                // Disabled subnet emission only skips pool-side injections and chain buys.
+                // Keep per-block accounting explicit so readers do not see stale values.
+                SubnetAlphaInEmission::<T>::insert(*netuid_i, AlphaBalance::ZERO);
+                SubnetTaoInEmission::<T>::insert(*netuid_i, TaoBalance::ZERO);
+                SubnetExcessTao::<T>::insert(*netuid_i, TaoBalance::ZERO);
+                log::debug!(
+                    "subnet emission disabled for netuid {netuid_i:?}; skipping alpha_in, tao_in, and chain buys"
+                );
+                continue;
+            }
+
             let maybe_subnet_account_id = Self::get_subnet_account_id(*netuid_i);
             if let Some(subnet_account_id) = maybe_subnet_account_id {
                 let tao_in_i: TaoBalance =
@@ -195,21 +207,33 @@ impl<T: Config> Pallet<T> {
             );
             log::debug!("alpha_emission_i: {alpha_emission_i:?}");
 
-            // Get subnet price.
-            let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
-            log::debug!("price_i: {price_i:?}");
-
-            let mut tao_in_i: U96F32 = tao_emission_i;
+            // This must remain unchanged even when pool-side subnet emission is disabled.
+            // It feeds owner cut, root prop, pending server emission, and pending validator emission.
             let alpha_out_i: U96F32 = alpha_emission_i;
-            let mut alpha_in_i: U96F32 = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
 
-            let alpha_injection_cap: U96F32 = alpha_emission_i.min(tao_block_emission);
-            if alpha_in_i > alpha_injection_cap {
-                alpha_in_i = alpha_injection_cap;
-                tao_in_i = alpha_in_i.saturating_mul(price_i);
+            let mut tao_in_i: U96F32 = U96F32::from_num(0.0);
+            let mut alpha_in_i: U96F32 = U96F32::from_num(0.0);
+            let mut excess_amount: U96F32 = U96F32::from_num(0.0);
+
+            if SubnetEmissionEnabled::<T>::get(netuid_i) {
+                // Get subnet price.
+                let price_i: U96F32 = T::SwapInterface::current_alpha_price(netuid_i.into());
+                log::debug!("price_i: {price_i:?}");
+
+                tao_in_i = tao_emission_i;
+                alpha_in_i = tao_emission_i.safe_div_or(price_i, U96F32::from_num(0.0));
+
+                let alpha_injection_cap: U96F32 = alpha_emission_i.min(tao_block_emission);
+                if alpha_in_i > alpha_injection_cap {
+                    alpha_in_i = alpha_injection_cap;
+                    tao_in_i = alpha_in_i.saturating_mul(price_i);
+                }
+
+                excess_amount = tao_emission_i.saturating_sub(tao_in_i);
+            } else {
+                log::debug!("subnet emission disabled for netuid {netuid_i:?}");
             }
 
-            let excess_amount: U96F32 = tao_emission_i.saturating_sub(tao_in_i);
             excess_tao.insert(netuid_i, excess_amount);
 
             // Insert values into maps
