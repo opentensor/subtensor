@@ -235,6 +235,9 @@ impl<T: Config> Pallet<T> {
 
         let owner_alpha_stake = AlphaBalance::ZERO;
 
+        // With the full lock retained in the reserve, this will normally be zero.
+        let tao_recycled_for_registration = actual_tao_lock_amount.saturating_sub(total_pool_tao);
+
         // Core pool + ownership
         SubnetTAO::<T>::insert(netuid_to_register, total_pool_tao);
         SubnetAlphaIn::<T>::insert(netuid_to_register, total_pool_alpha);
@@ -245,6 +248,15 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
         SubnetAlphaOut::<T>::insert(netuid_to_register, owner_alpha_stake);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
+        RAORecycledForRegistration::<T>::insert(netuid_to_register, tao_recycled_for_registration);
+
+        if tao_recycled_for_registration > TaoBalance::ZERO
+            && let Some(subnet_account_id) = Self::get_subnet_account_id(netuid_to_register)
+        {
+            // The subnet account ID is guaranteed to have adequate balance for this
+            // recycle because of transfer operation earlier. No need to check this result.
+            let _ = Self::recycle_tao(&subnet_account_id, tao_recycled_for_registration);
+        }
 
         if total_pool_tao > TaoBalance::ZERO {
             // Record in TotalStake the initial TAO in the pool.
