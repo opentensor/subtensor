@@ -95,7 +95,7 @@ impl pallet_multi_collective::Config for Runtime {
 pub struct MultiCollectiveBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for MultiCollectiveBenchmarkHelper {
+impl pallet_multi_collective::BenchmarkHelper<Runtime> for MultiCollectiveBenchmarkHelper {
     fn collective() -> CollectiveId {
         CollectiveId::Proposers
     }
@@ -154,7 +154,7 @@ pub struct SignedVotingBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_signed_voting::benchmarking::BenchmarkHelper<Runtime> for SignedVotingBenchmarkHelper {
     fn ongoing_poll() -> u32 {
-        use super::ReferendaBenchmarkHelper as RBH;
+        use self::ReferendaBenchmarkHelper as RBH;
         use pallet_referenda::BenchmarkHelper as BH;
 
         let proposer = <RBH as BH<u8, AccountId, RuntimeCall>>::proposer();

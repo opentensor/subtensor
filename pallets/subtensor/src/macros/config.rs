@@ -75,6 +75,10 @@ mod config {
         /// a coldkey crosses the 0↔1 boundary in `RootRegisteredHotkeyCount`.
         type OnRootRegistrationChange: crate::governance::OnRootRegistrationChange<Self::AccountId>;
 
+        /// Read-side accessor for the `EconomicEligible` collective, used
+        /// by `try_state` to assert the collective stays in sync with
+        /// the root-registered coldkey set.
+        type EconomicEligibleInspector: crate::governance::EconomicEligibleInspector<Self::AccountId>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: crate::weights::WeightInfo;

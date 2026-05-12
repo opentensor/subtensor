@@ -489,6 +489,7 @@ impl pallet_subtensor::Config for Runtime {
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type OnRootRegistrationChange = ();
+    type EconomicEligibleInspector = ();
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();

@@ -207,6 +207,25 @@ impl crate::governance::OnRootRegistrationChange<U256> for MockOnRootRegistratio
     }
 }
 
+thread_local! {
+    static MOCK_ECONOMIC_ELIGIBLE_MEMBERS: core::cell::RefCell<Option<Vec<U256>>> =
+        const { core::cell::RefCell::new(None) };
+}
+
+/// Override the `EconomicEligible` membership exposed to
+/// `pallet_subtensor`'s try_state check. `None` (the default) makes
+/// the check a no-op; `Some(_)` opts the test in.
+pub fn set_mock_economic_eligible_members(members: Option<Vec<U256>>) {
+    MOCK_ECONOMIC_ELIGIBLE_MEMBERS.with(|m| *m.borrow_mut() = members);
+}
+
+pub struct MockEconomicEligibleInspector;
+
+impl crate::governance::EconomicEligibleInspector<U256> for MockEconomicEligibleInspector {
+    fn members() -> Option<Vec<U256>> {
+        MOCK_ECONOMIC_ELIGIBLE_MEMBERS.with(|m| m.borrow().clone())
+    }
+}
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
@@ -362,6 +381,7 @@ impl crate::Config for Test {
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type OnRootRegistrationChange = MockOnRootRegistrationChange;
+    type EconomicEligibleInspector = MockEconomicEligibleInspector;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();

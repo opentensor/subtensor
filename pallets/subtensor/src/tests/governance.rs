@@ -252,4 +252,3 @@ fn economic_eligible_invariant_fails_on_extra_member() {
         assert!(SubtensorModule::check_economic_eligible_matches_root_registered().is_err());
     });
 }
-
