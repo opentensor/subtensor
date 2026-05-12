@@ -72,7 +72,10 @@ impl SetLike<AccountId> for MemberSet {
 }
 
 parameter_types! {
-    pub const MaxMembers: u32 = 20;
+    /// Storage cap shared by all collectives; sized for the widest one
+    /// (`EconomicEligible`). Per-collective `info.max_members` are the
+    /// logical caps; this is just the `BoundedVec` capacity.
+    pub const MaxMembers: u32 = collectives::ECONOMIC_ELIGIBLE_SIZE;
 }
 
 impl pallet_multi_collective::Config for Runtime {

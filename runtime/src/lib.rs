@@ -29,6 +29,7 @@ use frame_support::{
     traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
+use governance::collectives::{EconomicEligibleInspector, EconomicEligibleSync};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
@@ -1205,6 +1206,8 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
+    type OnRootRegistrationChange = EconomicEligibleSync;
+    type EconomicEligibleInspector = EconomicEligibleInspector;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;

@@ -1,7 +1,9 @@
 use alloc::vec::Vec;
 
 use frame_support::pallet_prelude::*;
-use pallet_multi_collective::{Collective, CollectiveInfo, CollectivesInfo, OnNewTerm};
+use pallet_multi_collective::{
+    Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo, OnNewTerm,
+};
 use runtime_common::prod_or_fast;
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{TaoBalance, pad_name, time::DAYS};
@@ -16,6 +18,12 @@ pub const ECONOMIC_SIZE: u32 = 16;
 
 /// Target size of the Building ranked collective.
 pub const BUILDING_SIZE: u32 = 16;
+
+/// Cap on the EconomicEligible collective. Equal to the root subnet's
+/// maximum UID count: membership mirrors the set of coldkeys with at
+/// least one root-registered hotkey, so the worst case is one distinct
+/// coldkey per root UID.
+pub const ECONOMIC_ELIGIBLE_SIZE: u32 = 64;
 
 /// Time before a collective rotation is triggered.
 const TERM_DURATION: BlockNumber = prod_or_fast!(60 * DAYS, 100);
@@ -48,6 +56,11 @@ pub enum CollectiveId {
     /// Top subnet owners: one half of the collective oversight voter set.
     #[codec(index = 3)]
     Building,
+    /// Staging set for the Economic collective. Membership is driven by
+    /// `do_root_register` in `pallet-subtensor`; each rotation projects
+    /// the top-`ECONOMIC_SIZE` from here into `Economic`.
+    #[codec(index = 4)]
+    EconomicEligible,
 }
 
 pub struct Collectives;
@@ -90,6 +103,15 @@ impl CollectivesInfo<BlockNumber, [u8; 32]> for Collectives {
                     min_members: 1,
                     max_members: Some(BUILDING_SIZE),
                     term_duration: Some(TERM_DURATION),
+                },
+            },
+            Collective {
+                id: CollectiveId::EconomicEligible,
+                info: CollectiveInfo {
+                    name: pad_name(b"economic_eligible"),
+                    min_members: 0,
+                    max_members: Some(ECONOMIC_ELIGIBLE_SIZE),
+                    term_duration: None,
                 },
             },
         ]
@@ -232,6 +254,62 @@ impl TermManagement {
                 .saturating_add(
                     <Runtime as frame_system::Config>::DbWeight::get().reads_writes(len, len),
                 ),
+        )
+    }
+}
+
+/// Syncs `EconomicEligible` membership to the root-registered coldkey set.
+/// Fired by `pallet-subtensor` whenever a coldkey crosses the 0↔1 boundary
+/// in `RootRegisteredHotkeyCount`. `do_add_member` / `do_remove_member`
+/// are idempotent and skip origin checks, so the sync is best-effort:
+/// failures are logged but do not block the underlying root-registration
+/// or hotkey-swap call.
+pub struct EconomicEligibleSync;
+
+impl pallet_subtensor::governance::OnRootRegistrationChange<AccountId> for EconomicEligibleSync {
+    fn on_added(coldkey: &AccountId) {
+        if let Err(err) = pallet_multi_collective::Pallet::<Runtime>::do_add_member(
+            CollectiveId::EconomicEligible,
+            coldkey.clone(),
+        ) {
+            log::error!(
+                target: "runtime::economic-eligible-sync",
+                "do_add_member failed for {:?}: {:?}",
+                coldkey,
+                err,
+            );
+        }
+    }
+
+    fn on_removed(coldkey: &AccountId) {
+        if let Err(err) = pallet_multi_collective::Pallet::<Runtime>::do_remove_member(
+            CollectiveId::EconomicEligible,
+            coldkey.clone(),
+        ) {
+            log::error!(
+                target: "runtime::economic-eligible-sync",
+                "do_remove_member failed for {:?}: {:?}",
+                coldkey,
+                err,
+            );
+        }
+    }
+}
+
+/// Read-side accessor for `pallet-subtensor`'s try_state invariant. Reads
+/// the `EconomicEligible` membership directly so the runtime can assert
+/// it stays in sync with `RootRegisteredHotkeyCount`.
+pub struct EconomicEligibleInspector;
+
+impl pallet_subtensor::governance::EconomicEligibleInspector<AccountId>
+    for EconomicEligibleInspector
+{
+    fn members() -> Option<Vec<AccountId>> {
+        Some(
+            <pallet_multi_collective::Pallet<Runtime> as CollectiveInspect<
+                AccountId,
+                CollectiveId,
+            >>::members_of(CollectiveId::EconomicEligible),
         )
     }
 }
