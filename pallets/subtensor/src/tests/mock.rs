@@ -64,9 +64,9 @@ pub struct MockTempoInterface;
 impl pallet_commitments::GetTempoInterface for MockTempoInterface {
     fn get_epoch_index(netuid: NetUid, cur_block: u64) -> u64 {
         let tempo: u64 = 360; // Default tempo
-        let tempo_plus_one: u64 = tempo.saturating_add(1);
-        let netuid_plus_one: u64 = (u16::from(netuid) as u64).saturating_add(1);
-        let block_with_offset: u64 = cur_block.saturating_add(netuid_plus_one);
+        let tempo_plus_one: u64 = tempo.checked_add(1).unwrap();
+        let netuid_plus_one: u64 = (u16::from(netuid) as u64).checked_add(1).unwrap();
+        let block_with_offset: u64 = cur_block.checked_add(netuid_plus_one).unwrap();
 
         block_with_offset.checked_div(tempo_plus_one).unwrap_or(0)
     }
