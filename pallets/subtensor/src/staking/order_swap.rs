@@ -20,7 +20,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Self::ensure_subtoken_enabled(netuid)?;
         if validate {
             ensure!(
-                Self::coldkey_owns_hotkey(coldkey, hotkey),
+                Self::hotkey_account_exists(hotkey),
                 Error::<T>::HotKeyAccountNotExists
             );
             ensure!(
@@ -60,7 +60,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Self::ensure_subtoken_enabled(netuid)?;
         if validate {
             ensure!(
-                Self::coldkey_owns_hotkey(coldkey, hotkey),
+                Self::hotkey_account_exists(hotkey),
                 Error::<T>::HotKeyAccountNotExists
             );
 
