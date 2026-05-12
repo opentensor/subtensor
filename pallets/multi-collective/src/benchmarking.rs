@@ -122,44 +122,5 @@ mod benches {
         force_rotate(RawOrigin::Root, collective);
     }
 
-    /// Linear in `n`, the pre-call member count of the target collective.
-    /// At `n == max_members` the body falls through to the eviction path
-    /// (full sweep + lowest-rank scan + Vec rotate + bounded rebuild); at
-    /// smaller `n` the rank scan is skipped via the `has_room` branch. The
-    /// `policy_weight` refund tracks the per-call policy cost separately,
-    /// so this benchmark only measures the pallet's own work.
-    #[benchmark]
-    fn try_join(n: Linear<0, { T::MaxMembers::get() }>) {
-        let collective = T::BenchmarkHelper::try_join_collective();
-
-        let mut incumbents: Vec<T::AccountId> = (0..n)
-            .map(|i| account::<T::AccountId>("incumbent", i, SEED))
-            .collect();
-        incumbents.sort();
-
-        // Strictly-increasing ranks; the candidate gets the maximum so the
-        // displacement check succeeds when the collective is full.
-        for (idx, m) in incumbents.iter().enumerate() {
-            T::BenchmarkHelper::prime_admission(collective, m, idx as u32);
-        }
-        if n > 0 {
-            let bounded = BoundedVec::try_from(incumbents.clone())
-                .expect("benchmark fill must respect MaxMembers");
-            Members::<T>::insert(collective, bounded);
-        }
-
-        let candidate = account::<T::AccountId>("candidate", 0, SEED);
-        T::BenchmarkHelper::prime_admission(collective, &candidate, u32::MAX);
-
-        #[extrinsic_call]
-        try_join(RawOrigin::Signed(candidate.clone()), collective);
-
-        assert!(
-            Members::<T>::get(collective)
-                .binary_search(&candidate)
-                .is_ok()
-        );
-    }
-
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -405,7 +405,6 @@ impl pallet_multi_collective::Config for Test {
     type RotateOrigin = frame_support::traits::AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type OnMembersChanged = ();
     type OnNewTerm = ();
-    type AdmissionPolicy = ();
     type MaxMembers = MaxMembers;
     type WeightInfo = ();
     #[cfg(feature = "runtime-benchmarks")]

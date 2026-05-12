@@ -5,7 +5,6 @@
     clippy::indexing_slicing
 )]
 
-use alloc::collections::BTreeMap;
 use core::cell::RefCell;
 
 use frame_support::{
@@ -19,8 +18,8 @@ use frame_system::EnsureRoot;
 use sp_core::U256;
 
 use crate::{
-    self as pallet_multi_collective, AdmissionPolicy, Collective, CollectiveInfo, CollectivesInfo,
-    OnMembersChanged, OnNewTerm,
+    self as pallet_multi_collective, Collective, CollectiveInfo, CollectivesInfo, OnMembersChanged,
+    OnNewTerm,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -225,66 +224,6 @@ pub fn take_members_changed_log() -> Vec<MembersChangedCall> {
     MEMBERS_CHANGED_LOG.with(|log| log.borrow_mut().drain(..).collect())
 }
 
-// --- Configurable admission policy ---
-//
-// Thread-local state lets each `try_join` test wire up exactly the
-// eligibility verdict and rank it needs. Defaults: every account is
-// ineligible (which forces tests to be explicit about who can join)
-// and every account ranks at `0`.
-
-thread_local! {
-    static ELIGIBILITY: RefCell<BTreeMap<(CollectiveId, U256), bool>> =
-        const { RefCell::new(BTreeMap::new()) };
-    static RANKS: RefCell<BTreeMap<(CollectiveId, U256), u128>> =
-        const { RefCell::new(BTreeMap::new()) };
-}
-
-pub fn set_eligible(collective_id: CollectiveId, who: U256, eligible: bool) {
-    ELIGIBILITY.with(|e| {
-        e.borrow_mut().insert((collective_id, who), eligible);
-    });
-}
-
-pub fn set_rank(collective_id: CollectiveId, who: U256, rank: u128) {
-    RANKS.with(|r| {
-        r.borrow_mut().insert((collective_id, who), rank);
-    });
-}
-
-pub fn clear_admission_policy() {
-    ELIGIBILITY.with(|e| e.borrow_mut().clear());
-    RANKS.with(|r| r.borrow_mut().clear());
-}
-
-pub struct TestAdmissionPolicy;
-
-impl AdmissionPolicy<U256, CollectiveId> for TestAdmissionPolicy {
-    type Rank = u128;
-
-    fn is_eligible(collective_id: CollectiveId, who: &U256) -> (bool, Weight) {
-        let eligible = ELIGIBILITY.with(|e| {
-            e.borrow()
-                .get(&(collective_id, *who))
-                .copied()
-                .unwrap_or(false)
-        });
-        (eligible, Weight::zero())
-    }
-
-    fn rank(collective_id: CollectiveId, who: &U256) -> (Self::Rank, Weight) {
-        let rank = RANKS.with(|r| r.borrow().get(&(collective_id, *who)).copied().unwrap_or(0));
-        (rank, Weight::zero())
-    }
-
-    fn is_eligible_weight(_: u32) -> Weight {
-        Weight::zero()
-    }
-
-    fn rank_weight(_: u32) -> Weight {
-        Weight::zero()
-    }
-}
-
 /// Returns the `pallet_multi_collective::Event<Test>` values recorded in
 /// `System::events()` so far, in insertion order.
 pub fn multi_collective_events() -> Vec<crate::Event<Test>> {
@@ -322,7 +261,6 @@ impl pallet_multi_collective::Config for Test {
     type RotateOrigin = AsEnsureOriginWithArg<EnsureRoot<U256>>;
     type OnMembersChanged = TestOnMembersChanged;
     type OnNewTerm = TestOnNewTerm;
-    type AdmissionPolicy = TestAdmissionPolicy;
     type MaxMembers = MaxMembers;
     type WeightInfo = ();
     #[cfg(feature = "runtime-benchmarks")]
@@ -343,17 +281,6 @@ impl pallet_multi_collective::BenchmarkHelper<Test> for TestBenchmarkHelper {
     fn rotatable_collective() -> CollectiveId {
         // Beta has term_duration = Some(100).
         CollectiveId::Beta
-    }
-
-    fn try_join_collective() -> CollectiveId {
-        // Delta: min=1, max=32 — bounded so the `try_join` benchmark
-        // exercises the ranking / eviction path.
-        CollectiveId::Delta
-    }
-
-    fn prime_admission(collective_id: CollectiveId, who: &U256, rank: u32) {
-        set_eligible(collective_id, *who, true);
-        set_rank(collective_id, *who, rank as u128);
     }
 }
 
@@ -383,7 +310,6 @@ impl TestState {
             let _ = take_new_term_log();
             let _ = take_members_changed_log();
             set_new_term_weight(Weight::zero());
-            clear_admission_policy();
             test();
         });
     }
@@ -393,16 +319,4 @@ impl TestState {
 /// each block `k` from the current block+1 up to and including `n`.
 pub fn run_to_block(n: u64) {
     System::run_to_block::<AllPalletsWithSystem>(n);
-}
-
-pub fn seed_members(collective_id: CollectiveId, members: &[U256]) {
-    let mut sorted = members.to_vec();
-    sorted.sort();
-    frame_support::assert_ok!(crate::Pallet::<Test>::set_members(
-        RuntimeOrigin::root(),
-        collective_id,
-        sorted,
-    ));
-    let _ = take_members_changed_log();
-    System::reset_events();
 }
