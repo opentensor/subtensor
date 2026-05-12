@@ -1,7 +1,11 @@
+use alloc::collections::{BTreeMap, BTreeSet};
+
 use frame_support::traits::fungible::Inspect;
 use frame_system::pallet_prelude::BlockNumberFor;
+use subtensor_runtime_common::NetUid;
 
 use super::*;
+use crate::governance::EconomicEligibleInspector;
 
 impl<T: Config> Pallet<T> {
     /// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
@@ -85,6 +89,57 @@ impl<T: Config> Pallet<T> {
             "TotalStake does not match total staked",
         );
 
+        Ok(())
+    }
+
+    /// Verifies that `RootRegisteredHotkeyCount` matches, for every coldkey,
+    /// the actual number of owned hotkeys that are registered on the root
+    /// subnet. Both directions are checked: stored entries must agree with
+    /// the computed count, and no coldkey with root-registered hotkeys may
+    /// be missing from the index.
+    pub(crate) fn check_root_registered_hotkey_count() -> Result<(), sp_runtime::TryRuntimeError> {
+        let mut expected: BTreeMap<T::AccountId, u32> = BTreeMap::new();
+        for (_uid, hotkey) in Keys::<T>::iter_prefix(NetUid::ROOT) {
+            let owner = Owner::<T>::get(&hotkey);
+            expected
+                .entry(owner)
+                .and_modify(|c| *c = c.saturating_add(1))
+                .or_insert(1);
+        }
+
+        for (coldkey, stored) in RootRegisteredHotkeyCount::<T>::iter() {
+            let expected_count = expected.remove(&coldkey).unwrap_or(0);
+            ensure!(
+                stored == expected_count,
+                "RootRegisteredHotkeyCount mismatch for coldkey",
+            );
+        }
+
+        ensure!(
+            expected.is_empty(),
+            "RootRegisteredHotkeyCount missing entries for coldkeys with root hotkeys",
+        );
+
+        Ok(())
+    }
+
+    /// Verifies that the `EconomicEligible` collective's membership is
+    /// exactly the set of coldkeys with at least one root-registered
+    /// hotkey. Skipped when `T::EconomicEligibleInspector` returns
+    /// `None` (test mocks that do not wire up the collective pallet).
+    pub(crate) fn check_economic_eligible_matches_root_registered()
+    -> Result<(), sp_runtime::TryRuntimeError> {
+        let Some(actual_members) = T::EconomicEligibleInspector::members() else {
+            return Ok(());
+        };
+        let actual: BTreeSet<T::AccountId> = actual_members.into_iter().collect();
+        let expected: BTreeSet<T::AccountId> = RootRegisteredHotkeyCount::<T>::iter()
+            .map(|(coldkey, _)| coldkey)
+            .collect();
+        ensure!(
+            actual == expected,
+            "EconomicEligible members do not match root-registered coldkey set",
+        );
         Ok(())
     }
 }

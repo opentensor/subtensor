@@ -10,6 +10,7 @@ mod ensure;
 mod epoch;
 mod epoch_logs;
 mod evm;
+mod governance;
 mod leasing;
 mod locks;
 mod math;

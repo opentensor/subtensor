@@ -175,6 +175,39 @@ impl AuthorshipInfo<U256> for MockAuthorshipProvider {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RootRegistrationChange {
+    Added(U256),
+    Removed(U256),
+}
+
+thread_local! {
+    static ROOT_REGISTRATION_LOG: core::cell::RefCell<Vec<RootRegistrationChange>> =
+        const { core::cell::RefCell::new(Vec::new()) };
+}
+
+pub fn take_root_registration_log() -> Vec<RootRegistrationChange> {
+    ROOT_REGISTRATION_LOG.with(|log| log.borrow_mut().drain(..).collect())
+}
+
+pub struct MockOnRootRegistrationChange;
+
+impl crate::governance::OnRootRegistrationChange<U256> for MockOnRootRegistrationChange {
+    fn on_added(coldkey: &U256) {
+        ROOT_REGISTRATION_LOG.with(|log| {
+            log.borrow_mut()
+                .push(RootRegistrationChange::Added(*coldkey))
+        });
+    }
+    fn on_removed(coldkey: &U256) {
+        ROOT_REGISTRATION_LOG.with(|log| {
+            log.borrow_mut()
+                .push(RootRegistrationChange::Removed(*coldkey))
+        });
+    }
+}
+
+
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
@@ -328,6 +361,7 @@ impl crate::Config for Test {
     type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type OnRootRegistrationChange = MockOnRootRegistrationChange;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
@@ -1191,4 +1225,18 @@ pub fn remove_owner_registration_stake(netuid: NetUid) {
         TotalHotkeyAlpha::<Test>::get(owner_hotkey, netuid),
         AlphaBalance::ZERO
     );
+}
+
+pub fn root_register_with_stake(coldkey: &U256, hotkey: &U256, alpha_netuid: NetUid) {
+    register_ok_neuron(alpha_netuid, *hotkey, *coldkey, 0);
+    SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        hotkey,
+        coldkey,
+        NetUid::ROOT,
+        AlphaBalance::from(1_000_000_000),
+    );
+    assert_ok!(SubtensorModule::root_register(
+        RuntimeOrigin::signed(*coldkey),
+        *hotkey,
+    ));
 }

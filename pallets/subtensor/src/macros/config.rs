@@ -71,6 +71,11 @@ mod config {
         /// Provider of current block author
         type AuthorshipProvider: AuthorshipInfo<Self::AccountId>;
 
+        /// Receiver of root-registration edge notifications. Fires when
+        /// a coldkey crosses the 0↔1 boundary in `RootRegisteredHotkeyCount`.
+        type OnRootRegistrationChange: crate::governance::OnRootRegistrationChange<Self::AccountId>;
+
+
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: crate::weights::WeightInfo;
 

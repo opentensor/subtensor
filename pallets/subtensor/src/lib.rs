@@ -36,6 +36,7 @@ mod benchmarks;
 pub mod coinbase;
 pub mod epoch;
 pub mod extensions;
+pub mod governance;
 pub mod guards;
 pub mod macros;
 pub mod migrations;
@@ -1378,6 +1379,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
+    /// Number of hotkeys controlled by this coldkey that are currently registered on the root subnet.
+    #[pallet::storage]
+    pub type RootRegisteredHotkeyCount<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
     /// --- DMAP ( cold, netuid )--> hot | Returns the hotkey a coldkey will autostake to with mining rewards.
     #[pallet::storage]
