@@ -505,6 +505,21 @@ impl<T: Config> Pallet<T> {
         true
     }
 
+    /// This function calculates the total alpha value for a subnet.
+    /// It iterates through all hotkeys in the subnet and calculates the total alpha value.
+    /// It returns true if all hotkeys are iterated, otherwise false.
+    ///
+    /// # Args:
+    /// * 'netuid' (NetUid):
+    ///     - The subnet to calculate the total alpha value for.
+    ///
+    /// * 'weight_meter' (WeightMeter):
+    ///     - The weight meter to consume the weight for the operation.
+    ///
+    /// # Returns:
+    /// * 'bool':
+    ///     - True if all hotkeys are iterated, otherwise false.
+    ///
     pub fn destroy_alpha_in_out_stakes_get_total_alpha_value(
         netuid: NetUid,
         weight_meter: &mut WeightMeter,
@@ -695,7 +710,7 @@ impl<T: Config> Pallet<T> {
         }
         let mut portions: Vec<Portion<_, _>> = Vec::with_capacity(stakers.len());
 
-        // 6) Pro‑rata distribution of the pot by α value (largest‑remainder),
+        // Pro‑rata distribution of the pot by α value (largest‑remainder),
         //    **credited directly to each staker's COLDKEY free balance**.
         if pot_u64 > 0 && total_alpha_value_u128 > 0 && !stakers.is_empty() {
             let pot_u128: u128 = pot_u64 as u128;
@@ -786,7 +801,6 @@ impl<T: Config> Pallet<T> {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
         let mut read_all = true;
-        //    - track hotkeys to clear pool totals.
 
         let iter = match LastKeptRawKey::<T>::get() {
             Some(key) => TotalHotkeyAlpha::<T>::iter_from(key),

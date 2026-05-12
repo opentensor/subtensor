@@ -471,8 +471,7 @@ macro_rules! LoopRemovePrefixWithWeightMeter {
         let result: $crate::MultiRemovalResults = <$storage>::clear_prefix($netuid, limit, None);
         $meter.consume(weight.saturating_mul(result.backend.into()));
 
-        let remove_all = result.maybe_cursor.is_none();
-        if !remove_all {
+        if !result.maybe_cursor.is_none() {
             return false;
         }
     }};

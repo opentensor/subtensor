@@ -2123,9 +2123,13 @@ pub mod pallet {
     #[pallet::storage]
     pub type LastKeptRawKey<T> = StorageValue<_, Vec<u8>, OptionQuery>;
 
+    /// --- ITEM ( dissolved_subnet_total_alpha_value ) Total alpha value for the dissolved subnet.
+    /// It is only used during clean the data for dissolved networks.
     #[pallet::storage]
     pub type DissolvedSubnetTotalAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
 
+    /// --- ITEM ( dissolved_subnet_settled_alpha_value ) Settled alpha value for the dissolved subnet.
+    /// It is only used during clean the data for dissolved networks.
     #[pallet::storage]
     pub type DissolvedSubnetSettledAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
 

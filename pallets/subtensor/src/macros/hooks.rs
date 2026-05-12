@@ -524,6 +524,7 @@ mod hooks {
                                     &mut weight_meter,
                                 );
 
+                            // if all phases are done, remove the network from the dissolved networks list and emit the event
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::set(None);
                                 DissolvedNetworks::<T>::mutate(|networks| {

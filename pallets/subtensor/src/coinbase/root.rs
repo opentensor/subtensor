@@ -291,7 +291,6 @@ impl<T: Config> Pallet<T> {
             netuid
         );
 
-        // Commit-reveal / weights commits (all per-net prefixes):
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
 
@@ -349,7 +348,6 @@ impl<T: Config> Pallet<T> {
         MechanismCountCurrent::<T>::remove(netuid);
         MechanismEmissionSplit::<T>::remove(netuid);
 
-        // Last hotkey swap (DMAP where netuid is FIRST key → easy)
         LoopRemovePrefixWithWeightMeter!(
             weight_meter,
             T::DbWeight::get().writes(1),
@@ -357,9 +355,7 @@ impl<T: Config> Pallet<T> {
             netuid
         );
 
-        // --- 22. Subnet leasing: remove mapping and any lease-scoped state linked to this netuid.
         if let Some(lease_id) = SubnetUidToLeaseId::<T>::get(netuid) {
-            // Fixed: Import the macro type to resolve the error
             LoopRemovePrefixWithWeightMeter!(
                 weight_meter,
                 T::DbWeight::get().writes(1),
@@ -372,7 +368,6 @@ impl<T: Config> Pallet<T> {
             SubnetUidToLeaseId::<T>::remove(netuid);
         }
 
-        // --- Final removal logging.
         true
     }
 
