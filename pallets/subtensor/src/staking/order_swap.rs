@@ -116,7 +116,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Self::ensure_subtoken_enabled(netuid)?;
         if validate_sender {
             ensure!(
-                Self::coldkey_owns_hotkey(from_coldkey, from_hotkey),
+                Self::hotkey_account_exists(from_hotkey),
                 Error::<T>::HotKeyAccountNotExists
             );
             ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
@@ -149,7 +149,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         );
         if validate_receiver {
             ensure!(
-                Self::coldkey_owns_hotkey(to_coldkey, to_hotkey),
+                Self::hotkey_account_exists(to_hotkey),
                 Error::<T>::HotKeyAccountNotExists
             );
             Self::set_stake_operation_limit(to_hotkey, to_coldkey, netuid);
