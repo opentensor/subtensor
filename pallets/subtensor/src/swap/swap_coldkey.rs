@@ -29,14 +29,16 @@ impl<T: Config> Pallet<T> {
             Self::transfer_coldkey_stake(netuid, old_coldkey, new_coldkey);
         }
         Self::transfer_staking_hotkeys(old_coldkey, new_coldkey);
-        Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey);
+        Self::transfer_hotkeys_ownership(old_coldkey, new_coldkey)?;
+
+        // Ensure the new coldkey has no active locks on any subnet before proceeding with the swap.
+        Self::ensure_no_active_locks(new_coldkey)?;
+
+        // Transfer stake locks
+        Self::swap_coldkey_locks(old_coldkey, new_coldkey);
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
-        let remaining_balance = Self::get_coldkey_balance(old_coldkey);
-        if remaining_balance > 0.into() {
-            Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
-            Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
-        }
+        Self::transfer_all_tao_and_kill(old_coldkey, new_coldkey)?;
 
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
 
@@ -49,15 +51,8 @@ impl<T: Config> Pallet<T> {
 
     /// Charges the swap cost from the coldkey's account and recycles the tokens.
     pub fn charge_swap_cost(coldkey: &T::AccountId, swap_cost: TaoBalance) -> DispatchResult {
-        let burn_amount = Self::remove_balance_from_coldkey_account(coldkey, swap_cost.into())
+        Self::recycle_tao(coldkey, swap_cost)
             .map_err(|_| Error::<T>::NotEnoughBalanceToPaySwapColdKey)?;
-
-        if burn_amount < swap_cost {
-            return Err(Error::<T>::NotEnoughBalanceToPaySwapColdKey.into());
-        }
-
-        Self::recycle_tao(burn_amount);
-
         Ok(())
     }
 
@@ -148,14 +143,17 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Transfer the ownership of the hotkeys owned by the old coldkey to the new coldkey.
-    fn transfer_hotkeys_ownership(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+    fn transfer_hotkeys_ownership(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) -> DispatchResult {
         let old_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
         let mut new_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(new_coldkey);
         for owned_hotkey in old_owned_hotkeys.iter() {
             // Remove the hotkey from the old coldkey.
             Owner::<T>::remove(owned_hotkey);
             // Add the hotkey to the new coldkey.
-            Owner::<T>::insert(owned_hotkey, new_coldkey.clone());
+            Self::set_hotkey_owner(new_coldkey, owned_hotkey)?;
             // Addd the owned hotkey to the new set of owned hotkeys.
             if !new_owned_hotkeys.contains(owned_hotkey) {
                 new_owned_hotkeys.push(owned_hotkey.clone());
@@ -163,5 +161,6 @@ impl<T: Config> Pallet<T> {
         }
         OwnedHotkeys::<T>::remove(old_coldkey);
         OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
+        Ok(())
     }
 }

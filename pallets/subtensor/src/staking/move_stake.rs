@@ -358,11 +358,17 @@ impl<T: Config> Pallet<T> {
             let tao_unstaked = Self::unstake_from_subnet(
                 origin_hotkey,
                 origin_coldkey,
+                origin_coldkey,
                 origin_netuid,
                 move_amount,
                 T::SwapInterface::min_price(),
                 drop_fee_origin,
             )?;
+
+            // Transfer unstaked TAO from origin_coldkey to destination_coldkey
+            if origin_coldkey != destination_coldkey {
+                Self::transfer_tao(origin_coldkey, destination_coldkey, tao_unstaked)?;
+            }
 
             // Stake the unstaked amount into the destination.
             // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,
@@ -471,9 +477,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // Corner case: SubnetTAO for any of two subnets is zero
-        let subnet_tao_1 = SubnetTAO::<T>::get(origin_netuid)
+        let subnet_tao_1 = Self::get_subnet_tao(origin_netuid)
             .saturating_add(SubnetTaoProvided::<T>::get(origin_netuid));
-        let subnet_tao_2 = SubnetTAO::<T>::get(destination_netuid)
+        let subnet_tao_2 = Self::get_subnet_tao(destination_netuid)
             .saturating_add(SubnetTaoProvided::<T>::get(destination_netuid));
         if subnet_tao_1.is_zero() || subnet_tao_2.is_zero() {
             return Err(Error::<T>::ZeroMaxStakeAmount.into());

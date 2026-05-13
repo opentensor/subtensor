@@ -388,25 +388,6 @@ fn test_sudo_subnet_owner_cut() {
 }
 
 #[test]
-fn test_sudo_set_issuance() {
-    new_test_ext().execute_with(|| {
-        let to_be_set = TaoBalance::from(10);
-        assert_eq!(
-            AdminUtils::sudo_set_total_issuance(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_ok!(AdminUtils::sudo_set_total_issuance(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_total_issuance(), to_be_set);
-    });
-}
-
-#[test]
 fn test_sudo_set_immunity_period() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
@@ -1260,7 +1241,7 @@ fn test_sudo_get_set_alpha() {
         pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<
             Test,
         >();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
 
         // Should fail as signer does not own the subnet
