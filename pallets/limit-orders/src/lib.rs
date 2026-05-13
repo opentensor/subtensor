@@ -367,14 +367,15 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
+            LimitOrdersEnabled::<T>::set(false);
             let pallet_acct = Self::pallet_account();
             let pallet_hotkey = T::PalletHotkey::get();
             if T::SwapInterface::pallet_hotkey_registered(&pallet_acct, &pallet_hotkey) {
-                return T::DbWeight::get().reads(1);
+                return T::DbWeight::get().reads_writes(1, 1);
             }
             let _ = T::SwapInterface::register_pallet_hotkey(&pallet_acct, &pallet_hotkey);
-            // 1 read (already-registered check) + 3 writes (Owner, OwnedHotkeys, StakingHotkeys)
-            T::DbWeight::get().reads_writes(1, 3)
+            // 1 read (already-registered check) + 1 write (LimitOrdersEnabled) + 3 writes (Owner, OwnedHotkeys, StakingHotkeys)
+            T::DbWeight::get().reads_writes(1, 4)
         }
     }
 
