@@ -247,6 +247,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Inject ALPHA for participants.
         let cut_percent: U96F32 = Self::get_float_subnet_owner_cut();
 
+        let burn_root_prop = Self::get_burn_root_prop();
         for netuid_i in subnets_to_emit_to.iter() {
             // Get alpha_out for this block.
             let mut alpha_out_i: U96F32 = *alpha_out.get(netuid_i).unwrap_or(&asfloat!(0));
@@ -268,7 +269,11 @@ impl<T: Config> Pallet<T> {
             });
 
             // Get root proportional dividends.
-            let root_proportion = Self::root_proportion(*netuid_i);
+            let root_proportion = if burn_root_prop {
+                Self::raw_root_proportion(*netuid_i)
+            } else {
+                Self::root_proportion(*netuid_i)
+            };
             log::debug!("root_proportion: {root_proportion:?}");
 
             // Get root alpha from root prop.
@@ -297,14 +302,19 @@ impl<T: Config> Pallet<T> {
                 *total = total.saturating_add(tou64!(pending_validator_alpha).into());
             });
 
-            if root_sell_flag {
+            let root_alpha_amount = AlphaBalance::from(tou64!(root_alpha));
+
+            if burn_root_prop {
+                // Burn root yield unconditionally while the flag is enabled.
+                Self::burn_subnet_alpha(*netuid_i, root_alpha_amount);
+            } else if root_sell_flag {
                 // Only accumulate root alpha divs if root sell is allowed.
                 PendingRootAlphaDivs::<T>::mutate(*netuid_i, |total| {
-                    *total = total.saturating_add(tou64!(root_alpha).into());
+                    *total = total.saturating_add(root_alpha_amount);
                 });
             } else {
                 // If we are not selling the root alpha, we should recycle it.
-                Self::recycle_subnet_alpha(*netuid_i, AlphaBalance::from(tou64!(root_alpha)));
+                Self::recycle_subnet_alpha(*netuid_i, root_alpha_amount);
             }
         }
     }
@@ -676,31 +686,38 @@ impl<T: Config> Pallet<T> {
 
         // Distribute root alpha divs.
         let _ = RootAlphaDividendsPerSubnet::<T>::clear_prefix(netuid, u32::MAX, None);
-        for (hotkey, mut root_alpha) in root_alpha_dividends {
-            // Get take prop
-            let alpha_take: U96F32 =
-                Self::get_hotkey_take_float(&hotkey).saturating_mul(root_alpha);
-            // Remove take prop from root_alpha
-            root_alpha = root_alpha.saturating_sub(alpha_take);
-            // Give the validator their take.
-            log::debug!("hotkey: {hotkey:?} alpha_take: {alpha_take:?}");
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                &hotkey,
-                &Owner::<T>::get(hotkey.clone()),
-                netuid,
-                tou64!(alpha_take).into(),
-            );
+        if Self::get_burn_root_prop() {
+            // Defense-in-depth: no call path may pay root while the flag is enabled.
+            for (_, root_alpha) in root_alpha_dividends {
+                Self::burn_subnet_alpha(netuid, AlphaBalance::from(tou64!(root_alpha)));
+            }
+        } else {
+            for (hotkey, mut root_alpha) in root_alpha_dividends {
+                // Get take prop
+                let alpha_take: U96F32 =
+                    Self::get_hotkey_take_float(&hotkey).saturating_mul(root_alpha);
+                // Remove take prop from root_alpha
+                root_alpha = root_alpha.saturating_sub(alpha_take);
+                // Give the validator their take.
+                log::debug!("hotkey: {hotkey:?} alpha_take: {alpha_take:?}");
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    &hotkey,
+                    &Owner::<T>::get(hotkey.clone()),
+                    netuid,
+                    tou64!(alpha_take).into(),
+                );
 
-            Self::increase_root_claimable_for_hotkey_and_subnet(
-                &hotkey,
-                netuid,
-                tou64!(root_alpha).into(),
-            );
+                Self::increase_root_claimable_for_hotkey_and_subnet(
+                    &hotkey,
+                    netuid,
+                    tou64!(root_alpha).into(),
+                );
 
-            // Record root alpha dividends for this validator on this subnet.
-            RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
-                *divs = divs.saturating_add(tou64!(root_alpha).into());
-            });
+                // Record root alpha dividends for this validator on this subnet.
+                RootAlphaDividendsPerSubnet::<T>::mutate(netuid, &hotkey, |divs| {
+                    *divs = divs.saturating_add(tou64!(root_alpha).into());
+                });
+            }
         }
     }
 
@@ -760,6 +777,17 @@ impl<T: Config> Pallet<T> {
         );
 
         let tao_weight = Self::get_tao_weight();
+        let pending_root_alpha = if Self::get_burn_root_prop() {
+            // Drain-and-burn any root alpha accumulated before the flag was switched on
+            // or supplied by an internal caller.
+            if pending_root_alpha != AlphaBalance::ZERO {
+                Self::burn_subnet_alpha(netuid, pending_root_alpha);
+            }
+            AlphaBalance::ZERO
+        } else {
+            pending_root_alpha
+        };
+
         let total_alpha_minus_owner_cut = pending_server_alpha
             .saturating_add(pending_validator_alpha)
             .saturating_add(pending_root_alpha);

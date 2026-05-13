@@ -478,6 +478,12 @@ mod events {
             root_claim_type: RootClaimTypeEnum,
         },
 
+        /// Root-proportional subnet yield burn mode has been toggled.
+        BurnRootPropSet {
+            /// Whether root-proportional yield is burned instead of paid to root stakers.
+            enabled: bool,
+        },
+
         /// Voting power tracking has been enabled for a subnet.
         VotingPowerTrackingEnabled {
             /// The subnet ID

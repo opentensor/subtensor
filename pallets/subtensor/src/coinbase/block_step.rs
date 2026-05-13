@@ -3,6 +3,15 @@ use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::NetUid;
 
 impl<T: Config + pallet_drand::Config> Pallet<T> {
+    pub fn get_burn_root_prop() -> bool {
+        BurnRootProp::<T>::get()
+    }
+
+    pub fn set_burn_root_prop(enabled: bool) {
+        BurnRootProp::<T>::put(enabled);
+        Self::deposit_event(Event::BurnRootPropSet { enabled });
+    }
+
     /// Executes the necessary operations for each block.
     pub fn block_step() -> Result<(), &'static str> {
         let block_number: u64 = Self::get_current_block_as_u64();
@@ -65,6 +74,14 @@ impl<T: Config + pallet_drand::Config> Pallet<T> {
     }
 
     pub fn root_proportion(netuid: NetUid) -> U96F32 {
+        if Self::get_burn_root_prop() {
+            return U96F32::from_num(0.0);
+        }
+
+        Self::raw_root_proportion(netuid)
+    }
+
+    pub fn raw_root_proportion(netuid: NetUid) -> U96F32 {
         let alpha_issuance = U96F32::from_num(Self::get_alpha_issuance(netuid));
         let root_tao: U96F32 = U96F32::from_num(Self::get_subnet_tao(NetUid::ROOT));
         let tao_weight: U96F32 = root_tao.saturating_mul(Self::get_tao_weight());

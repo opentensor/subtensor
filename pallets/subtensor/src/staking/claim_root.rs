@@ -42,6 +42,13 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         amount: AlphaBalance,
     ) {
+        if Self::get_burn_root_prop() {
+            if amount != AlphaBalance::ZERO {
+                Self::burn_subnet_alpha(netuid, amount);
+            }
+            return;
+        }
+
         // Get total stake on this hotkey on root.
         let total: I96F32 =
             I96F32::saturating_from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, NetUid::ROOT));
@@ -131,6 +138,25 @@ impl<T: Config> Pallet<T> {
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
     ) {
+        if Self::get_burn_root_prop() {
+            // Existing unclaimed root yield should not be paid while burn mode is enabled.
+            // Burn it and advance RootClaimed so it cannot be claimed later through this path.
+            let owed: I96F32 =
+                Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
+            let owed_u64: u64 = if owed.is_negative() {
+                0
+            } else {
+                owed.saturating_to_num::<u64>()
+            };
+            if owed_u64 > 0 {
+                Self::burn_subnet_alpha(netuid, AlphaBalance::from(owed_u64));
+                RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
+                    *root_claimed = root_claimed.saturating_add(u128::from(owed_u64));
+                });
+            }
+            return;
+        }
+
         // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 

@@ -4013,3 +4013,82 @@ fn test_get_subnet_terms_alpha_emissions_cap() {
         assert_eq!(alpha_in.get(&netuid).copied().unwrap(), tao_block_emission);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::coinbase::test_burn_root_prop_burns_instead_of_accumulating_root_alpha --exact --show-output --nocapture
+#[test]
+fn test_burn_root_prop_burns_instead_of_accumulating_root_alpha() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let netuid = add_dynamic_network(&hotkey, &coldkey);
+
+        remove_owner_registration_stake(netuid);
+        assert!(
+            SubtensorModule::sudo_set_burn_root_prop(RuntimeOrigin::signed(coldkey), true).is_err()
+        );
+        assert_ok!(SubtensorModule::sudo_set_burn_root_prop(
+            RuntimeOrigin::root(),
+            true
+        ));
+        assert!(SubtensorModule::get_burn_root_prop());
+
+        Tempo::<Test>::insert(netuid, 1);
+        FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
+        mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
+
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
+        SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(1_000_000_000));
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
+
+        SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(2));
+
+        // Make sure this is the branch that would normally accumulate root alpha divs.
+        let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
+        assert!(root_sell_flag, "Root sell flag should be true");
+
+        // The public subnet root proportion and stored root prop are zeroed while enabled.
+        assert_eq!(
+            SubtensorModule::root_proportion(netuid),
+            U96F32::from_num(0)
+        );
+        SubtensorModule::update_root_prop();
+        assert_eq!(RootProp::<Test>::get(netuid), U96F32::from_num(0));
+
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
+
+        assert_abs_diff_eq!(
+            u64::from(PendingServerEmission::<Test>::get(netuid)),
+            500_000_000,
+            epsilon = 1
+        );
+        assert_abs_diff_eq!(
+            u64::from(PendingValidatorEmission::<Test>::get(netuid)),
+            500_000_000 - 125_000_000,
+            epsilon = 1
+        );
+        assert_eq!(
+            PendingRootAlphaDivs::<Test>::get(netuid),
+            AlphaBalance::ZERO
+        );
+
+        // Direct root-claimable writes should also burn instead of making root yield claimable.
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            AlphaBalance::from(1_000_000),
+        );
+        SubtensorModule::increase_root_claimable_for_hotkey_and_subnet(
+            &hotkey,
+            netuid,
+            AlphaBalance::from(1_000),
+        );
+        assert_eq!(
+            SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &coldkey, netuid),
+            0
+        );
+        assert!(RootClaimable::<Test>::get(hotkey).get(&netuid).is_none());
+    });
+}
