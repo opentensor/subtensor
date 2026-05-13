@@ -2577,5 +2577,17 @@ mod dispatches {
             let coldkey = ensure_signed(origin)?;
             Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
         }
+
+        /// Sets or clears the perpetual owner-lock flag for a subnet.
+        ///
+        /// When enabled, the subnet owner's individual lock and aggregate owner
+        /// lock do not unlock through locked-mass decay. Passing `false` removes
+        /// the flag, which starts normal unlocking again.
+        #[pallet::call_index(138)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(2, 1))]
+        pub fn start_unlock(origin: OriginFor<T>, netuid: NetUid, enabled: bool) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_start_unlock(&coldkey, netuid, enabled)
+        }
     }
 }

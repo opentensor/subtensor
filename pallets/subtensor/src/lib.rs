@@ -82,6 +82,7 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
+    use crate::staking::lock::LockState;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
     use frame_support::{
@@ -1502,18 +1503,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Exponential lock state for a coldkey on a subnet.
-    #[crate::freeze_struct("1f6be20a66128b8d")]
-    #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
-    pub struct LockState {
-        /// Exponentially decaying locked amount.
-        pub locked_mass: AlphaBalance,
-        /// Matured decaying score (integral of locked_mass over time).
-        pub conviction: U64F64,
-        /// Block number of last roll-forward.
-        pub last_update: u64,
-    }
-
     /// --- DMAP ( coldkey, netuid, hotkey ) --> LockState | Exponential lock per coldkey per subnet.
     #[pallet::storage]
     pub type Lock<T: Config> = StorageNMap<
@@ -1539,19 +1528,33 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// Default decay timescale: 90% decay over ~365.25 days at 12s blocks.
+    /// --- MAP ( netuid ) --> LockState | Aggregate owner-coldkey lock for a subnet.
+    #[pallet::storage]
+    pub type OwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
+
+    /// --- MAP ( netuid ) --> bool | When present and true, subnet owner locks do not unlock.
+    #[pallet::storage]
+    pub type PerpetualLock<T: Config> = StorageMap<_, Identity, NetUid, bool, OptionQuery>;
+
+    /// Default unlock timescale: 90% decay over ~365.25 days at 12s blocks.
     #[pallet::type_value]
-    pub fn DefaultLockDecayRate<T: Config>() -> u64 {
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
         1_142_108
+    }
+
+    /// Default maturity timescale: 20% slower than the default unlock rate.
+    #[pallet::type_value]
+    pub fn DefaultMaturityRate<T: Config>() -> u64 {
+        1_370_530
     }
 
     /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
     #[pallet::storage]
-    pub type MaturityRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultLockDecayRate<T>>;
+    pub type MaturityRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultMaturityRate<T>>;
 
     /// --- ITEM( unlock_rate ) | Decay timescale in blocks for locked mass.
     #[pallet::storage]
-    pub type UnlockRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultLockDecayRate<T>>;
+    pub type UnlockRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultUnlockRate<T>>;
 
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]

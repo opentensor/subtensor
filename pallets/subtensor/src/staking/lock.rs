@@ -1,10 +1,26 @@
 use super::*;
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use safe_math::FixedExt;
+use scale_info::TypeInfo;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::ops::Neg;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
+
+pub const ONE_YEAR: u64 = 7200 * 365 + 1800;
+
+/// Exponential lock state for a coldkey on a subnet.
+#[crate::freeze_struct("1f6be20a66128b8d")]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub struct LockState {
+    /// Exponentially decaying locked amount.
+    pub locked_mass: AlphaBalance,
+    /// Matured decaying score (integral of locked_mass over time).
+    pub conviction: U64F64,
+    /// Block number of last roll-forward.
+    pub last_update: u64,
+}
 
 impl<T: Config> Pallet<T> {
     pub fn insert_lock_state(
@@ -33,6 +49,24 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn insert_owner_lock_state(netuid: NetUid, lock_state: LockState) {
+        if !lock_state.locked_mass.is_zero()
+            || lock_state.conviction > U64F64::saturating_from_num(0)
+        {
+            OwnerLock::<T>::insert(netuid, lock_state);
+        } else {
+            OwnerLock::<T>::remove(netuid);
+        }
+    }
+
+    fn is_subnet_owner_coldkey(netuid: NetUid, coldkey: &T::AccountId) -> bool {
+        coldkey == &SubnetOwner::<T>::get(netuid)
+    }
+
+    fn is_perpetual_owner_lock(netuid: NetUid, owner_lock: bool) -> bool {
+        owner_lock && PerpetualLock::<T>::get(netuid).unwrap_or(false)
+    }
+
     /// Computes exp(-dt / tau) as a U64F64 decay factor.
     pub fn exp_decay(dt: u64, tau: u64) -> U64F64 {
         if tau == 0 || dt == 0 {
@@ -58,46 +92,128 @@ impl<T: Config> Pallet<T> {
         locked_mass: AlphaBalance,
         conviction: U64F64,
         dt: u64,
+        perpetual_lock: bool,
     ) -> (AlphaBalance, U64F64) {
         let unlock_rate = UnlockRate::<T>::get();
         let maturity_rate = MaturityRate::<T>::get();
 
         let unlock_decay = Self::exp_decay(dt, unlock_rate);
         let maturity_decay = Self::exp_decay(dt, maturity_rate);
-        let dt_fixed = U64F64::saturating_from_num(dt);
         let mass_fixed = U64F64::saturating_from_num(locked_mass);
-        let maturity_rate_fixed = U64F64::saturating_from_num(maturity_rate);
-        let new_locked_mass = unlock_decay
-            .saturating_mul(mass_fixed)
-            .saturating_to_num::<u64>()
-            .into();
-        let new_conviction = maturity_decay.saturating_mul(
-            conviction.saturating_add(
+        let new_locked_mass = if perpetual_lock {
+            locked_mass
+        } else {
+            unlock_decay
+                .saturating_mul(mass_fixed)
+                .saturating_to_num::<u64>()
+                .into()
+        };
+
+        let conviction_from_existing = maturity_decay.saturating_mul(conviction);
+        let conviction_from_mass = if perpetual_lock {
+            mass_fixed.saturating_mul(U64F64::saturating_from_num(1).saturating_sub(maturity_decay))
+        } else if unlock_rate == maturity_rate {
+            let dt_fixed = U64F64::saturating_from_num(dt);
+            let maturity_rate_fixed = U64F64::saturating_from_num(maturity_rate);
+            mass_fixed.saturating_mul(
                 dt_fixed
                     .safe_div(maturity_rate_fixed)
-                    .saturating_mul(mass_fixed),
-            ),
-        );
+                    .saturating_mul(maturity_decay),
+            )
+        } else if unlock_rate == 0 || maturity_rate == 0 {
+            U64F64::saturating_from_num(0)
+        } else {
+            let tau_x = I64F64::saturating_from_num(unlock_rate);
+            let tau_delta = I64F64::saturating_from_num(
+                (unlock_rate as i128).saturating_sub(maturity_rate as i128),
+            );
+            let decay_delta = I64F64::saturating_from_num(unlock_decay)
+                .saturating_sub(I64F64::saturating_from_num(maturity_decay));
+            let gamma = tau_x
+                .saturating_mul(decay_delta)
+                .checked_div(tau_delta)
+                .unwrap_or(I64F64::saturating_from_num(0));
+            if gamma <= I64F64::saturating_from_num(0) {
+                U64F64::saturating_from_num(0)
+            } else {
+                mass_fixed.saturating_mul(U64F64::saturating_from_num(gamma))
+            }
+        };
+        let new_conviction = conviction_from_existing.saturating_add(conviction_from_mass);
         (new_locked_mass, new_conviction)
     }
 
     /// Rolls a LockState forward to `now` using exponential decay.
     ///
     /// X_new = decay * X_old
-    /// Y_new = decay * (Y_old + dt * X_old)
-    pub fn roll_forward_lock(lock: LockState, now: u64) -> LockState {
-        if now <= lock.last_update {
-            return lock;
-        }
-        let dt = now.saturating_sub(lock.last_update);
-        let (new_locked_mass, new_conviction) =
-            Self::calculate_decayed_mass_and_conviction(lock.locked_mass, lock.conviction, dt);
+    /// Z_new = decay_Z * Z_old + gamma * X_old
+    pub fn roll_forward_lock(
+        lock: LockState,
+        now: u64,
+        owner_lock: bool,
+        perpetual_lock: bool,
+    ) -> LockState {
+        let mut rolled = if now > lock.last_update {
+            let dt = now.saturating_sub(lock.last_update);
+            let (new_locked_mass, new_conviction) = Self::calculate_decayed_mass_and_conviction(
+                lock.locked_mass,
+                lock.conviction,
+                dt,
+                perpetual_lock,
+            );
 
-        LockState {
-            locked_mass: new_locked_mass,
-            conviction: new_conviction,
-            last_update: now,
+            LockState {
+                locked_mass: new_locked_mass,
+                conviction: new_conviction,
+                last_update: now,
+            }
+        } else {
+            lock
+        };
+
+        if owner_lock {
+            rolled.conviction = U64F64::saturating_from_num(u64::from(rolled.locked_mass));
         }
+
+        rolled
+    }
+
+    pub fn roll_forward_individual_lock(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        lock: LockState,
+        now: u64,
+    ) -> LockState {
+        let owner_lock = Self::is_subnet_owner_coldkey(netuid, coldkey);
+        let perpetual_lock = Self::is_perpetual_owner_lock(netuid, owner_lock);
+        Self::roll_forward_lock(lock, now, owner_lock, perpetual_lock)
+    }
+
+    pub fn roll_forward_owner_lock(netuid: NetUid, lock: LockState, now: u64) -> LockState {
+        Self::roll_forward_lock(lock, now, true, Self::is_perpetual_owner_lock(netuid, true))
+    }
+
+    pub fn roll_forward_hotkey_lock(_netuid: NetUid, lock: LockState, now: u64) -> LockState {
+        Self::roll_forward_lock(lock, now, false, false)
+    }
+
+    pub fn do_start_unlock(
+        coldkey: &T::AccountId,
+        netuid: NetUid,
+        enabled: bool,
+    ) -> DispatchResult {
+        ensure!(
+            coldkey == &SubnetOwner::<T>::get(netuid),
+            Error::<T>::NotSubnetOwner
+        );
+
+        if enabled {
+            PerpetualLock::<T>::insert(netuid, true);
+        } else {
+            PerpetualLock::<T>::remove(netuid);
+        }
+        Self::deposit_event(Event::PerpetualLockUpdated { netuid, enabled });
+        Ok(())
     }
 
     /// Returns the sum of raw alpha shares for a coldkey across all hotkeys on a given subnet.
@@ -115,7 +231,9 @@ impl<T: Config> Pallet<T> {
         let now = Self::get_current_block_as_u64();
         Lock::<T>::iter_prefix((coldkey, netuid))
             .next()
-            .map(|(_hotkey, lock)| Self::roll_forward_lock(lock, now).locked_mass)
+            .map(|(_hotkey, lock)| {
+                Self::roll_forward_individual_lock(coldkey, netuid, lock, now).locked_mass
+            })
             .unwrap_or(AlphaBalance::ZERO)
     }
 
@@ -124,7 +242,9 @@ impl<T: Config> Pallet<T> {
         let now = Self::get_current_block_as_u64();
         Lock::<T>::iter_prefix((coldkey, netuid))
             .next()
-            .map(|(_hotkey, lock)| Self::roll_forward_lock(lock, now).conviction)
+            .map(|(_hotkey, lock)| {
+                Self::roll_forward_individual_lock(coldkey, netuid, lock, now).conviction
+            })
             .unwrap_or_else(|| U64F64::saturating_from_num(0))
     }
 
@@ -160,6 +280,10 @@ impl<T: Config> Pallet<T> {
         amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
         ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
 
         let total = Self::total_coldkey_alpha_on_subnet(coldkey, netuid);
         let now = Self::get_current_block_as_u64();
@@ -169,38 +293,34 @@ impl<T: Config> Pallet<T> {
         match existing {
             None => {
                 ensure!(total >= amount, Error::<T>::InsufficientStakeForLock);
-                Self::insert_lock_state(
+
+                let lock = Self::roll_forward_individual_lock(
                     coldkey,
                     netuid,
-                    hotkey,
                     LockState {
                         locked_mass: amount,
                         conviction: U64F64::saturating_from_num(0),
                         last_update: now,
                     },
+                    now,
                 );
+                Self::insert_lock_state(coldkey, netuid, hotkey, lock);
             }
             Some((existing_hotkey, existing)) => {
                 ensure!(*hotkey == existing_hotkey, Error::<T>::LockHotkeyMismatch);
 
-                let lock = Self::roll_forward_lock(existing, now);
-                let new_locked = lock.locked_mass.saturating_add(amount);
-                ensure!(total >= new_locked, Error::<T>::InsufficientStakeForLock);
-                Self::insert_lock_state(
-                    coldkey,
-                    netuid,
-                    hotkey,
-                    LockState {
-                        locked_mass: new_locked,
-                        conviction: lock.conviction,
-                        last_update: now,
-                    },
+                let mut lock = Self::roll_forward_individual_lock(coldkey, netuid, existing, now);
+                lock.locked_mass = lock.locked_mass.saturating_add(amount);
+                ensure!(
+                    total >= lock.locked_mass,
+                    Error::<T>::InsufficientStakeForLock
                 );
+                let lock = Self::roll_forward_individual_lock(coldkey, netuid, lock, now);
+                Self::insert_lock_state(coldkey, netuid, hotkey, lock);
             }
         }
 
-        // Update the total hotkey lock
-        Self::upsert_hotkey_lock(hotkey, netuid, amount);
+        Self::upsert_hotkey_lock(coldkey, hotkey, netuid, amount);
 
         Self::deposit_event(Event::StakeLocked {
             coldkey: coldkey.clone(),
@@ -217,7 +337,7 @@ impl<T: Config> Pallet<T> {
     pub fn force_reduce_lock(coldkey: &T::AccountId, netuid: NetUid, amount: AlphaBalance) {
         if let Some((existing_hotkey, lock)) = Lock::<T>::iter_prefix((coldkey, netuid)).next() {
             let now = Self::get_current_block_as_u64();
-            let rolled = Self::roll_forward_lock(lock, now);
+            let rolled = Self::roll_forward_individual_lock(coldkey, netuid, lock, now);
             let new_locked_mass = rolled.locked_mass.saturating_sub(amount);
 
             // Remove or update lock
@@ -242,7 +362,7 @@ impl<T: Config> Pallet<T> {
             };
 
             // Reduce the total hotkey lock by the rolled locked mass and conviction
-            Self::reduce_hotkey_lock(&existing_hotkey, netuid, amount, conviction_diff);
+            Self::reduce_hotkey_lock(coldkey, &existing_hotkey, netuid, amount, conviction_diff);
         }
     }
 
@@ -253,14 +373,20 @@ impl<T: Config> Pallet<T> {
 
         // Cleanup locks for the specific coldkey and hotkey
         if let Some((hotkey, lock)) = Lock::<T>::iter_prefix((coldkey.clone(), netuid)).next() {
-            let rolled = Self::roll_forward_lock(lock, now);
+            let rolled = Self::roll_forward_individual_lock(coldkey, netuid, lock, now);
             if rolled.locked_mass.is_zero() {
                 Lock::<T>::remove((coldkey.clone(), netuid, hotkey.clone()));
             }
 
-            // Also cleanup the hotkey lock
-            if let Some(lock) = HotkeyLock::<T>::get(netuid, &hotkey) {
-                let rolled = Self::roll_forward_lock(lock, now);
+            if Self::is_subnet_owner_coldkey(netuid, coldkey) {
+                if let Some(lock) = OwnerLock::<T>::get(netuid) {
+                    let rolled = Self::roll_forward_owner_lock(netuid, lock, now);
+                    if rolled.locked_mass.is_zero() {
+                        OwnerLock::<T>::remove(netuid);
+                    }
+                }
+            } else if let Some(lock) = HotkeyLock::<T>::get(netuid, &hotkey) {
+                let rolled = Self::roll_forward_hotkey_lock(netuid, lock, now);
                 if rolled.locked_mass.is_zero() {
                     HotkeyLock::<T>::remove(netuid, hotkey);
                 }
@@ -273,49 +399,128 @@ impl<T: Config> Pallet<T> {
     ///
     /// Roll the existing hotkey lock forward to now, then add the
     /// latest conviction and locked mass.
-    pub fn upsert_hotkey_lock(hotkey: &T::AccountId, netuid: NetUid, amount: AlphaBalance) {
-        let total_lock = HotkeyLock::<T>::get(netuid, hotkey);
-
-        // Roll forward the total lock to now
+    pub fn upsert_hotkey_lock(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) {
         let now = Self::get_current_block_as_u64();
-        let rolled_hotkey_lock = if let Some(lock) = total_lock {
-            Self::roll_forward_lock(lock, now)
-        } else {
-            LockState {
-                locked_mass: 0.into(),
-                conviction: U64F64::saturating_from_num(0),
-                last_update: now,
-            }
-        };
+        let owner_lock = Self::is_subnet_owner_coldkey(netuid, coldkey);
 
-        // Merge the new lock into the rolled total lock (only add mass)
-        let new_locked_mass = rolled_hotkey_lock.locked_mass.saturating_add(amount);
-        let new_hotkey_lock = LockState {
-            locked_mass: new_locked_mass,
-            conviction: rolled_hotkey_lock.conviction,
+        let rolled_lock = if owner_lock {
+            OwnerLock::<T>::get(netuid).map(|lock| Self::roll_forward_owner_lock(netuid, lock, now))
+        } else {
+            HotkeyLock::<T>::get(netuid, hotkey)
+                .map(|lock| Self::roll_forward_hotkey_lock(netuid, lock, now))
+        }
+        .unwrap_or(LockState {
+            locked_mass: 0.into(),
+            conviction: U64F64::saturating_from_num(0),
+            last_update: now,
+        });
+
+        let new_lock = LockState {
+            locked_mass: rolled_lock.locked_mass.saturating_add(amount),
+            conviction: rolled_lock.conviction,
             last_update: now,
         };
-        Self::insert_hotkey_lock_state(netuid, hotkey, new_hotkey_lock);
+        let new_lock = if owner_lock {
+            Self::roll_forward_owner_lock(netuid, new_lock, now)
+        } else {
+            Self::roll_forward_hotkey_lock(netuid, new_lock, now)
+        };
+
+        if owner_lock {
+            Self::insert_owner_lock_state(netuid, new_lock);
+        } else {
+            Self::insert_hotkey_lock_state(netuid, hotkey, new_lock);
+        }
+    }
+
+    /// Merges an already-existing lock state into the aggregate lock bucket.
+    ///
+    /// This is used when lock state moves between keys, such as lock moves, stake
+    /// transfers, or coldkey swaps. Unlike `upsert_hotkey_lock`, this preserves
+    /// both locked mass and conviction from the moved lock because that conviction
+    /// was already earned before the aggregate bucket changed.
+    ///
+    /// Owner coldkey locks are merged into `OwnerLock`; all other locks are merged
+    /// into `HotkeyLock` for the destination hotkey.
+    fn add_aggregate_lock(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+        added: LockState,
+    ) {
+        let now = Self::get_current_block_as_u64();
+        if Self::is_subnet_owner_coldkey(netuid, coldkey) {
+            let current = OwnerLock::<T>::get(netuid)
+                .map(|lock| Self::roll_forward_owner_lock(netuid, lock, now))
+                .unwrap_or(LockState {
+                    locked_mass: AlphaBalance::ZERO,
+                    conviction: U64F64::saturating_from_num(0),
+                    last_update: now,
+                });
+            let merged = LockState {
+                locked_mass: current.locked_mass.saturating_add(added.locked_mass),
+                conviction: current.conviction.saturating_add(added.conviction),
+                last_update: now,
+            };
+            Self::insert_owner_lock_state(
+                netuid,
+                Self::roll_forward_owner_lock(netuid, merged, now),
+            );
+        } else {
+            let current = HotkeyLock::<T>::get(netuid, hotkey)
+                .map(|lock| Self::roll_forward_hotkey_lock(netuid, lock, now))
+                .unwrap_or(LockState {
+                    locked_mass: AlphaBalance::ZERO,
+                    conviction: U64F64::saturating_from_num(0),
+                    last_update: now,
+                });
+            let merged = LockState {
+                locked_mass: current.locked_mass.saturating_add(added.locked_mass),
+                conviction: current.conviction.saturating_add(added.conviction),
+                last_update: now,
+            };
+            Self::insert_hotkey_lock_state(
+                netuid,
+                hotkey,
+                Self::roll_forward_hotkey_lock(netuid, merged, now),
+            );
+        }
     }
 
     /// Reduce the total lock for a hotkey on a subnet. This is called when a lock is removed or reduced.
     pub fn reduce_hotkey_lock(
+        coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: NetUid,
         amount: AlphaBalance,
         conviction: U64F64,
     ) {
-        if let Some(lock) = HotkeyLock::<T>::get(netuid, hotkey) {
-            let now = Self::get_current_block_as_u64();
-            let rolled_hotkey_lock = Self::roll_forward_lock(lock, now);
-            let new_locked_mass = rolled_hotkey_lock.locked_mass.saturating_sub(amount);
-            let new_conviction = rolled_hotkey_lock.conviction.saturating_sub(conviction);
+        let now = Self::get_current_block_as_u64();
+        if Self::is_subnet_owner_coldkey(netuid, coldkey) {
+            if let Some(lock) = OwnerLock::<T>::get(netuid) {
+                let rolled = Self::roll_forward_owner_lock(netuid, lock, now);
+                Self::insert_owner_lock_state(
+                    netuid,
+                    LockState {
+                        locked_mass: rolled.locked_mass.saturating_sub(amount),
+                        conviction: rolled.conviction.saturating_sub(conviction),
+                        last_update: now,
+                    },
+                );
+            }
+        } else if let Some(lock) = HotkeyLock::<T>::get(netuid, hotkey) {
+            let rolled = Self::roll_forward_hotkey_lock(netuid, lock, now);
             Self::insert_hotkey_lock_state(
                 netuid,
                 hotkey,
                 LockState {
-                    locked_mass: new_locked_mass,
-                    conviction: new_conviction,
+                    locked_mass: rolled.locked_mass.saturating_sub(amount),
+                    conviction: rolled.conviction.saturating_sub(conviction),
                     last_update: now,
                 },
             );
@@ -325,11 +530,18 @@ impl<T: Config> Pallet<T> {
     /// Returns the total conviction for a hotkey on a subnet,
     /// summed over all coldkeys that have locked to this hotkey.
     pub fn hotkey_conviction(hotkey: &T::AccountId, netuid: NetUid) -> U64F64 {
-        let lock = HotkeyLock::<T>::get(netuid, hotkey);
-        if let Some(lock) = lock {
-            Self::roll_forward_lock(lock, Self::get_current_block_as_u64()).conviction
+        let now = Self::get_current_block_as_u64();
+        let hotkey_conviction = HotkeyLock::<T>::get(netuid, hotkey)
+            .map(|lock| Self::roll_forward_hotkey_lock(netuid, lock, now).conviction)
+            .unwrap_or_else(|| U64F64::saturating_from_num(0));
+        if hotkey == &SubnetOwnerHotkey::<T>::get(netuid) {
+            hotkey_conviction.saturating_add(
+                OwnerLock::<T>::get(netuid)
+                    .map(|lock| Self::roll_forward_owner_lock(netuid, lock, now).conviction)
+                    .unwrap_or_else(|| U64F64::saturating_from_num(0)),
+            )
         } else {
-            U64F64::saturating_from_num(0)
+            hotkey_conviction
         }
     }
 
@@ -339,12 +551,20 @@ impl<T: Config> Pallet<T> {
         let mut scores: BTreeMap<T::AccountId, U64F64> = BTreeMap::new();
 
         HotkeyLock::<T>::iter_prefix(netuid).for_each(|(hotkey, lock)| {
-            let rolled = Self::roll_forward_lock(lock, now);
+            let rolled = Self::roll_forward_hotkey_lock(netuid, lock, now);
             let entry = scores
                 .entry(hotkey)
                 .or_insert_with(|| U64F64::saturating_from_num(0));
             *entry = entry.saturating_add(rolled.conviction);
         });
+        if let Some(lock) = OwnerLock::<T>::get(netuid) {
+            let owner_hotkey = SubnetOwnerHotkey::<T>::get(netuid);
+            let rolled = Self::roll_forward_owner_lock(netuid, lock, now);
+            let entry = scores
+                .entry(owner_hotkey)
+                .or_insert_with(|| U64F64::saturating_from_num(0));
+            *entry = entry.saturating_add(rolled.conviction);
+        }
 
         scores
             .into_iter()
@@ -352,12 +572,116 @@ impl<T: Config> Pallet<T> {
             .map(|(hotkey, _)| hotkey)
     }
 
+    /// Reassigns subnet ownership to the current lock-conviction leader when the subnet
+    /// is mature enough and enough supply is locked.
+    ///
+    /// Ownership can change only after the subnet is at least [`ONE_YEAR`] old and the
+    /// total rolled locked mass on the subnet is at least 10% of `SubnetAlphaOut`.
+    /// If those gates pass, the hotkey with the highest rolled aggregate conviction
+    /// becomes the subnet owner hotkey, and that hotkey's owning coldkey becomes the
+    /// subnet owner coldkey. The new owner hotkey's conviction is then progressed to
+    /// its current locked mass so the new owner starts with full owner conviction.
+    pub fn change_subnet_owner_if_needed(netuid: NetUid) {
+        // No outstanding alpha means there is no meaningful 10% lock threshold.
+        let subnet_alpha_out = SubnetAlphaOut::<T>::get(netuid);
+        if subnet_alpha_out.is_zero() {
+            return;
+        }
+
+        // Ownership can only be reassigned after the subnet has aged for one year.
+        let now = Self::get_current_block_as_u64();
+        let registered_at = NetworkRegisteredAt::<T>::get(netuid);
+        if now < registered_at.saturating_add(ONE_YEAR) {
+            return;
+        }
+
+        // Sum rolled aggregate hotkey locks and require at least 10% of total alpha out.
+        let hotkey_locked = HotkeyLock::<T>::iter_prefix(netuid)
+            .map(|(_hotkey, lock)| Self::roll_forward_hotkey_lock(netuid, lock, now).locked_mass)
+            .fold(AlphaBalance::ZERO, |acc, locked| acc.saturating_add(locked));
+        let owner_locked = OwnerLock::<T>::get(netuid)
+            .map(|lock| Self::roll_forward_owner_lock(netuid, lock, now).locked_mass)
+            .unwrap_or(AlphaBalance::ZERO);
+        let total_locked = hotkey_locked.saturating_add(owner_locked);
+        if (u64::from(total_locked) as u128).saturating_mul(10)
+            < u64::from(subnet_alpha_out) as u128
+        {
+            return;
+        }
+
+        // Pick the hotkey with the highest rolled aggregate conviction.
+        let Some(king_hotkey) = Self::subnet_king(netuid) else {
+            return;
+        };
+
+        // The king hotkey must resolve to a real coldkey owner.
+        let new_owner_coldkey = Self::get_owning_coldkey_for_hotkey(&king_hotkey);
+        if new_owner_coldkey == DefaultAccount::<T>::get() {
+            return;
+        }
+
+        // If the winning hotkey already belongs to the current owner, nothing changes.
+        let current_owner_coldkey = SubnetOwner::<T>::get(netuid);
+        if new_owner_coldkey == current_owner_coldkey {
+            return;
+        }
+        let old_owner_hotkey = SubnetOwnerHotkey::<T>::get(netuid);
+
+        // Register new owner as a neuron if not yet registered.
+        if Self::get_uid_for_net_and_hotkey(netuid, &king_hotkey).is_err()
+            && Self::register_neuron(netuid, &king_hotkey).is_err()
+        {
+            return;
+        }
+
+        // Move OwnerLock to HotkeyLock for old owner hotkey and HotkeyLock to OwnerLock for
+        // new owner hotkey
+        if let Some(owner_lock) = OwnerLock::<T>::take(netuid) {
+            let moved_owner_lock = Self::roll_forward_owner_lock(netuid, owner_lock, now);
+            let old_hotkey_lock = HotkeyLock::<T>::get(netuid, &old_owner_hotkey)
+                .map(|lock| Self::roll_forward_hotkey_lock(netuid, lock, now))
+                .unwrap_or(LockState {
+                    locked_mass: AlphaBalance::ZERO,
+                    conviction: U64F64::saturating_from_num(0),
+                    last_update: now,
+                });
+            Self::insert_hotkey_lock_state(
+                netuid,
+                &old_owner_hotkey,
+                LockState {
+                    locked_mass: old_hotkey_lock
+                        .locked_mass
+                        .saturating_add(moved_owner_lock.locked_mass),
+                    conviction: old_hotkey_lock
+                        .conviction
+                        .saturating_add(moved_owner_lock.conviction),
+                    last_update: now,
+                },
+            );
+        }
+
+        if let Some(king_lock) = HotkeyLock::<T>::take(netuid, &king_hotkey) {
+            let moved_king_lock = Self::roll_forward_hotkey_lock(netuid, king_lock, now);
+            let new_owner_lock = Self::roll_forward_owner_lock(netuid, moved_king_lock, now);
+            Self::insert_owner_lock_state(netuid, new_owner_lock);
+        }
+
+        // Reassign subnet owner coldkey and owner hotkey.
+        SubnetOwner::<T>::insert(netuid, new_owner_coldkey.clone());
+        SubnetOwnerHotkey::<T>::insert(netuid, king_hotkey.clone());
+        Self::deposit_event(Event::SubnetOwnerChanged {
+            netuid,
+            old_coldkey: current_owner_coldkey,
+            new_coldkey: new_owner_coldkey,
+        });
+    }
+
     /// Ensure the coldkey does not have an active lock on any subnets.
     pub fn ensure_no_active_locks(coldkey: &T::AccountId) -> Result<(), Error<T>> {
         let now = Self::get_current_block_as_u64();
 
-        for ((_netuid, _hotkey), lock) in Lock::<T>::iter_prefix((coldkey,)) {
-            let rolled = Self::roll_forward_lock(lock, now);
+        for ((netuid, _hotkey), lock) in Lock::<T>::iter_prefix((coldkey,)) {
+            let rolled = Self::roll_forward_individual_lock(coldkey, netuid, lock, now);
             if rolled.locked_mass > AlphaBalance::ZERO {
                 return Err(Error::<T>::ActiveLockExists);
             }
@@ -389,8 +713,20 @@ impl<T: Config> Pallet<T> {
 
         // Remove locks for old coldkey and insert for new
         for (netuid, hotkey, lock) in locks_to_transfer {
+            let now = Self::get_current_block_as_u64();
+            let old_lock = Self::roll_forward_individual_lock(old_coldkey, netuid, lock, now);
+            let new_lock =
+                Self::roll_forward_individual_lock(new_coldkey, netuid, old_lock.clone(), now);
             Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
-            Self::insert_lock_state(new_coldkey, netuid, &hotkey, lock);
+            Self::reduce_hotkey_lock(
+                old_coldkey,
+                &hotkey,
+                netuid,
+                old_lock.locked_mass,
+                old_lock.conviction,
+            );
+            Self::insert_lock_state(new_coldkey, netuid, &hotkey, new_lock.clone());
+            Self::add_aggregate_lock(new_coldkey, &hotkey, netuid, new_lock);
         }
 
         Ok(())
@@ -435,15 +771,19 @@ impl<T: Config> Pallet<T> {
 
         // Remove locks for old hotkey and insert for new
         for (coldkey, netuid, _hotkey, lock) in locks_to_transfer {
+            let now = Self::get_current_block_as_u64();
+            let rolled = Self::roll_forward_individual_lock(&coldkey, netuid, lock, now);
             Lock::<T>::remove((coldkey.clone(), netuid, old_hotkey.clone()));
-            Self::insert_lock_state(&coldkey, netuid, new_hotkey, lock);
+            Self::insert_lock_state(&coldkey, netuid, new_hotkey, rolled);
             writes = writes.saturating_add(2);
         }
 
         // Remove hotkey locks for old hotkey and insert for new
         for (netuid, lock) in hotkey_locks_to_transfer {
+            let now = Self::get_current_block_as_u64();
+            let rolled = Self::roll_forward_hotkey_lock(netuid, lock, now);
             HotkeyLock::<T>::remove(netuid, old_hotkey);
-            Self::insert_hotkey_lock_state(netuid, new_hotkey, lock);
+            Self::insert_hotkey_lock_state(netuid, new_hotkey, rolled);
             writes = writes.saturating_add(2);
         }
         (reads, writes)
@@ -462,55 +802,34 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         netuid: NetUid,
     ) -> DispatchResult {
+        ensure!(
+            Self::hotkey_account_exists(destination_hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
         let now = Self::get_current_block_as_u64();
 
         match Lock::<T>::iter_prefix((coldkey, netuid)).next() {
             Some((origin_hotkey, existing)) => {
-                let old_hotkey_owner = Self::get_owning_coldkey_for_hotkey(&origin_hotkey);
-                let new_hotkey_owner = Self::get_owning_coldkey_for_hotkey(destination_hotkey);
-                let same_owner = old_hotkey_owner != DefaultAccount::<T>::get()
-                    && new_hotkey_owner != DefaultAccount::<T>::get()
-                    && old_hotkey_owner == new_hotkey_owner;
+                let mut lock = Self::roll_forward_individual_lock(coldkey, netuid, existing, now);
+                let removed = lock.clone();
 
-                let mut existing_rolled = Self::roll_forward_lock(existing, now);
-                let existing_conviction = existing_rolled.conviction;
-                if !same_owner {
-                    existing_rolled.conviction = U64F64::saturating_from_num(0);
+                if Self::get_owning_coldkey_for_hotkey(&origin_hotkey)
+                    != Self::get_owning_coldkey_for_hotkey(destination_hotkey)
+                {
+                    lock.conviction = U64F64::saturating_from_num(0);
                 }
+                lock = Self::roll_forward_individual_lock(coldkey, netuid, lock, now);
 
                 Lock::<T>::remove((coldkey.clone(), netuid, origin_hotkey.clone()));
-                Self::insert_lock_state(
-                    coldkey,
-                    netuid,
-                    destination_hotkey,
-                    LockState {
-                        locked_mass: existing_rolled.locked_mass,
-                        conviction: existing_rolled.conviction,
-                        last_update: now,
-                    },
-                );
-
-                // Update the total hotkey locks for destination hotkey
-                Self::upsert_hotkey_lock(destination_hotkey, netuid, existing_rolled.locked_mass);
-
-                // Reduce the total hotkey locks and conviction for the origin hotkey
+                Self::insert_lock_state(coldkey, netuid, destination_hotkey, lock.clone());
                 Self::reduce_hotkey_lock(
+                    coldkey,
                     &origin_hotkey,
                     netuid,
-                    existing_rolled.locked_mass,
-                    existing_conviction,
+                    removed.locked_mass,
+                    removed.conviction,
                 );
-
-                // If the same coldkey owns both the origin and destination hotkeys, also
-                // transfer the conviction instead of resetting it
-                if same_owner {
-                    HotkeyLock::<T>::mutate(netuid, destination_hotkey, |dest_lock_opt| {
-                        if let Some(dest_lock) = dest_lock_opt {
-                            dest_lock.conviction =
-                                dest_lock.conviction.saturating_add(existing_conviction);
-                        }
-                    });
-                }
+                Self::add_aggregate_lock(coldkey, destination_hotkey, netuid, lock);
 
                 Self::deposit_event(Event::LockMoved {
                     coldkey: coldkey.clone(),
@@ -576,10 +895,16 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         };
 
-        let mut source_lock = Self::roll_forward_lock(source_lock, now);
+        let mut source_lock =
+            Self::roll_forward_individual_lock(origin_coldkey, netuid, source_lock, now);
         let maybe_destination_lock = Lock::<T>::iter_prefix((destination_coldkey, netuid))
             .next()
-            .map(|(hotkey, lock)| (hotkey, Self::roll_forward_lock(lock, now)));
+            .map(|(hotkey, lock)| {
+                (
+                    hotkey,
+                    Self::roll_forward_individual_lock(destination_coldkey, netuid, lock, now),
+                )
+            });
 
         let mut destination_hotkey = maybe_destination_lock
             .as_ref()
@@ -608,6 +933,8 @@ impl<T: Config> Pallet<T> {
         // the source coldkey by the same amount, increase locked_mass on the destination coldkey by the
         // same amount, reduce conviction on the source coldkey proportionally, and increase conviction
         // on the destination coldkey proportionally.
+        let mut locked_transfer = AlphaBalance::ZERO;
+        let mut conviction_transfer = U64F64::saturating_from_num(0);
         if !remaining_to_transfer.is_zero() {
             if let Some((existing_hotkey, _)) = maybe_destination_lock.as_ref() {
                 ensure!(
@@ -617,9 +944,8 @@ impl<T: Config> Pallet<T> {
                 destination_hotkey = existing_hotkey.clone();
             }
 
-            let locked_transfer = remaining_to_transfer.min(source_lock.locked_mass);
-            let conviction_transfer = if locked_transfer.is_zero()
-                || source_lock.locked_mass.is_zero()
+            locked_transfer = remaining_to_transfer.min(source_lock.locked_mass);
+            conviction_transfer = if locked_transfer.is_zero() || source_lock.locked_mass.is_zero()
             {
                 U64F64::saturating_from_num(0)
             } else {
@@ -640,8 +966,9 @@ impl<T: Config> Pallet<T> {
                 .saturating_add(conviction_transfer);
         }
 
-        source_lock.last_update = now;
-        destination_lock.last_update = now;
+        source_lock = Self::roll_forward_individual_lock(origin_coldkey, netuid, source_lock, now);
+        destination_lock =
+            Self::roll_forward_individual_lock(destination_coldkey, netuid, destination_lock, now);
 
         // Upsert updated locks (only once per this fn) even if there were no updates because
         // of roll-forward
@@ -652,6 +979,25 @@ impl<T: Config> Pallet<T> {
             &destination_hotkey,
             destination_lock,
         );
+        if !locked_transfer.is_zero() {
+            Self::reduce_hotkey_lock(
+                origin_coldkey,
+                &source_hotkey,
+                netuid,
+                locked_transfer,
+                conviction_transfer,
+            );
+            Self::add_aggregate_lock(
+                destination_coldkey,
+                &destination_hotkey,
+                netuid,
+                LockState {
+                    locked_mass: locked_transfer,
+                    conviction: conviction_transfer,
+                    last_update: now,
+                },
+            );
+        }
 
         Ok(())
     }

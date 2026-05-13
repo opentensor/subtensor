@@ -3,6 +3,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::Pallet as Subtensor;
+use crate::staking::lock::LockState;
 use crate::*;
 use codec::Compact;
 use frame_benchmarking::v2::*;
