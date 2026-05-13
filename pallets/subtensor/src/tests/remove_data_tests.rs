@@ -12,6 +12,41 @@ use pallet_commitments::pallet::Pallet as CommitmentsPallet;
 use pallet_commitments::{CommitmentInfo, Data};
 use sp_runtime::BoundedVec;
 
+fn call_remove_single_value(weight_meter: &mut WeightMeter, weight: Weight) -> bool {
+    WeightMeterWrapper!(weight_meter, weight);
+    DissolvedNetworksCleanupPhase::<Test>::set(None);
+    true
+}
+
+#[test]
+fn test_remove_single_value() {
+    new_test_ext(0).execute_with(|| {
+        DissolvedNetworksCleanupPhase::<Test>::set(Some(
+            DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimable,
+        ));
+        let w = Weight::from_parts(100_u64, 100_u64);
+
+        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
+        assert!(call_remove_single_value(&mut weight_meter, w));
+        assert!(DissolvedNetworksCleanupPhase::<Test>::get().is_none());
+    });
+}
+
+#[test]
+fn test_remove_single_value_failed() {
+    new_test_ext(0).execute_with(|| {
+        DissolvedNetworksCleanupPhase::<Test>::set(Some(
+            DissolvedNetworksCleanupPhaseEnum::CleanSubnetRootDividendsRootClaimable,
+        ));
+        let w = Weight::from_parts(100_u64, 100_u64);
+
+        let mut weight_meter =
+            frame_support::weights::WeightMeter::with_limit(Weight::from_parts(50_u64, 50_u64));
+        assert!(!call_remove_single_value(&mut weight_meter, w));
+        assert!(DissolvedNetworksCleanupPhase::<Test>::get().is_some());
+    });
+}
+
 /// Test the remove_data_for_dissolved_networks macro function by testing each phase individually
 #[test]
 fn test_remove_data_for_dissolved_networks_all_phases() {

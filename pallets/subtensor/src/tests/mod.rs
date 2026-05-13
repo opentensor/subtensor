@@ -5,6 +5,7 @@ mod claim_root;
 mod coinbase;
 mod consensus;
 mod delegate_info;
+mod destroy_alpha_tests;
 mod emission;
 mod ensure;
 mod epoch;
