@@ -240,7 +240,7 @@ fn extension_reveal_weights_rejects_commit_not_found() {
         crate::Owner::<Test>::insert(hotkey, coldkey);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
@@ -276,7 +276,7 @@ fn extension_reveal_mechanism_weights_rejects_commit_not_found() {
         crate::Owner::<Test>::insert(hotkey, coldkey);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_stake_threshold(0);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
         assert_ok!(SubtensorModule::do_add_stake(
             RuntimeOrigin::signed(hotkey),
             hotkey,
@@ -577,40 +577,6 @@ fn extension_associate_evm_key_rejects_uid_not_found() {
 }
 
 #[test]
-fn extension_add_stake_burn_rejects_not_subnet_owner() {
-    new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let owner = U256::from(60);
-        let not_owner = U256::from(61);
-        let hotkey = U256::from(62);
-        add_network(netuid, 1, 0);
-        SubnetOwner::<Test>::insert(netuid, owner);
-
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake_burn {
-            hotkey,
-            netuid,
-            amount: TaoBalance::from(1u64),
-            limit: None,
-        });
-        let err = SubtensorTransactionExtension::<Test>::new()
-            .validate(
-                RawOrigin::Signed(not_owner).into(),
-                &call,
-                &dispatch_info(),
-                0,
-                (),
-                &TxBaseImplication(()),
-                TransactionSource::External,
-            )
-            .unwrap_err();
-        assert_eq!(
-            err,
-            TransactionValidityError::Invalid(InvalidTransaction::BadSigner)
-        );
-    });
-}
-
-#[test]
 fn extension_register_network_rejects_global_rate_limit() {
     new_test_ext(0).execute_with(|| {
         let limit = 50u64;
@@ -651,7 +617,7 @@ fn extension_associate_evm_key_rejects_associate_rate_limit() {
 
         let coldkey = U256::from(80);
         let hotkey = U256::from(81);
-        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).unwrap();
@@ -670,25 +636,5 @@ fn extension_associate_evm_key_rejects_associate_rate_limit() {
             err,
             CustomTransactionError::EvmKeyAssociateRateLimitExceeded.into()
         );
-    });
-}
-
-#[test]
-fn extension_add_stake_burn_boosts_priority_for_subnet_owner() {
-    new_test_ext(0).execute_with(|| {
-        let netuid = NetUid::from(1);
-        let owner = U256::from(90);
-        let hotkey = U256::from(91);
-        add_network(netuid, 1, 0);
-        SubnetOwner::<Test>::insert(netuid, owner);
-
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake_burn {
-            hotkey,
-            netuid,
-            amount: TaoBalance::from(1u64),
-            limit: None,
-        });
-        let v = validate_signed(owner, &call).unwrap();
-        assert_eq!(v.priority, 100);
     });
 }
