@@ -540,9 +540,6 @@ mod tests {
     fn test_loop_remove_prefix_with_weight_meter_respects_backend_limit() {
         let netuid = NetUid::from(42);
         let entry_weight = Weight::from_parts(REF_TIME_WEIGHT, PROOF_SIZE_WEIGHT);
-        let storage_keys = (0..3)
-            .map(|key| LoopRemovePrefixTestMap::hashed_key_for(netuid, key))
-            .collect::<Vec<_>>();
         let mut ext = sp_io::TestExternalities::default();
 
         ext.execute_with(|| {
@@ -551,18 +548,10 @@ mod tests {
             }
         });
 
-        // Move inserts out of the overlay. Overlay-only keys are removed without counting toward
-        // `clear_prefix`'s limit, so this makes the test exercise the backend limit path.
         let _ = ext.commit_all();
 
         ext.execute_with(|| {
-            assert_eq!(
-                storage_keys
-                    .iter()
-                    .filter(|key| sp_io::storage::get(key).is_some())
-                    .count(),
-                3
-            );
+            assert_eq!(LoopRemovePrefixTestMap::iter_prefix(netuid).count(), 3);
 
             let mut weight_meter = WeightMeter::with_limit(entry_weight);
             assert!(!test_loop_remove_prefix_with_weight_meter(
@@ -571,13 +560,7 @@ mod tests {
                 netuid
             ));
 
-            assert_eq!(
-                storage_keys
-                    .iter()
-                    .filter(|key| sp_io::storage::get(key).is_some())
-                    .count(),
-                2
-            );
+            assert_eq!(LoopRemovePrefixTestMap::iter_prefix(netuid).count(), 2);
             assert_eq!(weight_meter.consumed(), entry_weight);
         });
     }
