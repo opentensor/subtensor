@@ -225,7 +225,7 @@ impl<T: Config> Pallet<T> {
         dissolved_networks.push(netuid);
         DissolvedNetworks::<T>::set(dissolved_networks);
 
-        log::info!("NetworkRemoved( netuid:{netuid:?} )");
+        log::debug!("NetworkRemoved( netuid:{netuid:?} )");
 
         // --- Emit the NetworkRemoved event
         Self::deposit_event(Event::NetworkRemoved(netuid));
