@@ -13,9 +13,7 @@ use pallet_drand::LastStoredRound;
 use sp_core::H256;
 use sp_core::U256;
 use sp_runtime::traits::{DispatchInfoOf, TransactionExtension, TxBaseImplication};
-use sp_runtime::transaction_validity::{
-    InvalidTransaction, TransactionSource, TransactionValidityError,
-};
+use sp_runtime::transaction_validity::{TransactionSource, TransactionValidityError};
 use subtensor_runtime_common::{CustomTransactionError, MechId, NetUid, TaoBalance};
 
 fn dispatch_info() -> sp_runtime::traits::DispatchInfoOf<<Test as frame_system::Config>::RuntimeCall>
