@@ -476,7 +476,7 @@ fn test_exp_decay_clamps_large_dt_to_min_ratio() {
 }
 
 #[test]
-fn test_roll_forward_locked_mass_no_change() {
+fn test_roll_forward_locked_mass_decays() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -490,15 +490,15 @@ fn test_roll_forward_locked_mass_no_change() {
             lock_amount.into()
         ));
 
-        // Advance one full tau via direct block number jump (step_block overflows u16 for tau=216000)
-        let tau = TauBlocks::<Test>::get();
+        // Advance one full unlock rate via direct block number jump.
+        let tau = UnlockRate::<Test>::get();
         let target = System::block_number() + tau;
         System::set_block_number(target);
 
         let locked = SubtensorModule::get_current_locked(&coldkey, netuid);
 
-        // No changes to locked mass
-        assert_eq!(locked, lock_amount.into());
+        assert!(locked < lock_amount.into());
+        assert!(locked > AlphaBalance::ZERO);
     });
 }
 
@@ -532,7 +532,7 @@ fn test_roll_forward_conviction_converges_to_zero() {
         assert!(c2 > c1);
 
         // After a very long time (many taus), conviction is close to zero
-        let tau = TauBlocks::<Test>::get();
+        let tau = MaturityRate::<Test>::get();
         let target = System::block_number() + tau * 1000;
         System::set_block_number(target);
         let c_late = SubtensorModule::get_conviction(&coldkey, netuid);
@@ -1113,7 +1113,7 @@ fn test_reduce_lock_removes_dust() {
         ));
 
         // Advance many taus so everything decays well below dust (100)
-        let tau = TauBlocks::<Test>::get();
+        let tau = UnlockRate::<Test>::get();
         let target = System::block_number() + tau * 50;
         System::set_block_number(target);
 

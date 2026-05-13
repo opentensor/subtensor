@@ -59,18 +59,24 @@ impl<T: Config> Pallet<T> {
         conviction: U64F64,
         dt: u64,
     ) -> (AlphaBalance, U64F64) {
-        let tau = TauBlocks::<T>::get();
+        let unlock_rate = UnlockRate::<T>::get();
+        let maturity_rate = MaturityRate::<T>::get();
 
-        let decay = Self::exp_decay(dt, tau);
+        let unlock_decay = Self::exp_decay(dt, unlock_rate);
+        let maturity_decay = Self::exp_decay(dt, maturity_rate);
         let dt_fixed = U64F64::saturating_from_num(dt);
         let mass_fixed = U64F64::saturating_from_num(locked_mass);
-        let tau_fixed = U64F64::saturating_from_num(tau);
-        let new_locked_mass = decay
+        let maturity_rate_fixed = U64F64::saturating_from_num(maturity_rate);
+        let new_locked_mass = unlock_decay
             .saturating_mul(mass_fixed)
             .saturating_to_num::<u64>()
             .into();
-        let new_conviction = decay.saturating_mul(
-            conviction.saturating_add(dt_fixed.safe_div(tau_fixed).saturating_mul(mass_fixed)),
+        let new_conviction = maturity_decay.saturating_mul(
+            conviction.saturating_add(
+                dt_fixed
+                    .safe_div(maturity_rate_fixed)
+                    .saturating_mul(mass_fixed),
+            ),
         );
         (new_locked_mass, new_conviction)
     }
@@ -105,11 +111,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns the current locked amount for a coldkey on a subnet.
-    /// No rolling forward is needed because locked mass does not decay over time.
     pub fn get_current_locked(coldkey: &T::AccountId, netuid: NetUid) -> AlphaBalance {
+        let now = Self::get_current_block_as_u64();
         Lock::<T>::iter_prefix((coldkey, netuid))
             .next()
-            .map(|(_hotkey, lock)| lock.locked_mass)
+            .map(|(_hotkey, lock)| Self::roll_forward_lock(lock, now).locked_mass)
             .unwrap_or(AlphaBalance::ZERO)
     }
 

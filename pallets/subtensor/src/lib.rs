@@ -1539,15 +1539,19 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// Default decay timescale: ~365.25 days at 12s blocks.
+    /// Default decay timescale: 90% decay over ~365.25 days at 12s blocks.
     #[pallet::type_value]
-    pub fn DefaultTauBlocks<T: Config>() -> u64 {
-        7200 * 365 + 1800
+    pub fn DefaultLockDecayRate<T: Config>() -> u64 {
+        1_142_108
     }
 
-    /// --- ITEM( tau_blocks ) | Decay timescale in blocks for exponential lock.
+    /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
     #[pallet::storage]
-    pub type TauBlocks<T: Config> = StorageValue<_, u64, ValueQuery, DefaultTauBlocks<T>>;
+    pub type MaturityRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultLockDecayRate<T>>;
+
+    /// --- ITEM( unlock_rate ) | Decay timescale in blocks for locked mass.
+    #[pallet::storage]
+    pub type UnlockRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultLockDecayRate<T>>;
 
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
