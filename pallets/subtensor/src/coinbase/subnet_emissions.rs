@@ -22,26 +22,33 @@ impl<T: Config> Pallet<T> {
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
-        // Get subnet TAO emission shares for all emission-eligible subnets first. This keeps
-        // disabled subnets in the returned map so they still continue through alpha_out/root-prop
-        // accounting, while their TAO-side emission is redistributed to enabled subnets.
+        // Disabled subnets get zero TAO-side emission, redistributed to enabled subnets.
+        // They stay in the map so the normal alpha_out/root-prop path still runs.
         let shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
 
         let zero = U64F64::saturating_from_num(0.0);
-        let has_disabled_subnets = shares
-            .keys()
-            .any(|netuid| !SubnetEmissionEnabled::<T>::get(*netuid));
-        let enabled_share_sum: U64F64 = shares
-            .iter()
-            .filter(|(netuid, _)| SubnetEmissionEnabled::<T>::get(**netuid))
-            .fold(zero, |acc, (_, share)| acc.saturating_add(*share));
+        let mut shares_with_emission_enabled = Vec::with_capacity(shares.len());
+        let mut has_disabled_subnets = false;
+        let mut enabled_share_sum = zero;
 
-        shares
+        for (netuid, share) in shares {
+            let emission_enabled = SubnetEmissionEnabled::<T>::get(netuid);
+
+            if emission_enabled {
+                enabled_share_sum = enabled_share_sum.saturating_add(share);
+            } else {
+                has_disabled_subnets = true;
+            }
+
+            shares_with_emission_enabled.push((netuid, share, emission_enabled));
+        }
+
+        shares_with_emission_enabled
             .into_iter()
-            .map(|(netuid, share)| {
+            .map(|(netuid, share, emission_enabled)| {
                 let share = if has_disabled_subnets {
-                    if SubnetEmissionEnabled::<T>::get(netuid) && enabled_share_sum > zero {
+                    if emission_enabled && enabled_share_sum > zero {
                         share.safe_div(enabled_share_sum)
                     } else {
                         zero
@@ -54,7 +61,6 @@ impl<T: Config> Pallet<T> {
             })
             .collect::<BTreeMap<NetUid, U96F32>>()
     }
-
     pub fn record_tao_inflow(netuid: NetUid, tao: TaoBalance) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
             *flow = flow.saturating_add(u64::from(tao) as i64);
