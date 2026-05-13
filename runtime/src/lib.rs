@@ -2522,6 +2522,10 @@ impl_runtime_apis! {
         fn get_subnet_account_id(netuid: NetUid) -> Option<AccountId32> {
             SubtensorModule::get_subnet_account_id(netuid)
         }
+
+        fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64> {
+            SubtensorModule::get_next_epoch_start_block(netuid)
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {

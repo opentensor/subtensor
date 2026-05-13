@@ -1063,4 +1063,25 @@ impl<T: Config> Pallet<T> {
         let next_auto = last.saturating_add(tempo as u64).saturating_add(1);
         next_auto.saturating_sub(block_number)
     }
+
+    /// Returns the absolute block number at which the next epoch is expected to fire for the
+    /// given subnet, considering both the automatic schedule (`LastEpochBlock + tempo + 1`) and
+    /// any owner-triggered `PendingEpochAt`. Returns `None` if `tempo == 0` (subnet does not run).
+    /// Does NOT account for the per-block cap deferral or the `BlocksSinceLastStep > MAX_TEMPO`
+    /// safety-net (which can fire earlier under extreme drift).
+    pub fn get_next_epoch_start_block(netuid: NetUid) -> Option<u64> {
+        let tempo = Self::get_tempo(netuid);
+        if tempo == 0 {
+            return None;
+        }
+        let last = LastEpochBlock::<T>::get(netuid);
+        let auto_next = last.saturating_add(tempo as u64).saturating_add(1);
+
+        let pending = PendingEpochAt::<T>::get(netuid);
+        if pending > 0 {
+            Some(auto_next.min(pending))
+        } else {
+            Some(auto_next)
+        }
+    }
 }
