@@ -2157,13 +2157,7 @@ pub mod pallet {
         /// pending validator emission. It only zeros the pool-side `alpha_in`, `tao_in`,
         /// and `excess_tao` chain-buy paths.
         #[pallet::call_index(92)]
-        #[pallet::weight((
-            Weight::from_parts(25_000_000, 0)
-                .saturating_add(T::DbWeight::get().reads(4))
-                .saturating_add(T::DbWeight::get().writes(2)),
-            DispatchClass::Operational,
-            Pays::Yes,
-        ))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_subnet_emission_enabled())]
         pub fn sudo_set_subnet_emission_enabled(
             origin: OriginFor<T>,
             netuid: NetUid,

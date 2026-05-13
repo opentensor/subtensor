@@ -83,7 +83,7 @@ pub trait WeightInfo {
 	fn sudo_set_ema_price_halving_period() -> Weight;
 	fn sudo_set_alpha_sigmoid_steepness() -> Weight;
 	fn sudo_set_yuma3_enabled() -> Weight;
-	fn sudo_set_bonds_reset_enabled() -> Weight;
+	fn sudo_set_bonds_reset_enabled() -> Weight; fn sudo_set_subnet_emission_enabled() -> Weight;
 	fn sudo_set_sn_owner_hotkey() -> Weight;
 	fn sudo_set_subtoken_enabled() -> Weight;
 	fn sudo_set_admin_freeze_window() -> Weight;
@@ -793,7 +793,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(23_705_000, 4122)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
+	} /// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+    /// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+    /// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+    /// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+    /// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+    fn sudo_set_subnet_emission_enabled() -> Weight {
+        Weight::from_parts(25_000_000, 4225)
+            .saturating_add(T::DbWeight::get().reads(4_u64))
+            .saturating_add(T::DbWeight::get().writes(2_u64))
+    }
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
@@ -1591,7 +1600,16 @@ impl WeightInfo for () {
 		Weight::from_parts(23_705_000, 4122)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
+	} /// Storage: `SubtensorModule::Tempo` (r:1 w:0)
+    /// Storage: `SubtensorModule::AdminFreezeWindow` (r:1 w:0)
+    /// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
+    /// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
+    /// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+    fn sudo_set_subnet_emission_enabled() -> Weight {
+        Weight::from_parts(25_000_000, 4225)
+            .saturating_add(RocksDbWeight::get().reads(4_u64))
+            .saturating_add(RocksDbWeight::get().writes(2_u64))
+    }
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastRateLimitedBlock` (r:1 w:1)
