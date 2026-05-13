@@ -553,7 +553,8 @@ mod tests {
 
         // Move inserts out of the overlay. Overlay-only keys are removed without counting toward
         // `clear_prefix`'s limit, so this makes the test exercise the backend limit path.
-        let _ =ext.commit_all()
+        let _ = ext
+            .commit_all()
             .expect("committing test storage changes should succeed");
 
         ext.execute_with(|| {
