@@ -83,7 +83,8 @@ pub trait WeightInfo {
 	fn sudo_set_ema_price_halving_period() -> Weight;
 	fn sudo_set_alpha_sigmoid_steepness() -> Weight;
 	fn sudo_set_yuma3_enabled() -> Weight;
-	fn sudo_set_bonds_reset_enabled() -> Weight; fn sudo_set_subnet_emission_enabled() -> Weight;
+	fn sudo_set_bonds_reset_enabled() -> Weight; 
+	fn sudo_set_subnet_emission_enabled() -> Weight;
 	fn sudo_set_sn_owner_hotkey() -> Weight;
 	fn sudo_set_subtoken_enabled() -> Weight;
 	fn sudo_set_admin_freeze_window() -> Weight;
