@@ -608,5 +608,13 @@ mod events {
             /// The subnet the lock is on.
             netuid: NetUid,
         },
+
+        /// Liquid alpha consensus mode set for a subnet.
+        LiquidAlphaConsensusModeSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The new consensus mode.
+            mode: ConsensusMode,
+        },
     }
 }
