@@ -302,7 +302,7 @@ fn ema_tick_writes_state_and_advances_cursor() {
 
         // Strategy returns a deterministic non-zero value so the EMA write
         // is observable in storage.
-        set_ema_strategy_next(|_, _| U64F64::from_num(42));
+        let _next = EmaStrategyNextGuard::new(Some(|_, _| U64F64::from_num(42)));
 
         // Two consecutive ticks at SamplingInterval = 1: each picks a
         // distinct member, cursor advances.
@@ -332,8 +332,6 @@ fn ema_tick_writes_state_and_advances_cursor() {
         let revisited_samples = RootRegisteredEma::<Test>::get(cold_a).samples
             + RootRegisteredEma::<Test>::get(cold_b).samples;
         assert_eq!(revisited_samples, 3);
-
-        clear_ema_strategy_next();
     });
 }
 
@@ -361,14 +359,12 @@ fn ema_tick_is_no_op_when_interval_is_zero() {
 
         // Zero interval disables sampling entirely: the early guard must
         // return before any storage read.
-        set_ema_sampling_interval(0);
+        let _interval = EmaSamplingIntervalGuard::new(0);
         let cursor_before = EmaSampleCursor::<Test>::get();
         SubtensorModule::tick_root_registered_ema(1);
         SubtensorModule::tick_root_registered_ema(100);
         assert_eq!(EmaSampleCursor::<Test>::get(), cursor_before);
         assert!(take_ema_strategy_log().is_empty());
-
-        set_ema_sampling_interval(1);
     });
 }
 
@@ -382,7 +378,7 @@ fn ema_tick_acts_only_on_blocks_that_are_multiples_of_interval() {
         root_register_with_stake(&coldkey, &U256::from(11), alpha);
         let _ = take_ema_strategy_log();
 
-        set_ema_sampling_interval(5);
+        let _interval = EmaSamplingIntervalGuard::new(5);
 
         // Off-interval blocks 1..=4 must no-op.
         let cursor_before = EmaSampleCursor::<Test>::get();
@@ -398,8 +394,6 @@ fn ema_tick_acts_only_on_blocks_that_are_multiples_of_interval() {
         let log = take_ema_strategy_log();
         assert_eq!(log.len(), 1);
         assert_eq!(log[0].0, coldkey);
-
-        set_ema_sampling_interval(1);
     });
 }
 
@@ -415,7 +409,8 @@ fn ema_tick_returns_weight_including_strategy_contribution() {
         // Strategy reports a non-zero per-call weight; the tick must
         // surface it through its return value so on_initialize can bill
         // the actual cost.
-        set_ema_strategy_weights(Weight::from_parts(12_345, 0), Weight::zero());
+        let _next_weight = EmaStrategyNextWeightGuard::new(Weight::from_parts(12_345, 0));
+        let _max_weight = EmaStrategyMaxWeightGuard::new(Weight::zero());
         let on_tick = SubtensorModule::tick_root_registered_ema(1);
         assert!(
             on_tick.ref_time() >= 12_345,
@@ -435,7 +430,7 @@ fn ema_tick_default_unit_strategy_freezes_value() {
         let coldkey = U256::from(10);
         root_register_with_stake(&coldkey, &U256::from(11), alpha);
 
-        // No `set_ema_strategy_next`: MockEmaStrategy returns `previous`,
+        // No `EmaStrategyNextGuard`: MockEmaStrategy returns `previous.ema`,
         // matching the `()` default. EMA stays at the init value (0)
         // but the sample counter still advances.
         let _ = take_ema_strategy_log();

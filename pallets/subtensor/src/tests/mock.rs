@@ -231,54 +231,85 @@ impl RootRegisteredInspector<U256> for MockRootRegisteredInspector {
 }
 
 thread_local! {
-    static EMA_STRATEGY_LOG: core::cell::RefCell<Vec<(U256, U64F64)>> =
-        const { core::cell::RefCell::new(Vec::new()) };
-    static EMA_STRATEGY_NEXT: core::cell::RefCell<Option<fn(U256, EmaState) -> U64F64>> =
-        const { core::cell::RefCell::new(None) };
-    static EMA_STRATEGY_NEXT_WEIGHT: core::cell::RefCell<Weight> =
-        const { core::cell::RefCell::new(Weight::zero()) };
-    static EMA_STRATEGY_MAX_WEIGHT: core::cell::RefCell<Weight> =
-        const { core::cell::RefCell::new(Weight::zero()) };
+    static EMA_STRATEGY_LOG: RefCell<Vec<(U256, U64F64)>> =
+        const { RefCell::new(Vec::new()) };
 }
 
 pub fn take_ema_strategy_log() -> Vec<(U256, U64F64)> {
     EMA_STRATEGY_LOG.with(|log| log.borrow_mut().drain(..).collect())
 }
 
-/// Override the value `MockEmaStrategy::next` returns. The closure
-/// receives `(coldkey, previous_state)` and returns the new EMA. Default
-/// (unset) returns `previous.ema`, i.e. freezes the EMA.
-pub fn set_ema_strategy_next(f: fn(U256, EmaState) -> U64F64) {
-    EMA_STRATEGY_NEXT.with(|m| *m.borrow_mut() = Some(f));
+/// Define a thread-local whose value can be temporarily replaced via an
+/// RAII guard. The previous value is restored when the guard drops, so
+/// tests do not need to manually undo their setup (and inherit nothing
+/// from a panicking neighbor).
+macro_rules! define_scoped_state {
+    ($flag:ident, $guard:ident, $reader:ident, $ty:ty, $default:expr) => {
+        thread_local! {
+            static $flag: RefCell<$ty> = const { RefCell::new($default) };
+        }
+
+        #[must_use = "the guard restores the prior value on drop; bind it to a local"]
+        pub struct $guard {
+            previous: Option<$ty>,
+        }
+
+        impl $guard {
+            pub fn new(value: $ty) -> Self {
+                let previous =
+                    Some($flag.with(|r| core::mem::replace(&mut *r.borrow_mut(), value)));
+                Self { previous }
+            }
+        }
+
+        impl Drop for $guard {
+            fn drop(&mut self) {
+                if let Some(prev) = self.previous.take() {
+                    $flag.with(|r| *r.borrow_mut() = prev);
+                }
+            }
+        }
+
+        fn $reader() -> $ty {
+            $flag.with(|r| r.borrow().clone())
+        }
+    };
 }
 
-pub fn clear_ema_strategy_next() {
-    EMA_STRATEGY_NEXT.with(|m| *m.borrow_mut() = None);
-}
-
-/// Override the weight `MockEmaStrategy::next` reports for the next
-/// invocation (per-call cost), and the worst-case reported by
-/// `MockEmaStrategy::weight()`.
-pub fn set_ema_strategy_weights(next_weight: Weight, max_weight: Weight) {
-    EMA_STRATEGY_NEXT_WEIGHT.with(|w| *w.borrow_mut() = next_weight);
-    EMA_STRATEGY_MAX_WEIGHT.with(|w| *w.borrow_mut() = max_weight);
-}
-
-thread_local! {
-    static EMA_SAMPLING_INTERVAL: core::cell::Cell<u64> = const { core::cell::Cell::new(1) };
-}
-
-/// Override the `EmaSamplingInterval` returned to `tick_root_registered_ema`.
-/// Default is 1 so every block is a sample tick.
-pub fn set_ema_sampling_interval(interval: u64) {
-    EMA_SAMPLING_INTERVAL.with(|i| i.set(interval));
-}
+define_scoped_state!(
+    EMA_STRATEGY_NEXT,
+    EmaStrategyNextGuard,
+    ema_strategy_next,
+    Option<fn(U256, EmaState) -> U64F64>,
+    None
+);
+define_scoped_state!(
+    EMA_STRATEGY_NEXT_WEIGHT,
+    EmaStrategyNextWeightGuard,
+    ema_strategy_next_weight,
+    Weight,
+    Weight::zero()
+);
+define_scoped_state!(
+    EMA_STRATEGY_MAX_WEIGHT,
+    EmaStrategyMaxWeightGuard,
+    ema_strategy_max_weight,
+    Weight,
+    Weight::zero()
+);
+define_scoped_state!(
+    EMA_SAMPLING_INTERVAL,
+    EmaSamplingIntervalGuard,
+    ema_sampling_interval,
+    u64,
+    1
+);
 
 pub struct EmaSamplingInterval;
 
 impl Get<u64> for EmaSamplingInterval {
     fn get() -> u64 {
-        EMA_SAMPLING_INTERVAL.with(|i| i.get())
+        ema_sampling_interval()
     }
 }
 
@@ -287,15 +318,15 @@ pub struct MockEmaStrategy;
 impl EmaStrategy<U256> for MockEmaStrategy {
     fn next(coldkey: &U256, previous: EmaState) -> (U64F64, Weight) {
         EMA_STRATEGY_LOG.with(|log| log.borrow_mut().push((*coldkey, previous.ema)));
-        let next = match EMA_STRATEGY_NEXT.with(|m| *m.borrow()) {
+        let next = match ema_strategy_next() {
             Some(f) => f(*coldkey, previous),
             None => previous.ema,
         };
-        (next, EMA_STRATEGY_NEXT_WEIGHT.with(|w| *w.borrow()))
+        (next, ema_strategy_next_weight())
     }
 
     fn weight() -> Weight {
-        EMA_STRATEGY_MAX_WEIGHT.with(|w| *w.borrow())
+        ema_strategy_max_weight()
     }
 }
 
