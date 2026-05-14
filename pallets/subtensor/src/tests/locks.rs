@@ -105,7 +105,7 @@ fn test_lock_stake_by_subnet_owner_coldkey_gets_immediate_conviction() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1);
         let owner_hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(owner_coldkey, owner_hotkey, 100_000_000_000);
+        let netuid = setup_subnet_with_stake(owner_coldkey, owner_hotkey, 300_000_000_000);
         SubnetOwner::<Test>::insert(netuid, owner_coldkey);
         SubnetOwnerHotkey::<Test>::insert(netuid, owner_hotkey);
 
@@ -212,7 +212,7 @@ fn test_set_perpetual_lock_is_per_coldkey_and_rolls_lock_at_boundary() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 300_000_000_000);
 
         let lock_amount: AlphaBalance = 5000u64.into();
         assert_ok!(SubtensorModule::do_lock_stake(
@@ -339,15 +339,18 @@ fn test_mixed_perpetual_and_decaying_non_owner_locks_same_hotkey_update_aggregat
 #[ignore]
 fn plot_perpetual_decay_perpetual_lock_curve() {
     new_test_ext(1).execute_with(|| {
+        const ALPHA: u64 = 1_000_000_000;
+        const ALPHA_F64: f64 = ALPHA as f64;
+
         let owner_coldkey = U256::from(1);
         let owner_hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(owner_coldkey, owner_hotkey, 100_000_000_000);
+        let netuid = setup_subnet_with_stake(owner_coldkey, owner_hotkey, 300_000_000_000);
         SubnetOwner::<Test>::insert(netuid, owner_coldkey);
         SubnetOwnerHotkey::<Test>::insert(netuid, owner_hotkey);
         MaturityRate::<Test>::put(300u64);
         UnlockRate::<Test>::put(200u64);
 
-        let lock_amount: AlphaBalance = 1_000u64.into();
+        let lock_amount: AlphaBalance = (1_000u64 * ALPHA).into();
         assert_ok!(SubtensorModule::do_lock_stake(
             &owner_coldkey,
             netuid,
@@ -391,8 +394,8 @@ fn plot_perpetual_decay_perpetual_lock_curve() {
             println!(
                 "{},{},{}",
                 block,
-                u64::from(rolled.locked_mass),
-                rolled.conviction.to_num::<f64>()
+                u64::from(rolled.locked_mass) as f64 / ALPHA_F64,
+                rolled.conviction.to_num::<f64>() / ALPHA_F64
             );
         }
     });
@@ -402,14 +405,17 @@ fn plot_perpetual_decay_perpetual_lock_curve() {
 #[ignore]
 fn plot_decaying_non_owner_lock_curve() {
     new_test_ext(1).execute_with(|| {
+        const ALPHA: u64 = 1_000_000_000;
+        const ALPHA_F64: f64 = ALPHA as f64;
+
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 300_000_000_000);
         MaturityRate::<Test>::put(300u64);
         UnlockRate::<Test>::put(200u64);
         System::set_block_number(0);
 
-        let lock_amount: AlphaBalance = 1_000u64.into();
+        let lock_amount: AlphaBalance = (1_000u64 * ALPHA).into();
         assert_ok!(SubtensorModule::do_lock_stake(
             &coldkey,
             netuid,
@@ -432,8 +438,8 @@ fn plot_decaying_non_owner_lock_curve() {
             println!(
                 "{},{},{}",
                 block,
-                u64::from(rolled.locked_mass),
-                rolled.conviction.to_num::<f64>()
+                u64::from(rolled.locked_mass) as f64 / ALPHA_F64,
+                rolled.conviction.to_num::<f64>() / ALPHA_F64
             );
         }
     });
@@ -443,14 +449,17 @@ fn plot_decaying_non_owner_lock_curve() {
 #[ignore]
 fn plot_perpetual_decay_perpetual_non_owner_lock_curve() {
     new_test_ext(1).execute_with(|| {
+        const ALPHA: u64 = 1_000_000_000;
+        const ALPHA_F64: f64 = ALPHA as f64;
+
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 1_000_000_000_000);
         MaturityRate::<Test>::put(300u64);
         UnlockRate::<Test>::put(200u64);
         System::set_block_number(0);
 
-        let lock_amount: AlphaBalance = 1_000u64.into();
+        let lock_amount: AlphaBalance = (1_000u64 * ALPHA).into();
         assert_ok!(SubtensorModule::do_lock_stake(
             &coldkey,
             netuid,
@@ -487,9 +496,18 @@ fn plot_perpetual_decay_perpetual_non_owner_lock_curve() {
             println!(
                 "{},{},{}",
                 block,
-                u64::from(rolled.locked_mass),
-                rolled.conviction.to_num::<f64>()
+                u64::from(rolled.locked_mass) as f64 / ALPHA_F64,
+                rolled.conviction.to_num::<f64>() / ALPHA_F64
             );
+
+            // Add more lock (emulate owner auto-lock)
+            let auto_lock_amount: AlphaBalance = 200_000_000_u64.into();
+            assert_ok!(SubtensorModule::do_lock_stake(
+                &coldkey,
+                netuid,
+                &hotkey,
+                auto_lock_amount,
+            ));
         }
     });
 }
