@@ -254,10 +254,10 @@ impl<T: Config> Pallet<T> {
             DecayingLock::<T>::insert(coldkey, netuid, false);
         }
 
-        if current_enabled != enabled {
-            if let Some((hotkey, lock)) = Lock::<T>::iter_prefix((coldkey, netuid)).next() {
-                Self::add_aggregate_lock(coldkey, &hotkey, netuid, lock);
-            }
+        if current_enabled != enabled
+            && let Some((hotkey, lock)) = Lock::<T>::iter_prefix((coldkey, netuid)).next()
+        {
+            Self::add_aggregate_lock(coldkey, &hotkey, netuid, lock);
         }
         Self::deposit_event(Event::PerpetualLockUpdated {
             coldkey: coldkey.clone(),
