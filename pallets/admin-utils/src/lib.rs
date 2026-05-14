@@ -110,6 +110,14 @@ pub mod pallet {
             /// The new burn increase multiplier.
             burn_increase_mult: U64F64,
         },
+
+        /// Pool-side subnet emission injections and chain buys were enabled or disabled.
+        SubnetEmissionEnabledSet {
+            /// The network identifier.
+            netuid: NetUid,
+            /// Whether pool-side emission injections and chain buys are enabled.
+            enabled: bool,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -2137,6 +2145,45 @@ pub mod pallet {
                 maybe_owner,
                 netuid,
                 &[Hyperparameter::BurnIncreaseMult.into()],
+            );
+
+            Ok(())
+        }
+
+        /// Enables or disables subnet pool-side emission for a subnet.
+        ///
+        /// This does not remove the subnet from emission share calculation and does not
+        /// change `alpha_out`, owner cut, root proportion, pending server emission, or
+        /// pending validator emission. It only zeros the pool-side `alpha_in`, `tao_in`,
+        /// and `excess_tao` chain-buy paths.
+        #[pallet::call_index(92)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_subnet_emission_enabled())]
+        pub fn sudo_set_subnet_emission_enabled(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::SubnetEmissionEnabled.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+
+            pallet_subtensor::SubnetEmissionEnabled::<T>::insert(netuid, enabled);
+            Self::deposit_event(Event::SubnetEmissionEnabledSet { netuid, enabled });
+            log::debug!("SubnetEmissionEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} )");
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::SubnetEmissionEnabled.into()],
             );
 
             Ok(())
