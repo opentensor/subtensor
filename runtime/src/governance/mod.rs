@@ -1,5 +1,7 @@
 pub mod collectives;
 pub mod member_set;
+pub mod stake_ema;
+pub mod term_management;
 pub mod tracks;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -12,8 +14,9 @@ use crate::{
     AccountId, Preimage, Referenda, Runtime, RuntimeCall, Scheduler, SignedVoting, System,
 };
 
-use self::collectives::{CollectiveId, Collectives, TermManagement};
+use self::collectives::{CollectiveId, Collectives};
 pub use self::member_set::MemberSet;
+use self::term_management::TermManagement;
 
 parameter_types! {
     /// Storage cap shared by all collectives; sized for the widest one
