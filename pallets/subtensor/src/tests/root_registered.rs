@@ -259,26 +259,26 @@ fn ema_lifecycle_init_clear_and_reentry() {
         add_network(alpha, 1, 0);
 
         let coldkey = U256::from(10);
-        assert!(!RootRegisteredStakeEma::<Test>::contains_key(coldkey));
+        assert!(!RootRegisteredEma::<Test>::contains_key(coldkey));
 
         // First root registration seeds a zero-valued slot.
         root_register_with_stake(&coldkey, &U256::from(11), alpha);
-        let state = RootRegisteredStakeEma::<Test>::get(coldkey);
+        let state = RootRegisteredEma::<Test>::get(coldkey);
         assert_eq!(state.ema, U64F64::from_num(0));
         assert_eq!(state.samples, 0);
 
         // Advance the sampler so we can prove re-entry resets it.
-        SubtensorModule::tick_root_registered_stake_ema(1);
-        SubtensorModule::tick_root_registered_stake_ema(2);
-        assert_eq!(RootRegisteredStakeEma::<Test>::get(coldkey).samples, 2);
+        SubtensorModule::tick_root_registered_ema(1);
+        SubtensorModule::tick_root_registered_ema(2);
+        assert_eq!(RootRegisteredEma::<Test>::get(coldkey).samples, 2);
 
         // Drop to zero hotkeys: the EMA slot is cleared.
         SubtensorModule::decrement_root_registered_hotkey_count(&coldkey);
-        assert!(!RootRegisteredStakeEma::<Test>::contains_key(coldkey));
+        assert!(!RootRegisteredEma::<Test>::contains_key(coldkey));
 
         // Re-register: state starts fresh.
         root_register_with_stake(&coldkey, &U256::from(12), alpha);
-        let state = RootRegisteredStakeEma::<Test>::get(coldkey);
+        let state = RootRegisteredEma::<Test>::get(coldkey);
         assert_eq!(state.ema, U64F64::from_num(0));
         assert_eq!(state.samples, 0);
     });
@@ -307,9 +307,9 @@ fn ema_tick_writes_state_and_advances_cursor() {
         // Two consecutive ticks at SamplingInterval = 1: each picks a
         // distinct member, cursor advances.
         assert_eq!(EmaSampleCursor::<Test>::get(), 0);
-        SubtensorModule::tick_root_registered_stake_ema(1);
+        SubtensorModule::tick_root_registered_ema(1);
         assert_eq!(EmaSampleCursor::<Test>::get(), 1);
-        SubtensorModule::tick_root_registered_stake_ema(2);
+        SubtensorModule::tick_root_registered_ema(2);
         assert_eq!(EmaSampleCursor::<Test>::get(), 2);
 
         let log = take_ema_strategy_log();
@@ -319,18 +319,18 @@ fn ema_tick_writes_state_and_advances_cursor() {
 
         // Both members have the strategy's return value persisted and
         // their sample counter incremented to 1.
-        let state_a = RootRegisteredStakeEma::<Test>::get(cold_a);
+        let state_a = RootRegisteredEma::<Test>::get(cold_a);
         assert_eq!(state_a.ema, U64F64::from_num(42));
         assert_eq!(state_a.samples, 1);
-        let state_b = RootRegisteredStakeEma::<Test>::get(cold_b);
+        let state_b = RootRegisteredEma::<Test>::get(cold_b);
         assert_eq!(state_b.ema, U64F64::from_num(42));
         assert_eq!(state_b.samples, 1);
 
         // A third tick revisits one of the members and bumps its counter to 2.
-        SubtensorModule::tick_root_registered_stake_ema(3);
+        SubtensorModule::tick_root_registered_ema(3);
         assert_eq!(EmaSampleCursor::<Test>::get(), 3);
-        let revisited_samples = RootRegisteredStakeEma::<Test>::get(cold_a).samples
-            + RootRegisteredStakeEma::<Test>::get(cold_b).samples;
+        let revisited_samples = RootRegisteredEma::<Test>::get(cold_a).samples
+            + RootRegisteredEma::<Test>::get(cold_b).samples;
         assert_eq!(revisited_samples, 3);
 
         clear_ema_strategy_next();
@@ -344,7 +344,7 @@ fn ema_tick_is_no_op_when_no_members() {
         // touch the cursor or call the strategy.
         let _ = take_ema_strategy_log();
         let cursor_before = EmaSampleCursor::<Test>::get();
-        SubtensorModule::tick_root_registered_stake_ema(1);
+        SubtensorModule::tick_root_registered_ema(1);
         assert_eq!(EmaSampleCursor::<Test>::get(), cursor_before);
         assert!(take_ema_strategy_log().is_empty());
     });
@@ -363,8 +363,8 @@ fn ema_tick_is_no_op_when_interval_is_zero() {
         // return before any storage read.
         set_ema_sampling_interval(0);
         let cursor_before = EmaSampleCursor::<Test>::get();
-        SubtensorModule::tick_root_registered_stake_ema(1);
-        SubtensorModule::tick_root_registered_stake_ema(100);
+        SubtensorModule::tick_root_registered_ema(1);
+        SubtensorModule::tick_root_registered_ema(100);
         assert_eq!(EmaSampleCursor::<Test>::get(), cursor_before);
         assert!(take_ema_strategy_log().is_empty());
 
@@ -387,13 +387,13 @@ fn ema_tick_acts_only_on_blocks_that_are_multiples_of_interval() {
         // Off-interval blocks 1..=4 must no-op.
         let cursor_before = EmaSampleCursor::<Test>::get();
         for block in 1..=4 {
-            SubtensorModule::tick_root_registered_stake_ema(block);
+            SubtensorModule::tick_root_registered_ema(block);
         }
         assert_eq!(EmaSampleCursor::<Test>::get(), cursor_before);
         assert!(take_ema_strategy_log().is_empty());
 
         // Block 5 is a multiple of the interval: tick acts.
-        SubtensorModule::tick_root_registered_stake_ema(5);
+        SubtensorModule::tick_root_registered_ema(5);
         assert_eq!(EmaSampleCursor::<Test>::get(), cursor_before + 1);
         let log = take_ema_strategy_log();
         assert_eq!(log.len(), 1);
@@ -416,7 +416,7 @@ fn ema_tick_returns_weight_including_strategy_contribution() {
         // surface it through its return value so on_initialize can bill
         // the actual cost.
         set_ema_strategy_weights(Weight::from_parts(12_345, 0), Weight::zero());
-        let on_tick = SubtensorModule::tick_root_registered_stake_ema(1);
+        let on_tick = SubtensorModule::tick_root_registered_ema(1);
         assert!(
             on_tick.ref_time() >= 12_345,
             "tick weight must include strategy contribution, got {on_tick:?}"
@@ -439,9 +439,9 @@ fn ema_tick_default_unit_strategy_freezes_value() {
         // matching the `()` default. EMA stays at the init value (0)
         // but the sample counter still advances.
         let _ = take_ema_strategy_log();
-        SubtensorModule::tick_root_registered_stake_ema(1);
+        SubtensorModule::tick_root_registered_ema(1);
 
-        let state = RootRegisteredStakeEma::<Test>::get(coldkey);
+        let state = RootRegisteredEma::<Test>::get(coldkey);
         assert_eq!(state.ema, U64F64::from_num(0));
         assert_eq!(state.samples, 1);
     });

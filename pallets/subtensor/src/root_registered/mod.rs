@@ -21,7 +21,7 @@ pub mod ref_count;
     MaxEncodedLen,
     TypeInfo,
 )]
-pub struct StakeEmaState {
+pub struct EmaState {
     /// Current EMA value.
     pub ema: U64F64,
     /// Number of samples folded into `ema`.
@@ -55,9 +55,11 @@ impl<AccountId> RootRegisteredInspector<AccountId> for () {
 
 /// Computes a coldkey's next stake EMA value.
 pub trait EmaStrategy<AccountId> {
-    /// Returns the new EMA for `coldkey` given its `previous` value,
-    /// paired with the actual weight consumed by the call.
-    fn next(coldkey: &AccountId, previous: U64F64) -> (U64F64, Weight);
+    /// Returns the new EMA for `coldkey` given its `previous` state,
+    /// paired with the actual weight consumed by the call. The sample
+    /// counter on `previous` is the count *before* this tick, so a
+    /// brand-new entry arrives with `samples == 0`.
+    fn next(coldkey: &AccountId, previous: EmaState) -> (U64F64, Weight);
     /// Worst-case weight of `next`.
     fn weight() -> Weight;
 }
@@ -65,8 +67,8 @@ pub trait EmaStrategy<AccountId> {
 /// Freezes the EMA at its previous value. Default for runtimes /
 /// test mocks that don't compute EMAs.
 impl<AccountId> EmaStrategy<AccountId> for () {
-    fn next(_: &AccountId, previous: U64F64) -> (U64F64, Weight) {
-        (previous, Weight::zero())
+    fn next(_: &AccountId, previous: EmaState) -> (U64F64, Weight) {
+        (previous.ema, Weight::zero())
     }
 
     fn weight() -> Weight {

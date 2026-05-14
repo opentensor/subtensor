@@ -83,7 +83,7 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
-    use crate::root_registered::StakeEmaState;
+    use crate::root_registered::EmaState;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
     use frame_support::{
@@ -1386,15 +1386,15 @@ pub mod pallet {
     pub type RootRegisteredHotkeyCount<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
-    /// EMA of each root-registered coldkey's stake, paired with the
-    /// number of samples folded into it. Updated incrementally by a
-    /// round-robin sampler in `on_initialize`; the actual math is
+    /// EMA per root-registered coldkey, paired with the number of
+    /// samples folded into it. Updated incrementally by a round-robin
+    /// sampler in `on_initialize`; the actual metric and math are
     /// supplied by `T::EmaStrategy`.
     #[pallet::storage]
-    pub type RootRegisteredStakeEma<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, StakeEmaState, ValueQuery>;
+    pub type RootRegisteredEma<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, EmaState, ValueQuery>;
 
-    /// Round-robin cursor into `RootRegisteredStakeEma` for the EMA
+    /// Round-robin cursor into `RootRegisteredEma` for the EMA
     /// sampler. Advances once per tick (every `EmaSamplingInterval`
     /// blocks); modulo the live member count when read.
     #[pallet::storage]

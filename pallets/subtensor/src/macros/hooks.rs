@@ -41,7 +41,7 @@ mod hooks {
                 }
             };
 
-            weight.saturating_add(Self::tick_root_registered_stake_ema(block_number))
+            weight.saturating_add(Self::tick_root_registered_ema(block_number))
         }
 
         // ---- Called on the finalization of this pallet. The code weight must be taken into account prior to the execution of this macro.

@@ -6,6 +6,9 @@
 
 use core::num::NonZeroU64;
 
+use crate::root_registered::{
+    EmaState, EmaStrategy, OnRootRegistrationChange, RootRegisteredInspector,
+};
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
 pub use frame_support::traits::Imbalance;
@@ -192,7 +195,7 @@ pub fn take_root_registration_log() -> Vec<RootRegistrationChange> {
 
 pub struct MockOnRootRegistrationChange;
 
-impl crate::root_registered::OnRootRegistrationChange<U256> for MockOnRootRegistrationChange {
+impl OnRootRegistrationChange<U256> for MockOnRootRegistrationChange {
     fn on_added(coldkey: &U256) {
         ROOT_REGISTRATION_LOG.with(|log| {
             log.borrow_mut()
@@ -221,7 +224,7 @@ pub fn set_mock_root_registered_inspector_members(members: Option<Vec<U256>>) {
 
 pub struct MockRootRegisteredInspector;
 
-impl crate::root_registered::RootRegisteredInspector<U256> for MockRootRegisteredInspector {
+impl RootRegisteredInspector<U256> for MockRootRegisteredInspector {
     fn members() -> Option<Vec<U256>> {
         MOCK_ROOT_REGISTERED_INSPECTOR_MEMBERS.with(|m| m.borrow().clone())
     }
@@ -230,7 +233,7 @@ impl crate::root_registered::RootRegisteredInspector<U256> for MockRootRegistere
 thread_local! {
     static EMA_STRATEGY_LOG: core::cell::RefCell<Vec<(U256, U64F64)>> =
         const { core::cell::RefCell::new(Vec::new()) };
-    static EMA_STRATEGY_NEXT: core::cell::RefCell<Option<fn(U256, crate::root_registered::StakeEmaState) -> U64F64>> =
+    static EMA_STRATEGY_NEXT: core::cell::RefCell<Option<fn(U256, EmaState) -> U64F64>> =
         const { core::cell::RefCell::new(None) };
     static EMA_STRATEGY_NEXT_WEIGHT: core::cell::RefCell<Weight> =
         const { core::cell::RefCell::new(Weight::zero()) };
@@ -245,7 +248,7 @@ pub fn take_ema_strategy_log() -> Vec<(U256, U64F64)> {
 /// Override the value `MockEmaStrategy::next` returns. The closure
 /// receives `(coldkey, previous_state)` and returns the new EMA. Default
 /// (unset) returns `previous.ema`, i.e. freezes the EMA.
-pub fn set_ema_strategy_next(f: fn(U256, crate::root_registered::StakeEmaState) -> U64F64) {
+pub fn set_ema_strategy_next(f: fn(U256, EmaState) -> U64F64) {
     EMA_STRATEGY_NEXT.with(|m| *m.borrow_mut() = Some(f));
 }
 
@@ -265,7 +268,7 @@ thread_local! {
     static EMA_SAMPLING_INTERVAL: core::cell::Cell<u64> = const { core::cell::Cell::new(1) };
 }
 
-/// Override the `EmaSamplingInterval` returned to `tick_root_registered_stake_ema`.
+/// Override the `EmaSamplingInterval` returned to `tick_root_registered_ema`.
 /// Default is 1 so every block is a sample tick.
 pub fn set_ema_sampling_interval(interval: u64) {
     EMA_SAMPLING_INTERVAL.with(|i| i.set(interval));
@@ -281,8 +284,8 @@ impl Get<u64> for EmaSamplingInterval {
 
 pub struct MockEmaStrategy;
 
-impl crate::root_registered::EmaStrategy<U256> for MockEmaStrategy {
-    fn next(coldkey: &U256, previous: crate::root_registered::StakeEmaState) -> (U64F64, Weight) {
+impl EmaStrategy<U256> for MockEmaStrategy {
+    fn next(coldkey: &U256, previous: EmaState) -> (U64F64, Weight) {
         EMA_STRATEGY_LOG.with(|log| log.borrow_mut().push((*coldkey, previous.ema)));
         let next = match EMA_STRATEGY_NEXT.with(|m| *m.borrow()) {
             Some(f) => f(*coldkey, previous),
