@@ -5,7 +5,7 @@ use frame_system::pallet_prelude::BlockNumberFor;
 use subtensor_runtime_common::NetUid;
 
 use super::*;
-use crate::governance::EconomicEligibleInspector;
+use crate::root_registered::RootRegisteredInspector;
 
 impl<T: Config> Pallet<T> {
     /// Checks [`TotalIssuance`] equals the sum of currency issuance, total stake, and total subnet
@@ -123,13 +123,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Verifies that the `EconomicEligible` collective's membership is
-    /// exactly the set of coldkeys with at least one root-registered
-    /// hotkey. Skipped when `T::EconomicEligibleInspector` returns
-    /// `None` (test mocks that do not wire up the collective pallet).
-    pub(crate) fn check_economic_eligible_matches_root_registered()
+    /// Verifies that the inspector's view of the root-registered
+    /// coldkey set matches `RootRegisteredHotkeyCount` exactly.
+    /// Skipped when `T::RootRegisteredInspector` returns `None`
+    /// (test mocks that do not wire up an external mirror).
+    pub(crate) fn check_root_registered_matches_inspector()
     -> Result<(), sp_runtime::TryRuntimeError> {
-        let Some(actual_members) = T::EconomicEligibleInspector::members() else {
+        let Some(actual_members) = T::RootRegisteredInspector::members() else {
             return Ok(());
         };
         let actual: BTreeSet<T::AccountId> = actual_members.into_iter().collect();
@@ -138,7 +138,7 @@ impl<T: Config> Pallet<T> {
             .collect();
         ensure!(
             actual == expected,
-            "EconomicEligible members do not match root-registered coldkey set",
+            "RootRegisteredInspector members do not match root-registered coldkey set",
         );
         Ok(())
     }

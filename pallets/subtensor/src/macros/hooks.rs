@@ -192,7 +192,7 @@ mod hooks {
             // Disabled: https://github.com/opentensor/subtensor/pull/1166
             // Self::check_total_stake()?;
             Self::check_root_registered_hotkey_count()?;
-            Self::check_economic_eligible_matches_root_registered()?;
+            Self::check_root_registered_matches_inspector()?;
             Ok(())
         }
     }
