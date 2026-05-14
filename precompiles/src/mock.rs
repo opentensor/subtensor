@@ -12,8 +12,8 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
 use pallet_evm::{
-    BalanceConverter, EnsureAddressNever, EnsureAddressRoot, EvmBalance, PrecompileHandle,
-    PrecompileSet, SubstrateBalance,
+    AddressMapping, BalanceConverter, EnsureAddressNever, EnsureAddressRoot, EvmBalance,
+    PrecompileHandle, PrecompileSet, SubstrateBalance,
 };
 use precompile_utils::testing::MockHandle;
 use sp_core::{ConstU64, H160, H256, U256, crypto::AccountId32};
@@ -35,6 +35,7 @@ frame_support::construct_runtime!(
     pub enum Runtime {
         System: frame_system = 1,
         Balances: pallet_balances = 2,
+        AlphaAssets: pallet_alpha_assets = 15,
         Timestamp: pallet_timestamp = 3,
         Shield: pallet_shield = 4,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>} = 5,
@@ -185,6 +186,8 @@ impl pallet_balances::Config for Runtime {
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
 }
+
+impl pallet_alpha_assets::Config for Runtime {}
 
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
 impl pallet_timestamp::Config for Runtime {
@@ -468,6 +471,7 @@ impl pallet_subtensor::Config for Runtime {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = Preimage;
+    type AlphaAssets = AlphaAssets;
     type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
     type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
@@ -579,6 +583,17 @@ pub(crate) fn execute_precompile<PSet: PrecompileSet>(
 
 pub(crate) fn addr_from_index(index: u64) -> H160 {
     H160::from_low_u64_be(index)
+}
+
+pub(crate) fn mapped_account(address: H160) -> AccountId {
+    <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(address)
+}
+
+pub(crate) fn fund_account(account: &AccountId, amount: u64) {
+    let amount = TaoBalance::from(amount);
+    let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(amount);
+    let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(account, credit, amount)
+        .expect("test account funding should work");
 }
 
 pub(crate) fn abi_word(value: U256) -> Vec<u8> {

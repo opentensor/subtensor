@@ -1963,6 +1963,23 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Enables or disables net TAO flow (protocol cost deduction from emission shares).
+        /// When enabled, emission shares use net flow = user flow - protocol cost.
+        /// When disabled, emission shares use gross user flow only (current behavior).
+        #[pallet::call_index(91)]
+        #[pallet::weight(Weight::from_parts(7_343_000, 0)
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().reads(0))
+        .saturating_add(<T as frame_system::Config>::DbWeight::get().writes(1)))]
+        pub fn sudo_set_net_tao_flow_enabled(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            pallet_subtensor::Pallet::<T>::set_net_tao_flow_enabled(enabled);
+            log::debug!("set_net_tao_flow_enabled( {enabled:?} ) ");
+            Ok(())
+        }
+
         /// Sets the global maximum number of mechanisms in a subnet
         #[pallet::call_index(88)]
         #[pallet::weight(Weight::from_parts(15_000_000, 0)
