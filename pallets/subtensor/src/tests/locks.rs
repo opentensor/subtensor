@@ -170,7 +170,7 @@ fn test_lock_stake_topup_by_subnet_owner_coldkey_gets_immediate_conviction() {
 }
 
 #[test]
-fn test_start_unlock_toggles_perpetual_owner_lock_decay() {
+fn test_set_perpetual_lock_toggles_owner_lock_decay() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1);
         let owner_hotkey = U256::from(2);
@@ -186,7 +186,7 @@ fn test_start_unlock_toggles_perpetual_owner_lock_decay() {
             lock_amount,
         ));
 
-        assert_ok!(SubtensorModule::start_unlock(
+        assert_ok!(SubtensorModule::set_perpetual_lock(
             RuntimeOrigin::signed(owner_coldkey),
             netuid,
             true,
@@ -197,13 +197,300 @@ fn test_start_unlock_toggles_perpetual_owner_lock_decay() {
             lock_amount
         );
 
-        assert_ok!(SubtensorModule::start_unlock(
+        assert_ok!(SubtensorModule::set_perpetual_lock(
             RuntimeOrigin::signed(owner_coldkey),
             netuid,
             false,
         ));
         step_block(100);
         assert!(SubtensorModule::get_current_locked(&owner_coldkey, netuid) < lock_amount);
+    });
+}
+
+#[test]
+fn test_set_perpetual_lock_is_per_coldkey_and_rolls_lock_at_boundary() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        let lock_amount: AlphaBalance = 5000u64.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount,
+        ));
+
+        assert_ok!(SubtensorModule::set_perpetual_lock(
+            RuntimeOrigin::signed(coldkey),
+            netuid,
+            false,
+        ));
+        System::set_block_number(System::block_number() + UnlockRate::<Test>::get() / 10);
+        assert_ok!(SubtensorModule::set_perpetual_lock(
+            RuntimeOrigin::signed(coldkey),
+            netuid,
+            true,
+        ));
+
+        let locked_at_boundary = SubtensorModule::get_current_locked(&coldkey, netuid);
+        assert!(locked_at_boundary < lock_amount);
+
+        System::set_block_number(System::block_number() + UnlockRate::<Test>::get() / 10);
+        assert_eq!(
+            SubtensorModule::get_current_locked(&coldkey, netuid),
+            locked_at_boundary
+        );
+
+        assert_ok!(SubtensorModule::set_perpetual_lock(
+            RuntimeOrigin::signed(coldkey),
+            netuid,
+            false,
+        ));
+        System::set_block_number(System::block_number() + UnlockRate::<Test>::get() / 10);
+        assert!(SubtensorModule::get_current_locked(&coldkey, netuid) < locked_at_boundary);
+    });
+}
+
+#[test]
+fn test_mixed_perpetual_and_decaying_non_owner_locks_same_hotkey_update_aggregates() {
+    new_test_ext(1).execute_with(|| {
+        let perpetual_coldkey = U256::from(1);
+        let decaying_coldkey = U256::from(3);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(perpetual_coldkey, hotkey, 100_000_000_000);
+
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &decaying_coldkey,
+            &hotkey
+        ));
+        add_balance_to_coldkey_account(&decaying_coldkey, 100_000_000_000u64.into());
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &decaying_coldkey,
+            netuid,
+            100_000_000_000u64.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+
+        let lock_amount: AlphaBalance = 10_000u64.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &perpetual_coldkey,
+            netuid,
+            &hotkey,
+            lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &decaying_coldkey,
+            netuid,
+            &hotkey,
+            lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
+            &decaying_coldkey,
+            netuid,
+            false,
+        ));
+
+        step_block(1_000);
+        let now = SubtensorModule::get_current_block_as_u64();
+
+        let perpetual_lock = SubtensorModule::roll_forward_individual_lock(
+            &perpetual_coldkey,
+            netuid,
+            Lock::<Test>::get((perpetual_coldkey, netuid, hotkey)).unwrap(),
+            now,
+        );
+        let decaying_lock = SubtensorModule::roll_forward_individual_lock(
+            &decaying_coldkey,
+            netuid,
+            Lock::<Test>::get((decaying_coldkey, netuid, hotkey)).unwrap(),
+            now,
+        );
+        let perpetual_hotkey_lock = SubtensorModule::roll_forward_hotkey_lock(
+            netuid,
+            HotkeyLock::<Test>::get(netuid, hotkey).unwrap(),
+            now,
+        );
+        let decaying_hotkey_lock = SubtensorModule::roll_forward_decaying_hotkey_lock(
+            netuid,
+            DecayingHotkeyLock::<Test>::get(netuid, hotkey).unwrap(),
+            now,
+        );
+
+        assert_eq!(perpetual_lock.locked_mass, lock_amount);
+        assert_eq!(perpetual_hotkey_lock.locked_mass, lock_amount);
+        assert!(decaying_lock.locked_mass < lock_amount);
+        assert_eq!(decaying_hotkey_lock.locked_mass, decaying_lock.locked_mass);
+        assert_eq!(
+            SubtensorModule::hotkey_conviction(&hotkey, netuid),
+            perpetual_hotkey_lock
+                .conviction
+                .saturating_add(decaying_hotkey_lock.conviction)
+        );
+    });
+}
+
+#[test]
+#[ignore]
+fn plot_perpetual_decay_perpetual_lock_curve() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1);
+        let owner_hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(owner_coldkey, owner_hotkey, 100_000_000_000);
+        SubnetOwner::<Test>::insert(netuid, owner_coldkey);
+        SubnetOwnerHotkey::<Test>::insert(netuid, owner_hotkey);
+        MaturityRate::<Test>::put(300u64);
+        UnlockRate::<Test>::put(200u64);
+
+        let lock_amount: AlphaBalance = 1_000u64.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &owner_coldkey,
+            netuid,
+            &owner_hotkey,
+            lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
+            &owner_coldkey,
+            netuid,
+            true,
+        ));
+
+        println!("block,locked_mass,conviction");
+        for block in 0..=2_000u64 {
+            System::set_block_number(block);
+
+            if block == 1_000 {
+                assert_ok!(SubtensorModule::do_set_perpetual_lock(
+                    &owner_coldkey,
+                    netuid,
+                    false,
+                ));
+            } else if block == 1_200 {
+                assert_ok!(SubtensorModule::do_set_perpetual_lock(
+                    &owner_coldkey,
+                    netuid,
+                    true,
+                ));
+            }
+
+            let lock = Lock::<Test>::get((owner_coldkey, netuid, owner_hotkey)).unwrap();
+            let rolled =
+                SubtensorModule::roll_forward_individual_lock(&owner_coldkey, netuid, lock, block);
+            SubtensorModule::insert_lock_state(
+                &owner_coldkey,
+                netuid,
+                &owner_hotkey,
+                rolled.clone(),
+            );
+            SubtensorModule::insert_owner_lock_state(netuid, rolled.clone());
+            println!(
+                "{},{},{}",
+                block,
+                u64::from(rolled.locked_mass),
+                rolled.conviction.to_num::<f64>()
+            );
+        }
+    });
+}
+
+#[test]
+#[ignore]
+fn plot_decaying_non_owner_lock_curve() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        MaturityRate::<Test>::put(300u64);
+        UnlockRate::<Test>::put(200u64);
+        System::set_block_number(0);
+
+        let lock_amount: AlphaBalance = 1_000u64.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
+            &coldkey, netuid, false,
+        ));
+
+        println!("block,locked_mass,conviction");
+        for block in 0..=2_000u64 {
+            System::set_block_number(block);
+
+            let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).unwrap();
+            let rolled =
+                SubtensorModule::roll_forward_individual_lock(&coldkey, netuid, lock, block);
+            SubtensorModule::insert_lock_state(&coldkey, netuid, &hotkey, rolled.clone());
+            SubtensorModule::insert_hotkey_lock_state(netuid, &hotkey, rolled.clone());
+            println!(
+                "{},{},{}",
+                block,
+                u64::from(rolled.locked_mass),
+                rolled.conviction.to_num::<f64>()
+            );
+        }
+    });
+}
+
+#[test]
+#[ignore]
+fn plot_perpetual_decay_perpetual_non_owner_lock_curve() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        MaturityRate::<Test>::put(300u64);
+        UnlockRate::<Test>::put(200u64);
+        System::set_block_number(0);
+
+        let lock_amount: AlphaBalance = 1_000u64.into();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
+            &coldkey, netuid, true,
+        ));
+
+        println!("block,locked_mass,conviction");
+        for block in 0..=2_000u64 {
+            System::set_block_number(block);
+
+            if block == 1_000 {
+                assert_ok!(SubtensorModule::do_set_perpetual_lock(
+                    &coldkey, netuid, false,
+                ));
+            } else if block == 1_200 {
+                assert_ok!(SubtensorModule::do_set_perpetual_lock(
+                    &coldkey, netuid, true,
+                ));
+            }
+
+            let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).unwrap();
+            let rolled =
+                SubtensorModule::roll_forward_individual_lock(&coldkey, netuid, lock, block);
+            SubtensorModule::insert_lock_state(&coldkey, netuid, &hotkey, rolled.clone());
+            if DecayingLock::<Test>::contains_key(coldkey, netuid) {
+                SubtensorModule::insert_decaying_hotkey_lock_state(netuid, &hotkey, rolled.clone());
+            } else {
+                SubtensorModule::insert_hotkey_lock_state(netuid, &hotkey, rolled.clone());
+            }
+            println!(
+                "{},{},{}",
+                block,
+                u64::from(rolled.locked_mass),
+                rolled.conviction.to_num::<f64>()
+            );
+        }
     });
 }
 
@@ -601,6 +888,9 @@ fn test_roll_forward_locked_mass_decays() {
             &hotkey,
             lock_amount.into()
         ));
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
+            &coldkey, netuid, false,
+        ));
 
         // Advance one full unlock rate via direct block number jump.
         let tau = UnlockRate::<Test>::get();
@@ -850,6 +1140,9 @@ fn test_roll_forward_conviction_converges_to_zero() {
             &hotkey,
             lock_amount
         ));
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
+            &coldkey, netuid, false,
+        ));
 
         // Conviction at t=0 is 0
         let c0 = SubtensorModule::get_conviction(&coldkey, netuid);
@@ -1042,7 +1335,7 @@ fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
             sender_lock_before,
             SubtensorModule::get_current_block_as_u64(),
             false,
-            false,
+            true,
         );
 
         assert!(Lock::<Test>::get((coldkey_sender, netuid, hotkey)).is_none());
@@ -1059,7 +1352,7 @@ fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
             hotkey_lock_before,
             SubtensorModule::get_current_block_as_u64(),
             false,
-            false,
+            true,
         );
         assert_eq!(
             hotkey_lock_after.locked_mass,
@@ -1144,7 +1437,7 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
             Lock::<Test>::get((coldkey_sender, netuid, hotkey)).expect("sender lock should remain");
         assert_eq!(
             sender_lock_after.locked_mass,
-            SubtensorModule::roll_forward_lock(sender_lock_before, 2, false, false).locked_mass
+            SubtensorModule::roll_forward_lock(sender_lock_before, 2, false, true).locked_mass
         );
         assert!(Lock::<Test>::get((coldkey_receiver, netuid, hotkey)).is_none());
     });
@@ -1396,7 +1689,7 @@ fn test_mixed_perpetual_owner_and_decaying_non_owner_locks_roll_forward() {
             &staker_hotkey,
             staker_lock_amount,
         ));
-        assert_ok!(SubtensorModule::do_start_unlock(
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
             &owner_coldkey,
             netuid,
             true,
@@ -1464,7 +1757,7 @@ fn test_total_conviction_equals_sum_of_participating_aggregate_convictions() {
             &staker_hotkey,
             20_000u64.into(),
         ));
-        assert_ok!(SubtensorModule::do_start_unlock(
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
             &owner_coldkey,
             netuid,
             true,
@@ -2746,6 +3039,9 @@ fn test_neuron_replacement_does_not_affect_lock() {
             &hotkey,
             lock_amount
         ));
+        assert_ok!(SubtensorModule::do_set_perpetual_lock(
+            &coldkey, netuid, false,
+        ));
 
         let total_before = SubtensorModule::total_coldkey_alpha_on_subnet(&coldkey, netuid);
         let locked_before = SubtensorModule::get_current_locked(&coldkey, netuid);
@@ -2770,8 +3066,8 @@ fn test_neuron_replacement_does_not_affect_lock() {
         // Lock still references original hotkey
         assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_some());
 
-        // Hotkey lock still references original hotkey
-        assert!(HotkeyLock::<Test>::get(netuid, hotkey).is_some());
+        // Aggregate lock still references original hotkey
+        assert!(DecayingHotkeyLock::<Test>::get(netuid, hotkey).is_some());
     });
 }
 

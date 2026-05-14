@@ -1528,13 +1528,27 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// --- DMAP ( netuid, hotkey ) --> LockState | Total decaying non-owner lock per hotkey per subnet.
+    #[pallet::storage]
+    pub type DecayingHotkeyLock<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid, // subnet
+        Blake2_128Concat,
+        T::AccountId, // hotkey
+        LockState,    // Total merged decaying lock
+        OptionQuery,
+    >;
+
     /// --- MAP ( netuid ) --> LockState | Aggregate owner-coldkey lock for a subnet.
     #[pallet::storage]
     pub type OwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
 
-    /// --- MAP ( netuid ) --> bool | When present and true, subnet owner locks do not unlock.
+    /// --- DMAP ( coldkey, netuid ) --> false | When present, this coldkey's lock decays.
+    /// Missing entries mean the lock is perpetual.
     #[pallet::storage]
-    pub type PerpetualLock<T: Config> = StorageMap<_, Identity, NetUid, bool, OptionQuery>;
+    pub type DecayingLock<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, NetUid, bool, OptionQuery>;
 
     /// Default unlock timescale: 90% decay over ~365.25 days at 12s blocks.
     #[pallet::type_value]

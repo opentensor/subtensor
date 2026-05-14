@@ -619,11 +619,13 @@ mod events {
             new_coldkey: T::AccountId,
         },
 
-        /// The perpetual owner-lock flag was updated.
+        /// A coldkey's perpetual lock flag was updated.
         PerpetualLockUpdated {
-            /// The subnet whose flag changed.
+            /// The coldkey whose flag changed.
+            coldkey: T::AccountId,
+            /// The subnet whose coldkey flag changed.
             netuid: NetUid,
-            /// Whether owner locks are now perpetual.
+            /// Whether this coldkey's locks are now perpetual.
             enabled: bool,
         },
     }

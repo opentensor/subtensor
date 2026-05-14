@@ -2578,16 +2578,22 @@ mod dispatches {
             Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
         }
 
-        /// Sets or clears the perpetual owner-lock flag for a subnet.
+        /// Sets or clears the caller's perpetual lock flag for a subnet.
         ///
-        /// When enabled, the subnet owner's individual lock and aggregate owner
-        /// lock do not unlock through locked-mass decay. Passing `false` removes
-        /// the flag, which starts normal unlocking again.
+        /// Locks are perpetual by default. Internally, only decaying overrides
+        /// are stored.
+        /// When enabled, the caller's individual lock does not unlock through
+        /// locked-mass decay. Passing `false` removes the flag, returning the
+        /// caller's lock to normal decay.
         #[pallet::call_index(138)]
-        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(2, 1))]
-        pub fn start_unlock(origin: OriginFor<T>, netuid: NetUid, enabled: bool) -> DispatchResult {
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(4, 3))]
+        pub fn set_perpetual_lock(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            Self::do_start_unlock(&coldkey, netuid, enabled)
+            Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
         }
     }
 }
