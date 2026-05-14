@@ -1190,4 +1190,59 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    /// Destroys all lock maps for network dissolution
+    pub fn destroy_lock_maps(netuid: NetUid) {
+        // Lock: (coldkey, netuid, hotkey)
+        {
+            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> = Lock::<T>::iter()
+                .filter_map(
+                    |((cold, n, hot), _)| {
+                        if n == netuid { Some((cold, hot)) } else { None }
+                    },
+                )
+                .collect();
+
+            for (cold, hot) in to_rm {
+                Lock::<T>::remove((cold, netuid, hot));
+            }
+        }
+
+        // HotkeyLock: (netuid, hotkey) → LockState
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = HotkeyLock::<T>::iter_prefix(netuid)
+                .map(|(hot, _)| hot)
+                .collect();
+
+            for hot in to_rm {
+                HotkeyLock::<T>::remove(netuid, hot);
+            }
+        }
+
+        // DecayingHotkeyLock: (netuid, hotkey)
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> =
+                DecayingHotkeyLock::<T>::iter_prefix(netuid)
+                    .map(|(hot, _)| hot)
+                    .collect();
+
+            for hot in to_rm {
+                DecayingHotkeyLock::<T>::remove(netuid, hot);
+            }
+        }
+
+        // OwnerLock: (netuid)
+        OwnerLock::<T>::remove(netuid);
+
+        // DecayingLock: (coldkey, netuid)
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = DecayingLock::<T>::iter()
+                .filter_map(|(cold, n, _)| if n == netuid { Some(cold) } else { None })
+                .collect();
+
+            for cold in to_rm {
+                DecayingLock::<T>::remove(cold, netuid);
+            }
+        }
+    }
 }
