@@ -10,13 +10,8 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-/// Stable seed for `frame_benchmarking::account` so accounts generated
-/// across benchmark setup steps round-trip the same value.
 const SEED: u32 = 0;
 
-/// Pre-fill a collective's `Members` storage with `count` distinct
-/// accounts, returning them sorted by `AccountId` (the canonical storage
-/// order).
 fn fill_members<T: Config>(collective_id: T::CollectiveId, count: u32) -> Vec<T::AccountId> {
     let mut members: Vec<T::AccountId> = (0..count)
         .map(|i| account::<T::AccountId>("member", i, SEED))
@@ -36,11 +31,7 @@ fn fill_members<T: Config>(collective_id: T::CollectiveId, count: u32) -> Vec<T:
 mod benches {
     use super::*;
 
-    /// Worst case: pre-fill to `MaxMembers - 1` so the binary_search
-    /// runs at full depth. The new account's insert position depends on
-    /// its `AccountId` hash, uniformly distributed but deterministic
-    /// across benchmark runs, and the per-element shift cost is
-    /// constant-bounded by `MaxMembers × sizeof::<AccountId>`.
+    /// Worst case: pre-fill to `MaxMembers - 1` so the binary_search runs at full depth.
     #[benchmark]
     fn add_member() {
         let collective = T::BenchmarkHelper::collective();
@@ -81,7 +72,6 @@ mod benches {
         let max = T::MaxMembers::get();
         let members = fill_members::<T>(collective, max);
         let to_remove = members[0].clone();
-        // A fresh account, distinct from the existing set.
         let to_add = account::<T::AccountId>("new", 0, SEED);
 
         #[extrinsic_call]
@@ -90,9 +80,8 @@ mod benches {
         assert_eq!(Members::<T>::get(collective).len(), max as usize);
     }
 
-    /// Worst case: replace a fully-populated collective with a
-    /// completely disjoint set of `MaxMembers` new accounts. Sort, dedup,
-    /// and the linear merge all run at maximum length.
+    /// Worst case: replace a fully-populated collective with a completely disjoint set
+    /// of `MaxMembers` new accounts.
     #[benchmark]
     fn set_members() {
         let collective = T::BenchmarkHelper::collective();
@@ -120,6 +109,41 @@ mod benches {
 
         #[extrinsic_call]
         force_rotate(RawOrigin::Root, collective);
+    }
+
+    #[benchmark]
+    fn do_add_member() {
+        let collective = T::BenchmarkHelper::collective();
+        let max = T::MaxMembers::get();
+        let _existing = fill_members::<T>(collective, max.saturating_sub(1));
+        let new_member = account::<T::AccountId>("new", 0, SEED);
+
+        #[block]
+        {
+            Pallet::<T>::do_add_member(collective, new_member)
+                .expect("benchmark setup must allow add");
+        }
+
+        assert_eq!(Members::<T>::get(collective).len(), max as usize);
+    }
+
+    #[benchmark]
+    fn do_remove_member() {
+        let collective = T::BenchmarkHelper::collective();
+        let max = T::MaxMembers::get();
+        let members = fill_members::<T>(collective, max);
+        let to_remove = members[0].clone();
+
+        #[block]
+        {
+            Pallet::<T>::do_remove_member(collective, to_remove)
+                .expect("benchmark setup must allow remove");
+        }
+
+        assert_eq!(
+            Members::<T>::get(collective).len(),
+            (max as usize).saturating_sub(1),
+        );
     }
 
     impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

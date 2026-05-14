@@ -16,9 +16,17 @@ use core::marker::PhantomData;
 /// returns the worst-case weight at `MaxMembers`; the per-extrinsic CPU
 /// cost varies linearly with the actual member count, but the storage
 /// reads/writes don't, so we don't parameterise or refund.
+///
+/// `do_add_member` / `do_remove_member` are split out from
+/// `add_member` / `remove_member` so external pallets that call the
+/// helpers directly (skipping the extrinsic origin check) can bill the
+/// underlying storage work without inflating their estimate with the
+/// extrinsic overhead.
 pub trait WeightInfo {
     fn add_member() -> Weight;
     fn remove_member() -> Weight;
+    fn do_add_member() -> Weight;
+    fn do_remove_member() -> Weight;
     fn swap_member() -> Weight;
     fn set_members() -> Weight;
     fn force_rotate() -> Weight;
@@ -29,6 +37,8 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn add_member() -> Weight { Weight::zero() }
     fn remove_member() -> Weight { Weight::zero() }
+    fn do_add_member() -> Weight { Weight::zero() }
+    fn do_remove_member() -> Weight { Weight::zero() }
     fn swap_member() -> Weight { Weight::zero() }
     fn set_members() -> Weight { Weight::zero() }
     fn force_rotate() -> Weight { Weight::zero() }
@@ -37,6 +47,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
     fn add_member() -> Weight { Weight::zero() }
     fn remove_member() -> Weight { Weight::zero() }
+    fn do_add_member() -> Weight { Weight::zero() }
+    fn do_remove_member() -> Weight { Weight::zero() }
     fn swap_member() -> Weight { Weight::zero() }
     fn set_members() -> Weight { Weight::zero() }
     fn force_rotate() -> Weight { Weight::zero() }

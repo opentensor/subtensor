@@ -1,8 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use frame_support::{
-    BoundedVec, assert_err_ignore_postinfo, assert_noop, assert_ok, traits::Hooks, weights::Weight,
-};
+use frame_support::{BoundedVec, assert_noop, assert_ok, traits::Hooks, weights::Weight};
 use sp_core::U256;
 use sp_runtime::DispatchError;
 
