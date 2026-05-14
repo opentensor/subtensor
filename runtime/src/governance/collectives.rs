@@ -4,6 +4,7 @@ use frame_support::pallet_prelude::*;
 use pallet_multi_collective::{
     Collective, CollectiveInfo, CollectiveInspect, CollectivesInfo, OnNewTerm,
 };
+use pallet_subtensor::root_registered::{OnRootRegistrationChange, RootRegisteredInspector};
 use runtime_common::prod_or_fast;
 use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{TaoBalance, pad_name, time::DAYS};
@@ -266,7 +267,7 @@ impl TermManagement {
 /// or hotkey-swap call.
 pub struct EconomicEligibleSync;
 
-impl pallet_subtensor::governance::OnRootRegistrationChange<AccountId> for EconomicEligibleSync {
+impl OnRootRegistrationChange<AccountId> for EconomicEligibleSync {
     fn on_added(coldkey: &AccountId) {
         if let Err(err) = pallet_multi_collective::Pallet::<Runtime>::do_add_member(
             CollectiveId::EconomicEligible,
@@ -301,9 +302,7 @@ impl pallet_subtensor::governance::OnRootRegistrationChange<AccountId> for Econo
 /// it stays in sync with `RootRegisteredHotkeyCount`.
 pub struct EconomicEligibleInspector;
 
-impl pallet_subtensor::governance::EconomicEligibleInspector<AccountId>
-    for EconomicEligibleInspector
-{
+impl RootRegisteredInspector<AccountId> for EconomicEligibleInspector {
     fn members() -> Option<Vec<AccountId>> {
         Some(
             <pallet_multi_collective::Pallet<Runtime> as CollectiveInspect<

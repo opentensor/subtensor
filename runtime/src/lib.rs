@@ -1125,6 +1125,7 @@ parameter_types! {
     pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(1_000_000); // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = prod_or_fast!(24 * 60 * 60 / 12, 1); // 1 day
+    pub const EmaSamplingInterval: BlockNumber = prod_or_fast!(100, 1);
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
@@ -1207,7 +1208,9 @@ impl pallet_subtensor::Config for Runtime {
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type OnRootRegistrationChange = EconomicEligibleSync;
-    type EconomicEligibleInspector = EconomicEligibleInspector;
+    type RootRegisteredInspector = EconomicEligibleInspector;
+    type EmaStrategy = ();
+    type EmaSamplingInterval = EmaSamplingInterval;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;

@@ -15,27 +15,33 @@ mod hooks {
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
         fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
+            let mut weight = Weight::zero();
             let hotkey_swap_clean_up_weight = Self::clean_up_hotkey_swap_records(block_number);
 
-            let block_step_result = Self::block_step();
-            match block_step_result {
+            match Self::block_step() {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
                     log::debug!("Successfully ran block step.");
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
-                        .saturating_add(hotkey_swap_clean_up_weight)
+                    weight.saturating_accrue(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64))
+                            .saturating_add(hotkey_swap_clean_up_weight),
+                    );
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
-                        .saturating_add(hotkey_swap_clean_up_weight)
+                    weight.saturating_accrue(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64))
+                            .saturating_add(hotkey_swap_clean_up_weight),
+                    );
                 }
-            }
+            };
+
+            weight.saturating_add(Self::tick_root_registered_stake_ema(block_number))
         }
 
         // ---- Called on the finalization of this pallet. The code weight must be taken into account prior to the execution of this macro.

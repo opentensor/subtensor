@@ -6,7 +6,7 @@ use frame_support::pallet_macros::pallet_section;
 #[pallet_section]
 mod config {
 
-    use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
+    use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha, root_registered::*};
     use frame_support::PalletId;
     use pallet_alpha_assets::AlphaAssetsInterface;
     use pallet_commitments::GetCommitments;
@@ -71,14 +71,18 @@ mod config {
         /// Provider of current block author
         type AuthorshipProvider: AuthorshipInfo<Self::AccountId>;
 
-        /// Receiver of root-registration edge notifications. Fires when
-        /// a coldkey crosses the 0↔1 boundary in `RootRegisteredHotkeyCount`.
-        type OnRootRegistrationChange: crate::governance::OnRootRegistrationChange<Self::AccountId>;
+        /// Handler for root-registration transitions.
+        type OnRootRegistrationChange: OnRootRegistrationChange<Self::AccountId>;
 
-        /// Read-side accessor for the `EconomicEligible` collective, used
-        /// by `try_state` to assert the collective stays in sync with
-        /// the root-registered coldkey set.
-        type EconomicEligibleInspector: crate::governance::EconomicEligibleInspector<Self::AccountId>;
+        /// External snapshot of the root-registered coldkey set.
+        type RootRegisteredInspector: RootRegisteredInspector<Self::AccountId>;
+
+        /// Strategy for computing root-registered stake EMAs.
+        type EmaStrategy: EmaStrategy<Self::AccountId>;
+
+        /// Blocks between EMA sample ticks.
+        #[pallet::constant]
+        type EmaSamplingInterval: Get<BlockNumberFor<Self>>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: crate::weights::WeightInfo;

@@ -1,5 +1,5 @@
 use super::*;
-use crate::governance::OnRootRegistrationChange;
+use crate::root_registered::OnRootRegistrationChange;
 
 impl<T: Config> Pallet<T> {
     pub fn coldkey_has_root_hotkey(coldkey: &T::AccountId) -> bool {
@@ -10,6 +10,7 @@ impl<T: Config> Pallet<T> {
         let was_zero = RootRegisteredHotkeyCount::<T>::get(coldkey) == 0;
         RootRegisteredHotkeyCount::<T>::mutate(coldkey, |c| *c = c.saturating_add(1));
         if was_zero {
+            Self::init_root_registered_stake_ema(coldkey);
             T::OnRootRegistrationChange::on_added(coldkey);
         }
     }
@@ -23,6 +24,7 @@ impl<T: Config> Pallet<T> {
             *c = if next == 0 { None } else { Some(next) };
         });
         if became_zero {
+            Self::clear_root_registered_stake_ema(coldkey);
             T::OnRootRegistrationChange::on_removed(coldkey);
         }
     }
