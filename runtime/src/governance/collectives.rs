@@ -295,6 +295,14 @@ impl OnRootRegistrationChange<AccountId> for EconomicEligibleSync {
             );
         }
     }
+
+    fn on_added_weight() -> Weight {
+        <Runtime as pallet_multi_collective::Config>::WeightInfo::do_add_member()
+    }
+
+    fn on_removed_weight() -> Weight {
+        <Runtime as pallet_multi_collective::Config>::WeightInfo::do_remove_member()
+    }
 }
 
 /// Read-side accessor for `pallet-subtensor`'s try_state invariant. Reads

@@ -208,6 +208,12 @@ impl OnRootRegistrationChange<U256> for MockOnRootRegistrationChange {
                 .push(RootRegistrationChange::Removed(*coldkey))
         });
     }
+    fn on_added_weight() -> Weight {
+        Weight::zero()
+    }
+    fn on_removed_weight() -> Weight {
+        Weight::zero()
+    }
 }
 
 thread_local! {

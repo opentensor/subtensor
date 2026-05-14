@@ -34,11 +34,23 @@ pub trait OnRootRegistrationChange<AccountId> {
     fn on_added(coldkey: &AccountId);
     /// Called when `coldkey` leaves the root-registered set.
     fn on_removed(coldkey: &AccountId);
+    /// Worst-case weight of [`on_added`]. Callers accrue this into
+    /// their dispatch weight when a 0→1 transition is possible.
+    fn on_added_weight() -> Weight;
+    /// Worst-case weight of [`on_removed`]. Callers accrue this into
+    /// their dispatch weight when a 1→0 transition is possible.
+    fn on_removed_weight() -> Weight;
 }
 
 impl<AccountId> OnRootRegistrationChange<AccountId> for () {
     fn on_added(_: &AccountId) {}
     fn on_removed(_: &AccountId) {}
+    fn on_added_weight() -> Weight {
+        Weight::zero()
+    }
+    fn on_removed_weight() -> Weight {
+        Weight::zero()
+    }
 }
 
 /// Snapshot of the root-registered coldkey set.
