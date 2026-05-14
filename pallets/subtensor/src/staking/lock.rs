@@ -546,7 +546,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Returns total rolled aggregate conviction across all hotkey and owner locks on a subnet.
-    fn get_total_conviction(netuid: NetUid) -> U64F64 {
+    pub fn get_total_conviction(netuid: NetUid) -> U64F64 {
         let now = Self::get_current_block_as_u64();
         let hotkey_conviction = HotkeyLock::<T>::iter_prefix(netuid)
             .map(|(_hotkey, lock)| Self::roll_forward_hotkey_lock(netuid, lock, now).conviction)

@@ -771,6 +771,29 @@ fn test_roll_forward_conviction_stays_below_original_mass_for_one_shot_lock() {
 }
 
 #[test]
+fn test_roll_forward_decaying_conviction_peak_is_below_original_lock() {
+    new_test_ext(1).execute_with(|| {
+        let locked_mass = 10_000u64;
+        let unlock_rate = UnlockRate::<Test>::get() as f64;
+        let maturity_rate = MaturityRate::<Test>::get() as f64;
+        assert_ne!(unlock_rate, maturity_rate);
+
+        let peak_block = ((unlock_rate * maturity_rate) / (unlock_rate - maturity_rate)
+            * (unlock_rate / maturity_rate).ln())
+        .round() as u64;
+        let lock = LockState {
+            locked_mass: locked_mass.into(),
+            conviction: U64F64::from_num(0),
+            last_update: 0,
+        };
+
+        let rolled = SubtensorModule::roll_forward_lock(lock, peak_block, false, false);
+
+        assert!(rolled.conviction < U64F64::from_num(locked_mass));
+    });
+}
+
+#[test]
 fn test_roll_forward_perpetual_mass_does_not_decay_and_conviction_matures() {
     new_test_ext(1).execute_with(|| {
         let locked_mass = 10_000u64;
@@ -786,6 +809,30 @@ fn test_roll_forward_perpetual_mass_does_not_decay_and_conviction_matures() {
         assert_eq!(rolled.locked_mass, locked_mass.into());
         assert!(rolled.conviction > U64F64::from_num(0));
         assert!(rolled.conviction < U64F64::from_num(locked_mass));
+    });
+}
+
+#[test]
+fn test_roll_forward_perpetual_conviction_never_exceeds_lock() {
+    new_test_ext(1).execute_with(|| {
+        let locked_mass = 10_000u64;
+        let lock = LockState {
+            locked_mass: locked_mass.into(),
+            conviction: U64F64::from_num(0),
+            last_update: 0,
+        };
+
+        for dt in [
+            1u64,
+            1_000u64,
+            MaturityRate::<Test>::get(),
+            MaturityRate::<Test>::get().saturating_mul(10),
+            MaturityRate::<Test>::get().saturating_mul(1_000),
+        ] {
+            let rolled = SubtensorModule::roll_forward_lock(lock.clone(), dt, false, true);
+            assert_eq!(rolled.locked_mass, locked_mass.into());
+            assert!(rolled.conviction <= U64F64::from_num(locked_mass));
+        }
     });
 }
 
@@ -1306,6 +1353,195 @@ fn test_hotkey_conviction_multiple_lockers() {
         } else {
             (c1 + c2) - total_conviction
         };
+        assert!(diff < U64F64::from_num(1));
+    });
+}
+
+#[test]
+fn test_mixed_perpetual_owner_and_decaying_non_owner_locks_roll_forward() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let owner_hotkey = U256::from(1002);
+        let staker_coldkey = U256::from(1);
+        let staker_hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(staker_coldkey, staker_hotkey, 100_000_000_000);
+
+        add_balance_to_coldkey_account(&owner_coldkey, 100_000_000_000u64.into());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &owner_coldkey,
+            &owner_hotkey
+        ));
+        SubtensorModule::stake_into_subnet(
+            &owner_hotkey,
+            &owner_coldkey,
+            netuid,
+            100_000_000_000u64.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+
+        let owner_lock_amount = AlphaBalance::from(10_000u64);
+        let staker_lock_amount = AlphaBalance::from(20_000u64);
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &owner_coldkey,
+            netuid,
+            &owner_hotkey,
+            owner_lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &staker_coldkey,
+            netuid,
+            &staker_hotkey,
+            staker_lock_amount,
+        ));
+        assert_ok!(SubtensorModule::do_start_unlock(
+            &owner_coldkey,
+            netuid,
+            true,
+        ));
+
+        System::set_block_number(System::block_number() + UnlockRate::<Test>::get());
+
+        let owner_lock = SubtensorModule::roll_forward_lock(
+            OwnerLock::<Test>::get(netuid).unwrap(),
+            SubtensorModule::get_current_block_as_u64(),
+            true,
+            true,
+        );
+        let staker_lock = SubtensorModule::roll_forward_lock(
+            HotkeyLock::<Test>::get(netuid, staker_hotkey).unwrap(),
+            SubtensorModule::get_current_block_as_u64(),
+            false,
+            false,
+        );
+
+        assert_eq!(owner_lock.locked_mass, owner_lock_amount);
+        assert_eq!(
+            owner_lock.conviction,
+            U64F64::from_num(u64::from(owner_lock_amount))
+        );
+        assert!(staker_lock.locked_mass < staker_lock_amount);
+        assert!(staker_lock.conviction > U64F64::from_num(0));
+    });
+}
+
+#[test]
+fn test_total_conviction_equals_sum_of_participating_aggregate_convictions() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let owner_hotkey = U256::from(1002);
+        let staker_coldkey = U256::from(1);
+        let staker_hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(staker_coldkey, staker_hotkey, 100_000_000_000);
+
+        add_balance_to_coldkey_account(&owner_coldkey, 100_000_000_000u64.into());
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &owner_coldkey,
+            &owner_hotkey
+        ));
+        SubtensorModule::stake_into_subnet(
+            &owner_hotkey,
+            &owner_coldkey,
+            netuid,
+            100_000_000_000u64.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            false,
+            false,
+        )
+        .unwrap();
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &owner_coldkey,
+            netuid,
+            &owner_hotkey,
+            10_000u64.into(),
+        ));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &staker_coldkey,
+            netuid,
+            &staker_hotkey,
+            20_000u64.into(),
+        ));
+        assert_ok!(SubtensorModule::do_start_unlock(
+            &owner_coldkey,
+            netuid,
+            true,
+        ));
+
+        step_block(1_000);
+
+        let owner_conviction = SubtensorModule::hotkey_conviction(&owner_hotkey, netuid);
+        let staker_conviction = SubtensorModule::hotkey_conviction(&staker_hotkey, netuid);
+        let expected = owner_conviction.saturating_add(staker_conviction);
+        let total = SubtensorModule::get_total_conviction(netuid);
+        let diff = if total > expected {
+            total - expected
+        } else {
+            expected - total
+        };
+
+        assert!(diff < U64F64::from_num(1));
+    });
+}
+
+#[test]
+fn test_total_conviction_equals_sum_of_individual_lock_convictions_for_many_lockers() {
+    new_test_ext(1).execute_with(|| {
+        let first_coldkey = U256::from(1);
+        let first_hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(first_coldkey, first_hotkey, 100_000_000_000);
+
+        let mut lockers = vec![(first_coldkey, first_hotkey)];
+        for i in 1..10u64 {
+            let coldkey = U256::from(10 + i);
+            let hotkey = U256::from(100 + (i % 3));
+            add_balance_to_coldkey_account(&coldkey, 100_000_000_000u64.into());
+            assert_ok!(SubtensorModule::create_account_if_non_existent(
+                &coldkey, &hotkey
+            ));
+            SubtensorModule::stake_into_subnet(
+                &hotkey,
+                &coldkey,
+                netuid,
+                50_000_000_000u64.into(),
+                <Test as Config>::SwapInterface::max_price(),
+                false,
+                false,
+            )
+            .unwrap();
+            lockers.push((coldkey, hotkey));
+        }
+
+        for (index, (coldkey, hotkey)) in lockers.iter().enumerate() {
+            assert_ok!(SubtensorModule::do_lock_stake(
+                coldkey,
+                netuid,
+                hotkey,
+                AlphaBalance::from(1_000u64 + index as u64),
+            ));
+        }
+
+        step_block(1_000);
+
+        let now = SubtensorModule::get_current_block_as_u64();
+        let individual_sum = Lock::<Test>::iter()
+            .filter(|((_coldkey, lock_netuid, _hotkey), _lock)| *lock_netuid == netuid)
+            .map(|((coldkey, _netuid, _hotkey), lock)| {
+                SubtensorModule::roll_forward_individual_lock(&coldkey, netuid, lock, now)
+                    .conviction
+            })
+            .fold(U64F64::from_num(0), |acc, conviction| {
+                acc.saturating_add(conviction)
+            });
+        let total = SubtensorModule::get_total_conviction(netuid);
+        let diff = if total > individual_sum {
+            total - individual_sum
+        } else {
+            individual_sum - total
+        };
+
         assert!(diff < U64F64::from_num(1));
     });
 }
