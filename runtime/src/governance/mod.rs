@@ -1,75 +1,19 @@
 pub mod collectives;
+pub mod member_set;
 pub mod tracks;
-
-use alloc::vec::Vec;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
 use frame_support::traits::AsEnsureOriginWithArg;
 use frame_system::EnsureRoot;
-use pallet_multi_collective::CollectiveInspect;
 use scale_info::TypeInfo;
-use subtensor_runtime_common::SetLike;
 
 use crate::{
-    AccountId, MultiCollective, Preimage, Referenda, Runtime, RuntimeCall, Scheduler, SignedVoting,
-    System,
+    AccountId, Preimage, Referenda, Runtime, RuntimeCall, Scheduler, SignedVoting, System,
 };
 
 use self::collectives::{CollectiveId, Collectives, TermManagement};
-
-/// A voter or proposer set composed of one or more collectives, evaluated by
-/// reading `pallet-multi-collective` storage on demand.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum MemberSet {
-    Single(CollectiveId),
-    Union(Vec<CollectiveId>),
-}
-
-impl SetLike<AccountId> for MemberSet {
-    fn contains(&self, who: &AccountId) -> bool {
-        use CollectiveInspect as CI;
-        use MultiCollective as MC;
-
-        match self {
-            Self::Single(id) => <MC as CI<AccountId, CollectiveId>>::is_member(*id, who),
-            Self::Union(ids) => ids
-                .iter()
-                .any(|id| <MC as CI<AccountId, CollectiveId>>::is_member(*id, who)),
-        }
-    }
-
-    fn len(&self) -> u32 {
-        self.to_vec().len() as u32
-    }
-
-    fn to_vec(&self) -> Vec<AccountId> {
-        use CollectiveInspect as CI;
-        use MultiCollective as MC;
-
-        match self {
-            Self::Single(id) => <MC as CI<AccountId, CollectiveId>>::members_of(*id),
-            // Union members can overlap (a coldkey may be both a top
-            // validator on Economic and a top subnet owner on Building).
-            // A naive sum of `member_count` inflates the denominator that
-            // signed-voting captures as `total` at poll creation; dual
-            // members count twice in `total` but can vote at most once,
-            // biasing both `fast_track_threshold` and `cancel_threshold`
-            // upward in proportion to the overlap. Deduplicate so the
-            // returned set has the true cardinality of accounts satisfying
-            // `contains`.
-            Self::Union(ids) => {
-                let mut accounts: Vec<AccountId> = Vec::new();
-                for id in ids {
-                    accounts.extend(<MC as CI<AccountId, CollectiveId>>::members_of(*id));
-                }
-                accounts.sort();
-                accounts.dedup();
-                accounts
-            }
-        }
-    }
-}
+pub use self::member_set::MemberSet;
 
 parameter_types! {
     /// Storage cap shared by all collectives; sized for the widest one
