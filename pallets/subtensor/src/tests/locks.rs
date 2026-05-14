@@ -646,6 +646,43 @@ fn test_roll_forward_conviction_uses_unequal_rate_closed_form() {
 }
 
 #[test]
+fn test_roll_forward_adjacent_large_rates_and_large_mass_match_f64_closed_form() {
+    new_test_ext(1).execute_with(|| {
+        let unlock_rate = 1_142_108u64;
+        let maturity_rate = unlock_rate + 1;
+        let locked_mass = 21_000_000_000_000_000u64;
+        let dt = unlock_rate;
+        UnlockRate::<Test>::put(unlock_rate);
+        MaturityRate::<Test>::put(maturity_rate);
+
+        let lock = LockState {
+            locked_mass: locked_mass.into(),
+            conviction: U64F64::from_num(0),
+            last_update: 0,
+        };
+        let rolled = SubtensorModule::roll_forward_lock(lock, dt, false, false);
+
+        let decay_x = (-(dt as f64) / unlock_rate as f64).exp();
+        let decay_z = (-(dt as f64) / maturity_rate as f64).exp();
+        let gamma =
+            unlock_rate as f64 * (decay_x - decay_z) / (unlock_rate as f64 - maturity_rate as f64);
+        let expected_conviction = locked_mass as f64 * gamma;
+        let expected_locked_mass = locked_mass as f64 * decay_x;
+
+        assert_abs_diff_eq!(
+            rolled.conviction.to_num::<f64>(),
+            expected_conviction,
+            epsilon = 50_000.0
+        );
+        assert_abs_diff_eq!(
+            u64::from(rolled.locked_mass) as f64,
+            expected_locked_mass,
+            epsilon = 2_000.0
+        );
+    });
+}
+
+#[test]
 fn test_roll_forward_scales_linearly_with_locked_mass() {
     new_test_ext(1).execute_with(|| {
         let dt = 25_000u64;
@@ -1366,12 +1403,12 @@ fn test_change_subnet_owner_if_needed_reassigns_to_subnet_king() {
             &king_hotkey
         ));
 
-        // Make the subnet old enough and set alpha out so a 1_000 alpha lock is exactly
+        // Make the subnet old enough and set alpha in so 1_000 conviction is exactly
         // the 10% minimum required to trigger reassignment.
         let now = crate::staking::lock::ONE_YEAR + 1;
         System::set_block_number(now);
         NetworkRegisteredAt::<Test>::insert(netuid, 1);
-        SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(10_000u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(10_000u64));
 
         // Seed matching individual and aggregate lock rows for the future king.
         let locked_mass = AlphaBalance::from(1_000u64);
@@ -1388,7 +1425,7 @@ fn test_change_subnet_owner_if_needed_reassigns_to_subnet_king() {
             king_hotkey,
             LockState {
                 locked_mass,
-                conviction: U64F64::from_num(10),
+                conviction: U64F64::from_num(1_000),
                 last_update: now,
             },
         );
@@ -1411,7 +1448,7 @@ fn test_change_subnet_owner_if_needed_reassigns_to_subnet_king() {
 #[test]
 fn test_change_subnet_owner_if_needed_does_not_reassign_when_required_condition_is_missing() {
     let assert_owner_unchanged =
-        |alpha_out: u64, registered_at: u64, owner_conviction: u64, king_conviction: u64| {
+        |alpha_in: u64, registered_at: u64, owner_conviction: u64, king_conviction: u64| {
             new_test_ext(1).execute_with(|| {
                 let owner_coldkey = U256::from(1001);
                 let owner_hotkey = U256::from(1002);
@@ -1430,7 +1467,7 @@ fn test_change_subnet_owner_if_needed_does_not_reassign_when_required_condition_
                 let now = crate::staking::lock::ONE_YEAR + 10;
                 System::set_block_number(now);
                 NetworkRegisteredAt::<Test>::insert(netuid, registered_at);
-                SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(alpha_out));
+                SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(alpha_in));
 
                 let locked_mass = AlphaBalance::from(1_000u64);
                 HotkeyLock::<Test>::insert(
@@ -1459,7 +1496,7 @@ fn test_change_subnet_owner_if_needed_does_not_reassign_when_required_condition_
             });
         };
 
-    // Missing condition 1: total locked mass is below 10% of SubnetAlphaOut.
+    // Missing condition 1: total conviction is below 10% of SubnetAlphaIn.
     assert_owner_unchanged(30_000, 1, 500, 1_000);
 
     // Missing condition 2: subnet is younger than one year.

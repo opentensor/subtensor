@@ -545,6 +545,21 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Returns total rolled aggregate conviction across all hotkey and owner locks on a subnet.
+    fn get_total_conviction(netuid: NetUid) -> U64F64 {
+        let now = Self::get_current_block_as_u64();
+        let hotkey_conviction = HotkeyLock::<T>::iter_prefix(netuid)
+            .map(|(_hotkey, lock)| Self::roll_forward_hotkey_lock(netuid, lock, now).conviction)
+            .fold(U64F64::saturating_from_num(0), |acc, conviction| {
+                acc.saturating_add(conviction)
+            });
+        let owner_conviction = OwnerLock::<T>::get(netuid)
+            .map(|lock| Self::roll_forward_owner_lock(netuid, lock, now).conviction)
+            .unwrap_or_else(|| U64F64::saturating_from_num(0));
+
+        hotkey_conviction.saturating_add(owner_conviction)
+    }
+
     /// Finds the hotkey with the highest conviction on a given subnet.
     pub fn subnet_king(netuid: NetUid) -> Option<T::AccountId> {
         let now = Self::get_current_block_as_u64();
@@ -573,18 +588,18 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Reassigns subnet ownership to the current lock-conviction leader when the subnet
-    /// is mature enough and enough supply is locked.
+    /// is mature enough and enough conviction has accumulated.
     ///
     /// Ownership can change only after the subnet is at least [`ONE_YEAR`] old and the
-    /// total rolled locked mass on the subnet is at least 10% of `SubnetAlphaOut`.
+    /// total rolled aggregate conviction on the subnet is at least 10% of `SubnetAlphaIn`.
     /// If those gates pass, the hotkey with the highest rolled aggregate conviction
     /// becomes the subnet owner hotkey, and that hotkey's owning coldkey becomes the
     /// subnet owner coldkey. The new owner hotkey's conviction is then progressed to
     /// its current locked mass so the new owner starts with full owner conviction.
     pub fn change_subnet_owner_if_needed(netuid: NetUid) {
-        // No outstanding alpha means there is no meaningful 10% lock threshold.
-        let subnet_alpha_out = SubnetAlphaOut::<T>::get(netuid);
-        if subnet_alpha_out.is_zero() {
+        // No reserve alpha means there is no meaningful 10% conviction threshold.
+        let subnet_alpha_in = SubnetAlphaIn::<T>::get(netuid);
+        if subnet_alpha_in.is_zero() {
             return;
         }
 
@@ -595,16 +610,10 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Sum rolled aggregate hotkey locks and require at least 10% of total alpha out.
-        let hotkey_locked = HotkeyLock::<T>::iter_prefix(netuid)
-            .map(|(_hotkey, lock)| Self::roll_forward_hotkey_lock(netuid, lock, now).locked_mass)
-            .fold(AlphaBalance::ZERO, |acc, locked| acc.saturating_add(locked));
-        let owner_locked = OwnerLock::<T>::get(netuid)
-            .map(|lock| Self::roll_forward_owner_lock(netuid, lock, now).locked_mass)
-            .unwrap_or(AlphaBalance::ZERO);
-        let total_locked = hotkey_locked.saturating_add(owner_locked);
-        if (u64::from(total_locked) as u128).saturating_mul(10)
-            < u64::from(subnet_alpha_out) as u128
+        // Require total rolled aggregate conviction to be at least 10% of subnet alpha in.
+        let total_conviction = Self::get_total_conviction(netuid);
+        if total_conviction.saturating_mul(U64F64::saturating_from_num(10))
+            < U64F64::saturating_from_num(u64::from(subnet_alpha_in))
         {
             return;
         }
