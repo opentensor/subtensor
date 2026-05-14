@@ -192,7 +192,7 @@ pub fn take_root_registration_log() -> Vec<RootRegistrationChange> {
 
 pub struct MockOnRootRegistrationChange;
 
-impl crate::governance::OnRootRegistrationChange<U256> for MockOnRootRegistrationChange {
+impl crate::root_registered::OnRootRegistrationChange<U256> for MockOnRootRegistrationChange {
     fn on_added(coldkey: &U256) {
         ROOT_REGISTRATION_LOG.with(|log| {
             log.borrow_mut()
@@ -208,22 +208,91 @@ impl crate::governance::OnRootRegistrationChange<U256> for MockOnRootRegistratio
 }
 
 thread_local! {
-    static MOCK_ECONOMIC_ELIGIBLE_MEMBERS: core::cell::RefCell<Option<Vec<U256>>> =
+    static MOCK_ROOT_REGISTERED_INSPECTOR_MEMBERS: core::cell::RefCell<Option<Vec<U256>>> =
         const { core::cell::RefCell::new(None) };
 }
 
-/// Override the `EconomicEligible` membership exposed to
+/// Override the membership exposed by `MockRootRegisteredInspector` to
 /// `pallet_subtensor`'s try_state check. `None` (the default) makes
 /// the check a no-op; `Some(_)` opts the test in.
-pub fn set_mock_economic_eligible_members(members: Option<Vec<U256>>) {
-    MOCK_ECONOMIC_ELIGIBLE_MEMBERS.with(|m| *m.borrow_mut() = members);
+pub fn set_mock_root_registered_inspector_members(members: Option<Vec<U256>>) {
+    MOCK_ROOT_REGISTERED_INSPECTOR_MEMBERS.with(|m| *m.borrow_mut() = members);
 }
 
-pub struct MockEconomicEligibleInspector;
+pub struct MockRootRegisteredInspector;
 
-impl crate::governance::EconomicEligibleInspector<U256> for MockEconomicEligibleInspector {
+impl crate::root_registered::RootRegisteredInspector<U256> for MockRootRegisteredInspector {
     fn members() -> Option<Vec<U256>> {
-        MOCK_ECONOMIC_ELIGIBLE_MEMBERS.with(|m| m.borrow().clone())
+        MOCK_ROOT_REGISTERED_INSPECTOR_MEMBERS.with(|m| m.borrow().clone())
+    }
+}
+
+thread_local! {
+    static EMA_STRATEGY_LOG: core::cell::RefCell<Vec<(U256, U64F64)>> =
+        const { core::cell::RefCell::new(Vec::new()) };
+    static EMA_STRATEGY_NEXT: core::cell::RefCell<Option<fn(U256, crate::root_registered::StakeEmaState) -> U64F64>> =
+        const { core::cell::RefCell::new(None) };
+    static EMA_STRATEGY_NEXT_WEIGHT: core::cell::RefCell<Weight> =
+        const { core::cell::RefCell::new(Weight::zero()) };
+    static EMA_STRATEGY_MAX_WEIGHT: core::cell::RefCell<Weight> =
+        const { core::cell::RefCell::new(Weight::zero()) };
+}
+
+pub fn take_ema_strategy_log() -> Vec<(U256, U64F64)> {
+    EMA_STRATEGY_LOG.with(|log| log.borrow_mut().drain(..).collect())
+}
+
+/// Override the value `MockEmaStrategy::next` returns. The closure
+/// receives `(coldkey, previous_state)` and returns the new EMA. Default
+/// (unset) returns `previous.ema`, i.e. freezes the EMA.
+pub fn set_ema_strategy_next(f: fn(U256, crate::root_registered::StakeEmaState) -> U64F64) {
+    EMA_STRATEGY_NEXT.with(|m| *m.borrow_mut() = Some(f));
+}
+
+pub fn clear_ema_strategy_next() {
+    EMA_STRATEGY_NEXT.with(|m| *m.borrow_mut() = None);
+}
+
+/// Override the weight `MockEmaStrategy::next` reports for the next
+/// invocation (per-call cost), and the worst-case reported by
+/// `MockEmaStrategy::weight()`.
+pub fn set_ema_strategy_weights(next_weight: Weight, max_weight: Weight) {
+    EMA_STRATEGY_NEXT_WEIGHT.with(|w| *w.borrow_mut() = next_weight);
+    EMA_STRATEGY_MAX_WEIGHT.with(|w| *w.borrow_mut() = max_weight);
+}
+
+thread_local! {
+    static EMA_SAMPLING_INTERVAL: core::cell::Cell<u64> = const { core::cell::Cell::new(1) };
+}
+
+/// Override the `EmaSamplingInterval` returned to `tick_root_registered_stake_ema`.
+/// Default is 1 so every block is a sample tick.
+pub fn set_ema_sampling_interval(interval: u64) {
+    EMA_SAMPLING_INTERVAL.with(|i| i.set(interval));
+}
+
+pub struct EmaSamplingInterval;
+
+impl Get<u64> for EmaSamplingInterval {
+    fn get() -> u64 {
+        EMA_SAMPLING_INTERVAL.with(|i| i.get())
+    }
+}
+
+pub struct MockEmaStrategy;
+
+impl crate::root_registered::EmaStrategy<U256> for MockEmaStrategy {
+    fn next(coldkey: &U256, previous: crate::root_registered::StakeEmaState) -> (U64F64, Weight) {
+        EMA_STRATEGY_LOG.with(|log| log.borrow_mut().push((*coldkey, previous.ema)));
+        let next = match EMA_STRATEGY_NEXT.with(|m| *m.borrow()) {
+            Some(f) => f(*coldkey, previous),
+            None => previous.ema,
+        };
+        (next, EMA_STRATEGY_NEXT_WEIGHT.with(|w| *w.borrow()))
+    }
+
+    fn weight() -> Weight {
+        EMA_STRATEGY_MAX_WEIGHT.with(|w| *w.borrow())
     }
 }
 
@@ -381,7 +450,9 @@ impl crate::Config for Test {
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type OnRootRegistrationChange = MockOnRootRegistrationChange;
-    type EconomicEligibleInspector = MockEconomicEligibleInspector;
+    type RootRegisteredInspector = MockRootRegisteredInspector;
+    type EmaStrategy = MockEmaStrategy;
+    type EmaSamplingInterval = EmaSamplingInterval;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();

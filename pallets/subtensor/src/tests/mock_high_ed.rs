@@ -289,7 +289,9 @@ impl crate::Config for Test {
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type OnRootRegistrationChange = ();
-    type EconomicEligibleInspector = ();
+    type RootRegisteredInspector = ();
+    type EmaStrategy = ();
+    type EmaSamplingInterval = ConstU64<1>;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
