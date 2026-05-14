@@ -92,11 +92,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Verifies that `RootRegisteredHotkeyCount` matches, for every coldkey,
-    /// the actual number of owned hotkeys that are registered on the root
-    /// subnet. Both directions are checked: stored entries must agree with
-    /// the computed count, and no coldkey with root-registered hotkeys may
-    /// be missing from the index.
+    /// Stored per-coldkey count equals the actual number of owned hotkeys registered on root.
     pub(crate) fn check_root_registered_hotkey_count() -> Result<(), sp_runtime::TryRuntimeError> {
         let mut expected: BTreeMap<T::AccountId, u32> = BTreeMap::new();
         for (_uid, hotkey) in Keys::<T>::iter_prefix(NetUid::ROOT) {
@@ -123,10 +119,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Verifies that the inspector's view of the root-registered
-    /// coldkey set matches `RootRegisteredHotkeyCount` exactly.
-    /// Skipped when `T::RootRegisteredInspector` returns `None`
-    /// (test mocks that do not wire up an external mirror).
+    /// External inspector's coldkey set matches `RootRegisteredHotkeyCount`; skipped when unwired.
     pub(crate) fn check_root_registered_matches_inspector()
     -> Result<(), sp_runtime::TryRuntimeError> {
         let Some(actual_members) = T::RootRegisteredInspector::members() else {
@@ -139,6 +132,21 @@ impl<T: Config> Pallet<T> {
         ensure!(
             actual == expected,
             "RootRegisteredInspector members do not match root-registered coldkey set",
+        );
+        Ok(())
+    }
+
+    /// `RootRegisteredEma` and `RootRegisteredHotkeyCount` always share the same key set.
+    pub(crate) fn check_root_registered_ema_matches_count()
+    -> Result<(), sp_runtime::TryRuntimeError> {
+        let ema_keys: BTreeSet<T::AccountId> =
+            RootRegisteredEma::<T>::iter().map(|(c, _)| c).collect();
+        let count_keys: BTreeSet<T::AccountId> = RootRegisteredHotkeyCount::<T>::iter()
+            .map(|(c, _)| c)
+            .collect();
+        ensure!(
+            ema_keys == count_keys,
+            "RootRegisteredEma keys do not match RootRegisteredHotkeyCount keys",
         );
         Ok(())
     }

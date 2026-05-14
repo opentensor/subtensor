@@ -193,6 +193,7 @@ mod hooks {
             // Self::check_total_stake()?;
             Self::check_root_registered_hotkey_count()?;
             Self::check_root_registered_matches_inspector()?;
+            Self::check_root_registered_ema_matches_count()?;
             Ok(())
         }
     }
