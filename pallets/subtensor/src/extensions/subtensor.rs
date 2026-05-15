@@ -302,29 +302,16 @@ where
                     Err(CustomTransactionError::StakeAmountTooLow.into())
                 }
             }
-            Some(Call::increase_take { hotkey, take: _ })
-            | Some(Call::decrease_take { hotkey, take: _ }) => {
+            Some(Call::increase_take { hotkey, take })
+            | Some(Call::decrease_take { hotkey, take }) => {
+                if *take < Pallet::<T>::get_min_delegate_take() {
+                    return Err(CustomTransactionError::DelegateTakeTooLow.into());
+                }
+                if *take > Pallet::<T>::get_max_delegate_take() {
+                    return Err(CustomTransactionError::DelegateTakeTooHigh.into());
+                }
                 Self::result_to_validity(Pallet::<T>::do_take_checks(who, hotkey), 0u64)
                     .map(|validity| (validity, (), origin.clone()))
-            }
-
-            Some(Call::swap_hotkey_v2 {
-                hotkey,
-                new_hotkey: _,
-                netuid: _,
-                keep_stake: _,
-            }) => {
-                if !Pallet::<T>::coldkey_owns_hotkey(who, hotkey) {
-                    return Err(CustomTransactionError::NonAssociatedColdKey.into());
-                }
-
-                let block: u64 = Pallet::<T>::get_current_block_as_u64();
-
-                if Pallet::<T>::exceeds_tx_rate_limit(Pallet::<T>::get_last_tx_block(who), block) {
-                    return Err(CustomTransactionError::RateLimitExceeded.into());
-                }
-
-                Ok((Default::default(), (), origin))
             }
 
             Some(Call::serve_axon {

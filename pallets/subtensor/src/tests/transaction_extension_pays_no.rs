@@ -506,6 +506,30 @@ fn extension_increase_take_rejects_non_owner_coldkey() {
 }
 
 #[test]
+fn extension_increase_take_validates_take_bounds() {
+    new_test_ext(0).execute_with(|| {
+        let coldkey = U256::from(13);
+        let hotkey = U256::from(14);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+        let min_take = SubtensorModule::get_min_delegate_take();
+        let max_take = SubtensorModule::get_max_delegate_take();
+        let increase_take_call =
+            |take| RuntimeCall::SubtensorModule(SubtensorCall::increase_take { hotkey, take });
+
+        let too_low_call = increase_take_call(min_take - 1);
+        let err = validate_signed(coldkey, &too_low_call).unwrap_err();
+        assert_eq!(err, CustomTransactionError::DelegateTakeTooLow.into());
+
+        let in_scope_call = increase_take_call(min_take);
+        assert_ok!(validate_signed(coldkey, &in_scope_call));
+
+        let too_high_call = increase_take_call(max_take + 1);
+        let err = validate_signed(coldkey, &too_high_call).unwrap_err();
+        assert_eq!(err, CustomTransactionError::DelegateTakeTooHigh.into());
+    });
+}
+
+#[test]
 fn extension_swap_hotkey_v2_rejects_non_owner_coldkey() {
     new_test_ext(0).execute_with(|| {
         let owner_ck = U256::from(20);
