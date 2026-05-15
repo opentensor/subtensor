@@ -142,27 +142,26 @@ where
                 salt,
                 version_key,
             }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    let provided_hash = Pallet::<T>::get_commit_hash(
-                        who,
-                        NetUidStorageIndex::from(*netuid),
-                        uids,
-                        values,
-                        salt,
-                        *version_key,
-                    );
-                    match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                        Some(commit_block) => {
-                            if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                                Ok((Default::default(), (), origin))
-                            } else {
-                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
-                            }
+                if !Self::check_weights_min_stake(who, *netuid) {
+                    return Err(CustomTransactionError::StakeAmountTooLow.into());
+                }
+                let provided_hash = Pallet::<T>::get_commit_hash(
+                    who,
+                    NetUidStorageIndex::from(*netuid),
+                    uids,
+                    values,
+                    salt,
+                    *version_key,
+                );
+                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
+                    Some(commit_block) => {
+                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                            Ok((Default::default(), (), origin))
+                        } else {
+                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
                         }
-                        None => Err(CustomTransactionError::CommitNotFound.into()),
                     }
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
+                    None => Err(CustomTransactionError::CommitNotFound.into()),
                 }
             }
             Some(Call::reveal_mechanism_weights {
@@ -173,27 +172,26 @@ where
                 salt,
                 version_key,
             }) => {
-                if Self::check_weights_min_stake(who, *netuid) {
-                    let provided_hash = Pallet::<T>::get_commit_hash(
-                        who,
-                        Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
-                        uids,
-                        values,
-                        salt,
-                        *version_key,
-                    );
-                    match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
-                        Some(commit_block) => {
-                            if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
-                                Ok((Default::default(), (), origin))
-                            } else {
-                                Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
-                            }
+                if !Self::check_weights_min_stake(who, *netuid) {
+                    return Err(CustomTransactionError::StakeAmountTooLow.into());
+                }
+                let provided_hash = Pallet::<T>::get_commit_hash(
+                    who,
+                    Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
+                    uids,
+                    values,
+                    salt,
+                    *version_key,
+                );
+                match Pallet::<T>::find_commit_block_via_hash(provided_hash) {
+                    Some(commit_block) => {
+                        if Pallet::<T>::is_reveal_block_range(*netuid, commit_block) {
+                            Ok((Default::default(), (), origin))
+                        } else {
+                            Err(CustomTransactionError::CommitBlockNotInRevealRange.into())
                         }
-                        None => Err(CustomTransactionError::CommitNotFound.into()),
                     }
-                } else {
-                    Err(CustomTransactionError::StakeAmountTooLow.into())
+                    None => Err(CustomTransactionError::CommitNotFound.into()),
                 }
             }
             Some(Call::batch_reveal_weights {

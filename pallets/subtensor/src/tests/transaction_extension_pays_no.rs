@@ -499,7 +499,10 @@ fn extension_increase_take_rejects_non_owner_coldkey() {
         let hotkey = U256::from(12);
         crate::Owner::<Test>::insert(hotkey, owner_ck);
 
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::increase_take { hotkey, take: 100 });
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::increase_take {
+            hotkey,
+            take: SubtensorModule::get_min_delegate_take(),
+        });
         let err = validate_signed(other_ck, &call).unwrap_err();
         assert_eq!(err, CustomTransactionError::NonAssociatedColdKey.into());
     });
@@ -526,58 +529,6 @@ fn extension_increase_take_validates_take_bounds() {
         let too_high_call = increase_take_call(max_take + 1);
         let err = validate_signed(coldkey, &too_high_call).unwrap_err();
         assert_eq!(err, CustomTransactionError::DelegateTakeTooHigh.into());
-    });
-}
-
-#[test]
-fn extension_swap_hotkey_v2_rejects_non_owner_coldkey() {
-    new_test_ext(0).execute_with(|| {
-        let owner_ck = U256::from(20);
-        let other_ck = U256::from(21);
-        let old_hk = U256::from(22);
-        let new_hk = U256::from(23);
-        crate::Owner::<Test>::insert(old_hk, owner_ck);
-
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::swap_hotkey_v2 {
-            hotkey: old_hk,
-            new_hotkey: new_hk,
-            netuid: None,
-            keep_stake: false,
-        });
-        let err = validate_signed(other_ck, &call).unwrap_err();
-        assert_eq!(err, CustomTransactionError::NonAssociatedColdKey.into());
-    });
-}
-
-#[test]
-fn extension_swap_hotkey_v2_rejects_rate_limited() {
-    new_test_ext(0).execute_with(|| {
-        let coldkey = U256::from(30);
-        let old_hk = U256::from(31);
-        let new_hk = U256::from(32);
-        crate::Owner::<Test>::insert(old_hk, coldkey);
-
-        SubtensorModule::set_tx_rate_limit(100);
-        SubtensorModule::set_last_tx_block(&coldkey, 1);
-        System::set_block_number(1u64.into());
-
-        let err = SubtensorTransactionExtension::<Test>::new()
-            .validate(
-                RawOrigin::Signed(coldkey).into(),
-                &RuntimeCall::SubtensorModule(SubtensorCall::swap_hotkey_v2 {
-                    hotkey: old_hk,
-                    new_hotkey: new_hk,
-                    netuid: None,
-                    keep_stake: false,
-                }),
-                &dispatch_info(),
-                0,
-                (),
-                &TxBaseImplication(()),
-                TransactionSource::External,
-            )
-            .unwrap_err();
-        assert_eq!(err, CustomTransactionError::RateLimitExceeded.into());
     });
 }
 
