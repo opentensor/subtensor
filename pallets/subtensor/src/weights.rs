@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 49.1.0
 //! DATE: 2026-05-15, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `runnervmeorf1`, CPU: `AMD EPYC 7763 64-Core Processor`
+//! HOSTNAME: `runnervmeorf1`, CPU: `AMD EPYC 9V74 80-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -194,7 +194,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1706`
+		//  Measured:  `1716`
 		//  Estimated: `13600`
 		// Minimum execution time: 360_980_000 picoseconds.
 		Weight::from_parts(363_834_000, 13600)
@@ -439,7 +439,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn burned_register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1639`
+		//  Measured:  `1649`
 		//  Estimated: `13600`
 		// Minimum execution time: 373_683_000 picoseconds.
 		Weight::from_parts(376_809_000, 13600)
@@ -601,6 +601,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ImmunityPeriod` (r:0 w:1)
 	/// Proof: `SubtensorModule::ImmunityPeriod` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegistrationAllowed` (r:0 w:1)
 	/// Proof: `SubtensorModule::NetworkRegistrationAllowed` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Yuma3On` (r:0 w:1)
@@ -616,7 +618,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 269_978_000 picoseconds.
 		Weight::from_parts(273_545_000, 9874)
 			.saturating_add(T::DbWeight::get().reads(42_u64))
-			.saturating_add(T::DbWeight::get().writes(47_u64))
+			.saturating_add(T::DbWeight::get().writes(48_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1627,6 +1629,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ImmunityPeriod` (r:0 w:1)
 	/// Proof: `SubtensorModule::ImmunityPeriod` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegistrationAllowed` (r:0 w:1)
 	/// Proof: `SubtensorModule::NetworkRegistrationAllowed` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Yuma3On` (r:0 w:1)
@@ -1642,7 +1646,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 267_132_000 picoseconds.
 		Weight::from_parts(273_555_000, 9758)
 			.saturating_add(T::DbWeight::get().reads(41_u64))
-			.saturating_add(T::DbWeight::get().writes(46_u64))
+			.saturating_add(T::DbWeight::get().writes(47_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
 	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -2049,6 +2053,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::ImmunityPeriod` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLeases` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetLeases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegistrationAllowed` (r:0 w:1)
 	/// Proof: `SubtensorModule::NetworkRegistrationAllowed` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Yuma3On` (r:0 w:1)
@@ -2068,7 +2074,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(45_631_078, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(51_u64))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(k.into())))
-			.saturating_add(T::DbWeight::get().writes(52_u64))
+			.saturating_add(T::DbWeight::get().writes(53_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(k.into()))
 	}
@@ -2093,7 +2099,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `k` is `[2, 500]`.
 	fn terminate_lease(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1447 + k * (53 ±0)`
+		//  Measured:  `1468 + k * (53 ±0)`
 		//  Estimated: `6148 + k * (2514 ±0)`
 		// Minimum execution time: 127_110_000 picoseconds.
 		Weight::from_parts(133_384_459, 6148)
@@ -2491,7 +2497,7 @@ impl WeightInfo for () {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1706`
+		//  Measured:  `1716`
 		//  Estimated: `13600`
 		// Minimum execution time: 360_980_000 picoseconds.
 		Weight::from_parts(363_834_000, 13600)
@@ -2736,7 +2742,7 @@ impl WeightInfo for () {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn burned_register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1639`
+		//  Measured:  `1649`
 		//  Estimated: `13600`
 		// Minimum execution time: 373_683_000 picoseconds.
 		Weight::from_parts(376_809_000, 13600)
@@ -2898,6 +2904,8 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ImmunityPeriod` (r:0 w:1)
 	/// Proof: `SubtensorModule::ImmunityPeriod` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegistrationAllowed` (r:0 w:1)
 	/// Proof: `SubtensorModule::NetworkRegistrationAllowed` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Yuma3On` (r:0 w:1)
@@ -2913,7 +2921,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 269_978_000 picoseconds.
 		Weight::from_parts(273_545_000, 9874)
 			.saturating_add(RocksDbWeight::get().reads(42_u64))
-			.saturating_add(RocksDbWeight::get().writes(47_u64))
+			.saturating_add(RocksDbWeight::get().writes(48_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -3924,6 +3932,8 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::Uids` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ImmunityPeriod` (r:0 w:1)
 	/// Proof: `SubtensorModule::ImmunityPeriod` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegistrationAllowed` (r:0 w:1)
 	/// Proof: `SubtensorModule::NetworkRegistrationAllowed` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Yuma3On` (r:0 w:1)
@@ -3939,7 +3949,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 267_132_000 picoseconds.
 		Weight::from_parts(273_555_000, 9758)
 			.saturating_add(RocksDbWeight::get().reads(41_u64))
-			.saturating_add(RocksDbWeight::get().writes(46_u64))
+			.saturating_add(RocksDbWeight::get().writes(47_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
 	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -4346,6 +4356,8 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::ImmunityPeriod` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLeases` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetLeases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetEmissionEnabled` (r:0 w:1)
+	/// Proof: `SubtensorModule::SubnetEmissionEnabled` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegistrationAllowed` (r:0 w:1)
 	/// Proof: `SubtensorModule::NetworkRegistrationAllowed` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Yuma3On` (r:0 w:1)
@@ -4365,7 +4377,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(45_631_078, 0).saturating_mul(k.into()))
 			.saturating_add(RocksDbWeight::get().reads(51_u64))
 			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(k.into())))
-			.saturating_add(RocksDbWeight::get().writes(52_u64))
+			.saturating_add(RocksDbWeight::get().writes(53_u64))
 			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(k.into()))
 	}
@@ -4390,7 +4402,7 @@ impl WeightInfo for () {
 	/// The range of component `k` is `[2, 500]`.
 	fn terminate_lease(k: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1447 + k * (53 ±0)`
+		//  Measured:  `1468 + k * (53 ±0)`
 		//  Estimated: `6148 + k * (2514 ±0)`
 		// Minimum execution time: 127_110_000 picoseconds.
 		Weight::from_parts(133_384_459, 6148)

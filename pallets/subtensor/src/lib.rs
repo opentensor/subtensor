@@ -1338,6 +1338,18 @@ pub mod pallet {
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
+    /// --- MAP ( netuid ) --> subnet_emission_enabled
+    ///
+    /// When false, subnet pool-side emission is disabled for this subnet:
+    /// `alpha_in`, `tao_in`, and `excess_tao` chain buys are all treated as zero.
+    /// `alpha_out`, owner cut, root proportion, pending server emission, and pending
+    /// validator emission are intentionally left unchanged.
+    ///
+    /// Defaults to true so existing subnets keep current behavior.
+    #[pallet::storage]
+    pub type SubnetEmissionEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultTrue<T>>;
+
     /// --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     #[pallet::storage]
     pub type SubnetAlphaOutEmission<T: Config> =

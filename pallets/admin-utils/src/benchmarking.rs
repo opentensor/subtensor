@@ -582,6 +582,19 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_subnet_emission_enabled() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, false);
+
+        assert!(!pallet_subtensor::SubnetEmissionEnabled::<T>::get(netuid));
+    }
+    #[benchmark]
     fn sudo_set_sn_owner_hotkey() {
         let netuid = NetUid::from(1);
         let hotkey: T::AccountId = account("Alice", 0, 1);
