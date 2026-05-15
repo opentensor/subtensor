@@ -1556,10 +1556,10 @@ pub mod pallet {
         1_142_108
     }
 
-    /// Default maturity timescale: 20% slower than the default unlock rate.
+    /// Default maturity timescale: Conviction is 2x faster than the default unlock rate.
     #[pallet::type_value]
     pub fn DefaultMaturityRate<T: Config>() -> u64 {
-        1_370_530
+        571_054
     }
 
     /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
