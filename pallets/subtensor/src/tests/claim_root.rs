@@ -14,13 +14,12 @@ use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use sp_core::{H256, U256};
-use sp_runtime::DispatchError;
+use sp_core::{Get, H256, U256};
+use sp_runtime::{DispatchError, traits::AccountIdConversion};
 use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
-
 #[test]
 fn test_claim_root_set_claim_type() {
     new_test_ext(1).execute_with(|| {
@@ -2134,8 +2133,7 @@ fn test_burn_root_prop_sells_root_yield_then_burns_tao() {
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
         let root_subnet_tao_before = SubnetTAO::<Test>::get(NetUid::ROOT);
         let total_stake_before = crate::TotalStake::<Test>::get();
-        use sp_core::Get;
-        use sp_runtime::traits::AccountIdConversion;
+
         let burn_account: U256 =
             <Test as crate::Config>::BurnAccountId::get().into_account_truncating();
         let burn_balance_before = SubtensorModule::get_coldkey_balance(&burn_account);
