@@ -300,7 +300,6 @@ impl<T: Config> Pallet<T> {
         SubnetEmaProtocolFlow::<T>::remove(netuid);
         SubnetExcessTao::<T>::remove(netuid);
         SubnetRootSellTao::<T>::remove(netuid);
-        SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
