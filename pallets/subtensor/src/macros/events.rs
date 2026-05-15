@@ -121,6 +121,8 @@ mod events {
         OwnerHyperparamRateLimitSet(u16),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
+        /// subnet-specific minimum childkey take set
+        MinChildKeyTakePerSubnetSet(NetUid, u16),
         /// maximum childkey take set
         MaxChildKeyTakeSet(u16),
         /// childkey take set
