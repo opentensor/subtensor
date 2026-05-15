@@ -41,6 +41,7 @@ frame_support::construct_runtime!(
     pub enum Test {
         System: frame_system = 1,
         Balances: pallet_balances = 2,
+        AlphaAssets: pallet_alpha_assets = 3,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
@@ -227,6 +228,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -282,6 +285,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = ();
+    type AlphaAssets = AlphaAssets;
     type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
     type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
@@ -299,6 +303,8 @@ impl pallet_subtensor::Config for Test {
     type RateLimiting = NoRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
 }
 
@@ -395,6 +401,8 @@ impl pallet_balances::Config for Test {
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
 }
+
+impl pallet_alpha_assets::Config for Test {}
 
 // Swap-related parameter types
 parameter_types! {
@@ -636,7 +644,7 @@ pub fn register_ok_neuron(
 
         let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
         if bal < min_balance_needed {
-            SubtensorModule::add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+            add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
         }
     };
 
@@ -674,10 +682,21 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let _ = SubtensorModule::burn_tao(coldkey, tao);
+}
+
+#[allow(dead_code)]
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.into());
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
@@ -840,7 +859,7 @@ pub fn setup_stake(
     stake_amount: u64,
 ) {
     // Fund enough to stake while keeping the coldkey account alive (KeepAlive / ED).
-    SubtensorModule::add_balance_to_coldkey_account(
+    add_balance_to_coldkey_account(
         coldkey,
         TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
     );
@@ -893,6 +912,7 @@ pub(crate) fn quote_remove_stake_after_alpha_fee(
             if !alpha_fee.is_zero() {
                 assert_ok!(SubtensorModule::unstake_from_subnet(
                     hotkey,
+                    coldkey,
                     coldkey,
                     netuid,
                     alpha_fee,

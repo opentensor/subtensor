@@ -951,7 +951,7 @@ fn test_set_mechanism_weights_happy_path_sets_row_under_subid() {
         // Make caller a permitted validator with stake
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
+        add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1008,7 +1008,7 @@ fn test_set_mechanism_weights_above_mechanism_count_fails() {
         // Make caller a permitted validator with stake
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
+        add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1065,7 +1065,7 @@ fn test_commit_reveal_mechanism_weights_ok() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
+        add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1148,7 +1148,7 @@ fn test_commit_reveal_above_mechanism_count_fails() {
         SubtensorModule::set_stake_threshold(0);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 1.into());
+        add_balance_to_coldkey_account(&ck1, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk1,
             &ck1,
@@ -1234,8 +1234,8 @@ fn test_reveal_crv3_commits_sub_success() {
 
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, uid2, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(4), 1.into());
+        add_balance_to_coldkey_account(&U256::from(3), 1.into());
+        add_balance_to_coldkey_account(&U256::from(4), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &U256::from(3), netuid, 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey2, &U256::from(4), netuid, 1.into());
 
@@ -1338,7 +1338,7 @@ fn test_crv3_above_mechanism_count_fails() {
         let uid2 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey2).expect("uid2");
 
         SubtensorModule::set_validator_permit_for_uid(netuid, uid1, true);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(3), 1.into());
+        add_balance_to_coldkey_account(&U256::from(3), 1.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(&hotkey1, &U256::from(3), netuid, 1.into());
 
         let version_key = SubtensorModule::get_weights_version_key(netuid);
@@ -1385,6 +1385,101 @@ fn test_crv3_above_mechanism_count_fails() {
 }
 
 #[test]
+fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let mecid = MechId::from(1u8);
+        let hotkey: AccountId = U256::from(1);
+        let commit_data_1: Vec<u8> = vec![1, 2, 3];
+        let commit_data_2: Vec<u8> = vec![4, 5, 6];
+        let reveal_round: u64 = 1000;
+
+        add_network(netuid, 5, 0);
+        MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8)); // allow subids {0,1}
+
+        register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("uid");
+        let idx1 = SubtensorModule::get_mechanism_storage_index(netuid, mecid);
+        SubtensorModule::set_last_update_for_uid(idx1, uid, 0);
+
+        // make validator with stake
+        SubtensorModule::set_stake_threshold(0);
+        SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
+        add_balance_to_coldkey_account(&U256::from(2), 1.into());
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &U256::from(2),
+            netuid,
+            1.into(),
+        );
+
+        // first commit OK on mecid=1
+        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            mecid,
+            commit_data_1.clone().try_into().expect("bounded"),
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
+        ));
+
+        // immediate second commit on SAME mecid blocked
+        assert_noop!(
+            SubtensorModule::commit_timelocked_mechanism_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                mecid,
+                commit_data_2.clone().try_into().expect("bounded"),
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
+            ),
+            Error::<Test>::CommittingWeightsTooFast
+        );
+
+        // BUT committing too soon on a DIFFERENT mecid is allowed
+        let other_subid = MechId::from(0u8);
+        let idx0 = SubtensorModule::get_mechanism_storage_index(netuid, other_subid);
+        SubtensorModule::set_last_update_for_uid(idx0, uid, 0); // baseline like above
+        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            other_subid,
+            commit_data_2.clone().try_into().expect("bounded"),
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
+        ));
+
+        // still too fast on original mecid after 2 blocks
+        step_block(2);
+        assert_noop!(
+            SubtensorModule::commit_timelocked_mechanism_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                mecid,
+                commit_data_2.clone().try_into().expect("bounded"),
+                reveal_round,
+                SubtensorModule::get_commit_reveal_weights_version()
+            ),
+            Error::<Test>::CommittingWeightsTooFast
+        );
+
+        // after enough blocks, OK again on original mecid
+        step_block(3);
+        assert_ok!(SubtensorModule::commit_timelocked_mechanism_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            mecid,
+            commit_data_2.try_into().expect("bounded"),
+            reveal_round,
+            SubtensorModule::get_commit_reveal_weights_version()
+        ));
+    });
+}
+
+#[test]
 fn epoch_mechanism_emergency_mode_distributes_by_stake() {
     new_test_ext(1).execute_with(|| {
         // setup a single sub-subnet where consensus sum becomes 0
@@ -1424,9 +1519,9 @@ fn epoch_mechanism_emergency_mode_distributes_by_stake() {
         // (leave Weights/Bonds empty for all rows on this sub-subnet)
 
         // stake proportions: uid0:uid1:uid2 = 10:30:60
-        SubtensorModule::add_balance_to_coldkey_account(&ck0, 10.into());
-        SubtensorModule::add_balance_to_coldkey_account(&ck1, 30.into());
-        SubtensorModule::add_balance_to_coldkey_account(&ck2, 60.into());
+        add_balance_to_coldkey_account(&ck0, 10.into());
+        add_balance_to_coldkey_account(&ck1, 30.into());
+        add_balance_to_coldkey_account(&ck2, 60.into());
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hk0,
             &ck0,

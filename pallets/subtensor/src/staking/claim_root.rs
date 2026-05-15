@@ -179,12 +179,45 @@ impl<T: Config> Pallet<T> {
                 }
             };
 
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                NetUid::ROOT,
-                owed_tao.amount_paid_out.to_u64().into(),
-            );
+            // Record root sell as protocol outflow (reduces protocol cost).
+            let root_sell_tao: TaoBalance = owed_tao.amount_paid_out;
+            SubnetRootSellTao::<T>::mutate(netuid, |total| {
+                *total = total.saturating_add(root_sell_tao);
+            });
+            Self::record_protocol_outflow(netuid, root_sell_tao);
+
+            // Transfer unstaked TAO from subnet account to the root subnet account
+            // and increase root stake.
+            if let Some(root_subnet_account_id) = Self::get_subnet_account_id(NetUid::ROOT)
+                && Self::transfer_tao_from_subnet(
+                    netuid,
+                    &root_subnet_account_id,
+                    owed_tao.amount_paid_out.into(),
+                )
+                .is_ok()
+            {
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey,
+                    coldkey,
+                    NetUid::ROOT,
+                    owed_tao.amount_paid_out.to_u64().into(),
+                );
+
+                // Increase root subnet SubnetTAO
+                SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
+                    *total = total.saturating_add(owed_tao.amount_paid_out.into());
+                });
+
+                // Increase root SubnetAlphaOut
+                SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
+                    *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
+                });
+
+                // Increase Total Stake
+                TotalStake::<T>::mutate(|total| {
+                    *total = total.saturating_add(owed_tao.amount_paid_out.into());
+                });
+            }
 
             Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
                 hotkey,

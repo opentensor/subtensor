@@ -7,6 +7,8 @@ use frame_support::pallet_macros::pallet_section;
 mod config {
 
     use crate::{CommitmentsInterface, GetAlphaForTao, GetTaoForAlpha};
+    use frame_support::PalletId;
+    use pallet_alpha_assets::AlphaAssetsInterface;
     use pallet_commitments::GetCommitments;
     use rate_limiting_interface::RateLimitingInterface;
     use subtensor_runtime_common::AuthorshipInfo;
@@ -71,6 +73,9 @@ mod config {
                     Self::AccountId,
                 >,
             >;
+
+        /// Interface to mint, burn, and recycle subnet alpha.
+        type AlphaAssets: AlphaAssetsInterface;
 
         /// Rate limit for associating an EVM key.
         type EvmKeyAssociateRateLimit: Get<u64>;
@@ -256,5 +261,11 @@ mod config {
         /// Maximum percentage of immune UIDs.
         #[pallet::constant]
         type MaxImmuneUidsPercentage: Get<Percent>;
+        /// Pallet account ID
+        #[pallet::constant]
+        type SubtensorPalletId: Get<PalletId>;
+        /// Burn account ID
+        #[pallet::constant]
+        type BurnAccountId: Get<PalletId>;
     }
 }

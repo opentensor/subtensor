@@ -79,6 +79,9 @@ where
 {
 }
 
+#[cfg(test)]
+mod mock;
+
 pub struct Precompiles<R>(PhantomData<R>);
 
 impl<R> Default for Precompiles<R>

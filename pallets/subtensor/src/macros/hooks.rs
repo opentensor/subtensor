@@ -118,6 +118,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_root_tao_and_alpha_in::migrate_fix_root_tao_and_alpha_in::<T>())
                 // Re-encode rate limit keys after introducing OwnerHyperparamUpdate variant
                 .saturating_add(migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<T>())
+                // Remove AddStakeBurn entries from LastRateLimitedBlock
+                .saturating_add(migrations::migrate_remove_add_stake_burn_rate_limit::migrate_remove_add_stake_burn_rate_limit::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>())
                 // Migrate Immunity Period
@@ -153,7 +155,9 @@ mod hooks {
                 // Migrate fix bad hk swap
                 .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>())
                 // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
-                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>());
+                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
+                // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
+                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>());
             weight
         }
 

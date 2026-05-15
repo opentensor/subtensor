@@ -129,3 +129,136 @@ where
         Ok(U256::from(total))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::arithmetic_side_effects)]
+
+    use super::*;
+    use crate::PrecompileExt;
+    use crate::mock::{
+        AccountId, Runtime, addr_from_index, assert_static_call, new_test_ext, precompiles,
+        selector_u32,
+    };
+    use precompile_utils::solidity::encode_with_selector;
+    use sp_core::{H160, H256, U256};
+
+    const TEST_NETUID_U16: u16 = 1;
+    const TEST_TEMPO: u16 = 100;
+    const DEFAULT_ALPHA: u64 = 3_570_000_000_000_000;
+
+    fn setup_subnet() -> NetUid {
+        let netuid = NetUid::from(TEST_NETUID_U16);
+        pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, TEST_TEMPO);
+        netuid
+    }
+
+    fn hotkey(byte: u8) -> AccountId {
+        AccountId::from([byte; 32])
+    }
+
+    fn assert_voting_power_call(
+        caller: H160,
+        signature: &str,
+        args: impl precompile_utils::solidity::Codec,
+        expected: U256,
+    ) {
+        assert_static_call(
+            &precompiles::<VotingPowerPrecompile<Runtime>>(),
+            caller,
+            addr_from_index(VotingPowerPrecompile::<Runtime>::INDEX),
+            encode_with_selector(selector_u32(signature), args),
+            expected,
+        );
+    }
+
+    #[test]
+    fn voting_power_precompile_returns_default_zero_values() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_subnet();
+            let caller = addr_from_index(0x6001);
+            let existing_hotkey = hotkey(0x11);
+            let unknown_hotkey = hotkey(0x22);
+
+            assert!(!pallet_subtensor::VotingPowerTrackingEnabled::<Runtime>::get(netuid));
+            assert_voting_power_call(
+                caller,
+                "isVotingPowerTrackingEnabled(uint16)",
+                (TEST_NETUID_U16,),
+                U256::zero(),
+            );
+            assert_voting_power_call(
+                caller,
+                "getVotingPowerDisableAtBlock(uint16)",
+                (TEST_NETUID_U16,),
+                U256::zero(),
+            );
+            assert_voting_power_call(
+                caller,
+                "getVotingPowerEmaAlpha(uint16)",
+                (TEST_NETUID_U16,),
+                U256::from(DEFAULT_ALPHA),
+            );
+            assert_voting_power_call(
+                caller,
+                "getVotingPower(uint16,bytes32)",
+                (
+                    TEST_NETUID_U16,
+                    H256::from_slice(existing_hotkey.as_slice()),
+                ),
+                U256::zero(),
+            );
+            assert_voting_power_call(
+                caller,
+                "getVotingPower(uint16,bytes32)",
+                (TEST_NETUID_U16, H256::from_slice(unknown_hotkey.as_slice())),
+                U256::zero(),
+            );
+            assert_voting_power_call(
+                caller,
+                "getTotalVotingPower(uint16)",
+                (TEST_NETUID_U16,),
+                U256::zero(),
+            );
+        });
+    }
+
+    #[test]
+    fn voting_power_precompile_reads_enabled_tracking_and_stored_power() {
+        new_test_ext().execute_with(|| {
+            let netuid = setup_subnet();
+            let caller = addr_from_index(0x6002);
+            let first_hotkey = hotkey(0x33);
+            let second_hotkey = hotkey(0x44);
+
+            pallet_subtensor::VotingPowerTrackingEnabled::<Runtime>::insert(netuid, true);
+            pallet_subtensor::VotingPower::<Runtime>::insert(netuid, &first_hotkey, 123_u64);
+            pallet_subtensor::VotingPower::<Runtime>::insert(netuid, &second_hotkey, 456_u64);
+
+            assert_voting_power_call(
+                caller,
+                "isVotingPowerTrackingEnabled(uint16)",
+                (TEST_NETUID_U16,),
+                U256::one(),
+            );
+            assert_voting_power_call(
+                caller,
+                "getVotingPowerDisableAtBlock(uint16)",
+                (TEST_NETUID_U16,),
+                U256::zero(),
+            );
+            assert_voting_power_call(
+                caller,
+                "getVotingPower(uint16,bytes32)",
+                (TEST_NETUID_U16, H256::from_slice(first_hotkey.as_slice())),
+                U256::from(123_u64),
+            );
+            assert_voting_power_call(
+                caller,
+                "getTotalVotingPower(uint16)",
+                (TEST_NETUID_U16,),
+                U256::from(579_u64),
+            );
+        });
+    }
+}

@@ -178,7 +178,7 @@ fn init_run_epochs(
         };
 
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
-        SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake.into());
+        add_balance_to_coldkey_account(&(U256::from(key)), stake.into());
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
             &U256::from(key),
@@ -563,7 +563,7 @@ fn test_1_graph() {
         let stake_amount: TaoBalance = 1_000_000_000.into();
         add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             stake_amount + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock(),
         );
@@ -1021,7 +1021,7 @@ fn test_bonds() {
 
 		// === Register [validator1, validator2, validator3, validator4, server1, server2, server3, server4]
 		for key in 0..n as u64 {
-			SubtensorModule::add_balance_to_coldkey_account(
+			add_balance_to_coldkey_account(
                 &U256::from(key),
                 max_stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock()
             );
@@ -1315,7 +1315,7 @@ fn test_set_alpha_disabled() {
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
         let fee = <Test as pallet::Config>::SwapInterface::approx_fee_amount(
             netuid.into(),
@@ -1367,7 +1367,7 @@ fn test_active_stake() {
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &U256::from(key),
                 stake + ExistentialDeposit::get() + SubtensorModule::get_network_min_lock(),
             );
@@ -1587,7 +1587,7 @@ fn test_outdated_weights() {
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &U256::from(key),
                 stake
                     + ExistentialDeposit::get()
@@ -1680,7 +1680,7 @@ fn test_outdated_weights() {
 
         // === Dereg server2 at uid3 (least emission) + register new key over uid3
         let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &U256::from(new_key),
             stake
                 + ExistentialDeposit::get()
@@ -1784,7 +1784,7 @@ fn test_zero_weights() {
 
         // === Register [validator, server]
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &U256::from(key),
                 ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
@@ -1805,7 +1805,7 @@ fn test_zero_weights() {
             ));
         }
         for validator in 0..(n / 2) as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake.into());
+            add_balance_to_coldkey_account(&U256::from(validator), stake.into());
             SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
                 &U256::from(validator),
                 &U256::from(validator),
@@ -1897,7 +1897,7 @@ fn test_zero_weights() {
         // === Outdate weights by reregistering servers
         for new_key in n..n + (n / 2) {
             // register a new key while at max capacity, which means the least emission uid will be deregistered
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &U256::from(new_key),
                 ExistentialDeposit::get() + (SubtensorModule::get_network_min_lock() * 2.into()),
             );
@@ -1996,7 +1996,7 @@ fn test_deregistered_miner_bonds() {
         // === Register [validator1, validator2, server1, server2]
         let block_number = System::block_number();
         for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(
+            add_balance_to_coldkey_account(
                 &U256::from(key),
                 stake
                     + ExistentialDeposit::get()
@@ -2080,7 +2080,7 @@ fn test_deregistered_miner_bonds() {
         // === Dereg server2 at uid3 (least emission) + register new key over uid3
         let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
         let block_number = System::block_number();
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &U256::from(new_key),
             stake
                 + ExistentialDeposit::get()
@@ -2200,7 +2200,7 @@ fn test_validator_permits() {
 
                     // === Register [validator1, validator2, server1, server2]
                     for key in 0..network_n as u64 {
-                        SubtensorModule::add_balance_to_coldkey_account(
+                        add_balance_to_coldkey_account(
                             &U256::from(key),
                             stake[key as usize]
                                 + ExistentialDeposit::get()
@@ -2253,7 +2253,7 @@ fn test_validator_permits() {
 
                     // === Increase server stake above validators
                     for server in &servers {
-                        SubtensorModule::add_balance_to_coldkey_account(
+                        add_balance_to_coldkey_account(
                             &(U256::from(*server as u64)),
                             (2 * network_n as u64).into(),
                         );
@@ -2305,7 +2305,7 @@ fn test_get_set_alpha() {
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
 
         // Should fail as signer does not own the subnet
@@ -2729,7 +2729,7 @@ fn setup_yuma_3_scenario(netuid: NetUid, n: u16, sparse: bool, max_stake: u64, s
 
     // === Register
     for key in 0..n as u64 {
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &U256::from(key),
             TaoBalance::from(max_stake)
                 + ExistentialDeposit::get()
@@ -3866,7 +3866,7 @@ fn test_last_update_size_mismatch() {
         let stake_amount: u64 = 1_000_000_000;
         add_network_disable_commit_reveal(netuid, u16::MAX - 1, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 1);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &coldkey,
             TaoBalance::from(stake_amount)
                 + ExistentialDeposit::get()
