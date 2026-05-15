@@ -14,7 +14,7 @@ use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
 use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_runtime::{DispatchError, traits::AccountIdConversion};
 use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64};
