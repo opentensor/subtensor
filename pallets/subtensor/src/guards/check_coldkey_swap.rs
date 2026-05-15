@@ -1,31 +1,32 @@
 use crate::{Call, ColdkeySwapAnnouncements, ColdkeySwapDisputes, Config, Error};
-use frame_support::dispatch::{
-    DispatchGuard, DispatchInfo, DispatchResultWithPostInfo, PostDispatchInfo,
+use frame_support::{
+    dispatch::{DispatchErrorWithPostInfo, DispatchExtension, DispatchInfo, PostDispatchInfo},
+    pallet_prelude::*,
+    traits::{IsSubType, OriginTrait},
 };
-use frame_support::traits::{IsSubType, OriginTrait};
 use sp_runtime::traits::Dispatchable;
 use sp_std::marker::PhantomData;
 
 type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 type DispatchableOriginOf<T> = <CallOf<T> as Dispatchable>::RuntimeOrigin;
 
-/// Dispatch guard that blocks most calls when a coldkey swap is active.
+/// Dispatch extension that blocks most calls when a coldkey swap is active.
 ///
 /// When a coldkey swap has been announced for the signing account:
 /// - If the swap is disputed, ALL calls are blocked.
 /// - Otherwise, only swap-related calls and MEV-protected calls (`submit_encrypted`)
 ///   are allowed through.
 ///
-/// Root origin bypasses this guard entirely (handled by `check_dispatch_guard`).
+/// Root origin bypasses this extension entirely.
 /// Non-signed origins pass through.
 ///
-/// Because this is a `DispatchGuard` (not a `TransactionExtension`), it fires at every
+/// Because this is a `DispatchExtension` (not a `TransactionExtension`), it fires at every
 /// `call.dispatch(origin)` site — including inside the proxy pallet's `do_proxy()`.
 /// This means nested proxies of any depth are handled automatically with the real
 /// resolved origin.
 pub struct CheckColdkeySwap<T: Config>(PhantomData<T>);
 
-impl<T> DispatchGuard<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
+impl<T> DispatchExtension<<T as frame_system::Config>::RuntimeCall> for CheckColdkeySwap<T>
 where
     T: Config + pallet_shield::Config,
     <T as frame_system::Config>::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
@@ -33,11 +34,20 @@ where
         + IsSubType<pallet_shield::Call<T>>,
     DispatchableOriginOf<T>: OriginTrait<AccountId = T::AccountId>,
 {
-    fn check(origin: &DispatchableOriginOf<T>, call: &CallOf<T>) -> DispatchResultWithPostInfo {
+    type Pre = ();
+
+    fn weight(_call: &CallOf<T>) -> Weight {
+        T::DbWeight::get().reads(2)
+    }
+
+    fn pre_dispatch(
+        origin: &DispatchableOriginOf<T>,
+        call: &CallOf<T>,
+    ) -> Result<Self::Pre, DispatchErrorWithPostInfo> {
         // Only care about signed origins.
-        // Root is already bypassed by check_dispatch_guard() before we get here.
+        // Root is already bypassed by the extension before we get here.
         let Some(who) = origin.as_signer() else {
-            return Ok(().into());
+            return Ok(());
         };
 
         if ColdkeySwapAnnouncements::<T>::contains_key(who) {
@@ -51,6 +61,7 @@ where
                     Call::announce_coldkey_swap { .. }
                         | Call::swap_coldkey_announced { .. }
                         | Call::dispute_coldkey_swap { .. }
+                        | Call::clear_coldkey_swap_announcement { .. }
                 )
             );
 
@@ -64,7 +75,7 @@ where
             }
         }
 
-        Ok(().into())
+        Ok(())
     }
 }
 
@@ -77,7 +88,7 @@ mod tests {
     use pallet_subtensor_proxy::Call as ProxyCall;
     use sp_core::U256;
     use sp_runtime::traits::{Dispatchable, Hash};
-    use subtensor_runtime_common::ProxyType;
+    use subtensor_runtime_common::{ProxyType, TaoBalance};
 
     type HashingOf<T> = <T as frame_system::Config>::Hashing;
 
@@ -107,7 +118,7 @@ mod tests {
         ]
     }
 
-    /// Calls that should be allowed through the guard during an active (undisputed) swap.
+    /// Calls that should be allowed through the extension during an active (undisputed) swap.
     fn authorized_calls() -> Vec<RuntimeCall> {
         vec![
             RuntimeCall::SubtensorModule(crate::Call::announce_coldkey_swap {
@@ -138,6 +149,11 @@ mod tests {
         RuntimeCall::System(SystemCall::remark { remark: vec![] })
     }
 
+    fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+        let credit = SubtensorModule::mint_tao(tao);
+        let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+    }
+
     #[test]
     fn no_active_swap_allows_calls() {
         new_test_ext(1).execute_with(|| {
@@ -147,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn none_bypasses_guard() {
+    fn none_bypasses_extension() {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
@@ -157,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn root_bypasses_guard() {
+    fn root_bypasses_extension() {
         new_test_ext(1).execute_with(|| {
             let who = U256::from(1);
             setup_swap_disputed(&who);
@@ -192,7 +208,7 @@ mod tests {
                     assert_ne!(
                         err.error,
                         Error::<Test>::ColdkeySwapAnnounced.into(),
-                        "Authorized call should not be blocked by the guard"
+                        "Authorized call should not be blocked by the extension"
                     );
                 }
             }
@@ -230,8 +246,8 @@ mod tests {
             ColdkeySwapAnnouncements::<Test>::insert(real, (now, hash));
 
             // Give delegate enough balance for proxy deposit
-            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000.into());
-            SubtensorModule::add_balance_to_coldkey_account(&delegate, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&real, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&delegate, 1_000_000_000.into());
 
             // Register proxy: delegate can act on behalf of real
             assert_ok!(Proxy::add_proxy(
@@ -269,9 +285,9 @@ mod tests {
             let hash = HashingOf::<Test>::hash_of(&U256::from(42));
             ColdkeySwapAnnouncements::<Test>::insert(real, (now, hash));
 
-            SubtensorModule::add_balance_to_coldkey_account(&real, 1_000_000_000.into());
-            SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1_000_000_000.into());
-            SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&real, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&delegate1, 1_000_000_000.into());
+            add_balance_to_coldkey_account(&delegate2, 1_000_000_000.into());
 
             // delegate1 can proxy for real, delegate2 can proxy for delegate1
             assert_ok!(Proxy::add_proxy(

@@ -52,7 +52,8 @@ fn test_hotkey_take() {
 #[test]
 fn test_coinbase_basecase() {
     new_test_ext(1).execute_with(|| {
-        SubtensorModule::run_coinbase(U96F32::from_num(0.0));
+        let zero_emission = SubtensorModule::mint_tao(0.into());
+        SubtensorModule::run_coinbase(zero_emission);
     });
 }
 
@@ -72,7 +73,8 @@ fn test_coinbase_tao_issuance_base() {
         SubnetTaoFlow::<Test>::insert(netuid, 1234567_i64);
         let tao_in_before = SubnetTAO::<Test>::get(netuid);
         let total_stake_before = TotalStake::<Test>::get();
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        let emission_credit = SubtensorModule::mint_tao(emission);
+        SubtensorModule::run_coinbase(emission_credit);
         assert_eq!(SubnetTAO::<Test>::get(netuid), tao_in_before + emission);
         assert_eq!(
             TotalIssuance::<Test>::get(),
@@ -88,11 +90,12 @@ fn test_coinbase_tao_issuance_base_low() {
     new_test_ext(1).execute_with(|| {
         let netuid = NetUid::from(1);
         let emission = TaoBalance::from(1);
+        let emission_credit = SubtensorModule::mint_tao(emission);
         add_network(netuid, 1, 0);
         assert_eq!(SubnetTAO::<Test>::get(netuid), TaoBalance::ZERO);
         // Set subnet flow to non-zero
         SubnetTaoFlow::<Test>::insert(netuid, 33433_i64);
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
         assert_eq!(SubnetTAO::<Test>::get(netuid), emission);
         assert_eq!(TotalIssuance::<Test>::get(), emission);
         assert_eq!(TotalStake::<Test>::get(), emission);
@@ -137,6 +140,7 @@ fn test_coinbase_tao_issuance_multiple() {
         let netuid2 = NetUid::from(2);
         let netuid3 = NetUid::from(3);
         let emission = TaoBalance::from(3_333_333);
+        let emission_credit = SubtensorModule::mint_tao(emission);
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
         add_network(netuid3, 1, 0);
@@ -147,7 +151,7 @@ fn test_coinbase_tao_issuance_multiple() {
         SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
         SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
         SubnetTaoFlow::<Test>::insert(netuid3, 100_000_000_i64);
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
         assert_abs_diff_eq!(
             SubnetTAO::<Test>::get(netuid1),
             emission / 3.into(),
@@ -168,6 +172,169 @@ fn test_coinbase_tao_issuance_multiple() {
     });
 }
 
+#[test]
+fn test_coinbase_disabled_subnet_emission_redistributes_tao_to_enabled_subnets() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let netuid3 = NetUid::from(3);
+        let emission = TaoBalance::from(3_333_333);
+
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+        add_network(netuid3, 1, 0);
+
+        SubnetEmissionEnabled::<Test>::insert(netuid2, false);
+
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid3, 100_000_000_i64);
+
+        let subnet_emissions = SubtensorModule::get_subnet_block_emissions(
+            &[netuid1, netuid2, netuid3],
+            U96F32::saturating_from_num(emission.to_u64()),
+        );
+
+        assert_abs_diff_eq!(
+            subnet_emissions[&netuid1].to_num::<f64>(),
+            (emission.to_u64() / 2) as f64,
+            epsilon = 2.0,
+        );
+        assert_abs_diff_eq!(
+            subnet_emissions[&netuid2].to_num::<f64>(),
+            0.0,
+            epsilon = 1.0
+        );
+        assert_abs_diff_eq!(
+            subnet_emissions[&netuid3].to_num::<f64>(),
+            (emission.to_u64() / 2) as f64,
+            epsilon = 2.0,
+        );
+
+        let (_tao_in, alpha_in, alpha_out, excess_tao) =
+            SubtensorModule::get_subnet_terms(&subnet_emissions);
+        assert_eq!(alpha_in[&netuid2], U96F32::from_num(0.0));
+        assert_eq!(excess_tao[&netuid2], U96F32::from_num(0.0));
+        assert!(alpha_out[&netuid2] > U96F32::from_num(0.0));
+
+        let total_issuance_before = TotalIssuance::<Test>::get();
+        let total_stake_before = TotalStake::<Test>::get();
+        let emission_credit = SubtensorModule::mint_tao(emission);
+        SubtensorModule::run_coinbase(emission_credit);
+
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(netuid1),
+            emission / 2.into(),
+            epsilon = 2.into(),
+        );
+        assert_eq!(SubnetTAO::<Test>::get(netuid2), TaoBalance::ZERO);
+        assert_abs_diff_eq!(
+            SubnetTAO::<Test>::get(netuid3),
+            emission / 2.into(),
+            epsilon = 2.into(),
+        );
+        assert_abs_diff_eq!(
+            TotalIssuance::<Test>::get(),
+            total_issuance_before + emission,
+            epsilon = 2.into(),
+        );
+        assert_abs_diff_eq!(
+            TotalStake::<Test>::get(),
+            total_stake_before + emission,
+            epsilon = 2.into(),
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_subnet_emission_enabled_multiple_subnets_multiple_toggles() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+        let netuid3 = NetUid::from(3);
+        let emission = TaoBalance::from(3_000_000);
+
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+        add_network(netuid3, 1, 0);
+
+        SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid3, 100_000_000_i64);
+
+        let assert_emission_storage = |expected1: u64, expected2: u64, expected3: u64| {
+            assert_abs_diff_eq!(
+                SubnetTaoInEmission::<Test>::get(netuid1),
+                TaoBalance::from(expected1),
+                epsilon = 2.into(),
+            );
+            assert_abs_diff_eq!(
+                SubnetTaoInEmission::<Test>::get(netuid2),
+                TaoBalance::from(expected2),
+                epsilon = 2.into(),
+            );
+            assert_abs_diff_eq!(
+                SubnetTaoInEmission::<Test>::get(netuid3),
+                TaoBalance::from(expected3),
+                epsilon = 2.into(),
+            );
+
+            assert_eq!(
+                SubnetAlphaInEmission::<Test>::get(netuid1) == AlphaBalance::from(0),
+                expected1 == 0
+            );
+            assert_eq!(
+                SubnetAlphaInEmission::<Test>::get(netuid2) == AlphaBalance::from(0),
+                expected2 == 0
+            );
+            assert_eq!(
+                SubnetAlphaInEmission::<Test>::get(netuid3) == AlphaBalance::from(0),
+                expected3 == 0
+            );
+
+            assert!(SubnetAlphaOutEmission::<Test>::get(netuid1) > AlphaBalance::from(0));
+            assert!(SubnetAlphaOutEmission::<Test>::get(netuid2) > AlphaBalance::from(0));
+            assert!(SubnetAlphaOutEmission::<Test>::get(netuid3) > AlphaBalance::from(0));
+        };
+
+        let run_coinbase = || {
+            let emission_credit = SubtensorModule::mint_tao(emission);
+            SubtensorModule::run_coinbase(emission_credit);
+        };
+
+        // All enabled: split TAO-side emission equally across all three subnets.
+        run_coinbase();
+        assert_emission_storage(1_000_000, 1_000_000, 1_000_000);
+
+        // Seed stale values and then disable netuid2. The next coinbase run must clear
+        // netuid2's per-block TAO-side emission storage while preserving alpha_out.
+        SubnetTaoInEmission::<Test>::insert(netuid2, TaoBalance::from(123));
+        SubnetAlphaInEmission::<Test>::insert(netuid2, AlphaBalance::from(123));
+        SubnetExcessTao::<Test>::insert(netuid2, TaoBalance::from(123));
+        SubnetEmissionEnabled::<Test>::insert(netuid2, false);
+        run_coinbase();
+        assert_emission_storage(1_500_000, 0, 1_500_000);
+        assert_eq!(SubnetExcessTao::<Test>::get(netuid2), TaoBalance::from(0));
+
+        // Toggle a different subnet off and netuid2 back on.
+        SubnetTaoInEmission::<Test>::insert(netuid1, TaoBalance::from(456));
+        SubnetAlphaInEmission::<Test>::insert(netuid1, AlphaBalance::from(456));
+        SubnetExcessTao::<Test>::insert(netuid1, TaoBalance::from(456));
+        SubnetEmissionEnabled::<Test>::insert(netuid1, false);
+        SubnetEmissionEnabled::<Test>::insert(netuid2, true);
+        run_coinbase();
+        assert_emission_storage(0, 1_500_000, 1_500_000);
+        assert_eq!(SubnetExcessTao::<Test>::get(netuid1), TaoBalance::from(0));
+
+        // Toggle everything back on: TAO-side emission should return to an even split.
+        SubnetEmissionEnabled::<Test>::insert(netuid1, true);
+        SubnetEmissionEnabled::<Test>::insert(netuid2, true);
+        SubnetEmissionEnabled::<Test>::insert(netuid3, true);
+        run_coinbase();
+        assert_emission_storage(1_000_000, 1_000_000, 1_000_000);
+    });
+}
+
 // Test emission distribution with different subnet prices.
 // This test verifies that:
 // - Subnets with different prices receive proportional emission shares
@@ -180,6 +347,7 @@ fn test_coinbase_tao_issuance_different_prices() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission = 100_000_000;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
 
@@ -208,7 +376,7 @@ fn test_coinbase_tao_issuance_different_prices() {
         assert_eq!(SubnetTAO::<Test>::get(netuid2), initial_tao.into());
 
         // Run the coinbase with the emission amount.
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
 
         // Assert tao emission is split evenly.
         assert_abs_diff_eq!(
@@ -428,6 +596,7 @@ fn test_coinbase_alpha_issuance_base() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
         // Set up prices 1 and 1
@@ -440,7 +609,7 @@ fn test_coinbase_alpha_issuance_base() {
         SubnetTaoFlow::<Test>::insert(netuid1, 100_000_000_i64);
         SubnetTaoFlow::<Test>::insert(netuid2, 100_000_000_i64);
         // Check initial
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
         // tao_in = 500_000
         // alpha_in = 500_000/price = 500_000
         assert_eq!(
@@ -466,6 +635,7 @@ fn test_coinbase_alpha_issuance_different() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
         // Make subnets dynamic.
@@ -482,7 +652,7 @@ fn test_coinbase_alpha_issuance_different() {
         SubnetTaoFlow::<Test>::insert(netuid2, 200_000_000_i64);
         // Do NOT Set tao flow, let it initialize
         // Run coinbase
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
         // tao_in = 333_333
         // alpha_in = 333_333/price = 333_333 + initial
         assert_eq!(
@@ -505,6 +675,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
         // Make subnets dynamic.
@@ -521,7 +692,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger() {
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(1));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(2));
         // Run coinbase
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
         // tao_in = 333_333
         // alpha_in = 333_333/price > 1_000_000_000 --> 1_000_000_000 + initial_alpha
         assert!(SubnetAlphaIn::<Test>::get(netuid1) < (initial_alpha + 1_000_000_000).into());
@@ -540,6 +711,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         let netuid1 = NetUid::from(1);
         let netuid2 = NetUid::from(2);
         let emission: u64 = 1_000_000;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
         add_network(netuid1, 1, 0);
         add_network(netuid2, 1, 0);
 
@@ -573,7 +745,7 @@ fn test_coinbase_alpha_issuance_with_cap_trigger_and_block_emission() {
         SubnetAlphaOut::<Test>::insert(netuid2, AlphaBalance::from(21_000_000_000_000_000_u64)); // Set issuance above 21M
 
         // Run coinbase
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
 
         // Get the prices after the run_coinbase
         let price_1_after = <Test as pallet::Config>::SwapInterface::current_alpha_price(netuid1);
@@ -609,10 +781,10 @@ fn test_owner_cut_base() {
         );
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_subnet_owner_cut(0);
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 0.into()); // No cut
         SubtensorModule::set_subnet_owner_cut(u16::MAX);
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         assert_eq!(PendingOwnerCut::<Test>::get(netuid), 1_000_000_000.into()); // Full cut.
     });
 }
@@ -621,17 +793,17 @@ fn test_owner_cut_base() {
 #[test]
 fn test_pending_emission() {
     new_test_ext(1).execute_with(|| {
-        let emission: u64 = 1_000_000;
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
         let netuid = add_dynamic_network(&hotkey, &coldkey);
+        remove_owner_registration_stake(netuid);
         Tempo::<Test>::insert(netuid, 1);
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
         mock::setup_reserves(netuid, 1_000_000.into(), 1.into());
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(1_000_000_000)); // Add root weight.
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         SubtensorModule::set_tempo(netuid, 10000); // Large number (dont drain)
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
@@ -642,7 +814,7 @@ fn test_pending_emission() {
         let root_sell_flag = SubtensorModule::get_network_root_sell_flag(&[netuid]);
         assert!(root_sell_flag, "Root sell flag should be true");
 
-        SubtensorModule::run_coinbase(U96F32::from_num(0));
+        SubtensorModule::run_coinbase(SubtensorModule::mint_tao(0.into()));
         // 1 TAO / ( 1 + 3 ) = 0.25 * 1 / 2 = 125000000
 
         assert_abs_diff_eq!(
@@ -1788,6 +1960,7 @@ fn test_incentive_to_subnet_owner_is_burned() {
         Owner::<Test>::insert(other_hk, other_ck);
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        remove_owner_registration_stake(netuid);
 
         let pending_tao: u64 = 1_000_000_000;
         let pending_alpha = AlphaBalance::ZERO; // None to valis
@@ -1838,6 +2011,7 @@ fn test_incentive_to_subnet_owners_hotkey_is_burned() {
         OwnedHotkeys::<Test>::insert(subnet_owner_ck, vec![subnet_owner_hk, other_hk]);
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        remove_owner_registration_stake(netuid);
         Uids::<Test>::insert(netuid, other_hk, 1);
 
         // Set the burn key limit to 2
@@ -1901,6 +2075,7 @@ fn test_burn_key_sorting() {
         );
 
         let netuid = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
+        remove_owner_registration_stake(netuid);
 
         // Set block of registration and UIDs for other hotkeys
         // HK1 has block of registration 2
@@ -2351,9 +2526,11 @@ fn test_calculate_dividends_and_incentives_only_miners() {
 fn test_distribute_emission_no_miners_all_drained() {
     new_test_ext(1).execute_with(|| {
         let netuid = add_dynamic_network(&U256::from(1), &U256::from(2));
+        remove_owner_registration_stake(netuid);
         let hotkey = U256::from(3);
         let coldkey = U256::from(4);
         let init_stake = 1;
+        SubtensorModule::set_burn(netuid, TaoBalance::from(0));
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         // Give non-zero stake
         SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2543,7 +2720,8 @@ fn test_run_coinbase_not_started() {
         assert!(SubtensorModule::should_run_epoch(netuid, current_block));
 
         // Run coinbase with emission.
-        SubtensorModule::run_coinbase(U96F32::from_num(100_000_000));
+        let emission_credit = SubtensorModule::mint_tao(100_000_000.into());
+        SubtensorModule::run_coinbase(emission_credit);
 
         // We expect that the epoch ran.
         assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
@@ -2634,7 +2812,8 @@ fn test_run_coinbase_not_started_start_after() {
         assert!(SubtensorModule::should_run_epoch(netuid, current_block));
 
         // Run coinbase with emission.
-        SubtensorModule::run_coinbase(U96F32::from_num(100_000_000));
+        let emission_credit = SubtensorModule::mint_tao(100_000_000.into());
+        SubtensorModule::run_coinbase(emission_credit);
         // We expect that the epoch ran.
         assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
 
@@ -2654,7 +2833,8 @@ fn test_run_coinbase_not_started_start_after() {
         );
 
         // Run coinbase with emission.
-        SubtensorModule::run_coinbase(U96F32::from_num(100_000_000));
+        let emission_credit = SubtensorModule::mint_tao(100_000_000.into());
+        SubtensorModule::run_coinbase(emission_credit);
         // We expect that the epoch ran.
         assert_eq!(BlocksSinceLastStep::<Test>::get(netuid), 0);
 
@@ -2846,6 +3026,7 @@ fn test_zero_shares_zero_emission() {
         let netuid1 = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
         let netuid2 = add_dynamic_network(&subnet_owner_hk, &subnet_owner_ck);
         let emission: u64 = 1_000_000;
+        let emission_credit = SubtensorModule::mint_tao(emission.into());
         // Setup prices 1 and 1
         let initial: u64 = 1_000_000;
         SubnetTAO::<Test>::insert(netuid1, TaoBalance::from(initial));
@@ -2858,7 +3039,7 @@ fn test_zero_shares_zero_emission() {
         SubnetMovingPrice::<Test>::insert(netuid1, I96F32::from_num(0));
         SubnetMovingPrice::<Test>::insert(netuid2, I96F32::from_num(0));
         // Run coinbase
-        SubtensorModule::run_coinbase(U96F32::from_num(emission));
+        SubtensorModule::run_coinbase(emission_credit);
         // Netuid 1 is cut off by lower limit, all emission goes to netuid2
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid1), initial.into());
         assert_eq!(SubnetAlphaIn::<Test>::get(netuid2), initial.into());
@@ -2895,15 +3076,15 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
         register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
@@ -2945,7 +3126,7 @@ fn test_mining_emission_distribution_with_no_root_sell() {
         step_block(subnet_tempo);
 
         // Add stake to validator so it has root stake
-        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
         // init root
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(validator_coldkey),
@@ -3087,15 +3268,15 @@ fn test_mining_emission_distribution_with_root_sell() {
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
         register_ok_neuron(netuid, validator_miner_hotkey, validator_miner_coldkey, 1);
         register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 2);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &miner_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
@@ -3137,7 +3318,7 @@ fn test_mining_emission_distribution_with_root_sell() {
         step_block(subnet_tempo);
 
         // Add stake to validator so it has root stake
-        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
         // init root
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(validator_coldkey),
@@ -3430,7 +3611,8 @@ fn test_coinbase_inject_and_maybe_swap_does_not_skew_reserves() {
         let excess_tao = BTreeMap::from([(netuid0, U96F32::saturating_from_num(789100))]);
 
         // Run the inject and maybe swap
-        SubtensorModule::inject_and_maybe_swap(&[netuid0], &tao_in, &alpha_in, &excess_tao);
+        let credit = SubtensorModule::mint_tao((123 + 789100).into());
+        SubtensorModule::inject_and_maybe_swap(&[netuid0], &tao_in, &alpha_in, &excess_tao, credit);
 
         let tao_in_after = SubnetTAO::<Test>::get(netuid0);
         let alpha_in_after = SubnetAlphaIn::<Test>::get(netuid0);
@@ -3577,7 +3759,8 @@ fn test_coinbase_emit_to_subnets_with_no_root_sell() {
         assert!(tao_emission / price <= alpha_emission);
 
         // ==== Run the emit to subnets =====
-        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, root_sell_flag);
+        let credit = SubtensorModule::mint_tao(12345678.into());
+        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, credit, root_sell_flag);
 
         // Find the owner cut expected
         let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
@@ -3668,7 +3851,8 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
         assert!(tao_emission / price <= alpha_emission);
 
         // ==== Run the emit to subnets =====
-        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, root_sell_flag);
+        let credit = SubtensorModule::mint_tao(12345678.into());
+        SubtensorModule::emit_to_subnets(&[netuid0], &subnet_emissions, credit, root_sell_flag);
 
         // Find the owner cut expected
         let owner_cut: U96F32 = SubtensorModule::get_float_subnet_owner_cut();
@@ -3750,7 +3934,7 @@ fn test_pending_emission_start_call_not_done() {
         Tempo::<Test>::insert(netuid, subnet_tempo);
 
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &validator_coldkey,
             TaoBalance::from(stake) + ExistentialDeposit::get(),
         );
@@ -3762,7 +3946,7 @@ fn test_pending_emission_start_call_not_done() {
         SubtensorModule::set_max_allowed_validators(netuid, 2);
 
         // Add stake to validator so it has root stake
-        SubtensorModule::add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
+        add_balance_to_coldkey_account(&validator_coldkey, root_stake.into());
         // init root
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(validator_coldkey),
@@ -3877,7 +4061,7 @@ fn test_get_subnet_terms_alpha_emissions_cap() {
         let owner_coldkey = U256::from(11);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
         let tao_block_emission: U96F32 = U96F32::saturating_from_num(
-            SubtensorModule::get_block_emission()
+            SubtensorModule::calculate_block_emission()
                 .unwrap_or(TaoBalance::ZERO)
                 .to_u64(),
         );

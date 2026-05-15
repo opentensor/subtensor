@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * 'DispatchResult': A result type indicating success or failure of the registration.
     ///
-    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+    pub fn do_root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Create a network account for the user if it doesn't exist.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey)?;
 
         // --- 7. Fetch the current size of the subnetwork.
         let current_num_root_validators: u16 = Self::get_num_root_validators();
@@ -263,14 +263,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 9. Remove various network-related parameters.
-        Rank::<T>::remove(netuid);
-        Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
         Emission::<T>::remove(netuid);
 
         Consensus::<T>::remove(netuid);
         Dividends::<T>::remove(netuid);
-        PruningScores::<T>::remove(netuid);
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
@@ -299,6 +296,11 @@ impl<T: Config> Pallet<T> {
         SubnetMovingPrice::<T>::remove(netuid);
         SubnetTaoFlow::<T>::remove(netuid);
         SubnetEmaTaoFlow::<T>::remove(netuid);
+        SubnetProtocolFlow::<T>::remove(netuid);
+        SubnetEmaProtocolFlow::<T>::remove(netuid);
+        SubnetExcessTao::<T>::remove(netuid);
+        SubnetRootSellTao::<T>::remove(netuid);
+        SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
         TokenSymbol::<T>::remove(netuid);
@@ -328,7 +330,6 @@ impl<T: Config> Pallet<T> {
         AlphaSigmoidSteepness::<T>::remove(netuid);
 
         MaxAllowedValidators::<T>::remove(netuid);
-        AdjustmentInterval::<T>::remove(netuid);
         BondsMovingAverage::<T>::remove(netuid);
         BondsPenalty::<T>::remove(netuid);
         BondsResetOn::<T>::remove(netuid);
@@ -336,8 +337,10 @@ impl<T: Config> Pallet<T> {
         ValidatorPruneLen::<T>::remove(netuid);
         ScalingLawPower::<T>::remove(netuid);
         TargetRegistrationsPerInterval::<T>::remove(netuid);
-        AdjustmentAlpha::<T>::remove(netuid);
         CommitRevealWeightsEnabled::<T>::remove(netuid);
+
+        BurnHalfLife::<T>::remove(netuid);
+        BurnIncreaseMult::<T>::remove(netuid);
 
         Burn::<T>::remove(netuid);
         MinBurn::<T>::remove(netuid);
@@ -533,6 +536,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_registered_block(netuid: NetUid) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
     }
+    pub fn get_registered_subnet_counter(netuid: NetUid) -> u64 {
+        RegisteredSubnetCounter::<T>::get(netuid)
+    }
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()
     }
@@ -571,7 +577,7 @@ impl<T: Config> Pallet<T> {
         let interval: I64F64 =
             I64F64::saturating_from_num(NetworkLockReductionInterval::<T>::get());
         let block_emission: I64F64 = I64F64::saturating_from_num(
-            Self::get_block_emission()
+            Self::calculate_block_emission()
                 .unwrap_or(1_000_000_000.into())
                 .to_u64(),
         );

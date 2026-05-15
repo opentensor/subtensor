@@ -9,13 +9,10 @@ use super::*;
 
 #[allow(unused)]
 use crate::Pallet as Registry;
-use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
-use frame_support::traits::tokens::fungible::Mutate;
+use frame_support::traits::{Get, tokens::fungible::Mutate};
 use frame_system::RawOrigin;
 use sp_std::vec;
-
-use sp_runtime::traits::Bounded;
 
 fn assert_last_event<T: frame_system::pallet::Config>(
     generic_event: <T as frame_system::pallet::Config>::RuntimeEvent,
@@ -45,7 +42,7 @@ fn create_identity_info<T: Config>(_num_fields: u32) -> IdentityInfo<T::MaxAddit
     }
 }
 
-#[benchmarks]
+#[benchmarks(where BalanceOf<T>: From<u64>)]
 mod benchmarks {
     use super::*;
 
@@ -53,12 +50,13 @@ mod benchmarks {
     fn set_identity() {
         // The target user
         let caller: T::AccountId = whitelisted_caller();
-        let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
+        let deposit = T::InitialDeposit::get() * 10u64.into();
+        let _ = T::Currency::set_balance(&caller, deposit);
 
         #[extrinsic_call]
         _(
             RawOrigin::Signed(caller.clone()),
-            account::<T::AccountId>("account", 0, 0u32),
+            caller.clone(),
             Box::new(create_identity_info::<T>(0)),
         );
 
@@ -69,22 +67,20 @@ mod benchmarks {
     fn clear_identity() {
         // The target user
         let caller: T::AccountId = whitelisted_caller();
-        let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
-
-        let vali_account = account::<T::AccountId>("account", 0, 0u32);
+        let _ = T::Currency::set_balance(&caller, T::InitialDeposit::get() * 10u64.into());
 
         Registry::<T>::set_identity(
             RawOrigin::Signed(caller.clone()).into(),
-            vali_account.clone(),
+            caller.clone(),
             Box::new(create_identity_info::<T>(0)),
         )
         .unwrap();
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(caller.clone()), vali_account);
+        _(RawOrigin::Signed(caller.clone()), caller.clone());
 
         assert_last_event::<T>(Event::<T>::IdentityDissolved { who: caller }.into());
     }
 
-    //impl_benchmark_test_suite!(Registry, crate::mock::new_test_ext(), crate::mock::Test);
+    impl_benchmark_test_suite!(Registry, crate::mock::new_test_ext(), crate::mock::Test);
 }

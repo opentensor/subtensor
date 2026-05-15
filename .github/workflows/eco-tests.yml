@@ -1,0 +1,47 @@
+name: eco-tests
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eco-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  eco-tests:
+    name: cargo test (eco-tests)
+    runs-on: [self-hosted, type-ccx43]
+    env:
+      RUST_BACKTRACE: full
+      SKIP_WASM_BUILD: 1
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" build-essential clang curl git make libssl-dev llvm libudev-dev protobuf-compiler pkg-config
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: eco-tests
+          cache-on-failure: true
+          workspaces: eco-tests
+
+      - name: cargo test
+        working-directory: eco-tests
+        run: cargo test

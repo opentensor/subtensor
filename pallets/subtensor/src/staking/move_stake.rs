@@ -28,7 +28,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeMoved` event upon successful completion of the stake movement.
     pub fn do_move_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         origin_hotkey: T::AccountId,
         destination_hotkey: T::AccountId,
         origin_netuid: NetUid,
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeTransferred` event upon successful completion of the transfer.
     pub fn do_transfer_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         destination_coldkey: T::AccountId,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
     /// # Events
     /// Emits a `StakeSwapped` event upon successful completion.
     pub fn do_swap_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         origin_netuid: NetUid,
         destination_netuid: NetUid,
@@ -358,11 +358,17 @@ impl<T: Config> Pallet<T> {
             let tao_unstaked = Self::unstake_from_subnet(
                 origin_hotkey,
                 origin_coldkey,
+                origin_coldkey,
                 origin_netuid,
                 move_amount,
                 T::SwapInterface::min_price(),
                 drop_fee_origin,
             )?;
+
+            // Transfer unstaked TAO from origin_coldkey to destination_coldkey
+            if origin_coldkey != destination_coldkey {
+                Self::transfer_tao(origin_coldkey, destination_coldkey, tao_unstaked)?;
+            }
 
             // Stake the unstaked amount into the destination.
             // Because of the fee, the tao_unstaked may be too low if initial stake is low. In that case,

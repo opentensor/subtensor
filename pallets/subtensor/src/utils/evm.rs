@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T> {
     /// * `signature` - A signed message by the `evm_key` containing the `hotkey` and the hashed
     ///   `block_number`.
     pub fn do_associate_evm_key(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         evm_key: H160,
         block_number: u64,

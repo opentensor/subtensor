@@ -210,9 +210,7 @@ pub mod pallet {
         /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
-            Weight::from_parts(33_480_000, 0)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(4_u64)),
+            <T as pallet::Config>::WeightInfo::set_commitment(),
             DispatchClass::Normal,
             Pays::No
         ))]
@@ -332,9 +330,7 @@ pub mod pallet {
 
         /// Sudo-set MaxSpace
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::from_parts(2_856_000, 0)
-        .saturating_add(T::DbWeight::get().reads(0_u64))
-        .saturating_add(T::DbWeight::get().writes(1_u64)))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_max_space())]
         pub fn set_max_space(origin: OriginFor<T>, new_limit: u32) -> DispatchResult {
             ensure_root(origin)?;
             MaxSpace::<T>::set(new_limit);

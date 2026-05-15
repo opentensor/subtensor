@@ -1,5 +1,9 @@
 use super::*;
+use frame_support::PalletId;
+use safe_math::FixedExt;
 use sp_core::Get;
+use sp_runtime::traits::AccountIdConversion;
+use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 impl<T: Config> Pallet<T> {
     /// Returns true if the subnetwork exists.
@@ -109,7 +113,7 @@ impl<T: Config> Pallet<T> {
     /// * `InvalidIdentity`                 – supplied `identity` failed validation.
     ///
     pub fn do_register_network(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: &T::AccountId,
         mechid: u16,
         identity: Option<SubnetIdentityOfV3>,
@@ -121,6 +125,12 @@ impl<T: Config> Pallet<T> {
         ensure!(
             !Self::hotkey_account_exists(hotkey) || Self::coldkey_owns_hotkey(&coldkey, hotkey),
             Error::<T>::NonAssociatedColdKey
+        );
+
+        // Ensure that hotkey is not a special account
+        ensure!(
+            Self::is_subnet_account_id(hotkey).is_none(),
+            Error::<T>::CannotUseSystemAccount
         );
 
         // --- 3. Ensure the mechanism is Dynamic.
@@ -163,74 +173,80 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CannotAffordLockCost
         );
 
-        // --- 7. Perform the lock operation.
-        let actual_tao_lock_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_amount.into())?;
-        log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
-
-        // --- 8. Set the lock amount for use to determine pricing.
-        Self::set_network_last_lock(actual_tao_lock_amount);
-        Self::set_network_last_lock_block(current_block);
-
-        // --- 9. If we identified a subnet to prune, do it now.
+        // --- 7. If we identified a subnet to prune, do it now.
         if let Some(prune_netuid) = recycle_netuid {
             Self::do_dissolve_network(prune_netuid)?;
         }
 
-        // --- 10. Determine netuid to register. If we pruned a subnet, reuse that netuid.
+        // --- 8. Determine netuid to register. If we pruned a subnet, reuse that netuid.
         let netuid_to_register: NetUid = match recycle_netuid {
             Some(prune_netuid) => prune_netuid,
             None => Self::get_next_netuid(),
         };
 
-        // --- 11. Set initial and custom parameters for the network.
+        // --- 11. Snapshot the current median subnet alpha price before creating the new subnet.
+        let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
+
+        // --- 12. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {netuid_to_register:?}");
 
+        // --- 10. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
+        let actual_tao_lock_amount =
+            Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
+        log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
+
+        // --- 11. Set the lock amount for use to determine pricing.
+        Self::set_network_last_lock(actual_tao_lock_amount);
+        Self::set_network_last_lock_block(current_block);
+
         // --- 12. Add the caller to the neuron set.
-        Self::create_account_if_non_existent(&coldkey, hotkey);
+        Self::create_account_if_non_existent(&coldkey, hotkey)?;
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
 
-        // --- 13. Set the mechanism.
+        // --- 14. Set the mechanism.
         SubnetMechanism::<T>::insert(netuid_to_register, mechid);
         log::debug!("SubnetMechanism for netuid {netuid_to_register:?} set to: {mechid:?}");
 
-        // --- 14. Set the creation terms.
+        // --- 15. Set the creation terms.
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
+        RegisteredSubnetCounter::<T>::mutate(netuid_to_register, |c| *c = c.saturating_add(1));
 
-        // --- 15. Set the symbol.
+        // --- 16. Set the symbol.
         let symbol = Self::get_next_available_symbol(netuid_to_register);
         TokenSymbol::<T>::insert(netuid_to_register, symbol);
 
-        // The initial TAO is the locked amount
-        // Put initial TAO from lock into subnet TAO and produce numerically equal amount of Alpha.
+        // Keep the locked TAO in the pool instead of recycling the excess.
+        // Size the pool alpha reserve from the total TAO reserve at that same price.
         let pool_initial_tao: TaoBalance = Self::get_network_min_lock();
-        let pool_initial_alpha: AlphaBalance = pool_initial_tao.to_u64().into();
-        let actual_tao_lock_amount_less_pool_tao =
-            actual_tao_lock_amount.saturating_sub(pool_initial_tao);
+        let total_pool_tao: TaoBalance = if actual_tao_lock_amount >= pool_initial_tao {
+            actual_tao_lock_amount
+        } else {
+            pool_initial_tao
+        };
+
+        let total_pool_alpha: AlphaBalance = U96F32::saturating_from_num(total_pool_tao.to_u64())
+            .safe_div(median_subnet_alpha_price)
+            .saturating_floor()
+            .saturating_to_num::<u64>()
+            .into();
 
         // Core pool + ownership
-        SubnetTAO::<T>::insert(netuid_to_register, pool_initial_tao);
-        SubnetAlphaIn::<T>::insert(netuid_to_register, pool_initial_alpha);
+        SubnetTAO::<T>::insert(netuid_to_register, total_pool_tao);
+        SubnetAlphaIn::<T>::insert(netuid_to_register, total_pool_alpha);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
-        SubnetOwnerHotkey::<T>::insert(netuid_to_register, hotkey.clone());
+        Self::set_subnet_owner_hotkey(netuid_to_register, hotkey)?;
         SubnetLocked::<T>::insert(netuid_to_register, actual_tao_lock_amount);
         SubnetAlphaOut::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
+        SubnetTaoProvided::<T>::insert(netuid_to_register, TaoBalance::ZERO);
+        SubnetAlphaInProvided::<T>::insert(netuid_to_register, AlphaBalance::ZERO);
         SubnetVolume::<T>::insert(netuid_to_register, 0u128);
-        RAORecycledForRegistration::<T>::insert(
-            netuid_to_register,
-            actual_tao_lock_amount_less_pool_tao,
-        );
 
-        if actual_tao_lock_amount_less_pool_tao > TaoBalance::ZERO {
-            Self::recycle_tao(actual_tao_lock_amount_less_pool_tao);
-        }
-
-        if actual_tao_lock_amount > TaoBalance::ZERO && pool_initial_tao > TaoBalance::ZERO {
+        if total_pool_tao > TaoBalance::ZERO {
             // Record in TotalStake the initial TAO in the pool.
-            Self::increase_total_stake(pool_initial_tao);
+            Self::increase_total_stake(total_pool_tao);
         }
 
         // --- 17. Add the identity if it exists
@@ -244,11 +260,20 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::SubnetIdentitySet(netuid_to_register));
         }
 
-        // --- 18. Emit the NetworkAdded event.
+        // --- 18. Schedule root validators as parents of the subnet owner hotkey.
+        if let Err(e) = Self::do_set_root_validators_for_subnet(netuid_to_register) {
+            log::warn!(
+                "Failed to set root validators for netuid {:?}: {:?}",
+                netuid_to_register,
+                e
+            );
+        }
+
+        // --- 19. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{netuid_to_register:?}, mechanism:{mechid:?} )");
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, mechid));
 
-        // --- 19. Return success.
+        // --- 20. Return success.
         Ok(())
     }
 
@@ -271,12 +296,13 @@ impl<T: Config> Pallet<T> {
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 64);
         Self::set_min_allowed_weights(netuid, 1);
-        Self::set_adjustment_interval(netuid, 360);
-        Self::set_target_registrations_per_interval(netuid, 1);
-        Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
         Self::set_immunity_period(netuid, 5000);
-        Self::set_min_difficulty(netuid, u64::MAX);
-        Self::set_max_difficulty(netuid, u64::MAX);
+        Self::set_yuma3_enabled(netuid, true);
+        Self::set_burn(netuid, DefaultNeuronBurnCost::<T>::get());
+
+        // New subnets should never inherit a prior subnet owner's disabled state
+        // when a netuid is reused after pruning/dissolve.
+        SubnetEmissionEnabled::<T>::insert(netuid, true);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
@@ -284,9 +310,6 @@ impl<T: Config> Pallet<T> {
         }
         if !Kappa::<T>::contains_key(netuid) {
             Kappa::<T>::insert(netuid, Kappa::<T>::get(netuid));
-        }
-        if !Difficulty::<T>::contains_key(netuid) {
-            Difficulty::<T>::insert(netuid, Difficulty::<T>::get(netuid));
         }
         if !MaxAllowedUids::<T>::contains_key(netuid) {
             MaxAllowedUids::<T>::insert(netuid, MaxAllowedUids::<T>::get(netuid));
@@ -304,18 +327,6 @@ impl<T: Config> Pallet<T> {
             RegistrationsThisInterval::<T>::insert(
                 netuid,
                 RegistrationsThisInterval::<T>::get(netuid),
-            );
-        }
-        if !POWRegistrationsThisInterval::<T>::contains_key(netuid) {
-            POWRegistrationsThisInterval::<T>::insert(
-                netuid,
-                POWRegistrationsThisInterval::<T>::get(netuid),
-            );
-        }
-        if !BurnRegistrationsThisInterval::<T>::contains_key(netuid) {
-            BurnRegistrationsThisInterval::<T>::insert(
-                netuid,
-                BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
     }
@@ -341,7 +352,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `DispatchResult`: A result indicating the success or failure of the operation.
-    pub fn do_start_call(origin: T::RuntimeOrigin, netuid: NetUid) -> DispatchResult {
+    pub fn do_start_call(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subnet_owner(origin, netuid)?;
         ensure!(
@@ -399,7 +410,7 @@ impl<T: Config> Pallet<T> {
     /// # Rate Limiting
     /// This function is rate-limited to one call per subnet per interval (e.g., one week).
     pub fn do_set_sn_owner_hotkey(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         netuid: NetUid,
         hotkey: &T::AccountId,
     ) -> DispatchResult {
@@ -427,7 +438,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Insert/update the hotkey
-        SubnetOwnerHotkey::<T>::insert(netuid, hotkey);
+        Self::set_subnet_owner_hotkey(netuid, hotkey)?;
 
         // Return success.
         Ok(())
@@ -435,5 +446,22 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_valid_subnet_for_emission(netuid: NetUid) -> bool {
         FirstEmissionBlockNumber::<T>::get(netuid).is_some()
+    }
+
+    pub fn get_subnet_account_id(netuid: NetUid) -> Option<T::AccountId> {
+        if NetworksAdded::<T>::contains_key(netuid) || netuid == NetUid::ROOT {
+            Some(T::SubtensorPalletId::get().into_sub_account_truncating(u16::from(netuid)))
+        } else {
+            None
+        }
+    }
+
+    pub fn is_subnet_account_id(account: &T::AccountId) -> Option<NetUid> {
+        let pallet_id = T::SubtensorPalletId::get();
+
+        match PalletId::try_from_sub_account::<NetUid>(account) {
+            Some((decoded_pallet_id, netuid)) if decoded_pallet_id == pallet_id => Some(netuid),
+            _ => None,
+        }
     }
 }

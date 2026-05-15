@@ -20,6 +20,7 @@ use frame_support::{
     dispatch::RawOrigin,
     traits::{Defensive, fungible::*, tokens::Preservation},
 };
+use frame_system::pallet_prelude::OriginFor;
 use frame_system::pallet_prelude::*;
 use sp_core::blake2_256;
 use sp_runtime::{Percent, traits::TrailingZeroInput};
@@ -66,7 +67,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// The leftover cap is refunded to the contributors and the beneficiary.
     pub fn do_register_leased_network(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         emissions_share: Percent,
         end_block: Option<BlockNumberFor<T>>,
     ) -> DispatchResultWithPostInfo {
@@ -194,7 +195,7 @@ impl<T: Config> Pallet<T> {
     /// The beneficiary can terminate the lease after the end block has passed and get the subnet ownership.
     /// The subnet is transferred to the beneficiary and the lease is removed from storage.
     pub fn do_terminate_lease(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         lease_id: LeaseId,
         hotkey: T::AccountId,
     ) -> DispatchResultWithPostInfo {
@@ -218,7 +219,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::BeneficiaryDoesNotOwnHotkey
         );
         SubnetOwner::<T>::insert(lease.netuid, lease.beneficiary.clone());
-        Self::set_subnet_owner_hotkey(lease.netuid, &hotkey);
+        Self::set_subnet_owner_hotkey(lease.netuid, &hotkey)?;
 
         // Stop tracking the lease coldkey and hotkey
         let _ = frame_system::Pallet::<T>::dec_providers(&lease.coldkey).defensive();

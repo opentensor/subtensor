@@ -246,15 +246,6 @@ impl BalanceOps<AccountId> for MockBalanceOps {
         .into()
     }
 
-    fn increase_balance(_coldkey: &AccountId, _tao: TaoBalance) {}
-
-    fn decrease_balance(
-        _coldkey: &AccountId,
-        tao: TaoBalance,
-    ) -> Result<TaoBalance, DispatchError> {
-        Ok(tao)
-    }
-
     fn increase_stake(
         _coldkey: &AccountId,
         _hotkey: &AccountId,
@@ -284,6 +275,8 @@ impl crate::pallet::Config for Test {
     type MinimumLiquidity = MinimumLiquidity;
     type MinimumReserve = MinimumReserves;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 // Build genesis storage according to the mock runtime.

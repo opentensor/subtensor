@@ -1,13 +1,19 @@
 use super::*;
 use crate::AccountIdOf;
-use frame_support::{pallet_prelude::Blake2_128Concat, traits::Get, weights::Weight};
+use frame_support::{
+    pallet_prelude::Blake2_128Concat,
+    traits::{Bounded, Get},
+    weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
+use pallet_scheduler::ScheduledOf;
 use scale_info::prelude::string::String;
 use sp_io::storage::clear;
 use sp_runtime::{Saturating, traits::Hash};
 
 pub mod deprecated {
     use super::*;
+    use codec::{Decode, Encode};
     use frame_support::storage_alias;
 
     #[storage_alias]
@@ -26,9 +32,26 @@ pub mod deprecated {
         (BlockNumberFor<T>, AccountIdOf<T>),
         OptionQuery,
     >;
+
+    #[derive(Encode, Decode)]
+    pub enum RuntimeCall<T: Config> {
+        #[codec(index = 7)]
+        SubtensorCall(SubtensorCall<T>),
+    }
+
+    #[derive(Encode, Decode)]
+    pub enum SubtensorCall<T: Config> {
+        #[codec(index = 71)]
+        SwapColdkey {
+            old_coldkey: AccountIdOf<T>,
+            new_coldkey: AccountIdOf<T>,
+            swap_cost: TaoBalance,
+        },
+    }
 }
 
-pub fn migrate_coldkey_swap_scheduled_to_announcements<T: Config>() -> Weight {
+pub fn migrate_coldkey_swap_scheduled_to_announcements<T: Config + pallet_scheduler::Config>()
+-> Weight {
     let migration_name = b"migrate_coldkey_swap_scheduled_to_announcements".to_vec();
     let mut weight = T::DbWeight::get().reads(1);
 
@@ -64,7 +87,10 @@ pub fn migrate_coldkey_swap_scheduled_to_announcements<T: Config>() -> Weight {
             let coldkey_hash = <T as frame_system::Config>::Hashing::hash_of(&new_coldkey);
             // The announcement should be at the scheduled time - delay to be able to call
             // the swap_coldkey_announced call at the old scheduled time
-            ColdkeySwapAnnouncements::<T>::insert(who, (when.saturating_sub(delay), coldkey_hash));
+            ColdkeySwapAnnouncements::<T>::insert(
+                who.clone(),
+                (when.saturating_sub(delay), coldkey_hash),
+            );
             weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
         weight.saturating_accrue(T::DbWeight::get().reads(1));
@@ -73,6 +99,22 @@ pub fn migrate_coldkey_swap_scheduled_to_announcements<T: Config>() -> Weight {
     let results = deprecated::ColdkeySwapScheduled::<T>::clear(u32::MAX, None);
     weight.saturating_accrue(
         T::DbWeight::get().reads_writes(results.loops as u64, results.backend as u64),
+    );
+
+    pallet_scheduler::Agenda::<T>::translate_values::<Vec<Option<ScheduledOf<T>>>, _>(
+        |mut agenda| {
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            for schedule in agenda.iter_mut() {
+                // SwapColdkey call is guaranteed to be inlined and below 128 bytes.
+                if let Some(Bounded::Inline(data)) = schedule.as_ref().map(|s| s.call.clone())
+                    && deprecated::RuntimeCall::<T>::decode(&mut &data[..]).is_ok()
+                {
+                    // Remove calls that decode as a SwapColdkey call
+                    schedule.take();
+                }
+            }
+            Some(BoundedVec::truncate_from(agenda))
+        },
     );
 
     // ------------------------------

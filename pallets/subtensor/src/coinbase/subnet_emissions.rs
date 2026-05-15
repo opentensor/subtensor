@@ -13,11 +13,7 @@ impl<T: Config> Pallet<T> {
             .filter(|netuid| !netuid.is_root())
             .filter(|netuid| FirstEmissionBlockNumber::<T>::get(*netuid).is_some())
             .filter(|netuid| SubtokenEnabled::<T>::get(*netuid))
-            .filter(|&netuid| {
-                // Only emit TAO if the subnetwork allows registration.
-                Self::get_network_registration_allowed(*netuid)
-                    || Self::get_network_pow_registration_allowed(*netuid)
-            })
+            .filter(|&netuid| Self::get_network_registration_allowed(*netuid))
             .copied()
             .collect()
     }
@@ -26,19 +22,45 @@ impl<T: Config> Pallet<T> {
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
-        // Get subnet TAO emissions.
+        // Disabled subnets get zero TAO-side emission, redistributed to enabled subnets.
+        // They stay in the map so the normal alpha_out/root-prop path still runs.
         let shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
 
-        shares
+        let zero = U64F64::saturating_from_num(0.0);
+        let mut shares_with_emission_enabled = Vec::with_capacity(shares.len());
+        let mut has_disabled_subnets = false;
+        let mut enabled_share_sum = zero;
+
+        for (netuid, share) in shares {
+            let emission_enabled = SubnetEmissionEnabled::<T>::get(netuid);
+
+            if emission_enabled {
+                enabled_share_sum = enabled_share_sum.saturating_add(share);
+            } else {
+                has_disabled_subnets = true;
+            }
+
+            shares_with_emission_enabled.push((netuid, share, emission_enabled));
+        }
+
+        shares_with_emission_enabled
             .into_iter()
-            .map(|(netuid, share)| {
+            .map(|(netuid, share, emission_enabled)| {
+                let share = if has_disabled_subnets {
+                    if emission_enabled && enabled_share_sum > zero {
+                        share.safe_div(enabled_share_sum)
+                    } else {
+                        zero
+                    }
+                } else {
+                    share
+                };
                 let emission = U64F64::saturating_from_num(block_emission).saturating_mul(share);
                 (netuid, U96F32::saturating_from_num(emission))
             })
             .collect::<BTreeMap<NetUid, U96F32>>()
     }
-
     pub fn record_tao_inflow(netuid: NetUid, tao: TaoBalance) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
             *flow = flow.saturating_add(u64::from(tao) as i64);
@@ -53,6 +75,45 @@ impl<T: Config> Pallet<T> {
 
     pub fn reset_tao_outflow(netuid: NetUid) {
         SubnetTaoFlow::<T>::remove(netuid);
+    }
+
+    pub fn record_protocol_inflow(netuid: NetUid, tao: TaoBalance) {
+        SubnetProtocolFlow::<T>::mutate(netuid, |flow| {
+            *flow = flow.saturating_add(u64::from(tao) as i64);
+        });
+    }
+
+    pub fn record_protocol_outflow(netuid: NetUid, tao: TaoBalance) {
+        SubnetProtocolFlow::<T>::mutate(netuid, |flow| {
+            *flow = flow.saturating_sub(u64::from(tao) as i64);
+        });
+    }
+
+    pub fn reset_protocol_flow(netuid: NetUid) {
+        SubnetProtocolFlow::<T>::remove(netuid);
+    }
+
+    fn update_ema_protocol_flow(netuid: NetUid) -> I64F64 {
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        let block_flow = I64F64::saturating_from_num(SubnetProtocolFlow::<T>::get(netuid));
+        let (last_block, last_block_ema) =
+            SubnetEmaProtocolFlow::<T>::get(netuid).unwrap_or((0, I64F64::saturating_from_num(0)));
+
+        if last_block != current_block {
+            let flow_alpha = I64F64::saturating_from_num(FlowEmaSmoothingFactor::<T>::get())
+                .safe_div(I64F64::saturating_from_num(i64::MAX));
+            let one = I64F64::saturating_from_num(1);
+            let ema_flow = (one.saturating_sub(flow_alpha))
+                .saturating_mul(last_block_ema)
+                .saturating_add(flow_alpha.saturating_mul(block_flow));
+            SubnetEmaProtocolFlow::<T>::insert(netuid, (current_block, ema_flow));
+
+            Self::reset_protocol_flow(netuid);
+            ema_flow
+        } else {
+            last_block_ema
+        }
     }
 
     // Update SubnetEmaTaoFlow if needed and return its value for
@@ -181,12 +242,23 @@ impl<T: Config> Pallet<T> {
     // Implementation of shares that uses TAO flow
     #[allow(dead_code)]
     fn get_shares_flow(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
-        // Get raw flows
-        let ema_flows = subnets_to_emit_to
+        let net_flow_enabled = NetTaoFlowEnabled::<T>::get();
+
+        // Always update the protocol EMA (keeps it warm for when toggled on)
+        let ema_flows: BTreeMap<NetUid, I64F64> = subnets_to_emit_to
             .iter()
-            .map(|netuid| (*netuid, Self::get_ema_flow(*netuid)))
+            .map(|netuid| {
+                let user_ema = Self::get_ema_flow(*netuid);
+                let net = if net_flow_enabled {
+                    let protocol_ema = Self::update_ema_protocol_flow(*netuid);
+                    user_ema.saturating_sub(protocol_ema)
+                } else {
+                    user_ema
+                };
+                (*netuid, net)
+            })
             .collect();
-        log::debug!("EMA flows: {ema_flows:?}");
+        log::debug!("EMA flows (net_flow_enabled={net_flow_enabled}): {ema_flows:?}");
 
         // Clip the EMA flow with lower limit L
         // z[i] = max{S[i] − L, 0}

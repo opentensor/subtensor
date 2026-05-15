@@ -9,7 +9,8 @@ use alloc::vec::Vec;
 use crate::Pallet as AdminUtils;
 use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
-use frame_support::BoundedVec;
+use frame_support::dispatch::UnfilteredDispatchable;
+use frame_support::{BoundedVec, assert_noop};
 use frame_system::RawOrigin;
 use pallet_subtensor::SubnetworkN;
 
@@ -417,8 +418,17 @@ mod benchmarks {
 
     #[benchmark]
     fn sudo_set_total_issuance() {
-        #[extrinsic_call]
-        _(RawOrigin::Root, 100u64.into());
+        let call = Call::<T>::sudo_set_total_issuance {
+            total_issuance: 100u64.into(),
+        };
+
+        #[block]
+        {
+            assert_noop!(
+                call.dispatch_bypass_filter(RawOrigin::Root.into()),
+                Error::<T>::Deprecated
+            );
+        }
     }
 
     #[benchmark]
@@ -571,6 +581,19 @@ mod benchmarks {
         _(RawOrigin::Root, netuid, true);
     }
 
+    #[benchmark]
+    fn sudo_set_subnet_emission_enabled() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, false);
+
+        assert!(!pallet_subtensor::SubnetEmissionEnabled::<T>::get(netuid));
+    }
     #[benchmark]
     fn sudo_set_sn_owner_hotkey() {
         let netuid = NetUid::from(1);

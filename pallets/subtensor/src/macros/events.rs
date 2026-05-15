@@ -529,6 +529,12 @@ mod events {
             alpha: AlphaBalance,
         },
 
+        /// A coldkey swap announcement has been cleared.
+        ColdkeySwapCleared {
+            /// The account ID of the coldkey that cleared the announcement.
+            who: T::AccountId,
+        },
+
         /// Transaction fee was paid in Alpha.
         ///
         /// Emitted in addition to `TransactionFeePaid` when the fee payment path is Alpha.
@@ -536,10 +542,71 @@ mod events {
         TransactionFeePaidWithAlpha {
             /// Account that paid the transaction fee.
             who: T::AccountId,
+            /// Netuid
+            netuid: NetUid,
             /// Exact fee deducted in Alpha units.
             alpha_fee: AlphaBalance,
             /// Resulting swapped TAO amount
             tao_amount: TaoBalance,
+        },
+        /// Burn half-life set for neuron registration.
+        BurnHalfLifeSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn half-life value for neuron registration.
+            burn_half_life: u16,
+        },
+
+        /// Burn increase multiplier set for neuron registration.
+        BurnIncreaseMultSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// The burn increase multiplier value for neuron registration.
+            burn_increase_mult: U64F64,
+        },
+
+        /// A root validator toggled the "auto parent delegation" flag.
+        AutoParentDelegationEnabledSet {
+            /// The validator hotkey.
+            hotkey: T::AccountId,
+            /// Whether delegation is now enabled.
+            enabled: bool,
+        },
+
+        /// Stake has been locked to a hotkey on a subnet.
+        StakeLocked {
+            /// The coldkey that locked the stake.
+            coldkey: T::AccountId,
+            /// The hotkey the stake is locked to.
+            hotkey: T::AccountId,
+            /// The subnet the stake is locked on.
+            netuid: NetUid,
+            /// The alpha amount locked.
+            amount: AlphaBalance,
+        },
+
+        /// Stake has been unlocked from a hotkey on a subnet.
+        StakeUnlocked {
+            /// The coldkey that unlocked the stake.
+            coldkey: T::AccountId,
+            /// The hotkey the stake was locked to.
+            hotkey: T::AccountId,
+            /// The subnet the stake was locked on.
+            netuid: NetUid,
+            /// The alpha amount unlocked.
+            amount: AlphaBalance,
+        },
+
+        /// Stake has been unlocked from a hotkey on a subnet.
+        LockMoved {
+            /// The coldkey that moved the lock.
+            coldkey: T::AccountId,
+            /// The hotkey the lock was moved from.
+            origin_hotkey: T::AccountId,
+            /// The hotkey the lock was moved to.
+            destination_hotkey: T::AccountId,
+            /// The subnet the lock is on.
+            netuid: NetUid,
         },
     }
 }

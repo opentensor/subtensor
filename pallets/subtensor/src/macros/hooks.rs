@@ -131,6 +131,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
                 // Re-encode rate limit keys after introducing OwnerHyperparamUpdate variant
                 .saturating_add(migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<T>())
+                // Remove AddStakeBurn entries from LastRateLimitedBlock
+                .saturating_add(migrations::migrate_remove_add_stake_burn_rate_limit::migrate_remove_add_stake_burn_rate_limit::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>())
                 // Migrate Immunity Period
@@ -151,8 +153,6 @@ mod hooks {
                 .saturating_add(migrations::migrate_kappa_map_to_default::migrate_kappa_map_to_default::<T>())
                 // Remove obsolete map entries
                 .saturating_add(migrations::migrate_remove_tao_dividends::migrate_remove_tao_dividends::<T>())
-                // Remove Trust, Rank, and Pruning Score
-                .saturating_add(migrations::migrate_clear_rank_trust_pruning_maps::migrate_clear_rank_trust_pruning_maps::<T>())
                 // Re-init tao flows
                 .saturating_add(migrations::migrate_init_tao_flow::migrate_init_tao_flow::<T>())
                 // Migrate pending emissions
@@ -166,7 +166,15 @@ mod hooks {
                 // Fix staking hot keys
                 .saturating_add(migrations::migrate_fix_staking_hot_keys::migrate_fix_staking_hot_keys::<T>())
                 // Migrate coldkey swap scheduled to announcements
-                .saturating_add(migrations::migrate_coldkey_swap_scheduled_to_announcements::migrate_coldkey_swap_scheduled_to_announcements::<T>());
+                .saturating_add(migrations::migrate_coldkey_swap_scheduled_to_announcements::migrate_coldkey_swap_scheduled_to_announcements::<T>())
+                // Migration for new Neuron Registration
+                .saturating_add(migrations::migrate_clear_deprecated_registration_maps::migrate_clear_deprecated_registration_maps::<T>())
+                // Migrate fix bad hk swap
+                .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>())
+                // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
+                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
+                // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
+                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>());
             weight
         }
 

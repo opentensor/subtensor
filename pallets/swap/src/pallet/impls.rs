@@ -10,10 +10,6 @@ use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve};
 
-use subtensor_swap_interface::{
-    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
-};
-
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep};
 use crate::{pallet::Balancer, pallet::balancer::BalancerError};

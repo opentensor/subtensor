@@ -337,6 +337,10 @@ by appending your own. A few useful ones are as follow.
 ```
 -->
 
+## Testing
+
+Check [testing section](./docs/testing.md).
+
 ## License
 The MIT License (MIT)
 Copyright © 2021 Yuma Rao

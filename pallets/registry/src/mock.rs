@@ -1,10 +1,9 @@
-use crate as pallet_template;
-use frame_support::traits::{ConstU16, ConstU64};
-use sp_core::H256;
-use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup},
-    BuildStorage,
-};
+#![allow(clippy::expect_used)]
+use crate as pallet_registry;
+use frame_support::{derive_impl, parameter_types};
+use sp_core::U256;
+use sp_runtime::{BuildStorage, traits::IdentityLookup};
+use subtensor_runtime_common::TaoBalance;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -13,47 +12,70 @@ frame_support::construct_runtime!(
     pub enum Test
     {
         System: frame_system = 1,
-        TemplateModule: pallet_template = 2,
+        Balances: pallet_balances = 2,
+        Registry: pallet_registry = 3,
     }
 );
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
-    type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = IdentityLookup<Self::AccountId>;
     type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = ConstU64<250>;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ConstU16<42>;
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type AccountId = U256;
+    type AccountData = pallet_balances::AccountData<TaoBalance>;
+    type Lookup = IdentityLookup<Self::AccountId>;
+}
+
+parameter_types! {
+    pub const ExistentialDeposit: TaoBalance = TaoBalance::new(1);
+}
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+impl pallet_balances::Config for Test {
+    type AccountStore = System;
+    type Balance = TaoBalance;
+    type ExistentialDeposit = ExistentialDeposit;
+}
+
+parameter_types! {
+    pub const MaxAdditionalFields: u32 = 16;
+    pub const InitialDeposit: TaoBalance = TaoBalance::new(100);
+    pub const FieldDeposit: TaoBalance = TaoBalance::new(10);
+}
+
+pub struct CanRegister;
+impl pallet_registry::CanRegisterIdentity<U256> for CanRegister {
+    fn can_register(who: &U256, identified: &U256) -> bool {
+        who == identified
+    }
 }
 
 impl pallet_registry::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
     type WeightInfo = ();
-    type MaxAdditionalFields = frame_support::traits::ConstU32<16>;
-    type CanRegisterIdentity = ();
+    type MaxAdditionalFields = MaxAdditionalFields;
+    type CanRegister = CanRegister;
+    type InitialDeposit = InitialDeposit;
+    type FieldDeposit = FieldDeposit;
+    type RuntimeHoldReason = RuntimeHoldReason;
 }
 
-// Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    frame_system::GenesisConfig::<Test>::default()
+    let mut t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
-        .unwrap()
-        .into()
+        .expect("system storage should build ok");
+    pallet_balances::GenesisConfig::<Test> {
+        balances: vec![
+            (U256::from(1), 10.into()),
+            (U256::from(2), 10.into()),
+            (U256::from(3), 10.into()),
+            (U256::from(4), 10.into()),
+            (U256::from(5), 3.into()),
+        ],
+        dev_accounts: None,
+    }
+    .assimilate_storage(&mut t)
+    .expect("balances storage should build ok");
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }

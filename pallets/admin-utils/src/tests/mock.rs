@@ -19,6 +19,7 @@ use sp_runtime::{
 };
 use sp_std::cmp::Ordering;
 use sp_weights::Weight;
+use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AuthorshipInfo, ConstTao, NetUid, TaoBalance};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -28,6 +29,7 @@ frame_support::construct_runtime!(
         System: frame_system = 1,
         Balances: pallet_balances = 2,
         AdminUtils: crate = 3,
+        AlphaAssets: pallet_alpha_assets = 12,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
@@ -156,6 +158,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -215,6 +219,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = ();
+    type AlphaAssets = AlphaAssets;
     type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
     type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
@@ -231,6 +236,9 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -327,6 +335,8 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
 }
 
+impl pallet_alpha_assets::Config for Test {}
+
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
@@ -345,6 +355,8 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -377,6 +389,7 @@ impl crate::Config for Test {
     type Aura = ();
     type Grandpa = GrandpaInterfaceImpl;
     type Balance = Balance;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -406,6 +419,7 @@ impl pallet_drand::Config for Test {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = ();
 }
 
 impl frame_system::offchain::SigningTypes for Test {
@@ -509,27 +523,29 @@ pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
-    start_nonce: u64,
+    _start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+    // Ensure reserves exist for swap/burn path.
+    let reserve: u64 = 1_000_000_000_000;
+    setup_reserves(netuid, reserve.into(), reserve.into());
+
+    // Ensure coldkey has enough to pay the current burn.
+    let burn: TaoBalance = SubtensorModule::get_burn(netuid);
+    let burn_u64: TaoBalance = burn;
+    let bal = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+
+    if bal < burn_u64 {
+        add_balance_to_coldkey_account(&coldkey_account_id, burn_u64 - bal + 10.into());
+    }
+
+    let result = SubtensorModule::burned_register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id),
         netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
-    );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
         hotkey_account_id,
-        coldkey_account_id,
     );
     assert_ok!(result);
     log::info!(
-        "Register ok neuron: netuid: {netuid:?}, coldkey: {hotkey_account_id:?}, hotkey: {coldkey_account_id:?}"
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
 }
 
@@ -537,5 +553,34 @@ pub fn register_ok_neuron(
 pub fn add_network(netuid: NetUid, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+
+    pallet_subtensor::FirstEmissionBlockNumber::<Test>::insert(netuid, 1);
+    pallet_subtensor::SubtokenEnabled::<Test>::insert(netuid, true);
+
+    // make interval 1 block so tests can register by stepping 1 block.
+    pallet_subtensor::BurnHalfLife::<Test>::insert(netuid, 1);
+    pallet_subtensor::BurnIncreaseMult::<Test>::insert(netuid, U64F64::from_num(1));
+}
+
+use subtensor_runtime_common::AlphaBalance;
+pub(crate) fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
+    pallet_subtensor::SubnetTAO::<Test>::set(netuid, tao);
+    pallet_subtensor::SubnetAlphaIn::<Test>::set(netuid, alpha);
+}
+
+/// Convenience wrapper for tests that need to advance blocks incrementally.
+pub fn step_block(n: u64) {
+    let current: u64 = frame_system::Pallet::<Test>::block_number().into();
+    run_to_block(current + n);
+}
+
+#[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let _ = SubtensorModule::burn_tao(coldkey, tao);
 }

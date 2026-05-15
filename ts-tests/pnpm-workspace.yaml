@@ -1,0 +1,15 @@
+packages:
+  - "**"
+
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@chainsafe/blst'
+  - '@parcel/watcher'
+  - bigint-buffer
+  - classic-level
+  - cpu-features
+  - esbuild
+  - msgpackr-extract
+  - protobufjs
+  - sqlite3
+  - ssh2

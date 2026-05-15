@@ -30,51 +30,32 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_commitments`.
 pub trait WeightInfo {
 	fn set_commitment() -> Weight;
-	fn set_rate_limit() -> Weight;
+	fn set_max_space() -> Weight;
 }
 
 /// Weights for `pallet_commitments` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: Commitments LastCommitment (r:1 w:1)
-	/// Proof Skipped: Commitments LastCommitment (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Commitments CommitmentOf (r:1 w:1)
-	/// Proof Skipped: Commitments CommitmentOf (max_values: None, max_size: None, mode: Measured)
 	fn set_commitment() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `697`
-		//  Estimated: `6344`
-		// Minimum execution time: 28_000_000 picoseconds.
-		Weight::from_parts(28_000_000, 6344)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+		Weight::from_parts(33_480_000, 0)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
-	/// Sudo setting rate limit for commitments
-	fn set_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 2000)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	fn set_max_space() -> Weight {
+		Weight::from_parts(2_856_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: Commitments LastCommitment (r:1 w:1)
-	/// Proof Skipped: Commitments LastCommitment (max_values: None, max_size: None, mode: Measured)
-	/// Storage: Commitments CommitmentOf (r:1 w:1)
-	/// Proof Skipped: Commitments CommitmentOf (max_values: None, max_size: None, mode: Measured)
 	fn set_commitment() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `697`
-		//  Estimated: `6344`
-		// Minimum execution time: 28_000_000 picoseconds.
-		Weight::from_parts(28_000_000, 6344)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+		Weight::from_parts(33_480_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
-
-	/// Sudo setting rate limit for commitments
-	fn set_rate_limit() -> Weight {
-		Weight::from_parts(10_000_000, 2000)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	fn set_max_space() -> Weight {
+		Weight::from_parts(2_856_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

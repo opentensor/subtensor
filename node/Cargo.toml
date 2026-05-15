@@ -69,6 +69,7 @@ sp-session.workspace = true
 frame-metadata-hash-extension.workspace = true
 frame-system.workspace = true
 frame-support.workspace = true
+pallet-balances.workspace = true
 pallet-transaction-payment.workspace = true
 pallet-commitments.workspace = true
 pallet-drand.workspace = true
@@ -167,6 +168,7 @@ runtime-benchmarks = [
 	"polkadot-sdk/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-shield/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
 ]
 
@@ -185,6 +187,7 @@ try-runtime = [
 	"polkadot-sdk/try-runtime",
 	"pallet-subtensor/try-runtime",
 	"pallet-shield/try-runtime",
+	"pallet-balances/try-runtime",
 ]
 
 metadata-hash = ["node-subtensor-runtime/metadata-hash"]

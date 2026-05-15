@@ -1,4 +1,3 @@
-use substrate_fixed::types::I96F32;
 use subtensor_runtime_common::{NetUid, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 
@@ -38,7 +37,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_add_stake(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: TaoBalance,
@@ -48,8 +47,6 @@ impl<T: Config> Pallet<T> {
         log::debug!(
             "do_add_stake( origin:{coldkey:?} hotkey:{hotkey:?}, netuid:{netuid:?}, stake_to_be_added:{stake_to_be_added:?} )"
         );
-
-        Self::ensure_subtoken_enabled(netuid)?;
 
         // 2. Validate user input
         Self::validate_add_stake(
@@ -61,19 +58,13 @@ impl<T: Config> Pallet<T> {
             false,
         )?;
 
-        // 3. Ensure the remove operation from the coldkey is a success.
-        let tao_staked: I96F32 =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added.into())?
-                .to_u64()
-                .into();
-
-        // 4. Swap the stake into alpha on the subnet and increase counters.
+        // 3. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
-            tao_staked.saturating_to_num::<u64>().into(),
+            stake_to_be_added,
             T::SwapInterface::max_price(),
             true,
             false,
@@ -121,7 +112,7 @@ impl<T: Config> Pallet<T> {
     ///     -  Thrown if key has hit transaction rate limit
     ///
     pub fn do_add_stake_limit(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         stake_to_be_added: TaoBalance,
@@ -156,17 +147,13 @@ impl<T: Config> Pallet<T> {
             Self::maybe_become_delegate(&hotkey);
         }
 
-        // 5. Ensure the remove operation from the coldkey is a success.
-        let tao_staked =
-            Self::remove_balance_from_coldkey_account(&coldkey, possible_stake.into())?;
-
-        // 6. Swap the stake into alpha on the subnet and increase counters.
+        // 5. Swap the stake into alpha on the subnet and increase counters.
         // Emit the staking event.
         Self::stake_into_subnet(
             &hotkey,
             &coldkey,
             netuid,
-            tao_staked,
+            possible_stake,
             limit_price,
             true,
             false,

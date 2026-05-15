@@ -60,12 +60,8 @@ impl frame_system::Config for Test {
     type Lookup = IdentityLookup<Self::AccountId>;
 }
 
-// Existential deposit.
-pub struct ExistentialDeposit;
-impl frame_support::traits::Get<TaoBalance> for ExistentialDeposit {
-    fn get() -> TaoBalance {
-        TaoBalance::new(1)
-    }
+parameter_types! {
+    pub const ExistentialDeposit: TaoBalance = TaoBalance::new(1);
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]

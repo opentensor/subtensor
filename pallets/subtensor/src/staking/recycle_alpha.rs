@@ -14,13 +14,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
-    pub(crate) fn do_recycle_alpha(
-        origin: T::RuntimeOrigin,
+    /// * `Result<AlphaBalance, DispatchError>` - The actual amount recycled, or error
+    pub fn do_recycle_alpha(
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
-    ) -> DispatchResult {
+    ) -> Result<AlphaBalance, DispatchError> {
         let coldkey: T::AccountId = ensure_signed(origin)?;
 
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -50,6 +50,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientLiquidity
         );
 
+        // Ensure that recycled amount is not greater than available to unstake (due to locks)
+        Self::ensure_available_stake(&coldkey, netuid, amount)?;
+
         // Deduct from the coldkey's stake.
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
 
@@ -58,7 +61,7 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::AlphaRecycled(coldkey, hotkey, amount, netuid));
 
-        Ok(())
+        Ok(amount)
     }
 
     /// Burns alpha from a cold/hot key pair without reducing AlphaOut
@@ -72,13 +75,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `DispatchResult` - Success or error
-    pub(crate) fn do_burn_alpha(
-        origin: T::RuntimeOrigin,
+    /// * `Result<AlphaBalance, DispatchError>` - The actual amount burned, or error
+    pub fn do_burn_alpha(
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         amount: AlphaBalance,
         netuid: NetUid,
-    ) -> DispatchResult {
+    ) -> Result<AlphaBalance, DispatchError> {
         let coldkey = ensure_signed(origin)?;
 
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
@@ -108,6 +111,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientLiquidity
         );
 
+        // Ensure that burned amount is not greater than available to unstake (due to locks)
+        Self::ensure_available_stake(&coldkey, netuid, amount)?;
+
         // Deduct from the coldkey's stake.
         Self::decrease_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid, amount);
 
@@ -116,26 +122,16 @@ impl<T: Config> Pallet<T> {
         // Deposit event
         Self::deposit_event(Event::AlphaBurned(coldkey, hotkey, amount, netuid));
 
-        Ok(())
+        Ok(amount)
     }
+
     pub(crate) fn do_add_stake_burn(
-        origin: T::RuntimeOrigin,
+        origin: OriginFor<T>,
         hotkey: T::AccountId,
         netuid: NetUid,
         amount: TaoBalance,
         limit: Option<TaoBalance>,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner(origin.clone(), netuid)?;
-
-        let current_block = Self::get_current_block_as_u64();
-        let last_block = Self::get_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid));
-        let rate_limit = TransactionType::AddStakeBurn.rate_limit_on_subnet::<T>(netuid);
-
-        ensure!(
-            last_block.is_zero() || current_block.saturating_sub(last_block) >= rate_limit,
-            Error::<T>::AddStakeBurnRateLimitExceeded
-        );
-
         let alpha = if let Some(limit) = limit {
             Self::do_add_stake_limit(origin.clone(), hotkey.clone(), netuid, amount, limit, false)?
         } else {
@@ -143,8 +139,6 @@ impl<T: Config> Pallet<T> {
         };
 
         Self::do_burn_alpha(origin, hotkey.clone(), alpha, netuid)?;
-
-        Self::set_rate_limited_last_block(&RateLimitKey::AddStakeBurn(netuid), current_block);
 
         Self::deposit_event(Event::AddStakeBurn {
             netuid,
@@ -154,5 +148,32 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    /// Atomically stakes TAO and recycles the resulting alpha.
+    /// Permissionless counterpart used by the chain extension so that contracts
+    /// can compose the two operations without leaving residual stake if the
+    /// second leg fails.
+    pub fn do_add_stake_recycle(
+        origin: OriginFor<T>,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        amount: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
+        let alpha = Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?;
+        Self::do_recycle_alpha(origin, hotkey, alpha, netuid)
+    }
+
+    /// Atomically stakes TAO and burns the resulting alpha. Permissionless
+    /// counterpart to `do_add_stake_burn`: return the amount of alpha burned.
+    /// limit. Used by the chain extension.
+    pub fn do_add_stake_burn_permissionless(
+        origin: OriginFor<T>,
+        hotkey: T::AccountId,
+        netuid: NetUid,
+        amount: TaoBalance,
+    ) -> Result<AlphaBalance, DispatchError> {
+        let alpha = Self::do_add_stake(origin.clone(), hotkey.clone(), netuid, amount)?;
+        Self::do_burn_alpha(origin, hotkey, alpha, netuid)
     }
 }

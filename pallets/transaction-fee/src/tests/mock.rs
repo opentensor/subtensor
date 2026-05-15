@@ -39,6 +39,7 @@ frame_support::construct_runtime!(
     pub enum Test {
         System: frame_system = 1,
         Balances: pallet_balances = 2,
+        AlphaAssets: pallet_alpha_assets = 3,
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>} = 4,
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 5,
         Drand: pallet_drand::{Pallet, Call, Storage, Event<T>} = 6,
@@ -229,6 +230,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 0;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -288,6 +291,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
     type Yuma3On = InitialYuma3On;
     type Preimages = ();
+    type AlphaAssets = AlphaAssets;
     type InitialColdkeySwapAnnouncementDelay = InitialColdkeySwapAnnouncementDelay;
     type InitialColdkeySwapReannouncementDelay = InitialColdkeySwapReannouncementDelay;
     type InitialDissolveNetworkScheduleDuration = InitialDissolveNetworkScheduleDuration;
@@ -304,6 +308,9 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -400,6 +407,8 @@ impl pallet_balances::Config for Test {
     type RuntimeHoldReason = ();
 }
 
+impl pallet_alpha_assets::Config for Test {}
+
 // Swap-related parameter types
 parameter_types! {
     pub const SwapProtocolId: PalletId = PalletId(*b"ten/swap");
@@ -418,6 +427,8 @@ impl pallet_subtensor_swap::Config for Test {
     type MinimumLiquidity = SwapMinimumLiquidity;
     type MinimumReserve = SwapMinimumReserve;
     type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 pub struct OriginPrivilegeCmp;
@@ -460,6 +471,7 @@ impl pallet_drand::Config for Test {
     type Verifier = pallet_drand::verifier::QuicknetVerifier;
     type UnsignedPriority = ConstU64<{ 1 << 20 }>;
     type HttpFetchTimeout = ConstU64<1_000>;
+    type WeightInfo = ();
 }
 
 impl frame_system::offchain::SigningTypes for Test {
@@ -571,32 +583,87 @@ pub fn register_ok_neuron(
     netuid: NetUid,
     hotkey_account_id: U256,
     coldkey_account_id: U256,
-    start_nonce: u64,
+    _start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        netuid,
-        block_number,
-        start_nonce,
-        &hotkey_account_id,
+    // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
+    let reserve: u64 = 1_000_000_000_000;
+    let tao_reserve = SubnetTAO::<Test>::get(netuid);
+    let alpha_reserve =
+        SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaInProvided::<Test>::get(netuid);
+
+    if tao_reserve.is_zero() && alpha_reserve.is_zero() {
+        setup_reserves(netuid, reserve.into(), reserve.into());
+    }
+
+    // Ensure coldkey has enough to pay the current burn AND is not fully drained to zero.
+    // This avoids ZeroBalanceAfterWithdrawn in burned_register.
+    let top_up_for_burn = |netuid: NetUid, cold: U256| {
+        let burn: TaoBalance = SubtensorModule::get_burn(netuid);
+
+        // Make sure something remains after withdrawal even if ED is 0 in tests.
+        let ed: TaoBalance = ExistentialDeposit::get();
+        let min_remaining: TaoBalance = ed.max(1.into());
+
+        // Small buffer for safety (fees / rounding / future changes).
+        let buffer: TaoBalance = 10.into();
+
+        let min_balance_needed: TaoBalance = burn + min_remaining + buffer;
+
+        let bal: TaoBalance = SubtensorModule::get_coldkey_balance(&cold);
+        if bal < min_balance_needed {
+            add_balance_to_coldkey_account(&cold, min_balance_needed - bal);
+        }
+    };
+
+    top_up_for_burn(netuid, coldkey_account_id);
+
+    let origin = <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey_account_id);
+    let result = SubtensorModule::burned_register(origin.clone(), netuid, hotkey_account_id);
+
+    match result {
+        Ok(()) => {
+            // success
+        }
+        Err(e)
+            if e == Error::<Test>::TooManyRegistrationsThisInterval.into()
+                || e == Error::<Test>::NotEnoughBalanceToStake.into()
+                || e == Error::<Test>::ZeroBalanceAfterWithdrawn.into() =>
+        {
+            // Re-top-up and retry once (burn can be state-dependent).
+            top_up_for_burn(netuid, coldkey_account_id);
+
+            assert_ok!(SubtensorModule::burned_register(
+                origin,
+                netuid,
+                hotkey_account_id
+            ));
+        }
+        Err(e) => {
+            panic!("Expected Ok(_). Got Err({e:?})");
+        }
+    }
+
+    log::info!(
+        "Register ok neuron: netuid: {netuid:?}, coldkey: {coldkey_account_id:?}, hotkey: {hotkey_account_id:?}"
     );
-    let result = SubtensorModule::register(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
-        netuid,
-        block_number,
-        nonce,
-        work,
-        hotkey_account_id,
-        coldkey_account_id,
-    );
-    assert_ok!(result);
+}
+
+#[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
+}
+
+#[allow(dead_code)]
+pub fn remove_balance_from_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let _ = SubtensorModule::burn_tao(coldkey, tao);
 }
 
 #[allow(dead_code)]
 pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     let netuid = SubtensorModule::get_next_netuid();
     let lock_cost = SubtensorModule::get_network_lock_cost();
-    SubtensorModule::add_balance_to_coldkey_account(coldkey, lock_cost.into());
+    add_balance_to_coldkey_account(coldkey, lock_cost.into());
 
     assert_ok!(SubtensorModule::register_network(
         RawOrigin::Signed(*coldkey).into(),
@@ -682,7 +749,6 @@ pub(crate) fn swap_tao_to_alpha(netuid: NetUid, tao: TaoBalance) -> (u64, u64) {
 pub fn add_network(netuid: NetUid, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
 #[allow(dead_code)]
@@ -757,18 +823,85 @@ pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, n
 }
 
 #[allow(dead_code)]
-pub fn setup_stake(netuid: NetUid, coldkey: &U256, hotkey: &U256, amount: u64) {
-    // Stake to hotkey account, and check if the result is ok
-    SubtensorModule::add_balance_to_coldkey_account(
+pub fn setup_stake(
+    netuid: subtensor_runtime_common::NetUid,
+    coldkey: &U256,
+    hotkey: &U256,
+    stake_amount: u64,
+) {
+    // Fund enough to stake while keeping the coldkey account alive (KeepAlive / ED).
+    add_balance_to_coldkey_account(
         coldkey,
-        ExistentialDeposit::get() + amount.into(),
+        TaoBalance::from(stake_amount) + ExistentialDeposit::get(),
     );
-    remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
+
     assert_ok!(SubtensorModule::add_stake(
         RuntimeOrigin::signed(*coldkey),
         *hotkey,
         netuid,
-        amount.into()
+        stake_amount.into(),
     ));
     remove_stake_rate_limit_for_tests(hotkey, coldkey, netuid);
+}
+
+pub(crate) fn quote_remove_stake_after_alpha_fee(
+    coldkey: &U256,
+    hotkey: &U256,
+    netuid: NetUid,
+    alpha: AlphaBalance,
+) -> (u64, u64) {
+    if netuid.is_root() {
+        return (alpha.into(), 0);
+    }
+
+    let call: RuntimeCall = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+        hotkey: *hotkey,
+        netuid,
+        amount_unstaked: alpha,
+    });
+    let info = <RuntimeCall as frame_support::dispatch::GetDispatchInfo>::get_dispatch_info(&call);
+    let tao_fee = pallet_transaction_payment::Pallet::<Test>::compute_fee(0, &info, 0.into());
+
+    frame_support::storage::with_transaction(
+        || -> frame_support::storage::TransactionOutcome<
+            Result<(u64, u64), sp_runtime::DispatchError>,
+        > {
+            let alpha_balance =
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
+
+            let mut alpha_fee =
+                pallet_subtensor_swap::Pallet::<Test>::get_alpha_amount_for_tao(
+                    netuid,
+                    tao_fee.into(),
+                );
+
+            if alpha_fee.is_zero() {
+                alpha_fee = alpha_balance;
+            }
+
+            let alpha_fee = alpha_fee.min(alpha_balance);
+
+            if !alpha_fee.is_zero() {
+                assert_ok!(SubtensorModule::unstake_from_subnet(
+                    hotkey,
+                    coldkey,
+                    coldkey,
+                    netuid,
+                    alpha_fee,
+                    0.into(),
+                    true,
+                ));
+            }
+
+            let alpha_after_fee =
+                SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey, coldkey, netuid,
+                );
+            let quoted_alpha = alpha.min(alpha_after_fee);
+
+            let quote = swap_alpha_to_tao(netuid, quoted_alpha);
+            frame_support::storage::TransactionOutcome::Rollback(Ok(quote))
+        },
+    )
+    .expect("transactional quote should not fail")
 }

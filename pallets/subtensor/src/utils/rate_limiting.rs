@@ -202,6 +202,9 @@ pub enum Hyperparameter {
     ImmuneNeuronLimit = 23,
     RecycleOrBurn = 24,
     MaxAllowedUids = 25,
+    BurnHalfLife = 26,
+    BurnIncreaseMult = 27,
+    SubnetEmissionEnabled = 28,
 }
 
 impl<T: Config> Pallet<T> {
