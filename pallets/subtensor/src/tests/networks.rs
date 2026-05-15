@@ -676,6 +676,80 @@ fn dissolve_clears_auto_stake_destination_preventing_stale_routing() {
     });
 }
 
+// Companion regression: dissolving one subnet must NOT clear
+// AutoStakeDestination entries for *other* live subnets. Without per-netuid
+// scoping in the cleanup, a single dissolve could blow away the auto-stake
+// routing for every subnet a coldkey participates in. This test sets up the
+// same (staker_cold, stale_dest_hot) pair across three distinct netuids and
+// asserts that only the dissolved netuid's entries are removed.
+#[test]
+fn dissolve_only_clears_auto_stake_destination_for_dissolved_netuid() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(101);
+        let owner_hot = U256::from(102);
+        let other_owner_cold = U256::from(103);
+        let other_owner_hot = U256::from(104);
+        let third_owner_cold = U256::from(105);
+        let third_owner_hot = U256::from(106);
+
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        let other_net = add_dynamic_network(&other_owner_hot, &other_owner_cold);
+        let third_net = add_dynamic_network(&third_owner_hot, &third_owner_cold);
+
+        // Same (staker_cold, dest_hot) pair routed across three netuids — only
+        // the dissolved one should disappear after the call.
+        let staker_cold = U256::from(201);
+        let stale_dest_hot = U256::from(202);
+
+        for n in [net, other_net, third_net] {
+            AutoStakeDestination::<Test>::insert(staker_cold, n, stale_dest_hot);
+            AutoStakeDestinationColdkeys::<Test>::mutate(stale_dest_hot, n, |v| {
+                v.push(staker_cold)
+            });
+        }
+
+        // Sanity: all three netuids have their auto-stake routing in place.
+        for n in [net, other_net, third_net] {
+            assert_eq!(
+                AutoStakeDestination::<Test>::get(staker_cold, n),
+                Some(stale_dest_hot),
+                "pre-dissolve forward index missing for netuid {n:?}"
+            );
+            assert_eq!(
+                AutoStakeDestinationColdkeys::<Test>::get(stale_dest_hot, n),
+                vec![staker_cold],
+                "pre-dissolve reverse index missing for netuid {n:?}"
+            );
+        }
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Dissolved netuid: both halves of the index are gone.
+        assert!(
+            AutoStakeDestination::<Test>::get(staker_cold, net).is_none(),
+            "forward index was not cleared for dissolved netuid {net:?}"
+        );
+        assert!(
+            AutoStakeDestinationColdkeys::<Test>::get(stale_dest_hot, net).is_empty(),
+            "reverse index was not cleared for dissolved netuid {net:?}"
+        );
+
+        // Surviving netuids: routing is intact, untouched by the dissolve.
+        for n in [other_net, third_net] {
+            assert_eq!(
+                AutoStakeDestination::<Test>::get(staker_cold, n),
+                Some(stale_dest_hot),
+                "forward index was incorrectly cleared for surviving netuid {n:?}"
+            );
+            assert_eq!(
+                AutoStakeDestinationColdkeys::<Test>::get(stale_dest_hot, n),
+                vec![staker_cold],
+                "reverse index was incorrectly cleared for surviving netuid {n:?}"
+            );
+        }
+    });
+}
+
 #[test]
 fn dissolve_alpha_out_but_zero_tao_no_rewards() {
     new_test_ext(0).execute_with(|| {
