@@ -2595,10 +2595,11 @@ mod dispatches {
             Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
         }
 
-        /// Sets whether root-proportional subnet yield is burned instead of paid to root stakers.
+        /// Sets whether root-proportional subnet yield is sold and burned instead of paid to root stakers.
         ///
         /// This is root-only. When enabled, root stakers receive zero yield from the
-        /// root-proportional portion on every subnet; that alpha is burned instead.
+        /// root-proportional portion on every subnet; root alpha is still sold through
+        /// the subnet pool and the resulting TAO is burned.
         #[pallet::call_index(139)]
         #[pallet::weight(
             Weight::from_parts(6_000, 0).saturating_add(T::DbWeight::get().writes(1))

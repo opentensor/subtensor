@@ -480,7 +480,7 @@ mod events {
 
         /// Root-proportional subnet yield burn mode has been toggled.
         BurnRootPropSet {
-            /// Whether root-proportional yield is burned instead of paid to root stakers.
+            /// Whether root-proportional yield is sold through subnet pools and burned instead of paid to root stakers.
             enabled: bool,
         },
 
