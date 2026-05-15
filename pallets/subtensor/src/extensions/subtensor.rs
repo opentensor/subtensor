@@ -167,7 +167,7 @@ where
             }
             Some(Call::reveal_mechanism_weights {
                 netuid,
-                mecid: _,
+                mecid,
                 uids,
                 values,
                 salt,
@@ -176,7 +176,7 @@ where
                 if Self::check_weights_min_stake(who, *netuid) {
                     let provided_hash = Pallet::<T>::get_commit_hash(
                         who,
-                        NetUidStorageIndex::from(*netuid),
+                        Pallet::<T>::get_mechanism_storage_index(*netuid, *mecid),
                         uids,
                         values,
                         salt,

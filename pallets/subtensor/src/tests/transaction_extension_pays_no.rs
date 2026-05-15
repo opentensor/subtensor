@@ -296,6 +296,80 @@ fn extension_reveal_mechanism_weights_rejects_commit_not_found() {
 }
 
 #[test]
+fn extension_reveal_mechanism_weights_accepts_valid_commit() {
+    assert_reveal_mechanism_weights_accepts_valid_commit(MechId::MAIN, None);
+}
+
+#[test]
+fn extension_reveal_mechanism_weights_accepts_valid_non_main_mechanism_commit() {
+    assert_reveal_mechanism_weights_accepts_valid_commit(
+        MechId::from(1u8),
+        Some(MechId::from(2u8)),
+    );
+}
+
+fn assert_reveal_mechanism_weights_accepts_valid_commit(
+    mecid: MechId,
+    mechanism_count: Option<MechId>,
+) {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let uids = vec![0];
+        let values = vec![1];
+        let salt = vec![1];
+        let version_key = 0;
+        add_network(netuid, 1, 0);
+        setup_reserves(
+            netuid,
+            1_000_000_000_000_u64.into(),
+            1_000_000_000_000_u64.into(),
+        );
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        crate::Owner::<Test>::insert(hotkey, coldkey);
+        if let Some(mechanism_count) = mechanism_count {
+            MechanismCountCurrent::<Test>::insert(netuid, mechanism_count);
+        }
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_stake_threshold(0);
+        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        assert_ok!(SubtensorModule::do_add_stake(
+            RuntimeOrigin::signed(hotkey),
+            hotkey,
+            netuid,
+            TaoBalance::from(500_000_000_000_u64)
+        ));
+
+        let commit_hash = SubtensorModule::get_commit_hash(
+            &hotkey,
+            SubtensorModule::get_mechanism_storage_index(netuid, mecid),
+            &uids,
+            &values,
+            &salt,
+            version_key,
+        );
+        assert_ok!(SubtensorModule::commit_mechanism_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            mecid,
+            commit_hash
+        ));
+        step_epochs(1, netuid);
+
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_mechanism_weights {
+            netuid,
+            mecid,
+            uids,
+            values,
+            salt,
+            version_key,
+        });
+        assert_ok!(validate_signed(hotkey, &call));
+    });
+}
+
+#[test]
 fn extension_batch_reveal_weights_rejects_mismatched_vector_lengths() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);
