@@ -711,15 +711,15 @@ impl<T: Config> Pallet<T> {
     /// is mature enough and enough conviction has accumulated.
     ///
     /// Ownership can change only after the subnet is at least [`ONE_YEAR`] old and the
-    /// total rolled aggregate conviction on the subnet is at least 10% of `SubnetAlphaIn`.
+    /// total rolled aggregate conviction on the subnet is at least 10% of `SubnetAlphaOut`.
     /// If those gates pass, the hotkey with the highest rolled aggregate conviction
     /// becomes the subnet owner hotkey, and that hotkey's owning coldkey becomes the
     /// subnet owner coldkey. The new owner hotkey's conviction is then progressed to
     /// its current locked mass so the new owner starts with full owner conviction.
     pub fn change_subnet_owner_if_needed(netuid: NetUid) {
-        // No reserve alpha means there is no meaningful 10% conviction threshold.
-        let subnet_alpha_in = SubnetAlphaIn::<T>::get(netuid);
-        if subnet_alpha_in.is_zero() {
+        // No outstanding alpha means there is no meaningful 10% conviction threshold.
+        let subnet_alpha_out = SubnetAlphaOut::<T>::get(netuid);
+        if subnet_alpha_out.is_zero() {
             return;
         }
 
@@ -730,10 +730,10 @@ impl<T: Config> Pallet<T> {
             return;
         }
 
-        // Require total rolled aggregate conviction to be at least 10% of subnet alpha in.
+        // Require total rolled aggregate conviction to be at least 10% of subnet alpha out.
         let total_conviction = Self::get_total_conviction(netuid);
         if total_conviction.saturating_mul(U64F64::saturating_from_num(10))
-            < U64F64::saturating_from_num(u64::from(subnet_alpha_in))
+            < U64F64::saturating_from_num(u64::from(subnet_alpha_out))
         {
             return;
         }

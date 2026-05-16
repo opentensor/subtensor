@@ -1951,12 +1951,12 @@ fn test_change_subnet_owner_if_needed_reassigns_to_subnet_king() {
             &king_hotkey
         ));
 
-        // Make the subnet old enough and set alpha in so 1_000 conviction is exactly
+        // Make the subnet old enough and set alpha out so 1_000 conviction is exactly
         // the 10% minimum required to trigger reassignment.
         let now = crate::staking::lock::ONE_YEAR + 1;
         System::set_block_number(now);
         NetworkRegisteredAt::<Test>::insert(netuid, 1);
-        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(10_000u64));
+        SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(10_000u64));
 
         // Seed matching individual and aggregate lock rows for the future king.
         let locked_mass = AlphaBalance::from(1_000u64);
@@ -1996,7 +1996,7 @@ fn test_change_subnet_owner_if_needed_reassigns_to_subnet_king() {
 #[test]
 fn test_change_subnet_owner_if_needed_does_not_reassign_when_required_condition_is_missing() {
     let assert_owner_unchanged =
-        |alpha_in: u64, registered_at: u64, owner_conviction: u64, king_conviction: u64| {
+        |alpha_out: u64, registered_at: u64, owner_conviction: u64, king_conviction: u64| {
             new_test_ext(1).execute_with(|| {
                 let owner_coldkey = U256::from(1001);
                 let owner_hotkey = U256::from(1002);
@@ -2015,7 +2015,7 @@ fn test_change_subnet_owner_if_needed_does_not_reassign_when_required_condition_
                 let now = crate::staking::lock::ONE_YEAR + 10;
                 System::set_block_number(now);
                 NetworkRegisteredAt::<Test>::insert(netuid, registered_at);
-                SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(alpha_in));
+                SubnetAlphaOut::<Test>::insert(netuid, AlphaBalance::from(alpha_out));
 
                 let locked_mass = AlphaBalance::from(1_000u64);
                 HotkeyLock::<Test>::insert(
@@ -2044,7 +2044,7 @@ fn test_change_subnet_owner_if_needed_does_not_reassign_when_required_condition_
             });
         };
 
-    // Missing condition 1: total conviction is below 10% of SubnetAlphaIn.
+    // Missing condition 1: total conviction is below 10% of SubnetAlphaOut.
     assert_owner_unchanged(30_000, 1, 500, 1_000);
 
     // Missing condition 2: subnet is younger than one year.
