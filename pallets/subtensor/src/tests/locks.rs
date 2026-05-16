@@ -928,7 +928,8 @@ fn test_roll_forward_conviction_uses_unequal_rate_closed_form() {
         let locked_mass = 10_000u64;
         let dt = 10_000u64;
         let unlock_rate = UnlockRate::<Test>::get();
-        let maturity_rate = MaturityRate::<Test>::get();
+        let maturity_rate = unlock_rate * 12 / 10;
+        MaturityRate::<Test>::set(maturity_rate);
         assert_ne!(unlock_rate, maturity_rate);
 
         let lock = LockState {
