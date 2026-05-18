@@ -4,7 +4,7 @@ use frame_support::traits::tokens::Preservation;
 use frame_support::transactional;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance};
-use subtensor_swap_interface::{OrderSwapInterface, SwapHandler};
+use subtensor_swap_interface::{Order, OrderSwapInterface, SwapHandler, SwapResult};
 
 impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
     #[transactional]
@@ -36,6 +36,16 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         // endpoint), which is also the scale the AMM uses for its price_limit argument.
         // Pass it directly without any scaling.  u64::MAX means "no ceiling".
         let amm_limit = limit_price;
+        // Stable subnets (mechanism_id != 1) are always 1:1 and never stop early.
+        if SubnetMechanism::<T>::get(netuid) == 1 {
+            let sim_order = GetAlphaForTao::<T>::with_amount(tao_amount);
+            let sim: SwapResult<TaoBalance, AlphaBalance> =
+                T::SwapInterface::swap(netuid.into(), sim_order, amm_limit, false, true)?;
+            ensure!(
+                sim.amount_paid_in.saturating_add(sim.fee_paid) >= tao_amount,
+                Error::<T>::SlippageTooHigh
+            );
+        }
         let alpha_out =
             Self::stake_into_subnet(hotkey, coldkey, netuid, tao_amount, amm_limit, false, false)?;
         if validate {
@@ -81,6 +91,16 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         // endpoint), which is also the scale the AMM uses for its price_limit argument.
         // Pass it directly without any scaling.  0 means "no floor".
         let amm_limit = limit_price;
+        // Stable subnets (mechanism_id != 1) are always 1:1 and never stop early.
+        if SubnetMechanism::<T>::get(netuid) == 1 {
+            let sim_order = GetTaoForAlpha::<T>::with_amount(alpha_amount);
+            let sim: SwapResult<AlphaBalance, TaoBalance> =
+                T::SwapInterface::swap(netuid.into(), sim_order, amm_limit, false, true)?;
+            ensure!(
+                sim.amount_paid_in.saturating_add(sim.fee_paid) >= alpha_amount,
+                Error::<T>::SlippageTooHigh
+            );
+        }
         let tao_out = Self::unstake_from_subnet(
             hotkey,
             coldkey,

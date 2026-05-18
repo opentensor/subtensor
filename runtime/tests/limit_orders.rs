@@ -1897,3 +1897,192 @@ fn execute_batched_orders_partial_fill_then_complete() {
         );
     });
 }
+
+// ── sim-swap partial-fill guard ───────────────────────────────────────────────
+
+/// A LimitBuy order with 1 ppb max_slippage is silently skipped by
+/// `execute_orders` because the sim-swap detects that the AMM would only
+/// consume a microscopic fraction of the input before the price ceiling is
+/// breached (partial fill).
+///
+/// Setup: dynamic subnet, equal 1T TAO / 1T alpha reserves → pool price = 1.0.
+/// limit_price = 1_000_000_000 (1.0 × 10⁹): LimitBuy triggers when price ≤ 1.0 — met.
+/// max_slippage = 1 ppb → ceiling = 1_000_000_001, barely above pool price.
+/// Sending any real TAO amount immediately pushes the price above the ceiling,
+/// so sim.amount_paid_in + sim.fee_paid < input_amount → SlippageTooHigh.
+/// `execute_orders` is best-effort: it catches the error and skips the order.
+#[test]
+fn execute_orders_buy_tight_slippage_partial_fill_skipped() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_dynamic_subnet(netuid);
+
+        // Alice needs a hotkey association for the buy to validate.
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        // Alice needs TAO to fund the buy.
+        fund_account(&alice_id);
+
+        let initial_balance = SubtensorModule::get_coldkey_balance(&alice_id);
+
+        // limit_price = 1_000_000_000 (= 1.0 × 10⁹): LimitBuy trigger (spot ≤ 1.0) met.
+        // max_slippage = 1 ppb → price ceiling = 1_000_000_001, just above pool price.
+        // Any real TAO amount pushes the price above the ceiling → partial fill detected.
+        let signed = make_signed_order_with_slippage_rt(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            1_000_000_000, // price ceiling at exactly 1.0 × 10⁹ — trigger met
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+            Some(Perbill::from_parts(1)), // 1 ppb — ceiling barely above spot
+        );
+        let id = order_id(&signed.order);
+
+        let orders = make_order_batch(vec![signed]);
+
+        // execute_orders is best-effort: the call succeeds even though the guard
+        // rejects the order due to partial fill.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order must NOT have been written to storage — it was silently skipped.
+        assert!(
+            Orders::<Runtime>::get(id).is_none(),
+            "order should have been skipped, not stored"
+        );
+
+        // No funds should have been debited from Alice — the rollback guard
+        // prevents any state change when partial fill is detected.
+        let final_balance = SubtensorModule::get_coldkey_balance(&alice_id);
+        assert_eq!(
+            final_balance, initial_balance,
+            "alice's TAO balance should be unchanged when the order is rolled back"
+        );
+    });
+}
+
+/// Same setup as `execute_orders_buy_tight_slippage_partial_fill_skipped` but
+/// submitted via `execute_batched_orders`.  The batch hard-fails with
+/// `SlippageTooHigh` because batched execution is not best-effort.
+#[test]
+fn execute_batched_orders_buy_tight_slippage_partial_fill_fails() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_dynamic_subnet(netuid);
+
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        fund_account(&alice_id);
+
+        // Identical order to the execute_orders variant above.
+        let signed = make_signed_order_with_slippage_rt(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            1_000_000_000,
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+            Some(Perbill::from_parts(1)),
+        );
+
+        let orders = make_order_batch(vec![signed]);
+
+        // Batched execution hard-fails: the partial-fill guard surfaces the error
+        // directly to the caller instead of silently skipping.
+        assert_noop!(
+            LimitOrders::execute_batched_orders(RuntimeOrigin::signed(charlie_id), netuid, orders,),
+            pallet_subtensor::Error::<Runtime>::SlippageTooHigh
+        );
+    });
+}
+
+/// A TakeProfit order with 1 ppb max_slippage is silently skipped by
+/// `execute_orders` because the sim-swap detects that selling any real alpha
+/// amount immediately pushes the pool price below the 1 ppb floor.
+///
+/// Setup: dynamic subnet, equal 1T TAO / 1T alpha reserves → pool price = 1.0.
+/// limit_price = 1_000_000_000 (1.0 × 10⁹): TakeProfit triggers when price ≥ 1.0 — met.
+/// max_slippage = 1 ppb → floor = 999_999_999, barely below pool price.
+/// Selling any real alpha amount moves the price below the floor,
+/// so sim.amount_paid_in + sim.fee_paid < input_amount → SlippageTooHigh.
+/// `execute_orders` is best-effort: it catches the error and skips the order.
+#[test]
+fn execute_orders_sell_tight_slippage_partial_fill_skipped() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_dynamic_subnet(netuid);
+
+        // Alice needs a hotkey association and staked alpha for the sell.
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 10u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id,
+            &alice_id,
+            netuid,
+            initial_alpha,
+        );
+
+        // limit_price = 1_000_000_000 (= 1.0 × 10⁹): TakeProfit trigger (spot ≥ 1.0) met.
+        // max_slippage = 1 ppb → price floor = 999_999_999, just below pool price.
+        // Any real alpha sale pushes the price below the floor → partial fill detected.
+        let signed = make_signed_order_with_slippage_rt(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::TakeProfit,
+            min_default_stake().into(),
+            1_000_000_000, // price floor at exactly 1.0 × 10⁹ — trigger met
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+            Some(Perbill::from_parts(1)), // 1 ppb — floor barely below spot
+        );
+        let id = order_id(&signed.order);
+
+        let orders = make_order_batch(vec![signed]);
+
+        // execute_orders is best-effort: the call succeeds even though the guard
+        // rejects the order due to partial fill.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            orders,
+        ));
+
+        // Order must NOT have been written to storage — it was silently skipped.
+        assert!(
+            Orders::<Runtime>::get(id).is_none(),
+            "order should have been skipped, not stored"
+        );
+
+        // Alice's staked alpha must be unchanged — the rollback guard prevents
+        // any state change when partial fill is detected.
+        let remaining_alpha =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+        assert_eq!(
+            remaining_alpha, initial_alpha,
+            "alice's staked alpha should be unchanged when the order is rolled back"
+        );
+    });
+}

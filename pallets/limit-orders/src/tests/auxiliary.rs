@@ -183,7 +183,7 @@ fn validate_and_classify_fails_for_expired_order() {
             OrderType::LimitBuy,
             1_000u64,
             2_000_000_000u64, // 2.0 in ×10⁹ scale
-            2_000_000u64, // expiry already past
+            2_000_000u64,     // expiry already past
             Perbill::zero(),
             fee_recipient(),
             None,

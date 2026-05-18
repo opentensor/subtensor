@@ -116,6 +116,9 @@ thread_local! {
     /// `buy_alpha` fails if `market_price > limit_price` (ceiling exceeded);
     /// `sell_alpha` fails if `market_price < limit_price` (floor not met).
     pub static MOCK_ENFORCE_PRICE_LIMIT: RefCell<bool> = const { RefCell::new(false) };
+    /// When `true`, `buy_alpha` and `sell_alpha` return a slippage error to simulate
+    /// the case where the AMM price limit stops the swap before the full amount is consumed.
+    pub static MOCK_SIMULATE_PARTIAL_FILL: RefCell<bool> = const { RefCell::new(false) };
     /// Rate-limit flags set by `transfer_staked_alpha` when `set_receiver_limit` is true.
     /// Key: (hotkey, coldkey, netuid) — mirrors `StakingOperationRateLimiter` in subtensor.
     pub static RATE_LIMITS: RefCell<std::collections::HashSet<(AccountId, AccountId, NetUid)>> =
@@ -143,6 +146,9 @@ impl MockSwap {
     pub fn set_enforce_price_limit(enforce: bool) {
         MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow_mut() = enforce);
     }
+    pub fn set_simulate_partial_fill(val: bool) {
+        MOCK_SIMULATE_PARTIAL_FILL.with(|v| *v.borrow_mut() = val);
+    }
     pub fn clear_log() {
         SWAP_LOG.with(|l| l.borrow_mut().clear());
         ALPHA_BALANCES.with(|b| b.borrow_mut().clear());
@@ -150,6 +156,7 @@ impl MockSwap {
         RATE_LIMITS.with(|r| r.borrow_mut().clear());
         HOTKEY_REGISTRATIONS.with(|r| r.borrow_mut().clear());
         MOCK_ENFORCE_PRICE_LIMIT.with(|v| *v.borrow_mut() = false);
+        MOCK_SIMULATE_PARTIAL_FILL.with(|v| *v.borrow_mut() = false);
     }
     pub fn is_rate_limited(hotkey: &AccountId, coldkey: &AccountId, netuid: NetUid) -> bool {
         RATE_LIMITS.with(|r| {
@@ -266,6 +273,11 @@ impl OrderSwapInterface<AccountId> for MockSwap {
                 "pool error",
             ));
         }
+        if MOCK_SIMULATE_PARTIAL_FILL.with(|v| *v.borrow()) {
+            return Err(frame_support::pallet_prelude::DispatchError::Other(
+                "slippage too high",
+            ));
+        }
         let tao = tao_amount.to_u64();
         // Record the call (including rejected ones) so tests can verify the limit was passed.
         SWAP_LOG.with(|l| {
@@ -317,6 +329,11 @@ impl OrderSwapInterface<AccountId> for MockSwap {
         if MOCK_SWAP_FAIL.with(|v| *v.borrow()) {
             return Err(frame_support::pallet_prelude::DispatchError::Other(
                 "pool error",
+            ));
+        }
+        if MOCK_SIMULATE_PARTIAL_FILL.with(|v| *v.borrow()) {
+            return Err(frame_support::pallet_prelude::DispatchError::Other(
+                "slippage too high",
             ));
         }
         let alpha = alpha_amount.to_u64();
