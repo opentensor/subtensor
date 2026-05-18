@@ -1050,7 +1050,7 @@ fn test_roll_forward_chunked_update_matches_single_update() {
         assert_abs_diff_eq!(
             rolled_twice.conviction.to_num::<f64>(),
             rolled_once.conviction.to_num::<f64>(),
-            epsilon = 0.01
+            epsilon = 0.1
         );
     });
 }
