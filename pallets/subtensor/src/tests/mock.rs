@@ -492,7 +492,6 @@ impl crate::Config for Test {
     type OnRootRegistrationChange = MockOnRootRegistrationChange;
     type RootRegisteredInspector = MockRootRegisteredInspector;
     type EmaStrategy = MockEmaStrategy;
-    type EmaSamplingInterval = EmaSamplingInterval;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();

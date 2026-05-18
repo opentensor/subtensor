@@ -314,7 +314,6 @@ impl pallet_subtensor::Config for Test {
     type OnRootRegistrationChange = ();
     type RootRegisteredInspector = ();
     type EmaStrategy = ();
-    type EmaSamplingInterval = frame_support::traits::ConstU64<1>;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();

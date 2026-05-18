@@ -80,10 +80,6 @@ mod config {
         /// Strategy for computing root-registered stake EMAs.
         type EmaStrategy: EmaStrategy<Self::AccountId>;
 
-        /// Blocks between EMA sample ticks.
-        #[pallet::constant]
-        type EmaSamplingInterval: Get<BlockNumberFor<Self>>;
-
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: crate::weights::WeightInfo;
 
