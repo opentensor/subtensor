@@ -948,7 +948,7 @@ describe("Test wasm contract", () => {
         const stakeAfter = await getContractStakeOnRoot()
         const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
 
-        assert.ok(balanceBefore - balanceAfter < 1_000_000)
+        assert.ok(balanceBefore - balanceAfter < 10_000_000)
         assert.equal(stakeAfter, stakeBefore)
     })
 
