@@ -390,6 +390,7 @@ impl<T: Config> Pallet<T> {
             let now = Self::get_current_block_as_u64();
             let rolled = Self::roll_forward_individual_lock(coldkey, netuid, lock, now);
             let new_locked_mass = rolled.locked_mass.saturating_sub(amount);
+            let locked_mass_diff = rolled.locked_mass.saturating_sub(new_locked_mass);
 
             // Remove or update lock
             let conviction_diff = if new_locked_mass.is_zero() {
@@ -413,7 +414,13 @@ impl<T: Config> Pallet<T> {
             };
 
             // Reduce the total hotkey lock by the rolled locked mass and conviction
-            Self::reduce_aggregate_lock(coldkey, &existing_hotkey, netuid, amount, conviction_diff);
+            Self::reduce_aggregate_lock(
+                coldkey,
+                &existing_hotkey,
+                netuid,
+                locked_mass_diff,
+                conviction_diff,
+            );
         }
     }
 

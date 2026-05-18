@@ -2236,6 +2236,53 @@ fn test_reduce_lock_two_coldkeys() {
     });
 }
 
+#[test]
+fn test_force_reduce_lock_does_not_over_reduce_hotkey_lock() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(3);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey1, hotkey, 100_000_000_000);
+        let now = SubtensorModule::get_current_block_as_u64();
+
+        Lock::<Test>::insert(
+            (coldkey1, netuid, hotkey),
+            LockState {
+                locked_mass: 1u64.into(),
+                conviction: U64F64::from_num(10),
+                last_update: now,
+            },
+        );
+        Lock::<Test>::insert(
+            (coldkey2, netuid, hotkey),
+            LockState {
+                locked_mass: 50u64.into(),
+                conviction: U64F64::from_num(20),
+                last_update: now,
+            },
+        );
+        HotkeyLock::<Test>::insert(
+            netuid,
+            hotkey,
+            LockState {
+                locked_mass: 51u64.into(),
+                conviction: U64F64::from_num(30),
+                last_update: now,
+            },
+        );
+
+        SubtensorModule::force_reduce_lock(&coldkey1, netuid, 20u64.into());
+
+        assert!(Lock::<Test>::get((coldkey1, netuid, hotkey)).is_none());
+        assert!(Lock::<Test>::get((coldkey2, netuid, hotkey)).is_some());
+
+        let hotkey_lock =
+            HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should remain");
+        assert_eq!(hotkey_lock.locked_mass, 50u64.into());
+        assert_eq!(hotkey_lock.conviction, U64F64::from_num(20));
+    });
+}
+
 // =========================================================================
 // GROUP 11: Coldkey swap interaction
 // =========================================================================
