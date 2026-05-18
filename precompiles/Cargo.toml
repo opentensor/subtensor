@@ -101,6 +101,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
+	"pallet-rate-limiting/runtime-benchmarks",
 ]
 
 [dev-dependencies]
