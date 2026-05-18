@@ -24,6 +24,8 @@ use sp_runtime::{
 use sp_std::{cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use substrate_fixed::types::U64F64;
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
+use subtensor_runtime_common::rate_limiting::RateLimitUsageKey;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -166,7 +168,6 @@ parameter_types! {
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
-    pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
@@ -251,9 +252,6 @@ impl crate::Config for Test {
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
-    type InitialServingRateLimit = InitialServingRateLimit;
-    type InitialTxRateLimit = InitialTxRateLimit;
-    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -264,7 +262,6 @@ impl crate::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
@@ -285,6 +282,7 @@ impl crate::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type RateLimiting = NoRateLimiting;
     type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
@@ -328,6 +326,42 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
     fn purge_netuid(_netuid: NetUid) {}
+}
+
+pub struct NoRateLimiting;
+
+impl RateLimitingInterface for NoRateLimiting {
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
+    type CallMetadata = RuntimeCall;
+    type Limit = BlockNumber;
+    type Scope = NetUid;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+
+    fn rate_limit<TargetArg>(_target: TargetArg, _scope: Option<Self::Scope>) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+    ) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn set_last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+        _block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+    }
 }
 
 parameter_types! {

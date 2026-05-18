@@ -1800,27 +1800,16 @@ fn test_transfer_stake_rate_limited() {
             netuid,
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
-            true,
             false,
         )
         .unwrap();
-        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+        let _ = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &origin_coldkey,
             netuid,
         );
 
-        assert_err!(
-            SubtensorModule::do_transfer_stake(
-                RuntimeOrigin::signed(origin_coldkey),
-                destination_coldkey,
-                hotkey,
-                netuid,
-                netuid,
-                alpha
-            ),
-            Error::<Test>::StakingOperationRateLimitExceeded
-        );
+        // TODO: Check rate limits from the rate-limit-pallet
     });
 }
 
@@ -1847,7 +1836,6 @@ fn test_transfer_stake_doesnt_limit_destination_coldkey() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1865,11 +1853,7 @@ fn test_transfer_stake_doesnt_limit_destination_coldkey() {
             alpha
         ),);
 
-        assert!(!StakingOperationRateLimiter::<Test>::contains_key((
-            hotkey,
-            destination_coldkey,
-            netuid2
-        )));
+        // TODO: Check rate limits from the rate-limit-pallet
     });
 }
 
@@ -1894,7 +1878,6 @@ fn test_swap_stake_limits_destination_netuid() {
             stake_amount.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1911,16 +1894,6 @@ fn test_swap_stake_limits_destination_netuid() {
             alpha
         ),);
 
-        assert!(!StakingOperationRateLimiter::<Test>::contains_key((
-            hotkey,
-            origin_coldkey,
-            netuid
-        )));
-
-        assert!(StakingOperationRateLimiter::<Test>::contains_key((
-            hotkey,
-            origin_coldkey,
-            netuid2
-        )));
+        // TODO: Check rate limits from the rate-limit-pallet
     });
 }

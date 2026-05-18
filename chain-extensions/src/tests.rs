@@ -1736,8 +1736,6 @@ mod caller_dispatch_tests {
                 stake_amount_raw.into(),
             ));
 
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
             let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all();
 
             let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
@@ -1789,8 +1787,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
             let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all_alpha();
 
@@ -1853,8 +1849,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&origin_hotkey, &coldkey, netuid);
 
             let alpha_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1933,8 +1927,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &origin_coldkey, netuid);
 
             let alpha_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2022,8 +2014,6 @@ mod caller_dispatch_tests {
                 netuid_a,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
 
             let alpha_origin_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2155,8 +2145,6 @@ mod caller_dispatch_tests {
                 stake_amount_raw.into(),
             ));
 
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
             let alpha_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid,
@@ -2235,8 +2223,6 @@ mod caller_dispatch_tests {
                 stake_alpha,
             );
 
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
-
             let alpha_origin_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid_a,
@@ -2304,8 +2290,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
             let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
 

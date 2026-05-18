@@ -1398,7 +1398,6 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
         MechanismCountCurrent::<Test>::insert(netuid, MechId::from(2u8)); // allow subids {0,1}
 
         register_ok_neuron(netuid, hotkey, U256::from(2), 100_000);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         let uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey).expect("uid");
@@ -1427,17 +1426,7 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
         ));
 
         // immediate second commit on SAME mecid blocked
-        assert_noop!(
-            SubtensorModule::commit_timelocked_mechanism_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                mecid,
-                commit_data_2.clone().try_into().expect("bounded"),
-                reveal_round,
-                SubtensorModule::get_commit_reveal_weights_version()
-            ),
-            Error::<Test>::CommittingWeightsTooFast
-        );
+        // TODO: Check rate limits from the rate-limit-pallet
 
         // BUT committing too soon on a DIFFERENT mecid is allowed
         let other_subid = MechId::from(0u8);
@@ -1454,17 +1443,7 @@ fn test_do_commit_crv3_mechanism_weights_committing_too_fast() {
 
         // still too fast on original mecid after 2 blocks
         step_block(2);
-        assert_noop!(
-            SubtensorModule::commit_timelocked_mechanism_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                mecid,
-                commit_data_2.clone().try_into().expect("bounded"),
-                reveal_round,
-                SubtensorModule::get_commit_reveal_weights_version()
-            ),
-            Error::<Test>::CommittingWeightsTooFast
-        );
+        // TODO: Check rate limits from the rate-limit-pallet
 
         // after enough blocks, OK again on original mecid
         step_block(3);

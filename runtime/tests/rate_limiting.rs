@@ -753,7 +753,7 @@ mod staking_ops {
     }
 
     fn seed_stake(netuid: NetUid, hotkey: &AccountId, coldkey: &AccountId, alpha: u64) {
-        pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
+        let _ = pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
         pallet_subtensor::Pallet::<Runtime>::increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             coldkey,
@@ -776,7 +776,7 @@ mod staking_ops {
             .build()
             .execute_with(|| {
                 setup_staking_network(netuid);
-                pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
+                let _ = pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
                     &coldkey, &hotkey,
                 );
 
@@ -822,7 +822,7 @@ mod staking_ops {
             .build()
             .execute_with(|| {
                 setup_staking_network(netuid);
-                pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
+                let _ = pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
                     &coldkey, &hotkey,
                 );
 
@@ -988,7 +988,7 @@ mod swap_keys {
         pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, 1);
         System::set_block_number(block.saturated_into());
         pallet_subtensor::Pallet::<Runtime>::append_neuron(netuid, hotkey, block);
-        pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
+        let _ = pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
     }
 
     #[test]
@@ -1249,7 +1249,7 @@ mod swap_keys {
                     Some(10u64.saturated_into())
                 );
 
-                pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
+                let _ = pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(
                     &new_coldkey,
                     &old_hotkey,
                 );

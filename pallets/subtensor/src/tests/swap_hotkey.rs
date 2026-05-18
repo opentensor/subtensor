@@ -1131,7 +1131,6 @@ fn test_do_swap_hotkey_err_new_hotkey_not_clean_for_root() {
 
         Owner::<Test>::insert(old_hotkey, coldkey);
         TotalNetworks::<Test>::put(1);
-        SubtensorModule::set_last_tx_block(&coldkey, 0);
 
         let initial_balance = SubtensorModule::get_key_swap_cost() + 1000.into();
         add_balance_to_coldkey_account(&coldkey, initial_balance);

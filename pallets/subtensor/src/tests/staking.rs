@@ -5175,8 +5175,8 @@ fn test_update_position_fees() {
 
             // add network
             let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-            SubtensorModule::add_balance_to_coldkey_account(&owner_coldkey, (amount * 10).into());
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, (amount * 100).into());
+            add_balance_to_coldkey_account(&owner_coldkey, (amount * 10).into());
+            add_balance_to_coldkey_account(&coldkey, (amount * 100).into());
             pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
             // Forse-set alpha in and tao reserve to make price equal 0.25
@@ -5309,7 +5309,7 @@ fn test_update_position_fees() {
 //         (10, 20, 0.8, 1.1, 300_000_000_000_u64),
 //     ] {
 //         SubtensorModule::create_account_if_non_existent(&U256::from(coldkey), &U256::from(hotkey));
-//         SubtensorModule::add_balance_to_coldkey_account(
+//         add_balance_to_coldkey_account(
 //             &U256::from(coldkey),
 //             1_000_000_000_000_000,
 //         );
@@ -5344,7 +5344,7 @@ fn test_large_swap() {
 
         // add network
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000_u64.into());
         pallet_subtensor_swap::EnabledUserLiquidity::<Test>::insert(NetUid::from(netuid), true);
 
         // Force the swap to initialize
@@ -5354,9 +5354,12 @@ fn test_large_swap() {
             1_000_000_000_000_u64.into(),
             false,
         )
-        .unwrap();
+            .unwrap();
 
-        add_balance_to_coldkey_account(&cold1, init_balance);
+        // TODO: Revise when user liquidity is available
+        // setup_positions(netuid.into());
+
+        let swap_amount = TaoBalance::from(100_000_000_000_000_u64);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(coldkey),
             owner_hotkey,

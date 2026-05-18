@@ -824,7 +824,6 @@ mod tests {
         pallet_subtensor::SubnetOwner::<Runtime>::insert(netuid, owner);
         pallet_subtensor::SubnetOwnerHotkey::<Runtime>::insert(netuid, owner_hotkey);
         pallet_subtensor::AdminFreezeWindow::<Runtime>::set(0);
-        pallet_subtensor::OwnerHyperparamRateLimit::<Runtime>::set(0);
 
         netuid
     }
@@ -920,31 +919,6 @@ mod tests {
             let netuid = setup_owner_subnet(caller);
             let precompiles = precompiles::<SubnetPrecompile<Runtime>>();
             let precompile_addr = addr_from_index(SubnetPrecompile::<Runtime>::INDEX);
-
-            precompiles
-                .prepare_test(
-                    caller,
-                    precompile_addr,
-                    encode_with_selector(
-                        selector_u32("setServingRateLimit(uint16,uint64)"),
-                        (TEST_NETUID_U16, 100_u64),
-                    ),
-                )
-                .execute_returns(());
-            assert_eq!(
-                pallet_subtensor::ServingRateLimit::<Runtime>::get(netuid),
-                100
-            );
-            assert_static_call(
-                &precompiles,
-                caller,
-                precompile_addr,
-                encode_with_selector(
-                    selector_u32("getServingRateLimit(uint16)"),
-                    (TEST_NETUID_U16,),
-                ),
-                U256::from(100_u64),
-            );
 
             precompiles
                 .prepare_test(

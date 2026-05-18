@@ -1066,11 +1066,6 @@ mod tests {
 
         fund_account(&source_account, COLDKEY_BALANCE);
         add_stake_v2(source, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
-        pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-            hotkey.clone(),
-            source_account.clone(),
-            netuid,
-        ));
 
         (
             netuid,
@@ -1265,11 +1260,6 @@ mod tests {
 
             fund_account(&caller_account, COLDKEY_BALANCE);
             add_stake_v1(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             let precompiles = precompiles::<StakingPrecompile<Runtime>>();
             let precompile_addr = addr_from_index(StakingPrecompile::<Runtime>::INDEX);
@@ -1305,11 +1295,6 @@ mod tests {
 
             fund_account(&caller_account, COLDKEY_BALANCE);
             add_stake_v2(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
             let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
@@ -1398,11 +1383,6 @@ mod tests {
                     ),
                 )
                 .execute_returns(());
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             let stake_before = stake_for(&hotkey, &caller_account, netuid);
             precompiles
@@ -1454,11 +1434,6 @@ mod tests {
                     ),
                 )
                 .execute_returns(());
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             assert!(stake_for(&hotkey, &caller_account, netuid) > 0);
             precompiles
@@ -1508,11 +1483,6 @@ mod tests {
                     ),
                 )
                 .execute_returns(());
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             assert!(stake_for(&hotkey, &caller_account, netuid) > 0);
             precompiles

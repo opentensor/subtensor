@@ -47,7 +47,6 @@ fn setup_subnet_with_stake(
         amount,
         <Test as Config>::SwapInterface::max_price(),
         false,
-        false,
     )
     .unwrap();
 
@@ -860,7 +859,6 @@ fn test_lock_on_multiple_subnets() {
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -927,7 +925,6 @@ fn test_unstake_one_subnet_does_not_affect_other() {
             netuid_b,
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1002,7 +999,6 @@ fn test_hotkey_conviction_multiple_lockers() {
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1076,7 +1072,6 @@ fn test_subnet_king_highest_conviction_wins() {
             netuid,
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1234,7 +1229,6 @@ fn test_reduce_lock_two_coldkeys() {
             netuid,
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -1820,7 +1814,6 @@ fn test_clear_small_nomination_checks_lock() {
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1888,7 +1881,6 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             large_tao,
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
         SubtensorModule::stake_into_subnet(
@@ -1897,7 +1889,6 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
             netuid,
             tiny_tao,
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
@@ -2046,7 +2037,6 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
             stake.into()
         ));
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 1);
         step_block(subnet_tempo);
         SubnetOwnerCut::<Test>::set(u16::MAX / 10);
@@ -2230,7 +2220,6 @@ fn test_moving_partial_lock() {
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -2313,7 +2302,6 @@ fn test_moving_partial_lock_same_owners() {
             netuid,
             50_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
-            false,
             false,
         )
         .unwrap();
