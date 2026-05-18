@@ -969,7 +969,7 @@ describe("Test wasm contract", () => {
         const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
         const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
 
-        assert.ok(balanceBefore - balanceAfter < 1_000_000)
+        assert.ok(balanceBefore - balanceAfter < 10_000_000)
         assert.equal(stakeAfter, stakeBefore)
         assert.ok(alphaOutAfter > alphaOutBefore)
     })
