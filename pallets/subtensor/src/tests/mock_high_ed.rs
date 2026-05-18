@@ -15,6 +15,7 @@ use frame_support::{parameter_types, traits::PrivilegeCmp};
 use frame_system as system;
 use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
 use pallet_subtensor_proxy as pallet_proxy;
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -24,7 +25,6 @@ use sp_runtime::{
 use sp_std::{cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
 use substrate_fixed::types::U64F64;
-use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 use subtensor_runtime_common::rate_limiting::RateLimitUsageKey;
 use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};

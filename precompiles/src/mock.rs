@@ -530,12 +530,10 @@ parameter_types! {
 }
 
 pub struct LimitSettingOrigin;
-impl pallet_rate_limiting::EnsureLimitSettingRule<RuntimeOrigin, (), NetUid> for LimitSettingOrigin {
-    fn ensure_origin(
-        origin: RuntimeOrigin,
-        _rule: &(),
-        _scope: &Option<NetUid>,
-    ) -> DispatchResult {
+impl pallet_rate_limiting::EnsureLimitSettingRule<RuntimeOrigin, (), NetUid>
+    for LimitSettingOrigin
+{
+    fn ensure_origin(origin: RuntimeOrigin, _rule: &(), _scope: &Option<NetUid>) -> DispatchResult {
         EnsureRoot::<AccountId>::ensure_origin(origin)
             .map(|_| ())
             .map_err(|_| sp_runtime::DispatchError::BadOrigin)
@@ -552,8 +550,12 @@ impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, Ne
 }
 
 pub struct MockUsageResolver;
-impl pallet_rate_limiting::RateLimitUsageResolver<RuntimeOrigin, RuntimeCall, RateLimitUsageKey<AccountId>>
-    for MockUsageResolver
+impl
+    pallet_rate_limiting::RateLimitUsageResolver<
+        RuntimeOrigin,
+        RuntimeCall,
+        RateLimitUsageKey<AccountId>,
+    > for MockUsageResolver
 {
     fn context(
         _origin: &RuntimeOrigin,

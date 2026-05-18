@@ -5219,7 +5219,7 @@ fn test_large_swap() {
             1_000_000_000_000_u64.into(),
             false,
         )
-            .unwrap();
+        .unwrap();
 
         // TODO: Revise when user liquidity is available
         // setup_positions(netuid.into());

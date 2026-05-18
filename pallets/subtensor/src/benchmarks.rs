@@ -981,8 +981,6 @@ mod pallet_benchmarks {
 
         let amount_unstaked = AlphaBalance::from(30_000_000_000_u64);
 
-        StakingOperationRateLimiter::<T>::remove((hotkey.clone(), coldkey.clone(), netuid));
-
         #[extrinsic_call]
         _(
             RawOrigin::Signed(coldkey.clone()),

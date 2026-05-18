@@ -753,7 +753,8 @@ mod staking_ops {
     }
 
     fn seed_stake(netuid: NetUid, hotkey: &AccountId, coldkey: &AccountId, alpha: u64) {
-        let _ = pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
+        let _ =
+            pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
         pallet_subtensor::Pallet::<Runtime>::increase_stake_for_hotkey_and_coldkey_on_subnet(
             hotkey,
             coldkey,
@@ -988,7 +989,8 @@ mod swap_keys {
         pallet_subtensor::Pallet::<Runtime>::init_new_network(netuid, 1);
         System::set_block_number(block.saturated_into());
         pallet_subtensor::Pallet::<Runtime>::append_neuron(netuid, hotkey, block);
-        let _ = pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
+        let _ =
+            pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
     }
 
     #[test]
