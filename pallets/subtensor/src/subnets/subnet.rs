@@ -186,7 +186,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
-        Self::set_network_last_lock_block(current_block);
 
         // --- 12. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey)?;

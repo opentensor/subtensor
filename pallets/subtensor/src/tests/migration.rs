@@ -32,11 +32,8 @@ use sp_core::{H256, U256, crypto::Ss58Codec};
 use sp_io::hashing::twox_128;
 use sp_runtime::{AccountId32, SaturatedConversion, traits::Hash, traits::Zero};
 use sp_std::marker::PhantomData;
-use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
-use substrate_fixed::{
-    types::{I96F32, U64F64, extra::U2},
-};
-use subtensor_runtime_common::{NetUidStorageIndex, TaoBalance, rate_limiting};
+use substrate_fixed::types::{I96F32, U64F64, extra::U2};
+use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance, rate_limiting};
 
 #[allow(clippy::arithmetic_side_effects)]
 fn close(value: u64, target: u64, eps: u64) {

@@ -29,7 +29,10 @@ pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::StorageMap};
     use frame_system::pallet_prelude::*;
     use pallet_evm_chain_id::{self, ChainId};
-    use pallet_subtensor::{DefaultMaxAllowedUids, utils::rate_limiting::TransactionType};
+    use pallet_subtensor::{
+        DefaultMaxAllowedUids,
+        utils::rate_limiting::{Hyperparameter, TransactionType},
+    };
     use sp_runtime::BoundedVec;
     use substrate_fixed::types::{I64F64, I96F32, U64F64};
     use subtensor_runtime_common::{MechId, NetUid, TaoBalance};
@@ -1954,12 +1957,6 @@ pub mod pallet {
                 netuid,
                 burn_increase_mult,
             });
-
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::BurnIncreaseMult.into()],
-            );
 
             Ok(())
         }
