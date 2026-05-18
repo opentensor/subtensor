@@ -1171,6 +1171,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
 
+    /// MAP ( netuid ) --> take | Returns the subnet-specific minimum childkey take.
+    #[pallet::storage]
+    pub type MinChildkeyTakePerSubnet<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery>;
+
     /// MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey
     #[pallet::storage]
     pub type Owner<T: Config> =
@@ -1334,6 +1338,18 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// --- MAP ( netuid ) --> subnet_emission_enabled
+    ///
+    /// When false, subnet pool-side emission is disabled for this subnet:
+    /// `alpha_in`, `tao_in`, and `excess_tao` chain buys are all treated as zero.
+    /// `alpha_out`, owner cut, root proportion, pending server emission, and pending
+    /// validator emission are intentionally left unchanged.
+    ///
+    /// Defaults to true so existing subnets keep current behavior.
+    #[pallet::storage]
+    pub type SubnetEmissionEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultTrue<T>>;
 
     /// --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     #[pallet::storage]

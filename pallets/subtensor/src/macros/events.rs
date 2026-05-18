@@ -121,6 +121,8 @@ mod events {
         OwnerHyperparamRateLimitSet(u16),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
+        /// subnet-specific minimum childkey take set
+        MinChildKeyTakePerSubnetSet(NetUid, u16),
         /// maximum childkey take set
         MaxChildKeyTakeSet(u16),
         /// childkey take set
@@ -279,8 +281,9 @@ mod events {
 
         /// A weight set among a batch of weights failed.
         ///
+        /// - **netuid**: The netuid of the batch item that failed.
         /// - **error**: The dispatch error emitted by the failed item.
-        BatchWeightItemFailed(sp_runtime::DispatchError),
+        BatchWeightItemFailed(NetUid, sp_runtime::DispatchError),
 
         /// Stake has been transferred from one coldkey to another on the same subnet.
         /// Parameters:

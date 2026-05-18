@@ -110,6 +110,14 @@ pub mod pallet {
             /// The new burn increase multiplier.
             burn_increase_mult: U64F64,
         },
+
+        /// Pool-side subnet emission injections and chain buys were enabled or disabled.
+        SubnetEmissionEnabledSet {
+            /// The network identifier.
+            netuid: NetUid,
+            /// Whether pool-side emission injections and chain buys are enabled.
+            enabled: bool,
+        },
     }
 
     // Errors inform users that something went wrong.
@@ -1141,6 +1149,45 @@ pub mod pallet {
             Ok(())
         }
 
+        /// The extrinsic sets the minimum childkey take for a subnet.
+        /// It is callable by root or the subnet owner.
+        /// The subnet minimum can only make the global minimum stricter.
+        #[pallet::call_index(93)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_min_childkey_take_per_subnet())]
+        pub fn sudo_set_min_childkey_take_per_subnet(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            take: u16,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::MinChildkeyTake.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(
+                take >= pallet_subtensor::Pallet::<T>::get_min_childkey_take()
+                    && take <= pallet_subtensor::Pallet::<T>::get_max_childkey_take(),
+                Error::<T>::InvalidValue
+            );
+
+            pallet_subtensor::Pallet::<T>::set_min_childkey_take_for_subnet(netuid, take);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::MinChildkeyTake.into()],
+            );
+            log::debug!(
+                "MinChildkeyTakePerSubnetSet( netuid: {netuid:?}, min_childkey_take: {take:?} ) "
+            );
+            Ok(())
+        }
+
         /// The extrinsic enabled/disables commit/reaveal for a given subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the value.
@@ -2137,6 +2184,45 @@ pub mod pallet {
                 maybe_owner,
                 netuid,
                 &[Hyperparameter::BurnIncreaseMult.into()],
+            );
+
+            Ok(())
+        }
+
+        /// Enables or disables subnet pool-side emission for a subnet.
+        ///
+        /// This does not remove the subnet from emission share calculation and does not
+        /// change `alpha_out`, owner cut, root proportion, pending server emission, or
+        /// pending validator emission. It only zeros the pool-side `alpha_in`, `tao_in`,
+        /// and `excess_tao` chain-buy paths.
+        #[pallet::call_index(92)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_subnet_emission_enabled())]
+        pub fn sudo_set_subnet_emission_enabled(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::SubnetEmissionEnabled.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+
+            pallet_subtensor::SubnetEmissionEnabled::<T>::insert(netuid, enabled);
+            Self::deposit_event(Event::SubnetEmissionEnabledSet { netuid, enabled });
+            log::debug!("SubnetEmissionEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} )");
+
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::SubnetEmissionEnabled.into()],
             );
 
             Ok(())
