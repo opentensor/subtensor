@@ -26,8 +26,9 @@ use sp_runtime::{
 };
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use sp_tracing::tracing_subscriber;
-use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance};
+use subtensor_runtime_common::{AuthorshipInfo, NetUid, TaoBalance, rate_limiting::RateLimitUsageKey};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
@@ -188,9 +189,6 @@ parameter_types! {
     pub const InitialMinChildKeyTake: u16 = 0; // 0 %;
     pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
-    pub const InitialServingRateLimit: u64 = 0; // No limit.
-    pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
-    pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
@@ -216,7 +214,6 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
@@ -238,11 +235,48 @@ parameter_types! {
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
+pub struct NoRateLimiting;
+
+impl RateLimitingInterface for NoRateLimiting {
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
+    type CallMetadata = RuntimeCall;
+    type Limit = u64;
+    type Scope = subtensor_runtime_common::NetUid;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+
+    fn rate_limit<TargetArg>(_target: TargetArg, _scope: Option<Self::Scope>) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+    ) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn set_last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+        _block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+    }
+}
+
 impl pallet_subtensor::Config for Test {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
+    type RateLimiting = NoRateLimiting;
     type Scheduler = Scheduler;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
@@ -275,9 +309,6 @@ impl pallet_subtensor::Config for Test {
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
-    type InitialServingRateLimit = InitialServingRateLimit;
-    type InitialTxRateLimit = InitialTxRateLimit;
-    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -288,7 +319,6 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;

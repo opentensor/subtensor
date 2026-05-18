@@ -18,6 +18,7 @@ unwrap-used = "deny"
 useless_conversion = "allow"
 
 [dependencies]
+rate-limiting-interface = { default-features = false, path = "../pallets/rate-limiting-interface", features = ["std"] }
 pallet-subtensor = { path = "../pallets/subtensor", default-features = false, features = ["std"] }
 pallet-alpha-assets = { path = "../pallets/alpha-assets", default-features = false, features = ["std"] }
 frame-support = { git = "https://github.com/opentensor/polkadot-sdk.git", rev = "7cc54bf2d50ae3921d718736dfeb0de9468539c7", default-features = false, features = ["std"] }
