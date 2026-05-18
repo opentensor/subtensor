@@ -1,14 +1,8 @@
 name: ai-review
 
 on:
-  # Triggered AFTER the Check Rust workflow completes, so we don't burn a
-  # runner polling for completion. We then check conclusion=='success' to gate.
-  # Note: workflow_run only fires for workflow files present on the repo's
-  # DEFAULT branch — until this workflow is merged there, PRs cannot auto-trigger.
-  # Use workflow_dispatch for one-off runs in the meantime.
-  workflow_run:
-    workflows: ["Check Rust"]
-    types: [completed]
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -29,17 +23,13 @@ permissions:
   checks: write
 
 concurrency:
-  group: ai-review-${{ github.event.workflow_run.head_sha || github.event.inputs.pr_number || github.run_id }}
+  group: ai-review-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   decide:
     name: decide
     runs-on: ubuntu-latest
-    # Only proceed if Check Rust succeeded (or we were dispatched manually).
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
     outputs:
       pr_number: ${{ steps.compute.outputs.pr_number }}
       head_sha: ${{ steps.compute.outputs.head_sha }}
@@ -58,19 +48,13 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_PR: ${{ github.event.inputs.pr_number }}
           INPUT_PERSONA: ${{ github.event.inputs.persona }}
-          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             PR="$INPUT_PR"
             PERSONA="$INPUT_PERSONA"
           else
-            # workflow_run.pull_requests is empty for fork PRs; look up by SHA instead.
-            PR=$(gh api "repos/$REPO/commits/$RUN_HEAD_SHA/pulls" --jq '.[0].number')
-            if [[ -z "$PR" || "$PR" == "null" ]]; then
-              echo "No open PR for SHA $RUN_HEAD_SHA — skipping."
-              exit 0
-            fi
+            PR='${{ github.event.pull_request.number }}'
             PERSONA=""
           fi
 
@@ -87,12 +71,6 @@ jobs:
             IS_FORK=false
           else
             IS_FORK=true
-          fi
-
-          # Skip if the workflow_run was for a stale SHA (PR has been pushed since).
-          if [[ "$EVENT_NAME" == "workflow_run" && -n "$RUN_HEAD_SHA" && "$RUN_HEAD_SHA" != "$HEAD_SHA" ]]; then
-            echo "Workflow_run SHA $RUN_HEAD_SHA is stale (PR head is now $HEAD_SHA) — skipping."
-            exit 0
           fi
 
           if [[ -n "$PERSONA" ]]; then
