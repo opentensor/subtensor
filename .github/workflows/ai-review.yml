@@ -1,14 +1,14 @@
 name: ai-review
 
 on:
-  # Same-repo PRs route through pull_request (full GITHUB_TOKEN, safer — uses
-  # the head branch's workflow file). Fork PRs route through pull_request_target
-  # so we can still post comments (uses the base branch's workflow file). The
-  # if: on the decide job below ensures each PR runs through exactly one event.
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
-  pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
+  # Triggered AFTER the Check Rust workflow completes, so we don't burn a
+  # runner polling for completion. We then check conclusion=='success' to gate.
+  # Note: workflow_run only fires for workflow files present on the repo's
+  # DEFAULT branch — until this workflow is merged there, PRs cannot auto-trigger.
+  # Use workflow_dispatch for one-off runs in the meantime.
+  workflow_run:
+    workflows: ["Check Rust"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -29,19 +29,17 @@ permissions:
   checks: write
 
 concurrency:
-  group: ai-review-${{ github.event.pull_request.number || github.event.inputs.pr_number || github.run_id }}
+  group: ai-review-${{ github.event.workflow_run.head_sha || github.event.inputs.pr_number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   decide:
     name: decide
     runs-on: ubuntu-latest
-    # Run exactly once per PR event: pull_request handles same-repo, pull_request_target handles forks.
-    # workflow_dispatch always runs.
+    # Only proceed if Check Rust succeeded (or we were dispatched manually).
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
+      github.event.workflow_run.conclusion == 'success'
     outputs:
       pr_number: ${{ steps.compute.outputs.pr_number }}
       head_sha: ${{ steps.compute.outputs.head_sha }}
@@ -56,20 +54,27 @@ jobs:
       - id: compute
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_PR: ${{ github.event.inputs.pr_number }}
           INPUT_PERSONA: ${{ github.event.inputs.persona }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             PR="$INPUT_PR"
             PERSONA="$INPUT_PERSONA"
           else
-            PR='${{ github.event.pull_request.number }}'
+            # workflow_run.pull_requests is empty for fork PRs; look up by SHA instead.
+            PR=$(gh api "repos/$REPO/commits/$RUN_HEAD_SHA/pulls" --jq '.[0].number')
+            if [[ -z "$PR" || "$PR" == "null" ]]; then
+              echo "No open PR for SHA $RUN_HEAD_SHA — skipping."
+              exit 0
+            fi
             PERSONA=""
           fi
 
-          PR_JSON=$(gh pr view "$PR" --repo "${{ github.repository }}" \
+          PR_JSON=$(gh pr view "$PR" --repo "$REPO" \
             --json number,headRefName,baseRefName,headRefOid,headRepository,headRepositoryOwner,author)
 
           HEAD_SHA=$(echo "$PR_JSON" | jq -r '.headRefOid')
@@ -82,6 +87,12 @@ jobs:
             IS_FORK=false
           else
             IS_FORK=true
+          fi
+
+          # Skip if the workflow_run was for a stale SHA (PR has been pushed since).
+          if [[ "$EVENT_NAME" == "workflow_run" && -n "$RUN_HEAD_SHA" && "$RUN_HEAD_SHA" != "$HEAD_SHA" ]]; then
+            echo "Workflow_run SHA $RUN_HEAD_SHA is stale (PR head is now $HEAD_SHA) — skipping."
+            exit 0
           fi
 
           if [[ -n "$PERSONA" ]]; then
@@ -113,63 +124,10 @@ jobs:
             echo "run_auditor=$RUN_AUDITOR"
           } >> "$GITHUB_OUTPUT"
 
-  wait-for-checks:
-    name: wait-for-checks
-    needs: decide
-    runs-on: ubuntu-latest
-    outputs:
-      passed: ${{ steps.poll.outputs.passed }}
-    steps:
-      - id: poll
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ needs.decide.outputs.head_sha }}
-        timeout-minutes: 65
-        run: |
-          set -euo pipefail
-          REQUIRED_NAMES='cargo-fmt cargo-clippy-default-features cargo-check-lints cargo-clippy-all-features cargo-test cargo-fix check-feature-propagation'
-          deadline=$(( $(date +%s) + 60*60 ))
-          while true; do
-            now=$(date +%s)
-            if (( now > deadline )); then
-              echo "Timed out waiting for Check Rust to complete"
-              echo "passed=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-
-            ALL=$(gh api "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
-              --paginate --jq '.check_runs[] | {name, status, conclusion}')
-            ALL_PASSED=true
-            for required in $REQUIRED_NAMES; do
-              row=$(echo "$ALL" | jq -c "select(.name==\"$required\")" | tail -1)
-              if [[ -z "$row" ]]; then
-                ALL_PASSED=false
-                continue
-              fi
-              status=$(echo "$row" | jq -r '.status')
-              conclusion=$(echo "$row" | jq -r '.conclusion')
-              if [[ "$status" != "completed" ]]; then
-                ALL_PASSED=false
-              elif [[ "$conclusion" != "success" ]]; then
-                echo "Check '$required' concluded as '$conclusion' — not running AI review."
-                echo "passed=false" >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
-            done
-
-            if $ALL_PASSED; then
-              echo "All required Check Rust jobs passed."
-              echo "passed=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            sleep 30
-          done
-
   skeptic:
     name: skeptic
-    needs: [decide, wait-for-checks]
-    if: needs.decide.outputs.run_skeptic == 'true' && needs.wait-for-checks.outputs.passed == 'true'
+    needs: decide
+    if: needs.decide.outputs.run_skeptic == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
@@ -189,10 +147,6 @@ jobs:
           AUTHOR: ${{ needs.decide.outputs.author }}
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          # read-only sandbox = no filesystem writes. Tool restriction is
-          # enforced primarily by the persona prompt: skeptic.md explicitly
-          # forbids cargo/npm/build commands. drop-sudo prevents privilege
-          # escalation that could touch secrets.
           sandbox: read-only
           safety-strategy: drop-sudo
           output-file: skeptic-output.md
@@ -238,7 +192,6 @@ jobs:
           if ! grep -qF "$MARKER" skeptic-output.md; then
             echo "$MARKER" >> skeptic-output.md
           fi
-          # Find existing sticky comment by marker; edit if present, else create.
           EXISTING_ID=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | tail -1)
           if [[ -n "$EXISTING_ID" ]]; then
@@ -264,8 +217,8 @@ jobs:
 
   auditor:
     name: auditor
-    needs: [decide, wait-for-checks, skeptic]
-    if: needs.decide.outputs.run_auditor == 'true' && needs.wait-for-checks.outputs.passed == 'true' && needs.skeptic.result == 'success'
+    needs: [decide, skeptic]
+    if: needs.decide.outputs.run_auditor == 'true' && needs.skeptic.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
@@ -293,9 +246,6 @@ jobs:
           AUTHOR: ${{ needs.decide.outputs.author }}
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          # workspace-write = auditor may run fix_rust.sh, cargo, etc. Skeptic
-          # has cleared the diff so executing it is acceptable. drop-sudo still
-          # prevents the model from reading its own API key.
           sandbox: workspace-write
           safety-strategy: drop-sudo
           output-file: auditor-output.md
