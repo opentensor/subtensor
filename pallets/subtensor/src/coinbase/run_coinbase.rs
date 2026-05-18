@@ -363,8 +363,9 @@ impl<T: Config> Pallet<T> {
                     ),
                 );
 
-                // Check if subnet owner needs to change due to conviction
-                Self::change_subnet_owner_if_needed(netuid);
+                // Reserved for potential future enhancements.
+                // Ownership update logic based on conviction is currently inactive by design.
+                // Self::change_subnet_owner_if_needed(netuid);
             }
         }
         emissions_to_distribute
