@@ -1,6 +1,12 @@
 name: ai-review
 
 on:
+  # Same-repo PRs route through pull_request (full GITHUB_TOKEN, safer — uses
+  # the head branch's workflow file). Fork PRs route through pull_request_target
+  # so we can still post comments (uses the base branch's workflow file). The
+  # if: on the decide job below ensures each PR runs through exactly one event.
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
@@ -30,6 +36,12 @@ jobs:
   decide:
     name: decide
     runs-on: ubuntu-latest
+    # Run exactly once per PR event: pull_request handles same-repo, pull_request_target handles forks.
+    # workflow_dispatch always runs.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository)
     outputs:
       pr_number: ${{ steps.compute.outputs.pr_number }}
       head_sha: ${{ steps.compute.outputs.head_sha }}
