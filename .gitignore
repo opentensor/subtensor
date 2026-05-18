@@ -51,5 +51,6 @@ scripts/specs/local.json
 # Node modules
 node_modules
 
-# Claude Code configuration
-.claude
+# Claude Code configuration (skills are checked in; everything else is ignored)
+.claude/*
+!.claude/skills/
