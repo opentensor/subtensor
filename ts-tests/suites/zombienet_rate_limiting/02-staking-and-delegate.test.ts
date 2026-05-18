@@ -1,12 +1,7 @@
 import { beforeAll, describeSuite } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
-import {
-    addStake,
-    sudoSetLockReductionInterval,
-    tao,
-    waitForBlocks,
-} from "../../utils";
+import { addStake, sudoSetLockReductionInterval, tao, waitForBlocks } from "../../utils";
 import {
     createRateLimitGroup,
     createOwnedSubnetContext,
@@ -68,13 +63,23 @@ describeSuite({
 
                 await expectTransactionFailure(api, removeStake, coldkey, "remove_stake_rate_limited");
                 await waitForBlocks(api, rateLimitWindow);
-                const stakeAfterFailedAttempt = await getStakeValueForRateLimit(api, hotkeyAddress, coldkeyAddress, netuid);
+                const stakeAfterFailedAttempt = await getStakeValueForRateLimit(
+                    api,
+                    hotkeyAddress,
+                    coldkeyAddress,
+                    netuid
+                );
                 const removeStakeAfterWindow = api.tx.SubtensorModule.remove_stake({
                     hotkey: hotkeyAddress,
                     netuid,
                     amount_unstaked: stakeAfterFailedAttempt,
                 });
-                await waitForRateLimitTransactionWithRetry(api, removeStakeAfterWindow, coldkey, "remove_stake_after_window");
+                await waitForRateLimitTransactionWithRetry(
+                    api,
+                    removeStakeAfterWindow,
+                    coldkey,
+                    "remove_stake_after_window"
+                );
             },
         });
     },

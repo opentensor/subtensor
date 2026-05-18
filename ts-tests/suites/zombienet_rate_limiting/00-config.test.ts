@@ -1,9 +1,7 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
-import {
-    generateKeyringPair,
-} from "../../utils";
+import { generateKeyringPair } from "../../utils";
 import {
     createRateLimitGroup,
     getCallRateLimit,

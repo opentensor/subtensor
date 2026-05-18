@@ -1,9 +1,7 @@
 import { beforeAll, describeSuite } from "@moonwall/cli";
 import { Binary, type TypedApi } from "polkadot-api";
 import { subtensor } from "@polkadot-api/descriptors";
-import {
-    waitForFinalizedBlocks,
-} from "../../utils";
+import { waitForFinalizedBlocks } from "../../utils";
 import {
     createRateLimitGroup,
     createRootHotkeyContext,
@@ -73,12 +71,22 @@ describeSuite({
                 await waitForFinalizedBlocks(api, 1);
                 await expectTransactionFailure(api, serveAxonTls, ctx.hotkey, "serve_axon_tls_rate_limited");
 
-                await waitForRateLimitTransactionWithRetry(api, servePrometheus, ctx.hotkey, "serve_prometheus_initial");
+                await waitForRateLimitTransactionWithRetry(
+                    api,
+                    servePrometheus,
+                    ctx.hotkey,
+                    "serve_prometheus_initial"
+                );
                 await waitForFinalizedBlocks(api, 1);
                 await expectTransactionFailure(api, servePrometheus, ctx.hotkey, "serve_prometheus_rate_limited");
 
                 await waitForFinalizedBlocks(api, 1);
-                await waitForRateLimitTransactionWithRetry(api, serveAxonTls, ctx.hotkey, "serve_axon_tls_after_window");
+                await waitForRateLimitTransactionWithRetry(
+                    api,
+                    serveAxonTls,
+                    ctx.hotkey,
+                    "serve_axon_tls_after_window"
+                );
             },
         });
     },

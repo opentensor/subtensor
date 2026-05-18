@@ -39,7 +39,7 @@ function toRational(value: SafeFloatLike): { numerator: bigint; denominator: big
 
     return {
         numerator: value.mantissa,
-        denominator: 10n ** (-value.exponent),
+        denominator: 10n ** -value.exponent,
     };
 }
 
@@ -215,32 +215,32 @@ async function waitForRateLimitTransactionCompletion(
                     nonce: account.nonce,
                 })
                 .subscribe({
-                next(event: any) {
-                    const eventSummary =
-                        event.type === "txBestBlocksState"
-                            ? `${event.type}:${event.found ? "found" : "nofound"}:${event.isValid === false ? "invalid" : "valid"}`
-                            : event.type;
-                    seenEvents.push(eventSummary);
+                    next(event: any) {
+                        const eventSummary =
+                            event.type === "txBestBlocksState"
+                                ? `${event.type}:${event.found ? "found" : "nofound"}:${event.isValid === false ? "invalid" : "valid"}`
+                                : event.type;
+                        seenEvents.push(eventSummary);
 
-                    if (event.type === "txBestBlocksState" && event.found) {
-                        subscription.unsubscribe();
-                        if (event.dispatchError) {
-                            reject(new Error(`ExtrinsicFailed: ${JSON.stringify(event.dispatchError)}`));
-                        } else {
-                            resolve({
-                                txHash: event.txHash,
-                                blockHash: event.block.hash,
-                            });
+                        if (event.type === "txBestBlocksState" && event.found) {
+                            subscription.unsubscribe();
+                            if (event.dispatchError) {
+                                reject(new Error(`ExtrinsicFailed: ${JSON.stringify(event.dispatchError)}`));
+                            } else {
+                                resolve({
+                                    txHash: event.txHash,
+                                    blockHash: event.block.hash,
+                                });
+                            }
+                        } else if (event.type === "txBestBlocksState" && event.isValid === false) {
+                            subscription.unsubscribe();
+                            reject(new Error("Transaction rejected before inclusion"));
                         }
-                    } else if (event.type === "txBestBlocksState" && event.isValid === false) {
-                        subscription.unsubscribe();
-                        reject(new Error("Transaction rejected before inclusion"));
-                    }
-                },
-                error(err: unknown) {
-                    reject(err instanceof Error ? err : new Error(String(err)));
-                },
-            });
+                    },
+                    error(err: unknown) {
+                        reject(err instanceof Error ? err : new Error(String(err)));
+                    },
+                });
         });
 
     if (timeout === null) {
@@ -271,11 +271,12 @@ export async function forceSetBalancesForRateLimit(
 ): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const calls = ss58Addresses.map((ss58Address) =>
-        api.tx.Balances.force_set_balance({
-            who: MultiAddress.Id(ss58Address),
-            new_free: amount,
-        }).decodedCall
+    const calls = ss58Addresses.map(
+        (ss58Address) =>
+            api.tx.Balances.force_set_balance({
+                who: MultiAddress.Id(ss58Address),
+                new_free: amount,
+            }).decodedCall
     );
     const batch = api.tx.Utility.force_batch({ calls });
     const tx = api.tx.Sudo.sudo({ call: batch.decodedCall });
@@ -334,7 +335,11 @@ export async function startCallForRateLimit(
     }
 }
 
-async function waitForGroupAtFinalized(api: TypedApi<typeof subtensor>, groupId: number, timeoutMs = 30_000): Promise<void> {
+async function waitForGroupAtFinalized(
+    api: TypedApi<typeof subtensor>,
+    groupId: number,
+    timeoutMs = 30_000
+): Promise<void> {
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() < deadline) {
@@ -348,7 +353,11 @@ async function waitForGroupAtFinalized(api: TypedApi<typeof subtensor>, groupId:
     throw new Error(`Timed out waiting for group ${groupId} at finalized`);
 }
 
-export async function createRateLimitGroup(api: TypedApi<typeof subtensor>, name: string, sharing: any): Promise<number> {
+export async function createRateLimitGroup(
+    api: TypedApi<typeof subtensor>,
+    name: string,
+    sharing: any
+): Promise<number> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
     const groupId = await api.query.RateLimiting.NextGroupId.getValue();
@@ -370,11 +379,12 @@ export async function registerCallsInGroup(
 ): Promise<void> {
     const keyring = new Keyring({ type: "sr25519" });
     const alice = keyring.addFromUri("//Alice");
-    const internalCalls = calls.map((call) =>
-        api.tx.RateLimiting.register_call({
-            call: call.decodedCall as never,
-            group: groupId,
-        }).decodedCall
+    const internalCalls = calls.map(
+        (call) =>
+            api.tx.RateLimiting.register_call({
+                call: call.decodedCall as never,
+                group: groupId,
+            }).decodedCall
     );
     const batch = api.tx.Utility.batch_all({ calls: internalCalls });
     const tx = api.tx.Sudo.sudo({ call: batch.decodedCall });
@@ -418,8 +428,7 @@ export async function setScopedGroupRateLimit(
 ): Promise<void> {
     const target = rateLimitTargetGroup(groupId);
     const current = await api.query.RateLimiting.Limits.getValue(target as never);
-    const entries =
-        current && (current as any).type === "Scoped" ? Array.from((current as any).value as any[]) : [];
+    const entries = current && (current as any).type === "Scoped" ? Array.from((current as any).value as any[]) : [];
     const existing = entries.find((entry: any) => Number(entry[0]) === scope);
     const currentValue = existing ? BigInt(existing[1].value) : undefined;
     const nextValue = BigInt(limit);
@@ -574,8 +583,7 @@ export async function expectTransactionFailure(
 
         let subscription: { unsubscribe(): void } | undefined;
 
-        void api.query.System.Account
-            .getValue(keypair.address, { at: "best" })
+        void api.query.System.Account.getValue(keypair.address, { at: "best" })
             .then((account) => {
                 subscription = tx
                     .signSubmitAndWatch(signer, {
@@ -593,11 +601,8 @@ export async function expectTransactionFailure(
                             if (value.type === "txBestBlocksState" && value.found) {
                                 subscription?.unsubscribe();
                                 if (value.ok) {
-                                    finish(
-                                        () =>
-                                            reject(
-                                                new Error(`[${label}] succeeded unexpectedly with tx ${value.txHash}`)
-                                            )
+                                    finish(() =>
+                                        reject(new Error(`[${label}] succeeded unexpectedly with tx ${value.txHash}`))
                                     );
                                 } else {
                                     finish(() => resolve(value.dispatchError));

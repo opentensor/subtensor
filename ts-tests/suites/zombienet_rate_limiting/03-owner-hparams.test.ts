@@ -1,12 +1,7 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import { subtensor } from "@polkadot-api/descriptors";
 import type { TypedApi } from "polkadot-api";
-import {
-    generateKeyringPair,
-    sudoSetAdminFreezeWindow,
-    sudoSetTempo,
-    waitForFinalizedBlocks,
-} from "../../utils";
+import { generateKeyringPair, sudoSetAdminFreezeWindow, sudoSetTempo, waitForFinalizedBlocks } from "../../utils";
 import {
     addNewSubnetworkForRateLimit,
     createRateLimitGroup,
@@ -109,7 +104,9 @@ describeSuite({
                 await waitForRateLimitTransactionWithRetry(api, cutoffB, coldkey, "owner_cutoff_b_allowed");
                 await submitTransactionBestEffort(api, cutoffASecond, coldkey);
                 await waitForFinalizedBlocks(api, 2);
-                expect(await api.query.SubtensorModule.ActivityCutoff.getValue(netuidA)).toBe(expectedCutoffAAfterFirst);
+                expect(await api.query.SubtensorModule.ActivityCutoff.getValue(netuidA)).toBe(
+                    expectedCutoffAAfterFirst
+                );
 
                 await waitForFinalizedBlocks(api, 1);
                 await waitForRateLimitTransactionWithRetry(api, cutoffASecond, coldkey, "owner_cutoff_a_after");
