@@ -1063,6 +1063,45 @@ pub mod pallet {
             Ok(())
         }
 
+        /// The extrinsic sets the minimum childkey take for a subnet.
+        /// It is callable by root or the subnet owner.
+        /// The subnet minimum can only make the global minimum stricter.
+        #[pallet::call_index(93)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_min_childkey_take_per_subnet())]
+        pub fn sudo_set_min_childkey_take_per_subnet(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            take: u16,
+        ) -> DispatchResult {
+            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
+                origin,
+                netuid,
+                &[Hyperparameter::MinChildkeyTake.into()],
+            )?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(
+                take >= pallet_subtensor::Pallet::<T>::get_min_childkey_take()
+                    && take <= pallet_subtensor::Pallet::<T>::get_max_childkey_take(),
+                Error::<T>::InvalidValue
+            );
+
+            pallet_subtensor::Pallet::<T>::set_min_childkey_take_for_subnet(netuid, take);
+            pallet_subtensor::Pallet::<T>::record_owner_rl(
+                maybe_owner,
+                netuid,
+                &[Hyperparameter::MinChildkeyTake.into()],
+            );
+            log::debug!(
+                "MinChildkeyTakePerSubnetSet( netuid: {netuid:?}, min_childkey_take: {take:?} ) "
+            );
+            Ok(())
+        }
+
         /// The extrinsic enabled/disables commit/reaveal for a given subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the value.

@@ -175,24 +175,27 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InputLengthsUnequal
         );
 
-        let results: Vec<dispatch::DispatchResult> = netuids
+        let results: Vec<(NetUid, dispatch::DispatchResult)> = netuids
             .iter()
             .zip(commit_hashes.iter())
             .map(|(&netuid, &commit_hash)| {
                 let origin_cloned = origin.clone();
-
-                Self::do_commit_weights(origin_cloned, netuid.into(), commit_hash)
+                let netuid: NetUid = netuid.into();
+                (
+                    netuid,
+                    Self::do_commit_weights(origin_cloned, netuid, commit_hash),
+                )
             })
             .collect();
 
         let mut completed_with_errors: bool = false;
-        for result in results {
+        for (netuid, result) in results {
             if let Some(err) = result.err() {
                 if !completed_with_errors {
                     Self::deposit_event(Event::BatchCompletedWithErrors());
                     completed_with_errors = true;
                 }
-                Self::deposit_event(Event::BatchWeightItemFailed(err));
+                Self::deposit_event(Event::BatchWeightItemFailed(netuid, err));
             }
         }
 
@@ -1020,39 +1023,37 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InputLengthsUnequal
         );
 
-        let results: Vec<dispatch::DispatchResult> = netuids
+        let results: Vec<(NetUid, dispatch::DispatchResult)> = netuids
             .iter()
             .zip(weights.iter())
             .zip(version_keys.iter())
             .map(|((&netuid, w), &version_key)| {
                 let origin_cloned = origin.clone();
+                let netuid: NetUid = netuid.into();
 
-                if Self::get_commit_reveal_weights_enabled(netuid.into()) {
-                    return Err(Error::<T>::CommitRevealEnabled.into());
+                if Self::get_commit_reveal_weights_enabled(netuid) {
+                    return (netuid, Err(Error::<T>::CommitRevealEnabled.into()));
                 }
 
                 let uids = w.iter().map(|(u, _)| (*u).into()).collect::<Vec<u16>>();
 
                 let values = w.iter().map(|(_, v)| (*v).into()).collect::<Vec<u16>>();
 
-                Self::do_set_weights(
-                    origin_cloned,
-                    netuid.into(),
-                    uids,
-                    values,
-                    version_key.into(),
+                (
+                    netuid,
+                    Self::do_set_weights(origin_cloned, netuid, uids, values, version_key.into()),
                 )
             })
             .collect();
 
         let mut completed_with_errors: bool = false;
-        for result in results {
+        for (netuid, result) in results {
             if let Some(err) = result.err() {
                 if !completed_with_errors {
                     Self::deposit_event(Event::BatchCompletedWithErrors());
                     completed_with_errors = true;
                 }
-                Self::deposit_event(Event::BatchWeightItemFailed(err));
+                Self::deposit_event(Event::BatchWeightItemFailed(netuid, err));
             }
         }
 

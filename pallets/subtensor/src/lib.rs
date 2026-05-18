@@ -1123,6 +1123,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
 
+    /// MAP ( netuid ) --> take | Returns the subnet-specific minimum childkey take.
+    #[pallet::storage]
+    pub type MinChildkeyTakePerSubnet<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery>;
+
     /// MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey
     #[pallet::storage]
     pub type Owner<T: Config> =
