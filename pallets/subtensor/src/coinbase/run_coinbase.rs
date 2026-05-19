@@ -362,6 +362,10 @@ impl<T: Config> Pallet<T> {
                         owner_cut,
                     ),
                 );
+
+                // Reserved for potential future enhancements.
+                // Ownership update logic based on conviction is currently inactive by design.
+                // Self::change_subnet_owner_if_needed(netuid);
             }
         }
         emissions_to_distribute
