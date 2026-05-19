@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
             .unwrap_or(I96F32::saturating_from_num(0.0));
 
         // Unlikely to happen. This is mostly for test environment sanity checks.
-        if u64::from(amount) > total.saturating_to_num::<u64>() {
+        if u64::from(amount) > total.saturating_to_num::<u64>() && !Self::get_burn_root_prop() {
             log::warn!("Not enough root stake. NetUID = {netuid}");
 
             let owner = Owner::<T>::get(hotkey);
@@ -157,11 +157,14 @@ impl<T: Config> Pallet<T> {
             return; // no-op
         }
 
-        let swap = match root_claim_type {
-            RootClaimTypeEnum::Swap => true,
-            RootClaimTypeEnum::Keep => false,
-            RootClaimTypeEnum::KeepSubnets { subnets } => !subnets.contains(&netuid),
-        };
+        let burn_root_prop = Self::get_burn_root_prop();
+
+        let swap = burn_root_prop
+            || match root_claim_type {
+                RootClaimTypeEnum::Swap => true,
+                RootClaimTypeEnum::Keep => false,
+                RootClaimTypeEnum::KeepSubnets { subnets } => !subnets.contains(&netuid),
+            };
 
         if swap {
             // Increase stake on root. Swap the alpha owed to TAO
@@ -186,44 +189,60 @@ impl<T: Config> Pallet<T> {
             });
             Self::record_protocol_outflow(netuid, root_sell_tao);
 
-            // Transfer unstaked TAO from subnet account to the root subnet account
-            // and increase root stake.
-            if let Some(root_subnet_account_id) = Self::get_subnet_account_id(NetUid::ROOT)
-                && Self::transfer_tao_from_subnet(
-                    netuid,
-                    &root_subnet_account_id,
-                    owed_tao.amount_paid_out.into(),
-                )
-                .is_ok()
-            {
-                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            if burn_root_prop {
+                if let Some(subnet_account_id) = Self::get_subnet_account_id(netuid) {
+                    if let Err(err) =
+                        Self::burn_tao(&subnet_account_id, owed_tao.amount_paid_out.into())
+                    {
+                        log::error!("Could not burn root prop TAO: {err:?}");
+                        return;
+                    }
+                } else {
+                    log::error!(
+                        "Could not burn root prop TAO: subnet account does not exist for netuid {netuid}"
+                    );
+                    return;
+                }
+            } else {
+                // Transfer unstaked TAO from subnet account to the root subnet account
+                // and increase root stake.
+                if let Some(root_subnet_account_id) = Self::get_subnet_account_id(NetUid::ROOT)
+                    && Self::transfer_tao_from_subnet(
+                        netuid,
+                        &root_subnet_account_id,
+                        owed_tao.amount_paid_out.into(),
+                    )
+                    .is_ok()
+                {
+                    Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                        hotkey,
+                        coldkey,
+                        NetUid::ROOT,
+                        owed_tao.amount_paid_out.to_u64().into(),
+                    );
+
+                    // Increase root subnet SubnetTAO
+                    SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
+                        *total = total.saturating_add(owed_tao.amount_paid_out.into());
+                    });
+
+                    // Increase root SubnetAlphaOut
+                    SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
+                        *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
+                    });
+
+                    // Increase Total Stake
+                    TotalStake::<T>::mutate(|total| {
+                        *total = total.saturating_add(owed_tao.amount_paid_out.into());
+                    });
+                }
+
+                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
                     hotkey,
                     coldkey,
-                    NetUid::ROOT,
-                    owed_tao.amount_paid_out.to_u64().into(),
+                    owed_tao.amount_paid_out.into(),
                 );
-
-                // Increase root subnet SubnetTAO
-                SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
-                    *total = total.saturating_add(owed_tao.amount_paid_out.into());
-                });
-
-                // Increase root SubnetAlphaOut
-                SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
-                    *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
-                });
-
-                // Increase Total Stake
-                TotalStake::<T>::mutate(|total| {
-                    *total = total.saturating_add(owed_tao.amount_paid_out.into());
-                });
             }
-
-            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-                hotkey,
-                coldkey,
-                owed_tao.amount_paid_out.into(),
-            );
         } else
         /* Keep */
         {

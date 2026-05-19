@@ -15,12 +15,11 @@ use frame_support::pallet_prelude::Weight;
 use frame_support::traits::Get;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, traits::AccountIdConversion};
 use std::collections::BTreeSet;
 use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
-
 #[test]
 fn test_claim_root_set_claim_type() {
     new_test_ext(1).execute_with(|| {
@@ -2054,5 +2053,166 @@ fn test_claim_root_with_moved_stake() {
 
         assert_abs_diff_eq!(alice_stake_diff2, bob_stake_diff2, epsilon = 100u64,);
         assert_abs_diff_eq!(bob_stake_diff2, estimated_stake as u64, epsilon = 100u64,);
+    });
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --package pallet-subtensor --lib -- tests::claim_root::test_burn_root_prop_sells_root_yield_then_burns_tao --exact --show-output --nocapture
+#[test]
+fn test_burn_root_prop_sells_root_yield_then_burns_tao() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let other_coldkey = U256::from(10010);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
+        SubnetMechanism::<Test>::insert(netuid, 1);
+
+        let tao_reserve = TaoBalance::from(50_000_000_000_u64);
+        let alpha_in = AlphaBalance::from(100_000_000_000_u64);
+        SubnetTAO::<Test>::insert(netuid, tao_reserve);
+        SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
+
+        let root_stake = 2_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            root_stake.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &other_coldkey,
+            NetUid::ROOT,
+            (9 * root_stake).into(),
+        );
+
+        let initial_total_hotkey_alpha = 10_000_000u64;
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            initial_total_hotkey_alpha.into(),
+        );
+
+        assert_noop!(
+            SubtensorModule::sudo_set_burn_root_prop(RuntimeOrigin::signed(coldkey), true),
+            DispatchError::BadOrigin
+        );
+        assert!(!crate::BurnRootProp::<Test>::get());
+
+        assert_ok!(SubtensorModule::sudo_set_burn_root_prop(
+            RuntimeOrigin::root(),
+            true,
+        ));
+        assert!(crate::BurnRootProp::<Test>::get());
+
+        // Public/stored root prop is zeroed while burn mode is enabled.
+        assert_eq!(
+            SubtensorModule::root_proportion(netuid),
+            substrate_fixed::types::U96F32::from_num(0.0)
+        );
+        SubtensorModule::update_root_prop();
+        assert_eq!(
+            crate::RootProp::<Test>::get(netuid),
+            substrate_fixed::types::U96F32::from_num(0.0)
+        );
+
+        let owner_stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+        );
+        let root_stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+        );
+        let coldkey_subnet_stake_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid);
+        let root_subnet_tao_before = SubnetTAO::<Test>::get(NetUid::ROOT);
+        let total_stake_before = crate::TotalStake::<Test>::get();
+
+        let burn_account: U256 =
+            <Test as crate::Config>::BurnAccountId::get().into_account_truncating();
+        let burn_balance_before = SubtensorModule::get_coldkey_balance(&burn_account);
+
+        // Distribute pending root alpha. Burn mode must not pay validator take here;
+        // it should create root claimable that will be sold and burned on claim.
+        let pending_root_alpha = 10_000_000u64;
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            pending_root_alpha.into(),
+            AlphaBalance::ZERO,
+        );
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &owner_coldkey,
+                netuid,
+            ),
+            owner_stake_before
+        );
+        assert!(
+            crate::RootAlphaDividendsPerSubnet::<Test>::get(netuid, hotkey) > AlphaBalance::ZERO
+        );
+        let owed_before =
+            SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &coldkey, netuid);
+        assert!(owed_before > 0);
+
+        // Even with claim type Keep, burn mode must force root yield to sell
+        // through the subnet pool and burn the TAO proceeds instead of staking/paying.
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            RootClaimTypeEnum::Keep
+        ));
+        assert_eq!(RootClaimType::<Test>::get(coldkey), RootClaimTypeEnum::Keep);
+
+        let subnet_tao_before_claim = SubnetTAO::<Test>::get(netuid);
+        let root_sell_tao_before = crate::SubnetRootSellTao::<Test>::get(netuid);
+        assert_ok!(SubtensorModule::claim_root(
+            RuntimeOrigin::signed(coldkey),
+            BTreeSet::from([netuid])
+        ));
+
+        let root_sell_tao =
+            crate::SubnetRootSellTao::<Test>::get(netuid).saturating_sub(root_sell_tao_before);
+        assert!(root_sell_tao > TaoBalance::ZERO);
+        assert_eq!(
+            subnet_tao_before_claim.saturating_sub(SubnetTAO::<Test>::get(netuid)),
+            root_sell_tao
+        );
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&burn_account).saturating_sub(burn_balance_before),
+            root_sell_tao.into()
+        );
+
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                NetUid::ROOT,
+            ),
+            root_stake_before
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&hotkey, &coldkey, netuid,),
+            coldkey_subnet_stake_before
+        );
+
+        // Base swap claims send sold TAO into root stake/accounting. Burn mode must not.
+        assert!(SubnetTAO::<Test>::get(NetUid::ROOT) <= root_subnet_tao_before);
+        assert_eq!(
+            total_stake_before.saturating_sub(crate::TotalStake::<Test>::get()),
+            root_sell_tao
+        );
+        assert_eq!(
+            SubtensorModule::get_root_owed_for_hotkey_coldkey(&hotkey, &coldkey, netuid),
+            0
+        );
     });
 }

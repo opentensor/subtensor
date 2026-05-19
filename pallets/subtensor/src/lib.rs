@@ -1318,6 +1318,10 @@ pub mod pallet {
     pub type RootProp<T: Config> =
         StorageMap<_, Identity, NetUid, U96F32, ValueQuery, DefaultRootProp<T>>;
 
+    /// --- ITEM --> burn_root_prop | Sell root-proportional subnet yield through subnet pools and burn the TAO proceeds.
+    #[pallet::storage]
+    pub type BurnRootProp<T: Config> = StorageValue<_, bool, ValueQuery, DefaultFalse<T>>;
+
     /// --- MAP ( netuid ) --> total_volume | The total amount of TAO bought and sold since the start of the network.
     #[pallet::storage]
     pub type SubnetVolume<T: Config> =
