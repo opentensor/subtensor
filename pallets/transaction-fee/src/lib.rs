@@ -3,6 +3,7 @@
 // FRAME
 use frame_support::{
     pallet_prelude::*,
+    storage::{TransactionOutcome, with_transaction},
     traits::{
         Imbalance, IsSubType, OnUnbalanced,
         fungible::{
@@ -16,8 +17,9 @@ use frame_support::{
 
 // Runtime
 use sp_runtime::{
-    Perbill, Saturating,
+    DispatchError, Perbill, Saturating,
     traits::{DispatchInfoOf, PostDispatchInfoOf},
+    transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 
 // Pallets
@@ -67,7 +69,7 @@ pub trait AlphaFeeHandler<T: frame_system::Config> {
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: TaoBalance,
-    ) -> (AlphaBalance, TaoBalance, NetUid);
+    ) -> Result<(AlphaBalance, TaoBalance, NetUid), TransactionValidityError>;
     fn get_all_netuids_for_coldkey_and_hotkey(
         coldkey: &AccountIdOf<T>,
         hotkey: &AccountIdOf<T>,
@@ -155,9 +157,9 @@ where
         coldkey: &AccountIdOf<T>,
         alpha_vec: &[(AccountIdOf<T>, NetUid)],
         tao_amount: TaoBalance,
-    ) -> (AlphaBalance, TaoBalance, NetUid) {
+    ) -> Result<(AlphaBalance, TaoBalance, NetUid), TransactionValidityError> {
         if alpha_vec.len() != 1 {
-            return (0.into(), 0.into(), NetUid::ROOT);
+            return Ok((0.into(), 0.into(), NetUid::ROOT));
         }
 
         if let Some((hotkey, netuid)) = alpha_vec.first() {
@@ -176,26 +178,33 @@ where
 
             // Sell alpha_fee and burn received tao (ignore unstake_from_subnet return).
             if let Some(author) = T::author() {
-                let swap_result = pallet_subtensor::Pallet::<T>::unstake_from_subnet(
-                    hotkey,
-                    coldkey,
-                    &author,
-                    *netuid,
-                    alpha_fee,
-                    0.into(),
-                    true,
-                );
-                if let Ok(tao_amount) = swap_result {
-                    (alpha_fee, tao_amount, *netuid)
-                } else {
-                    (0.into(), 0.into(), NetUid::ROOT)
-                }
+                with_transaction(
+                    || -> TransactionOutcome<Result<TaoBalance, DispatchError>> {
+                        match pallet_subtensor::Pallet::<T>::unstake_from_subnet(
+                            hotkey,
+                            coldkey,
+                            &author,
+                            *netuid,
+                            alpha_fee,
+                            0.into(),
+                            true,
+                        ) {
+                            Ok(tao_amount) => TransactionOutcome::Commit(Ok(tao_amount)),
+                            Err(err) => TransactionOutcome::Rollback(Err(err)),
+                        }
+                    },
+                )
+                .map(|tao_amount| (alpha_fee, tao_amount, *netuid))
+                .map_err(|err| {
+                    log::error!("Error withdrawing transaction fee in alpha: {err:?}");
+                    InvalidTransaction::Payment.into()
+                })
             } else {
                 // Fallback: no author => no fees (do nothing)
-                (0.into(), 0.into(), NetUid::ROOT)
+                Ok((0.into(), 0.into(), NetUid::ROOT))
             }
         } else {
-            (0.into(), 0.into(), NetUid::ROOT)
+            Ok((0.into(), 0.into(), NetUid::ROOT))
         }
     }
 
@@ -343,7 +352,7 @@ where
                 if !alpha_vec.is_empty() {
                     let fee_u64: u64 = fee.saturated_into::<u64>();
                     let (alpha_fee, tao_amount, netuid) =
-                        OU::withdraw_in_alpha(who, &alpha_vec, fee_u64.into());
+                        OU::withdraw_in_alpha(who, &alpha_vec, fee_u64.into())?;
                     return Ok(Some(WithdrawnFee::Alpha((alpha_fee, tao_amount, netuid))));
                 }
                 Err(InvalidTransaction::Payment.into())
