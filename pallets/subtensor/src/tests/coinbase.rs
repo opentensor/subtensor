@@ -249,6 +249,43 @@ fn test_coinbase_disabled_subnet_emission_redistributes_tao_to_enabled_subnets()
 }
 
 #[test]
+fn test_net_tao_flow_disabled_still_drains_protocol_flow_into_ema() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        NetTaoFlowEnabled::<Test>::set(false);
+        FlowEmaSmoothingFactor::<Test>::set(i64::MAX as u64);
+
+        SubnetTaoFlow::<Test>::insert(netuid1, 1_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 1_000_i64);
+        SubtensorModule::record_protocol_inflow(netuid1, 700.into());
+        SubtensorModule::record_protocol_outflow(netuid2, 300.into());
+
+        System::set_block_number(1);
+
+        SubtensorModule::get_subnet_block_emissions(
+            &[netuid1, netuid2],
+            U96F32::saturating_from_num(1_000_000u64),
+        );
+
+        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid1), 0);
+        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid2), 0);
+        assert_eq!(
+            SubnetEmaProtocolFlow::<Test>::get(netuid1),
+            Some((1, I64F64::from_num(700)))
+        );
+        assert_eq!(
+            SubnetEmaProtocolFlow::<Test>::get(netuid2),
+            Some((1, I64F64::from_num(-300)))
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_subnet_emission_enabled_multiple_subnets_multiple_toggles() {
     new_test_ext(1).execute_with(|| {
         let netuid1 = NetUid::from(1);
