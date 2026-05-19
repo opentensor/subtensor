@@ -151,6 +151,7 @@ fn inplace_pow_normalize_fractional_exponent() {
         })
 }
 
+#[allow(clippy::expect_used)]
 #[test]
 fn protocol_normalization_keeps_eligible_subnet_count_from_collapsing() {
     new_test_ext(1).execute_with(|| {
