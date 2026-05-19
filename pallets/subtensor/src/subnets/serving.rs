@@ -326,11 +326,6 @@ impl<T: Config> Pallet<T> {
         );
 
         let mut prev_prometheus = Self::get_prometheus_info(netuid, hotkey_id);
-        let current_block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            Self::prometheus_passes_rate_limit(netuid, &prev_prometheus, current_block),
-            Error::<T>::ServingRateLimitExceeded
-        );
 
         prev_prometheus.block = Self::get_current_block_as_u64();
         prev_prometheus.version = version;
