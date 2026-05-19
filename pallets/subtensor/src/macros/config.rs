@@ -77,8 +77,8 @@ mod config {
         /// External snapshot of the root-registered coldkey set.
         type RootRegisteredInspector: RootRegisteredInspector<Self::AccountId>;
 
-        /// Strategy for computing root-registered stake EMAs.
-        type EmaStrategy: EmaStrategy<Self::AccountId>;
+        /// Provider for the value sampled by root-registered EMAs.
+        type EmaValueProvider: EmaValueProvider<Self::AccountId>;
 
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: crate::weights::WeightInfo;

@@ -1,6 +1,6 @@
 use super::*;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::weights::Weight;
+use frame_support::{pallet_prelude::Parameter, weights::Weight};
 use scale_info::TypeInfo;
 use substrate_fixed::types::U64F64;
 
@@ -24,21 +24,72 @@ pub mod ref_count;
 pub struct EmaState {
     /// Current EMA value.
     pub ema: U64F64,
-    /// Number of samples folded into `ema`.
+    /// Samples folded in so far.
     pub samples: u32,
 }
 
-/// Hook for coldkey root-registration transitions.
+/// In-flight EMA sample for the validator at the current cursor.
+/// The provider owns the inner progress shape; the root-registered EMA
+/// engine only ties it to the coldkey being sampled.
+#[derive(
+    Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+)]
+pub struct InFlightEmaSample<AccountId, Progress> {
+    /// Coldkey whose sample is in progress. Used to discard stale
+    /// progress if the cursor moves or the account leaves mid-sample.
+    pub coldkey: AccountId,
+    /// Provider-owned progress for the current sample.
+    pub progress: Progress,
+}
+
+/// Result of one provider sampling step.
+pub enum SampleStep<Progress> {
+    /// More work remains for this coldkey; persist `progress` and resume
+    /// on a later tick.
+    Continue { progress: Progress },
+    /// The current sample is complete and ready to be folded into the EMA.
+    Complete { sample: U64F64 },
+}
+
+/// Provides the raw sample value over which the root-registered EMA is
+/// computed. The EMA engine owns blending and sample counters; providers
+/// only own how to incrementally measure one current value.
+pub trait EmaValueProvider<AccountId> {
+    /// Opaque in-flight progress for a single sample.
+    type Progress: Parameter + MaxEncodedLen + Default;
+
+    /// Process one chunk of work for `coldkey`.
+    fn step(coldkey: &AccountId, progress: Self::Progress) -> (SampleStep<Self::Progress>, Weight);
+
+    /// Worst-case weight of `step`.
+    fn step_weight() -> Weight;
+}
+
+/// Zero-valued provider for runtimes / test mocks that do not compute EMAs.
+impl<AccountId> EmaValueProvider<AccountId> for () {
+    type Progress = ();
+
+    fn step(_: &AccountId, _: Self::Progress) -> (SampleStep<Self::Progress>, Weight) {
+        let sample = U64F64::saturating_from_num(0u64);
+        (SampleStep::Complete { sample }, Weight::zero())
+    }
+
+    fn step_weight() -> Weight {
+        Weight::zero()
+    }
+}
+
+/// Hook for coldkey root-registration transitions. Callers accrue
+/// `on_added_weight` / `on_removed_weight` when a 0↔1 transition is
+/// possible.
 pub trait OnRootRegistrationChange<AccountId> {
     /// Called when `coldkey` enters the root-registered set.
     fn on_added(coldkey: &AccountId);
     /// Called when `coldkey` leaves the root-registered set.
     fn on_removed(coldkey: &AccountId);
-    /// Worst-case weight of [`on_added`]. Callers accrue this into
-    /// their dispatch weight when a 0→1 transition is possible.
+    /// Worst-case weight of `on_added`.
     fn on_added_weight() -> Weight;
-    /// Worst-case weight of [`on_removed`]. Callers accrue this into
-    /// their dispatch weight when a 1→0 transition is possible.
+    /// Worst-case weight of `on_removed`.
     fn on_removed_weight() -> Weight;
 }
 
@@ -62,28 +113,5 @@ pub trait RootRegisteredInspector<AccountId> {
 impl<AccountId> RootRegisteredInspector<AccountId> for () {
     fn members() -> Option<alloc::vec::Vec<AccountId>> {
         None
-    }
-}
-
-/// Computes a coldkey's next stake EMA value.
-pub trait EmaStrategy<AccountId> {
-    /// Returns the new EMA for `coldkey` given its `previous` state,
-    /// paired with the actual weight consumed by the call. The sample
-    /// counter on `previous` is the count *before* this tick, so a
-    /// brand-new entry arrives with `samples == 0`.
-    fn next(coldkey: &AccountId, previous: EmaState) -> (U64F64, Weight);
-    /// Worst-case weight of `next`.
-    fn weight() -> Weight;
-}
-
-/// Freezes the EMA at its previous value. Default for runtimes /
-/// test mocks that don't compute EMAs.
-impl<AccountId> EmaStrategy<AccountId> for () {
-    fn next(_: &AccountId, previous: EmaState) -> (U64F64, Weight) {
-        (previous.ema, Weight::zero())
-    }
-
-    fn weight() -> Weight {
-        Weight::zero()
     }
 }

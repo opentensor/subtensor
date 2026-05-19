@@ -290,7 +290,7 @@ impl crate::Config for Test {
     type AuthorshipProvider = MockAuthorshipProvider;
     type OnRootRegistrationChange = ();
     type RootRegisteredInspector = ();
-    type EmaStrategy = ();
+    type EmaValueProvider = ();
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
