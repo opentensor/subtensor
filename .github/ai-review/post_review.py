@@ -53,13 +53,14 @@ def gh_api(
     """
     Call gh api; raise on non-zero. Returns parsed JSON, or {} for empty.
 
-    paginate=True is for GET list endpoints — uses `--paginate --slurp --jq add`
-    so multi-page responses come back as a single merged array. Required for
-    issue-comments and similar endpoints that can exceed 100 entries on busy PRs.
+    paginate=True is for GET list endpoints — uses `--paginate --slurp` so
+    multi-page responses come back as [[page1], [page2], ...], then we flatten
+    page-of-arrays into a single array in Python. (gh rejects --slurp together
+    with --jq, so we do the flatten here instead of via `--jq add`.)
     """
     cmd = ["gh", "api"]
     if paginate:
-        cmd += ["--paginate", "--slurp", "--jq", "add"]
+        cmd += ["--paginate", "--slurp"]
     cmd += ["-X", method, path]
     if body is not None:
         cmd += ["--input", "-"]
@@ -74,7 +75,17 @@ def gh_api(
         raise RuntimeError(
             f"gh api {method} {path} failed:\n  stdout={proc.stdout}\n  stderr={proc.stderr}"
         )
-    return json.loads(proc.stdout) if proc.stdout.strip() else {}
+    parsed = json.loads(proc.stdout) if proc.stdout.strip() else {}
+    if paginate and isinstance(parsed, list):
+        # Slurp gives us a list of pages. If each page is itself a list (the
+        # usual case for list endpoints), flatten into a single array. Object
+        # endpoints would yield a list of objects, which is also fine to return.
+        if all(isinstance(p, list) for p in parsed):
+            flat: list = []
+            for page in parsed:
+                flat.extend(page)
+            return flat
+    return parsed
 
 
 def finding_id(path: str, line: int | str, title: str) -> str:

@@ -29,10 +29,12 @@ gh pr view "$PR_NUMBER" --repo "$REPO" --json files > "$OUTPUT_DIR/pr-files.json
 gh pr diff "$PR_NUMBER" --repo "$REPO" > "$OUTPUT_DIR/pr-diff.patch"
 
 # All PR comments (issue-style). `--paginate` alone writes one JSON array per
-# page; slurp + add merges them into a single valid array so downstream jq
-# (and post_review.py) doesn't choke on concatenated arrays.
+# page; `--slurp` wraps them as [[page1], [page2], ...]; we then flatten with
+# external `jq 'add'` because `gh api` rejects `--slurp` together with `--jq`.
+# pipefail (set at top of script) propagates gh failures through the pipe.
 gh api "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100" \
-  --paginate --slurp --jq 'add' \
+  --paginate --slurp \
+  | jq 'add' \
   > "$OUTPUT_DIR/pr-comments.json"
 
 # Prior persona sticky comments — for rerun reconciliation
