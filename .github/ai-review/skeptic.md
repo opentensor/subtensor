@@ -111,80 +111,47 @@ If `base_ref == main` and `head_ref == testnet`:
 
 ## Step 4 — Output
 
-Output exactly this structure, **with the inline-findings JSON block at the
-end**. Findings that can be pinned to a specific line in the PR diff go in
-the JSON (they will be posted as inline review comments on the diff with the
-"Apply suggestion" button when `suggestion` is populated). Findings that
-cannot be pinned to a line (e.g. "this PR is missing a test file entirely")
-stay in the summary's `## Other findings` section.
+Your output is a single JSON document matching `codex-output-schema.json`.
+The post-script renders the sticky comment markdown and posts inline review
+comments from this document. Required fields:
 
-```
-VERDICT: [SAFE | VULNERABLE | MALICIOUS]
-
-**Contributor scrutiny:** BASELINE | MEDIUM | HIGH | VERY HIGH — one-line rationale
-**Branch:** <head> → <base>  (note if anomalous)
-
-## Findings
-
-<!-- inline-findings-table -->
-
-## Other findings
-<omit if no off-line findings>
-
-- [SEVERITY] short description (file:line if approximate)
-
-## Prior-comment reconciliation
-<only if a prior sticky comment exists>
-- Concern X: addressed / not addressed / no longer applies
-
-## Conclusion
-One sentence.
-
-<!-- inline-findings-json
-[
-  {
-    "path": "runtime/src/lib.rs",
-    "line": 275,
-    "side": "RIGHT",
-    "severity": "HIGH",
-    "title": "Missing spec_version bump",
-    "body": "Markdown explanation of the issue and why it matters.",
-    "suggestion": "    spec_version: 404,"
-  },
-  {
-    "path": "pallets/foo/src/lib.rs",
-    "start_line": 100,
-    "line": 102,
-    "side": "RIGHT",
-    "severity": "CRITICAL",
-    "title": "Multi-line unchecked arithmetic",
-    "body": "Use `saturating_add` to avoid overflow.",
-    "suggestion": "    let total = a.saturating_add(b);\n    let next = total.saturating_add(c);\n    Ok(next)"
-  }
-]
-end inline-findings-json -->
-
-<!-- ai-review:skeptic -->
-```
+- `verdict` — `"SAFE"`, `"VULNERABLE"`, or `"MALICIOUS"`.
+- `scrutiny_note` — one-line summary of contributor risk tier + branch.
+- `summary_markdown` — short body that goes between the verdict line and
+  the findings table. Leave empty if you have nothing extra to say. Do NOT
+  duplicate the verdict, the findings, or the conclusion here.
+- `inline_findings[]` — issues pinnable to a specific line in the diff.
+  Each becomes an inline PR review comment.
+- `off_diff_findings[]` — issues that cannot be pinned to a line (missing
+  test file, PR-description mismatch, supply-chain concerns, etc.).
+- `prior_reconciliation[]` — one entry for each finding in the prior
+  sticky comment (read `/tmp/ai-review-context/prior-skeptic-comment.md`
+  and look for `<!-- fid:xxxxxxxx -->` markers).
+- `conclusion_markdown` — one or two sentences justifying the verdict.
 
 **Inline finding rules:**
 
 - `path` + `line` MUST reference a line that appears in the PR diff
-  (`/tmp/ai-review-context/pr-diff.patch`). Lines outside the diff cannot be
-  pinned; report those in `## Other findings` instead.
-- `side`: `RIGHT` for added/unchanged lines, `LEFT` for removed lines.
-  Default to `RIGHT`.
-- `start_line` (optional): for multi-line comments, the first line of the
-  range. Omit for single-line. `start_side` defaults to match `side`.
-- `severity`: `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`.
-- `body`: plain markdown. Do NOT include the suggestion block here — put the
-  replacement content in `suggestion` and the post-step will wrap it.
-- `suggestion` (optional): the exact replacement text for the lines from
-  `start_line` to `line` (or just `line`). GitHub will render the "Apply
-  suggestion" button. Omit when no specific fix applies.
-- Keep findings to actionable issues. Do not post inline comments for
-  general observations or praise.
+  (`/tmp/ai-review-context/pr-diff.patch`). For pure context lines outside
+  any hunk, use `off_diff_findings` instead.
+- `side`: `"RIGHT"` for added/context lines, `"LEFT"` for removed.
+- `start_line`: integer for multi-line ranges; `null` for single-line.
+- `severity`: `"CRITICAL"` | `"HIGH"` | `"MEDIUM"` | `"LOW"`.
+- `body_markdown`: plain markdown. Do NOT include a ```suggestion fence
+  yourself — put the replacement in `suggestion` and the post-script wraps
+  it. Including `suggestion` makes GitHub render the one-click "Apply
+  suggestion" button.
+- `suggestion`: exact replacement text for lines `start_line..line` (or
+  just `line` when `start_line` is `null`). Use `null` when no specific
+  fix applies. Lines in the suggestion exactly replace the lines being
+  commented on — match indentation precisely.
+- Keep inline findings to actionable issues. Do not post inline comments
+  for general observations or praise.
 
-**End every comment** with `<!-- ai-review:skeptic -->` so the workflow can
-find your sticky on rerun. The JSON block is parsed away before the comment
-is posted; the visible sticky has the verdict, table, and conclusion only.
+**Prior-comment reconciliation:** if `prior-skeptic-comment.md` is empty,
+emit `prior_reconciliation: []`. Otherwise, for every `<!-- fid:xxxxxxxx -->`
+marker, emit an entry stating whether the concern is `"addressed"`,
+`"not_addressed"`, or `"no_longer_applies"`, with an optional
+`note_markdown`. If a prior finding is `not_addressed`, also include it
+again in `inline_findings` (or `off_diff_findings`) as a current finding
+so it carries forward.

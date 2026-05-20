@@ -138,71 +138,41 @@ verdict comment, and note: "Cannot push to fork; please apply manually with
 
 ## Step 6 — Output
 
-Output exactly this structure, **with the inline-findings JSON block at the
-end**. Findings pinned to a specific diff line go in the JSON (posted as
-inline review comments with the one-click "Apply suggestion" button when
-`suggestion` is populated). Findings that cannot be pinned to a line stay in
-the summary.
+Your output is a single JSON document matching `codex-output-schema.json`.
+The post-script renders the sticky comment and posts inline review comments
+from it. Required fields:
 
-```
-VERDICT: 👍 | 👎
+- `verdict` — `"👍"` or `"👎"`.
+- `scrutiny_note` — one-line summary covering gittensor association and
+  any author calibration notes worth surfacing.
+- `summary_markdown` — short body between verdict and findings table.
+  Use this to surface: PR description discrepancies, the duplicate-work
+  recommendation, any suggested new files (with full content in fenced
+  blocks), auto-fix status (e.g. "Ran fix_rust.sh; 3 files modified").
+- `inline_findings[]` — issues pinnable to specific diff lines.
+- `off_diff_findings[]` — issues that cannot be pinned to a line.
+- `prior_reconciliation[]` — one entry per `<!-- fid:xxxxxxxx -->` marker
+  in `/tmp/ai-review-context/prior-auditor-comment.md`.
+- `conclusion_markdown` — one or two sentences justifying the verdict.
 
-**Gittensor:** KNOWN | LIKELY | UNKNOWN — short note
-**Auto-fix:** <will be filled in by workflow — write 'pending workspace changes' if you modified files>
+**Inline finding rules** (same as Skeptic):
 
-## Description
-<only if you populated it or there are discrepancies>
+- `path` + `line` MUST reference a line in
+  `/tmp/ai-review-context/pr-diff.patch`. Off-diff findings →
+  `off_diff_findings`.
+- `side`: `"RIGHT"` (added/context), `"LEFT"` (removed).
+- `start_line`: integer for multi-line ranges; `null` for single-line.
+- `severity`: `"CRITICAL"` | `"HIGH"` | `"MEDIUM"` | `"LOW"`.
+- `body_markdown`: plain markdown — do NOT include a ```suggestion fence
+  yourself.
+- `suggestion`: exact replacement text for lines `start_line..line` (or
+  just `line`). Renders the "Apply suggestion" button. `null` when no
+  specific fix applies. Match indentation precisely.
+- Inline comments are for actionable issues only.
 
-## Duplicate work
-<only if duplicates exist>
-
-## Findings
-
-<!-- inline-findings-table -->
-
-## Other findings
-<omit if no off-line findings>
-
-- [SEVERITY] short description
-
-## Suggested new files
-<only if you propose new tests / helpers — full file content + path>
-
-## Prior-comment reconciliation
-<only if prior sticky exists>
-
-## Conclusion
-One or two sentences. State the verdict and what (if anything) the author needs to do.
-
-<!-- inline-findings-json
-[
-  {
-    "path": "pallets/subtensor/src/coinbase.rs",
-    "line": 142,
-    "side": "RIGHT",
-    "severity": "HIGH",
-    "title": "Unchecked arithmetic in reward calculation",
-    "body": "This addition can overflow at extreme stake. Use `saturating_add`.",
-    "suggestion": "    let total = stake.saturating_add(emission);"
-  }
-]
-end inline-findings-json -->
-
-<!-- ai-review:auditor -->
-```
-
-**Inline finding rules** (identical to skeptic):
-
-- `path` + `line` MUST reference a line in `/tmp/ai-review-context/pr-diff.patch`.
-  Off-diff findings → `## Other findings`.
-- `side`: `RIGHT` (added/context), `LEFT` (removed). Default `RIGHT`.
-- `start_line`: optional, for multi-line ranges.
-- `severity`: `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`.
-- `body`: plain markdown — do not include the suggestion fence yourself.
-- `suggestion`: exact replacement text for the lines `start_line`..`line`
-  (or just `line`). Renders the "Apply suggestion" button. Omit when no
-  specific fix applies.
-- Inline comments are for actionable issues. Do not post inline for
-  observations, praise, or context-setting.
-
-End every comment with `<!-- ai-review:auditor -->`.
+**Prior-comment reconciliation:** if `prior-auditor-comment.md` is empty,
+emit `prior_reconciliation: []`. Otherwise, for every `<!-- fid:xxxxxxxx -->`
+marker, emit a status (`"addressed"` / `"not_addressed"` /
+`"no_longer_applies"`) plus optional `note_markdown`. If a prior finding is
+`not_addressed`, also include it again as a current finding so it carries
+forward.
