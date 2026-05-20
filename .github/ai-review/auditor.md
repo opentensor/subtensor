@@ -138,11 +138,17 @@ verdict comment, and note: "Cannot push to fork; please apply manually with
 
 ## Step 6 — Output
 
+Output exactly this structure, **with the inline-findings JSON block at the
+end**. Findings pinned to a specific diff line go in the JSON (posted as
+inline review comments with the one-click "Apply suggestion" button when
+`suggestion` is populated). Findings that cannot be pinned to a line stay in
+the summary.
+
 ```
 VERDICT: 👍 | 👎
 
 **Gittensor:** KNOWN | LIKELY | UNKNOWN — short note
-**Auto-fix:** <applied as commit abcd123 | not possible from fork | not needed>
+**Auto-fix:** <will be filled in by workflow — write 'pending workspace changes' if you modified files>
 
 ## Description
 <only if you populated it or there are discrepancies>
@@ -151,13 +157,13 @@ VERDICT: 👍 | 👎
 <only if duplicates exist>
 
 ## Findings
-### [SEVERITY] Title
-`path/to/file.rs:LINE-LINE`
-Description.
 
-```suggestion
-<inline fix>
-```
+<!-- inline-findings-table -->
+
+## Other findings
+<omit if no off-line findings>
+
+- [SEVERITY] short description
 
 ## Suggested new files
 <only if you propose new tests / helpers — full file content + path>
@@ -167,6 +173,36 @@ Description.
 
 ## Conclusion
 One or two sentences. State the verdict and what (if anything) the author needs to do.
+
+<!-- inline-findings-json
+[
+  {
+    "path": "pallets/subtensor/src/coinbase.rs",
+    "line": 142,
+    "side": "RIGHT",
+    "severity": "HIGH",
+    "title": "Unchecked arithmetic in reward calculation",
+    "body": "This addition can overflow at extreme stake. Use `saturating_add`.",
+    "suggestion": "    let total = stake.saturating_add(emission);"
+  }
+]
+end inline-findings-json -->
+
+<!-- ai-review:auditor -->
 ```
+
+**Inline finding rules** (identical to skeptic):
+
+- `path` + `line` MUST reference a line in `/tmp/ai-review-context/pr-diff.patch`.
+  Off-diff findings → `## Other findings`.
+- `side`: `RIGHT` (added/context), `LEFT` (removed). Default `RIGHT`.
+- `start_line`: optional, for multi-line ranges.
+- `severity`: `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`.
+- `body`: plain markdown — do not include the suggestion fence yourself.
+- `suggestion`: exact replacement text for the lines `start_line`..`line`
+  (or just `line`). Renders the "Apply suggestion" button. Omit when no
+  specific fix applies.
+- Inline comments are for actionable issues. Do not post inline for
+  observations, praise, or context-setting.
 
 End every comment with `<!-- ai-review:auditor -->`.

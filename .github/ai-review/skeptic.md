@@ -111,32 +111,80 @@ If `base_ref == main` and `head_ref == testnet`:
 
 ## Step 4 — Output
 
-Output format:
+Output exactly this structure, **with the inline-findings JSON block at the
+end**. Findings that can be pinned to a specific line in the PR diff go in
+the JSON (they will be posted as inline review comments on the diff with the
+"Apply suggestion" button when `suggestion` is populated). Findings that
+cannot be pinned to a line (e.g. "this PR is missing a test file entirely")
+stay in the summary's `## Other findings` section.
 
 ```
 VERDICT: [SAFE | VULNERABLE | MALICIOUS]
 
-**Contributor scrutiny:** BASELINE | MEDIUM | HIGH | VERY HIGH — account age, contribution count, gittensor association in one line
+**Contributor scrutiny:** BASELINE | MEDIUM | HIGH | VERY HIGH — one-line rationale
 **Branch:** <head> → <base>  (note if anomalous)
 
 ## Findings
-<omit this section if VERDICT is [SAFE] with no findings>
 
-### [SEVERITY] Title
-`path/to/file.rs:LINE-LINE`
-One-paragraph description of the issue and why it is a security concern.
+<!-- inline-findings-table -->
 
-```suggestion
-<inline fix if applicable>
-```
+## Other findings
+<omit if no off-line findings>
+
+- [SEVERITY] short description (file:line if approximate)
 
 ## Prior-comment reconciliation
 <only if a prior sticky comment exists>
 - Concern X: addressed / not addressed / no longer applies
-- ...
 
 ## Conclusion
-One sentence. If [SAFE], something like: "No security concerns. The Auditor may proceed." If [VULNERABLE]/[MALICIOUS], something like: "Block merge until findings are addressed."
+One sentence.
+
+<!-- inline-findings-json
+[
+  {
+    "path": "runtime/src/lib.rs",
+    "line": 275,
+    "side": "RIGHT",
+    "severity": "HIGH",
+    "title": "Missing spec_version bump",
+    "body": "Markdown explanation of the issue and why it matters.",
+    "suggestion": "    spec_version: 404,"
+  },
+  {
+    "path": "pallets/foo/src/lib.rs",
+    "start_line": 100,
+    "line": 102,
+    "side": "RIGHT",
+    "severity": "CRITICAL",
+    "title": "Multi-line unchecked arithmetic",
+    "body": "Use `saturating_add` to avoid overflow.",
+    "suggestion": "    let total = a.saturating_add(b);\n    let next = total.saturating_add(c);\n    Ok(next)"
+  }
+]
+end inline-findings-json -->
+
+<!-- ai-review:skeptic -->
 ```
 
-End every comment with the literal HTML comment `<!-- ai-review:skeptic -->` so the workflow can find your sticky comment on rerun.
+**Inline finding rules:**
+
+- `path` + `line` MUST reference a line that appears in the PR diff
+  (`/tmp/ai-review-context/pr-diff.patch`). Lines outside the diff cannot be
+  pinned; report those in `## Other findings` instead.
+- `side`: `RIGHT` for added/unchanged lines, `LEFT` for removed lines.
+  Default to `RIGHT`.
+- `start_line` (optional): for multi-line comments, the first line of the
+  range. Omit for single-line. `start_side` defaults to match `side`.
+- `severity`: `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`.
+- `body`: plain markdown. Do NOT include the suggestion block here — put the
+  replacement content in `suggestion` and the post-step will wrap it.
+- `suggestion` (optional): the exact replacement text for the lines from
+  `start_line` to `line` (or just `line`). GitHub will render the "Apply
+  suggestion" button. Omit when no specific fix applies.
+- Keep findings to actionable issues. Do not post inline comments for
+  general observations or praise.
+
+**End every comment** with `<!-- ai-review:skeptic -->` so the workflow can
+find your sticky on rerun. The JSON block is parsed away before the comment
+is posted; the visible sticky has the verdict, table, and conclusion only.

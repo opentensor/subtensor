@@ -255,29 +255,21 @@ jobs:
 
             End your output with the literal HTML marker `<!-- ai-review:skeptic -->`.
 
-      - name: Post sticky comment (skeptic verdict)
+      - name: Post review (skeptic) — inline comments + sticky summary
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
-          PR: ${{ needs.decide.outputs.pr_number }}
-          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [[ ! -s skeptic-output.md ]]; then
             echo "::error::Codex produced no output."
             exit 1
           fi
-          MARKER='<!-- ai-review:skeptic -->'
-          if ! grep -qF "$MARKER" skeptic-output.md; then
-            echo "$MARKER" >> skeptic-output.md
-          fi
-          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-            --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | tail -1)
-          if [[ -n "$EXISTING_ID" ]]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING_ID" \
-              -F body=@skeptic-output.md >/dev/null
-          else
-            gh pr comment "$PR" --repo "$REPO" --body-file skeptic-output.md
-          fi
+          python3 .github/ai-review/post_review.py \
+            --persona skeptic \
+            --pr ${{ needs.decide.outputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --commit-sha ${{ needs.decide.outputs.head_sha }} \
+            --output-file skeptic-output.md
 
       - name: Parse verdict and set check status
         run: |
@@ -463,29 +455,21 @@ jobs:
           git commit -m "chore: auditor auto-fix"
           git push origin "HEAD:$HEAD_REF"
 
-      - name: Post sticky comment (auditor verdict)
+      - name: Post review (auditor) — inline comments + sticky summary
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
-          PR: ${{ needs.decide.outputs.pr_number }}
-          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [[ ! -s auditor-output.md ]]; then
             echo "::error::Codex produced no output."
             exit 1
           fi
-          MARKER='<!-- ai-review:auditor -->'
-          if ! grep -qF "$MARKER" auditor-output.md; then
-            echo "$MARKER" >> auditor-output.md
-          fi
-          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-            --jq '.[] | select(.body | contains("'"$MARKER"'")) | .id' | tail -1)
-          if [[ -n "$EXISTING_ID" ]]; then
-            gh api -X PATCH "repos/$REPO/issues/comments/$EXISTING_ID" \
-              -F body=@auditor-output.md >/dev/null
-          else
-            gh pr comment "$PR" --repo "$REPO" --body-file auditor-output.md
-          fi
+          python3 .github/ai-review/post_review.py \
+            --persona auditor \
+            --pr ${{ needs.decide.outputs.pr_number }} \
+            --repo ${{ github.repository }} \
+            --commit-sha ${{ needs.decide.outputs.head_sha }} \
+            --output-file auditor-output.md
 
       - name: Parse verdict and set check status
         run: |
