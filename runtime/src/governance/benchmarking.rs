@@ -55,7 +55,7 @@ mod benchmarks {
 
     #[benchmark]
     fn rotate_economic() -> Result<(), BenchmarkError> {
-        let expected = prepare_economic_rotation_state();
+        let expected = expected_stored_members(prepare_economic_rotation_state());
 
         #[block]
         {
@@ -69,7 +69,7 @@ mod benchmarks {
 
     #[benchmark]
     fn rotate_building() -> Result<(), BenchmarkError> {
-        let expected = prepare_building_rotation_state();
+        let expected = expected_stored_members(prepare_building_rotation_state());
 
         #[block]
         {
@@ -150,6 +150,11 @@ mod benchmarks {
             AccountId,
             CollectiveId,
         >>::members_of(collective_id)
+    }
+
+    fn expected_stored_members(mut members: Vec<AccountId>) -> Vec<AccountId> {
+        members.sort();
+        members
     }
 
     fn prepare_economic_rotation_state() -> Vec<AccountId> {
