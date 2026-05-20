@@ -734,14 +734,6 @@ fn run_dissolved_network_lock_cleanup_phases(netuid: NetUid) {
         SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter),
         "remove_network_decaying_lock incomplete"
     );
-    assert!(
-        SubtensorModule::remove_network_owner_lock(netuid, &mut weight_meter),
-        "remove_network_owner_lock incomplete"
-    );
-    assert!(
-        SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter),
-        "remove_network_decaying_lock incomplete"
-    );
 }
 
 #[test]
