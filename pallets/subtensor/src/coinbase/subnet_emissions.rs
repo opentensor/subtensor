@@ -263,16 +263,20 @@ impl<T: Config> Pallet<T> {
         // their protocol EMA grows, but the normalization factor shrinks to
         // compensate, keeping the deduction proportional to user demand.
         let norm_factor = if net_flow_enabled {
-            let (user_positive_ema_sum, protocol_positive_ema_sum) = subnet_emas.iter().fold(
-                (zero, zero),
-                |(su, sp), (_, u, p)| {
-                    (su.saturating_add((*u).max(zero)),
-                     sp.saturating_add((*p).max(zero)))
-                },
-            );
+            let (user_positive_ema_sum, protocol_positive_ema_sum) =
+                subnet_emas
+                    .iter()
+                    .fold((zero, zero), |(su, sp), (_, u, p)| {
+                        (
+                            su.saturating_add((*u).max(zero)),
+                            sp.saturating_add((*p).max(zero)),
+                        )
+                    });
             let one = I64F64::saturating_from_num(1);
             if protocol_positive_ema_sum > zero {
-                user_positive_ema_sum.safe_div(protocol_positive_ema_sum).min(one)
+                user_positive_ema_sum
+                    .safe_div(protocol_positive_ema_sum)
+                    .min(one)
             } else {
                 zero
             }
