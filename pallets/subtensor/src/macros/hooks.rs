@@ -175,6 +175,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
                 // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
                 .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>())
+                // Fix testnet Subtensor TotalIssuance after the EVM fees issue.
+                .saturating_add(migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<T>())
                 // Backfill `RootRegisteredHotkeyCount` from the root-subnet `Keys` map
                 .saturating_add(migrations::migrate_init_root_registered_hotkey_count::migrate_init_root_registered_hotkey_count::<T>());
             weight

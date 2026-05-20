@@ -408,12 +408,22 @@ impl<T: Config> Pallet<T> {
         MinChildkeyTake::<T>::put(take);
         Self::deposit_event(Event::MinChildKeyTakeSet(take));
     }
+    pub fn set_min_childkey_take_for_subnet(netuid: NetUid, take: u16) {
+        MinChildkeyTakePerSubnet::<T>::insert(netuid, take);
+        Self::deposit_event(Event::MinChildKeyTakePerSubnetSet(netuid, take));
+    }
     pub fn set_max_childkey_take(take: u16) {
         MaxChildkeyTake::<T>::put(take);
         Self::deposit_event(Event::MaxChildKeyTakeSet(take));
     }
     pub fn get_min_childkey_take() -> u16 {
         MinChildkeyTake::<T>::get()
+    }
+    pub fn get_min_childkey_take_for_subnet(netuid: NetUid) -> u16 {
+        MinChildkeyTakePerSubnet::<T>::get(netuid)
+    }
+    pub fn get_effective_min_childkey_take(netuid: NetUid) -> u16 {
+        Self::get_min_childkey_take().max(Self::get_min_childkey_take_for_subnet(netuid))
     }
 
     pub fn get_max_childkey_take() -> u16 {
