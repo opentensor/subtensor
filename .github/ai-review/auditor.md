@@ -43,7 +43,7 @@ Read `pr-body.md`.
 **If the body is empty or trivial** (less than ~3 sentences of substantive content; just a checked checklist with no description; only template boilerplate):
 
 - Generate a detailed description covering: motivation, what changed, files of interest, behavioral impact, migration / spec_version implications, testing performed.
-- **In CI**, write the proposed description to `auditor-proposed-pr-body.md` in the workspace. The workflow will detect this file and update the PR body via the post-comment step. Note in your verdict: "PR description was empty; I have proposed one in this comment — please review."
+- **In CI**, include the proposed description in `summary_markdown` (under a clear `### Proposed PR description` heading, with the full body in a fenced block so the author can copy/paste). Note in your verdict: "PR description was empty; I have proposed one above — please paste it into the PR description."
 - **Locally**, write to `.auditor-pr-description.md` for the user to use when opening the PR.
 
 **If the body has substantive content** but the implementation diverges from it:

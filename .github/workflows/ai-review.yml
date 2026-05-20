@@ -516,9 +516,8 @@ jobs:
           echo "Detected auto-fix changes:"
           git status --short
           # Exclude Codex-produced review artifacts so they never end up in the
-          # auto-fix commit (the action writes auditor-output.json in the
-          # workspace, and the persona may also write auditor-proposed-pr-body.md).
-          git add -A -- ':!auditor-output.json' ':!auditor-proposed-pr-body.md'
+          # auto-fix commit (the action writes auditor-output.json in the workspace).
+          git add -A -- ':!auditor-output.json'
           git -c core.hooksPath=/dev/null commit -m "chore: auditor auto-fix"
           git -c core.hooksPath=/dev/null \
               -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
