@@ -493,32 +493,69 @@ jobs:
       # Detect any workspace changes Codex made (auto-fix), commit + push them
       # using the resolved token. Codex itself has no token, so this is the
       # only path through which writes reach GitHub.
-      - name: Commit and push auto-fix (same-repo PRs only)
+      - name: Apply auto-fix from a clean checkout (same-repo PRs only)
         if: needs.decide.outputs.is_fork == 'false'
         env:
           HEAD_REF: ${{ needs.decide.outputs.head_ref }}
+          HEAD_SHA: ${{ needs.decide.outputs.head_sha }}
           PUSH_TOKEN: ${{ steps.token.outputs.token }}
           REPO: ${{ github.repository }}
-        # The push credential is configured ONLY here, after Codex has exited,
-        # and:
-        #   - core.hooksPath is forced to /dev/null so any PR-controlled
-        #     pre-commit / pre-push hook (or Codex-set core.hooksPath via
-        #     `git config`) cannot run with PUSH_TOKEN in env.
-        #   - push target is an explicit URL, so a PR-modified `origin` remote
-        #     cannot redirect the credentialed push.
-        #   - auth is in an inline `-c http.*.extraheader`, not .git/config.
+          PR_DIRTY: ${{ github.workspace }}
+        # The PR-mutated checkout cannot be trusted with credentialed git
+        # operations: Codex's workspace-write sandbox may have left state in
+        # .git/config or .gitattributes that would cause git to execute helpers
+        # (gpg.program, core.fsmonitor, diff/smudge filters, etc.) with the
+        # token in env. So we:
+        #   1. Generate a binary-safe patch of the auditor's changes using a
+        #      sanitized git invocation (no hooks, no attributes, no gpg).
+        #   2. Clone a fresh trusted copy of the branch to /tmp.
+        #   3. Verify the fresh HEAD matches what the auditor reviewed (no
+        #      surprise commits from the human in the meantime).
+        #   4. Apply the patch and push from the clean checkout.
+        # Token only ever appears in: this step's env (gone with the runner)
+        # and inline -c http.extraheader args (never persisted to disk).
         run: |
           set -euo pipefail
-          if git diff --quiet && git diff --cached --quiet; then
+          SAFE_GIT_OPTS=(
+            -c core.hooksPath=/dev/null
+            -c core.attributesFile=/dev/null
+            -c core.fsmonitor=false
+            -c commit.gpgSign=false
+            -c gpg.program=/bin/false
+          )
+
+          # 1. Detect + extract auditor changes from the dirty workspace.
+          cd "$PR_DIRTY"
+          git "${SAFE_GIT_OPTS[@]}" add -A -- ':!auditor-output.json'
+          if git "${SAFE_GIT_OPTS[@]}" diff --cached --quiet; then
             echo "No auto-fix changes."
             exit 0
           fi
           echo "Detected auto-fix changes:"
-          git status --short
-          # Exclude Codex-produced review artifacts so they never end up in the
-          # auto-fix commit (the action writes auditor-output.json in the workspace).
-          git add -A -- ':!auditor-output.json'
-          git -c core.hooksPath=/dev/null commit -m "chore: auditor auto-fix"
+          git "${SAFE_GIT_OPTS[@]}" status --short
+          git "${SAFE_GIT_OPTS[@]}" diff --cached --binary > /tmp/auto-fix.patch
+          git "${SAFE_GIT_OPTS[@]}" reset
+
+          # 2. Fresh trusted clone (token only on the command line).
+          TMPDIR=/tmp/ai-review-push
+          rm -rf "$TMPDIR"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
+            clone --depth=1 -b "$HEAD_REF" \
+            "https://github.com/$REPO.git" "$TMPDIR"
+
+          # 3. Verify the fresh HEAD matches what the auditor reviewed.
+          cd "$TMPDIR"
+          FRESH_SHA="$(git rev-parse HEAD)"
+          if [[ "$FRESH_SHA" != "$HEAD_SHA" ]]; then
+            echo "::warning::Fresh HEAD $FRESH_SHA != auditor HEAD $HEAD_SHA; branch advanced during review. Refusing to push to avoid clobbering."
+            exit 0
+          fi
+
+          # 4. Apply, commit, push — all in the clean checkout's vanilla config.
+          git config user.name 'subtensor-ai-review[bot]'
+          git config user.email 'subtensor-ai-review@users.noreply.github.com'
+          git apply --whitespace=nowarn /tmp/auto-fix.patch
+          git -c core.hooksPath=/dev/null commit -am "chore: auditor auto-fix"
           git -c core.hooksPath=/dev/null \
               -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
               push "https://github.com/$REPO.git" "HEAD:$HEAD_REF"
