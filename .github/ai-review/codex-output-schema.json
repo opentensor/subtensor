@@ -8,7 +8,8 @@
     "conclusion_markdown",
     "inline_findings",
     "off_diff_findings",
-    "prior_reconciliation"
+    "prior_reconciliation",
+    "proposed_pr_body"
   ],
   "properties": {
     "verdict": {
@@ -100,6 +101,10 @@
           }
         }
       }
+    },
+    "proposed_pr_body": {
+      "type": ["string", "null"],
+      "description": "Auditor-only. When the existing PR body is empty or trivial, populate this with a proposed PR description (full markdown, ready to drop into the body). The post-script PATCHes the PR body with this content ONLY when the current body is empty/trivial. Skeptic always sets this to null."
     },
     "prior_reconciliation": {
       "type": "array",

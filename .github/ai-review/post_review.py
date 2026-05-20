@@ -44,9 +44,23 @@ from typing import Any
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 
-def gh_api(method: str, path: str, body: dict | None = None) -> dict | list:
-    """Call gh api; raise on non-zero. Returns parsed JSON, or {} for empty."""
-    cmd = ["gh", "api", "-X", method, path]
+def gh_api(
+    method: str,
+    path: str,
+    body: dict | None = None,
+    paginate: bool = False,
+) -> dict | list:
+    """
+    Call gh api; raise on non-zero. Returns parsed JSON, or {} for empty.
+
+    paginate=True is for GET list endpoints — uses `--paginate --slurp --jq add`
+    so multi-page responses come back as a single merged array. Required for
+    issue-comments and similar endpoints that can exceed 100 entries on busy PRs.
+    """
+    cmd = ["gh", "api"]
+    if paginate:
+        cmd += ["--paginate", "--slurp", "--jq", "add"]
+    cmd += ["-X", method, path]
     if body is not None:
         cmd += ["--input", "-"]
     proc = subprocess.run(
@@ -118,7 +132,12 @@ def post_review(
         },
     )
     review_id = int(review.get("id", 0))
-    posted = gh_api("GET", f"repos/{repo}/pulls/{pr}/reviews/{review_id}/comments?per_page=100")
+    # A single review can technically exceed 100 comments; paginate to be safe.
+    posted = gh_api(
+        "GET",
+        f"repos/{repo}/pulls/{pr}/reviews/{review_id}/comments?per_page=100",
+        paginate=True,
+    )
     return (review_id, posted if isinstance(posted, list) else [])
 
 
@@ -319,6 +338,73 @@ def _post_error_sticky(repo: str, pr: int, persona: str, message: str, raw: str)
         print(raw_trim, file=sys.stderr)
 
 
+_PR_BODY_TRIVIAL_MAX_CHARS = 150
+
+
+def _pr_body_is_trivial(body: str) -> bool:
+    """
+    A PR body is considered 'trivial' if (after stripping the GitHub PR template
+    boilerplate, checkbox lines, and headings) less than ~150 chars of real
+    prose remain. Used to decide whether the auditor's proposed_pr_body should
+    auto-apply.
+    """
+    if body is None:
+        return True
+    # Strip lines that are just headers, checkboxes, comments, or empty.
+    keep_lines: list[str] = []
+    for line in body.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("#"):
+            continue
+        if s.startswith("<!--") and s.endswith("-->"):
+            continue
+        if re.match(r"^[-*]\s*\[[ xX]\]", s):  # markdown checkbox
+            continue
+        if re.match(r"^[-*]\s+(N/A|TBD|—|-)\s*$", s, re.IGNORECASE):
+            continue
+        if s in {"## Description", "## Related Issue(s)", "## Type of Change",
+                 "## Breaking Change", "## Checklist", "## Screenshots (if applicable)",
+                 "## Additional Notes"}:
+            continue
+        keep_lines.append(s)
+    substance = " ".join(keep_lines)
+    return len(substance) < _PR_BODY_TRIVIAL_MAX_CHARS
+
+
+def maybe_patch_pr_body(
+    repo: str, pr: int, proposed: str | None
+) -> str | None:
+    """
+    If the auditor proposed a body AND the current body is trivial, PATCH it.
+    Returns a short note for the sticky summary, or None if no action taken.
+    """
+    if not proposed or not proposed.strip():
+        return None
+    try:
+        pr_obj = gh_api("GET", f"repos/{repo}/pulls/{pr}")
+    except RuntimeError as e:
+        print(f"::warning::Could not read PR for body check: {e}", file=sys.stderr)
+        return None
+    if not isinstance(pr_obj, dict):
+        return None
+    current = pr_obj.get("body") or ""
+    if not _pr_body_is_trivial(current):
+        return (
+            "_The Auditor proposed a replacement PR description, but the "
+            "current body is non-trivial; not overwriting. Maintainers: ask "
+            "the Auditor to regenerate if you want it._"
+        )
+    try:
+        gh_api("PATCH", f"repos/{repo}/pulls/{pr}", {"body": proposed})
+        print("Patched PR body with auditor's proposal.", file=sys.stderr)
+        return "_PR body was empty/trivial; the Auditor has auto-filled it. Please review._"
+    except RuntimeError as e:
+        print(f"::warning::Failed to patch PR body: {e}", file=sys.stderr)
+        return f"_Auditor proposed a PR body but the PATCH failed: {e}_"
+
+
 def find_prior_live_sticky(
     repo: str, pr: int, persona: str
 ) -> tuple[int | None, str, str]:
@@ -328,7 +414,12 @@ def find_prior_live_sticky(
     """
     marker_live = f"<!-- ai-review:{persona} -->"
     marker_dead = f"<!-- ai-review:{persona}:superseded -->"
-    comments = gh_api("GET", f"repos/{repo}/issues/{pr}/comments?per_page=100")
+    # Paginate so noisy PRs with > 100 comments still find the live sticky.
+    comments = gh_api(
+        "GET",
+        f"repos/{repo}/issues/{pr}/comments?per_page=100",
+        paginate=True,
+    )
     if not isinstance(comments, list):
         return (None, "", "")
     best: tuple[int | None, str, str] = (None, "", "")
@@ -389,20 +480,22 @@ def main() -> int:
     # Validate required top-level fields. If anything is missing, post an
     # error sticky so the agent sees the schema mismatch on the next run.
     required = {
-        "verdict": str,
-        "scrutiny_note": str,
-        "summary_markdown": str,
-        "conclusion_markdown": str,
-        "inline_findings": list,
-        "off_diff_findings": list,
-        "prior_reconciliation": list,
+        "verdict": (str,),
+        "scrutiny_note": (str,),
+        "summary_markdown": (str,),
+        "conclusion_markdown": (str,),
+        "inline_findings": (list,),
+        "off_diff_findings": (list,),
+        "prior_reconciliation": (list,),
+        "proposed_pr_body": (str, type(None)),
     }
     problems: list[str] = []
-    for key, typ in required.items():
+    for key, typs in required.items():
         if key not in doc:
             problems.append(f"missing required field `{key}`")
-        elif not isinstance(doc[key], typ):
-            problems.append(f"`{key}` must be {typ.__name__}, got {type(doc[key]).__name__}")
+        elif not isinstance(doc[key], typs):
+            names = "|".join(t.__name__ for t in typs)
+            problems.append(f"`{key}` must be {names}, got {type(doc[key]).__name__}")
     if problems:
         _post_error_sticky(
             args.repo, args.pr, args.persona,
@@ -417,6 +510,14 @@ def main() -> int:
     inline = doc.get("inline_findings") or []
     off_diff = doc.get("off_diff_findings") or []
     reconciliation = doc.get("prior_reconciliation") or []
+
+    # Auditor-only: maybe PATCH the PR body. Prepend the resulting note to
+    # summary_markdown so the sticky reflects the action taken.
+    if args.persona == "auditor":
+        note = maybe_patch_pr_body(args.repo, args.pr, doc.get("proposed_pr_body"))
+        if note:
+            existing = doc.get("summary_markdown") or ""
+            doc["summary_markdown"] = note + ("\n\n" + existing if existing.strip() else "")
 
     # 1. Find the existing live sticky (the one we are about to supersede).
     prior_id, prior_body, prior_url = find_prior_live_sticky(args.repo, args.pr, args.persona)

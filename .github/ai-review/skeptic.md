@@ -128,6 +128,7 @@ comments from this document. Required fields:
   sticky comment (read `/tmp/ai-review-context/prior-skeptic-comment.md`
   and look for `<!-- fid:xxxxxxxx -->` markers).
 - `conclusion_markdown` — one or two sentences justifying the verdict.
+- `proposed_pr_body` — always set this to `null`. PR-body editing is an Auditor-only concern.
 
 **Inline finding rules:**
 

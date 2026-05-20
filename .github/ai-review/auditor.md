@@ -43,8 +43,10 @@ Read `pr-body.md`.
 **If the body is empty or trivial** (less than ~3 sentences of substantive content; just a checked checklist with no description; only template boilerplate):
 
 - Generate a detailed description covering: motivation, what changed, files of interest, behavioral impact, migration / spec_version implications, testing performed.
-- **In CI**, include the proposed description in `summary_markdown` (under a clear `### Proposed PR description` heading, with the full body in a fenced block so the author can copy/paste). Note in your verdict: "PR description was empty; I have proposed one above — please paste it into the PR description."
+- **In CI**, set the `proposed_pr_body` output field to the full proposed description (markdown). The post-script will PATCH the PR body with this content automatically when the current body is empty/trivial; on a non-trivial body, the post-script leaves it alone and just surfaces the proposal in the sticky. You do NOT need to mention this in `summary_markdown` — the post-script appends a one-line note when it has updated the body.
 - **Locally**, write to `.auditor-pr-description.md` for the user to use when opening the PR.
+
+Set `proposed_pr_body` to `null` whenever the existing body is already substantive (≥ ~3 sentences of real content beyond the template). Do not propose a replacement just because you'd phrase it differently; only propose when the existing body is genuinely missing or unhelpful.
 
 **If the body has substantive content** but the implementation diverges from it:
 
@@ -154,6 +156,7 @@ from it. Required fields:
 - `prior_reconciliation[]` — one entry per `<!-- fid:xxxxxxxx -->` marker
   in `/tmp/ai-review-context/prior-auditor-comment.md`.
 - `conclusion_markdown` — one or two sentences justifying the verdict.
+- `proposed_pr_body` — when the current PR body is empty or trivial AND you want to auto-fill it, set this to the full proposed body markdown (the post-script will PATCH the PR body and add a one-line note in the sticky). Otherwise set it to `null`. See "Step 1 — PR description" for when to populate.
 
 **Inline finding rules** (same as Skeptic):
 
