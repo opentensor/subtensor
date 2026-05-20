@@ -1,5 +1,4 @@
-//! Static list of referenda tracks. Track 0 is the triumvirate approval
-//! track; track 1 is the collective oversight (Review) track.
+//! Static governance tracks: Triumvirate approval, then collective review.
 
 use pallet_referenda::{
     AdjustmentCurve, ApprovalAction, DecisionStrategy, MAX_TRACK_NAME_LEN, Track as RefTrack,
@@ -20,15 +19,14 @@ const TRIUMVIRATE_DECISION_PERIOD: BlockNumber = prod_or_fast!(7 * DAYS, 50);
 
 const REVIEW_INITIAL_DELAY: BlockNumber = prod_or_fast!(24 * HOURS, 30);
 
+const TRIUMVIRATE_TRACK_ID: u8 = 0;
+const REVIEW_TRACK_ID: u8 = 1;
+
 /// Upper bound on the Review dispatch delay, reached as net rejection
 /// approaches `cancel_threshold`.
 const REVIEW_MAX_DELAY: BlockNumber = prod_or_fast!(2 * DAYS, 60);
 
-/// Identity curve: net votes shift the delay by an equal amount per unit of
-/// net, regardless of position in the trend. Each marginal vote in the
-/// undecided range moves the dispatch target by the same fixed step.
-/// Configured as `pallet_referenda::Config::AdjustmentCurve` for the runtime;
-/// see [`AdjustmentCurve`] for the semantics of `progress`.
+/// Makes each additional review vote move the delay by the same amount.
 pub struct LinearAdjustmentCurve;
 impl AdjustmentCurve for LinearAdjustmentCurve {
     fn apply(progress: Perbill) -> Perbill {
@@ -55,7 +53,7 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
     > {
         [
             RefTrack {
-                id: 0u8,
+                id: TRIUMVIRATE_TRACK_ID,
                 info: RefTrackInfo {
                     name: pad_name(b"triumvirate"),
                     proposer_set: Some(MemberSet::Single(CollectiveId::Proposers)),
@@ -65,10 +63,11 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
                         decision_period: TRIUMVIRATE_DECISION_PERIOD,
                         approve_threshold: Perbill::from_rational(2u32, 3u32),
                         reject_threshold: Perbill::from_rational(2u32, 3u32),
-                        // Approved triumvirate decisions hand off to the
-                        // collective review track (track 1) so the wider
-                        // body can fast-track or cancel before enactment.
-                        on_approval: ApprovalAction::Review { track: 1 },
+                        // Triumvirate approval still gets a wider review
+                        // window before enactment.
+                        on_approval: ApprovalAction::Review {
+                            track: REVIEW_TRACK_ID,
+                        },
                     },
                 },
             },
@@ -78,7 +77,7 @@ impl RefTracksInfo<[u8; MAX_TRACK_NAME_LEN], AccountId, RuntimeCall, BlockNumber
             // auto-dispatch at `now + initial_delay`, bypassing Triumvirate
             // approval.
             RefTrack {
-                id: 1u8,
+                id: REVIEW_TRACK_ID,
                 info: RefTrackInfo {
                     name: pad_name(b"review"),
                     proposer_set: None,
@@ -108,7 +107,7 @@ mod tests {
     #[test]
     fn track_0_triumvirate_is_directly_submittable() {
         let track_0 = Tracks::tracks()
-            .find(|t| t.id == 0u8)
+            .find(|t| t.id == TRIUMVIRATE_TRACK_ID)
             .expect("track 0 (triumvirate) must exist");
 
         assert!(
@@ -121,7 +120,7 @@ mod tests {
     #[test]
     fn track_1_review_is_not_directly_submittable() {
         let track_1 = Tracks::tracks()
-            .find(|t| t.id == 1u8)
+            .find(|t| t.id == REVIEW_TRACK_ID)
             .expect("track 1 (review) must exist");
 
         assert!(

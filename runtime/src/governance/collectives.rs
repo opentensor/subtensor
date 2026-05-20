@@ -11,13 +11,13 @@ use subtensor_runtime_common::{pad_name, time::DAYS};
 
 use crate::{AccountId, BlockNumber, Runtime};
 
-/// Minimum subnet age for a subnet owner to be eligible for the Building collective.
+/// Keeps fresh subnet launches out of the Building rotation.
 pub const MIN_SUBNET_AGE: BlockNumber = prod_or_fast!(180 * DAYS, 100);
 
-/// Target size of the Economic ranked collective.
+/// Voting seats rotated into the Economic collective.
 pub const ECONOMIC_SIZE: u32 = 16;
 
-/// Target size of the Building ranked collective.
+/// Voting seats rotated into the Building collective.
 pub const BUILDING_SIZE: u32 = 16;
 
 /// Cap on the EconomicEligible collective. Equal to the root subnet's
@@ -26,10 +26,10 @@ pub const BUILDING_SIZE: u32 = 16;
 /// coldkey per root UID.
 pub const ECONOMIC_ELIGIBLE_SIZE: u32 = 64;
 
-/// Time before a collective rotation is triggered.
+/// Rotation cadence for ranked collectives.
 const TERM_DURATION: BlockNumber = prod_or_fast!(60 * DAYS, 100);
 
-/// Identifier of a collective managed by `pallet-multi-collective`.
+/// Stable collective ids. Codec indices are consensus-facing.
 #[derive(
     Copy,
     Clone,
@@ -120,12 +120,10 @@ impl CollectivesInfo<BlockNumber, [u8; 32]> for Collectives {
     }
 }
 
-/// Syncs `EconomicEligible` membership to the root-registered coldkey set.
-/// Fired by `pallet-subtensor` whenever a coldkey crosses the 0↔1 boundary
-/// in `RootRegisteredHotkeyCount`. `do_add_member` / `do_remove_member`
-/// are idempotent and skip origin checks, so the sync is best-effort:
-/// failures are logged but do not block the underlying root-registration
-/// or hotkey-swap call.
+/// Keeps the Economic eligibility pool aligned with root registration.
+///
+/// Failures are logged instead of blocking root-register or hotkey-swap
+/// calls; `try_state` checks the invariant afterwards.
 pub struct EconomicEligibleSync;
 
 impl OnRootRegistrationChange<AccountId> for EconomicEligibleSync {
@@ -166,9 +164,7 @@ impl OnRootRegistrationChange<AccountId> for EconomicEligibleSync {
     }
 }
 
-/// Read-side accessor for `pallet-subtensor`'s try_state invariant. Reads
-/// the `EconomicEligible` membership directly so the runtime can assert
-/// it stays in sync with `RootRegisteredHotkeyCount`.
+/// Lets `pallet-subtensor` verify its root-registration invariant.
 pub struct EconomicEligibleInspector;
 
 impl RootRegisteredInspector<AccountId> for EconomicEligibleInspector {
