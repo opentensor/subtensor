@@ -9,6 +9,9 @@ use sp_arithmetic::Perquintill;
 use sp_runtime::{DispatchResult, traits::AccountIdConversion};
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, SubnetInfo, TaoBalance, Token, TokenReserve};
+use subtensor_swap_interface::{
+    DefaultPriceLimit, Order as OrderT, SwapEngine, SwapHandler, SwapResult,
+};
 
 use super::pallet::*;
 use super::swap_step::{BasicSwapStep, SwapStep};
@@ -76,20 +79,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns actually added Tao and Alpha, which includes fees
+    /// Returns actually added Tao and Alpha, which may be zero in case
+    /// of a high disbalance
     pub(super) fn adjust_protocol_liquidity(
         netuid: NetUid,
         tao_delta: TaoBalance,
         alpha_delta: AlphaBalance,
     ) -> (TaoBalance, AlphaBalance) {
-        // Collect fees
-        let tao_fees = FeesTao::<T>::get(netuid);
-        let alpha_fees = FeesAlpha::<T>::get(netuid);
-        FeesTao::<T>::insert(netuid, TaoBalance::ZERO);
-        FeesAlpha::<T>::insert(netuid, AlphaBalance::ZERO);
-        let actual_tao_delta = tao_delta.saturating_add(tao_fees);
-        let actual_alpha_delta = alpha_delta.saturating_add(alpha_fees);
-
         // Get reserves
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
@@ -100,26 +96,23 @@ impl<T: Config> Pallet<T> {
             .update_weights_for_added_liquidity(
                 u64::from(tao_reserve),
                 u64::from(alpha_reserve),
-                u64::from(actual_tao_delta),
-                u64::from(actual_alpha_delta),
+                u64::from(tao_delta),
+                u64::from(alpha_delta),
             )
             .is_err()
         {
-            log::error!(
+            log::warn!(
                 "Reserves are out of range for emission: netuid = {}, tao = {}, alpha = {}, tao_delta = {}, alpha_delta = {}",
                 netuid,
                 tao_reserve,
                 alpha_reserve,
-                actual_tao_delta,
-                actual_alpha_delta
+                tao_delta,
+                alpha_delta
             );
-            // Return fees back into fee storage and return zeroes
-            FeesTao::<T>::insert(netuid, tao_fees);
-            FeesAlpha::<T>::insert(netuid, alpha_fees);
             (TaoBalance::ZERO, AlphaBalance::ZERO)
         } else {
             SwapBalancer::<T>::insert(netuid, balancer);
-            (actual_tao_delta, actual_alpha_delta)
+            (tao_delta, alpha_delta)
         }
     }
 
@@ -279,8 +272,6 @@ impl<T: Config> Pallet<T> {
         T::TaoReserve::decrease_provided(netuid.into(), burned_tao);
         T::AlphaReserve::decrease_provided(netuid.into(), burned_alpha);
 
-        FeesTao::<T>::remove(netuid);
-        FeesAlpha::<T>::remove(netuid);
         PalSwapInitialized::<T>::remove(netuid);
 
         FeeRate::<T>::remove(netuid);

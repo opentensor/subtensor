@@ -588,8 +588,7 @@ pub fn register_ok_neuron(
     // Ensure reserves exist for swap/burn path, but do NOT clobber reserves if the test already set them.
     let reserve: u64 = 1_000_000_000_000;
     let tao_reserve = SubnetTAO::<Test>::get(netuid);
-    let alpha_reserve =
-        SubnetAlphaIn::<Test>::get(netuid) + SubnetAlphaInProvided::<Test>::get(netuid);
+    let alpha_reserve = SubnetAlphaIn::<Test>::get(netuid);
 
     if tao_reserve.is_zero() && alpha_reserve.is_zero() {
         setup_reserves(netuid, reserve.into(), reserve.into());

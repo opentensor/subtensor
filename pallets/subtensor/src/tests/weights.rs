@@ -119,7 +119,7 @@ fn test_commit_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
 
         let min_stake = 500_000_000_000_u64;
         let reserve = min_stake * 1000;
@@ -255,7 +255,7 @@ fn test_set_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
 
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
 
         let min_stake = TaoBalance::from(500_000_000_000_u64);
 
@@ -361,7 +361,7 @@ fn test_reveal_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey2, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
         crate::Owner::<Test>::insert(hotkey2, coldkey);
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
 
         let min_stake = TaoBalance::from(500_000_000_000_u64);
         // Set the minimum stake
@@ -544,7 +544,7 @@ fn test_batch_reveal_weights_validate() {
         SubtensorModule::append_neuron(netuid, &hotkey2, 0);
         crate::Owner::<Test>::insert(hotkey, coldkey);
         crate::Owner::<Test>::insert(hotkey2, coldkey);
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         let min_stake = TaoBalance::from(500_000_000_000_u64);
@@ -782,7 +782,7 @@ fn test_set_stake_threshold_failed() {
         add_network_disable_commit_reveal(netuid, 1, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_stake_threshold(20_000_000_000_000);
-        add_balance_to_coldkey_account(&hotkey, u64::MAX.into());
+        add_balance_to_coldkey_account(&hotkey, 20_000_000_000_000_000_u64.into());
 
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_stake_threshold(), 20_000_000_000_000);

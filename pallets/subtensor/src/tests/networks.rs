@@ -7,7 +7,7 @@ use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use sp_std::collections::{btree_map::BTreeMap, vec_deque::VecDeque};
-use substrate_fixed::types::{I96F32, U96F32};
+use substrate_fixed::types::{I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{MechId, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::{Order, SwapHandler};
 
@@ -262,7 +262,7 @@ fn dissolve_owner_cut_refund_logic() {
 
         // Use the current alpha price to estimate the TAO equivalent.
         let owner_emission_tao = {
-            let price: U96F32 = U96F32::from_num(
+            let price: U96F32 = U96F32::saturating_from_num(
                 <Test as pallet::Config>::SwapInterface::current_alpha_price(net.into()),
             );
             U96F32::from_num(owner_alpha_u64)
@@ -273,6 +273,8 @@ fn dissolve_owner_cut_refund_logic() {
         };
 
         let expected_refund: TaoBalance = lock.saturating_sub(owner_emission_tao);
+
+        println!("expected_refund = {:?}", expected_refund);
 
         let before = SubtensorModule::get_coldkey_balance(&oc);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
@@ -2260,13 +2262,13 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
     });
 }
 
-fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U96F32) -> u64 {
-    let alpha = (U96F32::from_num(lock_cost_u64)
+fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U64F64) -> u64 {
+    let alpha = (U64F64::from_num(lock_cost_u64)
         .checked_div(price)
         .unwrap_or_default())
     .floor();
 
-    if alpha > U96F32::from_num(u64::MAX) {
+    if alpha > U64F64::from_num(u64::MAX) {
         u64::MAX
     } else {
         alpha.to_num::<u64>()
@@ -2467,11 +2469,6 @@ fn register_network_seeds_first_subnet_from_fallback_price_one_and_keeps_lock_in
         assert_eq!(
             RAORecycledForRegistration::<Test>::get(new_netuid),
             expected_recycled
-        );
-        assert_eq!(SubnetTaoProvided::<Test>::get(new_netuid), TaoBalance::ZERO);
-        assert_eq!(
-            SubnetAlphaInProvided::<Test>::get(new_netuid),
-            AlphaBalance::ZERO
         );
 
         assert_eq!(

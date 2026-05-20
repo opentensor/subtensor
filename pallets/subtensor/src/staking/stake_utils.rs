@@ -1,8 +1,8 @@
 use super::*;
 use safe_math::*;
 use share_pool::{SafeFloat, SharePool, SharePoolDataOperations};
-use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use sp_std::{collections::btree_map::BTreeMap, ops::Neg};
+use substrate_fixed::types::{I64F64, I96F32, U64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler, SwapResult};
 
@@ -21,8 +21,8 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::get(netuid).saturating_add(SubnetAlphaOut::<T>::get(netuid))
     }
 
-    pub fn get_moving_alpha_price(netuid: NetUid) -> U96F32 {
-        let one = U96F32::saturating_from_num(1.0);
+    pub fn get_moving_alpha_price(netuid: NetUid) -> U64F64 {
+        let one = U64F64::saturating_from_num(1.0);
         if netuid.is_root() {
             // Root.
             one
@@ -30,7 +30,7 @@ impl<T: Config> Pallet<T> {
             // Stable
             one
         } else {
-            U96F32::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
+            U64F64::saturating_from_num(SubnetMovingPrice::<T>::get(netuid))
         }
     }
 
@@ -71,12 +71,12 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Gets the Median Subnet Alpha Price
-    pub fn get_median_subnet_alpha_price() -> U96F32 {
-        let default_price = U96F32::saturating_from_num(1_u64);
-        let zero_price = U96F32::saturating_from_num(0_u64);
-        let two = U96F32::saturating_from_num(2_u64);
+    pub fn get_median_subnet_alpha_price() -> U64F64 {
+        let default_price = U64F64::saturating_from_num(1_u64);
+        let zero_price = U64F64::saturating_from_num(0_u64);
+        let two = U64F64::saturating_from_num(2_u64);
 
-        let mut price_counts: BTreeMap<U96F32, usize> = BTreeMap::new();
+        let mut price_counts: BTreeMap<U64F64, usize> = BTreeMap::new();
         let mut total_prices: usize = 0;
 
         for (netuid, added) in NetworksAdded::<T>::iter() {
@@ -113,8 +113,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let mut cumulative: usize = 0;
-        let mut lower_price: Option<U96F32> = None;
-        let mut upper_price: Option<U96F32> = None;
+        let mut lower_price: Option<U64F64> = None;
+        let mut upper_price: Option<U64F64> = None;
 
         for (price, count) in price_counts.into_iter() {
             let next_cumulative = cumulative.saturating_add(count);

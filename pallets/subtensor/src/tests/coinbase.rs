@@ -512,7 +512,7 @@ fn test_coinbase_moving_prices() {
         // Run moving 1 times.
         SubtensorModule::update_moving_price(netuid);
         // Assert price is ~ 100% of the real price.
-        assert!(U96F32::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
+        assert!(U64F64::from_num(1.0) - SubtensorModule::get_moving_alpha_price(netuid) < 0.05);
         // Set price to zero.
         SubnetMovingPrice::<Test>::insert(netuid, I96F32::from_num(0));
         SubnetMovingAlpha::<Test>::set(I96F32::from_num(0.1));

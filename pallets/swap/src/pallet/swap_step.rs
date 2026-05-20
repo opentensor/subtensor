@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use frame_support::{ensure, traits::Get};
+use frame_support::ensure;
 use safe_math::*;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token, TokenReserve};
@@ -121,16 +121,8 @@ where
         if !self.delta_in.is_zero() {
             ensure!(!delta_out.is_zero(), Error::<T>::ReservesTooLow);
 
-            // Split fees according to DefaultFeeSplit between liquidity pool and
-            // validators. In case we want just to forward 100% of fees to the block
-            // author, it can be done this way:
-            // ```
-            //     fee_to_block_author = self.fee;
-            // ```
-            let fee_split = DefaultFeeSplit::get();
-            let lp_fee = fee_split.mul_floor(self.fee.to_u64()).into();
-            Self::add_fees(self.netuid, lp_fee);
-            fee_to_block_author = self.fee.saturating_sub(lp_fee);
+            // 100% of swap fees to to block builder
+            fee_to_block_author = self.fee;
         }
 
         Ok(SwapStepResult {
@@ -169,10 +161,6 @@ impl<T: Config> SwapStep<T, TaoBalance, AlphaBalance>
 
     fn price_is_closer(price1: &U64F64, price2: &U64F64) -> bool {
         price1 <= price2
-    }
-
-    fn add_fees(netuid: NetUid, fee: TaoBalance) {
-        FeesTao::<T>::mutate(netuid, |total| *total = total.saturating_add(fee))
     }
 
     fn convert_deltas(netuid: NetUid, delta_in: TaoBalance) -> AlphaBalance {
@@ -219,10 +207,6 @@ impl<T: Config> SwapStep<T, AlphaBalance, TaoBalance>
         price1 >= price2
     }
 
-    fn add_fees(netuid: NetUid, fee: AlphaBalance) {
-        FeesAlpha::<T>::mutate(netuid, |total| *total = total.saturating_add(fee))
-    }
-
     fn convert_deltas(netuid: NetUid, delta_in: AlphaBalance) -> TaoBalance {
         let alpha_reserve = T::AlphaReserve::reserve(netuid.into());
         let tao_reserve = T::TaoReserve::reserve(netuid.into());
@@ -254,9 +238,6 @@ where
     ///    For buying:  price1 <= price2
     ///    For selling: price1 >= price2
     fn price_is_closer(price1: &U64F64, price2: &U64F64) -> bool;
-
-    /// Add fees to the global fee counters
-    fn add_fees(netuid: NetUid, fee: PaidIn);
 
     /// Convert input amount (delta_in) to output amount (delta_out)
     ///

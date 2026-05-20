@@ -3,7 +3,7 @@ use crate::coinbase::tao::CreditOf;
 use alloc::collections::BTreeMap;
 use frame_support::traits::Imbalance;
 use safe_math::*;
-use substrate_fixed::types::U96F32;
+use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
@@ -85,6 +85,8 @@ impl<T: Config> Pallet<T> {
                 let tao_to_swap_with: TaoBalance =
                     tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
+                // Inject tao and alpha into protocol liquidity. In theorry, it may not always
+                // be a success (returned values are 0s) in case of high liquidity disbalance
                 let (actual_injected_tao, actual_injected_alpha) =
                     T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
@@ -127,71 +129,39 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // Inject Alpha in.
-                let alpha_in_i =
-                    AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-                SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
+                SubnetAlphaInEmission::<T>::insert(*netuid_i, actual_injected_alpha);
 
                 // Mint alpha and resolve to alpha reserve
-                Self::resolve_to_alpha_in(Self::mint_alpha(*netuid_i, alpha_in_i));
+                Self::resolve_to_alpha_in(Self::mint_alpha(*netuid_i, actual_injected_alpha));
 
                 // Inject TAO in.
-                let injected_tao: TaoBalance =
-                    tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-                if !injected_tao.is_zero() {
-                    match Self::spend_tao(&subnet_account_id, remaining_credit, injected_tao) {
+                if !actual_injected_tao.is_zero() {
+                    match Self::spend_tao(&subnet_account_id, remaining_credit, actual_injected_tao)
+                    {
                         Ok(remainder) => {
                             remaining_credit = remainder;
 
-                            SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
+                            SubnetTaoInEmission::<T>::insert(*netuid_i, actual_injected_tao);
                             SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                                *total = total.saturating_add(injected_tao);
+                                *total = total.saturating_add(actual_injected_tao);
                             });
                             TotalStake::<T>::mutate(|total| {
-                                *total = total.saturating_add(injected_tao);
+                                *total = total.saturating_add(actual_injected_tao);
                             });
 
                             // Record emission injection as protocol inflow.
-                            Self::record_protocol_inflow(*netuid_i, injected_tao);
+                            Self::record_protocol_inflow(*netuid_i, actual_injected_tao);
                         }
                         Err(remainder) => {
                             remaining_credit = remainder;
                             let remaining_balance = remaining_credit.peek();
                             log::error!(
-                                "Failed to spend credit: injected_tao = {injected_tao:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
+                                "Failed to spend credit: injected_tao = {actual_injected_tao:?}, netuid_i = {netuid_i:?}, remaining_balance = {remaining_balance:?}"
                             );
                         }
                     }
                 }
             }
-
-            // Inject Alpha in.
-            let alpha_in_i =
-                AlphaBalance::from(tou64!(*alpha_in.get(netuid_i).unwrap_or(&asfloat!(0))));
-            SubnetAlphaInEmission::<T>::insert(*netuid_i, alpha_in_i);
-            SubnetAlphaIn::<T>::mutate(*netuid_i, |total| {
-                // Reserves also received fees in addition to alpha_in_i
-                *total = total.saturating_add(actual_injected_alpha);
-            });
-
-            // Inject TAO in.
-            let injected_tao: TaoBalance =
-                tou64!(*tao_in.get(netuid_i).unwrap_or(&asfloat!(0))).into();
-            SubnetTaoInEmission::<T>::insert(*netuid_i, injected_tao);
-            SubnetTAO::<T>::mutate(*netuid_i, |total| {
-                // Reserves also received fees in addition to injected_tao
-                *total = total.saturating_add(actual_injected_tao);
-            });
-            TotalStake::<T>::mutate(|total| {
-                *total = total.saturating_add(injected_tao);
-            });
-
-            // Update total TAO issuance.
-            let difference_tao = tou64!(*excess_tao.get(netuid_i).unwrap_or(&asfloat!(0)));
-            TotalIssuance::<T>::mutate(|total| {
-                *total = total
-                    .saturating_add(injected_tao.into())
-                    .saturating_add(difference_tao.into());
-            });
         }
 
         // Remaining imbalance should be zero at this point. If not, log error and burn.
@@ -421,14 +391,14 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_network_root_sell_flag(subnets_to_emit_to: &[NetUid]) -> bool {
-        let total_ema_price: U96F32 = subnets_to_emit_to
+        let total_ema_price: U64F64 = subnets_to_emit_to
             .iter()
             .map(|netuid| Self::get_moving_alpha_price(*netuid))
             .sum();
 
         // If the total EMA price is less than or equal to 1
         // then we WILL NOT root sell.
-        total_ema_price > U96F32::saturating_from_num(1)
+        total_ema_price > U64F64::saturating_from_num(1)
     }
 
     pub fn calculate_dividends_and_incentives(

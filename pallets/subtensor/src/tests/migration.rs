@@ -2644,7 +2644,7 @@ fn test_migrate_reset_unactive_sn() {
             assert_eq!(
                 // not modified
                 RAORecycledForRegistration::<Test>::get(netuid),
-                actual_tao_lock_amount_less_pool_tao
+                *rao_recycled_before.get(&netuid).unwrap()
             );
             assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
             assert_ne!(SubnetTAO::<Test>::get(netuid), initial_tao);

@@ -281,10 +281,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn is_user_liquidity_enabled(netuid: NetUid) -> bool {
-        T::SwapInterface::is_user_liquidity_enabled(netuid)
-    }
-
     /// The function clears Alpha map in batches. Each run will check ALPHA_MAP_BATCH_SIZE
     /// alphas. It keeps the alpha value stored when it's >= than MIN_ALPHA.
     /// The function uses AlphaMapLastKey as a storage for key iterator between runs.

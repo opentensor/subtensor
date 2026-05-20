@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
             if limit_price <= 1_000_000_000.into() {
                 return Ok(AlphaBalance::MAX);
             } else {
-                return Err(Error::<T>::ZeroMaxStakeAmount.into());
+                return Ok(AlphaBalance::ZERO);
             }
         }
 
@@ -400,11 +400,7 @@ impl<T: Config> Pallet<T> {
         let result = T::SwapInterface::swap(netuid.into(), order, limit_price.into(), false, true)
             .map(|r| r.amount_paid_in.saturating_add(r.fee_paid))?;
 
-        if !result.is_zero() {
-            Ok(result)
-        } else {
-            Err(Error::<T>::ZeroMaxStakeAmount.into())
-        }
+        Ok(result)
     }
 
     pub fn do_remove_stake_full_limit(

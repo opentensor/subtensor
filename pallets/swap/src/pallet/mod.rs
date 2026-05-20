@@ -2,7 +2,6 @@ use core::num::NonZeroU64;
 
 use frame_support::{PalletId, pallet_prelude::*, traits::Get};
 use frame_system::pallet_prelude::*;
-use sp_arithmetic::Perbill;
 use subtensor_runtime_common::{
     AlphaBalance, BalanceOps, NetUid, SubnetInfo, TaoBalance, TokenReserve,
 };
@@ -92,13 +91,6 @@ mod pallet {
         33 // ~0.05 %
     }
 
-    /// Fee split between pool and block builder.
-    /// Pool receives the portion returned by this function
-    #[pallet::type_value]
-    pub fn DefaultFeeSplit() -> Perbill {
-        Perbill::zero()
-    }
-
     /// The fee rate applied to swaps per subnet, normalized value between 0 and u16::MAX
     #[pallet::storage]
     pub type FeeRate<T> = StorageMap<_, Twox64Concat, NetUid, u16, ValueQuery, DefaultFeeRate>;
@@ -120,14 +112,6 @@ mod pallet {
     /// Storage to determine whether balancer swap was initialized for a specific subnet.
     #[pallet::storage]
     pub type PalSwapInitialized<T> = StorageMap<_, Twox64Concat, NetUid, bool, ValueQuery>;
-
-    /// Total fees in TAO per subnet due to be paid to users / protocol
-    #[pallet::storage]
-    pub type FeesTao<T> = StorageMap<_, Twox64Concat, NetUid, TaoBalance, ValueQuery>;
-
-    /// Total fees in Alpha per subnet due to be paid to users / protocol
-    #[pallet::storage]
-    pub type FeesAlpha<T> = StorageMap<_, Twox64Concat, NetUid, AlphaBalance, ValueQuery>;
 
     /// --- Storage for migration run status
     #[pallet::storage]

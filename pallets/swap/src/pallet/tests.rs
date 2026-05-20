@@ -352,44 +352,6 @@ mod dispatchables {
             });
         });
     }
-
-    /// Collects the fees and adds them to protocol liquidity
-    /// cargo test --package pallet-subtensor-swap --lib -- pallet::tests::dispatchables::test_adjust_protocol_liquidity_collects_fees --exact --nocapture
-    #[test]
-    fn test_adjust_protocol_liquidity_collects_fees() {
-        new_test_ext().execute_with(|| {
-            let netuid = NetUid::from(1);
-            let tao_delta = TaoBalance::ZERO;
-            let alpha_delta = AlphaBalance::ZERO;
-
-            // Initialize reserves and price
-            // 0.1 price
-            let tao = TaoBalance::from(1_000_000_000_u64);
-            let alpha = AlphaBalance::from(10_000_000_000_u64);
-            TaoReserve::set_mock_reserve(netuid, tao);
-            AlphaReserve::set_mock_reserve(netuid, alpha);
-
-            // Insert fees
-            let tao_fees = TaoBalance::from(1_000);
-            let alpha_fees = AlphaBalance::from(1_000);
-            FeesTao::<Test>::insert(netuid, tao_fees);
-            FeesAlpha::<Test>::insert(netuid, alpha_fees);
-
-            // Adjust reserves
-            let (actual_tao_delta, actual_alpha_delta) =
-                Swap::adjust_protocol_liquidity(netuid, tao_delta, alpha_delta);
-            TaoReserve::set_mock_reserve(netuid, tao + tao_delta);
-            AlphaReserve::set_mock_reserve(netuid, alpha + alpha_delta);
-
-            // Check that returned reserve deltas are correct (include fees)
-            assert_eq!(actual_tao_delta, tao_fees);
-            assert_eq!(actual_alpha_delta, alpha_fees);
-
-            // Check that fees got reset
-            assert_eq!(FeesTao::<Test>::get(netuid), TaoBalance::ZERO);
-            assert_eq!(FeesAlpha::<Test>::get(netuid), AlphaBalance::ZERO);
-        });
-    }
 }
 
 #[test]
@@ -786,8 +748,6 @@ fn test_liquidate_pal_simple_ok_and_clears() {
 
         // Insert map values
         FeeRate::<Test>::insert(netuid, 1_000);
-        FeesTao::<Test>::insert(netuid, TaoBalance::from(1_000));
-        FeesAlpha::<Test>::insert(netuid, AlphaBalance::from(1_000));
         PalSwapInitialized::<Test>::insert(netuid, true);
         let w_quote_pt = Perquintill::from_rational(1u128, 2u128);
         let bal = Balancer::new(w_quote_pt).unwrap();
@@ -801,8 +761,6 @@ fn test_liquidate_pal_simple_ok_and_clears() {
 
         // All single-key maps should not have the key after liquidation
         assert!(!FeeRate::<Test>::contains_key(netuid));
-        assert!(!FeesTao::<Test>::contains_key(netuid));
-        assert!(!FeesAlpha::<Test>::contains_key(netuid));
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
         assert!(!SwapBalancer::<Test>::contains_key(netuid));
     });
@@ -824,10 +782,6 @@ fn test_clear_protocol_liquidity_green_path() {
         // --- Act ---
         // Green path: just clear protocol liquidity and wipe all V3 state.
         assert_ok!(Pallet::<Test>::do_clear_protocol_liquidity(netuid));
-
-        // Fee globals
-        assert!(!FeesTao::<Test>::contains_key(netuid));
-        assert!(!FeesAlpha::<Test>::contains_key(netuid));
 
         // Flags
         assert!(!PalSwapInitialized::<Test>::contains_key(netuid));
