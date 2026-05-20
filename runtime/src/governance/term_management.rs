@@ -2,54 +2,37 @@ use alloc::vec::Vec;
 
 use frame_support::pallet_prelude::*;
 use pallet_multi_collective::{
-    CollectiveInspect, OnNewTerm, weights::WeightInfo as MultiCollectiveWeightInfo,
+    CollectiveInspect, OnNewTerm, Pallet as MultiCollective,
+    weights::WeightInfo as MultiCollectiveWeightInfo,
 };
+use pallet_subtensor::{Pallet as Subtensor, *};
 use substrate_fixed::types::{I96F32, U64F64};
 
 use crate::{AccountId, BlockNumber, Runtime};
 
-use super::collectives::{
-    BUILDING_SIZE, CollectiveId, ECONOMIC_ELIGIBLE_SIZE, ECONOMIC_SIZE, MIN_SUBNET_AGE,
-};
+use super::collectives::{BUILDING_SIZE, CollectiveId, ECONOMIC_SIZE, MIN_SUBNET_AGE};
+use super::weights::{SubstrateWeight as GovernanceWeight, WeightInfo as GovernanceWeightInfo};
 
-/// `OnNewTerm` for `pallet-multi-collective`: dispatches by collective id
-/// to a ranking pass over on-chain state.
+/// Minimum root-registered EMA samples before Economic eligibility.
+/// With the current sampler cadence, 210 is roughly 30 days.
+pub const ECONOMIC_ELIGIBILITY_THRESHOLD: u32 = 210;
+
+/// Runtime rotation policy for rotating collectives.
 pub struct TermManagement;
 
 impl OnNewTerm<CollectiveId> for TermManagement {
     fn weight() -> Weight {
-        // Worst-case bound used to pre-charge `force_rotate`. `on_initialize`
-        // separately accumulates the actual weight returned by `on_new_term`,
-        // so this bound is only consulted at extrinsic dispatch. Picks the
-        // larger of the two rotation paths (Economic / Building).
-        //
-        // Economic ranking: one read for the EconomicEligible roster plus
-        // one EMA lookup per member, bounded by ECONOMIC_ELIGIBLE_SIZE.
-        // Building ranking: three reads per subnet, bounded by SUBNET_BOUND
-        // (chosen above the `SubnetLimit` default with headroom).
-        //
-        // TODO(weights): both ranking bounds are hand-rolled from storage
-        // caps. Replace with a runtime-level benchmark of
-        // `rotate_economic` / `rotate_building` once the runtime crate
-        // grows a benchmark harness.
-        const SUBNET_BOUND: u64 = 256;
-        let db = <Runtime as frame_system::Config>::DbWeight::get();
-        let economic = db.reads(u64::from(ECONOMIC_ELIGIBLE_SIZE).saturating_add(1));
-        let building = db.reads(SUBNET_BOUND.saturating_mul(3));
-        let ranking = if economic.ref_time() >= building.ref_time() {
-            economic
-        } else {
-            building
-        };
-        let apply = <Runtime as pallet_multi_collective::Config>::WeightInfo::set_members();
-        ranking.saturating_add(apply)
+        [
+            GovernanceWeight::<Runtime>::rotate_economic(),
+            GovernanceWeight::<Runtime>::rotate_building(),
+        ]
+        .into_iter()
+        .max_by_key(Weight::ref_time)
+        .unwrap_or_default()
     }
 
     fn on_new_term(collective_id: CollectiveId) -> Weight {
-        // The pallet is policy-agnostic; `force_rotate` will route any
-        // existing id through this hook even for curated collectives
-        // (Proposers / Triumvirate), so we silently no-op for those rather
-        // than attempt a ranking pass against data we don't have.
+        // Curated collectives are managed outside this rotation policy.
         match collective_id {
             CollectiveId::Economic => Self::rotate_economic(),
             CollectiveId::Building => Self::rotate_building(),
@@ -59,82 +42,66 @@ impl OnNewTerm<CollectiveId> for TermManagement {
 }
 
 impl TermManagement {
-    fn rotate_economic() -> Weight {
-        let (members, query_weight) = Self::top_economic_eligible(ECONOMIC_SIZE);
+    pub(crate) fn rotate_economic() -> Weight {
+        let (members, query_weight) = Self::top_validators(ECONOMIC_SIZE);
         Self::apply_rotation(CollectiveId::Economic, members, query_weight)
     }
 
-    fn rotate_building() -> Weight {
+    pub(crate) fn rotate_building() -> Weight {
         let (members, query_weight) = Self::top_subnet_owners(BUILDING_SIZE, MIN_SUBNET_AGE);
         Self::apply_rotation(CollectiveId::Building, members, query_weight)
     }
 
-    /// Project the top `n` coldkeys from `EconomicEligible` by their
-    /// root-registered stake EMA. The EMA is maintained by the subtensor
-    /// pallet's round-robin sampler ([`crate::governance::stake_ema`]),
-    /// so the ranking is intentionally smoothed: a coldkey can't leapfrog
-    /// established members by stacking stake right before a rotation.
-    pub fn top_economic_eligible(n: u32) -> (Vec<AccountId>, Weight) {
+    /// Top validator coldkeys by smoothed root-registered value.
+    pub fn top_validators(n: u32) -> (Vec<AccountId>, Weight) {
         let db = <Runtime as frame_system::Config>::DbWeight::get();
-        let eligible = <pallet_multi_collective::Pallet<Runtime> as CollectiveInspect<
-            AccountId,
-            CollectiveId,
-        >>::members_of(CollectiveId::EconomicEligible);
+        let eligible =
+            <MultiCollective<Runtime> as CollectiveInspect<AccountId, CollectiveId>>::members_of(
+                CollectiveId::EconomicEligible,
+            );
         let mut weight = db.reads(1);
 
         let entries: Vec<(AccountId, U64F64)> = eligible
             .into_iter()
-            .map(|coldkey| {
-                let state = pallet_subtensor::RootRegisteredEma::<Runtime>::get(&coldkey);
-                (coldkey, state.ema)
+            .filter_map(|coldkey| {
+                weight.saturating_accrue(db.reads(1));
+                let state = RootRegisteredEma::<Runtime>::get(&coldkey);
+                (state.samples >= ECONOMIC_ELIGIBILITY_THRESHOLD).then_some((coldkey, state.ema))
             })
             .collect();
-        weight = weight.saturating_add(db.reads(entries.len() as u64));
 
         (rank_top_n(entries, n), weight)
     }
 
-    /// Rank subnet-owner coldkeys by `SubnetMovingPrice`, restricted to
-    /// subnets registered at least `min_age` blocks ago. Multiple subnets
-    /// owned by the same coldkey are deduplicated to that coldkey's
-    /// *highest* moving price; owning more subnets shouldn't multiply your
-    /// governance weight beyond a single seat in the Building collective.
+    /// Top subnet-owner coldkeys by their best mature subnet price.
     pub fn top_subnet_owners(n: u32, min_age: BlockNumber) -> (Vec<AccountId>, Weight) {
         let mut weight = Weight::zero();
         let now: u64 = <frame_system::Pallet<Runtime>>::block_number().into();
         let min_age_u64: u64 = min_age.into();
 
         let mut entries: Vec<(AccountId, I96F32)> = Vec::new();
-        for netuid in pallet_subtensor::Pallet::<Runtime>::get_all_subnet_netuids() {
-            // 3 reads: NetworkRegisteredAt + SubnetMovingPrice + SubnetOwner.
-            weight =
-                weight.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().reads(3));
-            let registered_at: u64 = pallet_subtensor::NetworkRegisteredAt::<Runtime>::get(netuid);
+        for netuid in Subtensor::<Runtime>::get_all_subnet_netuids() {
+            weight.saturating_accrue(<Runtime as frame_system::Config>::DbWeight::get().reads(3));
+            let registered_at: u64 = NetworkRegisteredAt::<Runtime>::get(netuid);
             if now.saturating_sub(registered_at) < min_age_u64 {
                 continue;
             }
-            let price = pallet_subtensor::SubnetMovingPrice::<Runtime>::get(netuid);
-            let owner = pallet_subtensor::SubnetOwner::<Runtime>::get(netuid);
+            let price = SubnetMovingPrice::<Runtime>::get(netuid);
+            let owner = SubnetOwner::<Runtime>::get(netuid);
             merge_owner_by_highest_price(&mut entries, owner, price);
         }
 
-        entries.sort_by(|a, b| b.1.cmp(&a.1));
-        entries.truncate(n as usize);
-        let members = entries.into_iter().map(|(c, _)| c).collect::<Vec<_>>();
-        (members, weight)
+        (rank_top_n(entries, n), weight)
     }
 
-    /// Push a new membership list into multi-collective storage. Goes through
-    /// `set_members` (rather than direct storage writes) so size validation,
-    /// the `OnMembersChanged` hook, and the canonical `MembersSet` event all
-    /// fire on every rotation.
+    /// Apply a rotated membership through the collective pallet.
     fn apply_rotation(
         collective_id: CollectiveId,
         members: Vec<AccountId>,
         query_weight: Weight,
     ) -> Weight {
         // TODO: bypass the extrinsic and emit a rotation-failure event.
-        let result = pallet_multi_collective::Pallet::<Runtime>::set_members(
+        let result = MultiCollective::<Runtime>::set_members(
             frame_system::RawOrigin::Root.into(),
             collective_id,
             members,
@@ -154,18 +121,14 @@ impl TermManagement {
     }
 }
 
-/// Sort `entries` by descending score and return the first `n` keys.
-/// `sort_by` is stable, so ties preserve the input order (mostly relevant
-/// when `EconomicEligible` rows share identical EMA values during warmup).
-fn rank_top_n<K>(mut entries: Vec<(K, U64F64)>, n: u32) -> Vec<K> {
+/// Sort by descending score and return the first `n` keys.
+fn rank_top_n<K, S: Ord>(mut entries: Vec<(K, S)>, n: u32) -> Vec<K> {
     entries.sort_by(|a, b| b.1.cmp(&a.1));
     entries.truncate(n as usize);
     entries.into_iter().map(|(k, _)| k).collect()
 }
 
-/// Insert `(owner, price)` into `entries`, keeping only the owner's
-/// highest price across multiple subnets. Mutates in place; doesn't
-/// allocate when the owner already has an entry.
+/// Keep only an owner's highest observed subnet price.
 fn merge_owner_by_highest_price<A: PartialEq>(
     entries: &mut Vec<(A, I96F32)>,
     owner: A,
