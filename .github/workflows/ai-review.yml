@@ -6,15 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'PR number to review (skeptic only — used for the testnet→main standalone gate or manual reruns)'
+        description: 'PR number to (re)review. Runs whichever personas branch routing dictates — no persona override, so dispatch cannot skip a required check.'
         required: true
         type: number
-      persona:
-        description: 'Which persona to run'
-        required: true
-        type: choice
-        default: 'skeptic'
-        options: [skeptic, auditor, both]
 
 # Default: read only. Each job opts in to what it needs.
 permissions:
@@ -48,15 +42,12 @@ jobs:
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_PR: ${{ github.event.inputs.pr_number }}
-          INPUT_PERSONA: ${{ github.event.inputs.persona }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             PR="$INPUT_PR"
-            PERSONA="$INPUT_PERSONA"
           else
             PR='${{ github.event.pull_request.number }}'
-            PERSONA=""
           fi
 
           PR_JSON=$(gh pr view "$PR" --repo "$REPO" \
@@ -74,21 +65,17 @@ jobs:
             IS_FORK=true
           fi
 
-          if [[ -n "$PERSONA" ]]; then
-            case "$PERSONA" in
-              skeptic) RUN_SKEPTIC=true; RUN_AUDITOR=false ;;
-              auditor) RUN_SKEPTIC=false; RUN_AUDITOR=true ;;
-              both)    RUN_SKEPTIC=true; RUN_AUDITOR=true ;;
-            esac
+          # Routing is purely branch-based and applies to both auto-trigger and
+          # manual dispatch. Removing a per-dispatch persona override prevents
+          # a maintainer from skipping one persona's required check by hand —
+          # GitHub treats `if: false` skipped jobs as satisfying required checks,
+          # which would otherwise be a bypass of the security gate.
+          #   testnet -> main : skeptic only (final security gate before mainnet)
+          #   anything else   : both
+          if [[ "$BASE_REF" == "main" && "$HEAD_REF" == "testnet" ]]; then
+            RUN_SKEPTIC=true; RUN_AUDITOR=false
           else
-            # Default routing per branch policy:
-            #   testnet -> main : skeptic only (final security gate before mainnet)
-            #   anything else   : both
-            if [[ "$BASE_REF" == "main" && "$HEAD_REF" == "testnet" ]]; then
-              RUN_SKEPTIC=true; RUN_AUDITOR=false
-            else
-              RUN_SKEPTIC=true; RUN_AUDITOR=true
-            fi
+            RUN_SKEPTIC=true; RUN_AUDITOR=true
           fi
 
           {
