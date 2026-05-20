@@ -6,6 +6,8 @@ use substrate_fixed::types::U64F64;
 
 pub mod ema;
 pub mod ref_count;
+#[cfg(any(feature = "try-runtime", test))]
+pub mod try_state;
 
 /// Per-coldkey EMA state.
 #[derive(
@@ -28,7 +30,7 @@ pub struct EmaState {
     pub samples: u32,
 }
 
-/// In-flight EMA sample for the validator at the current cursor.
+/// In-flight EMA sample for the coldkey at the current cursor.
 /// The provider owns the inner progress shape; the root-registered EMA
 /// engine only ties it to the coldkey being sampled.
 #[derive(
