@@ -483,6 +483,9 @@ impl<T: Config> Pallet<T> {
             AccumulatedLeaseDividends::<T>::remove(lease_id);
         }
 
+        // --- 23: Locks cleanup
+        Self::destroy_lock_maps(netuid);
+
         // --- Final removal logging.
         log::debug!(
             "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"

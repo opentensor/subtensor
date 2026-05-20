@@ -611,5 +611,25 @@ mod events {
             /// The subnet the lock is on.
             netuid: NetUid,
         },
+
+        /// Subnet ownership was reassigned by lock conviction.
+        SubnetOwnerChanged {
+            /// The subnet whose owner changed.
+            netuid: NetUid,
+            /// The previous owner coldkey.
+            old_coldkey: T::AccountId,
+            /// The new owner coldkey.
+            new_coldkey: T::AccountId,
+        },
+
+        /// A coldkey's perpetual lock flag was updated.
+        PerpetualLockUpdated {
+            /// The coldkey whose flag changed.
+            coldkey: T::AccountId,
+            /// The subnet whose coldkey flag changed.
+            netuid: NetUid,
+            /// Whether this coldkey's locks are now perpetual.
+            enabled: bool,
+        },
     }
 }

@@ -23,6 +23,7 @@ pub mod migrate_fix_root_claimed_overclaim;
 pub mod migrate_fix_root_subnet_tao;
 pub mod migrate_fix_root_tao_and_alpha_in;
 pub mod migrate_fix_staking_hot_keys;
+pub mod migrate_fix_total_issuance_evm_fees;
 pub mod migrate_init_tao_flow;
 pub mod migrate_init_total_issuance;
 pub mod migrate_kappa_map_to_default;
