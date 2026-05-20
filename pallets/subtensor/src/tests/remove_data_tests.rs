@@ -723,19 +723,6 @@ fn test_clean_up_hotkey_swap_records() {
     });
 }
 
-fn run_dissolved_network_lock_cleanup_phases(netuid: NetUid) {
-    let w = Weight::from_parts(u64::MAX, u64::MAX);
-    let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
-    assert!(
-        SubtensorModule::remove_network_lock(netuid, &mut weight_meter),
-        "remove_network_lock incomplete"
-    );
-    assert!(
-        SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter),
-        "remove_network_decaying_lock incomplete"
-    );
-}
-
 #[test]
 fn test_remove_network_lock() {
     new_test_ext(0).execute_with(|| {
@@ -806,6 +793,8 @@ fn test_remove_network_hotkey_and_owner_lock_maps() {
             last_update: 1,
         };
 
+        DissolvedNetworks::<Test>::set(vec![netuid]);
+
         HotkeyLock::<Test>::insert(netuid, hot_1, lock_state.clone());
         HotkeyLock::<Test>::insert(netuid, hot_2, lock_state.clone());
         HotkeyLock::<Test>::insert(other_netuid, hot_1, lock_state.clone());
@@ -817,7 +806,7 @@ fn test_remove_network_hotkey_and_owner_lock_maps() {
         OwnerLock::<Test>::insert(netuid, lock_state.clone());
         OwnerLock::<Test>::insert(other_netuid, lock_state);
 
-        run_dissolved_network_lock_cleanup_phases(netuid);
+        run_block_idle();
 
         assert!(!HotkeyLock::<Test>::contains_key(netuid, hot_1));
         assert!(!HotkeyLock::<Test>::contains_key(netuid, hot_2));
