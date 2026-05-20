@@ -493,9 +493,14 @@ jobs:
           HEAD_REF: ${{ needs.decide.outputs.head_ref }}
           PUSH_TOKEN: ${{ steps.token.outputs.token }}
           REPO: ${{ github.repository }}
-        # The push credential is configured ONLY here, after Codex has exited.
-        # It is masked, scoped to this step's shell, and discarded with the
-        # runner. Codex never sees it.
+        # The push credential is configured ONLY here, after Codex has exited,
+        # and:
+        #   - core.hooksPath is forced to /dev/null so any PR-controlled
+        #     pre-commit / pre-push hook (or Codex-set core.hooksPath via
+        #     `git config`) cannot run with PUSH_TOKEN in env.
+        #   - push target is an explicit URL, so a PR-modified `origin` remote
+        #     cannot redirect the credentialed push.
+        #   - auth is in an inline `-c http.*.extraheader`, not .git/config.
         run: |
           set -euo pipefail
           if git diff --quiet && git diff --cached --quiet; then
@@ -505,11 +510,10 @@ jobs:
           echo "Detected auto-fix changes:"
           git status --short
           git add -A
-          git commit -m "chore: auditor auto-fix"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
-            push origin "HEAD:$HEAD_REF"
-          # Note: we set the auth header inline via -c instead of writing it to
-          # .git/config, so the token does not persist on disk.
+          git -c core.hooksPath=/dev/null commit -m "chore: auditor auto-fix"
+          git -c core.hooksPath=/dev/null \
+              -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
+              push "https://github.com/$REPO.git" "HEAD:$HEAD_REF"
 
       - name: Post review (auditor) — inline comments + sticky summary
         env:
