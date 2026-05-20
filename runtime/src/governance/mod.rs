@@ -1,8 +1,18 @@
-pub mod collectives;
-pub mod member_set;
-pub mod stake_ema;
-pub mod term_management;
-pub mod tracks;
+mod collectives;
+mod ema_provider;
+mod member_set;
+mod term_management;
+mod tracks;
+mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmarking;
+
+pub use self::collectives::*;
+pub use self::ema_provider::*;
+pub use self::member_set::*;
+pub use self::term_management::*;
+pub use self::tracks::*;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::parameter_types;
@@ -13,10 +23,6 @@ use scale_info::TypeInfo;
 use crate::{
     AccountId, Preimage, Referenda, Runtime, RuntimeCall, Scheduler, SignedVoting, System,
 };
-
-use self::collectives::{CollectiveId, Collectives};
-pub use self::member_set::MemberSet;
-use self::term_management::TermManagement;
 
 parameter_types! {
     /// Storage cap shared by all collectives; sized for the widest one
