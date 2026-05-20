@@ -524,6 +524,28 @@ mod hooks {
                                     &mut weight_meter,
                                 );
 
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::set(Some(
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkLock,
+                                ));
+                            }
+                            done
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkLock => {
+                            let done =
+                                Self::remove_network_lock(*netuid, &mut weight_meter);
+
+                            if done {
+                                DissolvedNetworksCleanupPhase::<T>::set(Some(
+                                    DissolvedNetworksCleanupPhaseEnum::RemoveNetworkDecayingLock,
+                                ));
+                            }
+                            done
+                        }
+                        DissolvedNetworksCleanupPhaseEnum::RemoveNetworkDecayingLock => {
+                            let done =
+                                Self::remove_network_decaying_lock(*netuid, &mut weight_meter);
+
                             // if all phases are done, remove the network from the dissolved networks list and emit the event
                             if done {
                                 DissolvedNetworksCleanupPhase::<T>::set(None);

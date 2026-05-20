@@ -403,6 +403,10 @@ pub mod pallet {
         RemoveNetworkTransactionKeyLastBlock,
         /// Phase 5.11: Remove staking operation rate limiter entries for this netuid.
         RemoveNetworkStakingOperationRateLimiter,
+        /// Phase 5.12: Remove lock entries for this netuid.
+        RemoveNetworkLock,
+        /// Phase 5.13: Remove decaying lock entries for this netuid.
+        RemoveNetworkDecayingLock,
     }
 
     /// The Max Burn HalfLife Settable

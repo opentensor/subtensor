@@ -427,13 +427,6 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn destroy_alpha_in_out_stakes(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        LoopRemovePrefixWithWeightMeter!(
-            weight_meter,
-            T::DbWeight::get().writes(1),
-            HotkeyLock<T>,
-            netuid
-        );
-
         // 2) Owner / lock cost.
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(4));
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);

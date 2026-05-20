@@ -4,7 +4,7 @@ use super::mock::run_block_idle;
 use crate::RootAlphaDividendsPerSubnet;
 use crate::tests::mock::*;
 use crate::{
-    DefaultMinRootClaimAmount, DissolvedNetworks, Error, MAX_NUM_ROOT_CLAIMS,
+    DefaultMinRootClaimAmount, DissolvedNetworks, Error, LastKeptRawKey, MAX_NUM_ROOT_CLAIMS,
     MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded, NumRootClaim, NumStakingColdkeys,
     PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold, RootClaimed, StakingColdkeys,
     StakingColdkeysByIndex, SubnetAlphaIn, SubnetAlphaOut, SubnetMechanism, SubnetMovingPrice,

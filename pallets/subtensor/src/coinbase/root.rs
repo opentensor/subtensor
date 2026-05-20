@@ -291,6 +291,20 @@ impl<T: Config> Pallet<T> {
             netuid
         );
 
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            HotkeyLock<T>,
+            netuid
+        );
+
+        LoopRemovePrefixWithWeightMeter!(
+            weight_meter,
+            T::DbWeight::get().writes(1),
+            DecayingHotkeyLock<T>,
+            netuid
+        );
+
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
         let mechanisms: u8 = MechanismCountCurrent::<T>::get(netuid).into();
 
@@ -373,8 +387,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(80));
-        // TODO split this into a separate function to avoid using too much weight.
-        Self::destroy_lock_maps(netuid);
         SubnetOwner::<T>::remove(netuid);
         SubnetworkN::<T>::remove(netuid);
         NetworkRegisteredAt::<T>::remove(netuid);
@@ -453,6 +465,7 @@ impl<T: Config> Pallet<T> {
         ImmuneOwnerUidsLimit::<T>::remove(netuid);
         StakeWeight::<T>::remove(netuid);
         LoadedEmission::<T>::remove(netuid);
+        OwnerLock::<T>::remove(netuid);
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));

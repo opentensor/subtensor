@@ -119,7 +119,7 @@ fn test_remove_data_for_dissolved_networks_all_phases() {
 
         // Run cleanup phases until completion
         let mut iterations = 0;
-        let max_iterations = 20; // Should be enough to go through all phases
+        let max_iterations = 30; // Should be enough to go through all phases
 
         while !DissolvedNetworks::<Test>::get().is_empty() && iterations < max_iterations {
             let used_weight = SubtensorModule::on_idle(0, remaining_weight);
@@ -381,7 +381,7 @@ fn test_remove_data_for_dissolved_networks_via_on_idle() {
 
         // Run cleanup phases until completion
         let mut iterations = 0;
-        let max_iterations = 20; // Should be enough to go through all phases
+        let max_iterations = 30; // Should be enough to go through all phases
 
         while !DissolvedNetworks::<Test>::get().is_empty() && iterations < max_iterations {
             let used_weight = SubtensorModule::on_idle(0, remaining_weight);
@@ -719,6 +719,172 @@ fn test_clean_up_hotkey_swap_records() {
         assert!(
             returned_weight.ref_time() > 0,
             "Returned weight should have positive ref_time"
+        );
+    });
+}
+
+fn run_dissolved_network_lock_cleanup_phases(netuid: NetUid) {
+    let w = Weight::from_parts(u64::MAX, u64::MAX);
+    let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
+    assert!(
+        SubtensorModule::remove_network_hotkey_lock(netuid, &mut weight_meter),
+        "remove_network_hotkey_lock incomplete"
+    );
+    assert!(
+        SubtensorModule::remove_network_decaying_hotkey_lock(netuid, &mut weight_meter),
+        "remove_network_decaying_hotkey_lock incomplete"
+    );
+    assert!(
+        SubtensorModule::remove_network_owner_lock(netuid, &mut weight_meter),
+        "remove_network_owner_lock incomplete"
+    );
+    assert!(
+        SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter),
+        "remove_network_decaying_lock incomplete"
+    );
+}
+
+#[test]
+fn test_remove_network_lock() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let other_netuid = NetUid::from(2);
+        let cold_1 = U256::from(1001);
+        let cold_2 = U256::from(1002);
+        let hot_1 = U256::from(2001);
+        let hot_2 = U256::from(2002);
+        let lock_state = crate::staking::lock::LockState {
+            locked_mass: 10u64.into(),
+            conviction: substrate_fixed::types::U64F64::from_num(1.5),
+            last_update: 1,
+        };
+
+        Lock::<Test>::insert((cold_1, netuid, hot_1), lock_state.clone());
+        Lock::<Test>::insert((cold_2, netuid, hot_2), lock_state.clone());
+        Lock::<Test>::insert((cold_1, other_netuid, hot_1), lock_state);
+
+        let w = Weight::from_parts(u64::MAX, u64::MAX);
+        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
+        assert!(SubtensorModule::remove_network_lock(
+            netuid,
+            &mut weight_meter
+        ));
+
+        assert!(!Lock::<Test>::contains_key((cold_1, netuid, hot_1)));
+        assert!(!Lock::<Test>::contains_key((cold_2, netuid, hot_2)));
+        assert!(Lock::<Test>::contains_key((cold_1, other_netuid, hot_1)));
+    });
+}
+
+#[test]
+fn test_remove_network_decaying_lock() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let other_netuid = NetUid::from(2);
+        let cold_1 = U256::from(1001);
+        let cold_2 = U256::from(1002);
+
+        DecayingLock::<Test>::insert(cold_1, netuid, true);
+        DecayingLock::<Test>::insert(cold_2, netuid, true);
+        DecayingLock::<Test>::insert(cold_1, other_netuid, true);
+
+        let w = Weight::from_parts(u64::MAX, u64::MAX);
+        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
+        assert!(SubtensorModule::remove_network_decaying_lock(
+            netuid,
+            &mut weight_meter
+        ));
+
+        assert!(!DecayingLock::<Test>::contains_key(cold_1, netuid));
+        assert!(!DecayingLock::<Test>::contains_key(cold_2, netuid));
+        assert!(DecayingLock::<Test>::contains_key(cold_1, other_netuid));
+    });
+}
+
+#[test]
+fn test_remove_network_hotkey_and_owner_lock_maps() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        let other_netuid = NetUid::from(2);
+        let hot_1 = U256::from(2001);
+        let hot_2 = U256::from(2002);
+        let lock_state = crate::staking::lock::LockState {
+            locked_mass: 10u64.into(),
+            conviction: substrate_fixed::types::U64F64::from_num(1.5),
+            last_update: 1,
+        };
+
+        HotkeyLock::<Test>::insert(netuid, hot_1, lock_state.clone());
+        HotkeyLock::<Test>::insert(netuid, hot_2, lock_state.clone());
+        HotkeyLock::<Test>::insert(other_netuid, hot_1, lock_state.clone());
+
+        DecayingHotkeyLock::<Test>::insert(netuid, hot_1, lock_state.clone());
+        DecayingHotkeyLock::<Test>::insert(netuid, hot_2, lock_state.clone());
+        DecayingHotkeyLock::<Test>::insert(other_netuid, hot_1, lock_state.clone());
+
+        OwnerLock::<Test>::insert(netuid, lock_state.clone());
+        OwnerLock::<Test>::insert(other_netuid, lock_state);
+
+        run_dissolved_network_lock_cleanup_phases(netuid);
+
+        assert!(!HotkeyLock::<Test>::contains_key(netuid, hot_1));
+        assert!(!HotkeyLock::<Test>::contains_key(netuid, hot_2));
+        assert!(HotkeyLock::<Test>::iter_prefix(netuid).next().is_none());
+
+        assert!(!DecayingHotkeyLock::<Test>::contains_key(netuid, hot_1));
+        assert!(!DecayingHotkeyLock::<Test>::contains_key(netuid, hot_2));
+        assert!(
+            DecayingHotkeyLock::<Test>::iter_prefix(netuid)
+                .next()
+                .is_none()
+        );
+
+        assert!(!OwnerLock::<Test>::contains_key(netuid));
+
+        assert!(HotkeyLock::<Test>::contains_key(other_netuid, hot_1));
+        assert!(DecayingHotkeyLock::<Test>::contains_key(
+            other_netuid,
+            hot_1
+        ));
+        assert!(OwnerLock::<Test>::contains_key(other_netuid));
+    });
+}
+
+#[test]
+fn test_remove_network_decaying_lock_resumes_with_limited_weight() {
+    new_test_ext(0).execute_with(|| {
+        let netuid = NetUid::from(1);
+        for i in 0..5 {
+            DecayingLock::<Test>::insert(U256::from(10_000 + i), netuid, true);
+        }
+
+        let read_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        let mut weight_meter = frame_support::weights::WeightMeter::with_limit(read_weight);
+        assert!(!SubtensorModule::remove_network_decaying_lock(
+            netuid,
+            &mut weight_meter
+        ));
+
+        let mut iterations = 0;
+        while DecayingLock::<Test>::iter().any(|(_, n, _)| n == netuid) {
+            let mut weight_meter =
+                frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, 0));
+            assert!(
+                SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter),
+                "remove_network_decaying_lock should finish once all entries are removed"
+            );
+            iterations += 1;
+            assert!(
+                iterations < 10,
+                "cleanup should complete within a few passes"
+            );
+        }
+        assert!(LastKeptRawKey::<Test>::get().is_none());
+        assert_eq!(
+            DecayingLock::<Test>::iter()
+                .filter(|(_, n, _)| *n == netuid)
+                .count(),
+            0
         );
     });
 }

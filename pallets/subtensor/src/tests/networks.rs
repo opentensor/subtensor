@@ -2464,6 +2464,7 @@ fn dissolve_clears_all_lock_maps_for_removed_network() {
 
         // --- Dissolve ---
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // Ensure removed
         assert!(!Lock::<Test>::contains_key((cold_1, net, hot_1)));
