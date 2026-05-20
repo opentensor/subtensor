@@ -147,12 +147,75 @@ fn merge_owner_by_highest_price<A: PartialEq>(
 mod tests {
     use super::*;
 
+    use pallet_subtensor::root_registered::EmaState;
+    use sp_runtime::BuildStorage;
+    use subtensor_runtime_common::NetUid;
+
+    fn new_test_ext() -> sp_io::TestExternalities {
+        let storage = match (crate::RuntimeGenesisConfig {
+            sudo: pallet_sudo::GenesisConfig { key: None },
+            ..Default::default()
+        })
+        .build_storage()
+        {
+            Ok(storage) => storage,
+            Err(err) => panic!("failed to build test storage: {err:?}"),
+        };
+        let mut ext: sp_io::TestExternalities = storage.into();
+        ext.execute_with(|| crate::System::set_block_number(1));
+        ext
+    }
+
+    fn account(seed: u8) -> AccountId {
+        AccountId::from([seed; 32])
+    }
+
+    fn accounts(start: u8, count: u32) -> Vec<AccountId> {
+        (0..count)
+            .map(|offset| account(start + offset as u8))
+            .collect()
+    }
+
     fn rank_entry(key: u32, score: u64) -> (u32, U64F64) {
-        (key, U64F64::saturating_from_num(score))
+        (key, U64F64::from_num(score))
     }
 
     fn price(value: i64) -> I96F32 {
-        I96F32::saturating_from_num(value)
+        I96F32::from_num(value)
+    }
+
+    fn set_members(collective_id: CollectiveId, members: Vec<AccountId>) {
+        assert!(
+            MultiCollective::<Runtime>::set_members(
+                frame_system::RawOrigin::Root.into(),
+                collective_id,
+                members,
+            )
+            .is_ok()
+        );
+    }
+
+    fn members_of(collective_id: CollectiveId) -> Vec<AccountId> {
+        <MultiCollective<Runtime> as CollectiveInspect<AccountId, CollectiveId>>::members_of(
+            collective_id,
+        )
+    }
+
+    fn set_ema(coldkey: &AccountId, ema: u64, samples: u32) {
+        RootRegisteredEma::<Runtime>::insert(
+            coldkey,
+            EmaState {
+                ema: U64F64::from_num(ema),
+                samples,
+            },
+        );
+    }
+
+    fn seed_subnet(netuid: NetUid, owner: AccountId, price: i64, registered_at: u64) {
+        Subtensor::<Runtime>::init_new_network(netuid, 1);
+        NetworkRegisteredAt::<Runtime>::insert(netuid, registered_at);
+        SubnetMovingPrice::<Runtime>::insert(netuid, I96F32::from_num(price));
+        SubnetOwner::<Runtime>::insert(netuid, owner);
     }
 
     #[test]
@@ -183,7 +246,7 @@ mod tests {
 
     #[test]
     fn rank_top_n_empty_input_returns_empty() {
-        let result = rank_top_n::<u32>(vec![], 5);
+        let result = rank_top_n::<u32, U64F64>(vec![], 5);
         assert!(result.is_empty());
     }
 
@@ -218,16 +281,154 @@ mod tests {
     }
 
     #[test]
-    fn merge_dedups_owner_across_multiple_subnets() {
-        // Owner 7 holds two subnets, owner 8 holds one. After merging the
-        // three observations, owner 7 has a single entry at its highest
-        // price (300), not two — exactly the property that prevents
-        // multi-subnet ownership from inflating a coldkey's governance
-        // weight.
+    fn merge_keeps_one_entry_with_highest_price_for_owner_with_multiple_subnets() {
         let mut entries: Vec<(u32, I96F32)> = Vec::new();
         merge_owner_by_highest_price(&mut entries, 7, price(100));
         merge_owner_by_highest_price(&mut entries, 8, price(200));
         merge_owner_by_highest_price(&mut entries, 7, price(300));
         assert_eq!(entries, vec![(7, price(300)), (8, price(200))]);
+    }
+
+    #[test]
+    fn top_validators_rank_by_ema_after_sample_threshold() {
+        new_test_ext().execute_with(|| {
+            let exact_threshold = account(1);
+            let above_threshold = account(2);
+            let below_threshold = account(3);
+            set_members(
+                CollectiveId::EconomicEligible,
+                vec![
+                    exact_threshold.clone(),
+                    above_threshold.clone(),
+                    below_threshold.clone(),
+                ],
+            );
+            set_ema(&exact_threshold, 100, ECONOMIC_ELIGIBILITY_THRESHOLD);
+            set_ema(
+                &above_threshold,
+                50,
+                ECONOMIC_ELIGIBILITY_THRESHOLD.saturating_add(1),
+            );
+            set_ema(
+                &below_threshold,
+                1_000,
+                ECONOMIC_ELIGIBILITY_THRESHOLD.saturating_sub(1),
+            );
+
+            let (members, weight) = TermManagement::top_validators(2);
+
+            assert_eq!(members, vec![exact_threshold, above_threshold]);
+            assert!(weight.ref_time() > 0);
+        });
+    }
+
+    #[test]
+    fn top_validators_returns_empty_when_no_candidate_has_enough_samples() {
+        new_test_ext().execute_with(|| {
+            let coldkey = account(1);
+            set_members(CollectiveId::EconomicEligible, vec![coldkey.clone()]);
+            set_ema(
+                &coldkey,
+                1_000,
+                ECONOMIC_ELIGIBILITY_THRESHOLD.saturating_sub(1),
+            );
+
+            let (members, _) = TermManagement::top_validators(ECONOMIC_SIZE);
+
+            assert!(members.is_empty());
+        });
+    }
+
+    #[test]
+    fn top_validators_zero_limit_returns_empty() {
+        new_test_ext().execute_with(|| {
+            let coldkey = account(1);
+            set_members(CollectiveId::EconomicEligible, vec![coldkey.clone()]);
+            set_ema(&coldkey, 1_000, ECONOMIC_ELIGIBILITY_THRESHOLD);
+
+            let (members, _) = TermManagement::top_validators(0);
+
+            assert!(members.is_empty());
+        });
+    }
+
+    #[test]
+    fn rotate_economic_keeps_old_members_when_validator_set_is_underfilled() {
+        new_test_ext().execute_with(|| {
+            let old_members = accounts(10, ECONOMIC_SIZE);
+            let candidate = account(1);
+            set_members(CollectiveId::Economic, old_members.clone());
+            set_members(CollectiveId::EconomicEligible, vec![candidate.clone()]);
+            set_ema(&candidate, 1_000, ECONOMIC_ELIGIBILITY_THRESHOLD);
+
+            let weight = TermManagement::rotate_economic();
+
+            assert!(weight.ref_time() > 0);
+            assert_eq!(members_of(CollectiveId::Economic), old_members);
+        });
+    }
+
+    #[test]
+    fn top_subnet_owners_ranks_best_mature_subnet_per_owner() {
+        new_test_ext().execute_with(|| {
+            crate::System::set_block_number(1_000);
+            let owner_a = account(1);
+            let owner_b = account(2);
+            let immature_owner = account(3);
+
+            seed_subnet(NetUid::from(1_000), owner_a.clone(), 10, 700);
+            seed_subnet(NetUid::from(1_001), owner_a.clone(), 30, 800);
+            seed_subnet(NetUid::from(1_002), owner_b.clone(), 20, 750);
+            seed_subnet(NetUid::from(1_003), immature_owner, 100, 950);
+
+            let (members, weight) = TermManagement::top_subnet_owners(2, 100);
+
+            assert_eq!(members, vec![owner_a, owner_b]);
+            assert!(weight.ref_time() > 0);
+        });
+    }
+
+    #[test]
+    fn rotate_building_keeps_old_members_when_owner_set_is_underfilled() {
+        new_test_ext().execute_with(|| {
+            crate::System::set_block_number(1_000);
+            let old_members = accounts(20, BUILDING_SIZE);
+            let candidate = account(1);
+            set_members(CollectiveId::Building, old_members.clone());
+            seed_subnet(NetUid::from(1_000), candidate, 10, 0);
+
+            let weight = TermManagement::rotate_building();
+
+            assert!(weight.ref_time() > 0);
+            assert_eq!(members_of(CollectiveId::Building), old_members);
+        });
+    }
+
+    #[test]
+    fn top_subnet_owners_includes_exact_min_age_boundary() {
+        new_test_ext().execute_with(|| {
+            crate::System::set_block_number(1_000);
+            let exact_age_owner = account(1);
+            let too_young_owner = account(2);
+
+            seed_subnet(NetUid::from(1_000), exact_age_owner.clone(), 10, 900);
+            seed_subnet(NetUid::from(1_001), too_young_owner, 100, 901);
+
+            let (members, _) = TermManagement::top_subnet_owners(1, 100);
+
+            assert_eq!(members, vec![exact_age_owner]);
+        });
+    }
+
+    #[test]
+    fn top_subnet_owners_zero_limit_returns_empty() {
+        new_test_ext().execute_with(|| {
+            crate::System::set_block_number(1_000);
+            seed_subnet(NetUid::from(1_000), account(1), 10, 0);
+
+            let (members, _) = TermManagement::top_subnet_owners(0, 100);
+
+            assert!(members.is_empty());
+        });
     }
 }
