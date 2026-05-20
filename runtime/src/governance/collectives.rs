@@ -92,7 +92,7 @@ impl CollectivesInfo<BlockNumber, [u8; 32]> for Collectives {
                 id: CollectiveId::Economic,
                 info: CollectiveInfo {
                     name: pad_name(b"economic"),
-                    min_members: 1,
+                    min_members: ECONOMIC_SIZE,
                     max_members: Some(ECONOMIC_SIZE),
                     term_duration: Some(TERM_DURATION),
                 },
@@ -101,7 +101,7 @@ impl CollectivesInfo<BlockNumber, [u8; 32]> for Collectives {
                 id: CollectiveId::Building,
                 info: CollectiveInfo {
                     name: pad_name(b"building"),
-                    min_members: 1,
+                    min_members: BUILDING_SIZE,
                     max_members: Some(BUILDING_SIZE),
                     term_duration: Some(TERM_DURATION),
                 },
