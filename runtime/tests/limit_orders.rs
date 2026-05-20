@@ -5,7 +5,7 @@
 )]
 
 use codec::Encode;
-use frame_support::{BoundedVec, assert_noop, assert_ok};
+use frame_support::{BoundedVec, assert_noop, assert_ok, traits::ConstU32};
 use node_subtensor_runtime::{
     BuildStorage, LimitOrders, Runtime, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule,
     System, pallet_subtensor,
@@ -92,7 +92,7 @@ struct OrderParams {
     expiry: u64,
     fee_rate: Perbill,
     fee_recipient: AccountId,
-    relayer: Option<AccountId>,
+    relayer: Option<BoundedVec<AccountId, ConstU32<10>>>,
     max_slippage: Option<Perbill>,
     partial_fills_enabled: bool,
 }
@@ -235,7 +235,7 @@ fn make_partial_fill_order(
             expiry,
             fee_rate: Perbill::zero(),
             fee_recipient,
-            relayer: Some(relayer),
+            relayer: Some(BoundedVec::try_from(vec![relayer]).unwrap()),
             max_slippage: None,
             partial_fills_enabled: true,
         },

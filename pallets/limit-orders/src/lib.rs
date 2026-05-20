@@ -11,6 +11,7 @@ pub mod weights;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
+use frame_support::{BoundedVec, traits::ConstU32};
 use sp_runtime::{
     AccountId32, MultiSignature, Perbill,
     traits::{ConstBool, Verify},
@@ -60,7 +61,7 @@ impl OrderType {
 /// Only its H256 hash is stored on-chain; the full struct is submitted by the
 /// admin at execution time (or by the user at cancellation time).
 #[allow(clippy::multiple_bound_locations)] // bounds on AccountId required by FRAME derives
-#[freeze_struct("b5e575cbffa6c1d6")]
+#[freeze_struct("27c7eedb92261456")]
 #[derive(
     Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen, Clone, PartialEq, Eq, Debug,
 )]
@@ -88,8 +89,9 @@ pub struct Order<AccountId: Encode + Decode + TypeInfo + MaxEncodedLen + Clone> 
     pub fee_rate: Perbill,
     /// Account that receives the fee collected from this order.
     pub fee_recipient: AccountId,
-    /// Account that should relay the transactions
-    pub relayer: Option<AccountId>,
+    /// Accounts authorized to relay this order. When set, only an account present
+    /// in this list may submit the execution transaction. Supports up to 10 relayers.
+    pub relayer: Option<BoundedVec<AccountId, ConstU32<10>>>,
     /// Maximum slippage tolerance in parts per billion applied to `limit_price`
     /// at execution time. `None` = no protection (execute at market).
     /// - Buy:  effective price ceiling = `limit_price + limit_price * max_slippage`
@@ -616,8 +618,8 @@ pub mod pallet {
                 },
                 Error::<T>::PriceConditionNotMet
             );
-            if let Some(forced_relayer) = order.relayer.clone() {
-                ensure!(forced_relayer == *relayer, Error::<T>::RelayerMissMatch);
+            if let Some(forced_relayers) = order.relayer.as_ref() {
+                ensure!(forced_relayers.contains(relayer), Error::<T>::RelayerMissMatch);
             }
             if let Some(partial_fill) = signed_order.partial_fill {
                 ensure!(

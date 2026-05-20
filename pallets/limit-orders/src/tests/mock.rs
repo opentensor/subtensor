@@ -570,7 +570,7 @@ pub fn make_signed_order(
     expiry: u64,
     fee_rate: sp_runtime::Perbill,
     fee_recipient: AccountId,
-    relayer: Option<AccountId>,
+    relayer: Option<BoundedVec<AccountId, ConstU32<10>>>,
 ) -> crate::SignedOrder<AccountId> {
     let signer = keyring.to_account_id();
     let order = crate::VersionedOrder::V1(crate::Order {
@@ -621,7 +621,7 @@ pub fn make_partial_fill_order(
         expiry,
         fee_rate: sp_runtime::Perbill::zero(),
         fee_recipient: fee_recipient(),
-        relayer: Some(relayer),
+        relayer: Some(BoundedVec::try_from(vec![relayer]).unwrap()),
         max_slippage: None,
         chain_id: 945,
         partial_fills_enabled: true,

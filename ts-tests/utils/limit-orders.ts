@@ -22,7 +22,7 @@ export interface OrderParams {
     feeRate: number; // Perbill (parts per billion), e.g. 10_000_000 = 1%
     feeRecipient: string;
     chainId?: bigint; // defaults to 42n (the dev node's EVM chain ID)
-    relayer?: string | null; // Optional: if set, only this account may relay the order
+    relayer?: string[] | null; // Optional: if set, only these accounts may relay the order
     maxSlippage?: number | null; // Optional: Perbill (ppb). When set, effective swap limit = limit_price ± limit_price * maxSlippage / 1e9
     partialFillsEnabled?: boolean; // Optional: if true, order can be partially filled (requires relayer)
 }
@@ -37,7 +37,7 @@ export interface Order {
     expiry: bigint;
     fee_rate: number;
     fee_recipient: string;
-    relayer: string | null;
+    relayer: string[] | null;
     max_slippage: number | null;
     chain_id: bigint;
     partial_fills_enabled: boolean;
@@ -126,7 +126,7 @@ export function registerLimitOrderTypes(api: any): void {
             expiry: "u64",
             fee_rate: "u32", // Perbill
             fee_recipient: "AccountId",
-            relayer: "Option<AccountId>",
+            relayer: "Option<Vec<AccountId>>",
             max_slippage: "Option<u32>",
             chain_id: "u64",
             partial_fills_enabled: "bool",

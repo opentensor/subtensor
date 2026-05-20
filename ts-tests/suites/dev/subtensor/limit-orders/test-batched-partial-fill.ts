@@ -67,7 +67,7 @@ describeSuite({
                     expiry: FAR_FUTURE,
                     feeRate: 0,
                     feeRecipient: alice.address,
-                    relayer: alice.address,
+                    relayer: [alice.address],
                     partialFillsEnabled: true,
                 });
 
@@ -111,7 +111,7 @@ describeSuite({
                     expiry: FAR_FUTURE,
                     feeRate: 0,
                     feeRecipient: alice.address,
-                    relayer: alice.address,
+                    relayer: [alice.address],
                     partialFillsEnabled: true,
                 });
 

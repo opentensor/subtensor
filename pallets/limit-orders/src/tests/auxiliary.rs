@@ -500,7 +500,7 @@ fn validate_and_classify_fails_for_wrong_relayer() {
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
-            Some(charlie()), // only charlie may relay this order
+            Some(BoundedVec::try_from(vec![charlie()]).unwrap()), // only charlie may relay this order
         );
 
         let orders = bounded(vec![order]);
@@ -534,7 +534,7 @@ fn validate_and_classify_succeeds_for_correct_relayer() {
             2_000_000u64,
             Perbill::zero(),
             fee_recipient(),
-            Some(charlie()), // only charlie may relay this order
+            Some(BoundedVec::try_from(vec![charlie()]).unwrap()), // only charlie may relay this order
         );
 
         let orders = bounded(vec![order]);
