@@ -53,7 +53,7 @@ pub struct MultiCollectiveBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_multi_collective::BenchmarkHelper<Runtime> for MultiCollectiveBenchmarkHelper {
     fn collective() -> CollectiveId {
-        CollectiveId::Proposers
+        CollectiveId::EconomicEligible
     }
 
     fn rotatable_collective() -> CollectiveId {
