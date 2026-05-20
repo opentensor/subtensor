@@ -85,6 +85,11 @@ impl<T: Config> Pallet<T> {
                 let tao_to_swap_with: TaoBalance =
                     tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
+                // Clear per-block pool-side emission counters up front so a subnet
+                // disabled this block does not display stale values from an earlier block.
+                SubnetExcessTao::<T>::insert(*netuid_i, TaoBalance::ZERO);
+                SubnetTaoInEmission::<T>::insert(*netuid_i, TaoBalance::ZERO);
+
                 T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
                 if tao_to_swap_with > TaoBalance::ZERO {
@@ -357,6 +362,10 @@ impl<T: Config> Pallet<T> {
                         owner_cut,
                     ),
                 );
+
+                // Reserved for potential future enhancements.
+                // Ownership update logic based on conviction is currently inactive by design.
+                // Self::change_subnet_owner_if_needed(netuid);
             }
         }
         emissions_to_distribute

@@ -373,6 +373,8 @@ impl<T: Config> Pallet<T> {
 
     pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(80));
+        // TODO split this into a separate function to avoid using too much weight.
+        Self::destroy_lock_maps(netuid);
         SubnetOwner::<T>::remove(netuid);
         SubnetworkN::<T>::remove(netuid);
         NetworkRegisteredAt::<T>::remove(netuid);

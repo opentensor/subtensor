@@ -86,6 +86,7 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
+    use crate::staking::lock::LockState;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use crate::weights::WeightInfo;
     use frame_support::Twox64Concat;
@@ -1225,6 +1226,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
 
+    /// MAP ( netuid ) --> take | Returns the subnet-specific minimum childkey take.
+    #[pallet::storage]
+    pub type MinChildkeyTakePerSubnet<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery>;
+
     /// MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey
     #[pallet::storage]
     pub type Owner<T: Config> =
@@ -1388,6 +1393,18 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+
+    /// --- MAP ( netuid ) --> subnet_emission_enabled
+    ///
+    /// When false, subnet pool-side emission is disabled for this subnet:
+    /// `alpha_in`, `tao_in`, and `excess_tao` chain buys are all treated as zero.
+    /// `alpha_out`, owner cut, root proportion, pending server emission, and pending
+    /// validator emission are intentionally left unchanged.
+    ///
+    /// Defaults to true so existing subnets keep current behavior.
+    #[pallet::storage]
+    pub type SubnetEmissionEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultTrue<T>>;
 
     /// --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     #[pallet::storage]
@@ -1557,20 +1574,6 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Lock state for a coldkey on a subnet.
-    #[crate::freeze_struct("13703236126f1b2b")]
-    #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
-    pub struct LockState {
-        /// Locked amount, stays constant unless user makes changes.
-        pub locked_mass: AlphaBalance,
-        /// Unlocked amount, gradually decays over time.
-        pub unlocked_mass: AlphaBalance,
-        /// Matured decaying score (converges to locked_mass over time with MaturityRate rate).
-        pub conviction: U64F64,
-        /// Block number of last roll-forward.
-        pub last_update: u64,
-    }
-
     /// --- DMAP ( coldkey, netuid, hotkey ) --> LockState | Exponential lock per coldkey per subnet.
     #[pallet::storage]
     pub type Lock<T: Config> = StorageNMap<
@@ -1596,23 +1599,45 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// Default lock maturity timescale: ~90 days at 12s blocks.
+    /// --- DMAP ( netuid, hotkey ) --> LockState | Total decaying non-owner lock per hotkey per subnet.
+    #[pallet::storage]
+    pub type DecayingHotkeyLock<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid, // subnet
+        Blake2_128Concat,
+        T::AccountId, // hotkey
+        LockState,    // Total merged decaying lock
+        OptionQuery,
+    >;
+
+    /// --- MAP ( netuid ) --> LockState | Aggregate owner-coldkey lock for a subnet.
+    #[pallet::storage]
+    pub type OwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
+
+    /// --- DMAP ( coldkey, netuid ) --> false | When present, this coldkey's lock decays.
+    /// Missing entries mean the lock is perpetual.
+    #[pallet::storage]
+    pub type DecayingLock<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, NetUid, bool, OptionQuery>;
+
+    /// Default unlock timescale: 90% decay over ~365.25 days at 12s blocks.
     #[pallet::type_value]
-    pub fn DefaultMaturityRate<T: Config>() -> u64 {
-        7200 * 90
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
+        1_142_108
     }
 
-    /// --- ITEM( tau_blocks ) | Maturity timescale in blocks for exponential lock.
+    /// Default maturity timescale: Conviction is ~5.2x faster than the default unlock rate.
+    #[pallet::type_value]
+    pub fn DefaultMaturityRate<T: Config>() -> u64 {
+        216_000
+    }
+
+    /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
     #[pallet::storage]
     pub type MaturityRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultMaturityRate<T>>;
 
-    /// Default unlock timescale: ~30 days at 12s blocks.
-    #[pallet::type_value]
-    pub fn DefaultUnlockRate<T: Config>() -> u64 {
-        7200 * 30
-    }
-
-    /// --- ITEM( tau_blocks ) | Unlock timescale in blocks for exponential unlocking.
+    /// --- ITEM( unlock_rate ) | Decay timescale in blocks for locked mass.
     #[pallet::storage]
     pub type UnlockRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultUnlockRate<T>>;
 
