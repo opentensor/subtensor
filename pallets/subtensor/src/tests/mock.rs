@@ -7,7 +7,7 @@
 use core::num::NonZeroU64;
 
 use crate::root_registered::{
-    EmaState, EmaStrategy, OnRootRegistrationChange, RootRegisteredInspector,
+    EmaValueProvider, OnRootRegistrationChange, RootRegisteredInspector, SampleStep,
 };
 use crate::utils::rate_limiting::TransactionType;
 use crate::*;
@@ -237,12 +237,12 @@ impl RootRegisteredInspector<U256> for MockRootRegisteredInspector {
 }
 
 thread_local! {
-    static EMA_STRATEGY_LOG: RefCell<Vec<(U256, U64F64)>> =
+    static EMA_VALUE_PROVIDER_LOG: RefCell<Vec<(U256, U64F64)>> =
         const { RefCell::new(Vec::new()) };
 }
 
-pub fn take_ema_strategy_log() -> Vec<(U256, U64F64)> {
-    EMA_STRATEGY_LOG.with(|log| log.borrow_mut().drain(..).collect())
+pub fn take_ema_value_provider_log() -> Vec<(U256, U64F64)> {
+    EMA_VALUE_PROVIDER_LOG.with(|log| log.borrow_mut().drain(..).collect())
 }
 
 /// Define a thread-local whose value can be temporarily replaced via an
@@ -283,56 +283,60 @@ macro_rules! define_scoped_state {
 }
 
 define_scoped_state!(
-    EMA_STRATEGY_NEXT,
-    EmaStrategyNextGuard,
-    ema_strategy_next,
-    Option<fn(U256, EmaState) -> U64F64>,
+    EMA_VALUE_PROVIDER_STEP,
+    EmaValueProviderStepGuard,
+    ema_value_provider_step,
+    Option<fn(U256, MockEmaProgress) -> (SampleStep<MockEmaProgress>, Weight)>,
     None
 );
 define_scoped_state!(
-    EMA_STRATEGY_NEXT_WEIGHT,
-    EmaStrategyNextWeightGuard,
-    ema_strategy_next_weight,
+    EMA_VALUE_PROVIDER_STEP_WEIGHT,
+    EmaValueProviderStepWeightGuard,
+    ema_value_provider_step_weight,
     Weight,
     Weight::zero()
 );
-define_scoped_state!(
-    EMA_STRATEGY_MAX_WEIGHT,
-    EmaStrategyMaxWeightGuard,
-    ema_strategy_max_weight,
-    Weight,
-    Weight::zero()
-);
-define_scoped_state!(
-    EMA_SAMPLING_INTERVAL,
-    EmaSamplingIntervalGuard,
-    ema_sampling_interval,
-    u64,
-    1
-);
 
-pub struct EmaSamplingInterval;
-
-impl Get<u64> for EmaSamplingInterval {
-    fn get() -> u64 {
-        ema_sampling_interval()
-    }
+#[derive(
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    Debug,
+    Encode,
+    Decode,
+    DecodeWithMemTracking,
+    MaxEncodedLen,
+    TypeInfo,
+)]
+pub struct MockEmaProgress {
+    pub offset: u32,
+    pub partial: u128,
 }
 
-pub struct MockEmaStrategy;
+pub struct MockEmaValueProvider;
 
-impl EmaStrategy<U256> for MockEmaStrategy {
-    fn next(coldkey: &U256, previous: EmaState) -> (U64F64, Weight) {
-        EMA_STRATEGY_LOG.with(|log| log.borrow_mut().push((*coldkey, previous.ema)));
-        let next = match ema_strategy_next() {
-            Some(f) => f(*coldkey, previous),
-            None => previous.ema,
+impl EmaValueProvider<U256> for MockEmaValueProvider {
+    type Progress = MockEmaProgress;
+
+    fn step(coldkey: &U256, progress: Self::Progress) -> (SampleStep<Self::Progress>, Weight) {
+        let (step, weight) = match ema_value_provider_step() {
+            Some(f) => f(*coldkey, progress),
+            None => (
+                SampleStep::Complete {
+                    sample: U64F64::saturating_from_num(0u64),
+                },
+                ema_value_provider_step_weight(),
+            ),
         };
-        (next, ema_strategy_next_weight())
+        EMA_VALUE_PROVIDER_LOG
+            .with(|log| log.borrow_mut().push((*coldkey, U64F64::from_num(0u64))));
+        (step, weight)
     }
 
-    fn weight() -> Weight {
-        ema_strategy_max_weight()
+    fn step_weight() -> Weight {
+        ema_value_provider_step_weight()
     }
 }
 
@@ -491,7 +495,7 @@ impl crate::Config for Test {
     type AuthorshipProvider = MockAuthorshipProvider;
     type OnRootRegistrationChange = MockOnRootRegistrationChange;
     type RootRegisteredInspector = MockRootRegisteredInspector;
-    type EmaStrategy = MockEmaStrategy;
+    type EmaValueProvider = MockEmaValueProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
