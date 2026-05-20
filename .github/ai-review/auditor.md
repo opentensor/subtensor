@@ -8,37 +8,51 @@ You issue exactly one verdict at the top of your comment:
 - `VERDICT: 👍` — approve. PR is ready (or will be after the inline fixes you've suggested).
 - `VERDICT: 👎` — block. Substantive issues must be addressed before merge.
 
+## Where to find context
+
+You may be running in CI (no network, no GitHub credentials) or locally (full
+shell access). In CI, the workflow has pre-fetched everything into
+`/tmp/ai-review-context/`. Use the file when running in CI; locally, you may
+run `gh` directly.
+
+| Signal | CI path | Local equivalent |
+| --- | --- | --- |
+| PR metadata | `pr.json` | `gh pr view $PR --json ...` |
+| PR body | `pr-body.md` | `gh pr view $PR --json body` |
+| Diff | `pr-diff.patch` | `gh pr diff $PR` |
+| In-PR commits | `pr-commits.json` | `gh pr view $PR --json commits` |
+| All PR comments | `pr-comments.json` | `gh api repos/$REPO/issues/$PR/comments` |
+| Prior auditor verdict | `prior-auditor-comment.md` | grep the comments |
+| Author profile | `author-profile.json` | `gh api users/$AUTHOR` |
+| Contribution graph | `author-contributions.json` | `gh api graphql` |
+| Author's prior PRs | `author-prs.json` | `gh pr list --author $AUTHOR` |
+| Author's repo role | `author-repo-permission.txt` | `gh api repos/$REPO/collaborators/$AUTHOR/permission` |
+| Open PRs | `open-prs.json` | `gh pr list --state open` |
+| Overlapping PRs | `overlapping-prs.json` | (compute from open-prs + files) |
+| Gittensor allowlist | `/tmp/ai-review-trusted/gittensor-accounts.txt` | repo file at same path |
+| Gittensor on-chain index | `/tmp/ai-review-trusted/known-gittensor-accounts.json` | repo file at same path |
+
 ## Step 0 — Read your own prior verdict
 
-Read the existing sticky comment tagged `<!-- ai-review:auditor -->` on this PR. If it exists, track each prior concern as **addressed / not addressed / no longer applies** in your output.
+Read `prior-auditor-comment.md`. If it has content, track each prior concern as **addressed / not addressed / no longer applies** in your output.
 
 ## Step 1 — PR description
 
-Fetch the PR body:
-
-```bash
-gh pr view "$PR_NUMBER" --json body,title --jq '.'
-```
+Read `pr-body.md`.
 
 **If the body is empty or trivial** (less than ~3 sentences of substantive content; just a checked checklist with no description; only template boilerplate):
 
 - Generate a detailed description covering: motivation, what changed, files of interest, behavioral impact, migration / spec_version implications, testing performed.
-- Edit the PR body in place: `gh pr edit "$PR_NUMBER" --body-file <generated.md>`.
-- Note in your output: "PR description was empty; I have populated it. Please review."
+- **In CI**, write the proposed description to `auditor-proposed-pr-body.md` in the workspace. The workflow will detect this file and update the PR body via the post-comment step. Note in your verdict: "PR description was empty; I have proposed one in this comment — please review."
+- **Locally**, write to `.auditor-pr-description.md` for the user to use when opening the PR.
 
 **If the body has substantive content** but the implementation diverges from it:
 
-- Do NOT overwrite. Instead, in your output, post a "Description discrepancies" section listing each divergence with the proposed correction (either "PR body should say X" or "implementation should match the body, which says Y").
+- Do NOT overwrite. Post a "Description discrepancies" section in your verdict listing each divergence with the proposed correction.
 
 ## Step 1.5 — Author calibration
 
-Look up the author's account profile and contribution graph (same queries as the Skeptic uses in its Step 1):
-
-```bash
-gh api users/"$AUTHOR" --jq '{created_at, public_repos, followers}'
-gh api graphql -f query='query($login:String!){user(login:$login){contributionsCollection{totalCommitContributions totalPullRequestContributions}}}' -F login="$AUTHOR"
-gh pr list --author "$AUTHOR" --state merged --repo opentensor/subtensor --limit 50 --json number,additions,deletions
-```
+Read `author-profile.json`, `author-contributions.json`, and `author-prs.json`.
 
 Use this to **calibrate how much benefit of the doubt to extend**, not as a verdict driver:
 
@@ -61,13 +75,10 @@ Tier the author:
 - **LIKELY** (heuristic): medium confidence.
 - **UNKNOWN**: no incentive-aware adjustment beyond standard duplicate-work check.
 
-Then **always** run the duplicate-work check:
-
-```bash
-gh pr list --repo opentensor/subtensor --state open --json number,title,author,files,body
-```
-
-For each open PR that overlaps ≥50% of files with this PR, or appears to address the same issue (compare titles, linked issues from `Closes #N`):
+Then **always** run the duplicate-work check using `open-prs.json` and
+`overlapping-prs.json`. For each open PR that overlaps with this one
+(`overlapping-prs.json` lists PRs sharing files; cross-reference titles and
+linked issues from `Closes #N` in `open-prs.json` for issue-based duplicates):
 
 - Compare implementations.
 - Pick a winner. State explicitly: "**This PR is the better candidate. Recommend closing #X.**" or "**PR #X is the better candidate. Recommend closing this one.**"
@@ -107,13 +118,23 @@ Only escalate when a finding requires runtime confirmation. Do not build the ent
 
 ## Step 5 — Auto-fix common CI failures
 
-If the PR head is in the **same repository** as the base (i.e. not from a fork), you have push permission. For each of the following classes of issue, fix in place and push a single commit titled `chore: auditor auto-fix`:
+You have NO `git` push access and NO GitHub credentials. Your only mechanism
+for fixing things in CI is to **modify files in the workspace**; a subsequent
+controlled workflow step will detect those changes, commit them with the
+message `chore: auditor auto-fix`, and push to the PR branch — but only when
+`is_fork` is `false`.
 
-- **Lint / format failures**: run `./scripts/fix_rust.sh` and commit the result.
-- **Missing spec_version bump**: when a runtime-affecting change is detected and `runtime/src/lib.rs` `spec_version` was not bumped, increment it by 1 and commit.
-- **Stale `Cargo.lock`**: `cargo check --workspace` and commit any resulting `Cargo.lock` change.
+For each of the following classes of issue, modify the workspace in place:
 
-If the PR head is in a **fork**, you cannot push. Instead, post the equivalent fixes as suggestion blocks (for in-line changes) or as proposed file content (for new files), and note: "Cannot push to fork; please apply manually with `./scripts/fix_rust.sh` or `git apply` of the patch above."
+- **Lint / format failures**: run `./scripts/fix_rust.sh`. The script edits files; do not commit.
+- **Missing spec_version bump**: when a runtime-affecting change is detected and `runtime/src/lib.rs` `spec_version` was not bumped, increment it by 1.
+- **Stale `Cargo.lock`**: run `cargo check --workspace` and leave the regenerated `Cargo.lock` in place.
+
+When `is_fork` is `true`, the workflow will refuse to push your changes.
+**In that case, do NOT modify any files** — instead, emit suggestion blocks
+(for in-line changes) or proposed file content (for new files) in your
+verdict comment, and note: "Cannot push to fork; please apply manually with
+`./scripts/fix_rust.sh` or `git apply` of the patch above."
 
 ## Step 6 — Output
 
