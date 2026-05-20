@@ -801,34 +801,5 @@ mod bittensor {
                 .caller_remove_proxy(delegate.into())
                 .map_err(|_e| ReadWriteErrorCode::WriteFailed)
         }
-
-        #[ink(message)]
-        pub fn add_stake_recycle_no_revert(
-            &self,
-            hotkey: [u8; 32],
-            netuid: u16,
-            amount: u64,
-        ) -> u64 {
-            match self
-                .env()
-                .extension()
-                .add_stake_recycle(hotkey.into(), netuid, amount)
-            {
-                Ok(real_amount) => real_amount,
-                Err(_) => 0,
-            }
-        }
-
-        #[ink(message)]
-        pub fn add_stake_burn_no_revert(&self, hotkey: [u8; 32], netuid: u16, amount: u64) -> u64 {
-            match self
-                .env()
-                .extension()
-                .add_stake_burn(hotkey.into(), netuid, amount)
-            {
-                Ok(real_amount) => real_amount,
-                Err(_) => 0,
-            }
-        }
     }
 }
