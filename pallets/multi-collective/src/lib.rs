@@ -349,42 +349,7 @@ pub mod pallet {
             members: Vec<T::AccountId>,
         ) -> DispatchResult {
             T::SetOrigin::ensure_origin(origin, &collective_id)?;
-            let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
-
-            // Validate new member list
-            ensure!(
-                members.len() >= info.min_members as usize,
-                Error::<T>::TooFewMembers
-            );
-            if let Some(max) = info.max_members {
-                ensure!(members.len() <= max as usize, Error::<T>::TooManyMembers);
-            }
-
-            // Sort + dedup; the sorted form is what we store, so the
-            // dedup pass and the storage write share the same buffer.
-            let len_before = members.len();
-            let mut sorted = members;
-            sorted.sort();
-            sorted.dedup();
-            ensure!(sorted.len() == len_before, Error::<T>::DuplicateAccounts);
-
-            let old_members = Members::<T>::get(collective_id);
-            let bounded =
-                BoundedVec::try_from(sorted.clone()).map_err(|_| Error::<T>::TooManyMembers)?;
-            Members::<T>::insert(collective_id, bounded);
-
-            let (incoming, outgoing) =
-                <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(
-                    &sorted,
-                    &old_members,
-                );
-
-            T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
-            Self::deposit_event(Event::MembersSet {
-                collective_id,
-                incoming,
-                outgoing,
-            });
+            Self::do_set_members(collective_id, members)?;
             Ok(())
         }
 
@@ -469,6 +434,44 @@ impl<T: Config> Pallet<T> {
 
         T::OnMembersChanged::on_members_changed(collective_id, &[], core::slice::from_ref(&who));
         Self::deposit_event(Event::MemberRemoved { collective_id, who });
+
+        Ok(())
+    }
+
+    pub fn do_set_members(
+        collective_id: T::CollectiveId,
+        members: Vec<T::AccountId>,
+    ) -> Result<(), Error<T>> {
+        let info = T::Collectives::info(collective_id).ok_or(Error::<T>::CollectiveNotFound)?;
+
+        ensure!(
+            members.len() >= info.min_members as usize,
+            Error::<T>::TooFewMembers
+        );
+        if let Some(max) = info.max_members {
+            ensure!(members.len() <= max as usize, Error::<T>::TooManyMembers);
+        }
+
+        let len_before = members.len();
+        let mut sorted = members;
+        sorted.sort();
+        sorted.dedup();
+        ensure!(sorted.len() == len_before, Error::<T>::DuplicateAccounts);
+
+        let old_members = Members::<T>::get(collective_id);
+        let bounded =
+            BoundedVec::try_from(sorted.clone()).map_err(|_| Error::<T>::TooManyMembers)?;
+        Members::<T>::insert(collective_id, bounded);
+
+        let (incoming, outgoing) =
+            <() as ChangeMembers<T::AccountId>>::compute_members_diff_sorted(&sorted, &old_members);
+
+        T::OnMembersChanged::on_members_changed(collective_id, &incoming, &outgoing);
+        Self::deposit_event(Event::MembersSet {
+            collective_id,
+            incoming,
+            outgoing,
+        });
 
         Ok(())
     }

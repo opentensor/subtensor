@@ -100,17 +100,12 @@ impl TermManagement {
         members: Vec<AccountId>,
         query_weight: Weight,
     ) -> Weight {
-        // TODO: bypass the extrinsic and emit a rotation-failure event.
-        let result = MultiCollective::<Runtime>::set_members(
-            frame_system::RawOrigin::Root.into(),
-            collective_id,
-            members,
-        );
+        let result = MultiCollective::<Runtime>::do_set_members(collective_id, members);
 
         if let Err(err) = result {
             log::error!(
                 target: "runtime::collective-management",
-                "set_members failed for {:?}: {:?}",
+                "rotation failed for {:?}: {:?}",
                 collective_id,
                 err,
             );
