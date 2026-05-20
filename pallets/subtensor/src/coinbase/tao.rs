@@ -286,7 +286,7 @@ impl<T: Config> Pallet<T> {
         let amount = credit.peek();
         if !amount.is_zero() {
             // Some credit is remaining: Decrease subtensor pallet total issuance
-            log::warn!(
+            log::debug!(
                 "recycle_credit received non-zero credit ({}); will reduce TotalIssuance",
                 amount,
             );
