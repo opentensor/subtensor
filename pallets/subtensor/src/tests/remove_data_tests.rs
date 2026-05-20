@@ -727,12 +727,12 @@ fn run_dissolved_network_lock_cleanup_phases(netuid: NetUid) {
     let w = Weight::from_parts(u64::MAX, u64::MAX);
     let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
     assert!(
-        SubtensorModule::remove_network_hotkey_lock(netuid, &mut weight_meter),
-        "remove_network_hotkey_lock incomplete"
+        SubtensorModule::remove_network_lock(netuid, &mut weight_meter),
+        "remove_network_lock incomplete"
     );
     assert!(
-        SubtensorModule::remove_network_decaying_hotkey_lock(netuid, &mut weight_meter),
-        "remove_network_decaying_hotkey_lock incomplete"
+        SubtensorModule::remove_network_decaying_lock(netuid, &mut weight_meter),
+        "remove_network_decaying_lock incomplete"
     );
     assert!(
         SubtensorModule::remove_network_owner_lock(netuid, &mut weight_meter),
