@@ -12,7 +12,7 @@ import {
     submitTransactionBestEffort,
     startCallForRateLimit,
     waitForRateLimitTransactionWithRetry,
-} from "../../utils/rate-limiting";
+} from "../../utils/rate_limiting.ts";
 
 describeSuite({
     id: "03_owner_hparams",

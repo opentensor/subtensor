@@ -10,7 +10,7 @@ import {
     registerCallsInGroup,
     setScopedGroupRateLimit,
     waitForRateLimitTransactionWithRetry,
-} from "../../utils/rate-limiting";
+} from "../../utils/rate_limiting.ts";
 
 describeSuite({
     id: "01_serving",
@@ -65,7 +65,7 @@ describeSuite({
                     [serveAxon, serveAxonTls, servePrometheus],
                     "register_smoke_serving_calls"
                 );
-                await setScopedGroupRateLimit(api, groupId, 0, 2);
+                await setScopedGroupRateLimit(api, groupId, 0, 10);
 
                 await waitForRateLimitTransactionWithRetry(api, serveAxon, ctx.hotkey, "serve_axon_initial");
                 await waitForFinalizedBlocks(api, 1);

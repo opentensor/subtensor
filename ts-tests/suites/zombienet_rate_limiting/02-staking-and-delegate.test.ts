@@ -11,7 +11,7 @@ import {
     registerCallsInGroup,
     setGlobalGroupRateLimit,
     waitForRateLimitTransactionWithRetry,
-} from "../../utils/rate-limiting";
+} from "../../utils/rate_limiting.ts";
 
 describeSuite({
     id: "02_staking_and_delegate",
@@ -72,7 +72,7 @@ describeSuite({
                 const removeStakeAfterWindow = api.tx.SubtensorModule.remove_stake({
                     hotkey: hotkeyAddress,
                     netuid,
-                    amount_unstaked: stakeAfterFailedAttempt,
+                    amount_unstaked: tao(100),
                 });
                 await waitForRateLimitTransactionWithRetry(
                     api,

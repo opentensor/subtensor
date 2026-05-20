@@ -1,5 +1,4 @@
 import { Binary, Enum, type TypedApi } from "polkadot-api";
-import type { PolkadotSigner } from "polkadot-api/signer";
 import { getPolkadotSigner } from "polkadot-api/signer";
 import { MultiAddress, type subtensor } from "@polkadot-api/descriptors";
 import type { KeyringPair } from "@moonwall/util";

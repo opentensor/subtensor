@@ -11,7 +11,7 @@ import {
     isGlobalConfig,
     registerCallsInGroup,
     setGlobalGroupRateLimit,
-} from "../../utils/rate-limiting";
+} from "../../utils/rate_limiting.ts";
 
 describeSuite({
     id: "00_config",
