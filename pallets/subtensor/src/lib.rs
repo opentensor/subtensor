@@ -83,7 +83,7 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
-    use crate::root_registered::EmaState;
+    use crate::root_registered::{EmaState, EmaValueProvider, InFlightEmaSample};
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
     use frame_support::{
@@ -1386,19 +1386,30 @@ pub mod pallet {
     pub type RootRegisteredHotkeyCount<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
-    /// EMA per root-registered coldkey, paired with the number of
-    /// samples folded into it. Updated incrementally by a round-robin
-    /// sampler in `on_initialize`; the actual metric and math are
-    /// supplied by `T::EmaStrategy`.
+    /// EMA state for each root-registered coldkey.
     #[pallet::storage]
     pub type RootRegisteredEma<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, EmaState, ValueQuery>;
 
-    /// Round-robin cursor into `RootRegisteredEma` for the EMA
-    /// sampler. Advances once per tick (every `EmaSamplingInterval`
-    /// blocks); modulo the live member count when read.
+    /// Fixed coldkey snapshot used by the current EMA sampling cycle.
     #[pallet::storage]
-    pub type EmaSampleCursor<T: Config> = StorageValue<_, u32, ValueQuery>;
+    pub type CurrentCycleMembers<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, ConstU32<64>>, ValueQuery>;
+
+    /// Internal: the EMA value provider for the runtime.
+    pub type EmaProviderOf<T> = <T as Config>::EmaValueProvider;
+
+    /// Internal: provider-owned progress for the coldkey currently being sampled.
+    pub type EmaProgressOf<T> = <EmaProviderOf<T> as EmaValueProvider<AccountIdOf<T>>>::Progress;
+
+    /// Internal: in-flight sample for the current coldkey. Present only
+    /// while `T::EmaValueProvider` has returned `SampleStep::Continue`.
+    pub type InFlightEmaSampleOf<T> = InFlightEmaSample<AccountIdOf<T>, EmaProgressOf<T>>;
+
+    /// Cursor and in-flight provider progress for the EMA sampling cycle.
+    #[pallet::storage]
+    pub type EmaSamplerState<T: Config> =
+        StorageValue<_, (u32, Option<InFlightEmaSampleOf<T>>), ValueQuery>;
 
     /// --- DMAP ( cold, netuid )--> hot | Returns the hotkey a coldkey will autostake to with mining rewards.
     #[pallet::storage]
