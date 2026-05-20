@@ -25,6 +25,7 @@ safe-math.workspace = true
 scale-info = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 pallet-aura = { workspace = true }
+pallet-alpha-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-subtensor = { workspace = true }
 pallet-subtensor-swap = { workspace = true }
@@ -186,6 +187,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"pallet-subtensor/std",
+	"pallet-alpha-assets/std",
 	"pallet-balances/std",
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",

@@ -131,6 +131,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
                 // Re-encode rate limit keys after introducing OwnerHyperparamUpdate variant
                 .saturating_add(migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<T>())
+                // Remove AddStakeBurn entries from LastRateLimitedBlock
+                .saturating_add(migrations::migrate_remove_add_stake_burn_rate_limit::migrate_remove_add_stake_burn_rate_limit::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>())
                 // Migrate Immunity Period
