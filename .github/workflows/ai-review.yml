@@ -307,7 +307,13 @@ jobs:
   auditor:
     name: auditor
     needs: [decide, skeptic]
-    if: needs.decide.outputs.run_auditor == 'true' && needs.skeptic.result == 'success'
+    # always() so this evaluates even when skeptic is skipped (e.g. when
+    # workflow_dispatch was invoked with persona=auditor). We still block on a
+    # failed skeptic — `skipped` is allowed; `failure`/`cancelled` is not.
+    if: |
+      always() &&
+      needs.decide.outputs.run_auditor == 'true' &&
+      (needs.skeptic.result == 'success' || needs.skeptic.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -509,7 +515,10 @@ jobs:
           fi
           echo "Detected auto-fix changes:"
           git status --short
-          git add -A
+          # Exclude Codex-produced review artifacts so they never end up in the
+          # auto-fix commit (the action writes auditor-output.json in the
+          # workspace, and the persona may also write auditor-proposed-pr-body.md).
+          git add -A -- ':!auditor-output.json' ':!auditor-proposed-pr-body.md'
           git -c core.hooksPath=/dev/null commit -m "chore: auditor auto-fix"
           git -c core.hooksPath=/dev/null \
               -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
