@@ -29,7 +29,6 @@ use frame_support::{
     traits::{Contains, InsideBoth, LinearStoragePrice, fungible::HoldConsideration},
 };
 use frame_system::{EnsureRoot, EnsureRootWithSuccess, EnsureSigned};
-use governance::collectives::{EconomicEligibleInspector, EconomicEligibleSync};
 use pallet_commitments::{CanCommit, OnMetadataCommitment};
 use pallet_grandpa::{AuthorityId as GrandpaId, fg_primitives};
 use pallet_registry::CanRegisterIdentity;
@@ -1125,7 +1124,6 @@ parameter_types! {
     pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(1_000_000); // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = prod_or_fast!(24 * 60 * 60 / 12, 1); // 1 day
-    pub const EmaSamplingInterval: BlockNumber = prod_or_fast!(100, 1);
     pub const LeaseDividendsDistributionInterval: BlockNumber = 100; // 100 blocks
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
@@ -1207,10 +1205,9 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
-    type OnRootRegistrationChange = EconomicEligibleSync;
-    type RootRegisteredInspector = EconomicEligibleInspector;
-    type EmaStrategy = ();
-    type EmaSamplingInterval = EmaSamplingInterval;
+    type OnRootRegistrationChange = governance::EconomicEligibleSync;
+    type RootRegisteredInspector = governance::EconomicEligibleInspector;
+    type EmaValueProvider = governance::StakeValueProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
@@ -1785,6 +1782,7 @@ mod benches {
         [pallet_referenda, Referenda]
         [pallet_signed_voting, SignedVoting]
         [pallet_multi_collective, MultiCollective]
+        [governance, GovernanceBench::<Runtime>]
     );
 }
 
@@ -2373,6 +2371,7 @@ impl_runtime_apis! {
             use frame_support::traits::StorageInfoTrait;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
+            use governance::benchmarking::Pallet as GovernanceBench;
 
             let mut list = Vec::<BenchmarkList>::new();
             list_benchmarks!(list, extra);
@@ -2390,6 +2389,7 @@ impl_runtime_apis! {
 
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
+            use governance::benchmarking::Pallet as GovernanceBench;
 
             #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
