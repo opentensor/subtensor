@@ -181,18 +181,28 @@ jobs:
                    .github/ai-review/codex-output-schema.json \
                    .github/copilot-instructions.md; do
             out="/tmp/ai-review-trusted/$(basename "$f")"
-            git show "origin/$BASE_REF:$f" > "$out" 2>/dev/null || echo "" > "$out"
-          done
-          # Bootstrap fallback: if the base copy of a script is empty (file
-          # didn't exist on base yet), copy the PR-side version. This only
-          # applies on the bootstrap PR; future PRs get strictly-trusted copies.
-          for script in prefetch.sh post_review.py codex-output-schema.json; do
-            if [[ ! -s "/tmp/ai-review-trusted/$script" \
-                  && -s ".github/ai-review/$script" ]]; then
-              echo "::warning::Base branch missing $script; using PR-side copy (bootstrap mode)."
-              cp ".github/ai-review/$script" "/tmp/ai-review-trusted/$script"
+            # Truncate to ZERO bytes on miss (not "\n") so -s correctly reports
+            # missing-on-base and the bootstrap fallback triggers.
+            if ! git show "origin/$BASE_REF:$f" > "$out" 2>/dev/null; then
+              : > "$out"
             fi
           done
+          # Bootstrap fallback: if the base copy of a file is missing (zero
+          # bytes), copy the PR-side version. This only applies on the
+          # bootstrap PR; future PRs get strictly-trusted copies.
+          for f in common.md skeptic.md auditor.md \
+                   gittensor-accounts.txt known-gittensor-accounts.json \
+                   prefetch.sh post_review.py codex-output-schema.json; do
+            if [[ ! -s "/tmp/ai-review-trusted/$f" \
+                  && -s ".github/ai-review/$f" ]]; then
+              echo "::warning::Base branch missing $f; using PR-side copy (bootstrap mode)."
+              cp ".github/ai-review/$f" "/tmp/ai-review-trusted/$f"
+            fi
+          done
+          if [[ ! -s "/tmp/ai-review-trusted/copilot-instructions.md" \
+                && -s ".github/copilot-instructions.md" ]]; then
+            cp ".github/copilot-instructions.md" "/tmp/ai-review-trusted/copilot-instructions.md"
+          fi
           chmod +x /tmp/ai-review-trusted/prefetch.sh 2>/dev/null || true
 
       # ---------------------------------------------------------------------
@@ -371,18 +381,28 @@ jobs:
                    .github/ai-review/codex-output-schema.json \
                    .github/copilot-instructions.md; do
             out="/tmp/ai-review-trusted/$(basename "$f")"
-            git show "origin/$BASE_REF:$f" > "$out" 2>/dev/null || echo "" > "$out"
-          done
-          # Bootstrap fallback: if the base copy of a script is empty (file
-          # didn't exist on base yet), copy the PR-side version. This only
-          # applies on the bootstrap PR; future PRs get strictly-trusted copies.
-          for script in prefetch.sh post_review.py codex-output-schema.json; do
-            if [[ ! -s "/tmp/ai-review-trusted/$script" \
-                  && -s ".github/ai-review/$script" ]]; then
-              echo "::warning::Base branch missing $script; using PR-side copy (bootstrap mode)."
-              cp ".github/ai-review/$script" "/tmp/ai-review-trusted/$script"
+            # Truncate to ZERO bytes on miss (not "\n") so -s correctly reports
+            # missing-on-base and the bootstrap fallback triggers.
+            if ! git show "origin/$BASE_REF:$f" > "$out" 2>/dev/null; then
+              : > "$out"
             fi
           done
+          # Bootstrap fallback: if the base copy of a file is missing (zero
+          # bytes), copy the PR-side version. This only applies on the
+          # bootstrap PR; future PRs get strictly-trusted copies.
+          for f in common.md skeptic.md auditor.md \
+                   gittensor-accounts.txt known-gittensor-accounts.json \
+                   prefetch.sh post_review.py codex-output-schema.json; do
+            if [[ ! -s "/tmp/ai-review-trusted/$f" \
+                  && -s ".github/ai-review/$f" ]]; then
+              echo "::warning::Base branch missing $f; using PR-side copy (bootstrap mode)."
+              cp ".github/ai-review/$f" "/tmp/ai-review-trusted/$f"
+            fi
+          done
+          if [[ ! -s "/tmp/ai-review-trusted/copilot-instructions.md" \
+                && -s ".github/copilot-instructions.md" ]]; then
+            cp ".github/copilot-instructions.md" "/tmp/ai-review-trusted/copilot-instructions.md"
+          fi
           chmod +x /tmp/ai-review-trusted/prefetch.sh 2>/dev/null || true
 
       - name: Pre-fetch GitHub context

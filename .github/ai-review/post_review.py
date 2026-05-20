@@ -287,6 +287,38 @@ def render_new_sticky(
     return "\n".join(parts).strip() + "\n"
 
 
+def _post_error_sticky(repo: str, pr: int, persona: str, message: str, raw: str) -> None:
+    """
+    Post a sticky comment surfacing a Codex-output failure to the PR thread.
+    On the next run, this becomes the agent's prior comment, giving it
+    direct feedback to self-correct.
+    """
+    marker = f"<!-- ai-review:{persona} -->"
+    # Truncate raw output so the comment isn't enormous.
+    raw_trim = raw if len(raw) <= 4000 else raw[:2000] + "\n\n[... truncated ...]\n\n" + raw[-2000:]
+    body = (
+        f"VERDICT: ERROR\n\n"
+        f"⚠️ **Codex output failed validation.** {message}\n\n"
+        f"<details><summary>Raw model output ({len(raw)} chars)</summary>\n\n"
+        f"```\n{raw_trim}\n```\n\n</details>\n\n"
+        f"{marker}\n"
+    )
+    try:
+        # Mark any prior sticky as superseded so the chain remains coherent.
+        prior_id, prior_body, _prior_url = find_prior_live_sticky(repo, pr, persona)
+        new = post_new_sticky(repo, pr, body)
+        if prior_id is not None:
+            edit_comment(
+                repo, prior_id,
+                f"> ⚠️ **Superseded by [an error report]({new.get('html_url','')}).**\n\n"
+                f"{prior_body}\n\n<!-- ai-review:{persona}:superseded -->\n",
+            )
+    except Exception as e:  # last-resort: surface in logs
+        print(f"::error::Failed to post error sticky: {e}", file=sys.stderr)
+        print(f"::error::Original Codex output ({len(raw)} chars):", file=sys.stderr)
+        print(raw_trim, file=sys.stderr)
+
+
 def find_prior_live_sticky(
     repo: str, pr: int, persona: str
 ) -> tuple[int | None, str, str]:
@@ -332,13 +364,53 @@ def main() -> int:
     with open(args.input_file) as f:
         raw = f.read().strip()
     if not raw:
-        print("::error::Input file is empty", file=sys.stderr)
+        # Even an empty Codex output should produce a sticky so the next run's
+        # `prior-*-comment.md` makes the failure visible to the agent.
+        _post_error_sticky(
+            args.repo, args.pr, args.persona,
+            "Codex produced no output. Check the workflow logs for the model error.",
+            raw="(empty)",
+        )
         return 1
     try:
         doc = json.loads(raw)
     except json.JSONDecodeError as e:
-        print(f"::error::Failed to parse Codex JSON output: {e}", file=sys.stderr)
-        print(f"  first 500 chars: {raw[:500]}", file=sys.stderr)
+        # Pass the error back to the agent via the next run's prior-comment.md.
+        _post_error_sticky(
+            args.repo, args.pr, args.persona,
+            f"Codex emitted output that did not parse as JSON: {e}. "
+            "On the next run, you (the agent) will see this comment as your "
+            "prior verdict — please re-emit the output strictly per "
+            "`codex-output-schema.json` (valid JSON, all required fields).",
+            raw=raw,
+        )
+        return 1
+
+    # Validate required top-level fields. If anything is missing, post an
+    # error sticky so the agent sees the schema mismatch on the next run.
+    required = {
+        "verdict": str,
+        "scrutiny_note": str,
+        "summary_markdown": str,
+        "conclusion_markdown": str,
+        "inline_findings": list,
+        "off_diff_findings": list,
+        "prior_reconciliation": list,
+    }
+    problems: list[str] = []
+    for key, typ in required.items():
+        if key not in doc:
+            problems.append(f"missing required field `{key}`")
+        elif not isinstance(doc[key], typ):
+            problems.append(f"`{key}` must be {typ.__name__}, got {type(doc[key]).__name__}")
+    if problems:
+        _post_error_sticky(
+            args.repo, args.pr, args.persona,
+            "Codex output parsed as JSON but does not match the schema: "
+            + "; ".join(problems)
+            + ". Re-emit strictly per `codex-output-schema.json`.",
+            raw=raw,
+        )
         return 1
 
     verdict = (doc.get("verdict") or "").strip()
