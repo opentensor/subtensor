@@ -2,6 +2,7 @@
 
 use super::mock::*;
 use crate::migrations::migrate_network_immunity_period;
+use crate::staking::lock::LockState;
 use crate::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
@@ -2262,6 +2263,121 @@ fn dissolve_clears_all_mechanism_scoped_maps_for_all_mechanisms() {
     });
 }
 
+#[test]
+fn dissolve_clears_all_lock_maps_for_removed_network() {
+    new_test_ext(0).execute_with(|| {
+        // Create a subnet we can dissolve.
+        let owner_cold = U256::from(123);
+        let owner_hot = U256::from(456);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+
+        // Add TAO to subnet account so dissolve can proceed.
+        let subnet_account = SubtensorModule::get_subnet_account_id(net).unwrap();
+        add_balance_to_coldkey_account(&subnet_account, 100_000_000_000_u64.into());
+
+        // Non-owner coldkeys / hotkeys.
+        let cold_1 = U256::from(1001);
+        let cold_2 = U256::from(1002);
+        let hot_1 = U256::from(2001);
+        let hot_2 = U256::from(2002);
+
+        // Another subnet to ensure dissolve only clears `net`.
+        let other_net = NetUid::from(u16::from(net) + 1);
+
+        // Explicit LockState initialization
+        let lock_a = LockState {
+            locked_mass: 10u64.into(),
+            conviction: U64F64::from_num(1.5),
+            last_update: 1,
+        };
+
+        let lock_b = LockState {
+            locked_mass: 20u64.into(),
+            conviction: U64F64::from_num(2.5),
+            last_update: 2,
+        };
+
+        // --- Lock: (coldkey, netuid, hotkey)
+        Lock::<Test>::insert((cold_1, net, hot_1), lock_a.clone());
+        Lock::<Test>::insert((cold_2, net, hot_2), lock_b.clone());
+
+        // Same cold/hot on another net should survive.
+        Lock::<Test>::insert((cold_1, other_net, hot_1), lock_a.clone());
+
+        // --- HotkeyLock
+        HotkeyLock::<Test>::insert(net, hot_1, lock_a.clone());
+        HotkeyLock::<Test>::insert(net, hot_2, lock_b.clone());
+        HotkeyLock::<Test>::insert(other_net, hot_1, lock_a.clone());
+
+        // --- DecayingHotkeyLock
+        DecayingHotkeyLock::<Test>::insert(net, hot_1, lock_a.clone());
+        DecayingHotkeyLock::<Test>::insert(net, hot_2, lock_b.clone());
+        DecayingHotkeyLock::<Test>::insert(other_net, hot_1, lock_a.clone());
+
+        // --- OwnerLock
+        OwnerLock::<Test>::insert(net, lock_a.clone());
+        OwnerLock::<Test>::insert(other_net, lock_b.clone());
+
+        // --- DecayingLock
+        DecayingLock::<Test>::insert(cold_1, net, true);
+        DecayingLock::<Test>::insert(cold_2, net, true);
+        DecayingLock::<Test>::insert(cold_1, other_net, true);
+
+        // Sanity checks before dissolve
+        assert!(Lock::<Test>::contains_key((cold_1, net, hot_1)));
+        assert!(Lock::<Test>::contains_key((cold_2, net, hot_2)));
+
+        assert!(HotkeyLock::<Test>::contains_key(net, hot_1));
+        assert!(HotkeyLock::<Test>::contains_key(net, hot_2));
+
+        assert!(DecayingHotkeyLock::<Test>::contains_key(net, hot_1));
+        assert!(DecayingHotkeyLock::<Test>::contains_key(net, hot_2));
+
+        assert!(OwnerLock::<Test>::contains_key(net));
+
+        assert!(DecayingLock::<Test>::contains_key(cold_1, net));
+        assert!(DecayingLock::<Test>::contains_key(cold_2, net));
+
+        // Sanity: other net keys are present before dissolve.
+        assert!(Lock::<Test>::contains_key((cold_1, other_net, hot_1)));
+        assert!(HotkeyLock::<Test>::contains_key(other_net, hot_1));
+        assert!(DecayingHotkeyLock::<Test>::contains_key(other_net, hot_1));
+        assert!(OwnerLock::<Test>::contains_key(other_net));
+        assert!(DecayingLock::<Test>::contains_key(cold_1, other_net));
+
+        // --- Dissolve ---
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Ensure removed
+        assert!(!Lock::<Test>::contains_key((cold_1, net, hot_1)));
+        assert!(!Lock::<Test>::contains_key((cold_2, net, hot_2)));
+
+        assert!(!HotkeyLock::<Test>::contains_key(net, hot_1));
+        assert!(!HotkeyLock::<Test>::contains_key(net, hot_2));
+        assert!(HotkeyLock::<Test>::iter_prefix(net).next().is_none());
+
+        assert!(!DecayingHotkeyLock::<Test>::contains_key(net, hot_1));
+        assert!(!DecayingHotkeyLock::<Test>::contains_key(net, hot_2));
+        assert!(
+            DecayingHotkeyLock::<Test>::iter_prefix(net)
+                .next()
+                .is_none()
+        );
+
+        assert!(!OwnerLock::<Test>::contains_key(net));
+
+        assert!(!DecayingLock::<Test>::contains_key(cold_1, net));
+        assert!(!DecayingLock::<Test>::contains_key(cold_2, net));
+
+        // Ensure other_net is untouched
+        assert!(Lock::<Test>::contains_key((cold_1, other_net, hot_1)));
+        assert!(HotkeyLock::<Test>::contains_key(other_net, hot_1));
+        assert!(DecayingHotkeyLock::<Test>::contains_key(other_net, hot_1));
+        assert!(OwnerLock::<Test>::contains_key(other_net));
+        assert!(DecayingLock::<Test>::contains_key(cold_1, other_net));
+    });
+}
+
 fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U64F64) -> u64 {
     let alpha = (U64F64::from_num(lock_cost_u64)
         .checked_div(price)
@@ -2278,7 +2394,7 @@ fn owner_alpha_from_lock_and_price(lock_cost_u64: u64, price: U64F64) -> u64 {
 #[test]
 fn median_subnet_alpha_price_returns_one_when_no_eligible_subnet_prices() {
     new_test_ext(0).execute_with(|| {
-        let one = U96F32::from_num(1u64);
+        let one = U64F64::from_num(1u64);
 
         // Empty state.
         assert_eq!(SubtensorModule::get_median_subnet_alpha_price(), one);
@@ -2294,7 +2410,7 @@ fn median_subnet_alpha_price_returns_one_when_no_eligible_subnet_prices() {
         setup_reserves(zero_netuid, TaoBalance::ZERO, AlphaBalance::from(100u64));
         assert_eq!(
             <Test as pallet::Config>::SwapInterface::current_alpha_price(zero_netuid.into()),
-            U96F32::from_num(0u64)
+            U64F64::from_num(0u64)
         );
         assert_eq!(SubtensorModule::get_median_subnet_alpha_price(), one);
 

@@ -18582,6 +18582,7 @@ dependencies = [
  "pallet-balances",
  "pallet-crowdloan",
  "pallet-drand",
+ "pallet-evm",
  "pallet-evm-chain-id",
  "pallet-grandpa",
  "pallet-preimage",

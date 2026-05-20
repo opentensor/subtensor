@@ -1180,7 +1180,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that unstaked amount is not greater than available to unstake (due to locks)
-        Self::ensure_available_stake(coldkey, netuid, alpha_unstaked)?;
+        Self::ensure_available_to_unstake(coldkey, netuid, alpha_unstaked)?;
 
         Ok(())
     }
@@ -1212,7 +1212,7 @@ impl<T: Config> Pallet<T> {
 
             // Ensure that unstaked amount is not greater than available to unstake (due to locks)
             // for this subnet.
-            Self::ensure_available_stake(coldkey, *netuid, alpha)?;
+            Self::ensure_available_to_unstake(coldkey, *netuid, alpha)?;
 
             if Self::validate_remove_stake(coldkey, hotkey, *netuid, alpha, alpha, false).is_ok() {
                 unstaking_any = true;
@@ -1334,7 +1334,7 @@ impl<T: Config> Pallet<T> {
         // Enforce lock invariant: if the is cross-subnet move, the remaining amount must
         // cover the lock.
         if origin_netuid != destination_netuid {
-            Self::ensure_available_stake(origin_coldkey, origin_netuid, alpha_amount)?;
+            Self::ensure_available_to_unstake(origin_coldkey, origin_netuid, alpha_amount)?;
         }
 
         Ok(())

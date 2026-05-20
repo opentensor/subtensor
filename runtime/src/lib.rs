@@ -101,7 +101,9 @@ use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+use subtensor_transaction_fee::{
+    SubtensorEvmFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler,
+};
 
 use core::marker::PhantomData;
 
@@ -815,6 +817,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_subnet_emission_enabled { .. }
                     )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_childkey_take_per_subnet { .. }
+                    )
             ),
             ProxyType::RootClaim => matches!(
                 c,
@@ -1400,7 +1405,7 @@ impl pallet_evm::Config for Runtime {
     type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type OnChargeTransaction = ();
+    type OnChargeTransaction = SubtensorEvmFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     type OnCreate = ();
     type FindAuthor = FindAuthorTruncated<Aura>;
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;

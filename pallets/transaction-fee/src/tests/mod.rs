@@ -1,7 +1,10 @@
 #![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 use crate::{AlphaFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler, TransactionSource};
 use approx::assert_abs_diff_eq;
-use frame_support::{assert_err, assert_ok, dispatch::GetDispatchInfo, pallet_prelude::Zero};
+use frame_support::dispatch::GetDispatchInfo;
+use frame_support::pallet_prelude::Zero;
+use frame_support::traits::Currency;
+use frame_support::{assert_err, assert_ok};
 use sp_runtime::{
     traits::{DispatchTransaction, TransactionExtension, TxBaseImplication},
     transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -183,7 +186,7 @@ fn test_rejects_multi_subnet_alpha_fee_deduction() {
                 &alpha_vec,
                 1.into(),
             ),
-            (0.into(), 0.into(), NetUid::ROOT)
+            Ok((0.into(), 0.into(), NetUid::ROOT))
         );
 
         let alpha_after_0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -319,6 +322,85 @@ fn test_remove_stake_fees_alpha() {
             alpha_event < tao_event,
             "expected TransactionFeePaidWithAlpha before TransactionFeePaid"
         );
+    });
+}
+
+#[test]
+fn test_alpha_fee_withdraw_failure_aborts_and_rolls_back() {
+    new_test_ext().execute_with(|| {
+        let stake_amount = TAO;
+        let unstake_amount = AlphaBalance::from(TAO / 50);
+        let sn = setup_subnets(1, 1);
+        let netuid = sn.subnets[0].netuid;
+        let hotkey = sn.hotkeys[0];
+
+        setup_stake(netuid, &sn.coldkey, &hotkey, stake_amount);
+
+        let current_balance = Balances::free_balance(sn.coldkey);
+        remove_balance_from_coldkey_account(
+            &sn.coldkey,
+            current_balance - ExistentialDeposit::get(),
+        );
+
+        // Force the alpha-fee unstake to fail after AMM bookkeeping by draining
+        // the subnet account used by transfer_tao_from_subnet.
+        let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+        Balances::make_free_balance_be(&subnet_account, 0.into());
+
+        let block_builder = U256::from(MOCK_BLOCK_BUILDER);
+        let block_builder_balance_before = Balances::free_balance(block_builder);
+        let signer_balance_before = Balances::free_balance(sn.coldkey);
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &sn.coldkey,
+            netuid,
+        );
+        let subnet_alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
+        let subnet_alpha_out_before = SubnetAlphaOut::<Test>::get(netuid);
+        let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
+        let total_stake_before = TotalStake::<Test>::get();
+        let subnet_volume_before = SubnetVolume::<Test>::get(netuid);
+
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked: unstake_amount,
+        });
+        let info = call.get_dispatch_info();
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
+
+        let result =
+            ext.dispatch_transaction(RuntimeOrigin::signed(sn.coldkey).into(), call, &info, 0, 0);
+
+        assert_eq!(
+            result.unwrap_err(),
+            TransactionValidityError::Invalid(InvalidTransaction::Payment)
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &sn.coldkey,
+                netuid,
+            ),
+            alpha_before
+        );
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), subnet_alpha_in_before);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid), subnet_alpha_out_before);
+        assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before);
+        assert_eq!(TotalStake::<Test>::get(), total_stake_before);
+        assert_eq!(SubnetVolume::<Test>::get(netuid), subnet_volume_before);
+        assert_eq!(Balances::free_balance(sn.coldkey), signer_balance_before);
+        assert_eq!(
+            Balances::free_balance(block_builder),
+            block_builder_balance_before
+        );
+
+        assert!(!System::events().iter().any(|event_record| {
+            matches!(
+                &event_record.event,
+                RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha { .. })
+            )
+        }));
     });
 }
 
