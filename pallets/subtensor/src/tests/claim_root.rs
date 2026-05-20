@@ -1499,7 +1499,7 @@ fn root_claim_on_subnet_is_noop_when_subnet_is_dissolved_queue() {
         DissolvedNetworks::<Test>::put(vec![netuid]);
 
         let before = RootClaimable::<Test>::get(hotkey).clone();
-        SubtensorModule::root_claim_on_subnet(
+        let _ = SubtensorModule::root_claim_on_subnet(
             &hotkey,
             &coldkey,
             netuid,
