@@ -28,6 +28,8 @@ type RuntimeOriginOf<T> = <T as frame_system::Config>::RuntimeOrigin;
 type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type LookupOf<T> = <T as frame_system::Config>::Lookup;
 
+const MAX_REAL_PAYS_FEE_PROXY_DEPTH: u8 = 3;
+
 #[freeze_struct("f003cde1f9da4a90")]
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -85,13 +87,15 @@ where
 
     /// Determine who should pay the transaction fee for a proxy call.
     ///
-    /// Follows the RealPaysFee chain up to 2 levels deep:
+    /// Follows the RealPaysFee chain up to three proxy levels deep:
     /// - Case 1: `proxy(real=A, call)` → A pays if `RealPaysFee<A, signer>`
     /// - Case 2: `proxy(real=B, proxy(real=A, call))` → A pays if both
     ///   `RealPaysFee<B, signer>` and `RealPaysFee<A, B>` are set; B pays if only the former.
     /// - Case 3: `proxy(real=B, batch([proxy(real=A, ..), ..]))` → A pays if
     ///   `RealPaysFee<B, signer>`, all batch items are proxy calls with the same real A,
     ///   and `RealPaysFee<A, B>` is set; B pays if only the first condition holds.
+    /// - Case 4: `proxy(real=C, proxy(real=B, batch([proxy(real=A, ..), ..])))`
+    ///   → A pays if all three `RealPaysFee` relationships are set and the batch is homogeneous.
     ///
     /// Returns `None` if the signer should pay (no RealPaysFee opt-in).
     fn extract_real_fee_payer(
@@ -99,44 +103,39 @@ where
         origin: &RuntimeOriginOf<T>,
     ) -> Option<AccountIdOf<T>> {
         let signer = origin.as_system_origin_signer()?;
-        let (outer_real, delegate, inner_call) = Self::extract_proxy_parts(call, signer)?;
+        Self::resolve_real_fee_payer(call, signer, MAX_REAL_PAYS_FEE_PROXY_DEPTH)
+    }
 
-        // Check if the outer real account has opted in to pay for the delegate.
-        if !pallet_proxy::Pallet::<T>::is_real_pays_fee(&outer_real, &delegate) {
+    fn resolve_real_fee_payer(
+        call: &RuntimeCallOf<T>,
+        delegate: &AccountIdOf<T>,
+        remaining_proxy_depth: u8,
+    ) -> Option<AccountIdOf<T>> {
+        let Some((real, _, inner_call)) = Self::extract_proxy_parts(call, delegate) else {
+            return None;
+        };
+
+        if !pallet_proxy::Pallet::<T>::is_real_pays_fee(&real, delegate) {
             return None;
         }
 
-        // outer_real pays. Try to push the fee deeper into nested proxy structures.
+        if remaining_proxy_depth <= 1 {
+            return Some(real);
+        }
+
         let inner_call: &RuntimeCallOf<T> = (*inner_call).as_ref().into_ref();
 
-        // Case 2: inner call is another proxy call.
-        if let Some(inner_payer) = Self::extract_inner_proxy_payer(inner_call, &outer_real) {
-            return Some(inner_payer);
+        if let Some(payer) =
+            Self::resolve_real_fee_payer(inner_call, &real, remaining_proxy_depth - 1)
+        {
+            return Some(payer);
         }
 
-        // Case 3: inner call is a batch of proxy calls with the same real.
-        if let Some(batch_payer) = Self::extract_batch_proxy_payer(inner_call, &outer_real) {
-            return Some(batch_payer);
+        if let Some(payer) = Self::extract_batch_proxy_payer(inner_call, &real) {
+            return Some(payer);
         }
 
-        // Case 1: simple proxy, outer_real pays.
-        Some(outer_real)
-    }
-
-    /// Check if an inner call is a proxy call where the inner real has opted in to pay.
-    /// `outer_real` is used as the implicit delegate for `proxy` calls.
-    fn extract_inner_proxy_payer(
-        inner_call: &RuntimeCallOf<T>,
-        outer_real: &AccountIdOf<T>,
-    ) -> Option<AccountIdOf<T>> {
-        let (inner_real, inner_delegate, _call) =
-            Self::extract_proxy_parts(inner_call, outer_real)?;
-
-        if pallet_proxy::Pallet::<T>::is_real_pays_fee(&inner_real, &inner_delegate) {
-            Some(inner_real)
-        } else {
-            None
-        }
+        Some(real)
     }
 
     /// Check if an inner call is a batch where ALL items are proxy calls with the same real
@@ -146,13 +145,15 @@ where
         inner_call: &RuntimeCallOf<T>,
         outer_real: &AccountIdOf<T>,
     ) -> Option<AccountIdOf<T>> {
-        let calls: &Vec<<T as pallet_utility::Config>::RuntimeCall> =
-            match inner_call.is_sub_type()? {
-                pallet_utility::Call::batch { calls }
-                | pallet_utility::Call::batch_all { calls }
-                | pallet_utility::Call::force_batch { calls } => calls,
-                _ => return None,
-            };
+        let Some(utility_call) = inner_call.is_sub_type() else {
+            return None;
+        };
+        let calls: &Vec<<T as pallet_utility::Config>::RuntimeCall> = match utility_call {
+            pallet_utility::Call::batch { calls }
+            | pallet_utility::Call::batch_all { calls }
+            | pallet_utility::Call::force_batch { calls } => calls,
+            _ => return None,
+        };
 
         if calls.is_empty() {
             return None;
@@ -162,19 +163,22 @@ where
 
         for call in calls.iter() {
             let call_ref: &RuntimeCallOf<T> = call.into_ref();
-            let (inner_real, inner_delegate, _) = Self::extract_proxy_parts(call_ref, outer_real)?;
+            let Some((inner_real, inner_delegate, _)) =
+                Self::extract_proxy_parts(call_ref, outer_real)
+            else {
+                return None;
+            };
 
             match &common_real {
                 None => {
-                    // Check RealPaysFee once on the first item and memoize. For `proxy`
-                    // calls the delegate is always `outer_real`, so a single read covers
-                    // the entire batch; for `proxy_announced` it uses the explicit delegate.
+                    // Check RealPaysFee once on the first item and memoize. Batch fee
+                    // propagation only supports homogeneous `proxy` calls, so a single
+                    // read covers the entire batch.
                     if !pallet_proxy::Pallet::<T>::is_real_pays_fee(&inner_real, &inner_delegate) {
                         return None;
                     }
                     common_real = Some(inner_real);
                 }
-                // All items must share the same real account.
                 Some(existing) if *existing != inner_real => return None,
                 _ => {}
             }
@@ -200,11 +204,11 @@ where
     type Pre = Pre<T>;
 
     fn weight(&self, call: &RuntimeCallOf<T>) -> Weight {
-        // Account for up to 3 storage reads in the worst-case fee payer resolution
-        // (outer is_real_pays_fee + inner/batch is_real_pays_fee + margin).
+        // Account for up to four storage reads in the worst-case fee payer resolution
+        // (three proxy hops + margin).
         self.inner
             .weight(call)
-            .saturating_add(T::DbWeight::get().reads(3))
+            .saturating_add(T::DbWeight::get().reads(4))
     }
 
     fn validate(

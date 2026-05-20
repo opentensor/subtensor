@@ -19,6 +19,12 @@ In the Substrate SDK, `ChargeTransactionPayment` normally calculates transaction
 However, in Subtensor, `ChargeTransactionPaymentWrapper` **overrides** this logic.  
 It replaces the dynamic calculation with a **flat priority scale** based only on the dispatch class.
 
+`ChargeTransactionPaymentWrapper` also resolves fee payment for proxy calls that opt in via
+`RealPaysFee`. This resolution can follow a bounded proxy chain up to three proxy levels,
+including the case where the innermost supported call is a homogeneous `batch`, `batch_all`,
+or `force_batch` of proxy calls. If a batch contains proxy calls for mixed real accounts, fee
+propagation is not applied and the original signer pays.
+
 #### Current priority values:
 | Dispatch Class      | Priority Value    | Notes                                                        |
 |---------------------|-------------------|--------------------------------------------------------------|
