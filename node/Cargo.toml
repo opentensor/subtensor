@@ -122,6 +122,8 @@ num-traits = { workspace = true, features = ["std"] }
 pallet-shield.workspace = true
 stp-shield.workspace = true
 stc-shield.workspace = true
+ml-kem = { workspace = true, features = ["std"] }
+rand_core = { version = "0.6.4", features = ["std", "getrandom"] }
 
 # Local Dependencies
 node-subtensor-runtime = { workspace = true, features = ["std"] }
