@@ -4681,3 +4681,45 @@ fn test_register_network_schedules_root_validators_auto_parent_delegation_flag()
         ));
     });
 }
+
+// Regression: ChildkeyTake is stored per-(hotkey, netuid), and the
+// `set_childkey_take` dispatch accepts a netuid argument. The
+// ChildKeyTakeSet event historically carried only (hotkey, take), giving
+// off-chain consumers no way to correlate the take change to its subnet
+// without re-deriving from extrinsic args. The event must include netuid.
+#[test]
+fn test_set_childkey_take_event_includes_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(101);
+        let hotkey = U256::from(102);
+        let netuid = NetUid::from(7);
+
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        let new_take: u16 = SubtensorModule::get_max_childkey_take() / 2;
+
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            new_take,
+        ));
+
+        let matches: Vec<(U256, NetUid, u16)> = System::events()
+            .iter()
+            .filter_map(|e| match &e.event {
+                RuntimeEvent::SubtensorModule(Event::ChildKeyTakeSet(hk, net, take)) => {
+                    Some((*hk, *net, *take))
+                }
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(
+            matches,
+            vec![(hotkey, netuid, new_take)],
+            "ChildKeyTakeSet event should carry (hotkey, netuid, take)"
+        );
+    });
+}

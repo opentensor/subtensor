@@ -772,8 +772,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // Emit the event
-        Self::deposit_event(Event::ChildKeyTakeSet(hotkey.clone(), take));
-        log::debug!("Childkey take set for hotkey: {hotkey:?} and take: {take:?}");
+        Self::deposit_event(Event::ChildKeyTakeSet(hotkey.clone(), netuid, take));
+        log::debug!("Childkey take set for hotkey: {hotkey:?} netuid: {netuid:?} take: {take:?}");
         Ok(())
     }
 

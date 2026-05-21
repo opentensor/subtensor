@@ -125,8 +125,8 @@ mod events {
         MinChildKeyTakePerSubnetSet(NetUid, u16),
         /// maximum childkey take set
         MaxChildKeyTakeSet(u16),
-        /// childkey take set
-        ChildKeyTakeSet(T::AccountId, u16),
+        /// childkey take set for a specific (hotkey, netuid) pair
+        ChildKeyTakeSet(T::AccountId, NetUid, u16),
         /// a sudo call is done.
         Sudid(DispatchResult),
         /// registration is allowed/disallowed for a subnet.
