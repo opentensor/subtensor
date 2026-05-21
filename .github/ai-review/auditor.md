@@ -93,7 +93,22 @@ If no duplicates exist, omit this section entirely.
 
 Apply `.github/copilot-instructions.md` in full. Particular emphasis:
 
-- **Spec version**: any change under `runtime/` or `pallets/` that alters runtime behavior must bump `spec_version` in `runtime/src/lib.rs`. If missing, this is auto-fixable (see Step 5).
+- **Spec version**: a bump is required only when the corresponding CI check
+  for the PR's base branch would actually fail. The existing checks compare
+  `runtime/src/lib.rs` `spec_version` against a specific live network:
+
+  | Base branch | Network endpoint | CI workflow |
+  | --- | --- | --- |
+  | `devnet` / `devnet-ready` | `wss://dev.chain.opentensor.ai:443` | check-devnet |
+  | `testnet` / `testnet-ready` | `wss://test.finney.opentensor.ai:443` | check-testnet |
+  | `finney` / `main` | `wss://entrypoint-finney.opentensor.ai:443` | check-finney |
+  | anything else | _(no spec-version check)_ | — |
+
+  Also: a bump is NOT required if the PR carries the `no-spec-version-bump`
+  label (the CI check skips on that label). Read `labels` from
+  `/tmp/ai-review-context/pr.json` to determine.
+
+  When a bump IS required, this is auto-fixable (see Step 5).
 - **Migrations**: presence of a new pallet storage migration requires version guards, try-state checks, bounded execution, and a corresponding test. If any are missing, [HIGH].
 - **Weights**: new extrinsics need `#[pallet::weight]` reflecting actual reads / writes / compute. Missing or mismatched weights are [HIGH].
 - **Origin checks**: every state-mutating extrinsic needs an explicit `ensure_signed` / `ensure_root` / `ensure_none` call. Missing is [CRITICAL].
@@ -129,7 +144,24 @@ message `chore: auditor auto-fix`, and push to the PR branch — but only when
 For each of the following classes of issue, modify the workspace in place:
 
 - **Lint / format failures**: run `./scripts/fix_rust.sh`. The script edits files; do not commit.
-- **Missing spec_version bump**: when a runtime-affecting change is detected and `runtime/src/lib.rs` `spec_version` was not bumped, increment it by 1.
+- **Missing spec_version bump**: only fix when the per-base-branch check
+  would actually fail. Procedure:
+    1. Skip entirely if `pr.json` has the `no-spec-version-bump` label.
+    2. Map the PR's base branch to its network endpoint (see Step 3 table).
+       If no mapping exists, skip.
+    3. Read the local `spec_version` from `runtime/src/lib.rs`.
+    4. Query the network's current `spec_version` via JSON-RPC, e.g.:
+       ```bash
+       curl -sS -H 'Content-Type: application/json' \
+         -d '{"jsonrpc":"2.0","method":"state_getRuntimeVersion","params":[],"id":1}' \
+         https://<host-from-endpoint>/ \
+         | jq -r '.result.specVersion'
+       ```
+       (Strip `wss://` and the `:443` from the endpoint to get the HTTPS host.)
+    5. Only when `local_spec_version <= network_spec_version`, increment the
+       local `spec_version` to `network_spec_version + 1`. Do nothing
+       otherwise — bumping when not needed creates spurious diffs that
+       conflict with concurrent PRs.
 - **Stale `Cargo.lock`**: run `cargo check --workspace` and leave the regenerated `Cargo.lock` in place.
 
 When `is_fork` is `true`, the workflow will refuse to push your changes.
