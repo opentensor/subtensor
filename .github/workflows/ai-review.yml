@@ -107,6 +107,9 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+    outputs:
+      posted_url: ${{ steps.post.outputs.posted_url }}
+      verdict: ${{ steps.post.outputs.verdict }}
     steps:
       # Fail-fast on fork auto-trigger. `pull_request` from a fork has no
       # secrets and a read-only token, so the Codex steps cannot run. Rather
@@ -287,6 +290,7 @@ jobs:
             stating whether each is addressed / not_addressed / no_longer_applies.
 
       - name: Post review (skeptic) — inline comments + sticky summary
+        id: post
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
@@ -329,6 +333,9 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    outputs:
+      posted_url: ${{ steps.post.outputs.posted_url }}
+      verdict: ${{ steps.post.outputs.verdict }}
     steps:
       # See note in the skeptic job — same fork-PR fail-fast rationale.
       - name: Fork PR advisory (fail-fast)
@@ -595,6 +602,7 @@ jobs:
               push "https://github.com/$REPO.git" "HEAD:$HEAD_REF"
 
       - name: Post review (auditor) — inline comments + sticky summary
+        id: post
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
@@ -620,3 +628,61 @@ jobs:
             👎)  echo "::error::Auditor blocked the PR."; exit 1 ;;
             *)   echo "::error::No parseable verdict in auditor output ('$VERDICT')."; exit 1 ;;
           esac
+
+  # Final notice: posts a single "review updated" comment at the bottom of
+  # the PR conversation whenever the unified sticky was actually written this
+  # run. Fires once per workflow run regardless of how many personas updated;
+  # the persona jobs surface their post URL + verdict via job outputs and
+  # this job aggregates them into a single chronological notice so reviewers
+  # see review activity in the PR timeline (rather than only as a silent
+  # edit to a long-lived sticky way up at the top).
+  notify:
+    name: notify
+    needs: [decide, skeptic, auditor]
+    if: |
+      always() &&
+      (needs.skeptic.outputs.posted_url != '' || needs.auditor.outputs.posted_url != '')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Mint App token (optional)
+        id: app-token
+        if: vars.AI_REVIEW_APP_ID != ''
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.AI_REVIEW_APP_ID }}
+          private-key: ${{ secrets.AI_REVIEW_APP_PRIVATE_KEY }}
+
+      - name: Resolve token
+        id: token
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          FALLBACK: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -n "$APP_TOKEN" ]]; then
+            echo "::add-mask::$APP_TOKEN"
+            echo "token=$APP_TOKEN" >> "$GITHUB_OUTPUT"
+          else
+            echo "token=$FALLBACK" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post "review updated" notice
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          PR: ${{ needs.decide.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+          SKEPTIC_URL: ${{ needs.skeptic.outputs.posted_url }}
+          SKEPTIC_VERDICT: ${{ needs.skeptic.outputs.verdict }}
+          AUDITOR_URL: ${{ needs.auditor.outputs.posted_url }}
+          AUDITOR_VERDICT: ${{ needs.auditor.outputs.verdict }}
+        run: |
+          set -euo pipefail
+          URL="${SKEPTIC_URL:-$AUDITOR_URL}"
+          parts=()
+          [[ -n "$SKEPTIC_VERDICT" ]] && parts+=("Skeptic: $SKEPTIC_VERDICT")
+          [[ -n "$AUDITOR_VERDICT" ]] && parts+=("Auditor: $AUDITOR_VERDICT")
+          IFS=' • '; SUMMARY="${parts[*]}"
+          gh pr comment "$PR" --repo "$REPO" \
+            --body "🔄 [AI review updated]($URL) — ${SUMMARY}"

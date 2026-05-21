@@ -652,6 +652,14 @@ def main() -> int:
         args.repo, args.pr, args.persona, section_body, reconciliation
     )
     print(f"Updated unified sticky ({args.persona} section): {url}", file=sys.stderr)
+    # If running inside a GitHub Actions step, surface the URL + verdict as
+    # step outputs so a downstream notify job can post a single "review
+    # updated" pointer comment at the bottom of the PR.
+    gh_output = os.environ.get("GITHUB_OUTPUT")
+    if gh_output and url:
+        with open(gh_output, "a") as f:
+            f.write(f"posted_url={url}\n")
+            f.write(f"verdict={verdict}\n")
     return 0
 
 
