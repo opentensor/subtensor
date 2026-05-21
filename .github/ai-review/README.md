@@ -60,6 +60,25 @@ nothing more. The token is masked in logs and is never passed to Codex.
 | Upstream Gittensor compromise | Indexer workflow installs gittensor pinned to commit SHA, runs in a job with `contents: read` only; a separate job with `contents: write` publishes the resulting JSON via PR — never executing third-party code |
 | `OPENAI_API_KEY` leakage from Codex | Held only in the proxy's process memory (codex-action handles this), shielded by `drop-sudo` |
 
+## Updating pinned action versions
+
+Every third-party action used in the AI-review workflows is pinned to an
+immutable commit SHA (with the major-version tag in a trailing comment), e.g.
+`openai/codex-action@e0fdf01220eb9a88167c4898839d273e3f2609d1 # v1`. Mutable
+tags like `@v1` would let an upstream maintainer (or compromised account)
+silently swap in attacker-controlled code that runs with our OpenAI key and
+GitHub App credentials.
+
+To update a pinned action:
+
+```bash
+# Look up the current SHA for the desired ref
+gh api repos/<owner>/<repo>/git/refs/tags/<ref> --jq '.object.sha'
+```
+
+Open a PR that updates the SHA and the trailing version comment. The skeptic
+will re-evaluate the change.
+
 ## Required-checks setup
 
 After the first successful run, add these to branch protection on `devnet-ready`

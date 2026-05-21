@@ -101,7 +101,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ needs.decide.outputs.head_sha }}
           fetch-depth: 0
@@ -119,7 +119,7 @@ jobs:
       - name: Mint App token (optional)
         id: app-token
         if: vars.AI_REVIEW_APP_ID != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ vars.AI_REVIEW_APP_ID }}
           private-key: ${{ secrets.AI_REVIEW_APP_PRIVATE_KEY }}
@@ -211,7 +211,7 @@ jobs:
       # ---------------------------------------------------------------------
       - name: Run Codex (skeptic persona)
         id: codex
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@e0fdf01220eb9a88167c4898839d273e3f2609d1 # v1
         env:
           # Intentionally minimal env. No tokens, no secrets.
           PR_NUMBER: ${{ needs.decide.outputs.pr_number }}
@@ -308,7 +308,7 @@ jobs:
       issues: write
     steps:
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ needs.decide.outputs.head_sha }}
           fetch-depth: 0
@@ -322,7 +322,7 @@ jobs:
       - name: Mint App token (optional)
         id: app-token
         if: vars.AI_REVIEW_APP_ID != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ vars.AI_REVIEW_APP_ID }}
           private-key: ${{ secrets.AI_REVIEW_APP_PRIVATE_KEY }}
@@ -413,7 +413,7 @@ jobs:
 
       - name: Run Codex (auditor persona)
         id: codex
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@e0fdf01220eb9a88167c4898839d273e3f2609d1 # v1
         env:
           # No tokens, no secrets. Anything cargo/build.rs runs cannot exfiltrate
           # GitHub or OpenAI credentials because they are not visible here.
