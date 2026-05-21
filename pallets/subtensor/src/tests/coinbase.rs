@@ -249,6 +249,43 @@ fn test_coinbase_disabled_subnet_emission_redistributes_tao_to_enabled_subnets()
 }
 
 #[test]
+fn test_net_tao_flow_disabled_still_drains_protocol_flow_into_ema() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = NetUid::from(1);
+        let netuid2 = NetUid::from(2);
+
+        add_network(netuid1, 1, 0);
+        add_network(netuid2, 1, 0);
+
+        NetTaoFlowEnabled::<Test>::set(false);
+        FlowEmaSmoothingFactor::<Test>::set(i64::MAX as u64);
+
+        SubnetTaoFlow::<Test>::insert(netuid1, 1_000_i64);
+        SubnetTaoFlow::<Test>::insert(netuid2, 1_000_i64);
+        SubtensorModule::record_protocol_inflow(netuid1, 700.into());
+        SubtensorModule::record_protocol_outflow(netuid2, 300.into());
+
+        System::set_block_number(1);
+
+        SubtensorModule::get_subnet_block_emissions(
+            &[netuid1, netuid2],
+            U96F32::saturating_from_num(1_000_000u64),
+        );
+
+        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid1), 0);
+        assert_eq!(SubnetProtocolFlow::<Test>::get(netuid2), 0);
+        assert_eq!(
+            SubnetEmaProtocolFlow::<Test>::get(netuid1),
+            Some((1, I64F64::from_num(700)))
+        );
+        assert_eq!(
+            SubnetEmaProtocolFlow::<Test>::get(netuid2),
+            Some((1, I64F64::from_num(-300)))
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_subnet_emission_enabled_multiple_subnets_multiple_toggles() {
     new_test_ext(1).execute_with(|| {
         let netuid1 = NetUid::from(1);
@@ -3985,6 +4022,123 @@ fn test_coinbase_emit_to_subnets_with_root_sell() {
                 .saturating_sub(expected_root_alpha_divs.to_u64().into())
                 .saturating_to_num::<u64>(),
             epsilon = 200_u64
+        );
+    });
+}
+
+// cargo test --package pallet-subtensor --lib -- tests::coinbase::test_disabling_owner_cut_sends_subnet_emission_to_miners_and_validators --exact --nocapture
+#[test]
+fn test_disabling_owner_cut_sends_subnet_emission_to_miners_and_validators() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let validator_coldkey = U256::from(1);
+        let validator_hotkey = U256::from(2);
+        let miner_coldkey = U256::from(5);
+        let miner_hotkey = U256::from(6);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let subnet_tempo = 10;
+        let stake = 100_000_000_000u64;
+
+        SubtensorModule::set_tempo(netuid, subnet_tempo);
+        setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
+
+        register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
+        register_ok_neuron(netuid, miner_hotkey, miner_coldkey, 1);
+
+        add_balance_to_coldkey_account(
+            &validator_coldkey,
+            TaoBalance::from(stake) + ExistentialDeposit::get(),
+        );
+
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(validator_coldkey),
+            validator_hotkey,
+            netuid,
+            stake.into()
+        ));
+
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_max_allowed_validators(netuid, 1);
+        step_block(subnet_tempo);
+
+        SubnetOwnerCut::<Test>::set(u16::MAX / 10);
+        SubtensorModule::set_owner_cut_enabled_flag(netuid, false);
+
+        let owner_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &subnet_owner_hotkey).unwrap();
+        let validator_uid =
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &validator_hotkey).unwrap();
+        let miner_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &miner_hotkey).unwrap();
+        let uid_count = [
+            owner_uid as usize,
+            validator_uid as usize,
+            miner_uid as usize,
+        ]
+        .into_iter()
+        .max()
+        .unwrap()
+            + 1;
+
+        Weights::<Test>::insert(
+            NetUidStorageIndex::from(netuid),
+            validator_uid,
+            vec![(miner_uid, 0xFFFF)],
+        );
+        BlockAtRegistration::<Test>::set(netuid, owner_uid, 1);
+        BlockAtRegistration::<Test>::set(netuid, validator_uid, 1);
+        BlockAtRegistration::<Test>::set(netuid, miner_uid, 1);
+        LastUpdate::<Test>::set(NetUidStorageIndex::from(netuid), vec![2; uid_count]);
+        Kappa::<Test>::set(netuid, u16::MAX / 5);
+        ActivityCutoff::<Test>::set(netuid, u16::MAX);
+        let mut validator_permit = vec![false; uid_count];
+        validator_permit[validator_uid as usize] = true;
+        ValidatorPermit::<Test>::insert(netuid, validator_permit);
+
+        let owner_stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &subnet_owner_hotkey,
+            &subnet_owner_coldkey,
+            netuid,
+        );
+        let validator_stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator_hotkey,
+            &validator_coldkey,
+            netuid,
+        );
+        let miner_stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        );
+
+        // Disabling owner cut removes the subnet owner from emission distribution, so the
+        // subnet emission is fully distributed across the validator and miner paths instead.
+        step_block(subnet_tempo);
+
+        let owner_stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &subnet_owner_hotkey,
+            &subnet_owner_coldkey,
+            netuid,
+        );
+        let validator_stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &validator_hotkey,
+            &validator_coldkey,
+            netuid,
+        );
+        let miner_stake_after = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &miner_hotkey,
+            &miner_coldkey,
+            netuid,
+        );
+
+        assert_eq!(owner_stake_after, owner_stake_before);
+        assert!(validator_stake_after > validator_stake_before);
+        assert!(miner_stake_after > miner_stake_before);
+        assert_eq!(PendingOwnerCut::<Test>::get(netuid), AlphaBalance::ZERO);
+        assert!(
+            Lock::<Test>::iter_prefix((subnet_owner_coldkey, netuid))
+                .next()
+                .is_none()
         );
     });
 }

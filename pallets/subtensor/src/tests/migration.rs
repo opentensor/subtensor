@@ -15,7 +15,7 @@ use frame_support::{
     StorageHasher, Twox64Concat, assert_ok,
     storage::unhashed::{get, get_raw, put, put_raw},
     storage_alias,
-    traits::{StorageInstance, StoredMap},
+    traits::{Currency, StorageInstance, StoredMap, fungible::Inspect},
     weights::Weight,
 };
 use safe_math::SafeDiv;
@@ -3966,5 +3966,43 @@ fn test_migrate_subnet_balances() {
         // Check migration has been marked as run
         const MIGRATION_NAME: &[u8] = b"migrate_subnet_balances";
         assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+    });
+}
+
+#[test]
+fn test_migrate_fix_total_issuance_evm_fees() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_fix_total_issuance_evm_fees";
+
+        let account = U256::from(42);
+        let balances_total_issuance = TaoBalance::from(123_456_789_u64);
+        Balances::make_free_balance_be(&account, balances_total_issuance);
+
+        let broken_subtensor_total_issuance = TaoBalance::from(987_654_321_u64);
+        TotalIssuance::<Test>::put(broken_subtensor_total_issuance);
+
+        assert_eq!(Balances::total_issuance(), balances_total_issuance);
+        assert_eq!(
+            TotalIssuance::<Test>::get(),
+            broken_subtensor_total_issuance
+        );
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let weight = crate::migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<Test>();
+
+        assert!(!weight.is_zero(), "weight must be non-zero");
+        assert_eq!(TotalIssuance::<Test>::get(), balances_total_issuance);
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let second_wrong_value = TaoBalance::from(555_u64);
+        TotalIssuance::<Test>::put(second_wrong_value);
+
+        crate::migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<Test>();
+
+        assert_eq!(
+            TotalIssuance::<Test>::get(),
+            second_wrong_value,
+            "migration must not run more than once"
+        );
     });
 }
