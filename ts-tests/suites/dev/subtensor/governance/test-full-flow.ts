@@ -2,10 +2,11 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { KeyringPair } from "@moonwall/util";
 import type { ApiPromise } from "@polkadot/api";
 import { generateKeyringPair } from "../../../../utils/account";
+import { freeBalance, referendumCount, referendumStatusFor, systemEvents } from "../../../../utils/governance";
 
 describeSuite({
-    id: "DEV_SUB_GOVV2_FULLFLOW_01",
-    title: "Governance V2 — full two-phase flow (track 0 + track 1)",
+    id: "DEV_SUB_GOV_FULLFLOW_01",
+    title: "Governance — full two-phase flow (track 0 + track 1)",
     foundationMethods: "dev",
     testCases: ({ it, context, log }) => {
         let api: ApiPromise;
@@ -59,7 +60,7 @@ describeSuite({
             title: "proposer submits; triumvirate delegates; collective fast-tracks; balance changes",
             test: async () => {
                 const targetAmount = 2_000_000_000n;
-                const countBefore = (await api.query.referenda.referendumCount()).toNumber();
+                const countBefore = await referendumCount(api);
 
                 const payload = api.tx.balances.forceSetBalance(target.address, targetAmount);
 
@@ -73,7 +74,7 @@ describeSuite({
                 // The 2nd vote schedules a `nudge` for the next block, so need to create 1 block
                 await context.createBlock([]);
 
-                const approveEvents = await api.query.system.events();
+                const approveEvents = await systemEvents(api);
                 const delegated = approveEvents.find(
                     (e) => e.event.section === "referenda" && e.event.method === "Delegated"
                 );
@@ -88,7 +89,7 @@ describeSuite({
                 const innerPoll = outerPoll + 1;
                 expect(delegatedData.review.toString()).to.equal(innerPoll.toString());
 
-                const innerStatus = await api.query.referenda.referendumStatusFor(innerPoll);
+                const innerStatus = await referendumStatusFor(api, innerPoll);
                 expect(innerStatus.isSome, "inner poll stored").to.be.true;
                 expect(innerStatus.toJSON()).to.have.property("ongoing");
 
@@ -101,7 +102,7 @@ describeSuite({
                 // Same nudge pattern: 3rd vote schedules nudge → next block fast-tracks.
                 await context.createBlock([]);
 
-                const fastTrackEvents = await api.query.system.events();
+                const fastTrackEvents = await systemEvents(api);
                 const fastTracked = fastTrackEvents.find(
                     (e) => e.event.section === "referenda" && e.event.method === "FastTracked"
                 );
@@ -109,13 +110,13 @@ describeSuite({
 
                 await context.createBlock([]);
 
-                const finalEvents = await api.query.system.events();
+                const finalEvents = await systemEvents(api);
                 const dispatched = finalEvents.find(
                     (e) => e.event.section === "scheduler" && e.event.method === "Dispatched"
                 );
                 expect(dispatched, "scheduler.Dispatched").to.exist;
 
-                const targetFinal = (await api.query.system.account(target.address)).data.free.toBigInt();
+                const targetFinal = await freeBalance(api, target.address);
                 expect(targetFinal).to.equal(targetAmount);
             },
         });

@@ -4,12 +4,13 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { KeyringPair } from "@moonwall/util";
 import type { ApiPromise } from "@polkadot/api";
 import { generateKeyringPair } from "../../../../utils/account";
+import { referendumCount, systemEvents } from "../../../../utils/governance";
 
 const UPGRADED_WASM_PATH = path.resolve(process.cwd(), "tmp/upgraded-runtime.wasm");
 
 describeSuite({
-    id: "DEV_SUB_GOVV2_UPGRADE_01",
-    title: "Governance V2 — runtime upgrade via setCode",
+    id: "DEV_SUB_GOV_UPGRADE_01",
+    title: "Governance — runtime upgrade via setCode",
     foundationMethods: "dev",
     testCases: ({ it, context, log }) => {
         let api: ApiPromise;
@@ -78,7 +79,7 @@ describeSuite({
 
                 const setCodePayload = api.tx.system.setCode(wasmHex);
 
-                const countBefore = (await api.query.referenda.referendumCount()).toNumber();
+                const countBefore = await referendumCount(api);
 
                 await context.createBlock([await api.tx.referenda.submit(0, setCodePayload).signAsync(proposer)]);
                 const outerPoll = countBefore;
@@ -88,7 +89,7 @@ describeSuite({
 
                 await context.createBlock([]);
 
-                const delegatedEvent = (await api.query.system.events()).find(
+                const delegatedEvent = (await systemEvents(api)).find(
                     (e) => e.event.section === "referenda" && e.event.method === "Delegated"
                 );
                 expect(delegatedEvent, "outer Delegated").to.exist;
@@ -100,14 +101,14 @@ describeSuite({
 
                 await context.createBlock([]);
 
-                const fastTracked = (await api.query.system.events()).find(
+                const fastTracked = (await systemEvents(api)).find(
                     (e) => e.event.section === "referenda" && e.event.method === "FastTracked"
                 );
                 expect(fastTracked, "inner FastTracked").to.exist;
 
                 await context.createBlock([]);
 
-                const enactmentEvents = await api.query.system.events();
+                const enactmentEvents = await systemEvents(api);
                 const codeUpdated = enactmentEvents.find(
                     (e) => e.event.section === "system" && e.event.method === "CodeUpdated"
                 );
