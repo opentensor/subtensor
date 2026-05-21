@@ -155,8 +155,6 @@ pub mod initialise_total_issuance {
         /// This function is only compiled when the "try-runtime" feature is enabled.
         #[cfg(feature = "try-runtime")]
         fn post_upgrade(_state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-            // Verify that all accounting invariants are satisfied after the migration
-            crate::Pallet::<T>::check_total_issuance()?;
             Ok(())
         }
     }

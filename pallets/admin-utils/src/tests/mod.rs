@@ -1108,6 +1108,67 @@ fn test_sudo_set_min_delegate_take() {
 }
 
 #[test]
+fn test_sudo_set_min_childkey_take_per_subnet() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let owner = U256::from(10);
+        let non_owner = U256::from(11);
+        let take = SubtensorModule::get_max_childkey_take() / 2;
+
+        add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, owner);
+
+        assert_eq!(
+            AdminUtils::sudo_set_min_childkey_take_per_subnet(
+                <<Test as Config>::RuntimeOrigin>::signed(non_owner),
+                netuid,
+                take
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+
+        assert_ok!(AdminUtils::sudo_set_min_childkey_take_per_subnet(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            take
+        ));
+        assert_eq!(
+            SubtensorModule::get_min_childkey_take_for_subnet(netuid),
+            take
+        );
+        assert_eq!(
+            SubtensorModule::get_effective_min_childkey_take(netuid),
+            take
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_min_childkey_take_per_subnet_rejects_below_global() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let global_min = 100;
+
+        add_network(netuid, 10);
+        SubtensorModule::set_min_childkey_take(global_min);
+
+        assert_noop!(
+            AdminUtils::sudo_set_min_childkey_take_per_subnet(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                global_min - 1
+            ),
+            Error::<Test>::InvalidValue
+        );
+        assert_ok!(AdminUtils::sudo_set_min_childkey_take_per_subnet(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            global_min
+        ));
+    });
+}
+
+#[test]
 fn test_sudo_set_commit_reveal_weights_enabled() {
     new_test_ext().execute_with(|| {
         let netuid = NetUid::from(1);
@@ -2355,6 +2416,44 @@ fn test_sudo_set_mechanism_count() {
             netuid,
             ss_count_ok
         ));
+    });
+}
+
+#[test]
+fn test_sudo_set_owner_cut_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(11);
+        let owner = U256::from(1234);
+        let call = RuntimeCall::AdminUtils(crate::Call::sudo_set_owner_cut_enabled {
+            netuid,
+            enabled: false,
+        });
+
+        add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, owner);
+
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            0
+        ));
+
+        let dispatch_info = call.get_dispatch_info();
+        assert_eq!(dispatch_info.pays_fee, Pays::Yes);
+
+        assert!(SubtensorModule::get_owner_cut_enabled(netuid));
+        assert_ok!(AdminUtils::sudo_set_owner_cut_enabled(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            false
+        ));
+        assert!(!SubtensorModule::get_owner_cut_enabled(netuid));
+
+        assert_ok!(AdminUtils::sudo_set_owner_cut_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true
+        ));
+        assert!(SubtensorModule::get_owner_cut_enabled(netuid));
     });
 }
 
