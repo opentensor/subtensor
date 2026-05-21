@@ -1,3 +1,42 @@
+//! Runtime governance wiring.
+//!
+//! This module connects Subtensor's concrete governance model to three
+//! generic pallets:
+//!
+//! - `pallet_multi_collective`: stores named membership sets.
+//! - `pallet_referenda`: owns proposal lifecycle, scheduling, and root dispatch.
+//! - `pallet_signed_voting`: records per-account aye/nay votes over referendum
+//!   voter-set snapshots.
+//!
+//! The runtime governance path is intentionally two-stage:
+//!
+//! 1. Track 0 (`triumvirate`) is the only directly-submittable track. Members
+//!    of the `Proposers` collective may submit root calls, and the
+//!    `Triumvirate` collective decides by 2-of-3 signed vote.
+//! 2. Approval on track 0 delegates the call to track 1 (`review`). Track 1 has
+//!    `proposer_set: None`, so it cannot be submitted to directly. Its voters
+//!    are the deduplicated union of the `Economic` and `Building` collectives.
+//!
+//! Collective selection is split by stakeholder role:
+//!
+//! - `Economic` rotates to the top root-registered coldkeys by governance
+//!   stake-value EMA.
+//! - `Building` rotates to the top subnet-owner coldkeys by each owner's best
+//!   mature subnet moving price.
+//! - `EconomicEligible` is a non-voting staging set synchronized from root
+//!   registration and used as the candidate pool for `Economic`.
+//!
+//! Keep the safety invariants close to the code:
+//!
+//! - `CollectiveId` codec indices are consensus-facing.
+//! - Track 1 must remain non-submittable; otherwise proposers could bypass
+//!   Triumvirate approval and schedule root calls straight into review.
+//! - Signed-voting snapshots voter sets at poll creation, so rotations do not
+//!   change eligibility for already-open referenda.
+//!
+//! See `runtime/src/governance/README.md` for the full operator-facing
+//! explanation and selection details.
+
 mod collectives;
 mod ema_provider;
 mod member_set;
@@ -141,7 +180,7 @@ impl pallet_referenda::Config for Runtime {
     type MaxActivePerProposer = MaxActivePerProposer;
     type KillOrigin = EnsureRoot<AccountId>;
     type Tracks = tracks::Tracks;
-    type AdjustmentCurve = tracks::LinearAdjustmentCurve;
+    type AdjustmentCurve = tracks::EaseOutAdjustmentCurve;
     type BlockNumberProvider = System;
     type OnPollCreated = SignedVoting;
     type OnPollCompleted = SignedVoting;

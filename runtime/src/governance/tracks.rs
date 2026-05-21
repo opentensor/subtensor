@@ -26,11 +26,24 @@ const REVIEW_TRACK_ID: u8 = 1;
 /// approaches `cancel_threshold`.
 const REVIEW_MAX_DELAY: BlockNumber = prod_or_fast!(2 * DAYS, 60);
 
-/// Makes each additional review vote move the delay by the same amount.
-pub struct LinearAdjustmentCurve;
-impl AdjustmentCurve for LinearAdjustmentCurve {
+/// Ease-out curve for review delay adjustment: `1 - (1 - p)^3`.
+///
+/// Early collective signal has a visible effect on the dispatch time, while
+/// additional votes near the threshold taper off before the hard fast-track
+/// or cancel threshold concludes the referendum.
+pub struct EaseOutAdjustmentCurve;
+impl AdjustmentCurve for EaseOutAdjustmentCurve {
     fn apply(progress: Perbill) -> Perbill {
-        progress
+        let scale = u128::from(Perbill::from_percent(100).deconstruct());
+        let remaining = scale.saturating_sub(u128::from(progress.deconstruct()));
+        let remaining_cubed = remaining
+            .saturating_mul(remaining)
+            .saturating_mul(remaining)
+            / scale
+            / scale;
+        let curved = scale.saturating_sub(remaining_cubed);
+
+        Perbill::from_parts(curved.min(scale) as u32)
     }
 }
 
@@ -127,6 +140,22 @@ mod tests {
             track_1.info.proposer_set.is_none(),
             "track 1 must have proposer_set: None; Some(_) would let a \
              proposer schedule a root call without Triumvirate approval."
+        );
+    }
+
+    #[test]
+    fn ease_out_curve_uses_cubic_complement() {
+        assert_eq!(
+            EaseOutAdjustmentCurve::apply(Perbill::from_percent(0)),
+            Perbill::from_percent(0),
+        );
+        assert_eq!(
+            EaseOutAdjustmentCurve::apply(Perbill::from_percent(50)),
+            Perbill::from_rational(7u32, 8u32),
+        );
+        assert_eq!(
+            EaseOutAdjustmentCurve::apply(Perbill::from_percent(100)),
+            Perbill::from_percent(100),
         );
     }
 }
