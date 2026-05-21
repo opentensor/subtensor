@@ -784,7 +784,7 @@ fn successive_idle_passes_resume_via_cursor_until_drained() {
 
     let chunk = TestCleanupChunkSize::get();
     let one_step = <<Test as crate::Config>::WeightInfo>::idle_cleanup_chunk(chunk);
-    let budget = one_step.saturating_add(one_step.saturating_div(2));
+    let budget = one_step + (one_step / 2);
 
     for _ in 0..3 {
         ext.execute_with(|| {

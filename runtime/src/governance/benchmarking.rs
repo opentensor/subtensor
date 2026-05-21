@@ -1,4 +1,3 @@
-#![cfg(feature = "runtime-benchmarks")]
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
 use core::marker::PhantomData;

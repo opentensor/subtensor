@@ -4,7 +4,7 @@
 //! supplies a non-rotatable collective whose bounds allow the pallet to
 //! fill and drain it freely, plus a separate rotatable collective for
 //! `force_rotate`.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::expect_used, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use super::*;
 use frame_benchmarking::v2::*;

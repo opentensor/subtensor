@@ -297,6 +297,7 @@ define_scoped_state!(
     Weight::zero()
 );
 
+#[freeze_struct("79e67cd33ad5c63b")]
 #[derive(
     Clone,
     Copy,
@@ -325,7 +326,7 @@ impl EmaValueProvider<U256> for MockEmaValueProvider {
             Some(f) => f(*coldkey, progress),
             None => (
                 SampleStep::Complete {
-                    sample: U64F64::saturating_from_num(0u64),
+                    sample: U64F64::from_num(0u64),
                 },
                 ema_value_provider_step_weight(),
             ),

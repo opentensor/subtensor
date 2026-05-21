@@ -148,6 +148,7 @@ pub struct SignedVotingBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_signed_voting::benchmarking::BenchmarkHelper<Runtime> for SignedVotingBenchmarkHelper {
+    #[allow(clippy::expect_used)]
     fn ongoing_poll() -> u32 {
         use self::ReferendaBenchmarkHelper as RBH;
         use pallet_referenda::BenchmarkHelper as BH;

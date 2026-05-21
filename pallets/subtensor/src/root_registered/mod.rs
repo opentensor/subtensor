@@ -10,6 +10,7 @@ pub mod ref_count;
 pub mod try_state;
 
 /// Per-coldkey EMA state.
+#[freeze_struct("f4bb10f7c2fb2cc1")]
 #[derive(
     Clone,
     Copy,
@@ -33,6 +34,7 @@ pub struct EmaState {
 /// In-flight EMA sample for the coldkey at the current cursor.
 /// The provider owns the inner progress shape; the root-registered EMA
 /// engine only ties it to the coldkey being sampled.
+#[freeze_struct("f9307bf115ed1bae")]
 #[derive(
     Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 )]

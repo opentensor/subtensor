@@ -20,6 +20,7 @@ pub(crate) const STAKE_CHUNK_SUBNETS: u32 = 8;
 pub(crate) const STAKE_VALUE_HOTKEYS: u32 = 256;
 
 /// Provider-owned progress for the governance stake-value EMA.
+#[subtensor_macros::freeze_struct("1a8d9e6e7d73e9d3")]
 #[derive(
     Clone,
     Copy,
@@ -51,7 +52,7 @@ impl StakeValueProvider {
         let end = offset
             .saturating_add(STAKE_CHUNK_SUBNETS)
             .min(netuids.len() as u32) as usize;
-        &netuids[start..end]
+        netuids.get(start..end).unwrap_or_default()
     }
 
     fn accumulate_subnet_values(
@@ -125,6 +126,7 @@ impl EmaValueProvider<AccountId> for StakeValueProvider {
 }
 
 #[cfg(test)]
+#[allow(clippy::indexing_slicing)]
 mod tests {
     use super::*;
 

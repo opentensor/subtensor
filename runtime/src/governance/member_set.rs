@@ -66,7 +66,7 @@ impl SetLike<AccountId> for MemberSet {
         use CollectiveInspect as CI;
         use MultiCollective as MC;
 
-        self.to_vec_with(|id| <MC as CI<AccountId, CollectiveId>>::members_of(id))
+        self.to_vec_with(<MC as CI<AccountId, CollectiveId>>::members_of)
     }
 }
 

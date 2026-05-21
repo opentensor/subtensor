@@ -53,7 +53,9 @@ pub const SMALL_ALPHA_TRANSFER_LIMIT: AlphaBalance = AlphaBalance::new(500_000_0
 pub fn pad_name<const N: usize>(s: &[u8]) -> [u8; N] {
     let mut out = [0u8; N];
     let len = s.len().min(N);
-    out[..len].copy_from_slice(&s[..len]);
+    if let (Some(dst), Some(src)) = (out.get_mut(..len), s.get(..len)) {
+        dst.copy_from_slice(src);
+    }
     out
 }
 

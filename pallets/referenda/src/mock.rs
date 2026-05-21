@@ -415,7 +415,7 @@ impl pallet_multi_collective::Config for Test {
 pub struct ReferendaMockMcBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_multi_collective::BenchmarkHelper<CollectiveId> for ReferendaMockMcBenchmarkHelper {
+impl pallet_multi_collective::BenchmarkHelper<Test> for ReferendaMockMcBenchmarkHelper {
     fn collective() -> CollectiveId {
         CollectiveId::Proposers
     }
@@ -604,8 +604,6 @@ pub fn referenda_events() -> Vec<crate::Event<Test>> {
         })
         .collect()
 }
-
-/// Test helpers
 
 pub const PROPOSER: u128 = 1;
 pub const PROPOSER_B: u128 = 2;

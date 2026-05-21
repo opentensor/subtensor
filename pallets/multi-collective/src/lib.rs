@@ -554,7 +554,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_try_state() -> Result<(), frame_support::sp_runtime::TryRuntimeError> {
         for (collective_id, members) in Members::<T>::iter() {
             ensure!(
-                members.windows(2).all(|w| w[0] < w[1]),
+                members.windows(2).all(|w| matches!(w, [a, b] if a < b)),
                 "Members storage is not strictly sorted ascending"
             );
 
