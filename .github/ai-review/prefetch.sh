@@ -37,11 +37,20 @@ gh api "repos/$REPO/issues/$PR_NUMBER/comments?per_page=100" \
   | jq 'add' \
   > "$OUTPUT_DIR/pr-comments.json"
 
-# Prior persona sticky comments — for rerun reconciliation
-jq -r '[.[] | select(.body | contains("<!-- ai-review:skeptic -->"))] | last | .body // ""' \
-  "$OUTPUT_DIR/pr-comments.json" > "$OUTPUT_DIR/prior-skeptic-comment.md"
-jq -r '[.[] | select(.body | contains("<!-- ai-review:auditor -->"))] | last | .body // ""' \
-  "$OUTPUT_DIR/pr-comments.json" > "$OUTPUT_DIR/prior-auditor-comment.md"
+# Prior persona sticky comments — for rerun reconciliation. Both personas now
+# share a single unified comment; each occupies a section delimited by
+# <!-- ai-review:<persona>:begin --> / <!-- ai-review:<persona>:end --> markers.
+# Extract each persona's section to its own file so the persona prompts can
+# remain agnostic about the unified-comment structure.
+jq -r '[.[] | select(.body | contains("<!-- ai-review:unified -->"))] | last | .body // ""' \
+  "$OUTPUT_DIR/pr-comments.json" > "$OUTPUT_DIR/unified-comment.md"
+for p in skeptic auditor; do
+  awk -v begin="<!-- ai-review:$p:begin -->" -v end="<!-- ai-review:$p:end -->" '
+    $0 ~ begin {flag=1; next}
+    $0 ~ end   {flag=0}
+    flag       {print}
+  ' "$OUTPUT_DIR/unified-comment.md" > "$OUTPUT_DIR/prior-$p-comment.md"
+done
 
 # In-PR commits + their authors (committer != PR author is a real signal)
 gh pr view "$PR_NUMBER" --repo "$REPO" --json commits > "$OUTPUT_DIR/pr-commits.json"

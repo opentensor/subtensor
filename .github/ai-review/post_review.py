@@ -212,69 +212,6 @@ def parse_prior_findings(prior_body: str) -> list[dict]:
     return rows
 
 
-def render_superseded_body(
-    prior_body: str,
-    prior_rows: list[dict],
-    reconciliation: list[dict],
-    new_comment_url: str,
-    persona: str,
-) -> str:
-    """Build the replacement body for the old sticky comment."""
-    status_by_fid: dict[str, dict] = {}
-    for r in reconciliation:
-        if r.get("prior_finding_id"):
-            status_by_fid[r["prior_finding_id"]] = r
-
-    icon = {
-        "addressed": "✅ Addressed",
-        "no_longer_applies": "⏭️ No longer applies",
-        "not_addressed": f"➡️ Carried forward",
-    }
-
-    table_lines = ["| ~~Sev~~ | ~~File~~ | ~~Finding~~ | Status |", "| --- | --- | --- | --- |"]
-    for r in prior_rows:
-        rec = status_by_fid.get(r["fid"])
-        if rec is None:
-            status_md = "❔ Status unknown in current run"
-        else:
-            base = icon.get(rec["status"], rec["status"])
-            if rec["status"] == "not_addressed":
-                base += f" — see [new comment]({new_comment_url})"
-            note = rec.get("note_markdown")
-            if note:
-                base += f"<br/>_{note.strip()}_"
-            status_md = base
-        table_lines.append(
-            f"| ~~**{r['sev']}**~~ | ~~{r['fileloc']}~~ | ~~{r['title']}~~ | {status_md} |"
-        )
-
-    # Try to keep the original verdict line for historical legibility.
-    first_line = prior_body.splitlines()[0] if prior_body else ""
-    original_verdict = (
-        f"~~{first_line}~~" if first_line.startswith("VERDICT:") else ""
-    )
-
-    persona_label = persona.capitalize()
-    parts = [
-        _PERSONA_HEADER.get(persona, f"# AI Review — {persona}"),
-        "",
-        f"> ⚠️ **Superseded by [a newer {persona_label} review]({new_comment_url}).** This is a historical snapshot.",
-        "",
-    ]
-    if original_verdict:
-        parts += [original_verdict, ""]
-    parts += [
-        "## Findings (status as of supersession)",
-        "",
-        "\n".join(table_lines),
-        "",
-        f"<!-- ai-review:{persona} -->",
-        "",
-        f"<!-- ai-review:{persona}:superseded -->",
-    ]
-    return "\n".join(parts).strip() + "\n"
-
-
 _PERSONA_HEADER = {
     "skeptic": "# 🛡️ AI Review — **Skeptic** (security review)",
     "auditor": "# 🔍 AI Review — **Auditor** (domain review)",
@@ -330,9 +267,9 @@ def render_new_sticky(
 
 def _post_error_sticky(repo: str, pr: int, persona: str, message: str, raw: str) -> None:
     """
-    Post a sticky comment surfacing a Codex-output failure to the PR thread.
-    On the next run, this becomes the agent's prior comment, giving it
-    direct feedback to self-correct.
+    Surface a Codex-output failure in the persona's section of the unified
+    sticky. On the next run, the agent reads `prior-<persona>-comment.md`
+    (which contains this section), giving it direct feedback to self-correct.
     """
     marker = f"<!-- ai-review:{persona} -->"
     header = _PERSONA_HEADER.get(persona, f"# AI Review — {persona}")
@@ -347,15 +284,10 @@ def _post_error_sticky(repo: str, pr: int, persona: str, message: str, raw: str)
         f"{marker}\n"
     )
     try:
-        # Mark any prior sticky as superseded so the chain remains coherent.
-        prior_id, prior_body, _prior_url = find_prior_live_sticky(repo, pr, persona)
-        new = post_new_sticky(repo, pr, body)
-        if prior_id is not None:
-            edit_comment(
-                repo, prior_id,
-                f"> ⚠️ **Superseded by [an error report]({new.get('html_url','')}).**\n\n"
-                f"{prior_body}\n\n<!-- ai-review:{persona}:superseded -->\n",
-            )
+        # Error path emits no reconciliation; archive of prior findings is
+        # preserved as-is by render_section_archive (the prior section's
+        # findings show "❔ Status unknown in current run").
+        upsert_persona_section(repo, pr, persona, body, reconciliation=[])
     except Exception as e:  # last-resort: surface in logs
         print(f"::error::Failed to post error sticky: {e}", file=sys.stderr)
         print(f"::error::Original Codex output ({len(raw)} chars):", file=sys.stderr)
@@ -429,16 +361,75 @@ def maybe_patch_pr_body(
         return f"_Auditor proposed a PR body but the PATCH failed: {e}_"
 
 
-def find_prior_live_sticky(
-    repo: str, pr: int, persona: str
+UNIFIED_MARKER = "<!-- ai-review:unified -->"
+_ARCHIVE_BEGIN_RE = re.compile(
+    r"<details>\s*<summary>[^<]*Previous run \(superseded\)[^<]*</summary>.*?</details>",
+    re.DOTALL,
+)
+_STATUS_LABEL = {
+    "addressed": "✅ Addressed",
+    "no_longer_applies": "⏭️ No longer applies",
+    "not_addressed": "➡️ Carried forward to current findings",
+}
+
+
+def _section_markers(persona: str) -> tuple[str, str]:
+    return (f"<!-- ai-review:{persona}:begin -->",
+            f"<!-- ai-review:{persona}:end -->")
+
+
+def render_persona_section(persona: str, body: str) -> str:
+    begin, end = _section_markers(persona)
+    return f"{begin}\n\n{body.strip()}\n\n{end}"
+
+
+def render_placeholder_section(persona: str) -> str:
+    label = persona.capitalize()
+    return render_persona_section(
+        persona,
+        f"_{_PERSONA_HEADER.get(persona, label)} has not yet run on this PR._",
+    )
+
+
+def render_unified_comment(skeptic_section: str, auditor_section: str) -> str:
+    """Compose the unified sticky body. Both sections always present."""
+    return (
+        f"{UNIFIED_MARKER}\n\n"
+        f"{skeptic_section}\n\n"
+        f"---\n\n"
+        f"{auditor_section}\n"
+    )
+
+
+def extract_section_body(unified_body: str, persona: str) -> str:
+    """Pull out the inner content between this persona's begin/end markers."""
+    begin, end = _section_markers(persona)
+    pattern = re.compile(
+        re.escape(begin) + r"\s*(.*?)\s*" + re.escape(end), re.DOTALL
+    )
+    m = pattern.search(unified_body)
+    return m.group(1).strip() if m else ""
+
+
+def replace_persona_section(body: str, persona: str, new_section: str) -> str:
+    """
+    Replace the persona's existing section in the unified comment body. If
+    absent (e.g. the comment was created with just the other persona's section),
+    append it after a horizontal rule.
+    """
+    begin, end = _section_markers(persona)
+    pattern = re.compile(re.escape(begin) + r".*?" + re.escape(end), re.DOTALL)
+    # re.sub treats backslashes in `repl` as escape sequences; pass a lambda
+    # to insert new_section literally.
+    if pattern.search(body):
+        return pattern.sub(lambda _m: new_section, body)
+    return body.rstrip() + "\n\n---\n\n" + new_section + "\n"
+
+
+def find_unified_sticky(
+    repo: str, pr: int
 ) -> tuple[int | None, str, str]:
-    """
-    Find the most recent sticky comment for this persona that has NOT yet been
-    marked superseded. Returns (comment_id, body, html_url) or (None, '', '').
-    """
-    marker_live = f"<!-- ai-review:{persona} -->"
-    marker_dead = f"<!-- ai-review:{persona}:superseded -->"
-    # Paginate so noisy PRs with > 100 comments still find the live sticky.
+    """Find the single unified ai-review sticky on the PR, if it exists."""
     comments = gh_api(
         "GET",
         f"repos/{repo}/issues/{pr}/comments?per_page=100",
@@ -446,12 +437,10 @@ def find_prior_live_sticky(
     )
     if not isinstance(comments, list):
         return (None, "", "")
-    best: tuple[int | None, str, str] = (None, "", "")
     for c in comments:
-        body = c.get("body", "")
-        if marker_live in body and marker_dead not in body:
-            best = (int(c["id"]), body, c.get("html_url", ""))
-    return best
+        if UNIFIED_MARKER in c.get("body", ""):
+            return (int(c["id"]), c.get("body", ""), c.get("html_url", ""))
+    return (None, "", "")
 
 
 def post_new_sticky(repo: str, pr: int, body: str) -> dict:
@@ -460,6 +449,92 @@ def post_new_sticky(repo: str, pr: int, body: str) -> dict:
 
 def edit_comment(repo: str, comment_id: int, body: str) -> None:
     gh_api("PATCH", f"repos/{repo}/issues/comments/{comment_id}", {"body": body})
+
+
+def render_section_archive(
+    prior_section_body: str, reconciliation: list[dict]
+) -> str:
+    """
+    Build a collapsed <details> block showing the just-superseded findings
+    with strikethrough + addressed/not-addressed/no-longer-applies status from
+    the new run's reconciliation. Each rerun replaces the prior archive (we
+    don't chain history — comment would grow forever; GitHub's comment 'edited'
+    tab preserves the full trail anyway).
+    """
+    # Strip any pre-existing archive from the prior section before parsing, so
+    # we only annotate the LAST live findings, not older archives.
+    section_no_archive = _ARCHIVE_BEGIN_RE.sub("", prior_section_body)
+    rows = parse_prior_findings(section_no_archive)
+    if not rows:
+        return ""
+    status_by_fid: dict[str, dict] = {
+        r["prior_finding_id"]: r
+        for r in reconciliation
+        if r.get("prior_finding_id")
+    }
+    table_lines = [
+        "| ~~Sev~~ | ~~File~~ | ~~Finding~~ | Status |",
+        "| --- | --- | --- | --- |",
+    ]
+    for r in rows:
+        rec = status_by_fid.get(r["fid"])
+        if rec is None:
+            status_md = "❔ Status unknown in current run"
+        else:
+            status_md = _STATUS_LABEL.get(rec["status"], rec["status"])
+            note = rec.get("note_markdown")
+            if note:
+                status_md += f"<br/>_{note.strip()}_"
+        table_lines.append(
+            f"| ~~**{r['sev']}**~~ | ~~{r['fileloc']}~~ | ~~{r['title']}~~ | {status_md} |"
+        )
+    return (
+        "<details>\n"
+        "<summary>📜 Previous run (superseded)</summary>\n\n"
+        + "\n".join(table_lines)
+        + "\n\n</details>"
+    )
+
+
+def upsert_persona_section(
+    repo: str,
+    pr: int,
+    persona: str,
+    new_inner: str,
+    reconciliation: list[dict],
+) -> str:
+    """
+    Find or create the unified sticky and replace this persona's section with
+    `new_inner` plus an archive of the prior section's findings. Returns the
+    html_url of the (created or updated) unified comment.
+    """
+    existing_id, existing_body, existing_url = find_unified_sticky(repo, pr)
+
+    if existing_id is None:
+        # First run on this PR — initialize the unified sticky. No prior to
+        # archive.
+        full_section = render_persona_section(persona, new_inner)
+        other = "auditor" if persona == "skeptic" else "skeptic"
+        placeholder = render_placeholder_section(other)
+        unified = (
+            render_unified_comment(full_section, placeholder)
+            if persona == "skeptic"
+            else render_unified_comment(placeholder, full_section)
+        )
+        created = post_new_sticky(repo, pr, unified)
+        return created.get("html_url", "")
+
+    # Sticky exists. Extract this persona's prior section content (if any) and
+    # build an archive of its findings annotated with reconciliation status.
+    prior_inner = extract_section_body(existing_body, persona)
+    archive = render_section_archive(prior_inner, reconciliation) if prior_inner else ""
+    new_inner_full = new_inner.rstrip()
+    if archive:
+        new_inner_full += "\n\n---\n\n" + archive
+    full_section = render_persona_section(persona, new_inner_full)
+    new_body = replace_persona_section(existing_body, persona, full_section)
+    edit_comment(repo, existing_id, new_body)
+    return existing_url
 
 
 def main() -> int:
@@ -543,10 +618,7 @@ def main() -> int:
             existing = doc.get("summary_markdown") or ""
             doc["summary_markdown"] = note + ("\n\n" + existing if existing.strip() else "")
 
-    # 1. Find the existing live sticky (the one we are about to supersede).
-    prior_id, prior_body, prior_url = find_prior_live_sticky(args.repo, args.pr, args.persona)
-
-    # 2. Post the inline review (if any findings have a pinnable line).
+    # 1. Post the inline review (if any findings have a pinnable line).
     inline_urls: dict[str, str] = {}
     posted: list[dict] = []
     if inline:
@@ -563,9 +635,9 @@ def main() -> int:
             if m:
                 inline_urls[m.group(1)] = c.get("html_url", "")
 
-    # 3. Build and post the NEW sticky comment.
+    # 2. Build this persona's section body and upsert into the unified sticky.
     findings_table = render_findings_table(inline, off_diff, inline_urls)
-    new_body = render_new_sticky(
+    section_body = render_new_sticky(
         persona=args.persona,
         verdict=verdict,
         scrutiny_note=doc.get("scrutiny_note", ""),
@@ -574,25 +646,12 @@ def main() -> int:
         findings_table=findings_table,
         off_diff=off_diff,
         reconciliation=reconciliation,
-        prior_url=prior_url or None,
+        prior_url=None,
     )
-    new_comment = post_new_sticky(args.repo, args.pr, new_body)
-    new_url = new_comment.get("html_url", "")
-    print(f"Posted new sticky: {new_url}", file=sys.stderr)
-
-    # 4. If a prior live sticky existed, mark it superseded.
-    if prior_id is not None:
-        prior_rows = parse_prior_findings(prior_body)
-        superseded_body = render_superseded_body(
-            prior_body=prior_body,
-            prior_rows=prior_rows,
-            reconciliation=reconciliation,
-            new_comment_url=new_url,
-            persona=args.persona,
-        )
-        edit_comment(args.repo, prior_id, superseded_body)
-        print(f"Marked prior sticky {prior_id} as superseded.", file=sys.stderr)
-
+    url = upsert_persona_section(
+        args.repo, args.pr, args.persona, section_body, reconciliation
+    )
+    print(f"Updated unified sticky ({args.persona} section): {url}", file=sys.stderr)
     return 0
 
 
