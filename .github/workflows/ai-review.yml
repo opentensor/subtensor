@@ -78,19 +78,13 @@ jobs:
             RUN_SKEPTIC=true; RUN_AUDITOR=true
           fi
 
-          # Fork auto-trigger: secrets (incl. OPENAI_API_KEY) are NOT available
-          # to `pull_request` runs from forks, and the default token is
-          # read-only. The Codex steps would simply fail. Short-circuit to a
-          # clean skip so the required checks resolve as `skipped` (satisfied)
-          # and fork PRs are not blocked from merging by the AI-review gate.
-          # Human nucleus review is the trust mechanism for fork PRs. A
-          # maintainer who specifically wants AI review on a fork PR can
-          # invoke this workflow via workflow_dispatch (runs in base context
-          # with secrets available).
-          if [[ "$EVENT_NAME" == "pull_request" && "$IS_FORK" == "true" ]]; then
-            echo "::notice::Fork PR auto-trigger — skipping AI review. Use workflow_dispatch to review manually."
-            RUN_SKEPTIC=false; RUN_AUDITOR=false
-          fi
+          # Fork auto-trigger: persona jobs still RUN (so the required checks
+          # exist as failures rather than as `skipped`-satisfied bypasses).
+          # The persona jobs fail-fast in their "Fork PR advisory" step with a
+          # clear maintainer-facing message. A nucleus member then has to
+          # invoke workflow_dispatch on the PR (which runs in base context
+          # with secrets and produces real green checks) to clear the gate.
+          # See README.md → "Fork PR handling" for the rationale.
 
           {
             echo "pr_number=$PR"
@@ -114,6 +108,21 @@ jobs:
       pull-requests: write
       issues: write
     steps:
+      # Fail-fast on fork auto-trigger. `pull_request` from a fork has no
+      # secrets and a read-only token, so the Codex steps cannot run. Rather
+      # than skip the job (which would `skipped`-satisfy a required check
+      # and silently bypass the security gate), fail loudly with a clear
+      # maintainer-facing message. A nucleus member then dispatches the
+      # workflow manually for this PR; workflow_dispatch runs in base
+      # context with secrets and produces real green checks.
+      - name: Fork PR advisory (fail-fast)
+        if: needs.decide.outputs.is_fork == 'true' && github.event_name == 'pull_request'
+        env:
+          PR: ${{ needs.decide.outputs.pr_number }}
+        run: |
+          echo "::error::Fork PR detected. AI review cannot auto-run on fork pull_request events (repository secrets are not exposed). A maintainer must invoke this workflow via workflow_dispatch with PR #${PR} to perform the security review."
+          exit 1
+
       - name: Checkout PR head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -321,6 +330,15 @@ jobs:
       pull-requests: write
       issues: write
     steps:
+      # See note in the skeptic job — same fork-PR fail-fast rationale.
+      - name: Fork PR advisory (fail-fast)
+        if: needs.decide.outputs.is_fork == 'true' && github.event_name == 'pull_request'
+        env:
+          PR: ${{ needs.decide.outputs.pr_number }}
+        run: |
+          echo "::error::Fork PR detected. AI review cannot auto-run on fork pull_request events (repository secrets are not exposed). A maintainer must invoke this workflow via workflow_dispatch with PR #${PR} to perform the security review."
+          exit 1
+
       - name: Checkout PR head
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

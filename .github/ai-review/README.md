@@ -81,18 +81,25 @@ will re-evaluate the change.
 
 ## Fork PR handling
 
-Auto-trigger (`pull_request`) on a fork PR is skipped. Repository secrets
-(`OPENAI_API_KEY`, `AI_REVIEW_APP_PRIVATE_KEY`) are not exposed to
-`pull_request` runs from forks and the default token is read-only, so the
-Codex steps cannot run. The `decide` job detects this case and clears
-`run_skeptic` / `run_auditor`, which causes the persona jobs to skip and the
-required checks (`ai-review / skeptic`, `ai-review / auditor`) to resolve as
-`skipped`, satisfying branch protection.
+Repository secrets (`OPENAI_API_KEY`, `AI_REVIEW_APP_PRIVATE_KEY`) are not
+exposed to `pull_request` events from forks, and the default token is read-
+only, so the Codex steps cannot run on a fork auto-trigger.
 
-This means fork PRs are not AI-reviewed by default. The human nucleus reviewer
-is the trust mechanism for fork content. If a maintainer wants AI review on a
-specific fork PR, they can invoke this workflow via `workflow_dispatch` with
-the PR number — that runs in base context with secrets available.
+The persona jobs do still run on fork PRs — they fail-fast in the very first
+"Fork PR advisory" step with a clear error message directing maintainers to
+invoke the workflow manually. This is intentional: a skipped required check
+is treated by GitHub Branch Protection as satisfied, which would silently
+bypass the security gate for exactly the contributor class that needs it most
+(fork PRs from untrusted authors). Failing the check instead keeps the gate
+red until a maintainer explicitly clears it.
+
+**To AI-review a fork PR:** a nucleus member dispatches the workflow with
+the PR number. `workflow_dispatch` runs in base context with secrets
+available, performs the real review, and the required checks turn green.
+
+```bash
+gh workflow run ai-review.yml --repo opentensor/subtensor -f pr_number=<N>
+```
 
 ## Required-checks setup
 
