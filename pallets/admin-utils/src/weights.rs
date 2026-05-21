@@ -72,6 +72,7 @@ pub trait WeightInfo {
 	fn sudo_set_nominator_min_required_stake() -> Weight;
 	fn sudo_set_tx_delegate_take_rate_limit() -> Weight;
 	fn sudo_set_min_delegate_take() -> Weight;
+	fn sudo_set_min_childkey_take_per_subnet() -> Weight;
 	fn sudo_set_liquid_alpha_enabled() -> Weight;
 	fn sudo_set_alpha_values() -> Weight;
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight;
@@ -640,6 +641,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 4_236_000 picoseconds.
 		Weight::from_parts(4_497_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Placeholder weight; benchmark function exists in benchmarking.rs but
+	/// real weights have not been regenerated yet. Conservative estimate based
+	/// on the similar `sudo_set_alpha_values` path (subnet-owner-or-root check
+	/// + subnet existence/range checks + setter + owner rate-limit record).
+	fn sudo_set_min_childkey_take_per_subnet() -> Weight {
+		Weight::from_parts(30_000_000, 4279)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
 	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1455,6 +1465,12 @@ impl WeightInfo for () {
 		// Minimum execution time: 4_236_000 picoseconds.
 		Weight::from_parts(4_497_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Placeholder weight; see SubstrateWeight impl for rationale.
+	fn sudo_set_min_childkey_take_per_subnet() -> Weight {
+		Weight::from_parts(30_000_000, 4279)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
 	/// Proof: `SubtensorModule::Tempo` (`max_values`: None, `max_size`: None, mode: `Measured`)
