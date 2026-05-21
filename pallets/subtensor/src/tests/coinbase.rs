@@ -4058,7 +4058,6 @@ fn test_disabling_owner_cut_sends_subnet_emission_to_miners_and_validators() {
             stake.into()
         ));
 
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_allowed_validators(netuid, 1);
         step_block(subnet_tempo);
 

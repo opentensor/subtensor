@@ -80,7 +80,9 @@ use substrate_fixed::types::{U64F64, U96F32};
 use subtensor_precompiles::{PrecompileTxExtensionProvider, Precompiles};
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, TaoBalance, time::*, *};
 use subtensor_swap_interface::{Order, SwapHandler};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+use subtensor_transaction_fee::{
+    SubtensorEvmFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler,
+};
 // Frontier
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{Call::transact, PostLogContent, Transaction as EthereumTransaction};
@@ -114,11 +116,6 @@ pub use rate_limiting::{
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{
-    SubtensorEvmFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler,
-};
-
-use core::marker::PhantomData;
 pub use subtensor_runtime_common::rate_limiting::RateLimitUsageKey;
 
 // Drand

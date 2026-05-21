@@ -272,7 +272,6 @@ fn test_mixed_perpetual_and_decaying_non_owner_locks_same_hotkey_update_aggregat
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1686,7 +1685,6 @@ fn test_mixed_perpetual_owner_and_decaying_non_owner_locks_roll_forward() {
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1756,7 +1754,6 @@ fn test_total_conviction_equals_sum_of_participating_aggregate_convictions() {
             100_000_000_000u64.into(),
             <Test as Config>::SwapInterface::max_price(),
             false,
-            false,
         )
         .unwrap();
 
@@ -1815,7 +1812,6 @@ fn test_total_conviction_equals_sum_of_individual_lock_convictions_for_many_lock
                 netuid,
                 50_000_000_000u64.into(),
                 <Test as Config>::SwapInterface::max_price(),
-                false,
                 false,
             )
             .unwrap();
