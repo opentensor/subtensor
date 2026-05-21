@@ -39,6 +39,7 @@ pub mod migrate_rate_limit_keys;
 pub mod migrate_rate_limiting_last_blocks;
 pub mod migrate_remove_add_stake_burn_rate_limit;
 pub mod migrate_remove_commitments_rate_limit;
+pub mod migrate_remove_deprecated_conviction_maps;
 pub mod migrate_remove_network_modality;
 pub mod migrate_remove_old_identity_maps;
 pub mod migrate_remove_stake_map;
