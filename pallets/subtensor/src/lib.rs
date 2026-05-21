@@ -998,7 +998,7 @@ pub mod pallet {
     /// Default minimum stake.
     #[pallet::type_value]
     pub fn DefaultMinStake<T: Config>() -> TaoBalance {
-        2_000_000.into()
+        T::InitialMinStake::get().into()
     }
 
     /// Default unicode vector for tau symbol.
