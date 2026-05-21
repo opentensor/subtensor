@@ -4056,10 +4056,11 @@ fn test_disabling_owner_cut_sends_subnet_emission_to_miners_and_validators() {
         let miner_coldkey = U256::from(5);
         let miner_hotkey = U256::from(6);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         let subnet_tempo = 10;
         let stake = 100_000_000_000u64;
 
-        SubtensorModule::set_tempo(netuid, subnet_tempo);
+        SubtensorModule::set_tempo_unchecked(netuid, subnet_tempo);
         setup_reserves(netuid, (stake * 10_000).into(), (stake * 10_000).into());
 
         register_ok_neuron(netuid, validator_hotkey, validator_coldkey, 0);
