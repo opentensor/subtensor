@@ -117,24 +117,40 @@ mod tests {
     use super::*;
     use pallet_referenda::TracksInfo;
 
+    fn track(
+        id: u8,
+    ) -> RefTrack<u8, [u8; MAX_TRACK_NAME_LEN], BlockNumber, MemberSet, MemberSet, VotingScheme>
+    {
+        Tracks::tracks()
+            .find(|track| track.id == id)
+            .expect("track must exist")
+    }
+
     #[test]
     fn track_0_triumvirate_is_directly_submittable() {
-        let track_0 = Tracks::tracks()
-            .find(|t| t.id == TRIUMVIRATE_TRACK_ID)
-            .expect("track 0 (triumvirate) must exist");
+        let track_0 = track(TRIUMVIRATE_TRACK_ID);
 
         assert!(
             track_0.info.proposer_set.is_some(),
             "track 0 must have a proposer_set; without it there is no \
              on-chain entry point into governance."
         );
+
+        match track_0.info.decision_strategy {
+            DecisionStrategy::PassOrFail {
+                on_approval: ApprovalAction::Review { track },
+                ..
+            } => assert_eq!(
+                track, REVIEW_TRACK_ID,
+                "track 0 approval must hand off to the review track"
+            ),
+            other => panic!("track 0 must stay PassOrFail with review handoff, got {other:?}"),
+        }
     }
 
     #[test]
     fn track_1_review_is_not_directly_submittable() {
-        let track_1 = Tracks::tracks()
-            .find(|t| t.id == REVIEW_TRACK_ID)
-            .expect("track 1 (review) must exist");
+        let track_1 = track(REVIEW_TRACK_ID);
 
         assert!(
             track_1.info.proposer_set.is_none(),

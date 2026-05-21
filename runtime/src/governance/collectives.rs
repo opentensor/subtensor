@@ -177,3 +177,18 @@ impl RootRegisteredInspector<AccountId> for EconomicEligibleInspector {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use codec::Encode;
+
+    #[test]
+    fn collective_id_codec_indices_are_pinned() {
+        assert_eq!(CollectiveId::Proposers.encode(), vec![0]);
+        assert_eq!(CollectiveId::Triumvirate.encode(), vec![1]);
+        assert_eq!(CollectiveId::Economic.encode(), vec![2]);
+        assert_eq!(CollectiveId::Building.encode(), vec![3]);
+        assert_eq!(CollectiveId::EconomicEligible.encode(), vec![4]);
+    }
+}
