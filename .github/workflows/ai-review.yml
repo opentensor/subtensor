@@ -78,6 +78,20 @@ jobs:
             RUN_SKEPTIC=true; RUN_AUDITOR=true
           fi
 
+          # Fork auto-trigger: secrets (incl. OPENAI_API_KEY) are NOT available
+          # to `pull_request` runs from forks, and the default token is
+          # read-only. The Codex steps would simply fail. Short-circuit to a
+          # clean skip so the required checks resolve as `skipped` (satisfied)
+          # and fork PRs are not blocked from merging by the AI-review gate.
+          # Human nucleus review is the trust mechanism for fork PRs. A
+          # maintainer who specifically wants AI review on a fork PR can
+          # invoke this workflow via workflow_dispatch (runs in base context
+          # with secrets available).
+          if [[ "$EVENT_NAME" == "pull_request" && "$IS_FORK" == "true" ]]; then
+            echo "::notice::Fork PR auto-trigger — skipping AI review. Use workflow_dispatch to review manually."
+            RUN_SKEPTIC=false; RUN_AUDITOR=false
+          fi
+
           {
             echo "pr_number=$PR"
             echo "head_sha=$HEAD_SHA"

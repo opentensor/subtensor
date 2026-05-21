@@ -79,6 +79,21 @@ gh api repos/<owner>/<repo>/git/refs/tags/<ref> --jq '.object.sha'
 Open a PR that updates the SHA and the trailing version comment. The skeptic
 will re-evaluate the change.
 
+## Fork PR handling
+
+Auto-trigger (`pull_request`) on a fork PR is skipped. Repository secrets
+(`OPENAI_API_KEY`, `AI_REVIEW_APP_PRIVATE_KEY`) are not exposed to
+`pull_request` runs from forks and the default token is read-only, so the
+Codex steps cannot run. The `decide` job detects this case and clears
+`run_skeptic` / `run_auditor`, which causes the persona jobs to skip and the
+required checks (`ai-review / skeptic`, `ai-review / auditor`) to resolve as
+`skipped`, satisfying branch protection.
+
+This means fork PRs are not AI-reviewed by default. The human nucleus reviewer
+is the trust mechanism for fork content. If a maintainer wants AI review on a
+specific fork PR, they can invoke this workflow via `workflow_dispatch` with
+the PR number — that runs in base context with secrets available.
+
 ## Required-checks setup
 
 After the first successful run, add these to branch protection on `devnet-ready`
