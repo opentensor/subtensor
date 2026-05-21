@@ -562,15 +562,22 @@ jobs:
         # Token only ever appears in: this step's env (gone with the runner)
         # and inline `-c http.*.extraheader` args (never persisted to disk).
         # No `cd $GITHUB_WORKSPACE`; no git operations in the dirty checkout.
+        #
+        # Auth: Git over HTTPS to github.com uses Basic auth with
+        # `x-access-token:TOKEN` base64-encoded — the same pattern
+        # actions/checkout uses. Bearer auth is NOT accepted for git
+        # operations even though the REST API accepts it.
         run: |
           set -euo pipefail
           if [[ ! -s /tmp/auto-fix.patch ]]; then
             echo "No auto-fix patch to apply."
             exit 0
           fi
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 --wrap=0)"
+          echo "::add-mask::$AUTH_HEADER"
           TMPDIR=/tmp/ai-review-push
           rm -rf "$TMPDIR"
-          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
+          git -c "http.https://github.com/.extraheader=$AUTH_HEADER" \
             clone --depth=1 -b "$HEAD_REF" \
             "https://github.com/$REPO.git" "$TMPDIR"
           cd "$TMPDIR"
@@ -584,7 +591,7 @@ jobs:
           git apply --whitespace=nowarn /tmp/auto-fix.patch
           git -c core.hooksPath=/dev/null commit -am "chore: auditor auto-fix"
           git -c core.hooksPath=/dev/null \
-              -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $PUSH_TOKEN" \
+              -c "http.https://github.com/.extraheader=$AUTH_HEADER" \
               push "https://github.com/$REPO.git" "HEAD:$HEAD_REF"
 
       - name: Post review (auditor) — inline comments + sticky summary
