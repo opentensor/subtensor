@@ -181,7 +181,7 @@ impl pallet_referenda::Config for Runtime {
     type MaxActivePerProposer = MaxActivePerProposer;
     type KillOrigin           = EnsureRoot<AccountId>;
     type Tracks               = tracks::Tracks;
-    type AdjustmentCurve      = tracks::LinearAdjustmentCurve;
+    type AdjustmentCurve      = tracks::EaseOutAdjustmentCurve;
     type BlockNumberProvider  = System;
     type OnPollCreated        = SignedVoting;
     type OnPollCompleted      = SignedVoting;
