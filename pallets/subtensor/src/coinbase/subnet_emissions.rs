@@ -265,7 +265,7 @@ impl<T: Config> Pallet<T> {
         // update_ema_protocol_flow() is only called while NetTaoFlowEnabled is true.
         // If net flow is disabled, protocol flow keeps accumulating in SubnetProtocolFlow
         // and SubnetEmaProtocolFlow is not advanced/reset, so toggling net flow back on
-        // applies stale accumulated protocol flow in the next EMA update.        
+        // applies stale accumulated protocol flow in the next EMA update.
         let subnet_emas: Vec<(NetUid, I64F64, I64F64)> = subnets_to_emit_to
             .iter()
             .map(|netuid| {
