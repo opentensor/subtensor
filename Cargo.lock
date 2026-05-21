@@ -18287,6 +18287,7 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
+ "pallet-limit-orders",
  "pallet-preimage",
  "pallet-scheduler",
  "pallet-shield",

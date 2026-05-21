@@ -39,6 +39,7 @@ pallet-subtensor-swap.workspace = true
 pallet-admin-utils.workspace = true
 subtensor-swap-interface.workspace = true
 pallet-crowdloan.workspace = true
+pallet-limit-orders.workspace = true
 pallet-shield.workspace = true
 
 [lints]
@@ -57,6 +58,7 @@ std = [
 	"pallet-alpha-assets/std",
 	"pallet-balances/std",
 	"pallet-crowdloan/std",
+	"pallet-limit-orders/std",
 	"pallet-drand/std",
 	"pallet-evm-precompile-bn128/std",
 	"pallet-evm-chain-id/std",
@@ -88,6 +90,7 @@ runtime-benchmarks = [
 	"pallet-admin-utils/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-limit-orders/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",

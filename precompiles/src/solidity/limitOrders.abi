@@ -1,0 +1,429 @@
+[
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "address",
+                        "name": "signer",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "hotkey",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint16",
+                        "name": "netuid",
+                        "type": "uint16"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "order_type",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "amount",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "limit_price",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "expiry",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint32",
+                        "name": "fee_rate",
+                        "type": "uint32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "fee_recipient",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address[]",
+                        "name": "relayer",
+                        "type": "address[]"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "has_max_slippage",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "uint32",
+                        "name": "max_slippage",
+                        "type": "uint32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "chain_id",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "partial_fills_enabled",
+                        "type": "bool"
+                    }
+                ],
+                "internalType": "struct OrderInput",
+                "name": "order",
+                "type": "tuple"
+            }
+        ],
+        "name": "cancelOrder",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "address",
+                        "name": "signer",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "hotkey",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint16",
+                        "name": "netuid",
+                        "type": "uint16"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "order_type",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "amount",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "limit_price",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "expiry",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "uint32",
+                        "name": "fee_rate",
+                        "type": "uint32"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "fee_recipient",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address[]",
+                        "name": "relayer",
+                        "type": "address[]"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "has_max_slippage",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "uint32",
+                        "name": "max_slippage",
+                        "type": "uint32"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "chain_id",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "partial_fills_enabled",
+                        "type": "bool"
+                    }
+                ],
+                "internalType": "struct OrderInput",
+                "name": "order",
+                "type": "tuple"
+            }
+        ],
+        "name": "deriveOrderId",
+        "outputs": [
+            {
+                "internalType": "bytes32",
+                "name": "",
+                "type": "bytes32"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "netuid",
+                "type": "uint16"
+            },
+            {
+                "components": [
+                    {
+                        "components": [
+                            {
+                                "internalType": "address",
+                                "name": "signer",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "address",
+                                "name": "hotkey",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "uint16",
+                                "name": "netuid",
+                                "type": "uint16"
+                            },
+                            {
+                                "internalType": "uint8",
+                                "name": "order_type",
+                                "type": "uint8"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "amount",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "limit_price",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "expiry",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "uint32",
+                                "name": "fee_rate",
+                                "type": "uint32"
+                            },
+                            {
+                                "internalType": "address",
+                                "name": "fee_recipient",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "address[]",
+                                "name": "relayer",
+                                "type": "address[]"
+                            },
+                            {
+                                "internalType": "bool",
+                                "name": "has_max_slippage",
+                                "type": "bool"
+                            },
+                            {
+                                "internalType": "uint32",
+                                "name": "max_slippage",
+                                "type": "uint32"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "chain_id",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "bool",
+                                "name": "partial_fills_enabled",
+                                "type": "bool"
+                            }
+                        ],
+                        "internalType": "struct OrderInput",
+                        "name": "order",
+                        "type": "tuple"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "signature",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "has_partial_fill",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "partial_fill",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct SignedOrderInput[]",
+                "name": "orders",
+                "type": "tuple[]"
+            }
+        ],
+        "name": "executeBatchedOrders",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "components": [
+                    {
+                        "components": [
+                            {
+                                "internalType": "address",
+                                "name": "signer",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "address",
+                                "name": "hotkey",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "uint16",
+                                "name": "netuid",
+                                "type": "uint16"
+                            },
+                            {
+                                "internalType": "uint8",
+                                "name": "order_type",
+                                "type": "uint8"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "amount",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "limit_price",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "expiry",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "uint32",
+                                "name": "fee_rate",
+                                "type": "uint32"
+                            },
+                            {
+                                "internalType": "address",
+                                "name": "fee_recipient",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "address[]",
+                                "name": "relayer",
+                                "type": "address[]"
+                            },
+                            {
+                                "internalType": "bool",
+                                "name": "has_max_slippage",
+                                "type": "bool"
+                            },
+                            {
+                                "internalType": "uint32",
+                                "name": "max_slippage",
+                                "type": "uint32"
+                            },
+                            {
+                                "internalType": "uint64",
+                                "name": "chain_id",
+                                "type": "uint64"
+                            },
+                            {
+                                "internalType": "bool",
+                                "name": "partial_fills_enabled",
+                                "type": "bool"
+                            }
+                        ],
+                        "internalType": "struct OrderInput",
+                        "name": "order",
+                        "type": "tuple"
+                    },
+                    {
+                        "internalType": "bytes",
+                        "name": "signature",
+                        "type": "bytes"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "has_partial_fill",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "partial_fill",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct SignedOrderInput[]",
+                "name": "orders",
+                "type": "tuple[]"
+            }
+        ],
+        "name": "executeOrders",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "getLimitOrdersEnabled",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "bytes32",
+                "name": "orderId",
+                "type": "bytes32"
+            }
+        ],
+        "name": "getOrderStatus",
+        "outputs": [
+            {
+                "internalType": "uint8",
+                "name": "",
+                "type": "uint8"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
