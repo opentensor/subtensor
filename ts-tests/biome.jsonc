@@ -17,6 +17,7 @@
       "test/tsconfig.json",
       "tmp",
       "**/tmp/",
+      "**/.papi"
     ]
   },
   "formatter": {
