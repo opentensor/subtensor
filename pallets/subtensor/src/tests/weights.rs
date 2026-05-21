@@ -2,6 +2,7 @@
 
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::CanonicalSerialize;
+use codec::Compact;
 use frame_support::dispatch::DispatchInfo;
 use frame_support::{
     assert_err, assert_ok,
@@ -244,9 +245,9 @@ fn test_set_weights_validate() {
             version_key: 0,
         });
 
-        // Create netuid
-        add_network(netuid, 1, 0);
-        mock::setup_reserves(
+        // Create netuid (commit-reveal off so `set_weights` matches extension / extrinsic)
+        add_network_disable_commit_reveal(netuid, 1, 0);
+        setup_reserves(
             netuid,
             1_000_000_000_000_u64.into(),
             1_000_000_000_000_u64.into(),
@@ -6975,5 +6976,95 @@ fn test_subnet_owner_can_validate_without_stake_or_manual_permit() {
         assert!(SubtensorModule::get_validator_permit_for_uid(
             netuid, other_uid
         ));
+    });
+}
+
+// Regression: when a batch of weight commits has per-item failures, each
+// emitted BatchWeightItemFailed event must carry the netuid of the failing
+// item so downstream consumers (indexers, validator monitors) can correlate
+// failure → subnet without re-deriving from iteration order.
+//
+// Both netuids in this test fail (commit-reveal disabled on both) — what we
+// assert is the *positional propagation*: the per-item events carry the
+// distinct netuids that produced them, in iteration order.
+#[test]
+fn test_batch_commit_weights_item_failure_event_includes_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let netuid_a = NetUid::from(1);
+        let netuid_b = NetUid::from(2);
+        add_network(netuid_a, 1, 0);
+        add_network(netuid_b, 1, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid_a, false);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid_b, false);
+
+        let hotkey = U256::from(1);
+        let netuids: Vec<Compact<NetUid>> = vec![netuid_a.into(), netuid_b.into()];
+        let hashes: Vec<H256> = vec![H256::repeat_byte(0xAA), H256::repeat_byte(0xBB)];
+
+        assert_ok!(SubtensorModule::do_batch_commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuids,
+            hashes,
+        ));
+
+        let failures: Vec<NetUid> = System::events()
+            .iter()
+            .filter_map(|e| match &e.event {
+                RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(netuid, _err)) => {
+                    Some(*netuid)
+                }
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(
+            failures,
+            vec![netuid_a, netuid_b],
+            "BatchWeightItemFailed events should carry each failing netuid in batch order"
+        );
+    });
+}
+
+// Regression: same shape as the commit-path test, but for the set-path
+// (`do_batch_set_weights`). Each failing item must emit a
+// BatchWeightItemFailed carrying its netuid.
+#[test]
+fn test_batch_set_weights_item_failure_event_includes_netuid() {
+    new_test_ext(1).execute_with(|| {
+        let netuid_a = NetUid::from(3);
+        let netuid_b = NetUid::from(4);
+        add_network(netuid_a, 1, 0);
+        add_network(netuid_b, 1, 0);
+        // do_set_weights fails iff commit-reveal is ENABLED on the netuid.
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid_a, true);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid_b, true);
+
+        let hotkey = U256::from(11);
+        let netuids: Vec<Compact<NetUid>> = vec![netuid_a.into(), netuid_b.into()];
+        let weights: Vec<Vec<(Compact<u16>, Compact<u16>)>> = vec![vec![], vec![]];
+        let version_keys: Vec<Compact<u64>> = vec![0u64.into(), 0u64.into()];
+
+        assert_ok!(SubtensorModule::do_batch_set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuids,
+            weights,
+            version_keys,
+        ));
+
+        let failures: Vec<NetUid> = System::events()
+            .iter()
+            .filter_map(|e| match &e.event {
+                RuntimeEvent::SubtensorModule(Event::BatchWeightItemFailed(netuid, _err)) => {
+                    Some(*netuid)
+                }
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(
+            failures,
+            vec![netuid_a, netuid_b],
+            "BatchWeightItemFailed events should carry each failing netuid in batch order"
+        );
     });
 }

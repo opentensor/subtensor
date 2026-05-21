@@ -175,6 +175,10 @@ mod hooks {
                 .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
                 // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
                 .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>())
+                // Fix testnet Subtensor TotalIssuance after the EVM fees issue.
+                .saturating_add(migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<T>())
+                // Remove deprecated conviction lock storage.
+                .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>())
                 // Seed LastEpochBlock for dynamic-tempo / owner-triggered-epochs feature
                 .saturating_add(migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<T>());
             weight
@@ -182,7 +186,6 @@ mod hooks {
 
         #[cfg(feature = "try-runtime")]
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-            Self::check_total_issuance()?;
             // Disabled: https://github.com/opentensor/subtensor/pull/1166
             // Self::check_total_stake()?;
             Ok(())

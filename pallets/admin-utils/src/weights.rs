@@ -72,6 +72,7 @@ pub trait WeightInfo {
 	fn sudo_set_nominator_min_required_stake() -> Weight;
 	fn sudo_set_tx_delegate_take_rate_limit() -> Weight;
 	fn sudo_set_min_delegate_take() -> Weight;
+	fn sudo_set_min_childkey_take_per_subnet() -> Weight;
 	fn sudo_set_liquid_alpha_enabled() -> Weight;
 	fn sudo_set_alpha_values() -> Weight;
 	fn sudo_set_coldkey_swap_announcement_delay() -> Weight;
@@ -639,6 +640,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 5_079_000 picoseconds.
 		Weight::from_parts(5_410_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::MinChildkeyTake` (r:1 w:0)
+	/// Proof: `SubtensorModule::MinChildkeyTake` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MinChildkeyTakePerSubnet` (r:0 w:1)
+	/// Proof: `SubtensorModule::MinChildkeyTakePerSubnet` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_min_childkey_take_per_subnet() -> Weight {
+		Weight::from_parts(6_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)
@@ -1454,6 +1464,15 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 5_079_000 picoseconds.
 		Weight::from_parts(5_410_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SubtensorModule::MinChildkeyTake` (r:1 w:0)
+	/// Proof: `SubtensorModule::MinChildkeyTake` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MinChildkeyTakePerSubnet` (r:0 w:1)
+	/// Proof: `SubtensorModule::MinChildkeyTakePerSubnet` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn sudo_set_min_childkey_take_per_subnet() -> Weight {
+		Weight::from_parts(6_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `SubtensorModule::Tempo` (r:1 w:0)

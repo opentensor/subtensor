@@ -270,14 +270,16 @@ impl<T: Config> Pallet<T> {
             Self::resolve_to_alpha_out(Self::mint_alpha(*netuid_i, alpha_created));
 
             // Calculate the owner cut.
-            let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
-            log::debug!("owner_cut_i: {owner_cut_i:?}");
-            // Deduct owner cut from alpha_out.
-            alpha_out_i = alpha_out_i.saturating_sub(owner_cut_i);
-            // Accumulate the owner cut in pending.
-            PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(owner_cut_i).into());
-            });
+            if Self::get_owner_cut_enabled(*netuid_i) {
+                let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
+                log::debug!("owner_cut_i: {owner_cut_i:?}");
+                // Deduct owner cut from alpha_out.
+                alpha_out_i = alpha_out_i.saturating_sub(owner_cut_i);
+                // Accumulate the owner cut in pending.
+                PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(owner_cut_i).into());
+                });
+            }
 
             // Get root proportional dividends.
             let root_proportion = Self::root_proportion(*netuid_i);
@@ -386,6 +388,10 @@ impl<T: Config> Pallet<T> {
                     ),
                 );
                 epochs_run_this_block = epochs_run_this_block.saturating_add(1);
+
+                // Reserved for potential future enhancements.
+                // Ownership update logic based on conviction is currently inactive by design.
+                // Self::change_subnet_owner_if_needed(netuid);
             } else {
                 // Schedule advances below; execution skipped. Pending emissions accumulate
                 // and will be drained by the next successful epoch.

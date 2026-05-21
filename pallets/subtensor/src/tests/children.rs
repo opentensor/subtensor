@@ -924,6 +924,52 @@ fn test_childkey_take_functionality() {
     });
 }
 
+#[test]
+fn test_childkey_take_respects_effective_subnet_minimum() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = NetUid::from(1);
+        let subnet_min = SubtensorModule::get_max_childkey_take() / 2;
+
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::set_min_childkey_take_for_subnet(netuid, subnet_min);
+
+        assert_eq!(
+            SubtensorModule::get_effective_min_childkey_take(netuid),
+            subnet_min
+        );
+        assert_eq!(
+            SubtensorModule::get_childkey_take(&hotkey, netuid),
+            subnet_min
+        );
+
+        assert_noop!(
+            SubtensorModule::set_childkey_take(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                subnet_min - 1
+            ),
+            Error::<Test>::InvalidChildkeyTake
+        );
+
+        assert_ok!(SubtensorModule::set_childkey_take(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            subnet_min
+        ));
+
+        ChildkeyTake::<Test>::insert(hotkey, netuid, subnet_min - 1);
+        assert_eq!(
+            SubtensorModule::get_childkey_take(&hotkey, netuid),
+            subnet_min
+        );
+    });
+}
+
 // 25: Test childkey take rate limiting
 // This test verifies the rate limiting functionality for setting childkey take:
 // - Sets up a network and registers a hotkey

@@ -2177,7 +2177,7 @@ mod dispatches {
 
             Self::maybe_add_coldkey_index(&coldkey);
 
-            let weight = Self::do_root_claim(coldkey, Some(subnets));
+            let weight = Self::do_root_claim(coldkey, Some(subnets))?;
             Ok((Some(weight), Pays::Yes).into())
         }
 
@@ -2555,23 +2555,6 @@ mod dispatches {
             Self::do_lock_stake(&coldkey, netuid, &hotkey, amount)
         }
 
-        /// Unlocks stake on a subnet from a specific hotkey, reducing conviction.
-        ///
-        /// # Arguments
-        /// * `origin` - Must be signed by the coldkey.
-        /// * `netuid` - The subnet on which the lock exists.
-        /// * `amount` - The alpha amount to unlock.
-        #[pallet::call_index(137)]
-        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::unlock_stake())]
-        pub fn unlock_stake(
-            origin: OriginFor<T>,
-            netuid: NetUid,
-            amount: AlphaBalance,
-        ) -> DispatchResult {
-            let coldkey = ensure_signed(origin)?;
-            Self::do_unlock_stake(&coldkey, netuid, amount)
-        }
-
         /// Moves an existing lock for a coldkey on a subnet from one hotkey to another.
         ///
         /// The lock is rolled forward to the current block before switching the
@@ -2584,7 +2567,7 @@ mod dispatches {
         /// * `netuid` - The subnet on which the lock exists.
         /// # Errors:
         /// * `Error::<T>::NoExistingLock` - If no lock exists for the given coldkey and subnet.
-        #[pallet::call_index(138)]
+        #[pallet::call_index(137)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::move_lock())]
         pub fn move_lock(
             origin: OriginFor<T>,
@@ -2595,10 +2578,28 @@ mod dispatches {
             Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
         }
 
+        /// Sets or clears the caller's perpetual lock flag for a subnet.
+        ///
+        /// Locks are perpetual by default. Internally, only decaying overrides
+        /// are stored.
+        /// When enabled, the caller's individual lock does not unlock through
+        /// locked-mass decay. Passing `false` removes the flag, returning the
+        /// caller's lock to normal decay.
+        #[pallet::call_index(139)]
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(4, 3))]
+        pub fn set_perpetual_lock(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            Self::do_set_perpetual_lock(&coldkey, netuid, enabled)
+        }
+
         /// Owner-side `set_tempo`. Validates `[MinTempo, MaxTempo]`, applies a fixed
         /// `MinTempo`-block cooldown via `TransactionType::TempoUpdate`, respects the admin
         /// freeze window, and resets the cycle (`LastEpochBlock = current_block`) on success.
-        #[pallet::call_index(139)]
+        #[pallet::call_index(140)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_tempo())]
         pub fn set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
             Self::do_set_tempo(origin, netuid, tempo)
@@ -2608,7 +2609,7 @@ mod dispatches {
         /// = (factor × tempo) / 1000`. Validates `[MinActivityCutoffFactorMilli,
         /// MaxActivityCutoffFactorMilli]`, rate-limited via the existing
         /// `OwnerHyperparamUpdate` pattern, respects the admin freeze window.
-        #[pallet::call_index(140)]
+        #[pallet::call_index(141)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_activity_cutoff_factor())]
         pub fn set_activity_cutoff_factor(
             origin: OriginFor<T>,
@@ -2620,7 +2621,7 @@ mod dispatches {
 
         /// Owner-side `trigger_epoch`. Schedules an epoch to fire after `AdminFreezeWindow`
         /// blocks. Rate-limited via the existing `OwnerHyperparamUpdate` pattern.
-        #[pallet::call_index(141)]
+        #[pallet::call_index(142)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::trigger_epoch())]
         pub fn trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             Self::do_trigger_epoch(origin, netuid)
