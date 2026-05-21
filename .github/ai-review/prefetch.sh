@@ -79,8 +79,27 @@ jq -r '.body // ""' "$OUTPUT_DIR/pr.json" > "$OUTPUT_DIR/pr-body.md"
 # Files changed (paths + per-file additions/deletions; full content lives in the diff)
 gh_retry gh pr view "$PR_NUMBER" --repo "$REPO" --json files > "$OUTPUT_DIR/pr-files.json"
 
-# Full unified diff
-gh_retry gh pr diff "$PR_NUMBER" --repo "$REPO" > "$OUTPUT_DIR/pr-diff.patch"
+# Full unified diff. Use local `git diff` rather than `gh pr diff` because
+# the GitHub REST diff endpoint hard-caps at 20,000 lines (HTTP 406
+# `PullRequest.diff too_large`). The workflow already checked out the PR
+# head with `fetch-depth: 0`, so all branches are available locally.
+BASE_REF_FOR_DIFF=$(jq -r '.baseRefName' "$OUTPUT_DIR/pr.json")
+HEAD_SHA_FOR_DIFF=$(jq -r '.headRefOid' "$OUTPUT_DIR/pr.json")
+if git rev-parse --verify --quiet "origin/${BASE_REF_FOR_DIFF}" >/dev/null; then
+  git diff "origin/${BASE_REF_FOR_DIFF}...${HEAD_SHA_FOR_DIFF}" \
+    > "$OUTPUT_DIR/pr-diff.patch"
+else
+  # Base ref not in local refs (e.g. running outside actions/checkout fetch-depth:0).
+  # Fall back to the REST endpoint; bail loudly if it 406s on a huge PR.
+  echo "::warning::origin/${BASE_REF_FOR_DIFF} not local; falling back to gh pr diff (may fail for >20k-line PRs)"
+  gh_retry gh pr diff "$PR_NUMBER" --repo "$REPO" > "$OUTPUT_DIR/pr-diff.patch"
+fi
+DIFF_BYTES=$(wc -c < "$OUTPUT_DIR/pr-diff.patch")
+DIFF_LINES=$(wc -l < "$OUTPUT_DIR/pr-diff.patch")
+echo "PR diff: ${DIFF_LINES} lines, ${DIFF_BYTES} bytes"
+if (( DIFF_BYTES > 2 * 1024 * 1024 )); then
+  echo "::warning::PR diff is large (${DIFF_BYTES} bytes); the persona may need to focus on pr-files.json to triage."
+fi
 
 # All PR comments (issue-style). `--paginate` alone writes one JSON array per
 # page; `--slurp` wraps them as [[page1], [page2], ...]; we then flatten with
