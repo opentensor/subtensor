@@ -475,6 +475,28 @@ impl<T: Config> Pallet<T> {
                 StakingOperationRateLimiter::<T>::remove((hot, cold, netuid));
             }
         }
+        // AutoStakeDestination: (cold, netuid) → hot. Without this cleanup, a
+        // stale destination from a dissolved subnet would silently redirect
+        // mining incentive when the same netuid is later re-registered (see
+        // `run_coinbase` auto-stake path).
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = AutoStakeDestination::<T>::iter()
+                .filter_map(|(cold, n, _)| if n == netuid { Some(cold) } else { None })
+                .collect();
+            for cold in to_rm {
+                AutoStakeDestination::<T>::remove(&cold, netuid);
+            }
+        }
+        // AutoStakeDestinationColdkeys: (hot, netuid) → Vec<cold>. Companion
+        // reverse-index to AutoStakeDestination; must be cleared in lockstep.
+        {
+            let to_rm: sp_std::vec::Vec<T::AccountId> = AutoStakeDestinationColdkeys::<T>::iter()
+                .filter_map(|(hot, n, _)| if n == netuid { Some(hot) } else { None })
+                .collect();
+            for hot in to_rm {
+                AutoStakeDestinationColdkeys::<T>::remove(&hot, netuid);
+            }
+        }
 
         // --- 22. Subnet leasing: remove mapping and any lease-scoped state linked to this netuid.
         if let Some(lease_id) = SubnetUidToLeaseId::<T>::take(netuid) {
