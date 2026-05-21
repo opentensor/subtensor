@@ -254,8 +254,11 @@ def render_superseded_body(
         f"~~{first_line}~~" if first_line.startswith("VERDICT:") else ""
     )
 
+    persona_label = persona.capitalize()
     parts = [
-        f"> ⚠️ **Superseded by [a newer review comment]({new_comment_url}).** This is a historical snapshot.",
+        _PERSONA_HEADER.get(persona, f"# AI Review — {persona}"),
+        "",
+        f"> ⚠️ **Superseded by [a newer {persona_label} review]({new_comment_url}).** This is a historical snapshot.",
         "",
     ]
     if original_verdict:
@@ -272,6 +275,12 @@ def render_superseded_body(
     return "\n".join(parts).strip() + "\n"
 
 
+_PERSONA_HEADER = {
+    "skeptic": "# 🛡️ AI Review — **Skeptic** (security review)",
+    "auditor": "# 🔍 AI Review — **Auditor** (domain review)",
+}
+
+
 def render_new_sticky(
     persona: str,
     verdict: str,
@@ -285,7 +294,9 @@ def render_new_sticky(
 ) -> str:
     """Build the body of the new sticky comment."""
     parts = [
-        f"VERDICT: {verdict}",
+        _PERSONA_HEADER.get(persona, f"# AI Review — {persona}"),
+        "",
+        f"**VERDICT:** {verdict}",
         "",
         scrutiny_note.strip(),
     ]
@@ -324,10 +335,12 @@ def _post_error_sticky(repo: str, pr: int, persona: str, message: str, raw: str)
     direct feedback to self-correct.
     """
     marker = f"<!-- ai-review:{persona} -->"
+    header = _PERSONA_HEADER.get(persona, f"# AI Review — {persona}")
     # Truncate raw output so the comment isn't enormous.
     raw_trim = raw if len(raw) <= 4000 else raw[:2000] + "\n\n[... truncated ...]\n\n" + raw[-2000:]
     body = (
-        f"VERDICT: ERROR\n\n"
+        f"{header}\n\n"
+        f"**VERDICT:** ERROR\n\n"
         f"⚠️ **Codex output failed validation.** {message}\n\n"
         f"<details><summary>Raw model output ({len(raw)} chars)</summary>\n\n"
         f"```\n{raw_trim}\n```\n\n</details>\n\n"
