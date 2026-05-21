@@ -176,7 +176,9 @@ mod hooks {
                 // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
                 .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>())
                 // Fix testnet Subtensor TotalIssuance after the EVM fees issue.
-                .saturating_add(migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<T>());
+                .saturating_add(migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<T>())
+                // Remove deprecated conviction lock storage.
+                .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>());
             weight
         }
 
