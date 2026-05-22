@@ -1769,6 +1769,17 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
 
+    /// Default value for subnet owner cut enabled flag.
+    #[pallet::type_value]
+    pub fn DefaultOwnerCutEnabled<T: Config>() -> bool {
+        true
+    }
+
+    /// --- MAP ( netuid ) --> owner_cut_enabled
+    #[pallet::storage]
+    pub type OwnerCutEnabled<T> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutEnabled<T>>;
+
     /// ITEM( network_rate_limit )
     #[pallet::storage]
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
