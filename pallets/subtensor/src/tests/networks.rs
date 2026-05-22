@@ -1520,7 +1520,7 @@ fn register_network_prunes_and_netuid_not_reused() {
         assert_ne!(new_netuid, NetUid::from(0));
         assert_eq!(TotalNetworks::<Test>::get(), 2);
         assert!(DissolvedNetworks::<Test>::get().contains(&n1));
-        assert_eq!(NetworksAdded::<Test>::get(n1), false);
+        assert!(!NetworksAdded::<Test>::get(n1));
         assert!(NetworksAdded::<Test>::get(n2));
         assert_eq!(SubnetOwner::<Test>::get(n2), n2_cold);
         assert_eq!(SubnetOwner::<Test>::get(new_netuid), new_cold);
