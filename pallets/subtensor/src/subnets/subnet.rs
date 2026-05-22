@@ -160,10 +160,10 @@ impl<T: Config> Pallet<T> {
             .filter(|(netuid, added)| *added && *netuid != NetUid::ROOT)
             .count() as u16;
 
-        let mut recycle_netuid: Option<NetUid> = None;
+        let mut prune_netuid: Option<NetUid> = None;
         if current_count >= subnet_limit {
             if let Some(netuid) = Self::get_network_to_prune() {
-                recycle_netuid = Some(netuid);
+                prune_netuid = Some(netuid);
             } else {
                 return Err(Error::<T>::SubnetLimitReached.into());
             }
@@ -177,35 +177,32 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CannotAffordLockCost
         );
 
-        // --- 7. If we identified a subnet to prune, do it now.
-        if let Some(prune_netuid) = recycle_netuid {
+        // --- 7. If we reach the limit and need prune a subnet, do it now.
+        if let Some(prune_netuid) = prune_netuid {
             Self::do_dissolve_network(prune_netuid)?;
         }
 
-        // --- 8. Determine netuid to register. If we pruned a subnet, reuse that netuid.
-        let netuid_to_register: NetUid = match recycle_netuid {
-            Some(prune_netuid) => prune_netuid,
-            None => Self::get_next_netuid(),
-        };
+        // --- 8. Determine netuid to register.
+        let netuid_to_register: NetUid = Self::get_next_netuid();
 
-        // --- 11. Snapshot the current median subnet alpha price before creating the new subnet.
+        // --- 9. Snapshot the current median subnet alpha price before creating the new subnet.
         let median_subnet_alpha_price = Self::get_median_subnet_alpha_price();
 
-        // --- 12. Set initial and custom parameters for the network.
+        // --- 10. Set initial and custom parameters for the network.
         let default_tempo = DefaultTempo::<T>::get();
         Self::init_new_network(netuid_to_register, default_tempo);
         log::debug!("init_new_network: {netuid_to_register:?}");
 
-        // --- 10. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
+        // --- 11. Perform the lock operation (transfer TAO from owner's coldkey to subnet account).
         let actual_tao_lock_amount =
             Self::transfer_tao_to_subnet(netuid_to_register, &coldkey, lock_amount.into())?;
         log::debug!("actual_tao_lock_amount: {actual_tao_lock_amount:?}");
 
-        // --- 11. Set the lock amount for use to determine pricing.
+        // --- 12. Set the lock amount for use to determine pricing.
         Self::set_network_last_lock(actual_tao_lock_amount);
         Self::set_network_last_lock_block(current_block);
 
-        // --- 12. Add the caller to the neuron set.
+        // --- 13. Add the caller to the neuron set.
         Self::create_account_if_non_existent(&coldkey, hotkey)?;
         Self::append_neuron(netuid_to_register, hotkey, current_block);
         log::debug!("Appended neuron for netuid {netuid_to_register:?}, hotkey: {hotkey:?}");
