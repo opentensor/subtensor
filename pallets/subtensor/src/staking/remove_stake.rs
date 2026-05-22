@@ -642,6 +642,7 @@ impl<T: Config> Pallet<T> {
             hotkeys_in_subnet.push(hot.clone());
 
             let mut iterate_all = true;
+            let mut coldkey_value_vec: Vec<(T::AccountId, u128)> = Vec::new();
 
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r.saturating_mul(2_u64)) {
@@ -682,13 +683,18 @@ impl<T: Config> Pallet<T> {
                     }
                     weight_meter.consume(r.saturating_mul(2_u64));
                     let val_u128 = val_u64 as u128;
-                    stakers.push((hot.clone(), cold, val_u128));
+                    // stakers.push((hot.clone(), cold, val_u128));
+                    coldkey_value_vec.push((cold.clone(), val_u128));
                 }
             }
 
             if !iterate_all {
                 read_all = false;
                 break;
+            } else {
+                for (cold, value) in coldkey_value_vec {
+                    stakers.push((hot.clone(), cold, value));
+                }
             }
         }
 
