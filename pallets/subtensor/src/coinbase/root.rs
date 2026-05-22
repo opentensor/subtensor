@@ -287,6 +287,7 @@ impl<T: Config> Pallet<T> {
         ActivityCutoffFactorMilli::<T>::remove(netuid);
         LastEpochBlock::<T>::remove(netuid);
         PendingEpochAt::<T>::remove(netuid);
+        SubnetEpochIndex::<T>::remove(netuid);
         MinAllowedWeights::<T>::remove(netuid);
         RegistrationsThisInterval::<T>::remove(netuid);
         POWRegistrationsThisInterval::<T>::remove(netuid);

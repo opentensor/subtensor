@@ -304,7 +304,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3.1. Initialise `LastEpochBlock` with a per-netuid stagger
         let now = Self::get_current_block_as_u64();
-        let period = (tempo as u64).saturating_add(1).max(1);
+        let period = (tempo as u64).max(1);
         let stagger = (u16::from(netuid) as u64).checked_rem(period).unwrap_or(0);
         LastEpochBlock::<T>::insert(netuid, now.saturating_sub(stagger));
 

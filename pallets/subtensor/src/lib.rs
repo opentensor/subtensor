@@ -1801,6 +1801,12 @@ pub mod pallet {
     pub type PendingEpochAt<T> =
         StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
 
+    /// --- MAP ( netuid ) --> monotonic epoch counter.
+    /// Incremented by exactly one each time the subnet's epoch slot is consumed in `run_coinbase`
+    #[pallet::storage]
+    pub type SubnetEpochIndex<T> =
+        StorageMap<_, Identity, NetUid, u64, ValueQuery, DefaultZeroU64<T>>;
+
     /// --- MAP ( netuid ) --> activity-cutoff factor in per-mille epochs (1/1000 granularity).
     /// Effective cutoff in blocks = `(factor × tempo) / 1000`, clamped to ≥ 1.
     #[pallet::storage]
@@ -2391,7 +2397,8 @@ pub mod pallet {
     #[pallet::storage]
     pub type StakeThreshold<T> = StorageValue<_, u64, ValueQuery, DefaultStakeThreshold<T>>;
 
-    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_block, first_reveal_block, last_reveal_block)> | Stores a queue of commits for an account on a given netuid.
+    /// --- MAP (netuid, who) --> VecDeque<(hash, commit_epoch, commit_block, _unused)>
+    /// Stores a queue of commit-reveal-v2 commits for an account on a given netuid.
     #[pallet::storage]
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,

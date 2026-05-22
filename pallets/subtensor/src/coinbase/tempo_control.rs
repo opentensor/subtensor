@@ -12,12 +12,6 @@ impl<T: Config> Pallet<T> {
     pub fn do_set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
         let who = Self::ensure_subnet_owner(origin, netuid)?;
 
-        // Block dynamic tempo for any CR-enabled subnet
-        ensure!(
-            !Self::get_commit_reveal_weights_enabled(netuid),
-            Error::<T>::DynamicTempoBlockedByCommitReveal
-        );
-
         ensure!(
             (MIN_TEMPO..=MAX_TEMPO).contains(&tempo),
             Error::<T>::TempoOutOfBounds
@@ -74,12 +68,6 @@ impl<T: Config> Pallet<T> {
     /// countdown engages the freeze window for the subnet via `is_in_admin_freeze_window`.
     pub fn do_trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> Result<(), DispatchError> {
         let who = Self::ensure_subnet_owner(origin, netuid)?;
-
-        // Block for any CR-enabled subnet
-        ensure!(
-            !Self::get_commit_reveal_weights_enabled(netuid),
-            Error::<T>::DynamicTempoBlockedByCommitReveal
-        );
 
         // No `ensure_admin_window_open` here: trigger *defines* the next epoch.
         ensure!(

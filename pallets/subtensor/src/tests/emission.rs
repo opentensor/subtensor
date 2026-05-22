@@ -28,15 +28,15 @@ fn test_regular_case() {
         // tempo + 1 - block.
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(1.into(), 10, 5),
-            6
+            5
         );
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(2.into(), 20, 15),
-            6
+            5
         );
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(3.into(), 30, 25),
-            6
+            5
         );
     });
 }
@@ -57,7 +57,7 @@ fn test_boundary_conditions() {
         // Block 0 — full period until next auto epoch.
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(netuid, u16::MAX, 0),
-            (u16::MAX as u64).saturating_add(1)
+            u16::MAX as u64
         );
     });
 }
@@ -88,7 +88,7 @@ fn test_epoch_alignment() {
         // tempo + 1 - block_number.
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(1.into(), 10, 9),
-            2
+            1
         );
         // Block exactly at next-auto — returns 0.
         assert_eq!(
@@ -111,15 +111,15 @@ fn test_different_network_ids() {
         LastEpochBlock::<Test>::insert(NetUid::from(3), 0);
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(1.into(), 10, 5),
-            6
+            5
         );
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(2.into(), 10, 5),
-            6
+            5
         );
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(3.into(), 10, 5),
-            6
+            5
         );
     });
 }
@@ -134,7 +134,7 @@ fn test_large_tempo_values() {
         LastEpochBlock::<Test>::insert(netuid, 0);
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(netuid, u16::MAX - 1, 100),
-            (u16::MAX as u64).saturating_sub(100)
+            (u16::MAX as u64).saturating_sub(1).saturating_sub(100)
         );
     });
 }

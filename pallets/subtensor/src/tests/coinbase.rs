@@ -3308,17 +3308,19 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             "Root alpha divs should be zero"
         );
         step_block(1);
+        // Drain to a clean epoch boundary so accumulation starts fresh.
+        step_epochs(1, netuid);
         let miner_stake_before_epoch = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
             &miner_hotkey,
             &miner_coldkey,
             netuid,
         );
         // Run again but with some root stake
-        step_block(subnet_tempo);
+        step_block(subnet_tempo - 1);
         assert_abs_diff_eq!(
             PendingServerEmission::<Test>::get(netuid).to_u64(),
             U96F32::saturating_from_num(per_block_emission)
-                .saturating_mul(U96F32::saturating_from_num(subnet_tempo as u64))
+                .saturating_mul(U96F32::saturating_from_num((subnet_tempo - 1) as u64))
                 .saturating_mul(U96F32::saturating_from_num(0.5)) // miner cut
                 .saturating_mul(U96F32::saturating_from_num(0.90))
                 .saturating_to_num::<u64>(),
@@ -3365,7 +3367,7 @@ fn test_mining_emission_distribution_with_no_root_sell() {
             U96F32::saturating_from_num(miner_incentive)
                 .saturating_div(u16::MAX.into())
                 .saturating_mul(U96F32::saturating_from_num(per_block_emission))
-                .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo))
                 .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
                 .saturating_to_num::<u64>(),
             epsilon = 1_000_000_u64
@@ -3396,7 +3398,9 @@ fn test_mining_emission_distribution_with_root_sell() {
         let owner_hotkey = U256::from(10);
         let owner_coldkey = U256::from(11);
         let netuid = add_dynamic_network(&owner_hotkey, &owner_coldkey);
-        Tempo::<Test>::insert(netuid, 1);
+        // Period is `tempo`; `tempo = 2` keeps a one-block gap between epochs so
+        // pending root-alpha-divs can be observed accumulating before a drain.
+        Tempo::<Test>::insert(netuid, 2);
         FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
 
         // Setup large LPs to prevent slippage
@@ -3540,7 +3544,7 @@ fn test_mining_emission_distribution_with_root_sell() {
             U96F32::saturating_from_num(miner_incentive)
                 .saturating_div(u16::MAX.into())
                 .saturating_mul(U96F32::saturating_from_num(per_block_emission))
-                .saturating_mul(U96F32::saturating_from_num(subnet_tempo + 1))
+                .saturating_mul(U96F32::saturating_from_num(subnet_tempo))
                 .saturating_mul(U96F32::saturating_from_num(0.45)) // miner cut
                 .saturating_to_num::<u64>(),
             epsilon = 1_000_000_u64

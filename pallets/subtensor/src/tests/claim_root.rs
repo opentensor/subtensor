@@ -1099,9 +1099,9 @@ fn test_claim_root_coinbase_distribution() {
         let coldkey = U256::from(1003);
         let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
 
-        Tempo::<Test>::insert(netuid, 1);
-        // Re-anchor the state-based scheduler at the current block
-        // The 2nd step will fire the tempo
+        // Period is `tempo`; with `tempo = 2` and the scheduler re-anchored at the
+        // current block, the epoch fires two steps later (at `run_to_block(3)`).
+        Tempo::<Test>::insert(netuid, 2);
         crate::LastEpochBlock::<Test>::insert(netuid, SubtensorModule::get_current_block_as_u64());
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 

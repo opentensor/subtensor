@@ -3784,7 +3784,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_max_allowed_validators(netuid, 1);
 
-        run_to_block(tempo as u64 + 1);
+        run_to_block(tempo as u64);
 
         /* first commit */
         commit_dummy(v_hot, netuid);
@@ -3801,7 +3801,7 @@ fn test_epoch_does_not_mask_outside_window_but_masks_inside() {
 
         /* let first commit expire for UID‑1 */
         for _ in 0..(reveal + 1) {
-            run_to_block(System::block_number() + tempo as u64 + 1);
+            run_to_block(System::block_number() + tempo as u64);
         }
 
         /* second commit — will mask UID‑2 & UID‑3 */

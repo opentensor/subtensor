@@ -4416,10 +4416,10 @@ fn test_migrate_dynamic_tempo_aligns_first_post_upgrade_fire() {
 
         crate::migrations::migrate_dynamic_tempo::migrate_dynamic_tempo::<Test>();
 
-        // New formula: next fire = LastEpochBlock + tempo + 1.
+        // New formula: next fire = LastEpochBlock + tempo.
         let last_epoch = LastEpochBlock::<Test>::get(netuid);
         assert_eq!(
-            last_epoch + tempo as u64 + 1,
+            last_epoch + tempo as u64,
             expected_next_fire,
             "back-fill should make new scheduler fire at the same block as legacy modulo"
         );

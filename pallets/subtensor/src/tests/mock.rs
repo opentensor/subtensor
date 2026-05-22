@@ -714,18 +714,20 @@ pub(crate) fn run_to_block_no_epoch(netuid: NetUid, n: u64) {
 
 #[allow(dead_code)]
 pub(crate) fn step_epochs(count: u16, netuid: NetUid) {
-    for _ in 0..count {
-        let blocks_to_next_epoch = SubtensorModule::blocks_until_next_auto_epoch(
-            netuid,
-            SubtensorModule::get_tempo(netuid),
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        log::info!("Blocks to next epoch: {blocks_to_next_epoch:?}");
-        // Step to the auto-epoch block — `on_initialize` at that block fires
-        // the epoch and advances `LastEpochBlock`, then move one block past
-        // it to mirror the legacy stepping cadence.
-        step_block(blocks_to_next_epoch as u16);
+    const STEP_EPOCHS_MAX_BLOCKS: u32 = 50_000;
+
+    // Advance block-by-block until exactly `count` more epoch slots have been
+    // consumed for `netuid`, observed via the `SubnetEpochIndex` counter. Robust
+    // to any tempo (including `tempo == 1`) and to the per-block epoch cap.
+    let target = crate::SubnetEpochIndex::<Test>::get(netuid).saturating_add(count as u64);
+    let mut blocks_advanced: u32 = 0;
+    while crate::SubnetEpochIndex::<Test>::get(netuid) < target {
         step_block(1);
+        blocks_advanced = blocks_advanced.saturating_add(1);
+        assert!(
+            blocks_advanced < STEP_EPOCHS_MAX_BLOCKS,
+            "step_epochs: epoch counter never advanced (tempo == 0?)"
+        );
     }
 }
 

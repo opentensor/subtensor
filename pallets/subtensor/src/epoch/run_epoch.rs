@@ -735,24 +735,30 @@ impl<T: Config> Pallet<T> {
             let uid_of = |acct: &T::AccountId| terms_map.get(acct).map(|t| t.uid);
 
             // ---------- v2 ------------------------------------------------------
+            // `WeightCommits` tuple: (hash, commit_epoch, commit_block, _).
+            // Expiry keys off `commit_epoch`; the column mask compares the absolute
+            // `commit_block` against `block_at_registration` (both block numbers).
             for (who, q) in WeightCommits::<T>::iter_prefix(netuid_index) {
-                for (_, cb, _, _) in q.iter() {
-                    if !Self::is_commit_expired(netuid, *cb) {
+                for (_, commit_epoch, commit_block, _) in q.iter() {
+                    if !Self::is_commit_expired(netuid, *commit_epoch) {
                         if let Some(cell) = uid_of(&who).and_then(|i| commit_blocks.get_mut(i)) {
-                            *cell = (*cell).min(*cb);
+                            *cell = (*cell).min(*commit_block);
                         }
                         break; // earliest active found
                     }
                 }
             }
 
-            // ---------- v3 ------------------------------------------------------
-            for (_epoch, q) in TimelockedWeightCommits::<T>::iter_prefix(netuid_index) {
-                for (who, cb, ..) in q.iter() {
-                    if !Self::is_commit_expired(netuid, *cb)
-                        && let Some(cell) = uid_of(who).and_then(|i| commit_blocks.get_mut(i))
-                    {
-                        *cell = (*cell).min(*cb);
+            // ---------- v4 ------------------------------------------------------
+            // `TimelockedWeightCommits` is keyed by `commit_epoch`; the value tuple
+            // carries the absolute `commit_block` in field 1.
+            for (commit_epoch, q) in TimelockedWeightCommits::<T>::iter_prefix(netuid_index) {
+                if Self::is_commit_expired(netuid, commit_epoch) {
+                    continue;
+                }
+                for (who, commit_block, ..) in q.iter() {
+                    if let Some(cell) = uid_of(who).and_then(|i| commit_blocks.get_mut(i)) {
+                        *cell = (*cell).min(*commit_block);
                     }
                 }
             }

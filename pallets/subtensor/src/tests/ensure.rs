@@ -73,7 +73,8 @@ fn ensure_admin_window_open_blocks_in_freeze_window() {
         crate::Pallet::<Test>::set_admin_freeze_window(freeze_window);
 
         crate::LastEpochBlock::<Test>::insert(netuid, 0);
-        let next_auto = (tempo as u64).saturating_add(1);
+        // Period is `tempo`: next auto-epoch fires at `LastEpochBlock + tempo`.
+        let next_auto = tempo as u64;
 
         // Inside freeze window: `next_auto - freeze_window + 1`.
         System::set_block_number(next_auto - freeze_window as u64 + 1);

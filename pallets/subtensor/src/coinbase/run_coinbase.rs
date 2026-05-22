@@ -404,6 +404,7 @@ impl<T: Config> Pallet<T> {
             // Advance the schedule unconditionally — the slot is consumed.
             LastEpochBlock::<T>::insert(netuid, current_block);
             PendingEpochAt::<T>::insert(netuid, 0);
+            SubnetEpochIndex::<T>::mutate(netuid, |idx| *idx = idx.saturating_add(1));
         }
         emissions_to_distribute
     }
@@ -1055,11 +1056,11 @@ impl<T: Config> Pallet<T> {
         }
         let last = LastEpochBlock::<T>::get(netuid);
         let blocks_since = current_block.saturating_sub(last);
-        blocks_since > tempo as u64
+        blocks_since >= tempo as u64
     }
 
     /// Returns the number of blocks remaining before the next automatic epoch under the
-    /// stateful scheduler (period `tempo + 1`, anchored on `LastEpochBlock`). Does NOT account for:
+    /// stateful scheduler (period `tempo`, anchored on `LastEpochBlock`). Does NOT account for:
     ///     - `PendingEpochAt` (owner-triggered manual fire — could happen sooner),
     ///     - `BlocksSinceLastStep > MAX_TEMPO` safety-net,
     ///     - per-block-cap defer (could push the actual fire one or more blocks later)
@@ -1070,13 +1071,13 @@ impl<T: Config> Pallet<T> {
             return u64::MAX;
         }
         let last = LastEpochBlock::<T>::get(netuid);
-        // Period is `tempo + 1`: next firing at `last + tempo + 1`.
-        let next_auto = last.saturating_add(tempo as u64).saturating_add(1);
+        // Period is `tempo`: next firing at `last + tempo`.
+        let next_auto = last.saturating_add(tempo as u64);
         next_auto.saturating_sub(block_number)
     }
 
     /// Returns the absolute block number at which the next epoch is expected to fire for the
-    /// given subnet, considering both the automatic schedule (`LastEpochBlock + tempo + 1`) and
+    /// given subnet, considering both the automatic schedule (`LastEpochBlock + tempo`) and
     /// any owner-triggered `PendingEpochAt`. Returns `None` if `tempo == 0` (subnet does not run).
     /// Does NOT account for the per-block cap deferral or the `BlocksSinceLastStep > MAX_TEMPO`
     /// safety-net (which can fire earlier under extreme drift).
@@ -1086,7 +1087,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
         let last = LastEpochBlock::<T>::get(netuid);
-        let auto_next = last.saturating_add(tempo as u64).saturating_add(1);
+        let auto_next = last.saturating_add(tempo as u64);
 
         let pending = PendingEpochAt::<T>::get(netuid);
         if pending > 0 {
