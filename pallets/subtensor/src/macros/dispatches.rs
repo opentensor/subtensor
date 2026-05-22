@@ -2177,7 +2177,7 @@ mod dispatches {
 
             Self::maybe_add_coldkey_index(&coldkey);
 
-            let weight = Self::do_root_claim(coldkey, Some(subnets));
+            let weight = Self::do_root_claim(coldkey, Some(subnets))?;
             Ok((Some(weight), Pays::Yes).into())
         }
 
