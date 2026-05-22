@@ -91,7 +91,7 @@ describe("PrecompileWrapper - Direct Call Tests", () => {
         it("Should get network registered block via wrapper", async () => {
             const onchainValue = await api.query.SubtensorModule.NetworkRegisteredAt.getValue(netuid);
 
-            const valueViaWrapper = Number(await wrapperContract.getNetworkRegisteredBlock(netuid));
+            const valueViaWrapper = Number(await wrapperContract.getNetworkRegistrationBlock(netuid));
 
             assert.ok(valueViaWrapper > 0, "Network registered block should be greater than 0");
             assert.equal(valueViaWrapper, onchainValue, "Network registered block should match on-chain value");

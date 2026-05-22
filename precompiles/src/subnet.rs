@@ -164,9 +164,9 @@ where
         )
     }
 
-    #[precompile::public("getNetworkRegisteredBlock(uint16)")]
+    #[precompile::public("getNetworkRegistrationBlock(uint16)")]
     #[precompile::view]
-    fn get_network_registered_block(
+    fn get_network_registration_block(
         handle: &mut impl PrecompileHandle,
         netuid: u16,
     ) -> EvmResult<u64> {
@@ -1257,7 +1257,7 @@ mod tests {
                 caller,
                 precompile_addr,
                 encode_with_selector(
-                    selector_u32("getNetworkRegisteredBlock(uint16)"),
+                    selector_u32("getNetworkRegistrationBlock(uint16)"),
                     (TEST_NETUID_U16,),
                 ),
                 U256::from(registration_block),

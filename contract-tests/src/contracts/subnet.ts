@@ -299,7 +299,7 @@ export const ISubnetABI = [
                 type: "uint16",
             },
         ],
-        name: "getNetworkRegisteredBlock",
+        name: "getNetworkRegistrationBlock",
         outputs: [
             {
                 internalType: "uint64",
