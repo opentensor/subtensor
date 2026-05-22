@@ -2051,9 +2051,9 @@ fn test_freeze_window_blocks_root_and_owner() {
             3
         ));
         // Pin the state-based scheduler so the next auto-epoch lands at
-        // `tempo + 1`. Freeze window covers blocks (next_auto - 3, next_auto].
+        // `LastEpochBlock + tempo`. Freeze window covers blocks (next_auto - 3, next_auto].
         pallet_subtensor::LastEpochBlock::<Test>::insert(netuid, 0);
-        let next_auto = (tempo as u64).saturating_add(1);
+        let next_auto = tempo as u64;
         // Advance to a block inside the freeze window (remaining < 3).
         run_to_block(next_auto - 2);
 

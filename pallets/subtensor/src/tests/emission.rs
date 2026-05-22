@@ -25,7 +25,7 @@ fn test_regular_case() {
         LastEpochBlock::<Test>::insert(NetUid::from(1), 0);
         LastEpochBlock::<Test>::insert(NetUid::from(2), 0);
         LastEpochBlock::<Test>::insert(NetUid::from(3), 0);
-        // tempo + 1 - block.
+        // (LastEpochBlock + tempo) - block.
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(1.into(), 10, 5),
             5
@@ -85,7 +85,7 @@ fn test_epoch_alignment() {
     new_test_ext(1).execute_with(|| {
         LastEpochBlock::<Test>::insert(NetUid::from(1), 0);
         LastEpochBlock::<Test>::insert(NetUid::from(2), 0);
-        // tempo + 1 - block_number.
+        // (LastEpochBlock + tempo) - block_number.
         assert_eq!(
             SubtensorModule::blocks_until_next_auto_epoch(1.into(), 10, 9),
             1
