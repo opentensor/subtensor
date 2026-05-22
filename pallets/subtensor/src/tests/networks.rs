@@ -1473,7 +1473,7 @@ fn prune_selection_complex_state_exhaustive() {
 }
 
 #[test]
-fn register_network_prunes_and_recycles_netuid() {
+fn register_network_prunes_and_netuid_not_reused() {
     new_test_ext(0).execute_with(|| {
         SubnetLimit::<Test>::put(2u16);
 
@@ -1509,10 +1509,21 @@ fn register_network_prunes_and_recycles_netuid() {
             None,
         ));
 
+        let mut new_netuid = NetUid::from(0);
+        for (netuid, added) in NetworksAdded::<Test>::iter() {
+            if added && netuid != n2 {
+                new_netuid = netuid;
+                break;
+            }
+        }
+
+        assert_ne!(new_netuid, NetUid::from(0));
         assert_eq!(TotalNetworks::<Test>::get(), 2);
-        assert_eq!(SubnetOwner::<Test>::get(n1), new_cold);
-        assert_eq!(SubnetOwnerHotkey::<Test>::get(n1), new_hot);
+        assert!(DissolvedNetworks::<Test>::get().contains(&n1));
+        assert_eq!(NetworksAdded::<Test>::get(n1), false);
+        assert!(NetworksAdded::<Test>::get(n2));
         assert_eq!(SubnetOwner::<Test>::get(n2), n2_cold);
+        assert_eq!(SubnetOwner::<Test>::get(new_netuid), new_cold);
     });
 }
 
