@@ -5,12 +5,16 @@
 )]
 
 use codec::Encode;
-use frame_support::{BoundedVec, assert_noop, assert_ok, traits::ConstU32};
+use frame_support::{BoundedVec, PalletId, assert_noop, assert_ok, traits::{ConstU32, Hooks}};
 use node_subtensor_runtime::{
     BuildStorage, LimitOrders, Runtime, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule,
     System, pallet_subtensor,
 };
-use pallet_limit_orders::{Order, OrderStatus, OrderType, Orders, SignedOrder, VersionedOrder};
+use pallet_limit_orders::{
+    HasMigrationRun, LimitOrdersEnabled, Order, OrderStatus, OrderType, Orders, SignedOrder,
+    VersionedOrder,
+};
+use sp_runtime::traits::AccountIdConversion;
 use pallet_subtensor::{SubnetAlphaIn, SubnetMechanism, SubnetTAO};
 use sp_core::{Get, H256, Pair};
 use sp_keyring::Sr25519Keyring;
@@ -2083,6 +2087,68 @@ fn execute_orders_sell_tight_slippage_partial_fill_skipped() {
         assert_eq!(
             remaining_alpha, initial_alpha,
             "alice's staked alpha should be unchanged when the order is rolled back"
+        );
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Migration integration tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+fn migration_key() -> BoundedVec<u8, ConstU32<128>> {
+    BoundedVec::truncate_from(b"migrate_register_pallet_hotkey".to_vec())
+}
+
+fn pallet_acct() -> AccountId {
+    PalletId(*b"bt/limit").into_account_truncating()
+}
+
+fn pallet_hotkey() -> AccountId {
+    PalletId(*b"bt/lmhky").into_account_truncating()
+}
+
+/// `on_runtime_upgrade` registers the pallet hotkey and marks the migration as run.
+///
+/// Starting from the default genesis (which already registers the hotkey and
+/// enables the pallet via `GenesisConfig::build`), the upgrade hook must:
+/// - set `HasMigrationRun[migration_key]` to `true`
+/// - leave `LimitOrdersEnabled` untouched (still `true`)
+/// - leave the hotkey registration intact
+#[test]
+fn on_runtime_upgrade_marks_migration_run_without_touching_pallet_status() {
+    new_test_ext().execute_with(|| {
+        assert!(LimitOrdersEnabled::<Runtime>::get());
+        assert!(!HasMigrationRun::<Runtime>::get(migration_key()));
+        assert!(SubtensorModule::coldkey_owns_hotkey(&pallet_acct(), &pallet_hotkey()));
+
+        <LimitOrders as Hooks<u64>>::on_runtime_upgrade();
+
+        assert!(
+            HasMigrationRun::<Runtime>::get(migration_key()),
+            "migration must be marked as run"
+        );
+        assert!(
+            LimitOrdersEnabled::<Runtime>::get(),
+            "upgrade must not change LimitOrdersEnabled"
+        );
+        assert!(SubtensorModule::coldkey_owns_hotkey(&pallet_acct(), &pallet_hotkey()));
+    });
+}
+
+/// Running `on_runtime_upgrade` twice is a no-op on the second call.
+#[test]
+fn on_runtime_upgrade_is_idempotent() {
+    new_test_ext().execute_with(|| {
+        <LimitOrders as Hooks<u64>>::on_runtime_upgrade();
+        assert!(HasMigrationRun::<Runtime>::get(migration_key()));
+
+        // Second run must not change any state.
+        LimitOrdersEnabled::<Runtime>::set(false);
+        <LimitOrders as Hooks<u64>>::on_runtime_upgrade();
+
+        assert!(
+            !LimitOrdersEnabled::<Runtime>::get(),
+            "second upgrade must not touch LimitOrdersEnabled"
         );
     });
 }
