@@ -218,6 +218,7 @@ impl pallet_referenda::Config for Runtime {
 pub struct ReferendaBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
+#[allow(clippy::expect_used)]
 impl pallet_referenda::BenchmarkHelper<u8, AccountId, RuntimeCall> for ReferendaBenchmarkHelper {
     fn track_passorfail() -> u8 {
         0
