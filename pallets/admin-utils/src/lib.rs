@@ -2219,6 +2219,36 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Set whether subnet owner cut is auto-locked for a subnet.
+        /// It is only callable by root and subnet owner.
+        #[pallet::call_index(95)]
+        #[pallet::weight((
+            Weight::from_parts(25_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(4))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes,
+        ))]
+        pub fn sudo_set_owner_cut_auto_lock_enabled(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+
+            pallet_subtensor::Pallet::<T>::set_owner_cut_auto_lock_enabled(netuid, enabled);
+            log::debug!("OwnerCutAutoLockEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} ) ");
+
+            Ok(())
+        }
+
         /// Enables or disables subnet pool-side emission for a subnet.
         ///
         /// This does not remove the subnet from emission share calculation and does not
