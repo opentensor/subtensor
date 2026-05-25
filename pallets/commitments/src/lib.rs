@@ -24,7 +24,7 @@ use scale_info::prelude::collections::BTreeSet;
 use sp_runtime::SaturatedConversion;
 use sp_runtime::{Saturating, Weight, traits::Zero};
 use sp_std::{boxed::Box, vec::Vec};
-use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, NetUid, WeightMeterWrapper};
+use subtensor_runtime_common::{LoopRemovePrefixWithWeightMeter, NetUid};
 use tle::{
     curves::drand::TinyBLS381,
     stream_ciphers::AESGCMStreamCipherProvider,
