@@ -1807,6 +1807,17 @@ fn try_state_passes_with_populated_voter_sets() {
 }
 
 #[test]
+fn try_state_allows_uninitialized_collectives() {
+    TestState {
+        proposers: vec![],
+        triumvirate: vec![],
+    }
+    .build_and_execute(|| {
+        assert!(Pallet::<Test>::do_try_state().is_ok());
+    });
+}
+
+#[test]
 fn try_state_fails_when_a_track_has_empty_voter_set() {
     TestState::default().build_and_execute(|| {
         let _guard = EmptyReviewVoterSetGuard::new(true);

@@ -56,6 +56,9 @@ impl SetLike<U256> for SimpleVoterSet {
     fn len(&self) -> u32 {
         self.0.len() as u32
     }
+    fn is_initialized(&self) -> bool {
+        true
+    }
     fn to_vec(&self) -> Vec<U256> {
         self.0.clone()
     }

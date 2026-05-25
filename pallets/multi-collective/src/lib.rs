@@ -646,6 +646,9 @@ pub trait CollectiveInspect<AccountId, CollectiveId> {
     /// Return the members of a collective.
     fn members_of(collective_id: CollectiveId) -> Vec<AccountId>;
 
+    /// Return true once the collective's membership storage is initialized.
+    fn is_initialized(collective_id: CollectiveId) -> bool;
+
     /// Return true if an account is a member of a collective.
     fn is_member(collective_id: CollectiveId, who: &AccountId) -> bool;
 
@@ -656,6 +659,10 @@ pub trait CollectiveInspect<AccountId, CollectiveId> {
 impl<T: Config> CollectiveInspect<T::AccountId, T::CollectiveId> for Pallet<T> {
     fn members_of(collective_id: T::CollectiveId) -> Vec<T::AccountId> {
         Members::<T>::get(collective_id).to_vec()
+    }
+
+    fn is_initialized(collective_id: T::CollectiveId) -> bool {
+        Members::<T>::contains_key(collective_id)
     }
 
     fn is_member(collective_id: T::CollectiveId, who: &T::AccountId) -> bool {

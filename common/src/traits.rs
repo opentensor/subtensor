@@ -5,6 +5,7 @@ use sp_runtime::Vec;
 pub trait SetLike<T> {
     fn contains(&self, item: &T) -> bool;
     fn len(&self) -> u32;
+    fn is_initialized(&self) -> bool;
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

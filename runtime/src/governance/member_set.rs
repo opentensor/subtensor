@@ -46,6 +46,17 @@ impl MemberSet {
             }
         }
     }
+
+    fn is_initialized_with<F>(&self, lookup: F) -> bool
+    where
+        F: Fn(CollectiveId) -> bool,
+    {
+        match self {
+            Self::Single(id) => lookup(*id),
+            Self::Union(ids) if ids.is_empty() => true,
+            Self::Union(ids) => ids.iter().any(|id| lookup(*id)),
+        }
+    }
 }
 
 impl SetLike<AccountId> for MemberSet {
@@ -60,6 +71,13 @@ impl SetLike<AccountId> for MemberSet {
 
     fn len(&self) -> u32 {
         self.to_vec().len() as u32
+    }
+
+    fn is_initialized(&self) -> bool {
+        use CollectiveInspect as CI;
+        use MultiCollective as MC;
+
+        self.is_initialized_with(<MC as CI<AccountId, CollectiveId>>::is_initialized)
     }
 
     fn to_vec(&self) -> Vec<AccountId> {

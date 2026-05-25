@@ -92,6 +92,23 @@ impl subtensor_runtime_common::SetLike<U256> for MemberSet {
     fn len(&self) -> u32 {
         self.to_vec().len() as u32
     }
+
+    fn is_initialized(&self) -> bool {
+        match self {
+            MemberSet::Single(id) => <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                U256,
+                CollectiveId,
+            >>::is_initialized(*id),
+            MemberSet::Union(ids) if ids.is_empty() => true,
+            MemberSet::Union(ids) => ids.iter().any(|id| {
+                <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
+                    U256,
+                    CollectiveId,
+                >>::is_initialized(*id)
+            }),
+        }
+    }
+
     fn to_vec(&self) -> Vec<U256> {
         match self {
             MemberSet::Single(id) => <pallet_multi_collective::Pallet<Test> as CollectiveInspect<
