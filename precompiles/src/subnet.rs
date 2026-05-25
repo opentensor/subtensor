@@ -460,6 +460,32 @@ where
         )
     }
 
+    #[precompile::public("getActivityCutoffFactor(uint16)")]
+    #[precompile::view]
+    fn get_activity_cutoff_factor(_: &mut impl PrecompileHandle, netuid: u16) -> EvmResult<u32> {
+        Ok(pallet_subtensor::ActivityCutoffFactorMilli::<R>::get(
+            NetUid::from(netuid),
+        ))
+    }
+
+    #[precompile::public("setActivityCutoffFactor(uint16,uint32)")]
+    #[precompile::payable]
+    fn set_activity_cutoff_factor(
+        handle: &mut impl PrecompileHandle,
+        netuid: u16,
+        factor_milli: u32,
+    ) -> EvmResult<()> {
+        let call = pallet_subtensor::Call::<R>::set_activity_cutoff_factor {
+            netuid: netuid.into(),
+            factor_milli,
+        };
+
+        handle.try_dispatch_runtime_call::<R, _>(
+            call,
+            RawOrigin::Signed(handle.caller_account_id::<R>()),
+        )
+    }
+
     #[precompile::public("getNetworkRegistrationAllowed(uint16)")]
     #[precompile::view]
     fn get_network_registration_allowed(
@@ -1109,6 +1135,32 @@ mod tests {
                     (TEST_NETUID_U16,),
                 ),
                 U256::from(activity_cutoff),
+            );
+
+            let factor_milli: u32 = 1_500;
+            precompiles
+                .prepare_test(
+                    caller,
+                    precompile_addr,
+                    encode_with_selector(
+                        selector_u32("setActivityCutoffFactor(uint16,uint32)"),
+                        (TEST_NETUID_U16, factor_milli),
+                    ),
+                )
+                .execute_returns(());
+            assert_eq!(
+                pallet_subtensor::ActivityCutoffFactorMilli::<Runtime>::get(netuid),
+                factor_milli
+            );
+            assert_static_call(
+                &precompiles,
+                caller,
+                precompile_addr,
+                encode_with_selector(
+                    selector_u32("getActivityCutoffFactor(uint16)"),
+                    (TEST_NETUID_U16,),
+                ),
+                U256::from(factor_milli),
             );
 
             precompiles
