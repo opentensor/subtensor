@@ -1564,16 +1564,21 @@ pub mod pallet {
     #[pallet::storage]
     pub type DecayingOwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
 
-    /// --- DMAP ( coldkey, netuid ) --> false | When present, this coldkey's lock decays.
-    /// Missing entries mean the lock is perpetual.
+    /// --- DMAP ( coldkey, netuid ) --> false | When present and false, this coldkey's lock is perpetual.
+    /// Missing entries mean the lock decays by default.
     #[pallet::storage]
     pub type DecayingLock<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, NetUid, bool, OptionQuery>;
 
-    /// Default unlock timescale: 90% decay over ~365.25 days at 12s blocks.
+    /// --- MAP ( netuid ) --> bool | Whether subnet owner cut should be auto-locked.
+    /// Missing entries default to false, so auto-locking is opt-in per subnet.
+    #[pallet::storage]
+    pub type OwnerCutAutoLockEnabled<T: Config> = StorageMap<_, Identity, NetUid, bool, ValueQuery>;
+
+    /// Default unlock timescale: 90% decay over half of 365.25 days at 12s blocks.
     #[pallet::type_value]
     pub fn DefaultUnlockRate<T: Config>() -> u64 {
-        1_142_108
+        571_054
     }
 
     /// Default maturity timescale: Conviction is ~5.2x faster than the default unlock rate.
