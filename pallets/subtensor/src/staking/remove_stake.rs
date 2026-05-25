@@ -643,14 +643,14 @@ impl<T: Config> Pallet<T> {
             }
             hotkeys_in_subnet.push(hot.clone());
 
-            let mut iterate_all = true;
+            let mut inner_read_all = true;
             let mut coldkey_value_vec: Vec<(T::AccountId, u128)> = Vec::new();
 
             // Handle one hotkey and all its coldkeys or skip the hotkey if the weight is not enough
             // Then we just need to record the hotkey as checkpoint
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r.saturating_mul(2_u64)) {
-                    iterate_all = false;
+                    inner_read_all = false;
                     LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
                         &hot,
                         this_netuid,
@@ -687,7 +687,7 @@ impl<T: Config> Pallet<T> {
 
                     // reserve the weight for the add_balance_to_coldkey_account function call later
                     if !weight_meter.can_consume(need_to_consume_weight) {
-                        iterate_all = false;
+                        inner_read_all = false;
                         LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
                             &hot,
                             this_netuid,
@@ -700,7 +700,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            if !iterate_all {
+            if !inner_read_all {
                 read_all = false;
                 break;
             } else {
