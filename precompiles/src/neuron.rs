@@ -260,8 +260,8 @@ mod tests {
     use super::*;
     use crate::PrecompileExt;
     use crate::mock::{
-        AccountId, Runtime, addr_from_index, execute_precompile, mapped_account,
-        new_test_ext, precompiles, selector_u32,
+        AccountId, Runtime, addr_from_index, execute_precompile, mapped_account, new_test_ext,
+        precompiles, selector_u32,
     };
     use precompile_utils::solidity::encode_with_selector;
     use precompile_utils::testing::PrecompileTesterExt;
