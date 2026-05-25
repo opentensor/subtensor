@@ -2262,12 +2262,7 @@ pub mod pallet {
             netuid: NetUid,
             enabled: bool,
         ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::SubnetEmissionEnabled.into()],
-            )?;
-            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -2278,12 +2273,6 @@ pub mod pallet {
             pallet_subtensor::SubnetEmissionEnabled::<T>::insert(netuid, enabled);
             Self::deposit_event(Event::SubnetEmissionEnabledSet { netuid, enabled });
             log::debug!("SubnetEmissionEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} )");
-
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::SubnetEmissionEnabled.into()],
-            );
 
             Ok(())
         }
