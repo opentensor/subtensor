@@ -596,8 +596,7 @@ impl<T: Config> Pallet<T> {
             netuid
         );
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(1));
-
+        // Ignore the weight for a single value update
         TimelockedIndex::<T>::mutate(|index| {
             index.retain(|(n, _)| *n != netuid);
         });
