@@ -2393,7 +2393,7 @@ fn execute_orders_wrong_relayer_skipped() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(BoundedVec::try_from(vec![charlie()]).unwrap()), // only charlie may relay this order
+            Some(BoundedVec::truncate_from(vec![charlie()])), // only charlie may relay this order
         );
         let id = order_id(&signed.order);
 
@@ -2428,7 +2428,7 @@ fn execute_orders_correct_relayer_executed() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(BoundedVec::try_from(vec![charlie()]).unwrap()), // charlie is the designated relayer
+            Some(BoundedVec::truncate_from(vec![charlie()])), // charlie is the designated relayer
         );
         let id = order_id(&signed.order);
 
@@ -2467,7 +2467,7 @@ fn execute_batched_orders_wrong_relayer_fails_entire_batch() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(BoundedVec::try_from(vec![charlie()]).unwrap()), // only charlie may relay this order
+            Some(BoundedVec::truncate_from(vec![charlie()])), // only charlie may relay this order
         );
 
         assert_noop!(
@@ -2501,7 +2501,7 @@ fn execute_batched_orders_correct_relayer_succeeds() {
             FAR_FUTURE,
             Perbill::zero(),
             fee_recipient(),
-            Some(BoundedVec::try_from(vec![charlie()]).unwrap()), // charlie is the designated relayer
+            Some(BoundedVec::truncate_from(vec![charlie()])), // charlie is the designated relayer
         );
         let id = order_id(&signed.order);
 

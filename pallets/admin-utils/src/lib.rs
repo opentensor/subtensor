@@ -2191,13 +2191,43 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Set whether the subnet owner cut is enabled for a subnet.
+        /// It is only callable by root and subnet owner.
+        #[pallet::call_index(92)]
+        #[pallet::weight((
+            Weight::from_parts(25_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(4))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes,
+        ))]
+        pub fn sudo_set_owner_cut_enabled(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+
+            pallet_subtensor::Pallet::<T>::set_owner_cut_enabled_flag(netuid, enabled);
+            log::debug!("OwnerCutEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} ) ");
+
+            Ok(())
+        }
+
         /// Enables or disables subnet pool-side emission for a subnet.
         ///
         /// This does not remove the subnet from emission share calculation and does not
         /// change `alpha_out`, owner cut, root proportion, pending server emission, or
         /// pending validator emission. It only zeros the pool-side `alpha_in`, `tao_in`,
         /// and `excess_tao` chain-buy paths.
-        #[pallet::call_index(92)]
+        #[pallet::call_index(94)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_subnet_emission_enabled())]
         pub fn sudo_set_subnet_emission_enabled(
             origin: OriginFor<T>,

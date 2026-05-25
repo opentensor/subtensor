@@ -19,6 +19,7 @@ pub struct DevShieldKeystore {
 }
 
 impl DevShieldKeystore {
+    #[allow(clippy::expect_used)]
     pub fn new() -> Self {
         let inner = MemoryShieldKeystore::new();
         let enc_key_bytes = inner
@@ -27,7 +28,16 @@ impl DevShieldKeystore {
         inner
             .roll_for_next_slot()
             .expect("initial roll should not fail");
-        Self { enc_key_bytes, inner }
+        Self {
+            enc_key_bytes,
+            inner,
+        }
+    }
+}
+
+impl Default for DevShieldKeystore {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

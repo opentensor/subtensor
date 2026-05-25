@@ -65,7 +65,8 @@ describeSuite({
                 // block for it to advance to PendingKey, which doesn't happen automatically in
                 // manual-seal mode.
                 const pendingKeyRaw = await polkadotJs.query.mevShield.pendingKey();
-                if ((pendingKeyRaw as any).isNone) throw new Error("MEVShield PendingKey not available — create more blocks first");
+                if ((pendingKeyRaw as any).isNone)
+                    throw new Error("MEVShield PendingKey not available — create more blocks first");
                 const nextKeyBytes = (pendingKeyRaw as any).unwrap().toU8a(true);
 
                 const signedOrder = buildSignedOrder(polkadotJs, {
@@ -83,7 +84,9 @@ describeSuite({
                 });
 
                 // Get alice's current nonce so we can pre-sign the inner tx at nonce+1
-                const aliceNonce = ((await polkadotJs.query.system.account(alice.address)) as any).nonce.toNumber() as number;
+                const aliceNonce = (
+                    (await polkadotJs.query.system.account(alice.address)) as any
+                ).nonce.toNumber() as number;
 
                 // Sign the inner execute_orders tx at nonce+1, then get its raw bytes
                 const innerTx = await polkadotJs.tx.limitOrders
@@ -135,7 +138,8 @@ describeSuite({
                 await devForceSetBalance(polkadotJs, context, relayer.address, tao(100));
 
                 const pendingKeyRaw = await polkadotJs.query.mevShield.pendingKey();
-                if ((pendingKeyRaw as any).isNone) throw new Error("MEVShield PendingKey not available — create more blocks first");
+                if ((pendingKeyRaw as any).isNone)
+                    throw new Error("MEVShield PendingKey not available — create more blocks first");
                 const pendingKeyBytes = (pendingKeyRaw as any).unwrap().toU8a(true);
 
                 const signedOrder = buildSignedOrder(polkadotJs, {
@@ -154,7 +158,9 @@ describeSuite({
 
                 // The relayer submits the encrypted execute_orders tx on Alice's behalf.
                 // relayerNonce+0 = outer submit_encrypted, relayerNonce+1 = inner execute_orders.
-                const relayerNonce = ((await polkadotJs.query.system.account(relayer.address)) as any).nonce.toNumber() as number;
+                const relayerNonce = (
+                    (await polkadotJs.query.system.account(relayer.address)) as any
+                ).nonce.toNumber() as number;
 
                 const innerTx = await polkadotJs.tx.limitOrders
                     .executeOrders([signedOrder])
