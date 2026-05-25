@@ -617,6 +617,17 @@ impl<T: Config> Pallet<T> {
                 log::debug!(
                     "incentives: hotkey: {hotkey:?} is SN owner hotkey or associated hotkey, skipping {incentive:?}"
                 );
+
+                // Record the miner burn as a TAO outflow. The incentive is
+                // denominated in alpha, so convert to its TAO equivalent at
+                // the current spot price (no slippage, since no swap occurs).
+                let current_price: U96F32 =
+                    T::SwapInterface::current_alpha_price(netuid.into());
+                let tao_equivalent: TaoBalance = current_price
+                    .saturating_mul(asfloat!(incentive))
+                    .saturating_to_num::<u64>()
+                    .into();
+                Self::record_tao_outflow(netuid, tao_equivalent);
                 // Check if we should recycle or burn the incentive
                 match RecycleOrBurn::<T>::try_get(netuid) {
                     Ok(RecycleOrBurnEnum::Recycle) => {
