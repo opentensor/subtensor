@@ -286,10 +286,7 @@ where
                 )
             }
             a if a == hash(LimitOrdersPrecompile::<R>::INDEX) => {
-                LimitOrdersPrecompile::<R>::try_execute::<R>(
-                    handle,
-                    PrecompileEnum::LimitOrders,
-                )
+                LimitOrdersPrecompile::<R>::try_execute::<R>(handle, PrecompileEnum::LimitOrders)
             }
             _ => None,
         }
