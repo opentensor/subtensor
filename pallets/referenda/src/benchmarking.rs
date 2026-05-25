@@ -2,7 +2,7 @@
 //!
 //! Setup is parameterised through [`Config::BenchmarkHelper`]: the runtime
 //! supplies track ids of each strategy variant plus a proposer that's
-//! already in the relevant proposer set.
+//! already in the directly submittable track's proposer set.
 //!
 //! `advance_referendum` is benchmarked on its worst-case branch
 //! (approve-with-`Review`): the parent fires `OnPollCompleted`, the child
@@ -20,13 +20,14 @@ use sp_runtime::Perbill;
 mod benches {
     use super::*;
 
-    /// Worst-case `submit`: `Adjustable` track schedules both the
-    /// enactment task and the reaper alarm. `PassOrFail` only schedules
-    /// the deadline alarm, so it is strictly cheaper.
+    /// Worst-case `submit` for directly submittable tracks: this runtime's
+    /// `Adjustable` review track is not directly submittable, so the worst
+    /// reachable path is `PassOrFail`, which schedules the deadline alarm.
     #[benchmark]
     fn submit() {
         let proposer = T::BenchmarkHelper::proposer();
-        let track = T::BenchmarkHelper::track_adjustable();
+        T::BenchmarkHelper::seed_collective_members();
+        let track = T::BenchmarkHelper::track_passorfail();
         let call = Box::new(T::BenchmarkHelper::call());
 
         #[extrinsic_call]
@@ -35,13 +36,15 @@ mod benches {
         assert_eq!(ActiveCount::<T>::get(), 1);
     }
 
-    /// Worst-case `kill`: `Adjustable` has both an enactment task and an
-    /// alarm to cancel. `PassOrFail` only has an alarm before approval, so
-    /// one of the two `cancel_named` calls is a no-op.
+    /// Worst-case `kill` for directly submittable tracks: an `Adjustable`
+    /// review would cancel both enactment and alarm tasks, but it is not
+    /// directly submittable in this runtime, so the worst reachable path is
+    /// `PassOrFail` before approval.
     #[benchmark]
     fn kill() {
         let proposer = T::BenchmarkHelper::proposer();
-        let track = T::BenchmarkHelper::track_adjustable();
+        T::BenchmarkHelper::seed_collective_members();
+        let track = T::BenchmarkHelper::track_passorfail();
         let call = Box::new(T::BenchmarkHelper::call());
         let index = ReferendumCount::<T>::get();
         Pallet::<T>::submit(RawOrigin::Signed(proposer).into(), track, call)
@@ -62,6 +65,7 @@ mod benches {
     #[benchmark]
     fn advance_referendum() {
         let proposer = T::BenchmarkHelper::proposer();
+        T::BenchmarkHelper::seed_collective_members();
         let track = T::BenchmarkHelper::track_passorfail();
         let call = Box::new(T::BenchmarkHelper::call());
         let index = ReferendumCount::<T>::get();
@@ -94,6 +98,7 @@ mod benches {
     #[benchmark]
     fn on_tally_updated() {
         let proposer = T::BenchmarkHelper::proposer();
+        T::BenchmarkHelper::seed_collective_members();
         let track = T::BenchmarkHelper::track_passorfail();
         let call = Box::new(T::BenchmarkHelper::call());
         let index = ReferendumCount::<T>::get();

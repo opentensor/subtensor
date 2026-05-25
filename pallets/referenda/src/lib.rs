@@ -299,6 +299,8 @@ pub mod pallet {
         fn track_adjustable() -> TrackId;
         /// Account in the proposer set of both tracks returned above.
         fn proposer() -> AccountId;
+        /// Seed collective members that we need for benchmarks.
+        fn seed_collective_members();
         /// A call that `T::Tracks::authorize_proposal` accepts. Should be
         /// cheap to bound (e.g. `frame_system::remark`).
         fn call() -> Call;

@@ -151,12 +151,17 @@ impl pallet_signed_voting::benchmarking::BenchmarkHelper<Runtime> for SignedVoti
     #[allow(clippy::expect_used)]
     fn ongoing_poll() -> u32 {
         use self::ReferendaBenchmarkHelper as RBH;
-        use pallet_referenda::BenchmarkHelper as BH;
+        use pallet_referenda::{
+            BenchmarkHelper as BH, ReferendumCount, ReferendumStatus, ReferendumStatusFor,
+        };
+        use sp_runtime::Perbill;
+        use subtensor_runtime_common::VoteTally;
 
         let proposer = <RBH as BH<u8, AccountId, RuntimeCall>>::proposer();
-        let track = <RBH as BH<u8, AccountId, RuntimeCall>>::track_adjustable();
+        <RBH as BH<u8, AccountId, RuntimeCall>>::seed_collective_members();
+        let track = <RBH as BH<u8, AccountId, RuntimeCall>>::track_passorfail();
         let call = <RBH as BH<u8, AccountId, RuntimeCall>>::call();
-        let index = pallet_referenda::ReferendumCount::<Runtime>::get();
+        let parent = ReferendumCount::<Runtime>::get();
 
         Referenda::submit(
             frame_system::RawOrigin::Signed(proposer).into(),
@@ -164,7 +169,26 @@ impl pallet_signed_voting::benchmarking::BenchmarkHelper<Runtime> for SignedVoti
             sp_std::boxed::Box::new(call),
         )
         .expect("submit must succeed in benchmark setup");
-        index
+
+        let child = ReferendumCount::<Runtime>::get();
+        let mut info = match ReferendumStatusFor::<Runtime>::get(parent) {
+            Some(ReferendumStatus::Ongoing(info)) => info,
+            _ => panic!("expected ongoing referendum"),
+        };
+        info.tally = VoteTally {
+            approval: Perbill::one(),
+            rejection: Perbill::zero(),
+            abstention: Perbill::zero(),
+        };
+        ReferendumStatusFor::<Runtime>::insert(parent, ReferendumStatus::Ongoing(info));
+
+        Referenda::advance_referendum(frame_system::RawOrigin::Root.into(), parent)
+            .expect("advance must create review poll in benchmark setup");
+        assert!(matches!(
+            ReferendumStatusFor::<Runtime>::get(child),
+            Some(ReferendumStatus::Ongoing(_))
+        ));
+        child
     }
 }
 
@@ -204,13 +228,44 @@ impl pallet_referenda::BenchmarkHelper<u8, AccountId, RuntimeCall> for Referenda
     }
 
     fn proposer() -> AccountId {
-        let proposer: AccountId = sp_core::crypto::AccountId32::new([1u8; 32]).into();
-        let _ = pallet_multi_collective::Pallet::<Runtime>::add_member(
-            frame_system::RawOrigin::Root.into(),
+        use frame_system::RawOrigin;
+        use pallet_multi_collective::Pallet as MultiCollective;
+        use sp_core::crypto::AccountId32;
+
+        let proposer: AccountId = AccountId32::new([1u8; 32]).into();
+        MultiCollective::<Runtime>::add_member(
+            RawOrigin::Root.into(),
             CollectiveId::Proposers,
             proposer.clone(),
-        );
+        )
+        .expect("add proposer must succeed in benchmark setup");
+
         proposer
+    }
+
+    fn seed_collective_members() {
+        use frame_system::RawOrigin;
+        use pallet_multi_collective::Pallet as MultiCollective;
+        use sp_core::crypto::AccountId32;
+
+        MultiCollective::<Runtime>::add_member(
+            RawOrigin::Root.into(),
+            CollectiveId::Triumvirate,
+            AccountId32::new([2u8; 32]).into(),
+        )
+        .expect("add triumvirate member must succeed in benchmark setup");
+        MultiCollective::<Runtime>::add_member(
+            RawOrigin::Root.into(),
+            CollectiveId::Economic,
+            AccountId32::new([3u8; 32]).into(),
+        )
+        .expect("add economic member must succeed in benchmark setup");
+        MultiCollective::<Runtime>::add_member(
+            RawOrigin::Root.into(),
+            CollectiveId::Building,
+            AccountId32::new([4u8; 32]).into(),
+        )
+        .expect("add building member must succeed in benchmark setup");
     }
 
     fn call() -> RuntimeCall {

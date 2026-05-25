@@ -521,6 +521,7 @@ impl pallet_referenda::BenchmarkHelper<u8, U256, RuntimeCall> for TestBenchmarkH
     fn proposer() -> U256 {
         U256::from(1)
     }
+    fn seed_collective_members() {}
     fn call() -> RuntimeCall {
         RuntimeCall::System(frame_system::Call::remark { remark: vec![] })
     }
