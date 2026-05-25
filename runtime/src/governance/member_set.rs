@@ -1,6 +1,7 @@
 use alloc::vec::Vec;
 
 use pallet_multi_collective::CollectiveInspect;
+use sp_runtime::traits::UniqueSaturatedInto;
 use subtensor_runtime_common::SetLike;
 
 use crate::{AccountId, MultiCollective};
@@ -70,7 +71,7 @@ impl SetLike<AccountId> for MemberSet {
     }
 
     fn len(&self) -> u32 {
-        self.to_vec().len() as u32
+        self.to_vec().len().unique_saturated_into()
     }
 
     fn is_initialized(&self) -> bool {

@@ -6,6 +6,7 @@ use pallet_subtensor::{
     *,
 };
 use scale_info::TypeInfo;
+use sp_runtime::traits::UniqueSaturatedInto;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::NetUid;
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -48,10 +49,13 @@ pub struct StakeValueProvider;
 
 impl StakeValueProvider {
     fn subnet_chunk(netuids: &[NetUid], offset: u32) -> &[NetUid] {
-        let start = (offset as usize).min(netuids.len());
-        let end = offset
+        let start: usize = offset.unique_saturated_into();
+        let start = start.min(netuids.len());
+        let netuids_len: u32 = netuids.len().unique_saturated_into();
+        let end: usize = offset
             .saturating_add(STAKE_CHUNK_SUBNETS)
-            .min(netuids.len() as u32) as usize;
+            .min(netuids_len)
+            .unique_saturated_into();
         netuids.get(start..end).unwrap_or_default()
     }
 
@@ -66,10 +70,11 @@ impl StakeValueProvider {
     }
 
     fn tao_for_subnet_hotkeys(hotkeys: &[AccountId], netuid: NetUid) -> u128 {
+        let hotkey_limit: usize = STAKE_VALUE_HOTKEYS.unique_saturated_into();
         let total_alpha =
             hotkeys
                 .iter()
-                .take(STAKE_VALUE_HOTKEYS as usize)
+                .take(hotkey_limit)
                 .fold(0_u128, |total, hotkey| {
                     let alpha =
                         Subtensor::<Runtime>::get_stake_for_hotkey_on_subnet(hotkey, netuid);
@@ -80,7 +85,9 @@ impl StakeValueProvider {
             return 0;
         }
 
-        let aggregated = total_alpha.min(u128::from(u64::MAX)) as u64;
+        let aggregated: u64 = total_alpha
+            .min(u128::from(u64::MAX))
+            .unique_saturated_into();
         let order = GetTaoForAlpha::<Runtime>::with_amount(aggregated);
         <Runtime as Config>::SwapInterface::sim_swap(netuid.into(), order)
             .map(|r| u128::from(u64::from(r.amount_paid_out)))
@@ -95,7 +102,7 @@ impl EmaValueProvider<AccountId> for StakeValueProvider {
     /// accumulated TAO value in `Progress` until all subnets are sampled.
     fn step(coldkey: &AccountId, progress: Self::Progress) -> (SampleStep<Self::Progress>, Weight) {
         let netuids = Subtensor::<Runtime>::get_all_subnet_netuids();
-        let total = netuids.len() as u32;
+        let total: u32 = netuids.len().unique_saturated_into();
         let hotkeys = OwnedHotkeys::<Runtime>::get(coldkey);
 
         let mut next = progress;
@@ -103,9 +110,10 @@ impl EmaValueProvider<AccountId> for StakeValueProvider {
             let chunk = Self::subnet_chunk(&netuids, next.subnet_offset);
             next.accumulated_tao =
                 Self::accumulate_subnet_values(&hotkeys, chunk, next.accumulated_tao);
+            let chunk_len: u32 = chunk.len().unique_saturated_into();
             next.subnet_offset = next
                 .subnet_offset
-                .saturating_add(chunk.len() as u32)
+                .saturating_add(chunk_len)
                 .min(total);
         }
 

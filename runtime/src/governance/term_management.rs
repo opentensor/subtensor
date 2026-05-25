@@ -6,6 +6,7 @@ use pallet_multi_collective::{
     weights::WeightInfo as MultiCollectiveWeightInfo,
 };
 use pallet_subtensor::{Pallet as Subtensor, *};
+use sp_runtime::traits::UniqueSaturatedInto;
 use substrate_fixed::types::{I96F32, U64F64};
 
 use crate::{AccountId, BlockNumber, Runtime};
@@ -119,7 +120,7 @@ impl TermManagement {
 /// Sort by descending score and return the first `n` keys.
 fn rank_top_n<K, S: Ord>(mut entries: Vec<(K, S)>, n: u32) -> Vec<K> {
     entries.sort_by(|a, b| b.1.cmp(&a.1));
-    entries.truncate(n as usize);
+    entries.truncate(n.unique_saturated_into());
     entries.into_iter().map(|(k, _)| k).collect()
 }
 

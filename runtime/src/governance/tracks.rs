@@ -5,7 +5,8 @@ use pallet_referenda::{
     TrackInfo as RefTrackInfo, TracksInfo as RefTracksInfo,
 };
 use runtime_common::prod_or_fast;
-use sp_runtime::Perbill;
+use safe_math::SafeDiv;
+use sp_runtime::{Perbill, traits::UniqueSaturatedInto};
 use subtensor_runtime_common::{
     pad_name,
     time::{DAYS, HOURS},
@@ -39,11 +40,11 @@ impl AdjustmentCurve for EaseOutAdjustmentCurve {
         let remaining_cubed = remaining
             .saturating_mul(remaining)
             .saturating_mul(remaining)
-            / scale
-            / scale;
+            .safe_div(scale)
+            .safe_div(scale);
         let curved = scale.saturating_sub(remaining_cubed);
 
-        Perbill::from_parts(curved.min(scale) as u32)
+        Perbill::from_parts(curved.min(scale).unique_saturated_into())
     }
 }
 
