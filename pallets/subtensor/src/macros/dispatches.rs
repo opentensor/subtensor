@@ -2585,7 +2585,7 @@ mod dispatches {
         /// When enabled, the caller's individual lock does not unlock through
         /// locked-mass decay. Passing `false` removes the flag, returning the
         /// caller's lock to normal decay.
-        #[pallet::call_index(139)]
+        #[pallet::call_index(138)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(4, 3))]
         pub fn set_perpetual_lock(
             origin: OriginFor<T>,
@@ -2599,7 +2599,7 @@ mod dispatches {
         /// Owner-side `set_tempo`. Validates `[MinTempo, MaxTempo]`, applies a fixed
         /// `MinTempo`-block cooldown via `TransactionType::TempoUpdate`, respects the admin
         /// freeze window, and resets the cycle (`LastEpochBlock = current_block`) on success.
-        #[pallet::call_index(140)]
+        #[pallet::call_index(139)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_tempo())]
         pub fn set_tempo(origin: OriginFor<T>, netuid: NetUid, tempo: u16) -> DispatchResult {
             Self::do_set_tempo(origin, netuid, tempo)
@@ -2609,7 +2609,7 @@ mod dispatches {
         /// = (factor × tempo) / 1000`. Validates `[MinActivityCutoffFactorMilli,
         /// MaxActivityCutoffFactorMilli]`, rate-limited via the existing
         /// `OwnerHyperparamUpdate` pattern, respects the admin freeze window.
-        #[pallet::call_index(141)]
+        #[pallet::call_index(140)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_activity_cutoff_factor())]
         pub fn set_activity_cutoff_factor(
             origin: OriginFor<T>,
@@ -2621,7 +2621,7 @@ mod dispatches {
 
         /// Owner-side `trigger_epoch`. Schedules an epoch to fire after `AdminFreezeWindow`
         /// blocks. Rate-limited via the existing `OwnerHyperparamUpdate` pattern.
-        #[pallet::call_index(142)]
+        #[pallet::call_index(141)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::trigger_epoch())]
         pub fn trigger_epoch(origin: OriginFor<T>, netuid: NetUid) -> DispatchResult {
             Self::do_trigger_epoch(origin, netuid)
