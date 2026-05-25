@@ -267,5 +267,9 @@ mod config {
         /// Burn account ID
         #[pallet::constant]
         type BurnAccountId: Get<PalletId>;
+        /// Per-block cap on number of subnet epochs that may execute in a single
+        /// `block_step`; the rest are deferred 1 block forward via `PendingEpochAt`.
+        #[pallet::constant]
+        type MaxEpochsPerBlock: Get<u32>;
     }
 }

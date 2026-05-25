@@ -1778,8 +1778,6 @@ pub mod pallet {
     /// Default activity-cutoff factor (per-mille). 13_889 ≈ legacy 5000-block cutoff
     /// at default tempo 360 (`13_889 * 360 / 1000 = 5_000`, exact via ceiling rounding).
     pub const INITIAL_ACTIVITY_CUTOFF_FACTOR_MILLI: u32 = 13_889;
-    /// Per-block cap on number of epochs that may execute in a single `block_step`.
-    pub const MAX_EPOCHS_PER_BLOCK: u32 = prod_or_fast!(2, 32);
 
     /// Default value for activity-cutoff factor (per-mille).
     #[pallet::type_value]

@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // Per-block cap — defer if already at limit.
-            if epochs_run_this_block >= MAX_EPOCHS_PER_BLOCK {
+            if epochs_run_this_block >= T::MaxEpochsPerBlock::get() {
                 let next_block = current_block.saturating_add(1);
                 PendingEpochAt::<T>::insert(netuid, next_block);
                 Self::deposit_event(Event::EpochDeferred {

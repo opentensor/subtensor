@@ -1138,6 +1138,7 @@ parameter_types! {
     pub const EvmKeyAssociateRateLimit: u64 = EVM_KEY_ASSOCIATE_RATELIMIT;
     pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
     pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
+    pub const SubtensorMaxEpochsPerBlock: u32 = prod_or_fast!(2, 32);
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1216,6 +1217,7 @@ impl pallet_subtensor::Config for Runtime {
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
+    type MaxEpochsPerBlock = SubtensorMaxEpochsPerBlock;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
 }
 
