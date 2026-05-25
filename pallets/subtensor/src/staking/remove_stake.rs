@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::weights::WeightMeter;
+use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::{Order, SwapHandler};
@@ -603,6 +604,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let w = T::DbWeight::get().writes(1);
+        let weight_for_tansfer_tao = T::DbWeight::get().reads_writes(11, 3);
         let mut read_all = true;
 
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
@@ -617,6 +619,7 @@ impl<T: Config> Pallet<T> {
             DissolvedSubnetSettledAlphaValue::<T>::get().unwrap_or(0);
 
         let mut hotkeys_in_subnet: Vec<T::AccountId> = Vec::new();
+        let mut coldkeys = BTreeSet::<T::AccountId>::new();
 
         let iter = match LastKeptRawKey::<T>::get() {
             Some(key) => TotalHotkeyAlpha::<T>::iter_from(key),
@@ -673,8 +676,17 @@ impl<T: Config> Pallet<T> {
                 };
 
                 if val_u64 > 0 {
+                    let mut need_to_consume_weight = w;
+
+                    // if the coldkey is not in the set, we need to consume the weight for the transfer_tao_from_subnet function call
+                    if !coldkeys.contains(&cold) {
+                        need_to_consume_weight =
+                            need_to_consume_weight.saturating_add(weight_for_tansfer_tao);
+                        coldkeys.insert(cold.clone());
+                    }
+
                     // reserve the weight for the add_balance_to_coldkey_account function call later
-                    if !weight_meter.can_consume(w) {
+                    if !weight_meter.can_consume(need_to_consume_weight) {
                         iterate_all = false;
                         LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(
                             &hot,
@@ -682,7 +694,7 @@ impl<T: Config> Pallet<T> {
                         )));
                         break;
                     }
-                    weight_meter.consume(r.saturating_mul(2_u64));
+                    weight_meter.consume(need_to_consume_weight);
                     let val_u128 = val_u64 as u128;
                     coldkey_value_vec.push((cold.clone(), val_u128));
                 }
