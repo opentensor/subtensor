@@ -613,7 +613,12 @@ mod events {
         },
 
         /// Activity-cutoff factor (per-mille) set on a subnet by its owner.
-        ActivityCutoffFactorMilliSet(NetUid, u32),
+        ActivityCutoffFactorMilliSet {
+            /// The subnet identifier.
+            netuid: NetUid,
+            /// Factor (per-mille).
+            factor_milli: u32,
+        },
 
         /// Owner manually triggered an epoch for their subnet.
         EpochTriggered {

@@ -618,7 +618,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_activity_cutoff_factor_milli(netuid: NetUid, factor_milli: u32) {
         ActivityCutoffFactorMilli::<T>::insert(netuid, factor_milli);
-        Self::deposit_event(Event::ActivityCutoffFactorMilliSet(netuid, factor_milli));
+        Self::deposit_event(Event::ActivityCutoffFactorMilliSet {
+            netuid,
+            factor_milli,
+        });
     }
 
     // Registration Toggle utils
