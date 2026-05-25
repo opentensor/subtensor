@@ -37,6 +37,10 @@ fn new_test_ext() -> sp_io::TestExternalities {
 /// fixed 1 TAO : 1 alpha rate without requiring pre-seeded AMM liquidity.
 fn setup_subnet(netuid: NetUid) {
     SubtensorModule::init_new_network(netuid, 0);
+    // Genesis forces netuid 1 to dynamic (mechanism_id = 1); override to stable
+    // (mechanism_id = 0) so that swaps are 1:1 with no AMM fees, matching the
+    // intent of every test that calls this helper.
+    pallet_subtensor::SubnetMechanism::<Runtime>::insert(netuid, 0u16);
     pallet_subtensor::SubtokenEnabled::<Runtime>::insert(netuid, true);
 }
 
@@ -1700,12 +1704,19 @@ fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
 
         // Same limit_price — trigger still met.  max_slippage = None → floor = 0
         // → AMM limit = 0 → no floor constraint → pool executes the sell.
+        //
+        // Sell 5× min_default_stake: the dynamic AMM deducts a small fee (~0.05%)
+        // from the alpha input before swapping, so the TAO output is slightly below
+        // the sell amount.  The `validate_remove_stake` sim-swap check verifies that
+        // the TAO equivalent is ≥ DefaultMinStake — selling 5× ensures the fee cannot
+        // drag the output below that floor even on a lightly-loaded pool.
+        let sell_amount = min_default_stake().to_u64() * 5;
         let signed = make_signed_order_with_slippage_rt(
             alice,
             bob_id.clone(),
             netuid,
             OrderType::StopLoss,
-            min_default_stake().into(),
+            sell_amount,
             2_000_000_000,
             u64::MAX,
             Perbill::zero(),
@@ -1728,13 +1739,13 @@ fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
             "order should be fulfilled when no slippage floor is set"
         );
 
-        // Alice's staked alpha must have decreased by exactly min_default_stake.
+        // Alice's staked alpha must have decreased by the sold amount (5× min_default_stake).
         let remaining =
             SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
         assert_eq!(
             remaining,
-            AlphaBalance::from(min_default_stake().to_u64() * 9u64),
-            "alice's staked alpha should decrease by min_default_stake after StopLoss executes"
+            AlphaBalance::from(min_default_stake().to_u64() * 5u64),
+            "alice's staked alpha should decrease by 5×min_default_stake after StopLoss executes"
         );
     });
 }
@@ -2121,7 +2132,7 @@ fn on_runtime_upgrade_marks_migration_run_without_touching_pallet_status() {
         assert!(!HasMigrationRun::<Runtime>::get(migration_key()));
         assert!(SubtensorModule::coldkey_owns_hotkey(&pallet_acct(), &pallet_hotkey()));
 
-        <LimitOrders as Hooks<u64>>::on_runtime_upgrade();
+        <LimitOrders as Hooks<u32>>::on_runtime_upgrade();
 
         assert!(
             HasMigrationRun::<Runtime>::get(migration_key()),
@@ -2139,16 +2150,150 @@ fn on_runtime_upgrade_marks_migration_run_without_touching_pallet_status() {
 #[test]
 fn on_runtime_upgrade_is_idempotent() {
     new_test_ext().execute_with(|| {
-        <LimitOrders as Hooks<u64>>::on_runtime_upgrade();
+        <LimitOrders as Hooks<u32>>::on_runtime_upgrade();
         assert!(HasMigrationRun::<Runtime>::get(migration_key()));
 
         // Second run must not change any state.
         LimitOrdersEnabled::<Runtime>::set(false);
-        <LimitOrders as Hooks<u64>>::on_runtime_upgrade();
+        <LimitOrders as Hooks<u32>>::on_runtime_upgrade();
 
         assert!(
             !LimitOrdersEnabled::<Runtime>::get(),
             "second upgrade must not touch LimitOrdersEnabled"
+        );
+    });
+}
+
+// ── Conviction-lock protection ────────────────────────────────────────────────
+
+/// A sell order whose alpha is fully conviction-locked is silently skipped by
+/// `execute_orders` (best-effort path): the extrinsic returns `Ok`, the order
+/// is never written to `Orders` storage, and the seller's staked alpha is
+/// unchanged.
+#[test]
+fn individual_sell_order_skipped_when_alpha_is_conviction_locked() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Give alice staked alpha through bob.
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 3u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id,
+            &alice_id,
+            netuid,
+            initial_alpha,
+        );
+        seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
+
+        // Lock ALL of alice's alpha with conviction — nothing is available to sell.
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &alice_id,
+            netuid,
+            &bob_id,
+            initial_alpha,
+        ));
+
+        let sell_amount = min_default_stake().to_u64();
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::TakeProfit,
+            sell_amount,
+            0,        // price floor — always satisfied
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        // Best-effort: the locked order is silently skipped, extrinsic still returns Ok.
+        assert_ok!(LimitOrders::execute_orders(
+            RuntimeOrigin::signed(charlie_id),
+            make_order_batch(vec![signed]),
+        ));
+
+        // Order must NOT be in storage — it was skipped, not fulfilled.
+        assert_eq!(
+            Orders::<Runtime>::get(id),
+            None,
+            "order should be skipped when alpha is conviction-locked"
+        );
+
+        // Alice's staked alpha must be completely unchanged.
+        let remaining = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id,
+            &alice_id,
+            netuid,
+        );
+        assert_eq!(
+            remaining,
+            initial_alpha,
+            "conviction-locked alpha must not be moved by a skipped sell order"
+        );
+    });
+}
+
+/// A batched sell order whose alpha is fully conviction-locked causes the
+/// entire `execute_batched_orders` call to fail atomically with
+/// `StakeUnavailable` — no state is committed.
+#[test]
+fn batched_sell_order_fails_when_alpha_is_conviction_locked() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Give alice staked alpha through bob.
+        let initial_alpha: AlphaBalance = (min_default_stake().to_u64() * 3u64).into();
+        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &bob_id,
+            &alice_id,
+            netuid,
+            initial_alpha,
+        );
+        seed_subnet_tao(netuid, TaoBalance::from(initial_alpha.to_u64()));
+
+        // Lock ALL of alice's alpha with conviction — nothing is available to sell.
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &alice_id,
+            netuid,
+            &bob_id,
+            initial_alpha,
+        ));
+
+        let sell = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::TakeProfit,
+            min_default_stake().to_u64(),
+            0,        // price floor — always satisfied
+            u64::MAX,
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+
+        // Atomic path: the lock violation must revert the entire batch.
+        assert_noop!(
+            LimitOrders::execute_batched_orders(
+                RuntimeOrigin::signed(charlie_id),
+                netuid,
+                make_order_batch(vec![sell]),
+            ),
+            pallet_subtensor::Error::<Runtime>::StakeUnavailable
         );
     });
 }

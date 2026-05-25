@@ -66,26 +66,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subtoken_enabled(netuid)?;
         if validate {
-            ensure!(
-                Self::hotkey_account_exists(hotkey),
-                Error::<T>::HotKeyAccountNotExists
-            );
-
-            ensure!(!alpha_amount.is_zero(), Error::<T>::AmountTooLow);
-            let tao_equiv = T::SwapInterface::current_alpha_price(netuid)
-                .saturating_mul(U96F32::saturating_from_num(alpha_amount.to_u64()))
-                .saturating_to_num::<u64>();
-            ensure!(
-                TaoBalance::from(tao_equiv) >= DefaultMinStake::<T>::get(),
-                Error::<T>::AmountTooLow
-            );
-            let available =
-                Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid);
-            ensure!(
-                available >= alpha_amount,
-                Error::<T>::NotEnoughStakeToWithdraw
-            );
-            Self::ensure_stake_operation_limit_not_exceeded(hotkey, coldkey, netuid)?;
+            Self::validate_remove_stake(coldkey, hotkey, netuid, alpha_amount, alpha_amount, false)?;
         }
         // `limit_price` is already in ×10⁹ scale (same as the `current_alpha_price` RPC
         // endpoint), which is also the scale the AMM uses for its price_limit argument.
@@ -148,6 +129,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
                 Error::<T>::AmountTooLow
             );
             Self::ensure_stake_operation_limit_not_exceeded(from_hotkey, from_coldkey, netuid)?;
+            Self::ensure_available_to_unstake(from_coldkey, netuid, amount)?;
         }
 
         let available =

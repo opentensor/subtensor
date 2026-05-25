@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -561,7 +563,7 @@ pub mod pallet {
         }
 
         /// Account derived from the pallet's `PalletId`.
-        fn pallet_account() -> T::AccountId {
+        pub(crate) fn pallet_account() -> T::AccountId {
             T::PalletId::get().into_account_truncating()
         }
 

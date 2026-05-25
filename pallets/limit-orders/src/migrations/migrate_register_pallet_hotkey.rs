@@ -53,8 +53,8 @@ pub fn migrate_register_pallet_hotkey<T: Config>() -> Weight {
 
 #[cfg(test)]
 mod tests {
-    use frame_support::traits::{Get, Hooks};
-    use sp_runtime::traits::AccountIdConversion;
+    use frame_support::traits::Hooks;
+    use sp_runtime::{BuildStorage, traits::AccountIdConversion};
 
     use super::*;
     use crate::tests::mock::{
@@ -150,7 +150,7 @@ mod tests {
         migration_ext().execute_with(|| {
             assert!(!HasMigrationRun::<Test>::get(migration_key()));
 
-            <pallet_limit_orders::Pallet<Test> as Hooks<u64>>::on_runtime_upgrade();
+            <crate::Pallet<Test> as Hooks<u64>>::on_runtime_upgrade();
 
             assert!(HasMigrationRun::<Test>::get(migration_key()));
         });
