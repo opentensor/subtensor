@@ -9,8 +9,8 @@ use scale_info::prelude::string::String;
 /// and `DecayingLock`, but did not have `DecayingOwnerLock`. `OwnerLock` also
 /// used the old owner-coldkey aggregate semantics. Clear these prefixes without
 /// decoding values so old or incompatible aggregate bytes are removed safely.
-pub fn migrate_reset_testnet_conviction_locks<T: Config>() -> Weight {
-    let migration_name = b"migrate_reset_testnet_conviction_locks".to_vec();
+pub fn migrate_reset_tnet_conviction_locks<T: Config>() -> Weight {
+    let migration_name = b"migrate_reset_tnet_conviction_locks".to_vec();
     let mut weight = T::DbWeight::get().reads(1);
 
     if HasMigrationRun::<T>::get(&migration_name) {

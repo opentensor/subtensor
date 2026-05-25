@@ -2479,7 +2479,7 @@ fn test_sudo_set_owner_cut_auto_lock_enabled() {
         let dispatch_info = call.get_dispatch_info();
         assert_eq!(dispatch_info.pays_fee, Pays::Yes);
 
-        assert!(!SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
         assert_noop!(
             AdminUtils::sudo_set_owner_cut_auto_lock_enabled(
                 <<Test as Config>::RuntimeOrigin>::signed(non_owner),
@@ -2492,16 +2492,16 @@ fn test_sudo_set_owner_cut_auto_lock_enabled() {
         assert_ok!(AdminUtils::sudo_set_owner_cut_auto_lock_enabled(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
             netuid,
-            true
+            false
         ));
-        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+        assert!(!SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
 
         assert_ok!(AdminUtils::sudo_set_owner_cut_auto_lock_enabled(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
-            false
+            true
         ));
-        assert!(!SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
     });
 }
 

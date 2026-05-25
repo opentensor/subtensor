@@ -1172,8 +1172,9 @@ fn test_roll_forward_conviction_uses_unequal_rate_closed_form() {
     new_test_ext(1).execute_with(|| {
         let locked_mass = 10_000u64;
         let dt = 10_000u64;
-        let unlock_rate = UnlockRate::<Test>::get();
-        let maturity_rate = unlock_rate * 12 / 10;
+        let unlock_rate = 200_000u64;
+        let maturity_rate = 240_000u64;
+        UnlockRate::<Test>::set(unlock_rate);
         MaturityRate::<Test>::set(maturity_rate);
         assert_ne!(unlock_rate, maturity_rate);
 
@@ -1327,6 +1328,9 @@ fn test_roll_forward_conviction_stays_below_original_mass_for_one_shot_lock() {
 #[test]
 fn test_roll_forward_decaying_conviction_peak_is_below_original_lock() {
     new_test_ext(1).execute_with(|| {
+        UnlockRate::<Test>::set(200_000u64);
+        MaturityRate::<Test>::set(240_000u64);
+
         let locked_mass = 10_000u64;
         let unlock_rate = UnlockRate::<Test>::get() as f64;
         let maturity_rate = MaturityRate::<Test>::get() as f64;
@@ -3465,7 +3469,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
 }
 
 #[test]
-fn test_auto_lock_owner_cut_is_disabled_by_default() {
+fn test_auto_lock_owner_cut_is_enabled_by_default_and_can_be_disabled() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -3473,20 +3477,23 @@ fn test_auto_lock_owner_cut_is_disabled_by_default() {
             setup_subnet_with_stake(subnet_owner_coldkey, subnet_owner_hotkey, 100_000_000_000);
         let owner_cut: AlphaBalance = 10_000_000u64.into();
 
+        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+        SubtensorModule::auto_lock_owner_cut(netuid, owner_cut);
+
+        let owner_lock = Lock::<Test>::get((subnet_owner_coldkey, netuid, subnet_owner_hotkey))
+            .expect("owner cut should be auto-locked by default");
+        assert_eq!(owner_lock.locked_mass, owner_cut);
+
+        Lock::<Test>::remove((subnet_owner_coldkey, netuid, subnet_owner_hotkey));
+        OwnerCutAutoLockEnabled::<Test>::insert(netuid, false);
         assert!(!SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
         SubtensorModule::auto_lock_owner_cut(netuid, owner_cut);
+
         assert!(
             Lock::<Test>::iter_prefix((subnet_owner_coldkey, netuid))
                 .next()
                 .is_none()
         );
-
-        OwnerCutAutoLockEnabled::<Test>::insert(netuid, true);
-        SubtensorModule::auto_lock_owner_cut(netuid, owner_cut);
-
-        let owner_lock = Lock::<Test>::get((subnet_owner_coldkey, netuid, subnet_owner_hotkey))
-            .expect("owner cut should be auto-locked once enabled");
-        assert_eq!(owner_lock.locked_mass, owner_cut);
     });
 }
 

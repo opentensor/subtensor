@@ -4397,9 +4397,9 @@ fn test_migrate_fix_total_issuance_evm_fees() {
 }
 
 #[test]
-fn test_migrate_reset_testnet_conviction_locks() {
+fn test_migrate_reset_tnet_conviction_locks() {
     new_test_ext(1).execute_with(|| {
-        const MIGRATION_NAME: &[u8] = b"migrate_reset_testnet_conviction_locks";
+        const MIGRATION_NAME: &[u8] = b"migrate_reset_tnet_conviction_locks";
 
         let netuid = NetUid::from(1);
         let other_netuid = NetUid::from(2);
@@ -4460,7 +4460,7 @@ fn test_migrate_reset_testnet_conviction_locks() {
         assert!(get_raw(&raw_decaying_hotkey_lock_key).is_some());
 
         let weight =
-            crate::migrations::migrate_reset_testnet_conviction_locks::migrate_reset_testnet_conviction_locks::<Test>();
+            crate::migrations::migrate_reset_tnet_conviction_locks::migrate_reset_tnet_conviction_locks::<Test>();
 
         assert!(!weight.is_zero(), "migration weight should be non-zero");
         assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
@@ -4475,7 +4475,7 @@ fn test_migrate_reset_testnet_conviction_locks() {
 
         Lock::<Test>::insert((coldkey_1, netuid, hotkey_1), lock_1);
         let second_weight =
-            crate::migrations::migrate_reset_testnet_conviction_locks::migrate_reset_testnet_conviction_locks::<Test>();
+            crate::migrations::migrate_reset_tnet_conviction_locks::migrate_reset_tnet_conviction_locks::<Test>();
 
         assert_eq!(
             second_weight,

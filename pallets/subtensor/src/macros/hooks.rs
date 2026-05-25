@@ -180,7 +180,7 @@ mod hooks {
                 // Remove deprecated conviction lock storage.
                 .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>())
                 // Reset testnet conviction lock storage before deploying the current design.
-                .saturating_add(migrations::migrate_reset_testnet_conviction_locks::migrate_reset_testnet_conviction_locks::<T>());
+                .saturating_add(migrations::migrate_reset_tnet_conviction_locks::migrate_reset_tnet_conviction_locks::<T>());
             weight
         }
 

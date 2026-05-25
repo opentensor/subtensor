@@ -1570,21 +1570,28 @@ pub mod pallet {
     pub type DecayingLock<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, NetUid, bool, OptionQuery>;
 
-    /// --- MAP ( netuid ) --> bool | Whether subnet owner cut should be auto-locked.
-    /// Missing entries default to false, so auto-locking is opt-in per subnet.
-    #[pallet::storage]
-    pub type OwnerCutAutoLockEnabled<T: Config> = StorageMap<_, Identity, NetUid, bool, ValueQuery>;
-
-    /// Default unlock timescale: 90% decay over half of 365.25 days at 12s blocks.
+    /// Default value for owner cut auto-locking.
     #[pallet::type_value]
-    pub fn DefaultUnlockRate<T: Config>() -> u64 {
-        571_054
+    pub fn DefaultOwnerCutAutoLockEnabled<T: Config>() -> bool {
+        true
     }
 
-    /// Default maturity timescale: Conviction is ~5.2x faster than the default unlock rate.
+    /// --- MAP ( netuid ) --> bool | Whether subnet owner cut should be auto-locked.
+    /// Missing entries default to true, so auto-locking is enabled unless explicitly disabled.
+    #[pallet::storage]
+    pub type OwnerCutAutoLockEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutAutoLockEnabled<T>>;
+
+    /// Default unlock timescale: 50% lock back in 1 month.
+    #[pallet::type_value]
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
+        311_622
+    }
+
+    /// Default maturity timescale: 50% conviction in 1 month
     #[pallet::type_value]
     pub fn DefaultMaturityRate<T: Config>() -> u64 {
-        216_000
+        311_622
     }
 
     /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
