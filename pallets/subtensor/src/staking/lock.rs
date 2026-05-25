@@ -10,6 +10,10 @@ use subtensor_runtime_common::NetUid;
 
 pub const ONE_YEAR: u64 = 7200 * 365 + 1800;
 
+/// This constant allows to disable conviction and keep the conviction code merged.
+/// It will be removed before the final conviction version is deployed to mainnet.
+pub const CONVICTION_ENABLED: bool = false;
+
 /// Exponential lock state for a coldkey on a subnet.
 #[crate::freeze_struct("1f6be20a66128b8d")]
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
@@ -189,6 +193,14 @@ impl<T: Config> Pallet<T> {
             rolled.conviction = U64F64::saturating_from_num(u64::from(rolled.locked_mass));
         }
 
+        // If conviction is disabled, roll forward completely to unlocked and zero conviction.
+        // CONVICTION_ENABLED const will be removed when final version is ready and will not
+        // affect mainnet.
+        if !CONVICTION_ENABLED {
+            rolled.conviction = U64F64::saturating_from_num(0u64);
+            rolled.locked_mass = AlphaBalance::ZERO;
+        }
+
         rolled
     }
 
@@ -330,6 +342,11 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
+        // If conviction is disabled, add no new locks
+        if !CONVICTION_ENABLED {
+            return Ok(());
+        }
+
         ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
         ensure!(
             Self::hotkey_account_exists(hotkey),
@@ -724,6 +741,10 @@ impl<T: Config> Pallet<T> {
     /// subnet owner coldkey. The new owner hotkey's conviction is then progressed to
     /// its current locked mass so the new owner starts with full owner conviction.
     pub fn change_subnet_owner_if_needed(netuid: NetUid) {
+        if !CONVICTION_ENABLED {
+            return;
+        }
+
         // No outstanding alpha means there is no meaningful 10% conviction threshold.
         let subnet_alpha_out = SubnetAlphaOut::<T>::get(netuid);
         if subnet_alpha_out.is_zero() {

@@ -3,7 +3,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::Pallet as Subtensor;
-use crate::staking::lock::LockState;
+use crate::staking::lock::{CONVICTION_ENABLED, LockState};
 use crate::*;
 use codec::Compact;
 use frame_benchmarking::v2::*;
@@ -2084,7 +2084,12 @@ mod pallet_benchmarks {
     }
 
     #[benchmark]
-    fn move_lock() {
+    fn move_lock() -> Result<(), BenchmarkError> {
+        // Conviction move-lock benchmark is bypassed while conviction is disabled.
+        if !CONVICTION_ENABLED {
+            return Ok(());
+        }
+
         let netuid = NetUid::from(1);
         let tempo: u16 = 1;
 
@@ -2141,11 +2146,13 @@ mod pallet_benchmarks {
             netuid,
         );
 
-        // Lock moving temporarily disabled
+        // Verify that the lock moved to the destination hotkey.
         assert!(
             Lock::<T>::iter_prefix((coldkey, netuid))
                 .any(|(locked_hotkey, _)| locked_hotkey == hotkey_dest)
         );
+
+        Ok(())
     }
 
     impl_benchmark_test_suite!(

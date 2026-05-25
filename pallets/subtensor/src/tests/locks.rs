@@ -15,8 +15,16 @@ use subtensor_runtime_common::{AlphaBalance, NetUidStorageIndex, TaoBalance};
 use subtensor_swap_interface::SwapHandler;
 
 use super::mock::*;
-use crate::staking::lock::LockState;
+use crate::staking::lock::{CONVICTION_ENABLED, LockState};
 use crate::*;
+
+macro_rules! skip_if_conviction_disabled {
+    () => {
+        if !CONVICTION_ENABLED {
+            return;
+        }
+    };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,6 +78,7 @@ fn get_alpha(
 
 #[test]
 fn test_lock_stake_creates_new_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -102,6 +111,7 @@ fn test_lock_stake_creates_new_lock() {
 
 #[test]
 fn test_lock_stake_by_subnet_owner_coldkey_gets_immediate_conviction() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1);
         let owner_hotkey = U256::from(2);
@@ -129,6 +139,7 @@ fn test_lock_stake_by_subnet_owner_coldkey_gets_immediate_conviction() {
 
 #[test]
 fn test_lock_stake_topup_by_subnet_owner_coldkey_gets_immediate_conviction() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1);
         let owner_hotkey = U256::from(2);
@@ -171,6 +182,7 @@ fn test_lock_stake_topup_by_subnet_owner_coldkey_gets_immediate_conviction() {
 
 #[test]
 fn test_set_perpetual_lock_toggles_owner_lock_decay() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1);
         let owner_hotkey = U256::from(2);
@@ -209,6 +221,7 @@ fn test_set_perpetual_lock_toggles_owner_lock_decay() {
 
 #[test]
 fn test_set_perpetual_lock_is_per_coldkey_and_rolls_lock_at_boundary() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -255,6 +268,7 @@ fn test_set_perpetual_lock_is_per_coldkey_and_rolls_lock_at_boundary() {
 
 #[test]
 fn test_mixed_perpetual_and_decaying_non_owner_locks_same_hotkey_update_aggregates() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let perpetual_coldkey = U256::from(1);
         let decaying_coldkey = U256::from(3);
@@ -514,6 +528,7 @@ fn plot_perpetual_decay_perpetual_non_owner_lock_curve() {
 
 #[test]
 fn test_lock_stake_emits_event() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -542,6 +557,7 @@ fn test_lock_stake_emits_event() {
 
 #[test]
 fn test_lock_stake_full_amount() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -605,6 +621,7 @@ fn test_available_to_unstake_no_lock() {
 
 #[test]
 fn test_available_to_unstake_with_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -626,6 +643,7 @@ fn test_available_to_unstake_with_lock() {
 
 #[test]
 fn test_available_to_unstake_fully_locked() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -647,6 +665,7 @@ fn test_available_to_unstake_fully_locked() {
 
 #[test]
 fn test_lock_stake_topup() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -692,6 +711,7 @@ fn test_lock_stake_topup() {
 
 #[test]
 fn test_lock_stake_topup_multiple_times() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -727,6 +747,7 @@ fn test_lock_stake_topup_multiple_times() {
 
 #[test]
 fn test_lock_stake_topup_same_block() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -761,6 +782,7 @@ fn test_lock_stake_topup_same_block() {
 
 #[test]
 fn test_lock_stake_zero_amount() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -775,6 +797,7 @@ fn test_lock_stake_zero_amount() {
 
 #[test]
 fn test_lock_stake_exceeds_total_alpha() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -792,6 +815,7 @@ fn test_lock_stake_exceeds_total_alpha() {
 
 #[test]
 fn test_lock_stake_wrong_hotkey() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey_a = U256::from(2);
@@ -817,6 +841,7 @@ fn test_lock_stake_wrong_hotkey() {
 
 #[test]
 fn test_lock_stake_topup_exceeds_total() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -894,6 +919,7 @@ fn test_exp_decay_clamps_large_dt_to_min_ratio() {
 
 #[test]
 fn test_roll_forward_locked_mass_decays() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -924,6 +950,7 @@ fn test_roll_forward_locked_mass_decays() {
 
 #[test]
 fn test_roll_forward_conviction_uses_unequal_rate_closed_form() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let locked_mass = 10_000u64;
         let dt = 10_000u64;
@@ -956,6 +983,7 @@ fn test_roll_forward_conviction_uses_unequal_rate_closed_form() {
 
 #[test]
 fn test_roll_forward_adjacent_large_rates_and_large_mass_match_f64_closed_form() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let unlock_rate = 1_142_108u64;
         let maturity_rate = unlock_rate + 1;
@@ -1104,6 +1132,7 @@ fn test_roll_forward_decaying_conviction_peak_is_below_original_lock() {
 
 #[test]
 fn test_roll_forward_perpetual_mass_does_not_decay_and_conviction_matures() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let locked_mass = 10_000u64;
         let lock = LockState {
@@ -1123,6 +1152,7 @@ fn test_roll_forward_perpetual_mass_does_not_decay_and_conviction_matures() {
 
 #[test]
 fn test_roll_forward_perpetual_conviction_never_exceeds_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let locked_mass = 10_000u64;
         let lock = LockState {
@@ -1147,6 +1177,7 @@ fn test_roll_forward_perpetual_conviction_never_exceeds_lock() {
 
 #[test]
 fn test_roll_forward_conviction_converges_to_zero() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1188,6 +1219,7 @@ fn test_roll_forward_conviction_converges_to_zero() {
 
 #[test]
 fn test_roll_forward_no_change_when_now_equals_last_update() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let lock = LockState {
             locked_mass: 5000.into(),
@@ -1256,6 +1288,7 @@ fn test_unstake_allowed_up_to_available() {
 
 #[test]
 fn test_unstake_blocked_by_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1318,6 +1351,7 @@ fn test_move_stake_same_coldkey_same_subnet_allowed() {
 
 #[test]
 fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey_sender = U256::from(1);
         let coldkey_receiver = U256::from(5);
@@ -1382,6 +1416,7 @@ fn test_do_transfer_stake_same_subnet_transfers_lock_to_destination_coldkey() {
 
 #[test]
 fn test_move_stake_cross_subnet_blocked_by_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1420,6 +1455,7 @@ fn test_move_stake_cross_subnet_blocked_by_lock() {
 
 #[test]
 fn test_transfer_stake_cross_coldkey_allowed_partial() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey_sender = U256::from(1);
         let coldkey_receiver = U256::from(5);
@@ -1468,6 +1504,7 @@ fn test_transfer_stake_cross_coldkey_allowed_partial() {
 
 #[test]
 fn test_lock_on_multiple_subnets() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey_a = U256::from(2);
@@ -1529,6 +1566,7 @@ fn test_lock_on_multiple_subnets() {
 
 #[test]
 fn test_unstake_one_subnet_does_not_affect_other() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1593,6 +1631,7 @@ fn test_unstake_one_subnet_does_not_affect_other() {
 
 #[test]
 fn test_hotkey_conviction_single_locker() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1671,6 +1710,7 @@ fn test_hotkey_conviction_multiple_lockers() {
 
 #[test]
 fn test_mixed_perpetual_owner_and_decaying_non_owner_locks_roll_forward() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
         let owner_hotkey = U256::from(1002);
@@ -1860,6 +1900,7 @@ fn test_total_conviction_equals_sum_of_individual_lock_convictions_for_many_lock
 
 #[test]
 fn test_subnet_king_single_hotkey() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -1881,6 +1922,7 @@ fn test_subnet_king_single_hotkey() {
 
 #[test]
 fn test_subnet_king_highest_conviction_wins() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1);
         let coldkey2 = U256::from(5);
@@ -1937,6 +1979,7 @@ fn test_subnet_king_no_locks() {
 
 #[test]
 fn test_change_subnet_owner_if_needed_reassigns_to_subnet_king() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         // Start with the subnet's existing owner, then create a different hotkey owner
         // that can become subnet king.
@@ -2089,6 +2132,7 @@ fn test_reduce_lock_removes_dust() {
 
 #[test]
 fn test_reduce_lock_partial_reduction() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -2157,6 +2201,7 @@ fn test_reduce_lock_no_lock() {
 
 #[test]
 fn test_reduce_lock_two_coldkeys() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1);
         let coldkey2 = U256::from(3);
@@ -2238,6 +2283,7 @@ fn test_reduce_lock_two_coldkeys() {
 
 #[test]
 fn test_force_reduce_lock_does_not_over_reduce_hotkey_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1);
         let coldkey2 = U256::from(3);
@@ -2289,6 +2335,7 @@ fn test_force_reduce_lock_does_not_over_reduce_hotkey_lock() {
 
 #[test]
 fn test_coldkey_swap_swaps_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -2318,6 +2365,7 @@ fn test_coldkey_swap_swaps_lock() {
 
 #[test]
 fn test_coldkey_swap_lock_blocks_unstake() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -2355,6 +2403,7 @@ fn test_coldkey_swap_lock_blocks_unstake() {
 #[test]
 // Conviction-only destination lock state is not active, so direct coldkey lock transfer is allowed.
 fn test_coldkey_swap_allows_destination_conviction_only_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -2410,6 +2459,7 @@ fn test_coldkey_swap_allows_destination_conviction_only_lock() {
 // When the destination already has an active lock, coldkey lock transfer should fail
 // before mutating either coldkey's lock state.
 fn test_coldkey_swap_rejects_destination_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(10);
@@ -2468,6 +2518,7 @@ fn test_coldkey_swap_rejects_destination_lock() {
 #[test]
 // The public coldkey swap extrinsic runs inside a storage layer, so a late failure rolls back the earlier writes.
 fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let old_hotkey = U256::from(2);
@@ -2539,6 +2590,7 @@ fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
 
 #[test]
 fn test_hotkey_swap_swaps_locks_and_convictions() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let old_hotkey = U256::from(2);
@@ -2604,6 +2656,7 @@ fn test_hotkey_swap_swaps_locks_and_convictions() {
 
 #[test]
 fn test_lock_stake_extrinsic() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -2635,6 +2688,7 @@ fn test_lock_stake_extrinsic() {
 
 #[test]
 fn test_recycle_alpha_checks_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -2678,6 +2732,7 @@ fn test_recycle_alpha_checks_lock() {
 
 #[test]
 fn test_burn_alpha_checks_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -2716,6 +2771,7 @@ fn test_burn_alpha_checks_lock() {
 
 #[test]
 fn test_subnet_dissolution_orphans_locks() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -2844,6 +2900,7 @@ fn test_clear_small_nomination_checks_lock() {
 // If one coldkey has a large nomination on one hotkey and a tiny nomination on another,
 // clearing the tiny nomination should reduce the lock state only by that tiny alpha amount.
 fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         // Large stake, subnet owner, and large lock receiver
         let coldkey_large = U256::from(100);
@@ -2964,6 +3021,7 @@ fn test_clear_small_nomination_reduces_only_tiny_amount_from_lock_state() {
 
 #[test]
 fn test_emissions_do_not_break_lock_invariant() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -2998,6 +3056,7 @@ fn test_emissions_do_not_break_lock_invariant() {
 
 #[test]
 fn test_epoch_distribution_auto_locks_owner_cut() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -3090,6 +3149,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
 
 #[test]
 fn test_neuron_replacement_does_not_affect_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
@@ -3143,6 +3203,7 @@ fn test_neuron_replacement_does_not_affect_lock() {
 
 #[test]
 fn test_moving_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey_origin = U256::from(2);
@@ -3195,6 +3256,7 @@ fn test_moving_lock() {
 
 #[test]
 fn test_moving_lock_to_subnet_owner_hotkey_does_not_get_owner_conviction_for_non_owner_coldkey() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey_origin = U256::from(2);
@@ -3227,6 +3289,7 @@ fn test_moving_lock_to_subnet_owner_hotkey_does_not_get_owner_conviction_for_non
 
 #[test]
 fn test_moving_partial_lock() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1);
         let coldkey2 = U256::from(2);
@@ -3311,6 +3374,7 @@ fn test_moving_partial_lock() {
 
 #[test]
 fn test_moving_partial_lock_same_owners() {
+    skip_if_conviction_disabled!();
     new_test_ext(1).execute_with(|| {
         let coldkey1 = U256::from(1);
         let coldkey2 = U256::from(2);
