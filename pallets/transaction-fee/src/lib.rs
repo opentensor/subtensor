@@ -14,6 +14,9 @@ use frame_support::{
     },
     weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
+use pallet_evm::{
+    AddressMapping, BalanceConverter, Config as EvmConfig, EvmBalance, OnChargeEVMTransaction,
+};
 
 // Runtime
 use sp_runtime::{
@@ -31,6 +34,7 @@ use subtensor_swap_interface::SwapHandler;
 // Misc
 use core::marker::PhantomData;
 use smallvec::smallvec;
+use sp_core::H160;
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::vec::Vec;
 use subtensor_runtime_common::{AlphaBalance, AuthorshipInfo, NetUid, TaoBalance};
@@ -237,6 +241,8 @@ pub enum WithdrawnFee<T: frame_system::Config, F: Balanced<AccountIdOf<T>>> {
 /// FRAME pallet
 ///
 pub struct SubtensorTxFeeHandler<F, OU>(PhantomData<(F, OU)>);
+
+pub struct SubtensorEvmFeeHandler<F, OU>(PhantomData<(F, OU)>);
 
 /// This implementation contains the list of calls that require paying transaction
 /// fees in Alpha
@@ -446,5 +452,80 @@ where
     #[cfg(feature = "runtime-benchmarks")]
     fn minimum_balance() -> Self::Balance {
         F::minimum_balance()
+    }
+}
+
+impl<T, F, OU> OnChargeEVMTransaction<T> for SubtensorEvmFeeHandler<F, OU>
+where
+    T: EvmConfig + pallet_subtensor::Config,
+    F: Balanced<T::AccountId>,
+    OU: OnUnbalanced<Credit<T::AccountId, F>>,
+    T::AddressMapping: AddressMapping<T::AccountId>,
+    <F as Inspect<T::AccountId>>::Balance: From<TaoBalance> + Into<TaoBalance>,
+{
+    type LiquidityInfo = Option<Credit<T::AccountId, F>>;
+
+    fn withdraw_fee(
+        who: &H160,
+        fee: EvmBalance,
+    ) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+        if fee.into_u256().is_zero() {
+            return Ok(None);
+        }
+
+        let account_id = <T::AddressMapping as AddressMapping<T::AccountId>>::into_account_id(*who);
+        let fee_sub = T::BalanceConverter::into_substrate_balance(fee)
+            .ok_or(pallet_evm::Error::<T>::FeeOverflow)?;
+
+        let imbalance = F::withdraw(
+            &account_id,
+            TaoBalance::from(fee_sub.into_u64_saturating()).into(),
+            Precision::Exact,
+            frame_support::traits::tokens::Preservation::Preserve,
+            frame_support::traits::tokens::Fortitude::Polite,
+        )
+        .map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
+
+        Ok(Some(imbalance))
+    }
+
+    fn correct_and_deposit_fee(
+        who: &H160,
+        corrected_fee: EvmBalance,
+        base_fee: EvmBalance,
+        already_withdrawn: Self::LiquidityInfo,
+    ) -> Self::LiquidityInfo {
+        if let Some(paid) = already_withdrawn {
+            let account_id =
+                <T::AddressMapping as AddressMapping<T::AccountId>>::into_account_id(*who);
+            let corrected_fee_sub = T::BalanceConverter::into_substrate_balance(corrected_fee)
+                .unwrap_or_else(|| 0u64.into());
+            let refund_amount = paid
+                .peek()
+                .saturating_sub(TaoBalance::from(corrected_fee_sub.into_u64_saturating()).into());
+            let refund_imbalance = F::deposit(&account_id, refund_amount, Precision::BestEffort)
+                .unwrap_or_else(|_| Debt::<T::AccountId, F>::zero());
+            let adjusted_paid = paid
+                .offset(refund_imbalance)
+                .same()
+                .unwrap_or_else(|_| Credit::<T::AccountId, F>::zero());
+            let base_fee_sub = T::BalanceConverter::into_substrate_balance(base_fee)
+                .unwrap_or_else(|| 0u64.into());
+            let (base_fee_credit, tip) =
+                adjusted_paid.split(TaoBalance::from(base_fee_sub.into_u64_saturating()).into());
+            OU::on_unbalanced(base_fee_credit);
+            return Some(tip);
+        }
+
+        None
+    }
+
+    fn pay_priority_fee(tip: Self::LiquidityInfo) {
+        if let Some(tip) = tip {
+            let author = <T::AddressMapping as AddressMapping<T::AccountId>>::into_account_id(
+                pallet_evm::Pallet::<T>::find_author(),
+            );
+            let _ = F::resolve(&author, tip);
+        }
     }
 }
