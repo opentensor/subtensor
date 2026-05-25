@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::weights::WeightMeter;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
@@ -764,12 +765,26 @@ impl<T: Config> Pallet<T> {
                 .filter(|p| p.share > 0)
                 .collect::<Vec<_>>();
 
-            // Credit each share directly to coldkey free balance.
+            // Aggregate the transfer amount for each coldkey
+            let mut transfer_map = BTreeMap::<T::AccountId, TaoBalance>::new();
             for p in portions {
-                if p.share > 0 {
-                    // Cannot fail the whole transaction if this transfer fails
-                    let _ = Self::transfer_tao_from_subnet(netuid, &p.cold, p.share.into());
+                if transfer_map.contains_key(&p.cold) {
+                    transfer_map.insert(
+                        p.cold.clone(),
+                        transfer_map
+                            .get(&p.cold)
+                            .unwrap_or(&TaoBalance::ZERO)
+                            .saturating_add(p.share.into()),
+                    );
+                } else {
+                    transfer_map.insert(p.cold.clone(), p.share.into());
                 }
+            }
+
+            // Credit each share directly to coldkey free balance.
+            for transfer in transfer_map.iter() {
+                // Cannot fail the whole transaction if this transfer fails
+                let _ = Self::transfer_tao_from_subnet(netuid, &transfer.0, *transfer.1);
             }
         }
 
