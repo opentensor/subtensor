@@ -3104,3 +3104,45 @@ fn test_sudo_set_start_call_delay_permissions_and_zero_delay() {
         );
     });
 }
+
+#[test]
+fn test_sudo_set_subnet_emission_enabled_root_only() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1);
+        let sn_owner = U256::from(42);
+
+        add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, sn_owner);
+
+        // Disable the admin freeze window so neither path is blocked by it.
+        SubtensorModule::set_admin_freeze_window(0);
+
+        let initial = pallet_subtensor::SubnetEmissionEnabled::<Test>::get(netuid);
+
+        // Signed subnet owner must be rejected with BadOrigin and storage unchanged.
+        assert_eq!(
+            AdminUtils::sudo_set_subnet_emission_enabled(
+                <<Test as Config>::RuntimeOrigin>::signed(sn_owner),
+                netuid,
+                !initial,
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            pallet_subtensor::SubnetEmissionEnabled::<Test>::get(netuid),
+            initial,
+            "signed owner origin must not mutate SubnetEmissionEnabled"
+        );
+
+        // Root can still toggle the flag.
+        assert_ok!(AdminUtils::sudo_set_subnet_emission_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            !initial,
+        ));
+        assert_eq!(
+            pallet_subtensor::SubnetEmissionEnabled::<Test>::get(netuid),
+            !initial
+        );
+    });
+}
