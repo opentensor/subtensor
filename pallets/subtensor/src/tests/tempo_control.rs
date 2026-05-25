@@ -1,5 +1,5 @@
 #![allow(clippy::expect_used)]
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use frame_system::Config;
 use sp_core::U256;
 use subtensor_runtime_common::NetUid;
@@ -59,6 +59,32 @@ fn do_trigger_epoch_works_with_commit_reveal_enabled() {
 
         let now = crate::Pallet::<Test>::get_current_block_as_u64();
         assert_eq!(PendingEpochAt::<Test>::get(netuid), now + 5);
+    });
+}
+
+#[test]
+fn do_trigger_epoch_rejects_when_auto_epoch_already_imminent() {
+    new_test_ext(1).execute_with(|| {
+        let owner = U256::from(1);
+        let netuid = setup_subnet(owner);
+
+        // Make the next auto epoch closer than AdminFreezeWindow.
+        // remaining = (LastEpochBlock + tempo) - now = (1 + 10) - 5 = 6, window = 8 => reject.
+        Tempo::<Test>::insert(netuid, 10u16);
+        LastEpochBlock::<Test>::insert(netuid, 1u64);
+        AdminFreezeWindow::<Test>::set(8);
+        run_to_block(5);
+
+        assert_noop!(
+            crate::Pallet::<Test>::do_trigger_epoch(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+            ),
+            crate::Error::<Test>::AutoEpochAlreadyImminent
+        );
+
+        // Nothing was scheduled.
+        assert_eq!(PendingEpochAt::<Test>::get(netuid), 0);
     });
 }
 

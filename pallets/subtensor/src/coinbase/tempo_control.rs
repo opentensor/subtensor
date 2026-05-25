@@ -75,14 +75,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::EpochTriggerAlreadyPending
         );
 
+        let now = Self::get_current_block_as_u64();
+        let window = AdminFreezeWindow::<T>::get() as u64;
+
+        let tempo = Self::get_tempo(netuid);
+        let remaining = Self::blocks_until_next_auto_epoch(netuid, tempo, now);
+        ensure!(remaining >= window, Error::<T>::AutoEpochAlreadyImminent);
+
         let tx = TransactionType::OwnerHyperparamUpdate(Hyperparameter::TriggerEpoch);
         ensure!(
             tx.passes_rate_limit_on_subnet::<T>(&who, netuid),
             Error::<T>::TxRateLimitExceeded
         );
 
-        let now = Self::get_current_block_as_u64();
-        let window = AdminFreezeWindow::<T>::get() as u64;
         let fires_at = now.saturating_add(window);
 
         PendingEpochAt::<T>::insert(netuid, fires_at);

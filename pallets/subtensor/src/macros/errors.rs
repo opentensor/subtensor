@@ -311,5 +311,8 @@ mod errors {
         ActivityCutoffFactorMilliOutOfBounds,
         /// `trigger_epoch` called while a previously triggered epoch is still pending.
         EpochTriggerAlreadyPending,
+        /// `trigger_epoch` called when the next automatic epoch is closer than
+        /// `AdminFreezeWindow` blocks away.
+        AutoEpochAlreadyImminent,
     }
 }
