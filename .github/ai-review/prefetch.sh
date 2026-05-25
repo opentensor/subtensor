@@ -83,15 +83,26 @@ gh_retry gh pr view "$PR_NUMBER" --repo "$REPO" --json files > "$OUTPUT_DIR/pr-f
 # the GitHub REST diff endpoint hard-caps at 20,000 lines (HTTP 406
 # `PullRequest.diff too_large`). The workflow already checked out the PR
 # head with `fetch-depth: 0`, so all branches are available locally.
-BASE_REF_FOR_DIFF=$(jq -r '.baseRefName' "$OUTPUT_DIR/pr.json")
+#
+# Hardening against PR-controlled diff suppression:
+#   --text         force textual diff so a `.gitattributes` `binary` mark
+#                  cannot hide hunks in sensitive paths.
+#   --no-textconv  ignore textconv filters (which can mangle/suppress output
+#                  and execute external programs).
+#   --no-ext-diff  ignore external diff drivers configured via `.gitattributes`.
+# We also pin the comparison to the immutable `baseRefOid` SHA from pr.json
+# rather than the moving `origin/<base>` tip — so an advance of the base
+# branch between fetch and diff cannot change what gets reviewed.
+BASE_SHA_FOR_DIFF=$(jq -r '.baseRefOid' "$OUTPUT_DIR/pr.json")
 HEAD_SHA_FOR_DIFF=$(jq -r '.headRefOid' "$OUTPUT_DIR/pr.json")
-if git rev-parse --verify --quiet "origin/${BASE_REF_FOR_DIFF}" >/dev/null; then
-  git diff "origin/${BASE_REF_FOR_DIFF}...${HEAD_SHA_FOR_DIFF}" \
+SAFE_DIFF_OPTS=(--no-ext-diff --no-textconv --text)
+if git cat-file -e "${BASE_SHA_FOR_DIFF}^{commit}" 2>/dev/null; then
+  git diff "${SAFE_DIFF_OPTS[@]}" "${BASE_SHA_FOR_DIFF}...${HEAD_SHA_FOR_DIFF}" \
     > "$OUTPUT_DIR/pr-diff.patch"
 else
-  # Base ref not in local refs (e.g. running outside actions/checkout fetch-depth:0).
+  # Base commit not local (e.g. shallow checkout missing the merge base).
   # Fall back to the REST endpoint; bail loudly if it 406s on a huge PR.
-  echo "::warning::origin/${BASE_REF_FOR_DIFF} not local; falling back to gh pr diff (may fail for >20k-line PRs)"
+  echo "::warning::base commit ${BASE_SHA_FOR_DIFF} not local; falling back to gh pr diff (may fail for >20k-line PRs)"
   gh_retry gh pr diff "$PR_NUMBER" --repo "$REPO" > "$OUTPUT_DIR/pr-diff.patch"
 fi
 DIFF_BYTES=$(wc -c < "$OUTPUT_DIR/pr-diff.patch")
