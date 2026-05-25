@@ -19,6 +19,7 @@ pub struct DevShieldKeystore {
 }
 
 impl DevShieldKeystore {
+    #[allow(clippy::expect_used)]
     pub fn new() -> Self {
         let inner = MemoryShieldKeystore::new();
         let enc_key_bytes = inner
@@ -31,6 +32,12 @@ impl DevShieldKeystore {
             enc_key_bytes,
             inner,
         }
+    }
+}
+
+impl Default for DevShieldKeystore {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
