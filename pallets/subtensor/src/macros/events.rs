@@ -640,9 +640,8 @@ mod events {
             to_block: u64,
         },
 
-        /// `should_run_epoch` returned true but `is_epoch_input_state_consistent` returned false;
-        /// schedule advanced, epoch execution skipped.
-        EpochSkippedDueToInconsistentState {
+        /// Epoch execution skipped by `is_epoch_input_state_consistent` returned false or other errors.
+        EpochSkipped {
             /// The subnet identifier.
             netuid: NetUid,
             /// The block at which the slot was consumed.

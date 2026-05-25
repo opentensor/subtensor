@@ -395,7 +395,7 @@ impl<T: Config> Pallet<T> {
             } else {
                 // Schedule advances below; execution skipped. Pending emissions accumulate
                 // and will be drained by the next successful epoch.
-                Self::deposit_event(Event::EpochSkippedDueToInconsistentState {
+                Self::deposit_event(Event::EpochSkipped {
                     netuid,
                     block: current_block,
                 });
