@@ -305,14 +305,15 @@ mod errors {
         CannotUseSystemAccount,
         /// Trying to unlock more than locked
         UnlockAmountTooHigh,
-        /// Tempo value out of `[MinTempo, MaxTempo]` bounds.
+        /// The supplied tempo is outside the allowed range.
         TempoOutOfBounds,
-        /// Activity-cutoff factor out of `[MinActivityCutoffFactorMilli, MaxActivityCutoffFactorMilli]` bounds.
+        /// The supplied activity-cutoff factor is outside the allowed range.
         ActivityCutoffFactorMilliOutOfBounds,
-        /// `trigger_epoch` called while a previously triggered epoch is still pending.
+        /// An epoch trigger is already pending for this subnet; wait for it to fire
+        /// before triggering again.
         EpochTriggerAlreadyPending,
-        /// `trigger_epoch` called when the next automatic epoch is closer than
-        /// `AdminFreezeWindow` blocks away.
+        /// The next automatic epoch is already imminent; a manual trigger would have
+        /// no effect.
         AutoEpochAlreadyImminent,
     }
 }
