@@ -9,9 +9,9 @@ mod tests;
 pub mod weights;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use frame_support::{BoundedVec, traits::ConstU32};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use frame_support::{BoundedVec, traits::ConstU32};
 use sp_runtime::{
     AccountId32, MultiSignature, Perbill,
     traits::{ConstBool, Verify},
@@ -619,7 +619,10 @@ pub mod pallet {
                 Error::<T>::PriceConditionNotMet
             );
             if let Some(forced_relayers) = order.relayer.as_ref() {
-                ensure!(forced_relayers.contains(relayer), Error::<T>::RelayerMissMatch);
+                ensure!(
+                    forced_relayers.contains(relayer),
+                    Error::<T>::RelayerMissMatch
+                );
             }
             if let Some(partial_fill) = signed_order.partial_fill {
                 ensure!(

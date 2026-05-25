@@ -27,7 +27,10 @@ impl DevShieldKeystore {
         inner
             .roll_for_next_slot()
             .expect("initial roll should not fail");
-        Self { enc_key_bytes, inner }
+        Self {
+            enc_key_bytes,
+            inner,
+        }
     }
 }
 

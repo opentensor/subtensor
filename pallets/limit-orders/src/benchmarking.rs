@@ -1,5 +1,4 @@
 //! Benchmarks for Limit Orders Pallet
-#![cfg(feature = "runtime-benchmarks")]
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::indexing_slicing,
