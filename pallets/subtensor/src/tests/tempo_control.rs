@@ -6,8 +6,8 @@ use subtensor_runtime_common::NetUid;
 
 use super::mock::*;
 use crate::{
-    AdminFreezeWindow, CommitRevealWeightsEnabled, LastEpochBlock, PendingEpochAt, SubnetOwner,
-    SubtokenEnabled, Tempo,
+    ActivityCutoffFactorMilli, AdminFreezeWindow, CommitRevealWeightsEnabled, LastEpochBlock,
+    PendingEpochAt, SubnetOwner, SubtokenEnabled, Tempo,
 };
 
 const DEFAULT_TEMPO: u16 = 360;
@@ -59,6 +59,38 @@ fn do_trigger_epoch_works_with_commit_reveal_enabled() {
 
         let now = crate::Pallet::<Test>::get_current_block_as_u64();
         assert_eq!(PendingEpochAt::<Test>::get(netuid), now + 5);
+    });
+}
+
+#[test]
+fn do_set_activity_cutoff_factor_works_for_root_bypassing_freeze_window() {
+    new_test_ext(1).execute_with(|| {
+        let owner = U256::from(1);
+        let netuid = setup_subnet(owner);
+
+        // Engage the admin freeze window so an owner-call would fail.
+        Tempo::<Test>::insert(netuid, 10u16);
+        LastEpochBlock::<Test>::insert(netuid, 1u64);
+        AdminFreezeWindow::<Test>::set(8);
+        run_to_block(5);
+
+        // Owner cannot bypass the freeze window.
+        assert_noop!(
+            crate::Pallet::<Test>::do_set_activity_cutoff_factor(
+                <<Test as Config>::RuntimeOrigin>::signed(owner),
+                netuid,
+                5_000u32,
+            ),
+            crate::Error::<Test>::AdminActionProhibitedDuringWeightsWindow
+        );
+
+        // Root bypasses both freeze window and rate limit.
+        assert_ok!(crate::Pallet::<Test>::do_set_activity_cutoff_factor(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            5_000u32,
+        ));
+        assert_eq!(ActivityCutoffFactorMilli::<Test>::get(netuid), 5_000u32);
     });
 }
 

@@ -2605,10 +2605,11 @@ mod dispatches {
             Self::do_set_tempo(origin, netuid, tempo)
         }
 
-        /// Owner-side `set_activity_cutoff_factor`. Per-mille (1/1000) units; `cutoff_blocks
+        /// `set_activity_cutoff_factor`. Per-mille (1/1000) units; `cutoff_blocks
         /// = (factor × tempo) / 1000`. Validates `[MinActivityCutoffFactorMilli,
-        /// MaxActivityCutoffFactorMilli]`, rate-limited via the existing
-        /// `OwnerHyperparamUpdate` pattern, respects the admin freeze window.
+        /// MaxActivityCutoffFactorMilli]`. Callable by the subnet owner (rate-limited
+        /// via `OwnerHyperparamUpdate`, respects the admin freeze window) or by root
+        /// (bypasses both).
         #[pallet::call_index(140)]
         #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::set_activity_cutoff_factor())]
         pub fn set_activity_cutoff_factor(

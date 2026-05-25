@@ -33,13 +33,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Owner-side `set_activity_cutoff_factor` implementation.
+    /// `set_activity_cutoff_factor` implementation. Callable by the subnet owner
+    /// (subject to admin freeze window + rate limit) or by root (bypasses both).
     pub fn do_set_activity_cutoff_factor(
         origin: OriginFor<T>,
         netuid: NetUid,
         factor_milli: u32,
     ) -> DispatchResult {
-        let who = Self::ensure_subnet_owner(origin, netuid)?;
+        let maybe_who = Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
         ensure!(
             (MIN_ACTIVITY_CUTOFF_FACTOR_MILLI..=MAX_ACTIVITY_CUTOFF_FACTOR_MILLI)
@@ -47,18 +48,24 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ActivityCutoffFactorMilliOutOfBounds
         );
 
-        Self::ensure_admin_window_open(netuid)?;
-
         let tx = TransactionType::OwnerHyperparamUpdate(Hyperparameter::ActivityCutoffFactorMilli);
-        ensure!(
-            tx.passes_rate_limit_on_subnet::<T>(&who, netuid),
-            Error::<T>::TxRateLimitExceeded
-        );
 
-        let now = Self::get_current_block_as_u64();
+        // Admin freeze window and per-owner rate limit apply only to the subnet
+        // owner. Root bypasses both as a governance override.
+        if let Some(who) = maybe_who.as_ref() {
+            Self::ensure_admin_window_open(netuid)?;
+            ensure!(
+                tx.passes_rate_limit_on_subnet::<T>(who, netuid),
+                Error::<T>::TxRateLimitExceeded
+            );
+        }
 
         Self::set_activity_cutoff_factor_milli(netuid, factor_milli);
-        tx.set_last_block_on_subnet::<T>(&who, netuid, now);
+
+        if let Some(who) = maybe_who.as_ref() {
+            let now = Self::get_current_block_as_u64();
+            tx.set_last_block_on_subnet::<T>(who, netuid, now);
+        }
 
         Ok(())
     }
