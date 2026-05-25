@@ -71,15 +71,13 @@ impl StakeValueProvider {
 
     fn tao_for_subnet_hotkeys(hotkeys: &[AccountId], netuid: NetUid) -> u128 {
         let hotkey_limit: usize = STAKE_VALUE_HOTKEYS.unique_saturated_into();
-        let total_alpha =
-            hotkeys
-                .iter()
-                .take(hotkey_limit)
-                .fold(0_u128, |total, hotkey| {
-                    let alpha =
-                        Subtensor::<Runtime>::get_stake_for_hotkey_on_subnet(hotkey, netuid);
-                    total.saturating_add(u128::from(u64::from(alpha)))
-                });
+        let total_alpha = hotkeys
+            .iter()
+            .take(hotkey_limit)
+            .fold(0_u128, |total, hotkey| {
+                let alpha = Subtensor::<Runtime>::get_stake_for_hotkey_on_subnet(hotkey, netuid);
+                total.saturating_add(u128::from(u64::from(alpha)))
+            });
 
         if total_alpha == 0 {
             return 0;
@@ -111,10 +109,7 @@ impl EmaValueProvider<AccountId> for StakeValueProvider {
             next.accumulated_tao =
                 Self::accumulate_subnet_values(&hotkeys, chunk, next.accumulated_tao);
             let chunk_len: u32 = chunk.len().unique_saturated_into();
-            next.subnet_offset = next
-                .subnet_offset
-                .saturating_add(chunk_len)
-                .min(total);
+            next.subnet_offset = next.subnet_offset.saturating_add(chunk_len).min(total);
         }
 
         let step = if next.subnet_offset >= total {
