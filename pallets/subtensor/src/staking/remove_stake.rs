@@ -427,7 +427,6 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn destroy_alpha_in_out_stakes(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        // 2) Owner / lock cost.
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(4));
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: TaoBalance = Self::get_subnet_locked_balance(netuid);
@@ -438,7 +437,7 @@ impl<T: Config> Pallet<T> {
         let start_block: u64 = NetworkRegistrationStartBlock::<T>::get();
         let should_refund_owner: bool = reg_at < start_block;
 
-        // 3) Compute owner's received emission in TAO at current price (ONLY if we may refund).
+        // Compute owner's received emission in TAO at current price (ONLY if we may refund).
         // We:
         //      - get the current alpha issuance,
         //      - apply owner fraction to get owner α,
@@ -471,7 +470,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // 7.c) Remove α‑in/α‑out counters (fully destroyed).
+        // Remove α‑in/α‑out counters (fully destroyed).
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(4));
         SubnetAlphaIn::<T>::remove(netuid);
         SubnetAlphaInProvided::<T>::remove(netuid);
@@ -480,7 +479,7 @@ impl<T: Config> Pallet<T> {
         // Clear the locked balance on the subnet.
         Self::set_subnet_locked_balance(netuid, TaoBalance::ZERO);
 
-        // 8) Finalize lock handling:
+        // Finalize lock handling:
         //    - Legacy subnets (registered before NetworkRegistrationStartBlock) receive:
         //        refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
         //    - New subnets: no refund.
@@ -644,6 +643,8 @@ impl<T: Config> Pallet<T> {
             let mut iterate_all = true;
             let mut coldkey_value_vec: Vec<(T::AccountId, u128)> = Vec::new();
 
+            // Handle one hotkey and all its coldkeys or skip the hotkey if the weight is not enough
+            // Then we just need to record the hotkey as checkpoint
             for (cold, this_netuid, share_u64f64) in Self::alpha_iter_single_prefix(&hot) {
                 if !weight_meter.can_consume(r.saturating_mul(2_u64)) {
                     iterate_all = false;
@@ -683,7 +684,6 @@ impl<T: Config> Pallet<T> {
                     }
                     weight_meter.consume(r.saturating_mul(2_u64));
                     let val_u128 = val_u64 as u128;
-                    // stakers.push((hot.clone(), cold, val_u128));
                     coldkey_value_vec.push((cold.clone(), val_u128));
                 }
             }
