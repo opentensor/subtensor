@@ -64,14 +64,7 @@ impl<T: Config> Pallet<T> {
         let emissions_to_distribute = Self::drain_pending(&subnets, current_block);
 
         // --- 6. Distribute the emissions to the subnets.
-        //   Bonds masking inside `distribute_emission` reads `LastMechansimStepBlock` and
-        //   must see the previous successful run, so we delay the write until after.
         Self::distribute_emissions_to_subnets(&emissions_to_distribute);
-
-        // --- 7. Mark each successful epoch run as the last mechanism step.
-        for netuid in emissions_to_distribute.keys() {
-            LastMechansimStepBlock::<T>::insert(*netuid, current_block);
-        }
     }
 
     pub fn inject_and_maybe_swap(
@@ -415,6 +408,7 @@ impl<T: Config> Pallet<T> {
             (AlphaBalance, AlphaBalance, AlphaBalance, AlphaBalance),
         >,
     ) {
+        let current_block = Self::get_current_block_as_u64();
         for (
             &netuid,
             &(pending_server_alpha, pending_validator_alpha, pending_root_alpha, pending_owner_cut),
@@ -428,6 +422,7 @@ impl<T: Config> Pallet<T> {
                 pending_root_alpha,
                 pending_owner_cut,
             );
+            LastMechansimStepBlock::<T>::insert(netuid, current_block);
         }
     }
 
