@@ -660,6 +660,15 @@ impl<T: Config> Pallet<T> {
             .unwrap_or_else(|| U64F64::saturating_from_num(0))
     }
 
+    /// Returns the current lock for a coldkey on a subnet, rolled forward to now.
+    pub fn get_coldkey_lock(coldkey: &T::AccountId, netuid: NetUid) -> Option<LockState> {
+        let now = Self::get_current_block_as_u64();
+        Self::read_conviction_model(coldkey, netuid, now).map(|(_hotkey, mut model)| {
+            model.roll_forward_individual(now, UnlockRate::<T>::get(), MaturityRate::<T>::get());
+            model.individual_lock().clone()
+        })
+    }
+
     /// Returns the alpha amount available to unstake for a coldkey on a subnet.
     pub fn available_to_unstake(coldkey: &T::AccountId, netuid: NetUid) -> AlphaBalance {
         let total = Self::total_coldkey_alpha_on_subnet(coldkey, netuid);

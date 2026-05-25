@@ -771,6 +771,47 @@ fn test_get_conviction_no_lock() {
 }
 
 #[test]
+fn test_get_coldkey_lock_rolls_forward() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            5000u64.into(),
+        ));
+
+        let initial_lock =
+            SubtensorModule::get_coldkey_lock(&coldkey, netuid).expect("coldkey lock should exist");
+        assert_eq!(initial_lock.conviction, U64F64::from_num(0));
+
+        step_block(1000);
+
+        let rolled_lock =
+            SubtensorModule::get_coldkey_lock(&coldkey, netuid).expect("coldkey lock should exist");
+        assert_eq!(rolled_lock.locked_mass, initial_lock.locked_mass);
+        assert!(rolled_lock.conviction > initial_lock.conviction);
+        assert_eq!(
+            rolled_lock.last_update,
+            SubtensorModule::get_current_block_as_u64()
+        );
+    });
+}
+
+#[test]
+fn test_get_coldkey_lock_no_lock() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let netuid = subtensor_runtime_common::NetUid::from(1);
+
+        assert!(SubtensorModule::get_coldkey_lock(&coldkey, netuid).is_none());
+    });
+}
+
+#[test]
 fn test_available_to_unstake_no_lock() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);

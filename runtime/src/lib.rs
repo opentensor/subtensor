@@ -2549,6 +2549,10 @@ impl_runtime_apis! {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
         }
 
+        fn get_coldkey_lock(coldkey: AccountId32, netuid: NetUid) -> Option<pallet_subtensor::staking::lock::LockState> {
+            SubtensorModule::get_coldkey_lock(&coldkey, netuid)
+        }
+
         fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64 {
             SubtensorModule::hotkey_conviction(&hotkey, netuid)
         }
