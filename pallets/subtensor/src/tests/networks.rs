@@ -435,6 +435,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         Yuma3On::<Test>::insert(net, true);
         AlphaValues::<Test>::insert(net, (1u16, 2u16));
         SubtokenEnabled::<Test>::insert(net, true);
+        OwnerCutAutoLockEnabled::<Test>::insert(net, true);
         ImmuneOwnerUidsLimit::<Test>::insert(net, 1u16);
 
         // Per‑subnet vectors / indexes
@@ -590,6 +591,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!Yuma3On::<Test>::contains_key(net));
         assert!(!AlphaValues::<Test>::contains_key(net));
         assert!(!SubtokenEnabled::<Test>::contains_key(net));
+        assert!(!OwnerCutAutoLockEnabled::<Test>::contains_key(net));
         assert!(!ImmuneOwnerUidsLimit::<Test>::contains_key(net));
 
         // Per‑subnet vectors / indexes
@@ -2318,9 +2320,9 @@ fn dissolve_clears_all_lock_maps_for_removed_network() {
         OwnerLock::<Test>::insert(other_net, lock_b.clone());
 
         // --- DecayingLock
-        DecayingLock::<Test>::insert(cold_1, net, true);
-        DecayingLock::<Test>::insert(cold_2, net, true);
-        DecayingLock::<Test>::insert(cold_1, other_net, true);
+        DecayingLock::<Test>::insert(cold_1, net, false);
+        DecayingLock::<Test>::insert(cold_2, net, false);
+        DecayingLock::<Test>::insert(cold_1, other_net, false);
 
         // Sanity checks before dissolve
         assert!(Lock::<Test>::contains_key((cold_1, net, hot_1)));
