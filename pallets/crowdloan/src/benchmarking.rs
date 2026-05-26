@@ -52,7 +52,7 @@ mod benchmarks {
             cap,
             end,
             Some(call.clone()),
-            Some(target_address.clone()),
+            None,
         );
 
         // ensure the crowdloan is stored correctly
@@ -68,7 +68,7 @@ mod benchmarks {
                 end,
                 funds_account: funds_account.clone(),
                 raised: deposit,
-                target_address: Some(target_address.clone()),
+                target_address: None,
                 call: Some(T::Preimages::bound(*call).unwrap()),
                 finalized: false,
                 contributors_count: 1,
@@ -108,7 +108,6 @@ mod benchmarks {
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
-        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
         let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
@@ -119,7 +118,7 @@ mod benchmarks {
             cap,
             end,
             Some(call),
-            Some(target_address),
+            None,
         );
 
         // setup contributor
@@ -165,7 +164,6 @@ mod benchmarks {
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
-        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
         let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
@@ -176,7 +174,7 @@ mod benchmarks {
             cap,
             end,
             Some(call),
-            Some(target_address),
+            None,
         );
 
         // create contribution
@@ -228,8 +226,6 @@ mod benchmarks {
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
         let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
-        let call: Box<<T as Config>::RuntimeCall> =
-            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
         let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
@@ -237,7 +233,7 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
-            Some(call),
+            None,
             Some(target_address.clone()),
         );
 
@@ -275,7 +271,6 @@ mod benchmarks {
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
-        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
         let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
@@ -286,7 +281,7 @@ mod benchmarks {
             cap,
             end,
             Some(call),
-            Some(target_address),
+            None,
         );
 
         let crowdloan_id: CrowdloanId = 0;
@@ -342,7 +337,6 @@ mod benchmarks {
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
-        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
         let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
@@ -353,7 +347,7 @@ mod benchmarks {
             cap,
             end,
             Some(call),
-            Some(target_address),
+            None,
         );
 
         // run to the end of the contribution period

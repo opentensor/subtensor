@@ -1,8 +1,9 @@
 //! # Crowdloan Pallet
 //!
 //! A pallet allowing users to create generic crowdloans and contribute to them,
-//! the raised funds are then transferred to a target address and an extrinsic
-//! is dispatched, making it reusable for any crowdloan type.
+//! then finalize them through exactly one configured route: transfer the raised
+//! funds to a target address or dispatch an extrinsic, making it reusable for any
+//! crowdloan type.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
@@ -69,11 +70,15 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub funds_account: AccountId,
     /// The amount raised so far.
     pub raised: Balance,
-    /// The optional target address to transfer the raised funds to, if not
-    /// provided, it means the funds will be transferred from on chain logic
-    /// inside the provided call to dispatch.
+    /// The optional target address to transfer the raised funds to.
+    ///
+    /// This is mutually exclusive with `call`. If set, finalization only transfers
+    /// the raised funds to this account.
     pub target_address: Option<AccountId>,
     /// The optional call to dispatch when the crowdloan is finalized.
+    ///
+    /// This is mutually exclusive with `target_address`. If set, finalization only
+    /// dispatches this call using the creator origin.
     pub call: Option<Call>,
     /// Whether the crowdloan has been finalized.
     pub finalized: bool,
@@ -270,6 +275,8 @@ pub mod pallet {
         DepositCannotBeWithdrawn,
         /// The maximum number of contributors has been reached.
         MaxContributorsReached,
+        /// Exactly one of call or target address must be provided.
+        InvalidFinalizationConfig,
     }
 
     #[pallet::hooks]
@@ -290,10 +297,11 @@ pub mod pallet {
         #![deny(clippy::expect_used)]
 
         /// Create a crowdloan that will raise funds up to a maximum cap and if successful,
-        /// will transfer funds to the target address if provided and dispatch the call
-        /// (using creator origin).
+        /// will either transfer funds to the target address or dispatch the call
+        /// (using creator origin). Exactly one of call or target address must be provided.
+        /// Providing both, or providing neither, is rejected.
         ///
-        /// The initial deposit will be transfered to the crowdloan account and will be refunded
+        /// The initial deposit will be transferred to the crowdloan account and will be refunded
         /// in case the crowdloan fails to raise the cap. Additionally, the creator will pay for
         /// the execution of the call.
         ///
@@ -305,7 +313,7 @@ pub mod pallet {
         /// - `cap`: The maximum amount of funds that can be raised.
         /// - `end`: The block number at which the crowdloan will end.
         /// - `call`: The call to dispatch when the crowdloan is finalized.
-        /// - `target_address`: The address to transfer the raised funds to if provided.
+        /// - `target_address`: The address to transfer the raised funds to.
         #[pallet::call_index(0)]
         #[pallet::weight({
 			let di = call.as_ref().map(|c| c.get_dispatch_info());
@@ -338,6 +346,10 @@ pub mod pallet {
             ensure!(
                 min_contribution >= T::AbsoluteMinimumContribution::get(),
                 Error::<T>::MinimumContributionTooLow
+            );
+            ensure!(
+                call.is_some() != target_address.is_some(),
+                Error::<T>::InvalidFinalizationConfig
             );
 
             Self::ensure_valid_end(now, end)?;
@@ -400,7 +412,7 @@ pub mod pallet {
 
         /// Contribute to an active crowdloan.
         ///
-        /// The contribution will be transfered to the crowdloan account and will be refunded
+        /// The contribution will be transferred to the crowdloan account and will be refunded
         /// if the crowdloan fails to raise the cap. If the contribution would raise the amount above the cap,
         /// the contribution will be set to the amount that is left to be raised.
         ///
@@ -553,9 +565,13 @@ pub mod pallet {
 
         /// Finalize crowdloan that has reached the cap.
         ///
-        /// The call will transfer the raised amount to the target address if it was provided when the crowdloan was created
-        /// and dispatch the call that was provided using the creator origin. The CurrentCrowdloanId will be set to the
-        /// crowdloan id being finalized so the dispatched call can access it temporarily by accessing
+        /// The call will either transfer the raised amount to the configured target address
+        /// or dispatch the configured call using the creator origin. The stored crowdloan
+        /// must contain exactly one of target address or call; if both or neither are set,
+        /// finalization fails before transfer or dispatch.
+        ///
+        /// When dispatching a call, the CurrentCrowdloanId will be set to the crowdloan id
+        /// being finalized so the dispatched call can access it temporarily by accessing
         /// the `CurrentCrowdloanId` storage item.
         ///
         /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
@@ -578,41 +594,43 @@ pub mod pallet {
             ensure!(crowdloan.raised == crowdloan.cap, Error::<T>::CapNotRaised);
             ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
 
-            // If the target address is provided, transfer the raised amount to it.
-            if let Some(ref target_address) = crowdloan.target_address {
-                CurrencyOf::<T>::transfer(
-                    &crowdloan.funds_account,
-                    target_address,
-                    crowdloan.raised,
-                    Preservation::Expendable,
-                )?;
-            }
+            match (&crowdloan.call, &crowdloan.target_address) {
+                (Some(call), None) => {
+                    // Set the current crowdloan id so the dispatched call
+                    // can access it temporarily
+                    CurrentCrowdloanId::<T>::put(crowdloan_id);
 
-            // If the call is provided, dispatch it.
-            if let Some(ref call) = crowdloan.call {
-                // Set the current crowdloan id so the dispatched call
-                // can access it temporarily
-                CurrentCrowdloanId::<T>::put(crowdloan_id);
+                    // Retrieve the call from the preimage storage
+                    let stored_call = match T::Preimages::peek(call) {
+                        Ok((call, _)) => call,
+                        Err(_) => {
+                            // If the call is not found, we drop it from the preimage storage
+                            // because it's not needed anymore
+                            T::Preimages::drop(call);
+                            return Err(Error::<T>::CallUnavailable)?;
+                        }
+                    };
 
-                // Retrieve the call from the preimage storage
-                let stored_call = match T::Preimages::peek(call) {
-                    Ok((call, _)) => call,
-                    Err(_) => {
-                        // If the call is not found, we drop it from the preimage storage
-                        // because it's not needed anymore
-                        T::Preimages::drop(call);
-                        return Err(Error::<T>::CallUnavailable)?;
-                    }
-                };
+                    // Dispatch the call with creator origin
+                    stored_call
+                        .dispatch(frame_system::RawOrigin::Signed(who).into())
+                        .map(|_| ())
+                        .map_err(|e| e.error)?;
 
-                // Dispatch the call with creator origin
-                stored_call
-                    .dispatch(frame_system::RawOrigin::Signed(who).into())
-                    .map(|_| ())
-                    .map_err(|e| e.error)?;
-
-                // Clear the current crowdloan id
-                CurrentCrowdloanId::<T>::kill();
+                    // Clear the current crowdloan id
+                    CurrentCrowdloanId::<T>::kill();
+                }
+                (None, Some(target_address)) => {
+                    CurrencyOf::<T>::transfer(
+                        &crowdloan.funds_account,
+                        target_address,
+                        crowdloan.raised,
+                        Preservation::Expendable,
+                    )?;
+                }
+                (_, _) => {
+                    return Err(Error::<T>::InvalidFinalizationConfig)?;
+                }
             }
 
             crowdloan.finalized = true;

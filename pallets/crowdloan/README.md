@@ -2,13 +2,15 @@
 
 ## Overview
 
-A pallet that enables the creation and management of generic crowdloans for transferring funds and executing an arbitrary call.
+A pallet that enables the creation and management of generic crowdloans for transferring funds or executing an arbitrary call.
 
-Users of this pallet can create a crowdloan by providing a deposit, a cap, an end block, an optional target address and an optional call.
+Users of this pallet can create a crowdloan by providing a deposit, a cap, an end block, and exactly one of a target address or a call.
 
 Users can contribute to a crowdloan by providing funds to the crowdloan they choose to support. The contribution can be withdrawn while the crowdloan is not finalized.
 
-Once the crowdloan is finalized, the funds will be transferred to the target address if provided; otherwise, the end user is expected to transfer them manually on-chain if the call is a pallet extrinsic. The call will be dispatched with the current crowdloan ID stored as a temporary item.
+Once the crowdloan is finalized, it follows the single configured finalization route. If a target address was provided, the raised funds are transferred to that account. If a call was provided, the call is dispatched with the creator origin and the current crowdloan ID stored as a temporary item.
+
+Crowdloans cannot be created with both a target address and a call, or with neither. Finalization also checks this invariant before transferring funds or dispatching a call, which protects any invalid legacy or manually-written storage state.
 
 If the crowdloan fails to reach the cap, the creator can decide to refund all contributors and dissolve the crowdloan. The initial deposit will be refunded.
 
@@ -16,7 +18,7 @@ If the crowdloan fails to reach the cap, the creator can decide to refund all co
 
 ## Interface
 
-- `create`: Create a crowdloan that will raise funds up to a maximum cap and if successful, will transfer funds to the target address if provided and/or dispatch the call (using creator origin). The initial deposit will be transfered to the crowdloan account and will be refunded in case the crowdloan fails to raise the cap. Additionally, the creator will pay for the execution of the call.
+- `create`: Create a crowdloan that will raise funds up to a maximum cap and if successful, will transfer funds to the target address or dispatch the call (using creator origin). Exactly one of target address or call must be provided; both and neither are invalid. The initial deposit will be transferred to the crowdloan account and will be refunded in case the crowdloan fails to raise the cap. Additionally, the creator will pay for the execution of the call.
 
 - `contribute`: Contribute to an active crowdloan. The contribution will be transfered to the crowdloan account and will be refunded if the crowdloan fails to raise the cap. If the contribution would raise the amount above the cap, the contribution will be set to the amount that is left to be raised.
 
@@ -26,7 +28,7 @@ If the crowdloan fails to reach the cap, the creator can decide to refund all co
 
 The following functions are only callable by the creator of the crowdloan:
 
-- `finalize`: Finalize a successful crowdloan. The call will transfer the raised amount to the target address if it was provided when the crowdloan was created and dispatch the call that was provided using the creator origin. 
+- `finalize`: Finalize a successful crowdloan. Finalization uses exactly one route: it transfers the raised amount to the target address if one was configured, otherwise it dispatches the configured call using the creator origin. Invalid configurations with both or neither fail before side effects.
 
 - `dissolve`: Dissolve a crowdloan. The crowdloan will be removed from the storage. All contributions must have been refunded before the crowdloan can be dissolved (except the creator's one).
 

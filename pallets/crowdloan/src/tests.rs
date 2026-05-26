@@ -202,6 +202,60 @@ fn test_create_fails_if_min_contribution_is_too_low() {
 }
 
 #[test]
+fn test_create_fails_if_call_and_target_address_are_provided() {
+    TestState::default()
+        .with_balance(U256::from(1), 100.into())
+        .build_and_execute(|| {
+            let creator: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50.into();
+            let min_contribution: BalanceOf<Test> = 10.into();
+            let cap: BalanceOf<Test> = 300.into();
+            let end: BlockNumberFor<Test> = 50;
+            let target_address: AccountOf<Test> = U256::from(42);
+
+            assert_err!(
+                Crowdloan::create(
+                    RuntimeOrigin::signed(creator),
+                    deposit,
+                    min_contribution,
+                    cap,
+                    end,
+                    Some(noop_call()),
+                    Some(target_address),
+                ),
+                pallet_crowdloan::Error::<Test>::InvalidFinalizationConfig
+            );
+        });
+}
+
+#[test]
+fn test_create_fails_if_call_and_target_address_are_missing() {
+    TestState::default()
+        .with_balance(U256::from(1), 100.into())
+        .build_and_execute(|| {
+            let creator: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50.into();
+            let min_contribution: BalanceOf<Test> = 10.into();
+            let cap: BalanceOf<Test> = 300.into();
+            let end: BlockNumberFor<Test> = 50;
+
+            assert_err!(
+                Crowdloan::create(
+                    RuntimeOrigin::signed(creator),
+                    deposit,
+                    min_contribution,
+                    cap,
+                    end,
+                    None,
+                    None,
+                ),
+                pallet_crowdloan::Error::<Test>::InvalidFinalizationConfig
+            );
+        });
+}
+
+
+#[test]
 fn test_create_fails_if_end_is_in_the_past() {
     let current_block_number: BlockNumberFor<Test> = 10;
 
@@ -1256,13 +1310,113 @@ fn test_finalize_succeeds_with_target_address() {
                 last_event(),
                 pallet_crowdloan::Event::<Test>::Finalized { crowdloan_id }.into()
             );
-
-            // ensure the current crowdloan id was accessible from the dispatched call
-            assert_eq!(
-                pallet_test::PassedCrowdloanId::<Test>::get(),
-                Some(crowdloan_id)
-            );
         })
+}
+
+#[test]
+fn test_finalize_fails_if_call_and_target_address_are_provided() {
+    TestState::default()
+        .with_balance(U256::from(1), 100.into())
+        .with_balance(U256::from(2), 100.into())
+        .build_and_execute(|| {
+            let creator: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50.into();
+            let min_contribution: BalanceOf<Test> = 10.into();
+            let cap: BalanceOf<Test> = 100.into();
+            let end: BlockNumberFor<Test> = 50;
+
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                deposit,
+                min_contribution,
+                cap,
+                end,
+                Some(noop_call()),
+                None,
+            ));
+
+            run_to_block(10);
+
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50.into();
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            let target_address: AccountOf<Test> = U256::from(42);
+            pallet_crowdloan::Crowdloans::<Test>::mutate(crowdloan_id, |crowdloan| {
+                crowdloan.as_mut().unwrap().target_address = Some(target_address);
+            });
+
+            run_to_block(60);
+
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::InvalidFinalizationConfig
+            );
+
+            assert_eq!(
+                pallet_balances::Pallet::<Test>::free_balance(target_address),
+                0.into()
+            );
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| !c.finalized)
+            );
+        });
+}
+
+#[test]
+fn test_finalize_fails_if_call_and_target_address_are_missing() {
+    TestState::default()
+        .with_balance(U256::from(1), 100.into())
+        .with_balance(U256::from(2), 100.into())
+        .build_and_execute(|| {
+            let creator: AccountOf<Test> = U256::from(1);
+            let deposit: BalanceOf<Test> = 50.into();
+            let min_contribution: BalanceOf<Test> = 10.into();
+            let cap: BalanceOf<Test> = 100.into();
+            let end: BlockNumberFor<Test> = 50;
+
+            assert_ok!(Crowdloan::create(
+                RuntimeOrigin::signed(creator),
+                deposit,
+                min_contribution,
+                cap,
+                end,
+                Some(noop_call()),
+                None,
+            ));
+
+            run_to_block(10);
+
+            let crowdloan_id: CrowdloanId = 0;
+            let contributor: AccountOf<Test> = U256::from(2);
+            let amount: BalanceOf<Test> = 50.into();
+            assert_ok!(Crowdloan::contribute(
+                RuntimeOrigin::signed(contributor),
+                crowdloan_id,
+                amount
+            ));
+
+            pallet_crowdloan::Crowdloans::<Test>::mutate(crowdloan_id, |crowdloan| {
+                crowdloan.as_mut().unwrap().call = None;
+            });
+
+            run_to_block(60);
+
+            assert_err!(
+                Crowdloan::finalize(RuntimeOrigin::signed(creator), crowdloan_id),
+                pallet_crowdloan::Error::<Test>::InvalidFinalizationConfig
+            );
+            assert!(
+                pallet_crowdloan::Crowdloans::<Test>::get(crowdloan_id)
+                    .is_some_and(|c| !c.finalized)
+            );
+        });
 }
 
 #[test]
