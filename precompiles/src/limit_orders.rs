@@ -8,7 +8,7 @@ use frame_support::{BoundedVec, traits::IsSubType};
 use frame_system::RawOrigin;
 use pallet_evm::{AddressMapping, PrecompileHandle};
 use pallet_limit_orders::{Order, OrderStatus, OrderType, SignedOrder, VersionedOrder};
-use precompile_utils::prelude::Address;
+use precompile_utils::prelude::{Address, UnboundedBytes};
 use precompile_utils::{EvmResult, solidity::Codec};
 use sp_core::{ByteArray, H256, sr25519};
 use sp_runtime::{MultiSignature, Perbill, traits::AsSystemOriginSigner, traits::Dispatchable};
@@ -167,7 +167,7 @@ pub struct OrderInput {
 #[derive(Codec)]
 pub struct SignedOrderInput {
     order: OrderInput,
-    signature: alloc::vec::Vec<u8>,
+    signature: UnboundedBytes,
     has_partial_fill: bool,
     partial_fill: u64,
 }
@@ -192,15 +192,10 @@ fn order_type_from_u8(order_type: u8) -> Result<OrderType, PrecompileFailure> {
     }
 }
 
-fn signature_from_bytes(
-    signature: alloc::vec::Vec<u8>,
-) -> Result<MultiSignature, PrecompileFailure> {
-    let sig: [u8; 64] = signature
-        .as_slice()
-        .try_into()
-        .map_err(|_| PrecompileFailure::Error {
-            exit_status: ExitError::Other("sr25519 signature must be 64 bytes".into()),
-        })?;
+fn signature_from_bytes(signature: &[u8]) -> Result<MultiSignature, PrecompileFailure> {
+    let sig: [u8; 64] = signature.try_into().map_err(|_| PrecompileFailure::Error {
+        exit_status: ExitError::Other("sr25519 signature must be 64 bytes".into()),
+    })?;
     Ok(MultiSignature::Sr25519(sr25519::Signature::from_raw(sig)))
 }
 
@@ -276,7 +271,7 @@ where
 {
     Ok(SignedOrder {
         order: versioned_order_from_input::<R>(input.order)?,
-        signature: signature_from_bytes(input.signature)?,
+        signature: signature_from_bytes(input.signature.as_bytes())?,
         partial_fill: if input.has_partial_fill {
             Some(input.partial_fill)
         } else {

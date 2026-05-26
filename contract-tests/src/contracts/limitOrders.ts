@@ -219,6 +219,13 @@ export const ILimitOrdersABI = [
   },
 ] as const;
 
+export type SignedOrderInput = {
+  order: OrderInput;
+  signature: string;
+  has_partial_fill: boolean;
+  partial_fill: bigint;
+};
+
 export type OrderInput = {
   signer: string;
   hotkey: string;
