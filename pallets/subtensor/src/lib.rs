@@ -1573,7 +1573,7 @@ pub mod pallet {
     /// Default value for owner cut auto-locking.
     #[pallet::type_value]
     pub fn DefaultOwnerCutAutoLockEnabled<T: Config>() -> bool {
-        true
+        false
     }
 
     /// --- MAP ( netuid ) --> bool | Whether subnet owner cut should be auto-locked.
