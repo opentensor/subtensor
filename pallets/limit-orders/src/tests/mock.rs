@@ -23,7 +23,7 @@ use substrate_fixed::types::U96F32;
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::OrderSwapInterface;
 
-use crate as pallet_limit_orders;
+use crate::{self as pallet_limit_orders, LimitOrdersEnabled};
 
 // ── Runtime ──────────────────────────────────────────────────────────────────
 
@@ -657,9 +657,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     ext.execute_with(|| {
         System::set_block_number(1);
         MockSwap::clear_log();
-        // Simulate genesis_build: claim pallet hotkey ownership so set_pallet_status(true) succeeds.
+        // Simulate genesis_build: register the pallet hotkey and enable the pallet.
         let pallet_acct: AccountId = LimitOrdersPalletId::get().into_account_truncating();
         let _ = MockSwap::register_pallet_hotkey(&pallet_acct, &PalletHotkeyAccount::get());
+        LimitOrdersEnabled::<Test>::set(true);
     });
     ext
 }

@@ -1,12 +1,17 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub(crate) mod migrations;
 #[cfg(test)]
 mod tests;
 pub mod weights;
+
+type MigrationKeyMaxLen = frame_support::traits::ConstU32<128>;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{BoundedVec, traits::ConstU32};
@@ -247,9 +252,16 @@ pub mod pallet {
     #[pallet::storage]
     pub type Orders<T: Config> = StorageMap<_, Blake2_128Concat, H256, OrderStatus, OptionQuery>;
 
-    /// Switch to enable/disable the pallet. true by default
+    /// Switch to enable/disable the pallet.
+    /// Defaults to `false` so bare node deployments are safe; genesis sets it to `true`.
     #[pallet::storage]
-    pub type LimitOrdersEnabled<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<true>>;
+    pub type LimitOrdersEnabled<T: Config> = StorageValue<_, bool, ValueQuery, ConstBool<false>>;
+
+    /// Tracks which named migrations have already been applied.
+    /// Keyed by a short migration name; value is always `true`.
+    #[pallet::storage]
+    pub type HasMigrationRun<T: Config> =
+        StorageMap<_, Identity, BoundedVec<u8, MigrationKeyMaxLen>, bool, ValueQuery>;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -361,6 +373,10 @@ pub mod pallet {
                 &Pallet::<T>::pallet_account(),
                 &T::PalletHotkey::get(),
             );
+            // Enable the pallet on all networks that start from this genesis.
+            // The storage default is `false` (safe for bare upgrades); genesis
+            // explicitly opts new chains in.
+            LimitOrdersEnabled::<T>::set(true);
         }
     }
 
@@ -368,16 +384,13 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            LimitOrdersEnabled::<T>::set(false);
-            let pallet_acct = Self::pallet_account();
-            let pallet_hotkey = T::PalletHotkey::get();
-            if T::SwapInterface::pallet_hotkey_registered(&pallet_acct, &pallet_hotkey) {
-                return T::DbWeight::get().reads_writes(1, 1);
-            }
-            let _ = T::SwapInterface::register_pallet_hotkey(&pallet_acct, &pallet_hotkey);
-            // 1 read (already-registered check) + 1 write (LimitOrdersEnabled) + 3 writes (Owner, OwnedHotkeys, StakingHotkeys)
-            T::DbWeight::get().reads_writes(1, 4)
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+
+            weight = weight
+                .saturating_add(migrations::migrate_register_pallet_hotkey::<T>());
+
+            weight
         }
     }
 
@@ -550,7 +563,7 @@ pub mod pallet {
         }
 
         /// Account derived from the pallet's `PalletId`.
-        fn pallet_account() -> T::AccountId {
+        pub(crate) fn pallet_account() -> T::AccountId {
             T::PalletId::get().into_account_truncating()
         }
 
