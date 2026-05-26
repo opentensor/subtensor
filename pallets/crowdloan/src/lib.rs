@@ -70,15 +70,11 @@ pub struct CrowdloanInfo<AccountId, Balance, BlockNumber, Call> {
     pub funds_account: AccountId,
     /// The amount raised so far.
     pub raised: Balance,
-    /// The optional target address to transfer the raised funds to.
-    ///
-    /// This is mutually exclusive with `call`. If set, finalization only transfers
-    /// the raised funds to this account.
+    /// The optional target address to transfer the raised funds to, if not
+    /// provided, it means the funds will be transferred from on chain logic
+    /// inside the provided call to dispatch.
     pub target_address: Option<AccountId>,
     /// The optional call to dispatch when the crowdloan is finalized.
-    ///
-    /// This is mutually exclusive with `target_address`. If set, finalization only
-    /// dispatches this call using the creator origin.
     pub call: Option<Call>,
     /// Whether the crowdloan has been finalized.
     pub finalized: bool,
@@ -172,6 +168,11 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// A map of crowdloan ids to their optional maximum cumulative contribution per contributor.
+    #[pallet::storage]
+    pub type MaxContributions<T: Config> =
+        StorageMap<_, Twox64Concat, CrowdloanId, BalanceOf<T>, OptionQuery>;
+
     /// The current crowdloan id that will be set during the finalize call, making it
     /// temporarily accessible to the dispatched call.
     #[pallet::storage]
@@ -227,6 +228,11 @@ pub mod pallet {
             crowdloan_id: CrowdloanId,
             new_cap: BalanceOf<T>,
         },
+        /// The maximum contribution was updated.
+        MaxContributionUpdated {
+            crowdloan_id: CrowdloanId,
+            new_max_contribution: Option<BalanceOf<T>>,
+        },
     }
 
     #[pallet::error]
@@ -277,6 +283,12 @@ pub mod pallet {
         MaxContributorsReached,
         /// Exactly one of call or target address must be provided.
         InvalidFinalizationConfig,
+        /// The contributor has already reached the maximum contribution.
+        MaxContributionReached,
+        /// The maximum contribution is too low.
+        MaximumContributionTooLow,
+        /// The minimum contribution is too high.
+        MinimumContributionTooHigh,
     }
 
     #[pallet::hooks]
@@ -449,16 +461,30 @@ pub mod pallet {
                 Error::<T>::MaxContributorsReached
             );
 
-            // Ensure contribution does not overflow the actual raised amount
-            // and it does not exceed the cap
+            // Compute how much room is left before the crowdloan reaches its cap.
             let left_to_raise = crowdloan
                 .cap
                 .checked_sub(&crowdloan.raised)
                 .ok_or(Error::<T>::Underflow)?;
 
-            // If the contribution would raise the amount above the cap,
-            // set the contribution to the amount that is left to be raised
-            let amount = amount.min(left_to_raise);
+            // The requested contribution must meet the minimum contribution, but
+            // the accepted amount may be lower when only a smaller remainder can
+            // be accepted before reaching the crowdloan cap or the contributor's
+            // maximum contribution.
+            let amount = if let Some(max_contribution) = MaxContributions::<T>::get(crowdloan_id) {
+                let current_contribution =
+                    Contributions::<T>::get(crowdloan_id, &contributor).unwrap_or_else(Zero::zero);
+                ensure!(
+                    current_contribution < max_contribution,
+                    Error::<T>::MaxContributionReached
+                );
+                let left_to_contribute = max_contribution
+                    .checked_sub(&current_contribution)
+                    .ok_or(Error::<T>::Underflow)?;
+                amount.min(left_to_contribute).min(left_to_raise)
+            } else {
+                amount.min(left_to_raise)
+            };
 
             // Ensure contribution does not overflow the actual raised amount
             crowdloan.raised = crowdloan
@@ -766,12 +792,16 @@ pub mod pallet {
             // Remove the crowdloan
             let _ = frame_system::Pallet::<T>::dec_providers(&crowdloan.funds_account).defensive();
             Crowdloans::<T>::remove(crowdloan_id);
+            MaxContributions::<T>::remove(crowdloan_id);
 
             Self::deposit_event(Event::<T>::Dissolved { crowdloan_id });
             Ok(())
         }
 
         /// Update the minimum contribution of a non-finalized crowdloan.
+        ///
+        /// If a maximum contribution is configured, the new minimum contribution
+        /// must not exceed it.
         ///
         /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
         ///
@@ -798,6 +828,12 @@ pub mod pallet {
                 new_min_contribution >= T::AbsoluteMinimumContribution::get(),
                 Error::<T>::MinimumContributionTooLow
             );
+            if let Some(max_contribution) = MaxContributions::<T>::get(crowdloan_id) {
+                ensure!(
+                    new_min_contribution <= max_contribution,
+                    Error::<T>::MinimumContributionTooHigh
+                );
+            }
 
             crowdloan.min_contribution = new_min_contribution;
             Crowdloans::<T>::insert(crowdloan_id, &crowdloan);
@@ -876,6 +912,50 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::CapUpdated {
                 crowdloan_id,
                 new_cap,
+            });
+            Ok(())
+        }
+
+        /// Set or clear the maximum cumulative contribution allowed per contributor
+        /// for a non-finalized crowdloan.
+        ///
+        /// The dispatch origin for this call must be _Signed_ and must be the creator of the crowdloan.
+        ///
+        /// Parameters:
+        /// - `crowdloan_id`: The id of the crowdloan to update the maximum contribution of.
+        /// - `new_max_contribution`: The new optional maximum contribution.
+        #[pallet::call_index(9)]
+        #[pallet::weight(T::WeightInfo::set_maximum_contribution())]
+        pub fn set_maximum_contribution(
+            origin: OriginFor<T>,
+            #[pallet::compact] crowdloan_id: CrowdloanId,
+            new_max_contribution: Option<BalanceOf<T>>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+
+            let crowdloan = Self::ensure_crowdloan_exists(crowdloan_id)?;
+            ensure!(!crowdloan.finalized, Error::<T>::AlreadyFinalized);
+
+            // Only the creator can update the max contribution.
+            ensure!(who == crowdloan.creator, Error::<T>::InvalidOrigin);
+
+            if let Some(max_contribution) = new_max_contribution {
+                let creator_contribution =
+                    Contributions::<T>::get(crowdloan_id, &crowdloan.creator)
+                        .unwrap_or_else(Zero::zero);
+                ensure!(
+                    max_contribution >= crowdloan.min_contribution
+                        && max_contribution >= creator_contribution,
+                    Error::<T>::MaximumContributionTooLow
+                );
+                MaxContributions::<T>::insert(crowdloan_id, max_contribution);
+            } else {
+                MaxContributions::<T>::remove(crowdloan_id);
+            }
+
+            Self::deposit_event(Event::<T>::MaxContributionUpdated {
+                crowdloan_id,
+                new_max_contribution,
             });
             Ok(())
         }

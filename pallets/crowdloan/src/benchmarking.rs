@@ -39,7 +39,6 @@ mod benchmarks {
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
-        let target_address = account::<T::AccountId>("target_address", 0, SEED);
         let call: Box<<T as Config>::RuntimeCall> =
             Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
         let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
@@ -486,6 +485,51 @@ mod benchmarks {
             Event::<T>::CapUpdated {
                 crowdloan_id,
                 new_cap,
+            }
+            .into(),
+        );
+    }
+
+    #[benchmark]
+    fn set_maximum_contribution() {
+        // create a crowdloan
+        let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
+        let deposit = T::MinimumDeposit::get();
+        let min_contribution = T::AbsoluteMinimumContribution::get();
+        let cap = deposit + deposit;
+        let end = frame_system::Pallet::<T>::block_number() + T::MaximumBlockDuration::get();
+        let call: Box<<T as Config>::RuntimeCall> =
+            Box::new(frame_system::Call::<T>::remark { remark: vec![] }.into());
+        let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
+        let _ = Pallet::<T>::create(
+            RawOrigin::Signed(creator.clone()).into(),
+            deposit,
+            min_contribution,
+            cap,
+            end,
+            Some(call),
+            None,
+        );
+
+        let crowdloan_id: CrowdloanId = 0;
+        let new_max_contribution: BalanceOf<T> = cap;
+
+        #[extrinsic_call]
+        _(
+            RawOrigin::Signed(creator.clone()),
+            crowdloan_id,
+            Some(new_max_contribution),
+        );
+
+        // ensure the max contribution is updated correctly
+        assert!(
+            MaxContributions::<T>::get(crowdloan_id).is_some_and(|c| c == new_max_contribution)
+        );
+        // ensure the event is emitted
+        assert_last_event::<T>(
+            Event::<T>::MaxContributionUpdated {
+                crowdloan_id,
+                new_max_contribution: Some(new_max_contribution),
             }
             .into(),
         );
