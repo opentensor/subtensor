@@ -110,6 +110,7 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         Ok(())
     }
 
+    #[transactional]
     fn transfer_staked_alpha(
         from_coldkey: &T::AccountId,
         from_hotkey: &T::AccountId,
@@ -139,6 +140,14 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             Self::ensure_available_to_unstake(from_coldkey, netuid, amount)?;
         }
 
+        if validate_receiver {
+            ensure!(
+                Self::hotkey_account_exists(to_hotkey),
+                Error::<T>::HotKeyAccountNotExists
+            );
+            Self::set_stake_operation_limit(to_hotkey, to_coldkey, netuid);
+        }
+
         let available =
             Self::get_stake_for_hotkey_and_coldkey_on_subnet(from_hotkey, from_coldkey, netuid);
         ensure!(available >= amount, Error::<T>::NotEnoughStakeToWithdraw);
@@ -156,13 +165,6 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
             to_hotkey,
             Self::get_current_block_as_u64(),
         );
-        if validate_receiver {
-            ensure!(
-                Self::hotkey_account_exists(to_hotkey),
-                Error::<T>::HotKeyAccountNotExists
-            );
-            Self::set_stake_operation_limit(to_hotkey, to_coldkey, netuid);
-        }
         Ok(())
     }
 
