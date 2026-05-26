@@ -1865,7 +1865,6 @@ impl<T: Config> Pallet<T> {
         read_all
     }
 
-
     /// Removes `DecayingLock` entries for `netuid`, resuming from `LastKeptRawKey` when weight is limited.
     pub fn remove_network_decaying_lock(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
         let r = T::DbWeight::get().reads(1);
