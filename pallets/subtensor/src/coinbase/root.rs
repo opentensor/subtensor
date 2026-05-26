@@ -386,7 +386,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn remove_network_parameters(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(80));
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(81));
         SubnetOwner::<T>::remove(netuid);
         SubnetworkN::<T>::remove(netuid);
         NetworkRegisteredAt::<T>::remove(netuid);
@@ -462,10 +462,13 @@ impl<T: Config> Pallet<T> {
         Yuma3On::<T>::remove(netuid);
         AlphaValues::<T>::remove(netuid);
         SubtokenEnabled::<T>::remove(netuid);
+        OwnerCutAutoLockEnabled::<T>::remove(netuid);
         ImmuneOwnerUidsLimit::<T>::remove(netuid);
         StakeWeight::<T>::remove(netuid);
         LoadedEmission::<T>::remove(netuid);
         OwnerLock::<T>::remove(netuid);
+        DecayingOwnerLock::<T>::remove(netuid);
+
         if SubnetIdentitiesV3::<T>::contains_key(netuid) {
             SubnetIdentitiesV3::<T>::remove(netuid);
             Self::deposit_event(Event::SubnetIdentityRemoved(netuid));

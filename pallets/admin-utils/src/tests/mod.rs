@@ -2458,6 +2458,54 @@ fn test_sudo_set_owner_cut_enabled() {
     });
 }
 
+#[test]
+fn test_sudo_set_owner_cut_auto_lock_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(11);
+        let owner = U256::from(1234);
+        let non_owner = U256::from(4321);
+        let call = RuntimeCall::AdminUtils(crate::Call::sudo_set_owner_cut_auto_lock_enabled {
+            netuid,
+            enabled: true,
+        });
+
+        add_network(netuid, 10);
+        SubnetOwner::<Test>::insert(netuid, owner);
+
+        assert_ok!(AdminUtils::sudo_set_admin_freeze_window(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            0
+        ));
+
+        let dispatch_info = call.get_dispatch_info();
+        assert_eq!(dispatch_info.pays_fee, Pays::Yes);
+
+        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+        assert_noop!(
+            AdminUtils::sudo_set_owner_cut_auto_lock_enabled(
+                <<Test as Config>::RuntimeOrigin>::signed(non_owner),
+                netuid,
+                true
+            ),
+            DispatchError::BadOrigin
+        );
+
+        assert_ok!(AdminUtils::sudo_set_owner_cut_auto_lock_enabled(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            netuid,
+            false
+        ));
+        assert!(!SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+
+        assert_ok!(AdminUtils::sudo_set_owner_cut_auto_lock_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true
+        ));
+        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+    });
+}
+
 // cargo test --package pallet-admin-utils --lib -- tests::test_sudo_set_mechanism_count_and_emissions --exact --show-output
 #[test]
 fn test_sudo_set_mechanism_count_and_emissions() {
