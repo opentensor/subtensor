@@ -33,7 +33,10 @@ fn migration_registers_hotkey_and_marks_run_on_first_call() {
             LimitOrdersPalletId::get().into_account_truncating();
         let pallet_hotkey = PalletHotkeyAccount::get();
 
-        assert!(!MockSwap::pallet_hotkey_registered(&pallet_acct, &pallet_hotkey));
+        assert!(!MockSwap::pallet_hotkey_registered(
+            &pallet_acct,
+            &pallet_hotkey
+        ));
         assert!(!HasMigrationRun::<Test>::get(migration_key()));
 
         migrate_register_pallet_hotkey::<Test>();
@@ -90,11 +93,17 @@ fn migration_is_idempotent() {
         let pallet_hotkey = PalletHotkeyAccount::get();
 
         migrate_register_pallet_hotkey::<Test>();
-        assert!(MockSwap::pallet_hotkey_registered(&pallet_acct, &pallet_hotkey));
+        assert!(MockSwap::pallet_hotkey_registered(
+            &pallet_acct,
+            &pallet_hotkey
+        ));
 
         // Second run must be a no-op — hotkey stays registered, flag stays set.
         migrate_register_pallet_hotkey::<Test>();
-        assert!(MockSwap::pallet_hotkey_registered(&pallet_acct, &pallet_hotkey));
+        assert!(MockSwap::pallet_hotkey_registered(
+            &pallet_acct,
+            &pallet_hotkey
+        ));
         assert!(HasMigrationRun::<Test>::get(migration_key()));
     });
 }

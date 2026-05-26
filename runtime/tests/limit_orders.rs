@@ -5,7 +5,10 @@
 )]
 
 use codec::Encode;
-use frame_support::{BoundedVec, PalletId, assert_noop, assert_ok, traits::{ConstU32, Hooks}};
+use frame_support::{
+    BoundedVec, PalletId, assert_noop, assert_ok,
+    traits::{ConstU32, Hooks},
+};
 use node_subtensor_runtime::{
     BuildStorage, LimitOrders, Runtime, RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule,
     System, pallet_subtensor,
@@ -14,10 +17,10 @@ use pallet_limit_orders::{
     HasMigrationRun, LimitOrdersEnabled, Order, OrderStatus, OrderType, Orders, SignedOrder,
     VersionedOrder,
 };
-use sp_runtime::traits::AccountIdConversion;
 use pallet_subtensor::{SubnetAlphaIn, SubnetMechanism, SubnetTAO};
 use sp_core::{Get, H256, Pair};
 use sp_keyring::Sr25519Keyring;
+use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{MultiSignature, Perbill};
 use subtensor_runtime_common::{AccountId, AlphaBalance, NetUid, TaoBalance, Token};
 
@@ -2130,7 +2133,10 @@ fn on_runtime_upgrade_marks_migration_run_without_touching_pallet_status() {
     new_test_ext().execute_with(|| {
         assert!(LimitOrdersEnabled::<Runtime>::get());
         assert!(!HasMigrationRun::<Runtime>::get(migration_key()));
-        assert!(SubtensorModule::coldkey_owns_hotkey(&pallet_acct(), &pallet_hotkey()));
+        assert!(SubtensorModule::coldkey_owns_hotkey(
+            &pallet_acct(),
+            &pallet_hotkey()
+        ));
 
         <LimitOrders as Hooks<u32>>::on_runtime_upgrade();
 
@@ -2142,7 +2148,10 @@ fn on_runtime_upgrade_marks_migration_run_without_touching_pallet_status() {
             LimitOrdersEnabled::<Runtime>::get(),
             "upgrade must not change LimitOrdersEnabled"
         );
-        assert!(SubtensorModule::coldkey_owns_hotkey(&pallet_acct(), &pallet_hotkey()));
+        assert!(SubtensorModule::coldkey_owns_hotkey(
+            &pallet_acct(),
+            &pallet_hotkey()
+        ));
     });
 }
 
@@ -2207,7 +2216,7 @@ fn individual_sell_order_skipped_when_alpha_is_conviction_locked() {
             netuid,
             OrderType::TakeProfit,
             sell_amount,
-            0,        // price floor — always satisfied
+            0, // price floor — always satisfied
             u64::MAX,
             Perbill::zero(),
             charlie_id.clone(),
@@ -2228,14 +2237,10 @@ fn individual_sell_order_skipped_when_alpha_is_conviction_locked() {
         );
 
         // Alice's staked alpha must be completely unchanged.
-        let remaining = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
-            &bob_id,
-            &alice_id,
-            netuid,
-        );
+        let remaining =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
         assert_eq!(
-            remaining,
-            initial_alpha,
+            remaining, initial_alpha,
             "conviction-locked alpha must not be moved by a skipped sell order"
         );
     });
@@ -2280,7 +2285,7 @@ fn batched_sell_order_fails_when_alpha_is_conviction_locked() {
             netuid,
             OrderType::TakeProfit,
             min_default_stake().to_u64(),
-            0,        // price floor — always satisfied
+            0, // price floor — always satisfied
             u64::MAX,
             Perbill::zero(),
             charlie_id.clone(),

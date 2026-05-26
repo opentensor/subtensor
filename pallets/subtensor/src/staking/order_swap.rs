@@ -66,7 +66,14 @@ impl<T: Config> OrderSwapInterface<T::AccountId> for Pallet<T> {
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         Self::ensure_subtoken_enabled(netuid)?;
         if validate {
-            Self::validate_remove_stake(coldkey, hotkey, netuid, alpha_amount, alpha_amount, false)?;
+            Self::validate_remove_stake(
+                coldkey,
+                hotkey,
+                netuid,
+                alpha_amount,
+                alpha_amount,
+                false,
+            )?;
         }
         // `limit_price` is already in ×10⁹ scale (same as the `current_alpha_price` RPC
         // endpoint), which is also the scale the AMM uses for its price_limit argument.

@@ -387,8 +387,7 @@ pub mod pallet {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            weight = weight
-                .saturating_add(migrations::migrate_register_pallet_hotkey::<T>());
+            weight = weight.saturating_add(migrations::migrate_register_pallet_hotkey::<T>());
 
             weight
         }
