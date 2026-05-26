@@ -140,6 +140,7 @@ mod benchmarks {
     #[benchmark]
     fn execute_orders(n: Linear<1, { T::MaxOrdersPerBatch::get() }>) {
         let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
         T::SwapInterface::set_up_netuid_for_benchmark(netuid);
 
         let orders = make_benchmark_orders::<T>(n, netuid);
@@ -158,6 +159,7 @@ mod benchmarks {
     #[benchmark]
     fn execute_batched_orders(n: Linear<1, { T::MaxOrdersPerBatch::get() }>) {
         let netuid = NetUid::from(1u16);
+        crate::LimitOrdersEnabled::<T>::set(true);
         T::SwapInterface::set_up_netuid_for_benchmark(netuid);
 
         // Set up the pallet intermediary so the net pool swap and alpha
