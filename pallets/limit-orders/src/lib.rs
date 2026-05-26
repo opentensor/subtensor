@@ -6,7 +6,7 @@ pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-mod migrations;
+pub(crate) mod migrations;
 #[cfg(test)]
 mod tests;
 pub mod weights;
