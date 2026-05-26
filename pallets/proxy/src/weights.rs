@@ -4,7 +4,7 @@
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 49.1.0
 //! DATE: 2026-05-15, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 //! WORST CASE MAP SIZE: `1000000`
-//! HOSTNAME: `runnervmeorf1`, CPU: `AMD EPYC 7763 64-Core Processor`
+//! HOSTNAME: `runnervmg397c`, CPU: `AMD EPYC 7763 64-Core Processor`
 //! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: `1024`
 
 // Executed Command:
@@ -109,7 +109,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(104), added: 2579, mode: `MaxEncodedLen`)
 	/// The range of component `a` is `[0, 74]`.
 	/// The range of component `p` is `[1, 19]`.
-	fn remove_announcement(a: u32, p: u32, ) -> Weight {
+	fn remove_announcement(a: u32, _p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `299 + a * (68 ±0)`
 		//  Estimated: `8615`
@@ -128,7 +128,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(104), added: 2579, mode: `MaxEncodedLen`)
 	/// The range of component `a` is `[0, 74]`.
 	/// The range of component `p` is `[1, 19]`.
-	fn reject_announcement(a: u32, p: u32, ) -> Weight {
+	fn reject_announcement(a: u32, _p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `299 + a * (68 ±0)`
 		//  Estimated: `8615`
@@ -325,7 +325,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(104), added: 2579, mode: `MaxEncodedLen`)
 	/// The range of component `a` is `[0, 74]`.
 	/// The range of component `p` is `[1, 19]`.
-	fn remove_announcement(a: u32, p: u32, ) -> Weight {
+	fn remove_announcement(a: u32, _p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `299 + a * (68 ±0)`
 		//  Estimated: `8615`
@@ -344,7 +344,7 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(104), added: 2579, mode: `MaxEncodedLen`)
 	/// The range of component `a` is `[0, 74]`.
 	/// The range of component `p` is `[1, 19]`.
-	fn reject_announcement(a: u32, p: u32, ) -> Weight {
+	fn reject_announcement(a: u32, _p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `299 + a * (68 ±0)`
 		//  Estimated: `8615`

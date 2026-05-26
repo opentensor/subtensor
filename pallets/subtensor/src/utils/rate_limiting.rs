@@ -205,6 +205,7 @@ pub enum Hyperparameter {
     BurnHalfLife = 26,
     BurnIncreaseMult = 27,
     SubnetEmissionEnabled = 28,
+    MinChildkeyTake = 29,
 }
 
 impl<T: Config> Pallet<T> {

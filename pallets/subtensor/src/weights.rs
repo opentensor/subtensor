@@ -91,7 +91,6 @@ pub trait WeightInfo {
 	fn add_stake_burn() -> Weight;
 	fn set_pending_childkey_cooldown() -> Weight;
 	fn lock_stake() -> Weight;
-	fn unlock_stake() -> Weight;
 	fn move_lock() -> Weight;
 }
 
@@ -294,10 +293,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
@@ -306,7 +309,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2599`
+		//  Measured:  `2640`
 		//  Estimated: `8727`
 		// Minimum execution time: 435_552_000 picoseconds.
 		Weight::from_parts(440_823_000, 8727)
@@ -575,6 +578,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Burn` (r:0 w:1)
 	/// Proof: `SubtensorModule::Burn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RAORecycledForRegistration` (r:0 w:1)
+	/// Proof: `SubtensorModule::RAORecycledForRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLocked` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetLocked` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegisteredAt` (r:0 w:1)
@@ -618,7 +623,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 267_429_000 picoseconds.
 		Weight::from_parts(274_472_000, 9874)
 			.saturating_add(T::DbWeight::get().reads(42_u64))
-			.saturating_add(T::DbWeight::get().writes(48_u64))
+			.saturating_add(T::DbWeight::get().writes(49_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -706,6 +711,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
 	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MinChildkeyTake` (r:1 w:0)
+	/// Proof: `SubtensorModule::MinChildkeyTake` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MinChildkeyTakePerSubnet` (r:1 w:0)
+	/// Proof: `SubtensorModule::MinChildkeyTakePerSubnet` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaxChildkeyTake` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaxChildkeyTake` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ChildkeyTake` (r:1 w:1)
@@ -1048,10 +1057,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
@@ -1060,7 +1073,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2599`
+		//  Measured:  `2640`
 		//  Estimated: `8727`
 		// Minimum execution time: 467_993_000 picoseconds.
 		Weight::from_parts(487_089_000, 8727)
@@ -1290,10 +1303,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTaoFlow` (r:2 w:2)
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
@@ -1402,10 +1419,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTaoFlow` (r:2 w:2)
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
@@ -1603,6 +1624,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Burn` (r:0 w:1)
 	/// Proof: `SubtensorModule::Burn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RAORecycledForRegistration` (r:0 w:1)
+	/// Proof: `SubtensorModule::RAORecycledForRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLocked` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetLocked` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegisteredAt` (r:0 w:1)
@@ -1646,7 +1669,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 264_562_000 picoseconds.
 		Weight::from_parts(268_810_000, 9758)
 			.saturating_add(T::DbWeight::get().reads(41_u64))
-			.saturating_add(T::DbWeight::get().writes(47_u64))
+			.saturating_add(T::DbWeight::get().writes(48_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
 	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -1713,6 +1736,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:5 w:0)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingHotkeyLock` (r:5 w:0)
+	/// Proof: `SubtensorModule::DecayingHotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::OwnedHotkeys` (r:1 w:1)
 	/// Proof: `SubtensorModule::OwnedHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ChildKeys` (r:10 w:10)
@@ -2021,6 +2046,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Crowdloan::Contributions` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::Burn` (r:0 w:1)
 	/// Proof: `SubtensorModule::Burn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RAORecycledForRegistration` (r:0 w:1)
+	/// Proof: `SubtensorModule::RAORecycledForRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetUidToLeaseId` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetUidToLeaseId` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLocked` (r:0 w:1)
@@ -2074,7 +2101,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(44_643_068, 0).saturating_mul(k.into()))
 			.saturating_add(T::DbWeight::get().reads(51_u64))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(k.into())))
-			.saturating_add(T::DbWeight::get().writes(53_u64))
+			.saturating_add(T::DbWeight::get().writes(54_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(k.into()))
 	}
@@ -2303,12 +2330,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
-	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::OwnerLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::OwnerLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `AlphaAssets::AlphaBurned` (r:1 w:1)
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
@@ -2317,7 +2348,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_burn() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2602`
+		//  Measured:  `2570`
 		//  Estimated: `8727`
 		// Minimum execution time: 592_522_000 picoseconds.
 		Weight::from_parts(612_019_000, 8727)
@@ -2334,6 +2365,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(2_935_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
 	/// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
@@ -2348,6 +2381,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:1 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn lock_stake() -> Weight {
@@ -2359,10 +2396,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(8_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
+	/// Storage: `SubtensorModule::Owner` (r:2 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Lock` (r:2 w:2)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
@@ -2382,8 +2423,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:2 w:2)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn move_lock() -> Weight {
@@ -2595,10 +2634,14 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
@@ -2607,7 +2650,7 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2599`
+		//  Measured:  `2640`
 		//  Estimated: `8727`
 		// Minimum execution time: 435_552_000 picoseconds.
 		Weight::from_parts(440_823_000, 8727)
@@ -2876,6 +2919,8 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Burn` (r:0 w:1)
 	/// Proof: `SubtensorModule::Burn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RAORecycledForRegistration` (r:0 w:1)
+	/// Proof: `SubtensorModule::RAORecycledForRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLocked` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetLocked` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegisteredAt` (r:0 w:1)
@@ -2919,7 +2964,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 267_429_000 picoseconds.
 		Weight::from_parts(274_472_000, 9874)
 			.saturating_add(RocksDbWeight::get().reads(42_u64))
-			.saturating_add(RocksDbWeight::get().writes(48_u64))
+			.saturating_add(RocksDbWeight::get().writes(49_u64))
 	}
 	/// Storage: `SubtensorModule::NetworksAdded` (r:1 w:0)
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -3007,6 +3052,10 @@ impl WeightInfo for () {
 	}
 	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
 	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MinChildkeyTake` (r:1 w:0)
+	/// Proof: `SubtensorModule::MinChildkeyTake` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MinChildkeyTakePerSubnet` (r:1 w:0)
+	/// Proof: `SubtensorModule::MinChildkeyTakePerSubnet` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaxChildkeyTake` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaxChildkeyTake` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ChildkeyTake` (r:1 w:1)
@@ -3135,8 +3184,13 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `665`
 		//  Estimated: `4130`
+<<<<<<< chain-buy-cache
 		// Minimum execution time: 22_162_000 picoseconds.
 		Weight::from_parts(22_903_000, 4130)
+=======
+		// Minimum execution time: 22_462_000 picoseconds.
+		Weight::from_parts(23_103_000, 4130)
+>>>>>>> devnet-ready
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -3349,10 +3403,14 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
@@ -3361,7 +3419,7 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_limit() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2599`
+		//  Measured:  `2640`
 		//  Estimated: `8727`
 		// Minimum execution time: 467_993_000 picoseconds.
 		Weight::from_parts(487_089_000, 8727)
@@ -3591,10 +3649,14 @@ impl WeightInfo for () {
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTaoFlow` (r:2 w:2)
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
@@ -3703,10 +3765,14 @@ impl WeightInfo for () {
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetTaoFlow` (r:2 w:2)
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (r:0 w:1)
@@ -3904,6 +3970,8 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Burn` (r:0 w:1)
 	/// Proof: `SubtensorModule::Burn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RAORecycledForRegistration` (r:0 w:1)
+	/// Proof: `SubtensorModule::RAORecycledForRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLocked` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetLocked` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::NetworkRegisteredAt` (r:0 w:1)
@@ -3947,7 +4015,7 @@ impl WeightInfo for () {
 		// Minimum execution time: 264_562_000 picoseconds.
 		Weight::from_parts(268_810_000, 9758)
 			.saturating_add(RocksDbWeight::get().reads(41_u64))
-			.saturating_add(RocksDbWeight::get().writes(47_u64))
+			.saturating_add(RocksDbWeight::get().writes(48_u64))
 	}
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:2 w:0)
 	/// Proof: `SubtensorModule::IsNetworkMember` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -4014,6 +4082,8 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::NetworksAdded` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:5 w:0)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingHotkeyLock` (r:5 w:0)
+	/// Proof: `SubtensorModule::DecayingHotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::OwnedHotkeys` (r:1 w:1)
 	/// Proof: `SubtensorModule::OwnedHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ChildKeys` (r:10 w:10)
@@ -4322,6 +4392,8 @@ impl WeightInfo for () {
 	/// Proof: `Crowdloan::Contributions` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::Burn` (r:0 w:1)
 	/// Proof: `SubtensorModule::Burn` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RAORecycledForRegistration` (r:0 w:1)
+	/// Proof: `SubtensorModule::RAORecycledForRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetUidToLeaseId` (r:0 w:1)
 	/// Proof: `SubtensorModule::SubnetUidToLeaseId` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::SubnetLocked` (r:0 w:1)
@@ -4375,7 +4447,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(44_643_068, 0).saturating_mul(k.into()))
 			.saturating_add(RocksDbWeight::get().reads(51_u64))
 			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(k.into())))
-			.saturating_add(RocksDbWeight::get().writes(53_u64))
+			.saturating_add(RocksDbWeight::get().writes(54_u64))
 			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(k.into()))
 	}
@@ -4604,12 +4676,16 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::SubnetTaoFlow` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
-	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
+	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::OwnerLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::OwnerLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `AlphaAssets::AlphaBurned` (r:1 w:1)
 	/// Proof: `AlphaAssets::AlphaBurned` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingOperationRateLimiter` (r:0 w:1)
@@ -4618,7 +4694,7 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn add_stake_burn() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2602`
+		//  Measured:  `2570`
 		//  Estimated: `8727`
 		// Minimum execution time: 592_522_000 picoseconds.
 		Weight::from_parts(612_019_000, 8727)
@@ -4635,6 +4711,8 @@ impl WeightInfo for () {
 		Weight::from_parts(2_935_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: `SubtensorModule::Owner` (r:1 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::StakingHotkeys` (r:1 w:0)
 	/// Proof: `SubtensorModule::StakingHotkeys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Alpha` (r:1 w:0)
@@ -4649,6 +4727,10 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::TotalHotkeySharesV2` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Lock` (r:1 w:1)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn lock_stake() -> Weight {
@@ -4660,10 +4742,14 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	/// Storage: `SubtensorModule::Lock` (r:2 w:1)
+	/// Storage: `SubtensorModule::Owner` (r:2 w:0)
+	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::Lock` (r:2 w:2)
 	/// Proof: `SubtensorModule::Lock` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::SubnetOwner` (r:1 w:0)
+	/// Proof: `SubtensorModule::SubnetOwner` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::DecayingLock` (r:1 w:0)
+	/// Proof: `SubtensorModule::DecayingLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:1 w:1)
@@ -4683,8 +4769,6 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::Owner` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::MaturityRate` (r:1 w:0)
 	/// Proof: `SubtensorModule::MaturityRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `SubtensorModule::UnlockRate` (r:1 w:0)
-	/// Proof: `SubtensorModule::UnlockRate` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::HotkeyLock` (r:2 w:2)
 	/// Proof: `SubtensorModule::HotkeyLock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn move_lock() -> Weight {

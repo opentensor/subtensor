@@ -101,7 +101,9 @@ use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+use subtensor_transaction_fee::{
+    SubtensorEvmFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler,
+};
 
 use core::marker::PhantomData;
 
@@ -272,7 +274,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 407,
+    spec_version: 409,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -814,6 +816,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     )
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_subnet_emission_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_childkey_take_per_subnet { .. }
                     )
             ),
             ProxyType::RootClaim => matches!(
@@ -1403,7 +1408,7 @@ impl pallet_evm::Config for Runtime {
     type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type OnChargeTransaction = ();
+    type OnChargeTransaction = SubtensorEvmFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     type OnCreate = ();
     type FindAuthor = FindAuthorTruncated<Aura>;
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
@@ -2542,6 +2547,10 @@ impl_runtime_apis! {
 
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
+        }
+
+        fn get_coldkey_lock(coldkey: AccountId32, netuid: NetUid) -> Option<pallet_subtensor::staking::lock::LockState> {
+            SubtensorModule::get_coldkey_lock(&coldkey, netuid)
         }
 
         fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64 {
