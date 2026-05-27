@@ -3510,7 +3510,7 @@ fn test_epoch_distribution_auto_locks_owner_cut() {
 }
 
 #[test]
-fn test_auto_lock_owner_cut_is_enabled_by_default_and_can_be_disabled() {
+fn test_auto_lock_owner_cut_is_disabled_by_default_and_can_be_enabled() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
@@ -3518,15 +3518,6 @@ fn test_auto_lock_owner_cut_is_enabled_by_default_and_can_be_disabled() {
             setup_subnet_with_stake(subnet_owner_coldkey, subnet_owner_hotkey, 100_000_000_000);
         let owner_cut: AlphaBalance = 10_000_000u64.into();
 
-        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
-        SubtensorModule::auto_lock_owner_cut(netuid, owner_cut);
-
-        let owner_lock = Lock::<Test>::get((subnet_owner_coldkey, netuid, subnet_owner_hotkey))
-            .expect("owner cut should be auto-locked by default");
-        assert_eq!(owner_lock.locked_mass, owner_cut);
-
-        Lock::<Test>::remove((subnet_owner_coldkey, netuid, subnet_owner_hotkey));
-        OwnerCutAutoLockEnabled::<Test>::insert(netuid, false);
         assert!(!SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
         SubtensorModule::auto_lock_owner_cut(netuid, owner_cut);
 
@@ -3535,6 +3526,14 @@ fn test_auto_lock_owner_cut_is_enabled_by_default_and_can_be_disabled() {
                 .next()
                 .is_none()
         );
+
+        OwnerCutAutoLockEnabled::<Test>::insert(netuid, true);
+        assert!(SubtensorModule::get_owner_cut_auto_lock_enabled(netuid));
+        SubtensorModule::auto_lock_owner_cut(netuid, owner_cut);
+
+        let owner_lock = Lock::<Test>::get((subnet_owner_coldkey, netuid, subnet_owner_hotkey))
+            .expect("owner cut should be auto-locked when enabled");
+        assert_eq!(owner_lock.locked_mass, owner_cut);
     });
 }
 
