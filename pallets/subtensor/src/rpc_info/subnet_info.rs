@@ -134,12 +134,14 @@ pub enum HyperparamValue {
     I32F32(I32F32),
 }
 
+#[freeze_struct("3b2839a04b599c8e")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct HyperparamEntry {
     pub name: Vec<u8>,
     pub value: HyperparamValue,
 }
 
+#[freeze_struct("68a0beec76fd3620")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV3 {
     pub params: Vec<HyperparamEntry>,
