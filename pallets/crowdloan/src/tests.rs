@@ -255,7 +255,7 @@ fn test_create_fails_if_call_and_target_address_are_missing() {
 }
 
 #[test]
-fn test_set_maximum_contribution_fails_if_max_contribution_is_too_low() {
+fn test_set_max_contribution_fails_if_max_contribution_is_too_low() {
     TestState::default()
         .with_balance(U256::from(1), 100.into())
         .build_and_execute(|| {
@@ -277,7 +277,7 @@ fn test_set_maximum_contribution_fails_if_max_contribution_is_too_low() {
             ));
 
             assert_err!(
-                Crowdloan::set_maximum_contribution(
+                Crowdloan::set_max_contribution(
                     RuntimeOrigin::signed(creator),
                     0,
                     Some(max_contribution)
@@ -643,7 +643,7 @@ fn test_contribute_caps_amount_at_max_contribution() {
             run_to_block(10);
 
             let crowdloan_id: CrowdloanId = 0;
-            assert_ok!(Crowdloan::set_maximum_contribution(
+            assert_ok!(Crowdloan::set_max_contribution(
                 RuntimeOrigin::signed(creator),
                 crowdloan_id,
                 Some(max_contribution)
@@ -775,7 +775,7 @@ fn test_contribute_can_be_capped_below_minimum_when_reaching_max_contribution() 
             run_to_block(10);
 
             let crowdloan_id: CrowdloanId = 0;
-            assert_ok!(Crowdloan::set_maximum_contribution(
+            assert_ok!(Crowdloan::set_max_contribution(
                 RuntimeOrigin::signed(creator),
                 crowdloan_id,
                 Some(max_contribution)
@@ -2092,7 +2092,7 @@ fn test_dissolve_succeeds() {
             ));
 
             let crowdloan_id: CrowdloanId = 0;
-            assert_ok!(Crowdloan::set_maximum_contribution(
+            assert_ok!(Crowdloan::set_max_contribution(
                 RuntimeOrigin::signed(creator),
                 crowdloan_id,
                 Some(cap)
@@ -2529,7 +2529,7 @@ fn test_update_min_contribution_fails_if_new_min_contribution_exceeds_max_contri
             ));
 
             let crowdloan_id: CrowdloanId = 0;
-            assert_ok!(Crowdloan::set_maximum_contribution(
+            assert_ok!(Crowdloan::set_max_contribution(
                 RuntimeOrigin::signed(creator),
                 crowdloan_id,
                 Some(max_contribution)

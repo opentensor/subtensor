@@ -925,8 +925,8 @@ pub mod pallet {
         /// - `crowdloan_id`: The id of the crowdloan to update the maximum contribution of.
         /// - `new_max_contribution`: The new optional maximum contribution.
         #[pallet::call_index(9)]
-        #[pallet::weight(T::WeightInfo::set_maximum_contribution())]
-        pub fn set_maximum_contribution(
+        #[pallet::weight(T::WeightInfo::set_max_contribution())]
+        pub fn set_max_contribution(
             origin: OriginFor<T>,
             #[pallet::compact] crowdloan_id: CrowdloanId,
             new_max_contribution: Option<BalanceOf<T>>,

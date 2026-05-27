@@ -491,7 +491,7 @@ mod benchmarks {
     }
 
     #[benchmark]
-    fn set_maximum_contribution() {
+    fn set_max_contribution() {
         // create a crowdloan
         let creator: T::AccountId = account::<T::AccountId>("creator", 0, SEED);
         let deposit = T::MinimumDeposit::get();

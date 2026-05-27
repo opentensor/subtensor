@@ -38,7 +38,7 @@ The following functions are only callable by the creator of the crowdloan:
 
 - `update_cap`: Update the cap of a non-finalized crowdloan.
 
-- `set_maximum_contribution`: Set or clear the maximum cumulative contribution allowed per contributor for a non-finalized crowdloan.
+- `set_max_contribution`: Set or clear the maximum cumulative contribution allowed per contributor for a non-finalized crowdloan.
 
 ## Integration with subnet leasing (from the subtensor pallet)
 
