@@ -1582,16 +1582,16 @@ pub mod pallet {
     pub type OwnerCutAutoLockEnabled<T: Config> =
         StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutAutoLockEnabled<T>>;
 
-    /// Default unlock timescale: 50% lock back in ~60 days.
+    /// Default unlock timescale: 50% lock back in ~90 days.
     #[pallet::type_value]
     pub fn DefaultUnlockRate<T: Config>() -> u64 {
-        648_000
+        934_866
     }
 
-    /// Default maturity timescale: 50% conviction in ~60 days.
+    /// Default maturity timescale: 50% conviction in ~90 days.
     #[pallet::type_value]
     pub fn DefaultMaturityRate<T: Config>() -> u64 {
-        648_000
+        934_866
     }
 
     /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
