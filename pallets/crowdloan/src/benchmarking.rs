@@ -6,14 +6,16 @@
     clippy::unwrap_used
 )]
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
+use codec::Encode;
 use frame_benchmarking::{account, v2::*};
-use frame_support::traits::{Get, StorePreimage, fungible::*};
+use frame_support::traits::{Get, QueryPreimage, StorePreimage, fungible::*};
 use frame_system::{RawOrigin, pallet_prelude::BlockNumberFor};
 use subtensor_runtime_common::{TaoBalance, Token};
 
 extern crate alloc;
 
 const SEED: u32 = 0;
+const INLINE_PREIMAGE_LIMIT: usize = 128;
 
 use alloc::{boxed::Box, vec};
 
@@ -224,7 +226,14 @@ mod benchmarks {
         let cap = deposit + deposit;
         let now = frame_system::Pallet::<T>::block_number();
         let end = now + T::MaximumBlockDuration::get();
-        let target_address: T::AccountId = account::<T::AccountId>("target_address", 0, SEED);
+        // Force the call through preimage storage instead of the inline bounded path.
+        let call: Box<<T as Config>::RuntimeCall> = Box::new(
+            frame_system::Call::<T>::remark {
+                remark: vec![0; 256],
+            }
+            .into(),
+        );
+        assert!(call.encode().len() > INLINE_PREIMAGE_LIMIT);
         let _ = CurrencyOf::<T>::set_balance(&creator, deposit);
         let _ = Pallet::<T>::create(
             RawOrigin::Signed(creator.clone()).into(),
@@ -232,12 +241,18 @@ mod benchmarks {
             min_contribution,
             cap,
             end,
+            Some(call),
             None,
-            Some(target_address.clone()),
         );
 
         // create contribution fullfilling the cap
         let crowdloan_id: CrowdloanId = 0;
+        let stored_call = Crowdloans::<T>::get(crowdloan_id)
+            .and_then(|crowdloan| crowdloan.call)
+            .expect("benchmark crowdloan should store a finalization call");
+        assert!(stored_call.lookup_needed());
+        assert!(T::Preimages::have(&stored_call));
+
         let contributor: T::AccountId = account::<T::AccountId>("contributor", 0, SEED);
         let amount: BalanceOf<T> = cap - deposit;
         let _ = CurrencyOf::<T>::set_balance(&contributor, amount);
@@ -253,10 +268,10 @@ mod benchmarks {
         #[extrinsic_call]
         _(RawOrigin::Signed(creator.clone()), crowdloan_id);
 
-        // ensure the target address has received the raised amount
-        assert_eq!(CurrencyOf::<T>::balance(&target_address), deposit + amount);
         // ensure the crowdloan has been finalized
         assert!(Crowdloans::<T>::get(crowdloan_id).is_some_and(|c| c.finalized));
+        // ensure the temporary finalization storage has been cleared
+        assert!(CurrentCrowdloanId::<T>::get().is_none());
         // ensure the event is emitted
         assert_last_event::<T>(Event::<T>::Finalized { crowdloan_id }.into());
     }
