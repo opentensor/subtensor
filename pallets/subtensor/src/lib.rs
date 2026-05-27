@@ -1546,26 +1546,42 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// --- MAP ( netuid ) --> LockState | Aggregate owner-coldkey lock for a subnet.
+    /// --- MAP ( netuid ) --> LockState | Total perpetual lock to the owner hotkey for a subnet.
     #[pallet::storage]
     pub type OwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
 
-    /// --- DMAP ( coldkey, netuid ) --> false | When present, this coldkey's lock decays.
-    /// Missing entries mean the lock is perpetual.
+    /// --- MAP ( netuid ) --> LockState | Total decaying lock to the owner hotkey for a subnet.
+    #[pallet::storage]
+    pub type DecayingOwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
+
+    /// --- DMAP ( coldkey, netuid ) --> false | When present and false, this coldkey's lock is perpetual.
+    /// Missing entries mean the lock decays by default.
     #[pallet::storage]
     pub type DecayingLock<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, NetUid, bool, OptionQuery>;
 
-    /// Default unlock timescale: 90% decay over ~365.25 days at 12s blocks.
+    /// Default value for owner cut auto-locking.
     #[pallet::type_value]
-    pub fn DefaultUnlockRate<T: Config>() -> u64 {
-        1_142_108
+    pub fn DefaultOwnerCutAutoLockEnabled<T: Config>() -> bool {
+        false
     }
 
-    /// Default maturity timescale: Conviction is ~5.2x faster than the default unlock rate.
+    /// --- MAP ( netuid ) --> bool | Whether subnet owner cut should be auto-locked.
+    /// Missing entries default to true, so auto-locking is enabled unless explicitly disabled.
+    #[pallet::storage]
+    pub type OwnerCutAutoLockEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutAutoLockEnabled<T>>;
+
+    /// Default unlock timescale: 50% lock back in ~90 days.
+    #[pallet::type_value]
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
+        934_866
+    }
+
+    /// Default maturity timescale: 50% conviction in ~90 days.
     #[pallet::type_value]
     pub fn DefaultMaturityRate<T: Config>() -> u64 {
-        216_000
+        934_866
     }
 
     /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
