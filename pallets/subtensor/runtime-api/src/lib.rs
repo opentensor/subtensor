@@ -11,6 +11,7 @@ use pallet_subtensor::rpc_info::{
     stake_info::StakeInfo,
     subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
 };
+use pallet_subtensor::staking::lock::LockState;
 use sp_runtime::AccountId32;
 use substrate_fixed::types::U64F64;
 use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, TaoBalance};
@@ -58,6 +59,7 @@ sp_api::decl_runtime_apis! {
         fn get_stake_info_for_coldkeys( coldkey_accounts: Vec<AccountId32> ) -> Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)>;
         fn get_stake_info_for_hotkey_coldkey_netuid( hotkey_account: AccountId32, coldkey_account: AccountId32, netuid: NetUid ) -> Option<StakeInfo<AccountId32>>;
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64;
+        fn get_coldkey_lock(coldkey: AccountId32, netuid: NetUid) -> Option<LockState>;
         fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64;
         fn get_most_convicted_hotkey_on_subnet(netuid: NetUid) -> Option<AccountId32>;
     }
