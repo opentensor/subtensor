@@ -611,9 +611,9 @@ pub mod pallet {
         /// The extrinsic sets the activity cutoff for a subnet.
         /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
-        #[deprecated(
-            note = "Please use set_activity_cutoff_factor instead. This extrinsic will be removed soon."
-        )]
+        // #[deprecated(
+        //     note = "Please use set_activity_cutoff_factor instead. This extrinsic will be removed soon."
+        // )]
         #[pallet::call_index(18)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::sudo_set_activity_cutoff())]
         pub fn sudo_set_activity_cutoff(
