@@ -81,21 +81,32 @@ will re-evaluate the change.
 
 ## Fork PR handling
 
-Repository secrets (`OPENAI_API_KEY`, `AI_REVIEW_APP_PRIVATE_KEY`) are not
-exposed to `pull_request` events from forks, and the default token is read-
-only, so the Codex steps cannot run on a fork auto-trigger.
+Fork PRs are AI-reviewed automatically via the `pull_request_target` trigger.
+Same-repo PRs use `pull_request`; the `decide` job's `if:` condition routes
+each PR through exactly one trigger so they never run twice.
 
-The persona jobs do still run on fork PRs — they fail-fast in the very first
-"Fork PR advisory" step with a clear error message directing maintainers to
-invoke the workflow manually. This is intentional: a skipped required check
-is treated by GitHub Branch Protection as satisfied, which would silently
-bypass the security gate for exactly the contributor class that needs it most
-(fork PRs from untrusted authors). Failing the check instead keeps the gate
-red until a maintainer explicitly clears it.
+**Why this is safe:**
 
-**To AI-review a fork PR:** a nucleus member dispatches the workflow with
-the PR number. `workflow_dispatch` runs in base context with secrets
-available, performs the real review, and the required checks turn green.
+- Under `pull_request_target`, GitHub reads the workflow file from the BASE
+  branch, not the fork's head — so a hostile fork can't modify the workflow
+  to bypass review.
+- Persona prompts and helper scripts (`prefetch.sh`, `post_review.py`, the
+  output schema) are extracted from `origin/<base>` into
+  `/tmp/ai-review-trusted/` and run from there — PR-side copies are ignored.
+- The Skeptic runs in `sandbox: read-only` and never executes fork code.
+- The Auditor runs in `sandbox: workspace-write` but with `drop-sudo`, no
+  `GH_TOKEN` / `OPENAI_API_KEY` in env, and the credentialed push step uses
+  a fresh clean clone so PR-controlled `.git/config` / `.gitattributes` can
+  never touch the token.
+
+**Hard guard: fork PRs that touch `.github/` are blocked at `decide`.** The
+job emits a clear error message naming the offending paths and exits 1, so
+the required checks go red. Land any `.github/` changes through a separate
+same-repo PR first, then re-trigger AI review on the fork PR.
+
+**Manual override (rare):** if a fork PR needs to be reviewed despite some
+limitation of the auto-trigger, a maintainer can dispatch the workflow with
+the PR number — that path still runs through `decide` and its guards.
 
 ```bash
 gh workflow run ai-review.yml --repo opentensor/subtensor -f pr_number=<N>
