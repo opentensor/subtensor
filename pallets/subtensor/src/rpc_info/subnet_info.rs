@@ -123,6 +123,13 @@ pub struct SubnetHyperparamsV2 {
     user_liquidity_enabled: bool,
 }
 
+/// Tagged value for a single hyperparameter in [`SubnetHyperparamsV3`].
+///
+/// Clients decode by matching on the SCALE variant tag (resolved through
+/// runtime metadata). Adding a new hyperparam whose value already fits an
+/// existing variant is purely additive. Introducing a brand-new value type
+/// requires a new variant *and* a coordinated client update, since that
+/// changes the variant tag space.
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub enum HyperparamValue {
     Bool(bool),
@@ -134,14 +141,26 @@ pub enum HyperparamValue {
     I32F32(I32F32),
 }
 
-#[freeze_struct("3b2839a04b599c8e")]
+/// One named hyperparameter and its typed value.
+///
+/// `name` is the ASCII identifier (e.g. `b"rho"`), matching the field names
+/// used in [`SubnetHyperparamsV2`]. Clients should look up params by name
+/// and treat unknown names as forward-compatible additions.
+#[freeze_struct("3fee3576c33e216c")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct HyperparamEntry {
     pub name: Vec<u8>,
     pub value: HyperparamValue,
 }
 
-#[freeze_struct("68a0beec76fd3620")]
+/// Dynamic, forward-compatible view of subnet hyperparameters.
+///
+/// Unlike [`SubnetHyperparamsV2`], the wire shape never changes when a new
+/// hyperparam is added — callers receive a flat list of
+/// [`HyperparamEntry`] and look up values by name. The order in which
+/// entries appear is stable insertion order from the runtime getter, but
+/// clients should not rely on it for semantics.
+#[freeze_struct("37e12b06bd878fee")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
 pub struct SubnetHyperparamsV3 {
     pub params: Vec<HyperparamEntry>,
@@ -435,6 +454,12 @@ impl<T: Config> Pallet<T> {
         AutoStakeDestination::<T>::get(coldkey, netuid)
     }
 
+    /// Returns every hyperparameter for `netuid` as a flat
+    /// [`SubnetHyperparamsV3`] list, or `None` if the subnet does not exist.
+    ///
+    /// Adding a new hyperparameter is a single `HyperparamEntry { name, value }`
+    /// push below — no struct edit and no V4 required, provided the value's
+    /// type already has a [`HyperparamValue`] variant.
     pub fn get_subnet_hyperparams_v3(netuid: NetUid) -> Option<SubnetHyperparamsV3> {
         if !Self::if_subnet_exist(netuid) {
             return None;
