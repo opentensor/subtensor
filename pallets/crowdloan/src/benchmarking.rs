@@ -3,7 +3,8 @@
 #![allow(
     clippy::arithmetic_side_effects,
     clippy::indexing_slicing,
-    clippy::unwrap_used
+    clippy::unwrap_used,
+    clippy::expect_used
 )]
 use crate::{BalanceOf, CrowdloanId, CrowdloanInfo, CurrencyOf, pallet::*};
 use codec::Encode;
