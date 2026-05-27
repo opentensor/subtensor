@@ -721,11 +721,11 @@ pub(crate) fn step_epochs(count: u16, netuid: NetUid) {
     // Advance block-by-block until exactly `count` more epoch slots have been
     // consumed for `netuid`, observed via the `SubnetEpochIndex` counter. Robust
     // to any tempo (including `tempo == 1`) and to the per-block epoch cap.
-    let target = crate::SubnetEpochIndex::<Test>::get(netuid).saturating_add(count as u64);
+    let target = crate::SubnetEpochIndex::<Test>::get(netuid) + count as u64;
     let mut blocks_advanced: u32 = 0;
     while crate::SubnetEpochIndex::<Test>::get(netuid) < target {
         step_block(1);
-        blocks_advanced = blocks_advanced.saturating_add(1);
+        blocks_advanced += 1;
         assert!(
             blocks_advanced < STEP_EPOCHS_MAX_BLOCKS,
             "step_epochs: epoch counter never advanced (tempo == 0?)"
