@@ -439,7 +439,11 @@ impl<T: Config> Pallet<T> {
         }
 
         let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
-        let yuma_version: u16 = if Self::get_yuma3_enabled(netuid) { 3 } else { 2 };
+        let yuma_version: u16 = if Self::get_yuma3_enabled(netuid) {
+            3
+        } else {
+            2
+        };
 
         let params = alloc::vec![
             HyperparamEntry {

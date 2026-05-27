@@ -1,9 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::mock::*;
-use crate::rpc_info::subnet_info::{
-    HyperparamEntry, HyperparamValue, SubnetHyperparamsV3,
-};
+use crate::rpc_info::subnet_info::{HyperparamEntry, HyperparamValue, SubnetHyperparamsV3};
 use codec::{Compact, Decode, Encode};
 use std::collections::BTreeSet;
 use substrate_fixed::types::I32F32;
@@ -131,18 +129,30 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         let p = &result.params;
 
         // Bool variants
-        assert_eq!(find(p, b"registration_allowed"), &HyperparamValue::Bool(false));
+        assert_eq!(
+            find(p, b"registration_allowed"),
+            &HyperparamValue::Bool(false)
+        );
         assert_eq!(
             find(p, b"commit_reveal_weights_enabled"),
             &HyperparamValue::Bool(true)
         );
-        assert_eq!(find(p, b"liquid_alpha_enabled"), &HyperparamValue::Bool(true));
-        assert_eq!(find(p, b"bonds_reset_enabled"), &HyperparamValue::Bool(true));
+        assert_eq!(
+            find(p, b"liquid_alpha_enabled"),
+            &HyperparamValue::Bool(true)
+        );
+        assert_eq!(
+            find(p, b"bonds_reset_enabled"),
+            &HyperparamValue::Bool(true)
+        );
 
         // U16 variants
         assert_eq!(find(p, b"rho"), &HyperparamValue::U16(Compact(11)));
         assert_eq!(find(p, b"kappa"), &HyperparamValue::U16(Compact(12)));
-        assert_eq!(find(p, b"immunity_period"), &HyperparamValue::U16(Compact(13)));
+        assert_eq!(
+            find(p, b"immunity_period"),
+            &HyperparamValue::U16(Compact(13))
+        );
         assert_eq!(
             find(p, b"min_allowed_weights"),
             &HyperparamValue::U16(Compact(14))
@@ -164,7 +174,10 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
             find(p, b"max_regs_per_block"),
             &HyperparamValue::U16(Compact(28))
         );
-        assert_eq!(find(p, b"max_validators"), &HyperparamValue::U16(Compact(30)));
+        assert_eq!(
+            find(p, b"max_validators"),
+            &HyperparamValue::U16(Compact(30))
+        );
         assert_eq!(find(p, b"yuma_version"), &HyperparamValue::U16(Compact(3)));
 
         // U64 variants
@@ -225,7 +238,9 @@ fn test_get_subnet_hyperparams_v3_yuma_version_reflects_flag() {
         SubtensorModule::set_yuma3_enabled(netuid, false);
         assert_eq!(
             find(
-                &SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap().params,
+                &SubtensorModule::get_subnet_hyperparams_v3(netuid)
+                    .unwrap()
+                    .params,
                 b"yuma_version",
             ),
             &HyperparamValue::U16(Compact(2))
@@ -234,7 +249,9 @@ fn test_get_subnet_hyperparams_v3_yuma_version_reflects_flag() {
         SubtensorModule::set_yuma3_enabled(netuid, true);
         assert_eq!(
             find(
-                &SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap().params,
+                &SubtensorModule::get_subnet_hyperparams_v3(netuid)
+                    .unwrap()
+                    .params,
                 b"yuma_version",
             ),
             &HyperparamValue::U16(Compact(3))
@@ -250,8 +267,8 @@ fn test_get_subnet_hyperparams_v3_scale_round_trip() {
 
         let original = SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap();
         let bytes = original.encode();
-        let decoded = SubnetHyperparamsV3::decode(&mut &bytes[..])
-            .expect("V3 must SCALE-round-trip cleanly");
+        let decoded =
+            SubnetHyperparamsV3::decode(&mut &bytes[..]).expect("V3 must SCALE-round-trip cleanly");
         assert_eq!(original, decoded);
     });
 }
