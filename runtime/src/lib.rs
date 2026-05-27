@@ -39,7 +39,9 @@ use pallet_subtensor::rpc_info::{
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
-    subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
+    subnet_info::{
+        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+    },
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
@@ -2482,6 +2484,10 @@ impl_runtime_apis! {
 
         fn get_subnet_hyperparams_v2(netuid: NetUid) -> Option<SubnetHyperparamsV2> {
             SubtensorModule::get_subnet_hyperparams_v2(netuid)
+        }
+
+        fn get_subnet_hyperparams_v3(netuid: NetUid) -> Option<SubnetHyperparamsV3> {
+            SubtensorModule::get_subnet_hyperparams_v3(netuid)
         }
 
         fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>> {

@@ -123,6 +123,28 @@ pub struct SubnetHyperparamsV2 {
     user_liquidity_enabled: bool,
 }
 
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub enum HyperparamValue {
+    Bool(bool),
+    U16(Compact<u16>),
+    U32(Compact<u32>),
+    U64(Compact<u64>),
+    U128(Compact<u128>),
+    TaoBalance(Compact<TaoBalance>),
+    I32F32(I32F32),
+}
+
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct HyperparamEntry {
+    pub name: Vec<u8>,
+    pub value: HyperparamValue,
+}
+
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug, TypeInfo)]
+pub struct SubnetHyperparamsV3 {
+    pub params: Vec<HyperparamEntry>,
+}
+
 impl<T: Config> Pallet<T> {
     pub fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<T::AccountId>> {
         if !Self::if_subnet_exist(netuid) {
@@ -409,5 +431,153 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
     ) -> Option<T::AccountId> {
         AutoStakeDestination::<T>::get(coldkey, netuid)
+    }
+
+    pub fn get_subnet_hyperparams_v3(netuid: NetUid) -> Option<SubnetHyperparamsV3> {
+        if !Self::if_subnet_exist(netuid) {
+            return None;
+        }
+
+        let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
+        let yuma_version: u16 = if Self::get_yuma3_enabled(netuid) { 3 } else { 2 };
+
+        let params = alloc::vec![
+            HyperparamEntry {
+                name: b"rho".to_vec(),
+                value: HyperparamValue::U16(Self::get_rho(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"kappa".to_vec(),
+                value: HyperparamValue::U16(Self::get_kappa(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"immunity_period".to_vec(),
+                value: HyperparamValue::U16(Self::get_immunity_period(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"min_allowed_weights".to_vec(),
+                value: HyperparamValue::U16(Self::get_min_allowed_weights(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"max_weights_limit".to_vec(),
+                value: HyperparamValue::U16(Self::get_max_weight_limit(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"tempo".to_vec(),
+                value: HyperparamValue::U16(Self::get_tempo(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"min_difficulty".to_vec(),
+                value: HyperparamValue::U64(Self::get_min_difficulty(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"max_difficulty".to_vec(),
+                value: HyperparamValue::U64(Self::get_max_difficulty(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"weights_version".to_vec(),
+                value: HyperparamValue::U64(Self::get_weights_version_key(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"weights_rate_limit".to_vec(),
+                value: HyperparamValue::U64(Self::get_weights_set_rate_limit(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"adjustment_interval".to_vec(),
+                value: HyperparamValue::U16(Self::get_adjustment_interval(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"activity_cutoff".to_vec(),
+                value: HyperparamValue::U16(Self::get_activity_cutoff(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"registration_allowed".to_vec(),
+                value: HyperparamValue::Bool(Self::get_network_registration_allowed(netuid)),
+            },
+            HyperparamEntry {
+                name: b"target_regs_per_interval".to_vec(),
+                value: HyperparamValue::U16(
+                    Self::get_target_registrations_per_interval(netuid).into(),
+                ),
+            },
+            HyperparamEntry {
+                name: b"min_burn".to_vec(),
+                value: HyperparamValue::TaoBalance(Self::get_min_burn(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"max_burn".to_vec(),
+                value: HyperparamValue::TaoBalance(Self::get_max_burn(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"bonds_moving_avg".to_vec(),
+                value: HyperparamValue::U64(Self::get_bonds_moving_average(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"max_regs_per_block".to_vec(),
+                value: HyperparamValue::U16(Self::get_max_registrations_per_block(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"serving_rate_limit".to_vec(),
+                value: HyperparamValue::U64(Self::get_serving_rate_limit(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"max_validators".to_vec(),
+                value: HyperparamValue::U16(Self::get_max_allowed_validators(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"adjustment_alpha".to_vec(),
+                value: HyperparamValue::U64(Self::get_adjustment_alpha(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"difficulty".to_vec(),
+                value: HyperparamValue::U64(Self::get_difficulty_as_u64(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"commit_reveal_period".to_vec(),
+                value: HyperparamValue::U64(Self::get_reveal_period(netuid).into()),
+            },
+            HyperparamEntry {
+                name: b"commit_reveal_weights_enabled".to_vec(),
+                value: HyperparamValue::Bool(Self::get_commit_reveal_weights_enabled(netuid)),
+            },
+            HyperparamEntry {
+                name: b"alpha_high".to_vec(),
+                value: HyperparamValue::U16(alpha_high.into()),
+            },
+            HyperparamEntry {
+                name: b"alpha_low".to_vec(),
+                value: HyperparamValue::U16(alpha_low.into()),
+            },
+            HyperparamEntry {
+                name: b"liquid_alpha_enabled".to_vec(),
+                value: HyperparamValue::Bool(Self::get_liquid_alpha_enabled(netuid)),
+            },
+            HyperparamEntry {
+                name: b"alpha_sigmoid_steepness".to_vec(),
+                value: HyperparamValue::I32F32(Self::get_alpha_sigmoid_steepness(netuid)),
+            },
+            HyperparamEntry {
+                name: b"yuma_version".to_vec(),
+                value: HyperparamValue::U16(Compact(yuma_version)),
+            },
+            HyperparamEntry {
+                name: b"subnet_is_active".to_vec(),
+                value: HyperparamValue::Bool(Self::get_subtoken_enabled(netuid)),
+            },
+            HyperparamEntry {
+                name: b"transfers_enabled".to_vec(),
+                value: HyperparamValue::Bool(Self::get_transfer_toggle(netuid)),
+            },
+            HyperparamEntry {
+                name: b"bonds_reset_enabled".to_vec(),
+                value: HyperparamValue::Bool(Self::get_bonds_reset(netuid)),
+            },
+            HyperparamEntry {
+                name: b"user_liquidity_enabled".to_vec(),
+                value: HyperparamValue::Bool(Self::is_user_liquidity_enabled(netuid)),
+            },
+        ];
+
+        Some(SubnetHyperparamsV3 { params })
     }
 }
