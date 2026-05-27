@@ -274,7 +274,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 408,
+    spec_version: 410,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -2547,6 +2547,10 @@ impl_runtime_apis! {
 
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
+        }
+
+        fn get_coldkey_lock(coldkey: AccountId32, netuid: NetUid) -> Option<pallet_subtensor::staking::lock::LockState> {
+            SubtensorModule::get_coldkey_lock(&coldkey, netuid)
         }
 
         fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64 {
