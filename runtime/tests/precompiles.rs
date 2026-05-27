@@ -10,6 +10,7 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::traits::Hash;
 use std::collections::BTreeSet;
 use subtensor_precompiles::{BalanceTransferPrecompile, PrecompileExt, Precompiles};
+use subtensor_runtime_common::TaoBalance;
 
 type AccountId = <Runtime as frame_system::Config>::AccountId;
 
@@ -20,6 +21,11 @@ fn new_test_ext() -> sp_io::TestExternalities {
         .into();
     ext.execute_with(|| System::set_block_number(1));
     ext
+}
+
+fn add_balance_to_coldkey_account(coldkey: &sp_core::crypto::AccountId32, tao: TaoBalance) {
+    let credit = pallet_subtensor::Pallet::<Runtime>::mint_tao(tao);
+    let _ = pallet_subtensor::Pallet::<Runtime>::spend_tao(coldkey, credit, tao).unwrap();
 }
 
 fn execute_precompile(
@@ -73,10 +79,7 @@ fn balance_transfer_precompile_transfers_balance() {
         let destination_account: AccountId = destination_raw.0.into();
 
         let amount = 123_456;
-        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
-            &dispatch_account,
-            (amount * 2).into(),
-        );
+        add_balance_to_coldkey_account(&dispatch_account, (amount * 2).into());
 
         let source_balance_before =
             pallet_balances::Pallet::<Runtime>::free_balance(&dispatch_account);
@@ -117,10 +120,7 @@ fn balance_transfer_precompile_respects_dispatch_guard_policy() {
         let destination_account: AccountId = destination_raw.0.into();
 
         let amount = 100;
-        pallet_subtensor::Pallet::<Runtime>::add_balance_to_coldkey_account(
-            &dispatch_account,
-            1_000_000_u64.into(),
-        );
+        add_balance_to_coldkey_account(&dispatch_account, 1_000_000_u64.into());
 
         let replacement_coldkey = AccountId::from([9u8; 32]);
         let replacement_hash =

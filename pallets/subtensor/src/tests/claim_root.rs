@@ -1,26 +1,24 @@
-#![allow(clippy::expect_used)]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use crate::RootAlphaDividendsPerSubnet;
-use crate::tests::mock::{
-    RuntimeOrigin, SubtensorModule, Test, add_dynamic_network, new_test_ext,
-    remove_owner_registration_stake, run_to_block,
-};
+use crate::tests::mock::*;
 use crate::{
     DefaultMinRootClaimAmount, Error, MAX_NUM_ROOT_CLAIMS, MAX_ROOT_CLAIM_THRESHOLD, NetworksAdded,
     NumRootClaim, NumStakingColdkeys, PendingRootAlphaDivs, RootClaimable, RootClaimableThreshold,
-    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetMechanism, SubnetMovingPrice,
-    SubnetTAO, SubnetTaoFlow, SubtokenEnabled, Tempo, pallet,
+    StakingColdkeys, StakingColdkeysByIndex, SubnetAlphaIn, SubnetAlphaOut, SubnetMechanism,
+    SubnetMovingPrice, SubnetProtocolFlow, SubnetRootSellTao, SubnetTAO, SubnetTaoFlow,
+    SubnetVolume, SubtokenEnabled, Tempo, TotalStake, pallet,
 };
 use crate::{RootClaimType, RootClaimTypeEnum, RootClaimed};
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::RawOrigin;
 use frame_support::pallet_prelude::Weight;
-use frame_support::traits::Get;
+use frame_support::traits::{Currency, Get};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{H256, U256};
 use sp_runtime::DispatchError;
 use std::collections::BTreeSet;
-use substrate_fixed::types::{I96F32, U64F64, U96F32};
+use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_runtime_common::{AlphaBalance, NetUid, TaoBalance, Token};
 use subtensor_swap_interface::SwapHandler;
 
@@ -50,7 +48,7 @@ fn test_claim_root_with_drain_emissions() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -58,7 +56,7 @@ fn test_claim_root_with_drain_emissions() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -203,13 +201,13 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 1_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &alice_coldkey,
             NetUid::ROOT,
             root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &bob_coldkey,
             NetUid::ROOT,
@@ -217,7 +215,7 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
         );
 
         let root_stake_rate = 0.1f64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &other_coldkey,
             NetUid::ROOT,
@@ -225,7 +223,7 @@ fn test_claim_root_adding_stake_proportionally_for_two_stakers() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -306,20 +304,20 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
         let other_root_stake = 7_000_000u64;
 
         let alice_root_stake_rate = 0.1f64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &alice_coldkey,
             NetUid::ROOT,
             alice_root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &bob_coldkey,
             NetUid::ROOT,
             bob_root_stake.into(),
         );
 
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &other_coldkey,
             NetUid::ROOT,
@@ -327,7 +325,7 @@ fn test_claim_root_adding_stake_disproportionally_for_two_stakers() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -405,13 +403,13 @@ fn test_claim_root_with_changed_stake() {
         NetworksAdded::<Test>::insert(NetUid::ROOT, true);
 
         let root_stake = 8_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &alice_coldkey,
             NetUid::ROOT,
             root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &bob_coldkey,
             NetUid::ROOT,
@@ -419,7 +417,7 @@ fn test_claim_root_with_changed_stake() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -612,14 +610,14 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         assert_eq!(current_price, 0.5f64);
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
             root_stake.into(),
         );
         let root_stake_rate = 0.1f64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &other_coldkey,
             NetUid::ROOT,
@@ -627,7 +625,7 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -761,6 +759,100 @@ fn test_claim_root_with_drain_emissions_and_swap_claim_type() {
 }
 
 #[test]
+fn test_claim_root_swap_failure_does_not_consume_claim() {
+    new_test_ext(1).execute_with(|| {
+        let owner_coldkey = U256::from(1001);
+        let other_coldkey = U256::from(10010);
+        let hotkey = U256::from(1002);
+        let coldkey = U256::from(1003);
+        let netuid = add_dynamic_network(&hotkey, &owner_coldkey);
+
+        SubtensorModule::set_tao_weight(u64::MAX);
+        SubnetTAO::<Test>::insert(netuid, TaoBalance::from(50_000_000_000_u64));
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::from(100_000_000_000_u64));
+
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+            2_000_000_u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &other_coldkey,
+            NetUid::ROOT,
+            18_000_000_u64.into(),
+        );
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &owner_coldkey,
+            netuid,
+            10_000_000_u64.into(),
+        );
+
+        SubtensorModule::distribute_emission(
+            netuid,
+            AlphaBalance::ZERO,
+            AlphaBalance::ZERO,
+            10_000_000_u64.into(),
+            AlphaBalance::ZERO,
+        );
+
+        assert_ok!(SubtensorModule::set_root_claim_type(
+            RuntimeOrigin::signed(coldkey),
+            RootClaimTypeEnum::Swap
+        ));
+
+        let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+        Balances::make_free_balance_be(&subnet_account, 0.into());
+
+        let root_claimed_before = RootClaimed::<Test>::get((netuid, &hotkey, &coldkey));
+        let root_stake_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &coldkey,
+            NetUid::ROOT,
+        );
+        let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
+        let root_subnet_tao_before = SubnetTAO::<Test>::get(NetUid::ROOT);
+        let subnet_alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
+        let subnet_alpha_out_before = SubnetAlphaOut::<Test>::get(netuid);
+        let total_stake_before = TotalStake::<Test>::get();
+        let subnet_volume_before = SubnetVolume::<Test>::get(netuid);
+        let root_sell_before = SubnetRootSellTao::<Test>::get(netuid);
+        let protocol_flow_before = SubnetProtocolFlow::<Test>::get(netuid);
+
+        assert_noop!(
+            SubtensorModule::claim_root(RuntimeOrigin::signed(coldkey), BTreeSet::from([netuid])),
+            Error::<Test>::InsufficientBalance
+        );
+
+        assert_eq!(
+            RootClaimed::<Test>::get((netuid, &hotkey, &coldkey)),
+            root_claimed_before
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &coldkey,
+                NetUid::ROOT,
+            ),
+            root_stake_before
+        );
+        assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before);
+        assert_eq!(SubnetTAO::<Test>::get(NetUid::ROOT), root_subnet_tao_before);
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), subnet_alpha_in_before);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid), subnet_alpha_out_before);
+        assert_eq!(TotalStake::<Test>::get(), total_stake_before);
+        assert_eq!(SubnetVolume::<Test>::get(netuid), subnet_volume_before);
+        assert_eq!(SubnetRootSellTao::<Test>::get(netuid), root_sell_before);
+        assert_eq!(
+            SubnetProtocolFlow::<Test>::get(netuid),
+            protocol_flow_before
+        );
+    });
+}
+
+#[test]
 fn test_claim_root_with_run_coinbase() {
     new_test_ext(1).execute_with(|| {
         let owner_coldkey = U256::from(1001);
@@ -775,7 +867,7 @@ fn test_claim_root_with_run_coinbase() {
         let root_stake = 200_000_000u64;
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(root_stake));
 
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -783,7 +875,7 @@ fn test_claim_root_with_run_coinbase() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -809,8 +901,8 @@ fn test_claim_root_with_run_coinbase() {
                 .into();
         assert_eq!(initial_stake, 0u64);
 
-        let block_emissions = 1_000_000u64;
-        SubtensorModule::run_coinbase(U96F32::from(block_emissions));
+        let block_emissions = SubtensorModule::mint_tao(1_000_000u64.into());
+        SubtensorModule::run_coinbase(block_emissions);
 
         // Claim root alpha
 
@@ -894,7 +986,7 @@ fn test_claim_root_with_block_emissions() {
         let root_stake = 200_000_000u64;
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(root_stake));
 
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -915,7 +1007,7 @@ fn test_claim_root_with_block_emissions() {
         assert!(root_sell_flag, "Root sell flag should be true");
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -959,19 +1051,19 @@ fn test_populate_staking_maps() {
         let netuid2 = NetUid::from(2);
 
         let root_stake = 200_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey1,
             NetUid::ROOT,
             root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey2,
             NetUid::ROOT,
             root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey3,
             netuid2,
@@ -1010,7 +1102,7 @@ fn test_claim_root_coinbase_distribution() {
         let initial_tao = 200_000_000u64;
         SubnetTAO::<Test>::insert(NetUid::ROOT, TaoBalance::from(initial_tao));
 
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -1018,7 +1110,7 @@ fn test_claim_root_coinbase_distribution() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1127,7 +1219,7 @@ fn test_claim_root_with_swap_coldkey() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -1135,7 +1227,7 @@ fn test_claim_root_with_swap_coldkey() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1214,7 +1306,7 @@ fn test_claim_root_with_swap_hotkey() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -1222,7 +1314,7 @@ fn test_claim_root_with_swap_hotkey() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1330,13 +1422,13 @@ fn test_claim_root_on_network_deregistration() {
         assert_eq!(current_price, 0.5f64);
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
             root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &other_coldkey,
             NetUid::ROOT,
@@ -1344,7 +1436,7 @@ fn test_claim_root_on_network_deregistration() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1471,7 +1563,7 @@ fn test_claim_root_with_unrelated_subnets() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -1479,7 +1571,7 @@ fn test_claim_root_with_unrelated_subnets() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1575,13 +1667,13 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
         SubnetAlphaIn::<Test>::insert(netuid, alpha_in);
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
             root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &other_coldkey,
             NetUid::ROOT,
@@ -1589,7 +1681,7 @@ fn test_claim_root_fill_root_alpha_dividends_per_subnet() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1650,7 +1742,7 @@ fn test_claim_root_with_keep_subnets() {
         SubtensorModule::set_tao_weight(u64::MAX); // Set TAO weight to 1.0
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
@@ -1658,7 +1750,7 @@ fn test_claim_root_with_keep_subnets() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1746,14 +1838,14 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
         assert_eq!(current_price, 0.5f64);
 
         let root_stake = 2_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &coldkey,
             NetUid::ROOT,
             root_stake.into(),
         );
         let root_stake_rate = 0.1f64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &other_coldkey,
             NetUid::ROOT,
@@ -1761,7 +1853,7 @@ fn test_claim_root_keep_subnets_swap_claim_type() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,
@@ -1843,13 +1935,13 @@ fn test_claim_root_with_moved_stake() {
         NetworksAdded::<Test>::insert(NetUid::ROOT, true);
 
         let root_stake = 8_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &alice_coldkey,
             NetUid::ROOT,
             root_stake.into(),
         );
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &bob_coldkey,
             NetUid::ROOT,
@@ -1857,7 +1949,7 @@ fn test_claim_root_with_moved_stake() {
         );
 
         let initial_total_hotkey_alpha = 10_000_000u64;
-        SubtensorModule::increase_stake_for_hotkey_and_coldkey_on_subnet(
+        mock_increase_stake_for_hotkey_and_coldkey_on_subnet(
             &hotkey,
             &owner_coldkey,
             netuid,

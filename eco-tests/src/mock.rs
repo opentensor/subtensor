@@ -45,6 +45,7 @@ frame_support::construct_runtime!(
         Swap: pallet_subtensor_swap = 9,
         Crowdloan: pallet_crowdloan = 10,
         Proxy: pallet_subtensor_proxy = 11,
+        AlphaAssets: pallet_alpha_assets = 12,
     }
 );
 
@@ -233,6 +234,8 @@ parameter_types! {
     pub const LeaseDividendsDistributionInterval: u32 = 100;
     pub const MaxImmuneUidsPercentage: Percent = Percent::from_percent(80);
     pub const EvmKeyAssociateRateLimit: u64 = 10;
+    pub const SubtensorPalletId: PalletId = PalletId(*b"subtensr");
+    pub const BurnAccountId: PalletId = PalletId(*b"burntnsr");
 }
 
 impl pallet_subtensor::Config for Test {
@@ -308,7 +311,10 @@ impl pallet_subtensor::Config for Test {
     type CommitmentsInterface = CommitmentsI;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
+    type SubtensorPalletId = SubtensorPalletId;
+    type BurnAccountId = BurnAccountId;
     type WeightInfo = ();
+    type AlphaAssets = AlphaAssets;
 }
 
 // Swap-related parameter types
@@ -481,6 +487,8 @@ impl InstanceFilter<RuntimeCall> for subtensor_runtime_common::ProxyType {
     }
 }
 
+impl pallet_alpha_assets::Config for Test {}
+
 mod test_crypto {
     use super::KEY_TYPE;
     use sp_core::{
@@ -589,4 +597,10 @@ pub fn init_logs_for_tests() {
         .try_init();
 
     let _ = TEST_LOGS_INIT.set(());
+}
+
+#[allow(dead_code)]
+pub fn add_balance_to_coldkey_account(coldkey: &U256, tao: TaoBalance) {
+    let credit = SubtensorModule::mint_tao(tao);
+    let _ = SubtensorModule::spend_tao(coldkey, credit, tao).unwrap();
 }

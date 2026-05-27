@@ -121,6 +121,8 @@ mod events {
         OwnerHyperparamRateLimitSet(u16),
         /// minimum childkey take set
         MinChildKeyTakeSet(u16),
+        /// subnet-specific minimum childkey take set
+        MinChildKeyTakePerSubnetSet(NetUid, u16),
         /// maximum childkey take set
         MaxChildKeyTakeSet(u16),
         /// childkey take set
@@ -279,8 +281,9 @@ mod events {
 
         /// A weight set among a batch of weights failed.
         ///
+        /// - **netuid**: The netuid of the batch item that failed.
         /// - **error**: The dispatch error emitted by the failed item.
-        BatchWeightItemFailed(sp_runtime::DispatchError),
+        BatchWeightItemFailed(NetUid, sp_runtime::DispatchError),
 
         /// Stake has been transferred from one coldkey to another on the same subnet.
         /// Parameters:
@@ -562,7 +565,7 @@ mod events {
             /// The subnet identifier.
             netuid: NetUid,
             /// The burn increase multiplier value for neuron registration.
-            burn_increase_mult: u64,
+            burn_increase_mult: U64F64,
         },
 
         /// A root validator toggled the "auto parent delegation" flag.
@@ -570,6 +573,62 @@ mod events {
             /// The validator hotkey.
             hotkey: T::AccountId,
             /// Whether delegation is now enabled.
+            enabled: bool,
+        },
+
+        /// Stake has been locked to a hotkey on a subnet.
+        StakeLocked {
+            /// The coldkey that locked the stake.
+            coldkey: T::AccountId,
+            /// The hotkey the stake is locked to.
+            hotkey: T::AccountId,
+            /// The subnet the stake is locked on.
+            netuid: NetUid,
+            /// The alpha amount locked.
+            amount: AlphaBalance,
+        },
+
+        /// Stake has been unlocked from a hotkey on a subnet.
+        StakeUnlocked {
+            /// The coldkey that unlocked the stake.
+            coldkey: T::AccountId,
+            /// The hotkey the stake was locked to.
+            hotkey: T::AccountId,
+            /// The subnet the stake was locked on.
+            netuid: NetUid,
+            /// The alpha amount unlocked.
+            amount: AlphaBalance,
+        },
+
+        /// Stake has been unlocked from a hotkey on a subnet.
+        LockMoved {
+            /// The coldkey that moved the lock.
+            coldkey: T::AccountId,
+            /// The hotkey the lock was moved from.
+            origin_hotkey: T::AccountId,
+            /// The hotkey the lock was moved to.
+            destination_hotkey: T::AccountId,
+            /// The subnet the lock is on.
+            netuid: NetUid,
+        },
+
+        /// Subnet ownership was reassigned by lock conviction.
+        SubnetOwnerChanged {
+            /// The subnet whose owner changed.
+            netuid: NetUid,
+            /// The previous owner coldkey.
+            old_coldkey: T::AccountId,
+            /// The new owner coldkey.
+            new_coldkey: T::AccountId,
+        },
+
+        /// A coldkey's perpetual lock flag was updated.
+        PerpetualLockUpdated {
+            /// The coldkey whose flag changed.
+            coldkey: T::AccountId,
+            /// The subnet whose coldkey flag changed.
+            netuid: NetUid,
+            /// Whether this coldkey's locks are now perpetual.
             enabled: bool,
         },
     }

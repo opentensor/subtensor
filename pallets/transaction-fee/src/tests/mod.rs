@@ -3,6 +3,7 @@ use crate::{AlphaFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler, Trans
 use approx::assert_abs_diff_eq;
 use frame_support::dispatch::GetDispatchInfo;
 use frame_support::pallet_prelude::Zero;
+use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_ok};
 use pallet_subtensor_swap::AlphaSqrtPrice;
 use sp_runtime::{
@@ -53,8 +54,8 @@ fn test_remove_stake_fees_tao() {
         let register_prefund = stake_amount
             .saturating_mul(10_000.into()) // generous buffer
             .saturating_add(ExistentialDeposit::get());
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(10000), register_prefund);
-        SubtensorModule::add_balance_to_coldkey_account(&U256::from(20001), register_prefund);
+        add_balance_to_coldkey_account(&U256::from(10000), register_prefund);
+        add_balance_to_coldkey_account(&U256::from(20001), register_prefund);
 
         let sn = setup_subnets(1, 1);
 
@@ -67,7 +68,7 @@ fn test_remove_stake_fees_tao() {
             &sn.hotkeys[0],
             stake_amount.into(),
         );
-        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TaoBalance::from(TAO));
+        add_balance_to_coldkey_account(&sn.coldkey, TaoBalance::from(TAO));
 
         // Avoid staking-op rate limit between add_stake and remove_stake.
         jump_blocks(1_000_001);
@@ -187,7 +188,7 @@ fn test_rejects_multi_subnet_alpha_fee_deduction() {
                 &alpha_vec,
                 1.into(),
             ),
-            (0.into(), 0.into(), NetUid::ROOT)
+            Ok((0.into(), 0.into(), NetUid::ROOT))
         );
 
         let alpha_after_0 = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -230,7 +231,7 @@ fn test_remove_stake_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -326,6 +327,85 @@ fn test_remove_stake_fees_alpha() {
     });
 }
 
+#[test]
+fn test_alpha_fee_withdraw_failure_aborts_and_rolls_back() {
+    new_test_ext().execute_with(|| {
+        let stake_amount = TAO;
+        let unstake_amount = AlphaBalance::from(TAO / 50);
+        let sn = setup_subnets(1, 1);
+        let netuid = sn.subnets[0].netuid;
+        let hotkey = sn.hotkeys[0];
+
+        setup_stake(netuid, &sn.coldkey, &hotkey, stake_amount);
+
+        let current_balance = Balances::free_balance(sn.coldkey);
+        remove_balance_from_coldkey_account(
+            &sn.coldkey,
+            current_balance - ExistentialDeposit::get(),
+        );
+
+        // Force the alpha-fee unstake to fail after AMM bookkeeping by draining
+        // the subnet account used by transfer_tao_from_subnet.
+        let subnet_account = SubtensorModule::get_subnet_account_id(netuid).unwrap();
+        Balances::make_free_balance_be(&subnet_account, 0.into());
+
+        let block_builder = U256::from(MOCK_BLOCK_BUILDER);
+        let block_builder_balance_before = Balances::free_balance(block_builder);
+        let signer_balance_before = Balances::free_balance(sn.coldkey);
+        let alpha_before = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &sn.coldkey,
+            netuid,
+        );
+        let subnet_alpha_in_before = SubnetAlphaIn::<Test>::get(netuid);
+        let subnet_alpha_out_before = SubnetAlphaOut::<Test>::get(netuid);
+        let subnet_tao_before = SubnetTAO::<Test>::get(netuid);
+        let total_stake_before = TotalStake::<Test>::get();
+        let subnet_volume_before = SubnetVolume::<Test>::get(netuid);
+
+        let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked: unstake_amount,
+        });
+        let info = call.get_dispatch_info();
+        let ext = pallet_transaction_payment::ChargeTransactionPayment::<Test>::from(0.into());
+
+        let result =
+            ext.dispatch_transaction(RuntimeOrigin::signed(sn.coldkey).into(), call, &info, 0, 0);
+
+        assert_eq!(
+            result.unwrap_err(),
+            TransactionValidityError::Invalid(InvalidTransaction::Payment)
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &sn.coldkey,
+                netuid,
+            ),
+            alpha_before
+        );
+        assert_eq!(SubnetAlphaIn::<Test>::get(netuid), subnet_alpha_in_before);
+        assert_eq!(SubnetAlphaOut::<Test>::get(netuid), subnet_alpha_out_before);
+        assert_eq!(SubnetTAO::<Test>::get(netuid), subnet_tao_before);
+        assert_eq!(TotalStake::<Test>::get(), total_stake_before);
+        assert_eq!(SubnetVolume::<Test>::get(netuid), subnet_volume_before);
+        assert_eq!(Balances::free_balance(sn.coldkey), signer_balance_before);
+        assert_eq!(
+            Balances::free_balance(block_builder),
+            block_builder_balance_before
+        );
+
+        assert!(!System::events().iter().any(|event_record| {
+            matches!(
+                &event_record.event,
+                RuntimeEvent::SubtensorModule(SubtensorEvent::TransactionFeePaidWithAlpha { .. })
+            )
+        }));
+    });
+}
+
 // Test that unstaking on root with no free balance results in charging fees from
 // staked amount
 //
@@ -347,10 +427,7 @@ fn test_remove_stake_root() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
-            &coldkey,
-            current_balance - ExistentialDeposit::get(),
-        );
+        remove_balance_from_coldkey_account(&coldkey, current_balance - ExistentialDeposit::get());
 
         // Remove stake
         let balance_before = Balances::free_balance(coldkey);
@@ -405,10 +482,7 @@ fn test_remove_stake_completely_root() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
-            &coldkey,
-            current_balance - ExistentialDeposit::get(),
-        );
+        remove_balance_from_coldkey_account(&coldkey, current_balance - ExistentialDeposit::get());
 
         // Remove stake
         let balance_before = Balances::free_balance(coldkey);
@@ -462,7 +536,7 @@ fn test_remove_stake_completely_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -509,7 +583,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
         let stake_amount = TaoBalance::from(TAO);
         let sn = setup_subnets(1, 1);
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &sn.coldkey,
             stake_amount
                 .saturating_mul(2.into()) // buffer so staking doesn't attempt to drain the account
@@ -531,7 +605,7 @@ fn test_remove_stake_not_enough_balance_for_fees() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -597,13 +671,13 @@ fn test_remove_stake_edge_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
 
         // For-set Alpha balance to low, but enough to pay tx fees at the current Alpha price
-        let new_current_stake = AlphaBalance::from(1_000_000);
+        let new_current_stake = AlphaBalance::from(2_000_000);
         SubtensorModule::decrease_stake_for_hotkey_and_coldkey_on_subnet(
             &sn.hotkeys[0],
             &sn.coldkey,
@@ -662,7 +736,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
         let unstake_amount = AlphaBalance::from(TAO / 50);
         let sn = setup_subnets(1, 1);
 
-        SubtensorModule::add_balance_to_coldkey_account(
+        add_balance_to_coldkey_account(
             &sn.coldkey,
             stake_amount
                 .saturating_mul(2.into()) // buffer so staking doesn't attempt to drain the account
@@ -675,7 +749,7 @@ fn test_remove_stake_failing_transaction_tao_fees() {
             stake_amount.into(),
         ));
 
-        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, TAO.into());
+        add_balance_to_coldkey_account(&sn.coldkey, TAO.into());
 
         // Make unstaking fail by reducing liquidity to critical
         SubnetTAO::<Test>::insert(sn.subnets[0].netuid, TaoBalance::from(1));
@@ -744,7 +818,7 @@ fn test_remove_stake_failing_transaction_alpha_fees() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -809,7 +883,7 @@ fn test_remove_stake_limit_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -911,10 +985,7 @@ fn test_unstake_all_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
-            &coldkey,
-            current_balance - ExistentialDeposit::get(),
-        );
+        remove_balance_from_coldkey_account(&coldkey, current_balance - ExistentialDeposit::get());
 
         // Unstake all
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -938,7 +1009,7 @@ fn test_unstake_all_fees_alpha() {
         );
 
         // Give the coldkey TAO balance - now should unstake ok
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -992,10 +1063,7 @@ fn test_unstake_all_alpha_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
-            &coldkey,
-            current_balance - ExistentialDeposit::get(),
-        );
+        remove_balance_from_coldkey_account(&coldkey, current_balance - ExistentialDeposit::get());
 
         // Unstake all
         let balance_before = Balances::free_balance(sn.coldkey);
@@ -1019,7 +1087,7 @@ fn test_unstake_all_alpha_fees_alpha() {
         );
 
         // Give the coldkey TAO balance - now should unstake ok
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64.into());
+        add_balance_to_coldkey_account(&coldkey, 1_000_000_000_u64.into());
         assert_ok!(ext.dispatch_transaction(
             RuntimeOrigin::signed(coldkey).into(),
             call,
@@ -1063,7 +1131,7 @@ fn test_move_stake_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -1135,7 +1203,7 @@ fn test_transfer_stake_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -1206,7 +1274,7 @@ fn test_swap_stake_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -1276,7 +1344,7 @@ fn test_swap_stake_limit_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -1348,7 +1416,7 @@ fn test_burn_alpha_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -1409,7 +1477,7 @@ fn test_recycle_alpha_fees_alpha() {
 
         // Forse-set signer balance to ED
         let current_balance = Balances::free_balance(sn.coldkey);
-        let _ = SubtensorModule::remove_balance_from_coldkey_account(
+        remove_balance_from_coldkey_account(
             &sn.coldkey,
             current_balance - ExistentialDeposit::get(),
         );
@@ -1471,7 +1539,7 @@ fn test_add_stake_fees_go_to_block_builder() {
         // Simulate add stake to get the expected TAO fee
         let (_, swap_fee) = mock::swap_tao_to_alpha(sn.subnets[0].netuid, stake_amount.into());
 
-        SubtensorModule::add_balance_to_coldkey_account(&sn.coldkey, (stake_amount * 10).into());
+        add_balance_to_coldkey_account(&sn.coldkey, (stake_amount * 10).into());
         remove_stake_rate_limit_for_tests(&sn.hotkeys[0], &sn.coldkey, sn.subnets[0].netuid);
 
         // Stake

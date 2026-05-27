@@ -1,6 +1,9 @@
 use super::*;
+use frame_support::dispatch::DispatchResult;
+use frame_support::storage::{TransactionOutcome, with_transaction};
 use frame_support::weights::Weight;
 use sp_core::Get;
+use sp_runtime::DispatchError;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 use subtensor_swap_interface::SwapHandler;
@@ -130,7 +133,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         root_claim_type: RootClaimTypeEnum,
         ignore_minimum_condition: bool,
-    ) {
+    ) -> DispatchResult {
         // Subtract the root claimed.
         let owed: I96F32 = Self::get_root_owed_for_hotkey_coldkey_float(hotkey, coldkey, netuid);
 
@@ -140,7 +143,7 @@ impl<T: Config> Pallet<T> {
             log::debug!(
                 "root claim on subnet {netuid} is skipped: {owed:?} for h={hotkey:?},c={coldkey:?} "
             );
-            return; // no-op
+            return Ok(()); // no-op
         }
 
         // Convert owed to u64, mapping negative values to 0
@@ -154,7 +157,7 @@ impl<T: Config> Pallet<T> {
             log::debug!(
                 "root claim on subnet {netuid} is skipped: {owed:?} for h={hotkey:?},c={coldkey:?}"
             );
-            return; // no-op
+            return Ok(()); // no-op
         }
 
         let swap = match root_claim_type {
@@ -164,33 +167,78 @@ impl<T: Config> Pallet<T> {
         };
 
         if swap {
-            // Increase stake on root. Swap the alpha owed to TAO
-            let owed_tao = match Self::swap_alpha_for_tao(
-                netuid,
-                owed_u64.into(),
-                T::SwapInterface::min_price::<TaoBalance>(),
-                true,
-            ) {
-                Ok(owed_tao) => owed_tao,
-                Err(err) => {
-                    log::error!("Error swapping alpha for TAO: {err:?}");
+            with_transaction(|| {
+                // Increase stake on root. Swap the alpha owed to TAO.
+                let owed_tao = match Self::swap_alpha_for_tao(
+                    netuid,
+                    owed_u64.into(),
+                    T::SwapInterface::min_price::<TaoBalance>(),
+                    true,
+                ) {
+                    Ok(owed_tao) => owed_tao,
+                    Err(err) => {
+                        log::error!("Error swapping alpha for TAO: {err:?}");
 
-                    return;
+                        return TransactionOutcome::Rollback(Err(err));
+                    }
+                };
+
+                let root_subnet_account_id = match Self::get_subnet_account_id(NetUid::ROOT) {
+                    Some(account_id) => account_id,
+                    None => {
+                        return TransactionOutcome::Rollback(Err(
+                            Error::<T>::RootNetworkDoesNotExist.into(),
+                        ));
+                    }
+                };
+
+                if let Err(err) = Self::transfer_tao_from_subnet(
+                    netuid,
+                    &root_subnet_account_id,
+                    owed_tao.amount_paid_out.into(),
+                ) {
+                    log::error!("Error transferring root claim TAO from subnet: {err:?}");
+
+                    return TransactionOutcome::Rollback(Err(err));
                 }
-            };
 
-            Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
-                hotkey,
-                coldkey,
-                NetUid::ROOT,
-                owed_tao.amount_paid_out.to_u64().into(),
-            );
+                // Record root sell as protocol outflow (reduces protocol cost).
+                let root_sell_tao: TaoBalance = owed_tao.amount_paid_out;
+                SubnetRootSellTao::<T>::mutate(netuid, |total| {
+                    *total = total.saturating_add(root_sell_tao);
+                });
+                Self::record_protocol_outflow(netuid, root_sell_tao);
 
-            Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
-                hotkey,
-                coldkey,
-                owed_tao.amount_paid_out.into(),
-            );
+                Self::increase_stake_for_hotkey_and_coldkey_on_subnet(
+                    hotkey,
+                    coldkey,
+                    NetUid::ROOT,
+                    owed_tao.amount_paid_out.to_u64().into(),
+                );
+
+                // Increase root subnet SubnetTAO
+                SubnetTAO::<T>::mutate(NetUid::ROOT, |total| {
+                    *total = total.saturating_add(owed_tao.amount_paid_out.into());
+                });
+
+                // Increase root SubnetAlphaOut
+                SubnetAlphaOut::<T>::mutate(NetUid::ROOT, |total| {
+                    *total = total.saturating_add(u64::from(owed_tao.amount_paid_out).into());
+                });
+
+                // Increase Total Stake
+                TotalStake::<T>::mutate(|total| {
+                    *total = total.saturating_add(owed_tao.amount_paid_out.into());
+                });
+
+                Self::add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
+                    hotkey,
+                    coldkey,
+                    owed_tao.amount_paid_out.into(),
+                );
+
+                TransactionOutcome::Commit(Ok(()))
+            })?;
         } else
         /* Keep */
         {
@@ -207,6 +255,8 @@ impl<T: Config> Pallet<T> {
         RootClaimed::<T>::mutate((netuid, hotkey, coldkey), |root_claimed| {
             *root_claimed = root_claimed.saturating_add(owed_u64.into());
         });
+
+        Ok(())
     }
 
     fn root_claim_on_subnet_weight(_root_claim_type: RootClaimTypeEnum) -> Weight {
@@ -218,7 +268,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
         subnets: Option<BTreeSet<NetUid>>,
-    ) -> Weight {
+    ) -> Result<Weight, DispatchError> {
         let mut weight = Weight::default();
 
         let root_claim_type = RootClaimType::<T>::get(coldkey);
@@ -238,11 +288,11 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone(), false);
+            Self::root_claim_on_subnet(hotkey, coldkey, *netuid, root_claim_type.clone(), false)?;
             weight.saturating_accrue(Self::root_claim_on_subnet_weight(root_claim_type.clone()));
         }
 
-        weight
+        Ok(weight)
     }
 
     pub fn add_stake_adjust_root_claimed_for_hotkey_and_coldkey(
@@ -295,20 +345,33 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn do_root_claim(coldkey: T::AccountId, subnets: Option<BTreeSet<NetUid>>) -> Weight {
+    pub fn do_root_claim(
+        coldkey: T::AccountId,
+        subnets: Option<BTreeSet<NetUid>>,
+    ) -> Result<Weight, DispatchError> {
+        with_transaction(|| match Self::try_do_root_claim(coldkey, subnets) {
+            Ok(weight) => TransactionOutcome::Commit(Ok(weight)),
+            Err(err) => TransactionOutcome::Rollback(Err(err)),
+        })
+    }
+
+    fn try_do_root_claim(
+        coldkey: T::AccountId,
+        subnets: Option<BTreeSet<NetUid>>,
+    ) -> Result<Weight, DispatchError> {
         let mut weight = Weight::default();
 
         let hotkeys = StakingHotkeys::<T>::get(&coldkey);
         weight.saturating_accrue(T::DbWeight::get().reads(1));
 
-        hotkeys.iter().for_each(|hotkey| {
+        for hotkey in hotkeys.iter() {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            weight.saturating_accrue(Self::root_claim_all(hotkey, &coldkey, subnets.clone()));
-        });
+            weight.saturating_accrue(Self::root_claim_all(hotkey, &coldkey, subnets.clone())?);
+        }
 
         Self::deposit_event(Event::RootClaimed { coldkey });
 
-        weight
+        Ok(weight)
     }
 
     fn block_hash_to_indices_weight(k: u64, _n: u64) -> Weight {
@@ -338,10 +401,11 @@ impl<T: Config> Pallet<T> {
         for i in coldkeys_to_claim.iter() {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
             if let Ok(coldkey) = StakingColdkeysByIndex::<T>::try_get(i) {
-                weight.saturating_accrue(Self::do_root_claim(coldkey.clone(), None));
+                match Self::do_root_claim(coldkey.clone(), None) {
+                    Ok(claim_weight) => weight.saturating_accrue(claim_weight),
+                    Err(err) => log::error!("Error auto-claiming root dividends: {err:?}"),
+                }
             }
-
-            continue;
         }
 
         weight

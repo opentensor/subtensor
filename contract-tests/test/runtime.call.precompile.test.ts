@@ -6,7 +6,7 @@ import { devnet, MultiAddress } from "@polkadot-api/descriptors"
 import { PublicClient } from "viem";
 import { PolkadotSigner, TypedApi, getTypedCodecs } from "polkadot-api";
 import { convertPublicKeyToSs58 } from "../src/address-utils"
-import { forceSetBalanceToEthAddress, setMaxChildkeyTake, burnedRegister, forceSetBalanceToSs58Address, addStake, setTxRateLimit, addNewSubnetwork, startCall, setTempo } from "../src/subtensor";
+import { forceSetBalanceToEthAddress, setMaxChildkeyTake, burnedRegister, forceSetBalanceToSs58Address, addStake, setTxRateLimit, addNewSubnetwork, startCall, setTempo, disableAdminFreezeWindowAndOwnerHyperparamRateLimit } from "../src/subtensor";
 import { xxhashAsHex } from "@polkadot/util-crypto";
 
 describe("Test the dispatch precompile", () => {
@@ -27,6 +27,7 @@ describe("Test the dispatch precompile", () => {
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
         await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
 
+        await disableAdminFreezeWindowAndOwnerHyperparamRateLimit(api)
 
         netuid = await addNewSubnetwork(api, hotkey, coldkey)
         // set tempo big enough to avoid stake value updated with fast block feature
@@ -76,7 +77,7 @@ describe("Test the dispatch precompile", () => {
             await api.query.Multisig.Multisigs.getKey(),
             await api.query.Timestamp.Now.getKey(),
         ];
-        
+
         for (const key of authorizedKeys) {
             await assert.doesNotReject(
                 publicClient.call({
@@ -89,7 +90,7 @@ describe("Test the dispatch precompile", () => {
         const unauthorizedKeys = [
             await api.query.System.Events.getKey(),
             await api.query.Grandpa.CurrentSetId.getKey(),
-            xxhashAsHex(":code" , 128),
+            xxhashAsHex(":code", 128),
         ];
 
         for (const key of unauthorizedKeys) {

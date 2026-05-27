@@ -131,6 +131,8 @@ mod hooks {
                 .saturating_add(migrations::migrate_rate_limiting_last_blocks::migrate_obsolete_rate_limiting_last_blocks_storage::<T>())
                 // Re-encode rate limit keys after introducing OwnerHyperparamUpdate variant
                 .saturating_add(migrations::migrate_rate_limit_keys::migrate_rate_limit_keys::<T>())
+                // Remove AddStakeBurn entries from LastRateLimitedBlock
+                .saturating_add(migrations::migrate_remove_add_stake_burn_rate_limit::migrate_remove_add_stake_burn_rate_limit::<T>())
                 // Migrate remove network modality
                 .saturating_add(migrations::migrate_remove_network_modality::migrate_remove_network_modality::<T>())
                 // Migrate Immunity Period
@@ -170,13 +172,20 @@ mod hooks {
                 // Migrate fix bad hk swap
                 .saturating_add(migrations::migrate_fix_bad_hk_swap::migrate_fix_bad_hk_swap::<T>())
                 // Fix RootClaimed overclaim caused by single-subnet hotkey swap bug
-                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>());
+                .saturating_add(migrations::migrate_fix_root_claimed_overclaim::migrate_fix_root_claimed_overclaim::<T>())
+                // Mint missing SubnetTAO and SubnetLocked into subnet accounts to make TotalIssuance match in balances and subtensor
+                .saturating_add(migrations::migrate_subnet_balances::migrate_subnet_balances::<T>())
+                // Fix testnet Subtensor TotalIssuance after the EVM fees issue.
+                .saturating_add(migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<T>())
+                // Remove deprecated conviction lock storage.
+                .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>())
+                // Reset testnet conviction lock storage before deploying the current design.
+                .saturating_add(migrations::migrate_reset_tnet_conviction_locks::migrate_reset_tnet_conviction_locks::<T>());
             weight
         }
 
         #[cfg(feature = "try-runtime")]
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-            Self::check_total_issuance()?;
             // Disabled: https://github.com/opentensor/subtensor/pull/1166
             // Self::check_total_stake()?;
             Ok(())

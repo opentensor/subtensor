@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Create a network account for the user if it doesn't exist.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey)?;
 
         // --- 7. Fetch the current size of the subnetwork.
         let current_num_root_validators: u16 = Self::get_num_root_validators();
@@ -298,6 +298,10 @@ impl<T: Config> Pallet<T> {
         SubnetMovingPrice::<T>::remove(netuid);
         SubnetTaoFlow::<T>::remove(netuid);
         SubnetEmaTaoFlow::<T>::remove(netuid);
+        SubnetProtocolFlow::<T>::remove(netuid);
+        SubnetEmaProtocolFlow::<T>::remove(netuid);
+        SubnetExcessTao::<T>::remove(netuid);
+        SubnetRootSellTao::<T>::remove(netuid);
         SubnetTaoProvided::<T>::remove(netuid);
 
         // --- 13. Token / mechanism / registration toggles.
@@ -356,6 +360,7 @@ impl<T: Config> Pallet<T> {
         Yuma3On::<T>::remove(netuid);
         AlphaValues::<T>::remove(netuid);
         SubtokenEnabled::<T>::remove(netuid);
+        OwnerCutAutoLockEnabled::<T>::remove(netuid);
         ImmuneOwnerUidsLimit::<T>::remove(netuid);
 
         // --- 18. Consensus aux vectors.
@@ -479,6 +484,9 @@ impl<T: Config> Pallet<T> {
             AccumulatedLeaseDividends::<T>::remove(lease_id);
         }
 
+        // --- 23: Locks cleanup
+        Self::destroy_lock_maps(netuid);
+
         // --- Final removal logging.
         log::debug!(
             "remove_network: netuid={netuid}, owner={owner_coldkey:?} removed successfully"
@@ -575,7 +583,7 @@ impl<T: Config> Pallet<T> {
         let interval: I64F64 =
             I64F64::saturating_from_num(NetworkLockReductionInterval::<T>::get());
         let block_emission: I64F64 = I64F64::saturating_from_num(
-            Self::get_block_emission()
+            Self::calculate_block_emission()
                 .unwrap_or(1_000_000_000.into())
                 .to_u64(),
         );

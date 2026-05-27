@@ -82,6 +82,7 @@ pub const MAX_ROOT_CLAIM_THRESHOLD: u64 = 10_000_000;
 pub mod pallet {
     use crate::RateLimitKey;
     use crate::migrations;
+    use crate::staking::lock::LockState;
     use crate::subnets::leasing::{LeaseId, SubnetLeaseOf};
     use frame_support::Twox64Concat;
     use frame_support::{
@@ -1170,6 +1171,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type MinChildkeyTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinChildKeyTake<T>>;
 
+    /// MAP ( netuid ) --> take | Returns the subnet-specific minimum childkey take.
+    #[pallet::storage]
+    pub type MinChildkeyTakePerSubnet<T: Config> = StorageMap<_, Identity, NetUid, u16, ValueQuery>;
+
     /// MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey
     #[pallet::storage]
     pub type Owner<T: Config> =
@@ -1334,6 +1339,18 @@ pub mod pallet {
     pub type SubnetAlphaInEmission<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
+    /// --- MAP ( netuid ) --> subnet_emission_enabled
+    ///
+    /// When false, subnet pool-side emission is disabled for this subnet:
+    /// `alpha_in`, `tao_in`, and `excess_tao` chain buys are all treated as zero.
+    /// `alpha_out`, owner cut, root proportion, pending server emission, and pending
+    /// validator emission are intentionally left unchanged.
+    ///
+    /// Defaults to true so existing subnets keep current behavior.
+    #[pallet::storage]
+    pub type SubnetEmissionEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultTrue<T>>;
+
     /// --- MAP ( netuid ) --> alpha_out_emission | Returns the amount of alpha out emission into the network per block.
     #[pallet::storage]
     pub type SubnetAlphaOutEmission<T: Config> =
@@ -1342,6 +1359,16 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> tao_in_emission | Returns the amount of tao emitted into this subent on the last block.
     #[pallet::storage]
     pub type SubnetTaoInEmission<T: Config> =
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
+
+    /// --- MAP ( netuid ) --> excess_tao | Returns the excess TAO swapped (chain buys) into this subnet on the last block.
+    #[pallet::storage]
+    pub type SubnetExcessTao<T: Config> =
+        StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
+
+    /// --- MAP ( netuid ) --> root_sell_tao | Returns the TAO received from root dividend sells on this subnet on the last block.
+    #[pallet::storage]
+    pub type SubnetRootSellTao<T: Config> =
         StorageMap<_, Identity, NetUid, TaoBalance, ValueQuery, DefaultZeroTao<T>>;
 
     /// --- MAP ( netuid ) --> alpha_supply_in_pool | Returns the amount of alpha in the pool.
@@ -1492,6 +1519,89 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// --- DMAP ( coldkey, netuid, hotkey ) --> LockState | Exponential lock per coldkey per subnet.
+    #[pallet::storage]
+    pub type Lock<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // coldkey
+            NMapKey<Identity, NetUid>,               // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hotkey
+        ),
+        LockState,
+        OptionQuery,
+    >;
+
+    /// --- DMAP ( netuid, hotkey ) --> LockState | Total lock per hotkey per subnet.
+    #[pallet::storage]
+    pub type HotkeyLock<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid, // subnet
+        Blake2_128Concat,
+        T::AccountId, // hotkey
+        LockState,    // Total merged lock
+        OptionQuery,
+    >;
+
+    /// --- DMAP ( netuid, hotkey ) --> LockState | Total decaying non-owner lock per hotkey per subnet.
+    #[pallet::storage]
+    pub type DecayingHotkeyLock<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid, // subnet
+        Blake2_128Concat,
+        T::AccountId, // hotkey
+        LockState,    // Total merged decaying lock
+        OptionQuery,
+    >;
+
+    /// --- MAP ( netuid ) --> LockState | Total perpetual lock to the owner hotkey for a subnet.
+    #[pallet::storage]
+    pub type OwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
+
+    /// --- MAP ( netuid ) --> LockState | Total decaying lock to the owner hotkey for a subnet.
+    #[pallet::storage]
+    pub type DecayingOwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
+
+    /// --- DMAP ( coldkey, netuid ) --> false | When present and false, this coldkey's lock is perpetual.
+    /// Missing entries mean the lock decays by default.
+    #[pallet::storage]
+    pub type DecayingLock<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, NetUid, bool, OptionQuery>;
+
+    /// Default value for owner cut auto-locking.
+    #[pallet::type_value]
+    pub fn DefaultOwnerCutAutoLockEnabled<T: Config>() -> bool {
+        false
+    }
+
+    /// --- MAP ( netuid ) --> bool | Whether subnet owner cut should be auto-locked.
+    /// Missing entries default to true, so auto-locking is enabled unless explicitly disabled.
+    #[pallet::storage]
+    pub type OwnerCutAutoLockEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutAutoLockEnabled<T>>;
+
+    /// Default unlock timescale: 50% lock back in ~90 days.
+    #[pallet::type_value]
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
+        934_866
+    }
+
+    /// Default maturity timescale: 50% conviction in ~90 days.
+    #[pallet::type_value]
+    pub fn DefaultMaturityRate<T: Config>() -> u64 {
+        934_866
+    }
+
+    /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
+    #[pallet::storage]
+    pub type MaturityRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultMaturityRate<T>>;
+
+    /// --- ITEM( unlock_rate ) | Decay timescale in blocks for locked mass.
+    #[pallet::storage]
+    pub type UnlockRate<T: Config> = StorageValue<_, u64, ValueQuery, DefaultUnlockRate<T>>;
+
     /// Contains last Alpha storage map key to iterate (check first)
     #[pallet::storage]
     pub type AlphaMapLastKey<T: Config> =
@@ -1515,6 +1625,25 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> subnet_ema_tao_flow | Returns the EMA of TAO inflow-outflow balance.
     #[pallet::storage]
     pub type SubnetEmaTaoFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
+
+    /// --- ITEM --> net_tao_flow_enabled | When true, emission shares use net flow (user - protocol). When false, uses gross user flow only.
+    #[pallet::type_value]
+    pub fn DefaultNetTaoFlowEnabled<T: Config>() -> bool {
+        true
+    }
+    #[pallet::storage]
+    pub type NetTaoFlowEnabled<T: Config> =
+        StorageValue<_, bool, ValueQuery, DefaultNetTaoFlowEnabled<T>>;
+
+    /// --- MAP ( netuid ) --> subnet_protocol_flow | Per-block accumulator for protocol cost (emission + chain buys - root sells).
+    #[pallet::storage]
+    pub type SubnetProtocolFlow<T: Config> =
+        StorageMap<_, Identity, NetUid, i64, ValueQuery, DefaultZeroI64<T>>;
+
+    /// --- MAP ( netuid ) --> subnet_ema_protocol_flow | EMA of protocol cost flow, same smoothing as SubnetEmaTaoFlow.
+    #[pallet::storage]
+    pub type SubnetEmaProtocolFlow<T: Config> =
         StorageMap<_, Identity, NetUid, (u64, I64F64), OptionQuery>;
 
     /// Default value for flow cutoff.
@@ -1596,6 +1725,17 @@ pub mod pallet {
     /// ITEM( subnet_owner_cut )
     #[pallet::storage]
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
+
+    /// Default value for subnet owner cut enabled flag.
+    #[pallet::type_value]
+    pub fn DefaultOwnerCutEnabled<T: Config>() -> bool {
+        true
+    }
+
+    /// --- MAP ( netuid ) --> owner_cut_enabled
+    #[pallet::storage]
+    pub type OwnerCutEnabled<T> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutEnabled<T>>;
 
     /// ITEM( network_rate_limit )
     #[pallet::storage]
@@ -2672,17 +2812,6 @@ impl<T: Config + pallet_balances::Config<Balance = TaoBalance>>
         hotkey: &T::AccountId,
     ) -> AlphaBalance {
         Self::get_stake_for_hotkey_and_coldkey_on_subnet(hotkey, coldkey, netuid)
-    }
-
-    fn increase_balance(coldkey: &T::AccountId, tao: TaoBalance) {
-        Self::add_balance_to_coldkey_account(coldkey, tao.into())
-    }
-
-    fn decrease_balance(
-        coldkey: &T::AccountId,
-        tao: TaoBalance,
-    ) -> Result<TaoBalance, DispatchError> {
-        Self::remove_balance_from_coldkey_account(coldkey, tao.into())
     }
 
     fn increase_stake(
