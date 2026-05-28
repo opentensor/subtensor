@@ -142,10 +142,7 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
             find(p, b"bonds_reset_enabled"),
             &HyperparamValue::Bool(true)
         );
-        assert_eq!(
-            find(p, b"owner_cut_enabled"),
-            &HyperparamValue::Bool(true)
-        );
+        assert_eq!(find(p, b"owner_cut_enabled"), &HyperparamValue::Bool(true));
         assert_eq!(
             find(p, b"owner_cut_auto_lock_enabled"),
             &HyperparamValue::Bool(true)
