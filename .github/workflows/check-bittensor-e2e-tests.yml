@@ -3,6 +3,7 @@ name: Bittensor Bittensor E2E Test
 permissions:
   pull-requests: write
   contents: read
+  actions: read
 
 concurrency:
   group: e2e-cli-${{ github.ref }}
@@ -28,38 +29,51 @@ jobs:
   check-label:
     runs-on: ubuntu-latest
     outputs:
-      skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests || steps.set-default.outputs.skip-bittensor-e2e-tests }}
+      skip-bittensor-e2e-tests: ${{ steps.decide.outputs.skip-bittensor-e2e-tests }}
+      mirror-skip: ${{ steps.decide.outputs.mirror-skip }}
+      mirror-fail: ${{ steps.decide.outputs.mirror-fail }}
     steps:
-      - name: Install dependencies
-        run: |
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh jq
-
-      - name: Check out repository
-        uses: actions/checkout@v6
+      - name: Decide skip / mirror state
+        id: decide
+        uses: actions/github-script@v9
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          script: |
+            const eventName = context.eventName;
+            const action = context.payload.action;
+            const labelName = context.payload.label?.name;
+            const isLabelEvent = action === 'labeled' || action === 'unlabeled';
 
-      - name: Get labels from PR
-        id: get-labels
-        if: github.event_name == 'pull_request'
-        run: |
-          LABELS=$(gh pr -R ${{ github.repository }} view ${{ github.event.pull_request.number }} --json labels --jq '.labels[].name')
-          echo "Current labels: $LABELS"
-          if echo "$LABELS" | grep -q "skip-bittensor-e2e-tests"; then
-            echo "skip-bittensor-e2e-tests=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            core.setOutput('skip-bittensor-e2e-tests', 'false');
+            core.setOutput('mirror-skip', 'false');
+            core.setOutput('mirror-fail', 'false');
 
-      - name: Set default skip value for workflow_dispatch
-        id: set-default
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          echo "skip-bittensor-e2e-tests=false" >> $GITHUB_OUTPUT
+            if (eventName === 'pull_request') {
+              const labels = context.payload.pull_request?.labels?.map(l => l.name) ?? [];
+              if (labels.includes('skip-bittensor-e2e-tests')) {
+                core.info('skip-bittensor-e2e-tests label present on PR.');
+                core.setOutput('skip-bittensor-e2e-tests', 'true');
+                return;
+              }
+
+              if (isLabelEvent && labelName !== 'skip-bittensor-e2e-tests') {
+                const sha = context.payload.pull_request.head.sha;
+                const runs = await github.rest.actions.listWorkflowRuns({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'check-bittensor-e2e-tests.yml',
+                  head_sha: sha,
+                  status: 'completed',
+                  per_page: 20,
+                });
+                const prev = runs.data.workflow_runs.find(r => r.id !== context.runId);
+                core.info(`Previous completed run for ${sha}: ${prev?.conclusion ?? 'none'}`);
+                if (prev?.conclusion === 'success') {
+                  core.setOutput('mirror-skip', 'true');
+                } else if (prev?.conclusion === 'failure') {
+                  core.setOutput('mirror-fail', 'true');
+                }
+              }
+            }
 
   find-btcli-e2e-tests:
     needs: check-label
@@ -198,28 +212,47 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
 
     steps:
+      - name: Mirror gate
+        id: gate
+        run: |
+          if [ "${{ needs.check-label.outputs.mirror-fail }}" = "true" ]; then
+            echo "Mirroring previous failed run for this commit."
+            exit 1
+          fi
+          if [ "${{ needs.check-label.outputs.mirror-skip }}" = "true" ]; then
+            echo "Mirroring previous successful run for this commit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout code
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Install Rust + dependencies
+        if: steps.gate.outputs.skip != 'true'
         run: |
           chmod +x ./scripts/install_build_env.sh
           ./scripts/install_build_env.sh
 
       - name: Add Rust target triple
+        if: steps.gate.outputs.skip != 'true'
         run: |
           source "$HOME/.cargo/env"
           rustup target add ${{ matrix.platform.triple }}
 
       - name: Patch limits for local run
+        if: steps.gate.outputs.skip != 'true'
         run: |
           chmod +x ./scripts/localnet_patch.sh
           ./scripts/localnet_patch.sh
 
       - name: Build binaries
+        if: steps.gate.outputs.skip != 'true'
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           export CARGO_BUILD_TARGET="${{ matrix.platform.triple }}"
@@ -232,6 +265,7 @@ jobs:
 
       # use `ci_target` name bc .dockerignore excludes `target`
       - name: Prepare artifacts for upload
+        if: steps.gate.outputs.skip != 'true'
         run: |
           RUNTIME="${{ matrix.runtime }}"
           TRIPLE="${{ matrix.platform.triple }}"
@@ -259,6 +293,7 @@ jobs:
             build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
 
       - name: Upload artifact
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ matrix.platform.triple }}-${{ matrix.runtime }}
@@ -271,13 +306,29 @@ jobs:
     if: needs.check-label.outputs.skip-bittensor-e2e-tests == 'false'
     runs-on: ubuntu-latest
     steps:
+      - name: Mirror gate
+        id: gate
+        run: |
+          if [ "${{ needs.check-label.outputs.mirror-fail }}" = "true" ]; then
+            echo "Mirroring previous failed run for this commit."
+            exit 1
+          fi
+          if [ "${{ needs.check-label.outputs.mirror-skip }}" = "true" ]; then
+            echo "Mirroring previous successful run for this commit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout code
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Download all binary artifacts
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/download-artifact@v8
         with:
           pattern: binaries-*
@@ -285,6 +336,7 @@ jobs:
           merge-multiple: true
 
       - name: Move Docker data-root to /mnt/data
+        if: steps.gate.outputs.skip != 'true'
         run: |
           sudo systemctl stop docker
           sudo mkdir -p /mnt/data/docker
@@ -295,12 +347,15 @@ jobs:
           docker info | grep "Docker Root Dir"
 
       - name: Build Docker Image
+        if: steps.gate.outputs.skip != 'true'
         run: docker build -f Dockerfile-localnet --build-arg BUILT_IN_CI="Boom shakalaka" -t localnet .
 
       - name: Save Docker Image as Tar
+        if: steps.gate.outputs.skip != 'true'
         run: docker save -o /mnt/data/subtensor-localnet.tar localnet
 
       - name: Upload Docker Image as Artifact
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: subtensor-localnet
@@ -323,26 +378,45 @@ jobs:
     timeout-minutes: 60
     name: "cli: ${{ matrix.label }}"
     steps:
+      - name: Mirror gate
+        id: gate
+        run: |
+          if [ "${{ needs.check-label.outputs.mirror-fail }}" = "true" ]; then
+            echo "Mirroring previous failed run for this commit."
+            exit 1
+          fi
+          if [ "${{ needs.check-label.outputs.mirror-skip }}" = "true" ]; then
+            echo "Mirroring previous successful run for this commit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check-out repository
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Install uv
+        if: steps.gate.outputs.skip != 'true'
         uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: "false"
 
       - name: Create Python virtual environment
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}
         run: uv venv --seed ${{ github.workspace }}/venv
 
       - name: Clone Bittensor CLI repo
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/btcli.git
 
       - name: Setup Bittensor-cli from cloned repo
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}/btcli
         run: |
           source ${{ github.workspace }}/venv/bin/activate
@@ -353,17 +427,21 @@ jobs:
           uv run --active pip install pytest
 
       - name: Download Cached Docker Image
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/download-artifact@v8
         with:
           name: subtensor-localnet
 
       - name: Load Docker Image
+        if: steps.gate.outputs.skip != 'true'
         run: docker load -i subtensor-localnet.tar
 
       - name: Retag Docker Image
+        if: steps.gate.outputs.skip != 'true'
         run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
       - name: Run with retry
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}/btcli
         run: |
           source ${{ github.workspace }}/venv/bin/activate
@@ -404,26 +482,45 @@ jobs:
     timeout-minutes: 60
     name: "sdk: ${{ matrix.label }}"
     steps:
+      - name: Mirror gate
+        id: gate
+        run: |
+          if [ "${{ needs.check-label.outputs.mirror-fail }}" = "true" ]; then
+            echo "Mirroring previous failed run for this commit."
+            exit 1
+          fi
+          if [ "${{ needs.check-label.outputs.mirror-skip }}" = "true" ]; then
+            echo "Mirroring previous successful run for this commit."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check-out repository
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Install uv
+        if: steps.gate.outputs.skip != 'true'
         uses: astral-sh/setup-uv@v8.1.0
         with:
           enable-cache: "false"
 
       - name: Create Python virtual environment
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}
         run: uv venv --seed ${{ github.workspace }}/venv
 
       - name: Clone Bittensor SDK repo
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}
         run: git clone https://github.com/opentensor/bittensor.git
 
       - name: Setup Bittensor SDK from cloned repo
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           source ${{ github.workspace }}/venv/bin/activate
@@ -434,17 +531,21 @@ jobs:
           uv run --active pip install pytest
 
       - name: Download Cached Docker Image
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/download-artifact@v8
         with:
           name: subtensor-localnet
 
       - name: Load Docker Image
+        if: steps.gate.outputs.skip != 'true'
         run: docker load -i subtensor-localnet.tar
 
       - name: Retag Docker Image
+        if: steps.gate.outputs.skip != 'true'
         run: docker tag localnet ghcr.io/opentensor/subtensor-localnet:devnet-ready
 
       - name: Run with retry
+        if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           source ${{ github.workspace }}/venv/bin/activate
