@@ -181,11 +181,13 @@ describe("Limit orders precompile E2E smoke", () => {
       chainId,
     );
 
+    const tx = await limitOrdersContract.executeBatchedOrders(NETUID, [invalidOrder], {
+      gasLimit: 10_000_000,
+    });
+
     await assert.rejects(
-      limitOrdersContract.executeBatchedOrders(NETUID, [invalidOrder], {
-        gasLimit: 10_000_000,
-      }),
-      /revert|execution reverted/i,
+      () => tx.wait(),
+      /revert|transaction execution reverted/i,
     );
   });
 
