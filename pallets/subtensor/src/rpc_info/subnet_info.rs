@@ -479,7 +479,11 @@ impl<T: Config> Pallet<T> {
 
         Some(alloc::vec![
             ("rho", HyperparamValue::U16(Self::get_rho(netuid).into())).into(),
-            ("kappa", HyperparamValue::U16(Self::get_kappa(netuid).into())).into(),
+            (
+                "kappa",
+                HyperparamValue::U16(Self::get_kappa(netuid).into())
+            )
+                .into(),
             (
                 "immunity_period",
                 HyperparamValue::U16(Self::get_immunity_period(netuid).into()),
@@ -495,7 +499,11 @@ impl<T: Config> Pallet<T> {
                 HyperparamValue::U16(Self::get_max_weight_limit(netuid).into()),
             )
                 .into(),
-            ("tempo", HyperparamValue::U16(Self::get_tempo(netuid).into())).into(),
+            (
+                "tempo",
+                HyperparamValue::U16(Self::get_tempo(netuid).into())
+            )
+                .into(),
             (
                 "min_difficulty",
                 HyperparamValue::U64(Self::get_min_difficulty(netuid).into()),
@@ -598,11 +606,7 @@ impl<T: Config> Pallet<T> {
                 HyperparamValue::I32F32(Self::get_alpha_sigmoid_steepness(netuid)),
             )
                 .into(),
-            (
-                "yuma_version",
-                HyperparamValue::U16(Compact(yuma_version)),
-            )
-                .into(),
+            ("yuma_version", HyperparamValue::U16(Compact(yuma_version)),).into(),
             (
                 "subnet_is_active",
                 HyperparamValue::Bool(Self::get_subtoken_enabled(netuid)),
