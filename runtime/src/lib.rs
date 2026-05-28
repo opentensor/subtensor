@@ -2461,6 +2461,7 @@ impl_runtime_apis! {
         }
     }
 
+    #[api_version(2)]
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<AccountId32>> {
             SubtensorModule::get_subnet_info(netuid)
@@ -2478,10 +2479,12 @@ impl_runtime_apis! {
             SubtensorModule::get_subnets_info_v2()
         }
 
+        #[allow(deprecated)]
         fn get_subnet_hyperparams(netuid: NetUid) -> Option<SubnetHyperparams> {
             SubtensorModule::get_subnet_hyperparams(netuid)
         }
 
+        #[allow(deprecated)]
         fn get_subnet_hyperparams_v2(netuid: NetUid) -> Option<SubnetHyperparamsV2> {
             SubtensorModule::get_subnet_hyperparams_v2(netuid)
         }

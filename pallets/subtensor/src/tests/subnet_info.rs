@@ -71,7 +71,7 @@ fn test_get_subnet_hyperparams_v3_contains_all_expected_names_exactly_once() {
         let result = SubtensorModule::get_subnet_hyperparams_v3(netuid)
             .expect("subnet exists, V3 should be Some");
 
-        let returned: Vec<&[u8]> = result.params.iter().map(|e| e.name.as_slice()).collect();
+        let returned: Vec<&[u8]> = result.iter().map(|e| e.name.as_slice()).collect();
         let returned_set: BTreeSet<&[u8]> = returned.iter().copied().collect();
 
         // No duplicates.
@@ -126,7 +126,7 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         SubtensorModule::set_bonds_reset(netuid, true);
 
         let result = SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap();
-        let p = &result.params;
+        let p = &result;
 
         // Bool variants
         assert_eq!(
@@ -238,9 +238,7 @@ fn test_get_subnet_hyperparams_v3_yuma_version_reflects_flag() {
         SubtensorModule::set_yuma3_enabled(netuid, false);
         assert_eq!(
             find(
-                &SubtensorModule::get_subnet_hyperparams_v3(netuid)
-                    .unwrap()
-                    .params,
+                &SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap(),
                 b"yuma_version",
             ),
             &HyperparamValue::U16(Compact(2))
@@ -249,9 +247,7 @@ fn test_get_subnet_hyperparams_v3_yuma_version_reflects_flag() {
         SubtensorModule::set_yuma3_enabled(netuid, true);
         assert_eq!(
             find(
-                &SubtensorModule::get_subnet_hyperparams_v3(netuid)
-                    .unwrap()
-                    .params,
+                &SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap(),
                 b"yuma_version",
             ),
             &HyperparamValue::U16(Compact(3))
