@@ -16,7 +16,10 @@ jobs:
   check-spec-version:
     name: Check spec_version bump
     runs-on: [self-hosted, type-ccx33]
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
+    if: |
+      ((github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
+       github.event.label.name == 'no-spec-version-bump') &&
+      !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump')
     steps:
       - name: Dependencies
         run: |
@@ -29,7 +32,7 @@ jobs:
           toolchain: stable
 
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Utilize Shared Rust Cache
         uses: Swatinem/rust-cache@v2

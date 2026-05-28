@@ -27,6 +27,10 @@ env:
 jobs:
   check-label:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name != 'pull_request' ||
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
+      github.event.label.name == 'skip-bittensor-e2e-tests'
     outputs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests || steps.set-default.outputs.skip-bittensor-e2e-tests }}
     steps:
@@ -36,7 +40,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y --no-install-recommends -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" gh jq
 
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -82,7 +86,7 @@ jobs:
         run: git checkout staging
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -142,7 +146,7 @@ jobs:
         run: git checkout staging
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -199,7 +203,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -259,7 +263,7 @@ jobs:
             build/ci_target/${RUNTIME}/${TRIPLE}/release/wbuild/node-subtensor-runtime/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: binaries-${{ matrix.platform.triple }}-${{ matrix.runtime }}
           path: build/
@@ -272,13 +276,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
 
       - name: Download all binary artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: binaries-*
           path: build/
@@ -301,7 +305,7 @@ jobs:
         run: docker save -o /mnt/data/subtensor-localnet.tar localnet
 
       - name: Upload Docker Image as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: subtensor-localnet
           path: /mnt/data/subtensor-localnet.tar
@@ -324,7 +328,7 @@ jobs:
     name: "cli: ${{ matrix.label }}"
     steps:
       - name: Check-out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -353,7 +357,7 @@ jobs:
           uv run --active pip install pytest
 
       - name: Download Cached Docker Image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: subtensor-localnet
 
@@ -405,7 +409,7 @@ jobs:
     name: "sdk: ${{ matrix.label }}"
     steps:
       - name: Check-out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -434,7 +438,7 @@ jobs:
           uv run --active pip install pytest
 
       - name: Download Cached Docker Image
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: subtensor-localnet
 

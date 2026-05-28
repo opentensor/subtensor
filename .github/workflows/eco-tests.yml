@@ -23,7 +23,7 @@ jobs:
       SKIP_WASM_BUILD: 1
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
