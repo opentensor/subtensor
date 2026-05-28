@@ -9,6 +9,7 @@ use substrate_fixed::types::{I64F64, U64F64};
 use subtensor_runtime_common::NetUid;
 
 pub const ONE_YEAR: u64 = 7200 * 365 + 1800;
+pub const LOCK_STATE_ZERO_THRESHOLD: u64 = 100;
 
 /// Exponential lock state for a coldkey on a subnet.
 #[crate::freeze_struct("1f6be20a66128b8d")]
@@ -20,6 +21,13 @@ pub struct LockState {
     pub conviction: U64F64,
     /// Block number of last roll-forward.
     pub last_update: u64,
+}
+
+impl LockState {
+    pub fn is_zero(&self) -> bool {
+        self.locked_mass < AlphaBalance::from(LOCK_STATE_ZERO_THRESHOLD)
+            && self.conviction < U64F64::saturating_from_num(LOCK_STATE_ZERO_THRESHOLD)
+    }
 }
 
 /// A struct that incapsulates Lock primitives such as adding, removing,
@@ -439,24 +447,55 @@ impl ConvictionModel {
             rolled.conviction = U64F64::saturating_from_num(u64::from(rolled.locked_mass));
         }
 
+        if rolled.is_zero() {
+            rolled.locked_mass = AlphaBalance::ZERO;
+            rolled.conviction = U64F64::saturating_from_num(0);
+        }
+
         rolled
     }
 }
 
 impl<T: Config> Pallet<T> {
+    pub fn add_locking_coldkey(hotkey: &T::AccountId, netuid: NetUid, coldkey: &T::AccountId) {
+        let mut coldkeys = LockingColdkeys::<T>::get(netuid, hotkey);
+        if coldkeys.contains(coldkey) {
+            return;
+        }
+        coldkeys.push(coldkey.clone());
+        LockingColdkeys::<T>::insert(netuid, hotkey, coldkeys);
+    }
+
+    pub fn maybe_remove_locking_coldkey(
+        hotkey: &T::AccountId,
+        netuid: NetUid,
+        coldkey: &T::AccountId,
+    ) {
+        let mut coldkeys = LockingColdkeys::<T>::get(netuid, hotkey);
+        let Some(position) = coldkeys.iter().position(|existing| existing == coldkey) else {
+            return;
+        };
+        coldkeys.remove(position);
+        if coldkeys.is_empty() {
+            LockingColdkeys::<T>::remove(netuid, hotkey);
+        } else {
+            LockingColdkeys::<T>::insert(netuid, hotkey, coldkeys);
+        }
+    }
+
     pub fn insert_lock_state(
         coldkey: &T::AccountId,
         netuid: NetUid,
         hotkey: &T::AccountId,
         lock_state: LockState,
     ) {
-        if !lock_state.locked_mass.is_zero()
-            || lock_state.conviction > U64F64::saturating_from_num(0)
-        {
-            Lock::<T>::insert((coldkey, netuid, hotkey), lock_state);
-        } else {
+        if lock_state.is_zero() {
+            Self::maybe_remove_locking_coldkey(hotkey, netuid, coldkey);
             // If there is no record previously, this is a no-op
             Lock::<T>::remove((coldkey, netuid, hotkey));
+        } else {
+            Self::add_locking_coldkey(hotkey, netuid, coldkey);
+            Lock::<T>::insert((coldkey, netuid, hotkey), lock_state);
         }
     }
 
@@ -504,11 +543,11 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn is_subnet_owner_hotkey(netuid: NetUid, hotkey: &T::AccountId) -> bool {
+    pub(crate) fn is_subnet_owner_hotkey(netuid: NetUid, hotkey: &T::AccountId) -> bool {
         hotkey == &SubnetOwnerHotkey::<T>::get(netuid)
     }
 
-    fn is_perpetual_lock(coldkey: &T::AccountId, netuid: NetUid) -> bool {
+    pub(crate) fn is_perpetual_lock(coldkey: &T::AccountId, netuid: NetUid) -> bool {
         DecayingLock::<T>::get(coldkey, netuid) == Some(false)
     }
 
@@ -1359,6 +1398,7 @@ impl<T: Config> Pallet<T> {
                 Self::is_perpetual_lock(new_coldkey, netuid),
             );
             Lock::<T>::remove((old_coldkey.clone(), netuid, hotkey.clone()));
+            Self::maybe_remove_locking_coldkey(&hotkey, netuid, old_coldkey);
             Self::reduce_aggregate_lock(
                 old_coldkey,
                 &hotkey,
@@ -1417,10 +1457,19 @@ impl<T: Config> Pallet<T> {
             reads = reads.saturating_add(5);
         }
 
-        if !netuids_to_transfer.is_empty() {
-            for ((coldkey, netuid, hotkey), lock) in Lock::<T>::iter() {
-                if hotkey == *old_hotkey {
-                    locks_to_transfer.push((coldkey, netuid, lock));
+        // Build a concrete transfer list from the hotkey-to-coldkey index.
+        // The index can contain stale coldkeys, so only locks that still exist
+        // are carried forward; missing locks are pruned from the index.
+        for (netuid, _, _) in &netuids_to_transfer {
+            let locking_coldkeys = LockingColdkeys::<T>::get(*netuid, old_hotkey);
+            reads = reads.saturating_add(1);
+
+            for coldkey in locking_coldkeys {
+                if let Some(lock) = Lock::<T>::get((coldkey.clone(), *netuid, old_hotkey.clone())) {
+                    locks_to_transfer.push((coldkey, *netuid, lock));
+                } else {
+                    Self::maybe_remove_locking_coldkey(old_hotkey, *netuid, &coldkey);
+                    writes = writes.saturating_add(1);
                 }
                 reads = reads.saturating_add(1);
             }
@@ -1454,6 +1503,7 @@ impl<T: Config> Pallet<T> {
                 perpetual_lock,
             );
             Lock::<T>::remove((coldkey.clone(), netuid, old_hotkey.clone()));
+            Self::maybe_remove_locking_coldkey(old_hotkey, netuid, &coldkey);
             Self::insert_lock_state(&coldkey, netuid, new_hotkey, moved);
             writes = writes.saturating_add(2);
         }
@@ -1612,6 +1662,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 Lock::<T>::remove((coldkey.clone(), netuid, origin_hotkey.clone()));
+                Self::maybe_remove_locking_coldkey(&origin_hotkey, netuid, coldkey);
                 Self::insert_lock_state(coldkey, netuid, destination_hotkey, lock.clone());
                 Self::reduce_aggregate_lock(
                     coldkey,
@@ -1813,43 +1864,25 @@ impl<T: Config> Pallet<T> {
 
     /// Destroys all lock maps for network dissolution
     pub fn destroy_lock_maps(netuid: NetUid) {
+        // LockingColdkeys: (netuid, hotkey) -> Vec<coldkey>
         // Lock: (coldkey, netuid, hotkey)
         {
-            let to_rm: sp_std::vec::Vec<(T::AccountId, T::AccountId)> = Lock::<T>::iter()
-                .filter_map(
-                    |((cold, n, hot), _)| {
-                        if n == netuid { Some((cold, hot)) } else { None }
-                    },
-                )
-                .collect();
+            let to_rm: sp_std::vec::Vec<(T::AccountId, sp_std::vec::Vec<T::AccountId>)> =
+                LockingColdkeys::<T>::iter_prefix(netuid).collect();
 
-            for (cold, hot) in to_rm {
-                Lock::<T>::remove((cold, netuid, hot));
+            for (hot, coldkeys) in to_rm {
+                for cold in coldkeys {
+                    Lock::<T>::remove((cold, netuid, hot.clone()));
+                }
             }
+            let _ = LockingColdkeys::<T>::clear_prefix(netuid, u32::MAX, None);
         }
 
         // HotkeyLock: (netuid, hotkey) → LockState
-        {
-            let to_rm: sp_std::vec::Vec<T::AccountId> = HotkeyLock::<T>::iter_prefix(netuid)
-                .map(|(hot, _)| hot)
-                .collect();
-
-            for hot in to_rm {
-                HotkeyLock::<T>::remove(netuid, hot);
-            }
-        }
+        let _ = HotkeyLock::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // DecayingHotkeyLock: (netuid, hotkey)
-        {
-            let to_rm: sp_std::vec::Vec<T::AccountId> =
-                DecayingHotkeyLock::<T>::iter_prefix(netuid)
-                    .map(|(hot, _)| hot)
-                    .collect();
-
-            for hot in to_rm {
-                DecayingHotkeyLock::<T>::remove(netuid, hot);
-            }
-        }
+        let _ = DecayingHotkeyLock::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // OwnerLock / DecayingOwnerLock: (netuid)
         OwnerLock::<T>::remove(netuid);

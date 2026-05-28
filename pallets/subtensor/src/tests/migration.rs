@@ -1164,6 +1164,71 @@ fn test_migrate_remove_add_stake_burn_rate_limit() {
 }
 
 #[test]
+fn test_migrate_populate_locking_coldkeys() {
+    new_test_ext(1).execute_with(|| {
+        const MIGRATION_NAME: &[u8] = b"migrate_populate_locking_coldkeys";
+
+        let netuid = NetUid::from(1);
+        let coldkey_1 = U256::from(1001);
+        let coldkey_2 = U256::from(1002);
+        let hotkey = U256::from(2001);
+        let expired_hotkey = U256::from(2002);
+
+        Lock::<Test>::insert(
+            (coldkey_1, netuid, hotkey),
+            LockState {
+                locked_mass: AlphaBalance::from(1_000_u64),
+                conviction: U64F64::from_num(0),
+                last_update: 1,
+            },
+        );
+        Lock::<Test>::insert(
+            (coldkey_2, netuid, hotkey),
+            LockState {
+                locked_mass: AlphaBalance::from(2_000_u64),
+                conviction: U64F64::from_num(0),
+                last_update: 1,
+            },
+        );
+        Lock::<Test>::insert(
+            (coldkey_1, netuid, expired_hotkey),
+            LockState {
+                locked_mass: AlphaBalance::ZERO,
+                conviction: U64F64::from_num(1),
+                last_update: 1,
+            },
+        );
+
+        assert!(LockingColdkeys::<Test>::get(netuid, hotkey).is_empty());
+        assert!(LockingColdkeys::<Test>::get(netuid, expired_hotkey).is_empty());
+        assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        let weight =
+            crate::migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<Test>();
+
+        assert!(!weight.is_zero(), "migration weight should be non-zero");
+        let locking_coldkeys = LockingColdkeys::<Test>::get(netuid, hotkey);
+        assert_eq!(locking_coldkeys.len(), 2);
+        assert!(locking_coldkeys.contains(&coldkey_1));
+        assert!(locking_coldkeys.contains(&coldkey_2));
+        assert!(LockingColdkeys::<Test>::get(netuid, expired_hotkey).is_empty());
+        assert!(Lock::<Test>::get((coldkey_1, netuid, expired_hotkey)).is_none());
+        assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
+
+        LockingColdkeys::<Test>::remove(netuid, hotkey);
+        let second_weight =
+            crate::migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<Test>();
+
+        assert_eq!(
+            second_weight,
+            <Test as frame_system::Config>::DbWeight::get().reads(1),
+            "second run should only read the migration flag"
+        );
+        assert!(LockingColdkeys::<Test>::get(netuid, hotkey).is_empty());
+    });
+}
+
+#[test]
 fn test_migrate_fix_staking_hot_keys() {
     new_test_ext(1).execute_with(|| {
         const MIGRATION_NAME: &[u8] = b"migrate_fix_staking_hot_keys";

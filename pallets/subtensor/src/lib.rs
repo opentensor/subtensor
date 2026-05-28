@@ -1532,6 +1532,18 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// --- DMAP ( netuid, hotkey ) --> Vec<coldkey> | Coldkeys with non-zero locks targeting this hotkey on this subnet.
+    #[pallet::storage]
+    pub type LockingColdkeys<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        NetUid, // subnet
+        Blake2_128Concat,
+        T::AccountId, // hotkey
+        Vec<T::AccountId>,
+        ValueQuery,
+    >;
+
     /// --- DMAP ( netuid, hotkey ) --> LockState | Total lock per hotkey per subnet.
     #[pallet::storage]
     pub type HotkeyLock<T: Config> = StorageDoubleMap<

@@ -615,7 +615,8 @@ impl<T: Config> Pallet<T> {
             .filter(|(_, this_netuid, _)| *this_netuid == netuid)
             .collect();
         for (coldkey, netuid, hotkey) in lock_keys {
-            Lock::<T>::remove((coldkey, netuid, hotkey));
+            Lock::<T>::remove((coldkey.clone(), netuid, hotkey.clone()));
+            Self::maybe_remove_locking_coldkey(&hotkey, netuid, &coldkey);
         }
 
         // 10) Cleanup all subnet hotkey locks if any.

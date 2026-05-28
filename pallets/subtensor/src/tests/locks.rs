@@ -976,6 +976,73 @@ fn test_lock_stake_topup_same_block() {
     });
 }
 
+#[test]
+fn test_locking_coldkeys_added_once_by_lock_stake() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            100u64.into(),
+        ));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            50u64.into(),
+        ));
+
+        assert_eq!(LockingColdkeys::<Test>::get(netuid, hotkey), vec![coldkey]);
+    });
+}
+
+#[test]
+fn test_locking_coldkeys_removed_when_lock_is_fully_reduced() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        let amount = 100u64.into();
+
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey, netuid, &hotkey, amount
+        ));
+        assert!(LockingColdkeys::<Test>::get(netuid, hotkey).contains(&coldkey));
+
+        SubtensorModule::force_reduce_lock(&coldkey, netuid, amount);
+
+        assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_none());
+        assert!(!LockingColdkeys::<Test>::get(netuid, hotkey).contains(&coldkey));
+    });
+}
+
+#[test]
+fn test_lock_state_is_zero_uses_dust_threshold() {
+    let below_threshold = LockState {
+        locked_mass: AlphaBalance::from(99u64),
+        conviction: U64F64::from_num(99),
+        last_update: 0,
+    };
+    let locked_mass_at_threshold = LockState {
+        locked_mass: AlphaBalance::from(100u64),
+        conviction: U64F64::from_num(99),
+        last_update: 0,
+    };
+    let conviction_at_threshold = LockState {
+        locked_mass: AlphaBalance::from(99u64),
+        conviction: U64F64::from_num(100),
+        last_update: 0,
+    };
+
+    assert!(below_threshold.is_zero());
+    assert!(!locked_mass_at_threshold.is_zero());
+    assert!(!conviction_at_threshold.is_zero());
+}
+
 // =========================================================================
 // GROUP 4: Lock rejection cases
 // =========================================================================
@@ -1458,6 +1525,23 @@ fn test_roll_forward_conviction_converges_to_zero() {
         let tau = MaturityRate::<Test>::get();
         let c_late = roll_forward_lock(lock, tau * 1000, false, false).conviction;
         assert_abs_diff_eq!(c_late.to_num::<f64>(), 0., epsilon = 0.0000001);
+    });
+}
+
+#[test]
+fn test_roll_forward_normalizes_dust_to_zero() {
+    new_test_ext(1).execute_with(|| {
+        let lock = LockState {
+            locked_mass: 99u64.into(),
+            conviction: U64F64::from_num(99),
+            last_update: 100,
+        };
+
+        let rolled = roll_forward_lock(lock, 100, false, false);
+
+        assert_eq!(rolled.locked_mass, AlphaBalance::ZERO);
+        assert_eq!(rolled.conviction, U64F64::from_num(0));
+        assert_eq!(rolled.last_update, 100);
     });
 }
 
@@ -2393,6 +2477,7 @@ fn test_swap_hotkey_locks_moves_owner_hotkey_aggregate_to_owner_lock() {
                 last_update: now,
             },
         );
+        SubtensorModule::add_locking_coldkey(&old_owner_hotkey, netuid, &locking_coldkey);
         OwnerLock::<Test>::insert(
             netuid,
             LockState {
@@ -2412,6 +2497,8 @@ fn test_swap_hotkey_locks_moves_owner_hotkey_aggregate_to_owner_lock() {
             OwnerLock::<Test>::get(netuid).unwrap().locked_mass,
             500u64.into()
         );
+        assert!(!LockingColdkeys::<Test>::get(netuid, old_owner_hotkey).contains(&locking_coldkey));
+        assert!(LockingColdkeys::<Test>::get(netuid, new_owner_hotkey).contains(&locking_coldkey));
     });
 }
 
@@ -2515,8 +2602,8 @@ fn test_reduce_lock_partial_reduction() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
-        let lock_amount = AlphaBalance::from(100u64);
-        let reduce_amount = AlphaBalance::from(40u64);
+        let lock_amount = AlphaBalance::from(1_000u64);
+        let reduce_amount = AlphaBalance::from(400u64);
         let now = SubtensorModule::get_current_block_as_u64();
 
         assert_ok!(SubtensorModule::do_lock_stake(
@@ -2526,7 +2613,7 @@ fn test_reduce_lock_partial_reduction() {
             lock_amount,
         ));
 
-        let conviction = U64F64::from_num(100);
+        let conviction = U64F64::from_num(1_000);
         Lock::<Test>::insert(
             (coldkey, netuid, hotkey),
             LockState {
@@ -2548,15 +2635,19 @@ fn test_reduce_lock_partial_reduction() {
         SubtensorModule::force_reduce_lock(&coldkey, netuid, reduce_amount);
 
         let lock = Lock::<Test>::get((coldkey, netuid, hotkey)).expect("lock should remain");
-        assert_eq!(lock.locked_mass, 60u64.into());
-        assert_abs_diff_eq!(lock.conviction.to_num::<f64>(), 60., epsilon = 0.0000000001);
+        assert_eq!(lock.locked_mass, 600u64.into());
+        assert_abs_diff_eq!(
+            lock.conviction.to_num::<f64>(),
+            600.,
+            epsilon = 0.0000000001
+        );
 
         let hotkey_lock =
             HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should remain");
-        assert_eq!(hotkey_lock.locked_mass, 60u64.into());
+        assert_eq!(hotkey_lock.locked_mass, 600u64.into());
         assert_abs_diff_eq!(
             hotkey_lock.conviction.to_num::<f64>(),
-            60.,
+            600.,
             epsilon = 0.0000000001
         );
     });
@@ -2671,16 +2762,16 @@ fn test_force_reduce_lock_does_not_over_reduce_hotkey_lock() {
         Lock::<Test>::insert(
             (coldkey1, netuid, hotkey),
             LockState {
-                locked_mass: 1u64.into(),
-                conviction: U64F64::from_num(10),
+                locked_mass: 1_000u64.into(),
+                conviction: U64F64::from_num(1_000),
                 last_update: now,
             },
         );
         Lock::<Test>::insert(
             (coldkey2, netuid, hotkey),
             LockState {
-                locked_mass: 50u64.into(),
-                conviction: U64F64::from_num(20),
+                locked_mass: 5_000u64.into(),
+                conviction: U64F64::from_num(2_000),
                 last_update: now,
             },
         );
@@ -2688,21 +2779,21 @@ fn test_force_reduce_lock_does_not_over_reduce_hotkey_lock() {
             netuid,
             hotkey,
             LockState {
-                locked_mass: 51u64.into(),
-                conviction: U64F64::from_num(30),
+                locked_mass: 6_000u64.into(),
+                conviction: U64F64::from_num(3_000),
                 last_update: now,
             },
         );
 
-        SubtensorModule::force_reduce_lock(&coldkey1, netuid, 20u64.into());
+        SubtensorModule::force_reduce_lock(&coldkey1, netuid, 2_000u64.into());
 
         assert!(Lock::<Test>::get((coldkey1, netuid, hotkey)).is_none());
         assert!(Lock::<Test>::get((coldkey2, netuid, hotkey)).is_some());
 
         let hotkey_lock =
             HotkeyLock::<Test>::get(netuid, hotkey).expect("hotkey lock should remain");
-        assert_eq!(hotkey_lock.locked_mass, 50u64.into());
-        assert_eq!(hotkey_lock.conviction, U64F64::from_num(20));
+        assert_eq!(hotkey_lock.locked_mass, 5_000u64.into());
+        assert_eq!(hotkey_lock.conviction, U64F64::from_num(2_000));
     });
 }
 
@@ -2785,8 +2876,8 @@ fn test_coldkey_swap_allows_destination_conviction_only_lock() {
         let new_hotkey = U256::from(20);
         let netuid = subtensor_runtime_common::NetUid::from(1);
 
-        let old_conviction = U64F64::from_num(77);
-        let new_conviction = U64F64::from_num(11);
+        let old_conviction = U64F64::from_num(777);
+        let new_conviction = U64F64::from_num(111);
 
         SubtensorModule::insert_lock_state(
             &old_coldkey,
@@ -2920,7 +3011,7 @@ fn test_failed_coldkey_swap_extrinsic_rolls_back_state_changes() {
             netuid,
             &blocked_hotkey,
             LockState {
-                locked_mass: 1u64.into(),
+                locked_mass: 1_000u64.into(),
                 conviction: U64F64::from_num(0),
                 last_update: SubtensorModule::get_current_block_as_u64(),
             },
@@ -2976,6 +3067,10 @@ fn test_hotkey_swap_swaps_locks_and_convictions() {
             &old_hotkey,
             5000u64.into(),
         ));
+        assert_eq!(
+            LockingColdkeys::<Test>::get(netuid, old_hotkey),
+            vec![coldkey]
+        );
 
         // Mock a non-zero conviction
         let mut lock = Lock::<Test>::get((coldkey, netuid, old_hotkey)).unwrap();
@@ -2999,6 +3094,8 @@ fn test_hotkey_swap_swaps_locks_and_convictions() {
         let lock = Lock::<Test>::get((coldkey, netuid, new_hotkey)).unwrap();
         assert_eq!(lock.locked_mass, 5000u64.into());
         assert!(lock.conviction > U64F64::from_num(0));
+        assert!(!LockingColdkeys::<Test>::get(netuid, old_hotkey).contains(&coldkey));
+        assert!(LockingColdkeys::<Test>::get(netuid, new_hotkey).contains(&coldkey));
 
         // Hotkey lock data also updated, conviction is not reset
         let hotkey_lock = HotkeyLock::<Test>::get(netuid, new_hotkey).unwrap();
