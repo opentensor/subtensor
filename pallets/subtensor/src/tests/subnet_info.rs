@@ -2,37 +2,34 @@
 
 use super::mock::*;
 use crate::rpc_info::subnet_info::{HyperparamEntry, HyperparamValue, SubnetHyperparamsV3};
+use crate::{BurnHalfLife, BurnIncreaseMult};
 use codec::{Compact, Decode, Encode};
 use std::collections::BTreeSet;
-use substrate_fixed::types::I32F32;
+use substrate_fixed::types::{I32F32, U64F64};
 use subtensor_runtime_common::{NetUid, TaoBalance};
 
 /// Names that must always appear in V3. Adding a new hyperparam = add its
 /// name here AND in the getter. Removing one = decide whether that's a
 /// breaking change for clients.
 const EXPECTED_V3_NAMES: &[&[u8]] = &[
-    b"rho",
     b"kappa",
     b"immunity_period",
     b"min_allowed_weights",
     b"max_weights_limit",
     b"tempo",
-    b"min_difficulty",
-    b"max_difficulty",
     b"weights_version",
     b"weights_rate_limit",
-    b"adjustment_interval",
     b"activity_cutoff",
     b"registration_allowed",
     b"target_regs_per_interval",
     b"min_burn",
     b"max_burn",
+    b"burn_half_life",
+    b"burn_increase_mult",
     b"bonds_moving_avg",
     b"max_regs_per_block",
     b"serving_rate_limit",
     b"max_validators",
-    b"adjustment_alpha",
-    b"difficulty",
     b"commit_reveal_period",
     b"commit_reveal_weights_enabled",
     b"alpha_high",
@@ -44,6 +41,8 @@ const EXPECTED_V3_NAMES: &[&[u8]] = &[
     b"transfers_enabled",
     b"bonds_reset_enabled",
     b"user_liquidity_enabled",
+    b"owner_cut_enabled",
+    b"owner_cut_auto_lock_enabled",
 ];
 
 fn find<'a>(params: &'a [HyperparamEntry], name: &[u8]) -> &'a HyperparamValue {
@@ -98,32 +97,30 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         add_network(netuid, 1, 0);
 
         // Distinct, easy-to-spot values for each storage we touch.
-        SubtensorModule::set_rho(netuid, 11);
         SubtensorModule::set_kappa(netuid, 12);
         SubtensorModule::set_immunity_period(netuid, 13);
         SubtensorModule::set_min_allowed_weights(netuid, 14);
         SubtensorModule::set_tempo(netuid, 16);
-        SubtensorModule::set_min_difficulty(netuid, 17);
-        SubtensorModule::set_max_difficulty(netuid, 18);
         SubtensorModule::set_weights_version_key(netuid, 19);
         SubtensorModule::set_weights_set_rate_limit(netuid, 20);
-        SubtensorModule::set_adjustment_interval(netuid, 21);
         SubtensorModule::set_activity_cutoff(netuid, 22);
         SubtensorModule::set_network_registration_allowed(netuid, false);
         SubtensorModule::set_target_registrations_per_interval(netuid, 24);
         SubtensorModule::set_min_burn(netuid, TaoBalance::from(25u64));
         SubtensorModule::set_max_burn(netuid, TaoBalance::from(26u64));
+        BurnHalfLife::<Test>::insert(netuid, 33u16);
+        BurnIncreaseMult::<Test>::insert(netuid, U64F64::saturating_from_num(2));
         SubtensorModule::set_bonds_moving_average(netuid, 27);
         SubtensorModule::set_max_registrations_per_block(netuid, 28);
         SubtensorModule::set_serving_rate_limit(netuid, 29);
         SubtensorModule::set_max_allowed_validators(netuid, 30);
-        SubtensorModule::set_adjustment_alpha(netuid, 31);
-        SubtensorModule::set_difficulty(netuid, 32);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         SubtensorModule::set_alpha_sigmoid_steepness(netuid, 5i16);
         SubtensorModule::set_yuma3_enabled(netuid, true);
         SubtensorModule::set_bonds_reset(netuid, true);
+        SubtensorModule::set_owner_cut_enabled_flag(netuid, true);
+        SubtensorModule::set_owner_cut_auto_lock_enabled(netuid, true);
 
         let result = SubtensorModule::get_subnet_hyperparams_v3(netuid).unwrap();
         let p = &result;
@@ -145,9 +142,16 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
             find(p, b"bonds_reset_enabled"),
             &HyperparamValue::Bool(true)
         );
+        assert_eq!(
+            find(p, b"owner_cut_enabled"),
+            &HyperparamValue::Bool(true)
+        );
+        assert_eq!(
+            find(p, b"owner_cut_auto_lock_enabled"),
+            &HyperparamValue::Bool(true)
+        );
 
         // U16 variants
-        assert_eq!(find(p, b"rho"), &HyperparamValue::U16(Compact(11)));
         assert_eq!(find(p, b"kappa"), &HyperparamValue::U16(Compact(12)));
         assert_eq!(
             find(p, b"immunity_period"),
@@ -159,16 +163,16 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         );
         assert_eq!(find(p, b"tempo"), &HyperparamValue::U16(Compact(16)));
         assert_eq!(
-            find(p, b"adjustment_interval"),
-            &HyperparamValue::U16(Compact(21))
-        );
-        assert_eq!(
             find(p, b"activity_cutoff"),
             &HyperparamValue::U16(Compact(22))
         );
         assert_eq!(
             find(p, b"target_regs_per_interval"),
             &HyperparamValue::U16(Compact(24))
+        );
+        assert_eq!(
+            find(p, b"burn_half_life"),
+            &HyperparamValue::U16(Compact(33))
         );
         assert_eq!(
             find(p, b"max_regs_per_block"),
@@ -181,14 +185,6 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         assert_eq!(find(p, b"yuma_version"), &HyperparamValue::U16(Compact(3)));
 
         // U64 variants
-        assert_eq!(
-            find(p, b"min_difficulty"),
-            &HyperparamValue::U64(Compact(17))
-        );
-        assert_eq!(
-            find(p, b"max_difficulty"),
-            &HyperparamValue::U64(Compact(18))
-        );
         assert_eq!(
             find(p, b"weights_version"),
             &HyperparamValue::U64(Compact(19))
@@ -205,11 +201,6 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
             find(p, b"serving_rate_limit"),
             &HyperparamValue::U64(Compact(29))
         );
-        assert_eq!(
-            find(p, b"adjustment_alpha"),
-            &HyperparamValue::U64(Compact(31))
-        );
-        assert_eq!(find(p, b"difficulty"), &HyperparamValue::U64(Compact(32)));
 
         // TaoBalance variants
         assert_eq!(
@@ -225,6 +216,12 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         assert_eq!(
             find(p, b"alpha_sigmoid_steepness"),
             &HyperparamValue::I32F32(I32F32::saturating_from_num(5))
+        );
+
+        // U64F64 variant
+        assert_eq!(
+            find(p, b"burn_increase_mult"),
+            &HyperparamValue::U64F64(U64F64::saturating_from_num(2))
         );
     });
 }
@@ -280,6 +277,7 @@ fn test_hyperparam_value_variants_round_trip() {
         HyperparamValue::U128(Compact(u128::MAX)),
         HyperparamValue::TaoBalance(Compact(TaoBalance::from(123_456_789u64))),
         HyperparamValue::I32F32(I32F32::saturating_from_num(-7)),
+        HyperparamValue::U64F64(U64F64::saturating_from_num(42)),
     ];
     for original in &cases {
         let bytes = original.encode();

@@ -3,7 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
-use substrate_fixed::types::I32F32;
+use substrate_fixed::types::{I32F32, U64F64};
 use subtensor_runtime_common::{NetUid, TaoBalance};
 
 #[freeze_struct("f691073111c39620")]
@@ -139,6 +139,7 @@ pub enum HyperparamValue {
     U128(Compact<u128>),
     TaoBalance(Compact<TaoBalance>),
     I32F32(I32F32),
+    U64F64(U64F64),
 }
 
 /// One named hyperparameter and its typed value.
@@ -478,7 +479,6 @@ impl<T: Config> Pallet<T> {
         };
 
         Some(alloc::vec![
-            ("rho", HyperparamValue::U16(Self::get_rho(netuid).into())).into(),
             (
                 "kappa",
                 HyperparamValue::U16(Self::get_kappa(netuid).into())
@@ -505,16 +505,6 @@ impl<T: Config> Pallet<T> {
             )
                 .into(),
             (
-                "min_difficulty",
-                HyperparamValue::U64(Self::get_min_difficulty(netuid).into()),
-            )
-                .into(),
-            (
-                "max_difficulty",
-                HyperparamValue::U64(Self::get_max_difficulty(netuid).into()),
-            )
-                .into(),
-            (
                 "weights_version",
                 HyperparamValue::U64(Self::get_weights_version_key(netuid).into()),
             )
@@ -522,11 +512,6 @@ impl<T: Config> Pallet<T> {
             (
                 "weights_rate_limit",
                 HyperparamValue::U64(Self::get_weights_set_rate_limit(netuid).into()),
-            )
-                .into(),
-            (
-                "adjustment_interval",
-                HyperparamValue::U16(Self::get_adjustment_interval(netuid).into()),
             )
                 .into(),
             (
@@ -555,6 +540,16 @@ impl<T: Config> Pallet<T> {
             )
                 .into(),
             (
+                "burn_half_life",
+                HyperparamValue::U16(BurnHalfLife::<T>::get(netuid).into()),
+            )
+                .into(),
+            (
+                "burn_increase_mult",
+                HyperparamValue::U64F64(BurnIncreaseMult::<T>::get(netuid)),
+            )
+                .into(),
+            (
                 "bonds_moving_avg",
                 HyperparamValue::U64(Self::get_bonds_moving_average(netuid).into()),
             )
@@ -572,16 +567,6 @@ impl<T: Config> Pallet<T> {
             (
                 "max_validators",
                 HyperparamValue::U16(Self::get_max_allowed_validators(netuid).into()),
-            )
-                .into(),
-            (
-                "adjustment_alpha",
-                HyperparamValue::U64(Self::get_adjustment_alpha(netuid).into()),
-            )
-                .into(),
-            (
-                "difficulty",
-                HyperparamValue::U64(Self::get_difficulty_as_u64(netuid).into()),
             )
                 .into(),
             (
@@ -625,6 +610,16 @@ impl<T: Config> Pallet<T> {
             (
                 "user_liquidity_enabled",
                 HyperparamValue::Bool(Self::is_user_liquidity_enabled(netuid)),
+            )
+                .into(),
+            (
+                "owner_cut_enabled",
+                HyperparamValue::Bool(Self::get_owner_cut_enabled(netuid)),
+            )
+                .into(),
+            (
+                "owner_cut_auto_lock_enabled",
+                HyperparamValue::Bool(Self::get_owner_cut_auto_lock_enabled(netuid)),
             )
                 .into(),
         ])
