@@ -16,10 +16,7 @@ jobs:
   check-spec-version:
     name: Check spec_version bump
     runs-on: [self-hosted, type-ccx33]
-    if: |
-      ((github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
-       github.event.label.name == 'no-spec-version-bump') &&
-      !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump')
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-spec-version-bump') }}
     steps:
       - name: Dependencies
         run: |

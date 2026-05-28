@@ -14,10 +14,7 @@ jobs:
   cargo-audit:
     name: cargo audit
     runs-on: [self-hosted, type-ccx13]
-    if: |
-      ((github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
-       github.event.label.name == 'skip-cargo-audit') &&
-      !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit')
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-cargo-audit') }}
     steps:
       - name: Check-out repositoroy under $GITHUB_WORKSPACE
         uses: actions/checkout@v6

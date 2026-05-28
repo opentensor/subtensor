@@ -27,10 +27,6 @@ env:
 jobs:
   check-label:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name != 'pull_request' ||
-      (github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
-      github.event.label.name == 'skip-bittensor-e2e-tests'
     outputs:
       skip-bittensor-e2e-tests: ${{ steps.get-labels.outputs.skip-bittensor-e2e-tests || steps.set-default.outputs.skip-bittensor-e2e-tests }}
     steps:
