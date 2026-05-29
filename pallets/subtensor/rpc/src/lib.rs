@@ -304,6 +304,7 @@ where
         }
     }
 
+    #[allow(deprecated)]
     fn get_subnet_hyperparams(
         &self,
         netuid: NetUid,
@@ -318,6 +319,7 @@ where
         }
     }
 
+    #[allow(deprecated)]
     fn get_subnet_hyperparams_v2(
         &self,
         netuid: NetUid,
