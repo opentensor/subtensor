@@ -304,13 +304,6 @@ pub mod pallet {
             /// Number of orders that were successfully executed.
             executed_count: u32,
         },
-        /// A fee transfer to a recipient failed. The fee remains with the
-        /// original sender. Emitted best-effort — does not revert the order.
-        FeeTransferFailed {
-            recipient: T::AccountId,
-            amount: u64,
-            reason: sp_runtime::DispatchError,
-        },
         /// Root has either enabled(true) or disabled(false) the pallet
         LimitOrdersPalletStatusChanged { enabled: bool },
     }
@@ -566,20 +559,18 @@ pub mod pallet {
             T::PalletId::get().into_account_truncating()
         }
 
-        /// Transfer `fee_tao` from `signer` to `recipient`, emitting
-        /// `FeeTransferFailed` best-effort on failure without reverting the
-        /// surrounding operation.  Does nothing when `fee_tao` is zero.
-        fn forward_fee(signer: &T::AccountId, recipient: &T::AccountId, fee_tao: TaoBalance) {
+        /// Transfer `fee_tao` from `signer` to `recipient`.
+        /// Returns an error if the transfer fails, causing the surrounding operation to revert.
+        /// Does nothing when `fee_tao` is zero.
+        fn forward_fee(
+            signer: &T::AccountId,
+            recipient: &T::AccountId,
+            fee_tao: TaoBalance,
+        ) -> DispatchResult {
             if fee_tao.is_zero() {
-                return;
+                return Ok(());
             }
-            if let Err(reason) = T::SwapInterface::transfer_tao(signer, recipient, fee_tao) {
-                Self::deposit_event(Event::FeeTransferFailed {
-                    recipient: recipient.clone(),
-                    amount: fee_tao.to_u64(),
-                    reason,
-                });
-            }
+            T::SwapInterface::transfer_tao(signer, recipient, fee_tao)
         }
 
         /// Validates all execution preconditions for a signed order.
@@ -726,7 +717,7 @@ pub mod pallet {
                 )?;
 
                 // Forward the fee TAO to the order's fee recipient.
-                Self::forward_fee(&order.signer, &order.fee_recipient, fee_tao);
+                Self::forward_fee(&order.signer, &order.fee_recipient, fee_tao)?;
                 (tao_after_fee.to_u64(), alpha_out.to_u64())
             } else {
                 // partial fill validations have passed, it is safe here to do this
@@ -745,7 +736,7 @@ pub mod pallet {
 
                 // Deduct fee from TAO output and forward to the order's fee recipient.
                 let fee_tao = TaoBalance::from(order.fee_rate.mul_floor(tao_out.to_u64()));
-                Self::forward_fee(&order.signer, &order.fee_recipient, fee_tao);
+                Self::forward_fee(&order.signer, &order.fee_recipient, fee_tao)?;
                 (alpha_in.to_u64(), tao_out.saturating_sub(fee_tao).to_u64())
             };
 
@@ -856,7 +847,7 @@ pub mod pallet {
             )?;
 
             // Merge buy and sell fees by recipient and transfer once per unique recipient.
-            Self::collect_fees(&valid_buys, sell_fees, &pallet_acct);
+            Self::collect_fees(&valid_buys, sell_fees, &pallet_acct)?;
 
             let net_amount = Self::net_amount_for_event(
                 &net_side,
@@ -1165,7 +1156,7 @@ pub mod pallet {
             buys: &BoundedVec<OrderEntry<T::AccountId>, T::MaxOrdersPerBatch>,
             sell_fees: Vec<(T::AccountId, u64)>,
             pallet_acct: &T::AccountId,
-        ) {
+        ) -> DispatchResult {
             // Start with sell fees; fold in buy fees.
             // Buy fee was already computed in `validate_and_classify` as `gross - net`,
             // so we recover it here without recomputing.
@@ -1183,7 +1174,7 @@ pub mod pallet {
 
             // One transfer per unique fee recipient.
             for (recipient, amount) in fees {
-                Self::forward_fee(pallet_acct, &recipient, TaoBalance::from(amount));
+                Self::forward_fee(pallet_acct, &recipient, TaoBalance::from(amount))?;
             }
 
             // TODO: sweep rounding dust and any emissions accrued on the pallet account.
@@ -1193,6 +1184,7 @@ pub mod pallet {
             // it never distributes.  Fix: add `staked_alpha(coldkey, hotkey, netuid) ->
             // AlphaBalance` to `OrderSwapInterface`, then sell the full remaining balance
             // here and forward the TAO to `FeeCollector`.
+            Ok(())
         }
 
         /// Compute the net amount field for the `GroupExecutionSummary` event.

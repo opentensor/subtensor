@@ -651,10 +651,10 @@ fn execute_orders_empty_batch_returns_ok() {
 }
 
 #[test]
-fn execute_orders_fee_transfer_failure_emits_event() {
+fn execute_orders_fee_transfer_failure_skips_order() {
     new_test_ext().execute_with(|| {
-        // Order executes successfully, but the fee transfer to the recipient fails.
-        // The order should still be marked Fulfilled and FeeTransferFailed emitted.
+        // When the fee transfer fails the entire order is rolled back and emits OrderSkipped.
+        // This prevents users from exploiting a tight balance to execute swaps fee-free.
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         MockSwap::set_buy_alpha_return(500);
@@ -680,14 +680,13 @@ fn execute_orders_fee_transfer_failure_emits_event() {
         ));
         FAIL_FEE_TRANSFER.with(|f| *f.borrow_mut() = false);
 
-        // Order was executed despite the failed fee transfer.
+        // Order was skipped — not stored as Fulfilled.
         let id = crate::tests::mock::order_id(&signed.order);
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+        assert!(Orders::<Test>::get(id).is_none());
 
-        // FeeTransferFailed was emitted with the correct recipient and error.
-        assert_event(Event::FeeTransferFailed {
-            recipient: fee_recipient(),
-            amount: 10, // 1% of 1_000
+        // OrderSkipped was emitted with the fee-transfer error as the reason.
+        assert_event(Event::OrderSkipped {
+            order_id: id,
             reason: DispatchError::CannotLookup,
         });
 

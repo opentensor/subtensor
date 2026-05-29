@@ -1340,7 +1340,11 @@ fn collect_fees_forwards_combined_fees_to_collector() {
         ]);
         let pallet_acct = PalletHotkeyAccount::get();
 
-        LimitOrders::<Test>::collect_fees(&buys, vec![(fee_recipient(), 80u64)], &pallet_acct);
+        assert_ok!(LimitOrders::<Test>::collect_fees(
+            &buys,
+            vec![(fee_recipient(), 80u64)],
+            &pallet_acct
+        ));
 
         let tao_transfers = MockSwap::tao_transfers();
         assert_eq!(tao_transfers.len(), 1, "single transfer to fee_recipient");
@@ -1367,7 +1371,11 @@ fn collect_fees_no_transfer_when_zero_fees() {
         )]);
         let pallet_acct = PalletHotkeyAccount::get();
 
-        LimitOrders::<Test>::collect_fees(&buys, vec![], &pallet_acct);
+        assert_ok!(LimitOrders::<Test>::collect_fees(
+            &buys,
+            vec![],
+            &pallet_acct
+        ));
 
         let tao_transfers = MockSwap::tao_transfers();
         assert_eq!(tao_transfers.len(), 0, "no transfer when total fee is zero");
