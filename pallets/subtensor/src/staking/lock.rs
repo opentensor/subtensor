@@ -458,12 +458,7 @@ impl ConvictionModel {
 
 impl<T: Config> Pallet<T> {
     pub fn add_locking_coldkey(hotkey: &T::AccountId, netuid: NetUid, coldkey: &T::AccountId) {
-        let mut coldkeys = LockingColdkeys::<T>::get(netuid, hotkey);
-        if coldkeys.contains(coldkey) {
-            return;
-        }
-        coldkeys.push(coldkey.clone());
-        LockingColdkeys::<T>::insert(netuid, hotkey, coldkeys);
+        LockingColdkeys::<T>::insert((netuid, hotkey, coldkey), ());
     }
 
     pub fn maybe_remove_locking_coldkey(
@@ -471,16 +466,7 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         coldkey: &T::AccountId,
     ) {
-        let mut coldkeys = LockingColdkeys::<T>::get(netuid, hotkey);
-        let Some(position) = coldkeys.iter().position(|existing| existing == coldkey) else {
-            return;
-        };
-        coldkeys.remove(position);
-        if coldkeys.is_empty() {
-            LockingColdkeys::<T>::remove(netuid, hotkey);
-        } else {
-            LockingColdkeys::<T>::insert(netuid, hotkey, coldkeys);
-        }
+        LockingColdkeys::<T>::remove((netuid, hotkey, coldkey));
     }
 
     pub fn insert_lock_state(
@@ -1461,10 +1447,7 @@ impl<T: Config> Pallet<T> {
         // The index can contain stale coldkeys, so only locks that still exist
         // are carried forward; missing locks are pruned from the index.
         for (netuid, _, _) in &netuids_to_transfer {
-            let locking_coldkeys = LockingColdkeys::<T>::get(*netuid, old_hotkey);
-            reads = reads.saturating_add(1);
-
-            for coldkey in locking_coldkeys {
+            for (coldkey, _) in LockingColdkeys::<T>::iter_prefix((*netuid, old_hotkey)) {
                 if let Some(lock) = Lock::<T>::get((coldkey.clone(), *netuid, old_hotkey.clone())) {
                     locks_to_transfer.push((coldkey, *netuid, lock));
                 } else {
@@ -1864,18 +1847,16 @@ impl<T: Config> Pallet<T> {
 
     /// Destroys all lock maps for network dissolution
     pub fn destroy_lock_maps(netuid: NetUid) {
-        // LockingColdkeys: (netuid, hotkey) -> Vec<coldkey>
+        // LockingColdkeys: (netuid, hotkey, coldkey)
         // Lock: (coldkey, netuid, hotkey)
         {
-            let to_rm: sp_std::vec::Vec<(T::AccountId, sp_std::vec::Vec<T::AccountId>)> =
-                LockingColdkeys::<T>::iter_prefix(netuid).collect();
+            let to_rm: sp_std::vec::Vec<((T::AccountId, T::AccountId), ())> =
+                LockingColdkeys::<T>::iter_prefix((netuid,)).collect();
 
-            for (hot, coldkeys) in to_rm {
-                for cold in coldkeys {
-                    Lock::<T>::remove((cold, netuid, hot.clone()));
-                }
+            for ((hot, cold), _) in to_rm {
+                Lock::<T>::remove((cold, netuid, hot));
             }
-            let _ = LockingColdkeys::<T>::clear_prefix(netuid, u32::MAX, None);
+            let _ = LockingColdkeys::<T>::clear_prefix((netuid,), u32::MAX, None);
         }
 
         // HotkeyLock: (netuid, hotkey) → LockState

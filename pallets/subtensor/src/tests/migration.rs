@@ -1199,23 +1199,38 @@ fn test_migrate_populate_locking_coldkeys() {
             },
         );
 
-        assert!(LockingColdkeys::<Test>::get(netuid, hotkey).is_empty());
-        assert!(LockingColdkeys::<Test>::get(netuid, expired_hotkey).is_empty());
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            0
+        );
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, expired_hotkey)).count(),
+            0
+        );
         assert!(!HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
 
         let weight =
             crate::migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<Test>();
 
         assert!(!weight.is_zero(), "migration weight should be non-zero");
-        let locking_coldkeys = LockingColdkeys::<Test>::get(netuid, hotkey);
-        assert_eq!(locking_coldkeys.len(), 2);
-        assert!(locking_coldkeys.contains(&coldkey_1));
-        assert!(locking_coldkeys.contains(&coldkey_2));
-        assert!(LockingColdkeys::<Test>::get(netuid, expired_hotkey).is_empty());
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, hotkey, coldkey_1
+        )));
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, hotkey, coldkey_2
+        )));
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            2
+        );
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, expired_hotkey)).count(),
+            0
+        );
         assert!(Lock::<Test>::get((coldkey_1, netuid, expired_hotkey)).is_none());
         assert!(HasMigrationRun::<Test>::get(MIGRATION_NAME.to_vec()));
 
-        LockingColdkeys::<Test>::remove(netuid, hotkey);
+        let _ = LockingColdkeys::<Test>::clear_prefix((netuid, hotkey), u32::MAX, None);
         let second_weight =
             crate::migrations::migrate_populate_locking_coldkeys::migrate_populate_locking_coldkeys::<Test>();
 
@@ -1224,7 +1239,10 @@ fn test_migrate_populate_locking_coldkeys() {
             <Test as frame_system::Config>::DbWeight::get().reads(1),
             "second run should only read the migration flag"
         );
-        assert!(LockingColdkeys::<Test>::get(netuid, hotkey).is_empty());
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            0
+        );
     });
 }
 

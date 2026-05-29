@@ -996,7 +996,13 @@ fn test_locking_coldkeys_added_once_by_lock_stake() {
             50u64.into(),
         ));
 
-        assert_eq!(LockingColdkeys::<Test>::get(netuid, hotkey), vec![coldkey]);
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, hotkey, coldkey
+        )));
+        assert_eq!(
+            LockingColdkeys::<Test>::iter_prefix((netuid, hotkey)).count(),
+            1
+        );
     });
 }
 
@@ -1011,12 +1017,16 @@ fn test_locking_coldkeys_removed_when_lock_is_fully_reduced() {
         assert_ok!(SubtensorModule::do_lock_stake(
             &coldkey, netuid, &hotkey, amount
         ));
-        assert!(LockingColdkeys::<Test>::get(netuid, hotkey).contains(&coldkey));
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, hotkey, coldkey
+        )));
 
         SubtensorModule::force_reduce_lock(&coldkey, netuid, amount);
 
         assert!(Lock::<Test>::get((coldkey, netuid, hotkey)).is_none());
-        assert!(!LockingColdkeys::<Test>::get(netuid, hotkey).contains(&coldkey));
+        assert!(!LockingColdkeys::<Test>::contains_key((
+            netuid, hotkey, coldkey
+        )));
     });
 }
 
@@ -2497,8 +2507,16 @@ fn test_swap_hotkey_locks_moves_owner_hotkey_aggregate_to_owner_lock() {
             OwnerLock::<Test>::get(netuid).unwrap().locked_mass,
             500u64.into()
         );
-        assert!(!LockingColdkeys::<Test>::get(netuid, old_owner_hotkey).contains(&locking_coldkey));
-        assert!(LockingColdkeys::<Test>::get(netuid, new_owner_hotkey).contains(&locking_coldkey));
+        assert!(!LockingColdkeys::<Test>::contains_key((
+            netuid,
+            old_owner_hotkey,
+            locking_coldkey
+        )));
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid,
+            new_owner_hotkey,
+            locking_coldkey
+        )));
     });
 }
 
@@ -3067,9 +3085,12 @@ fn test_hotkey_swap_swaps_locks_and_convictions() {
             &old_hotkey,
             5000u64.into(),
         ));
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, old_hotkey, coldkey
+        )));
         assert_eq!(
-            LockingColdkeys::<Test>::get(netuid, old_hotkey),
-            vec![coldkey]
+            LockingColdkeys::<Test>::iter_prefix((netuid, old_hotkey)).count(),
+            1
         );
 
         // Mock a non-zero conviction
@@ -3094,8 +3115,12 @@ fn test_hotkey_swap_swaps_locks_and_convictions() {
         let lock = Lock::<Test>::get((coldkey, netuid, new_hotkey)).unwrap();
         assert_eq!(lock.locked_mass, 5000u64.into());
         assert!(lock.conviction > U64F64::from_num(0));
-        assert!(!LockingColdkeys::<Test>::get(netuid, old_hotkey).contains(&coldkey));
-        assert!(LockingColdkeys::<Test>::get(netuid, new_hotkey).contains(&coldkey));
+        assert!(!LockingColdkeys::<Test>::contains_key((
+            netuid, old_hotkey, coldkey
+        )));
+        assert!(LockingColdkeys::<Test>::contains_key((
+            netuid, new_hotkey, coldkey
+        )));
 
         // Hotkey lock data also updated, conviction is not reset
         let hotkey_lock = HotkeyLock::<Test>::get(netuid, new_hotkey).unwrap();
