@@ -1628,6 +1628,52 @@ fn test_unstake_allowed_up_to_available() {
 }
 
 #[test]
+fn test_unstake_rolls_forward_existing_lock() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid = setup_subnet_with_stake(coldkey, hotkey, 100_000_000_000);
+        let lock_amount = AlphaBalance::from(1_000_000_000u64);
+
+        DecayingLock::<Test>::remove(coldkey, netuid);
+        let lock_block = SubtensorModule::get_current_block_as_u64();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey,
+            netuid,
+            &hotkey,
+            lock_amount,
+        ));
+
+        step_block(100);
+        let now = SubtensorModule::get_current_block_as_u64();
+        let expected = roll_forward_decaying_hotkey_lock(
+            LockState {
+                locked_mass: lock_amount,
+                conviction: U64F64::from_num(0),
+                last_update: lock_block,
+            },
+            now,
+        );
+
+        assert_ok!(SubtensorModule::do_remove_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            lock_amount,
+        ));
+
+        assert_eq!(
+            Lock::<Test>::get((coldkey, netuid, hotkey)).expect("lock should remain"),
+            expected
+        );
+        let aggregate =
+            DecayingHotkeyLock::<Test>::get(netuid, hotkey).expect("aggregate should remain");
+        assert_eq!(aggregate.locked_mass, expected.locked_mass);
+        assert_eq!(aggregate.last_update, now);
+    });
+}
+
+#[test]
 fn test_unstake_roll_forward_collects_decaying_lock_dust_from_hotkey_aggregate() {
     new_test_ext(1).execute_with(|| {
         const ONE_ALPHA: u64 = 1_000_000_000;
@@ -1706,6 +1752,10 @@ fn test_unstake_roll_forward_collects_decaying_lock_dust_from_hotkey_aggregate()
             netuid,
             ONE_ALPHA.into(),
         ));
+        assert_eq!(
+            Lock::<Test>::get((coldkey_1, netuid, hotkey_2)).expect("coldkey1 lock should remain"),
+            rolled_large_lock
+        );
         assert_eq!(
             DecayingHotkeyLock::<Test>::get(netuid, hotkey_2)
                 .expect("decaying aggregate should remain")
