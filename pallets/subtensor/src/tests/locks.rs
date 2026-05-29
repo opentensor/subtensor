@@ -79,6 +79,7 @@ fn roll_forward_lock(
         owner_lock,
         perpetual_lock,
     )
+    .0
 }
 
 fn roll_forward_individual_lock(
@@ -1215,7 +1216,8 @@ fn test_roll_forward_individual_lock_uses_lock_owner_and_decay_mode() {
             MaturityRate::<Test>::get(),
             true,
             false,
-        );
+        )
+        .0;
 
         assert_eq!(rolled, expected);
     });
@@ -1239,7 +1241,8 @@ fn test_roll_forward_hotkey_lock_uses_perpetual_general_mode() {
             MaturityRate::<Test>::get(),
             false,
             true,
-        );
+        )
+        .0;
 
         assert_eq!(rolled, expected);
     });
@@ -1263,7 +1266,8 @@ fn test_roll_forward_decaying_hotkey_lock_uses_decaying_general_mode() {
             MaturityRate::<Test>::get(),
             false,
             false,
-        );
+        )
+        .0;
 
         assert_eq!(rolled, expected);
     });
@@ -1620,6 +1624,110 @@ fn test_unstake_allowed_up_to_available() {
             netuid,
             available_alpha.into(),
         ));
+    });
+}
+
+#[test]
+fn test_unstake_roll_forward_collects_decaying_lock_dust_from_hotkey_aggregate() {
+    new_test_ext(1).execute_with(|| {
+        const ONE_ALPHA: u64 = 1_000_000_000;
+        const DUST_ALPHA: u64 = 100;
+        const STAKE_TAO_RAO: u64 = 1_000 * 1_000_000_000;
+
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let coldkey_1 = U256::from(2001);
+        let coldkey_2 = U256::from(2002);
+        let hotkey_1 = U256::from(3001);
+        let hotkey_2 = U256::from(3002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        setup_reserves(
+            netuid,
+            (STAKE_TAO_RAO * 1_000).into(),
+            (STAKE_TAO_RAO * 10_000).into(),
+        );
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey_1, &hotkey_1
+        ));
+        assert_ok!(SubtensorModule::create_account_if_non_existent(
+            &coldkey_1, &hotkey_2
+        ));
+
+        for coldkey in [coldkey_1, coldkey_2] {
+            add_balance_to_coldkey_account(&coldkey, STAKE_TAO_RAO.into());
+            SubtensorModule::stake_into_subnet(
+                &hotkey_1,
+                &coldkey,
+                netuid,
+                STAKE_TAO_RAO.into(),
+                <Test as Config>::SwapInterface::max_price(),
+                false,
+                false,
+            )
+            .unwrap();
+        }
+
+        let lock_block = SubtensorModule::get_current_block_as_u64();
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey_1,
+            netuid,
+            &hotkey_2,
+            ONE_ALPHA.into(),
+        ));
+        assert_ok!(SubtensorModule::do_lock_stake(
+            &coldkey_2,
+            netuid,
+            &hotkey_2,
+            DUST_ALPHA.into(),
+        ));
+
+        assert_eq!(
+            DecayingHotkeyLock::<Test>::get(netuid, hotkey_2)
+                .expect("decaying aggregate should exist")
+                .locked_mass,
+            AlphaBalance::from(ONE_ALPHA + DUST_ALPHA)
+        );
+
+        step_block(100);
+        let now = SubtensorModule::get_current_block_as_u64();
+        let rolled_large_lock = roll_forward_decaying_hotkey_lock(
+            LockState {
+                locked_mass: ONE_ALPHA.into(),
+                conviction: U64F64::from_num(0),
+                last_update: lock_block,
+            },
+            now,
+        );
+
+        assert_ok!(SubtensorModule::do_remove_stake(
+            RuntimeOrigin::signed(coldkey_1),
+            hotkey_1,
+            netuid,
+            ONE_ALPHA.into(),
+        ));
+        assert_eq!(
+            DecayingHotkeyLock::<Test>::get(netuid, hotkey_2)
+                .expect("decaying aggregate should remain")
+                .locked_mass,
+            rolled_large_lock
+                .locked_mass
+                .saturating_add(AlphaBalance::from(DUST_ALPHA))
+        );
+
+        remove_stake_rate_limit_for_tests(&hotkey_1, &coldkey_2, netuid);
+        assert_ok!(SubtensorModule::do_remove_stake(
+            RuntimeOrigin::signed(coldkey_2),
+            hotkey_1,
+            netuid,
+            ONE_ALPHA.into(),
+        ));
+        assert_eq!(
+            DecayingHotkeyLock::<Test>::get(netuid, hotkey_2)
+                .expect("decaying aggregate should remain")
+                .locked_mass,
+            rolled_large_lock.locked_mass
+        );
     });
 }
 
