@@ -606,11 +606,7 @@ impl<T: Config> Pallet<T> {
                 HyperparamValue::Bool(Self::get_bonds_reset(netuid)),
             )
                 .into(),
-            (
-                "user_liquidity_enabled",
-                HyperparamValue::Bool(Self::is_user_liquidity_enabled(netuid)),
-            )
-                .into(),
+            ("user_liquidity_enabled", HyperparamValue::Bool(false),).into(),
             (
                 "owner_cut_enabled",
                 HyperparamValue::Bool(Self::get_owner_cut_enabled(netuid)),
