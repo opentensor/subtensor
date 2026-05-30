@@ -220,11 +220,88 @@ impl From<ProxyType> for u8 {
     }
 }
 
+impl ProxyType {
+    pub fn is_deprecated(&self) -> bool {
+        matches!(
+            self,
+            Self::Triumvirate | Self::Senate | Self::Governance | Self::RootWeights
+        )
+    }
+}
+
 impl Default for ProxyType {
     // allow all Calls; required to be most permissive
     fn default() -> Self {
         Self::Any
     }
+}
+
+/// Conditions that must be met beyond matching the call itself.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
+pub enum CallCondition {
+    /// A numeric parameter must be less than this limit
+    ParamLessThan { param_name: Vec<u8>, limit: u128 },
+    /// The nested call inside must match this pallet/call
+    NestedCallMustBe { pallet_name: Vec<u8>, call_name: Vec<u8> },
+}
+
+/// Describes which call(s) a proxy filter rule applies to.
+///
+/// When `call_name` and `call_index` are `None`, the rule applies to ALL calls in the pallet.
+/// When they are `Some`, the rule applies to that specific call only.
+#[freeze_struct("57f984617f6084cc")]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
+pub struct CallInfo {
+    /// Pallet name (always present)
+    pub pallet_name: Vec<u8>,
+    /// Pallet index in runtime (always present)
+    pub pallet_index: u8,
+    /// Call name within pallet. None means ALL calls in this pallet.
+    pub call_name: Option<Vec<u8>>,
+    /// Call index within pallet. None means ALL calls in this pallet.
+    pub call_index: Option<u8>,
+    /// Additional condition that must be met (value limits, nested call requirements)
+    pub condition: Option<CallCondition>,
+}
+
+/// Describes how a ProxyType filters incoming calls.
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
+pub enum FilterMode {
+    /// All calls are permitted regardless of the calls list (e.g. ProxyType::Any)
+    AllowAll,
+    /// No calls are permitted (e.g. deprecated proxy types)
+    DenyAll,
+    /// Only calls listed in the `calls` field are permitted
+    Allow,
+    /// All calls are permitted EXCEPT those listed in the `calls` field
+    Deny,
+}
+
+/// Complete filter description for a ProxyType, returned by the Runtime API.
+///
+/// Interpretation:
+/// - `filter_mode: AllowAll` — everything permitted, `calls` is empty
+/// - `filter_mode: DenyAll` — nothing permitted, `calls` is empty
+/// - `filter_mode: Allow` — only `calls` are permitted (minus `exceptions`)
+/// - `filter_mode: Deny` — everything EXCEPT `calls` is permitted
+/// - `call_name: None` in a CallInfo — rule applies to ALL calls in the pallet
+#[freeze_struct("4453d44869f8a188")]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
+pub struct ProxyFilterInfo {
+    pub proxy_type: u8,
+    pub name: Vec<u8>,
+    pub deprecated: bool,
+    pub filter_mode: FilterMode,
+    pub calls: Vec<CallInfo>,
+    pub exceptions: Vec<CallInfo>,
+}
+
+#[freeze_struct("b0cce66ed9b2451b")]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
+pub struct ProxyTypeInfo {
+    pub name: Vec<u8>,
+    pub index: u8,
+    pub deprecated: bool,
 }
 
 pub trait SubnetInfo<AccountId> {
