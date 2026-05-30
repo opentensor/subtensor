@@ -510,6 +510,7 @@ fn proxy_filter_api_structural_validation() {
 }
 
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn proxy_filter_api_cross_check_filter_behavior() {
     new_test_ext().execute_with(|| {
         let filters = get_all_proxy_filters();
