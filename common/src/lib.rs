@@ -242,7 +242,10 @@ pub enum CallCondition {
     /// A numeric parameter must be less than this limit
     ParamLessThan { param_name: Vec<u8>, limit: u128 },
     /// The nested call inside must match this pallet/call
-    NestedCallMustBe { pallet_name: Vec<u8>, call_name: Vec<u8> },
+    NestedCallMustBe {
+        pallet_name: Vec<u8>,
+        call_name: Vec<u8>,
+    },
 }
 
 /// Describes which call(s) a proxy filter rule applies to.

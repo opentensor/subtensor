@@ -84,9 +84,8 @@ use subtensor_swap_interface::{Order, SwapHandler};
 pub use frame_support::{
     StorageValue, construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor,
-        GetCallName, GetCallIndex, InstanceFilter, KeyOwnerProofSystem, OnFinalize,
-        OnTimestampSet, PalletInfoAccess,
+        ConstBool, ConstU8, ConstU32, ConstU64, ConstU128, FindAuthor, GetCallIndex, GetCallName,
+        InstanceFilter, KeyOwnerProofSystem, OnFinalize, OnTimestampSet, PalletInfoAccess,
         PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
@@ -1763,7 +1762,9 @@ type EventRecord = frame_system::EventRecord<RuntimeEvent, Hash>;
 fn call_info_by_name<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(name: &str) -> CallInfo {
     let names = C::get_call_names();
     let indices = C::get_call_indices();
-    let pos = names.iter().position(|n| *n == name)
+    let pos = names
+        .iter()
+        .position(|n| *n == name)
         .unwrap_or_else(|| panic!("Call '{}' not found in pallet '{}'", name, P::name()));
     CallInfo {
         pallet_name: P::name().as_bytes().to_vec(),
@@ -1795,12 +1796,14 @@ fn pallet_wildcard<P: PalletInfoAccess>() -> CallInfo {
 
 pub fn get_all_proxy_type_infos() -> Vec<ProxyTypeInfo> {
     (0u8..=u8::MAX)
-        .filter_map(|i:u8| {
-            ProxyType::try_from(i).ok().map(|pt:ProxyType| ProxyTypeInfo {
-                name: alloc::format!("{:?}", pt).into_bytes(),
-                index: i,
-                deprecated: pt.is_deprecated(),
-            })
+        .filter_map(|i: u8| {
+            ProxyType::try_from(i)
+                .ok()
+                .map(|pt: ProxyType| ProxyTypeInfo {
+                    name: alloc::format!("{:?}", pt).into_bytes(),
+                    index: i,
+                    deprecated: pt.is_deprecated(),
+                })
         })
         .collect()
 }

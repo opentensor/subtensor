@@ -39,10 +39,19 @@ pub struct FilterRule {
 pub enum FilterKind {
     AllowAll,
     DenyAll,
-    Allow { calls: Vec<CallRef>, exceptions: Vec<CallRef> },
-    Deny { calls: Vec<CallRef> },
-    AllowConditional { calls: Vec<ConditionalCallRef> },
-    AllowNested { calls: Vec<NestedCallRef> },
+    Allow {
+        calls: Vec<CallRef>,
+        exceptions: Vec<CallRef>,
+    },
+    Deny {
+        calls: Vec<CallRef>,
+    },
+    AllowConditional {
+        calls: Vec<ConditionalCallRef>,
+    },
+    AllowNested {
+        calls: Vec<NestedCallRef>,
+    },
 }
 
 /// Reference to a specific call or wildcard pallet
@@ -115,7 +124,11 @@ impl Parse for PalletDef {
         let runtime_variant: Ident = content.parse()?;
         content.parse::<Token![,]>()?;
         let module: Ident = content.parse()?;
-        Ok(PalletDef { name, runtime_variant, module })
+        Ok(PalletDef {
+            name,
+            runtime_variant,
+            module,
+        })
     }
 }
 
@@ -167,7 +180,9 @@ impl Parse for FilterRule {
             let calls = parse_call_refs(&content)?;
             FilterKind::Deny { calls }
         } else {
-            return Err(input.error("expected allow_all, deny_all, allow, deny, allow_conditional, or allow_nested"));
+            return Err(input.error(
+                "expected allow_all, deny_all, allow, deny, allow_conditional, or allow_nested",
+            ));
         };
 
         // Consume optional trailing semicolon after braced rules
@@ -211,7 +226,12 @@ fn parse_conditional_calls(input: ParseStream) -> Result<Vec<ConditionalCallRef>
         let field: Ident = field_content.parse()?;
         input.parse::<Token![<]>()?;
         let limit: Expr = input.parse()?;
-        calls.push(ConditionalCallRef { pallet, call, field, limit });
+        calls.push(ConditionalCallRef {
+            pallet,
+            call,
+            field,
+            limit,
+        });
         if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
         }
@@ -235,7 +255,13 @@ fn parse_nested_calls(input: ParseStream) -> Result<Vec<NestedCallRef>> {
         let target_pallet: Ident = input.parse()?;
         input.parse::<Token![::]>()?;
         let target_call: Ident = input.parse()?;
-        calls.push(NestedCallRef { pallet, call, field, target_pallet, target_call });
+        calls.push(NestedCallRef {
+            pallet,
+            call,
+            field,
+            target_pallet,
+            target_call,
+        });
         if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
         }
@@ -259,7 +285,9 @@ impl ProxyFilterInput {
     }
 
     fn find_pallet(&self, name: &Ident) -> &PalletDef {
-        self.pallets.iter().find(|p| p.name == *name)
+        self.pallets
+            .iter()
+            .find(|p| p.name == *name)
             .unwrap_or_else(|| panic!("Pallet '{}' not found in pallets block", name))
     }
 
@@ -360,8 +388,9 @@ impl ProxyFilterInput {
     }
 
     fn call_refs_to_patterns(&self, calls: &[CallRef]) -> Vec<TokenStream2> {
-        calls.iter().map(|call_ref| {
-            match call_ref {
+        calls
+            .iter()
+            .map(|call_ref| match call_ref {
                 CallRef::Wildcard(pallet) => {
                     let pallet_def = self.find_pallet(pallet);
                     let variant = &pallet_def.runtime_variant;
@@ -373,8 +402,8 @@ impl ProxyFilterInput {
                     let module = &pallet_def.module;
                     quote! { RuntimeCall::#variant(#module::Call::#call { .. }) }
                 }
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     // ========================================================================
@@ -382,58 +411,54 @@ impl ProxyFilterInput {
     // ========================================================================
 
     fn generate_data_fn(&self) -> TokenStream2 {
-        let entries: Vec<TokenStream2> = self.rules.iter().map(|rule| {
-            let pt = &rule.proxy_type;
-            let (mode, calls_expr, exceptions_expr) = match &rule.kind {
-                FilterKind::AllowAll => (
-                    quote! { FilterMode::AllowAll },
-                    quote! { Vec::new() },
-                    quote! { Vec::new() },
-                ),
-                FilterKind::DenyAll => (
-                    quote! { FilterMode::DenyAll },
-                    quote! { Vec::new() },
-                    quote! { Vec::new() },
-                ),
-                FilterKind::Allow { calls, exceptions } => (
-                    quote! { FilterMode::Allow },
-                    self.call_refs_to_data(calls),
-                    self.call_refs_to_data(exceptions),
-                ),
-                FilterKind::Deny { calls } => (
-                    quote! { FilterMode::Deny },
-                    self.call_refs_to_data(calls),
-                    quote! { Vec::new() },
-                ),
-                FilterKind::AllowConditional { calls } => {
-                    let data = self.conditional_calls_to_data(calls);
-                    (
-                        quote! { FilterMode::Allow },
-                        data,
+        let entries: Vec<TokenStream2> = self
+            .rules
+            .iter()
+            .map(|rule| {
+                let pt = &rule.proxy_type;
+                let (mode, calls_expr, exceptions_expr) = match &rule.kind {
+                    FilterKind::AllowAll => (
+                        quote! { FilterMode::AllowAll },
                         quote! { Vec::new() },
-                    )
-                }
-                FilterKind::AllowNested { calls } => {
-                    let data = self.nested_calls_to_data(calls);
-                    (
-                        quote! { FilterMode::Allow },
-                        data,
                         quote! { Vec::new() },
-                    )
-                }
-            };
+                    ),
+                    FilterKind::DenyAll => (
+                        quote! { FilterMode::DenyAll },
+                        quote! { Vec::new() },
+                        quote! { Vec::new() },
+                    ),
+                    FilterKind::Allow { calls, exceptions } => (
+                        quote! { FilterMode::Allow },
+                        self.call_refs_to_data(calls),
+                        self.call_refs_to_data(exceptions),
+                    ),
+                    FilterKind::Deny { calls } => (
+                        quote! { FilterMode::Deny },
+                        self.call_refs_to_data(calls),
+                        quote! { Vec::new() },
+                    ),
+                    FilterKind::AllowConditional { calls } => {
+                        let data = self.conditional_calls_to_data(calls);
+                        (quote! { FilterMode::Allow }, data, quote! { Vec::new() })
+                    }
+                    FilterKind::AllowNested { calls } => {
+                        let data = self.nested_calls_to_data(calls);
+                        (quote! { FilterMode::Allow }, data, quote! { Vec::new() })
+                    }
+                };
 
-            quote! {
-                ProxyFilterInfo {
-                    proxy_type: ProxyType::#pt.into(),
-                    name: alloc::format!("{:?}", ProxyType::#pt).into_bytes(),
-                    deprecated: ProxyType::#pt.is_deprecated(),
-                    filter_mode: #mode,
-                    calls: #calls_expr,
-                    exceptions: #exceptions_expr,
+                quote! {
+                    ProxyFilterInfo {
+                        proxy_type: ProxyType::#pt.into(),
+                        name: alloc::format!("{:?}", ProxyType::#pt).into_bytes(),
+                        deprecated: ProxyType::#pt.is_deprecated(),
+                        filter_mode: #mode,
+                        calls: #calls_expr,
+                        exceptions: #exceptions_expr,
+                    }
                 }
-            }
-        }).collect();
+            })
+            .collect();
 
         quote! {
             pub fn get_all_proxy_filters() -> Vec<ProxyFilterInfo> {
@@ -445,8 +470,9 @@ impl ProxyFilterInput {
     }
 
     fn call_refs_to_data(&self, calls: &[CallRef]) -> TokenStream2 {
-        let items: Vec<TokenStream2> = calls.iter().map(|call_ref| {
-            match call_ref {
+        let items: Vec<TokenStream2> = calls
+            .iter()
+            .map(|call_ref| match call_ref {
                 CallRef::Wildcard(pallet) => {
                     let pallet_def = self.find_pallet(pallet);
                     let runtime_variant = &pallet_def.runtime_variant;
@@ -461,29 +487,32 @@ impl ProxyFilterInput {
                         call_info_by_name::<#runtime_variant, #module::Call<Runtime>>(#call_str)
                     }
                 }
-            }
-        }).collect();
+            })
+            .collect();
         quote! { vec![#(#items),*] }
     }
 
     fn conditional_calls_to_data(&self, calls: &[ConditionalCallRef]) -> TokenStream2 {
-        let items: Vec<TokenStream2> = calls.iter().map(|cond| {
-            let pallet_def = self.find_pallet(&cond.pallet);
-            let runtime_variant = &pallet_def.runtime_variant;
-            let module = &pallet_def.module;
-            let call_str = cond.call.to_string();
-            let field_str = cond.field.to_string();
-            let limit = &cond.limit;
-            quote! {
-                call_info_by_name_conditional::<#runtime_variant, #module::Call<Runtime>>(
-                    #call_str,
-                    CallCondition::ParamLessThan {
-                        param_name: #field_str.as_bytes().to_vec(),
-                        limit: Into::<u64>::into(#limit) as u128,
-                    },
-                )
-            }
-        }).collect();
+        let items: Vec<TokenStream2> = calls
+            .iter()
+            .map(|cond| {
+                let pallet_def = self.find_pallet(&cond.pallet);
+                let runtime_variant = &pallet_def.runtime_variant;
+                let module = &pallet_def.module;
+                let call_str = cond.call.to_string();
+                let field_str = cond.field.to_string();
+                let limit = &cond.limit;
+                quote! {
+                    call_info_by_name_conditional::<#runtime_variant, #module::Call<Runtime>>(
+                        #call_str,
+                        CallCondition::ParamLessThan {
+                            param_name: #field_str.as_bytes().to_vec(),
+                            limit: Into::<u64>::into(#limit) as u128,
+                        },
+                    )
+                }
+            })
+            .collect();
         quote! { vec![#(#items),*] }
     }
 

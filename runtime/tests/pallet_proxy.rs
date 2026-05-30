@@ -8,8 +8,8 @@ use node_subtensor_runtime::{
 };
 use pallet_subtensor_proxy as pallet_proxy;
 use subtensor_runtime_common::{
-    AccountId, CallCondition, FilterMode, NetUid, ProxyType, TaoBalance,
-    SMALL_ALPHA_TRANSFER_LIMIT, SMALL_TRANSFER_LIMIT,
+    AccountId, CallCondition, FilterMode, NetUid, ProxyType, SMALL_ALPHA_TRANSFER_LIMIT,
+    SMALL_TRANSFER_LIMIT, TaoBalance,
 };
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
@@ -439,7 +439,10 @@ fn proxy_filter_api_structural_validation() {
                 if *limit == Into::<u64>::into(SMALL_TRANSFER_LIMIT) as u128
             )
         });
-        assert!(has_tao_limit, "SmallTransfer should have TAO limit condition");
+        assert!(
+            has_tao_limit,
+            "SmallTransfer should have TAO limit condition"
+        );
 
         let has_alpha_limit = small_transfer.calls.iter().any(|c| {
             matches!(
@@ -545,11 +548,10 @@ fn proxy_filter_api_cross_check_filter_behavior() {
                 (encoded[0], encoded[1], call)
             },
             {
-                let call =
-                    RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register {
-                        netuid: Default::default(),
-                        hotkey: AccountId::new([0u8; 32]),
-                    });
+                let call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register {
+                    netuid: Default::default(),
+                    hotkey: AccountId::new([0u8; 32]),
+                });
                 let encoded = codec::Encode::encode(&call);
                 (encoded[0], encoded[1], call)
             },
@@ -590,12 +592,11 @@ fn proxy_filter_api_cross_check_filter_behavior() {
                 (encoded[0], encoded[1], call)
             },
             {
-                let call = RuntimeCall::AdminUtils(
-                    pallet_admin_utils::Call::sudo_set_sn_owner_hotkey {
+                let call =
+                    RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_sn_owner_hotkey {
                         netuid: Default::default(),
                         hotkey: AccountId::new([0u8; 32]),
-                    },
-                );
+                    });
                 let encoded = codec::Encode::encode(&call);
                 (encoded[0], encoded[1], call)
             },
@@ -628,29 +629,35 @@ fn proxy_filter_api_cross_check_filter_behavior() {
                         if call_info.call_name.is_none() || call_info.condition.is_some() {
                             continue;
                         }
-                        if let Some((_, _, call)) = test_calls
-                            .iter()
-                            .find(|(pi, ci, _)| *pi == call_info.pallet_index && Some(*ci) == call_info.call_index)
-                        {
+                        if let Some((_, _, call)) = test_calls.iter().find(|(pi, ci, _)| {
+                            *pi == call_info.pallet_index && Some(*ci) == call_info.call_index
+                        }) {
                             assert!(
                                 proxy_type.filter(call),
                                 "Allow-mode ProxyType {:?} should allow call {:?}",
                                 proxy_type,
-                                call_info.call_name.as_ref().map(|n| core::str::from_utf8(n).unwrap_or("?")).unwrap_or("*")
+                                call_info
+                                    .call_name
+                                    .as_ref()
+                                    .map(|n| core::str::from_utf8(n).unwrap_or("?"))
+                                    .unwrap_or("*")
                             );
                         }
                     }
                     // Verify exceptions are denied
                     for exc_info in &filter_info.exceptions {
-                        if let Some((_, _, call)) = test_calls
-                            .iter()
-                            .find(|(pi, ci, _)| *pi == exc_info.pallet_index && Some(*ci) == exc_info.call_index)
-                        {
+                        if let Some((_, _, call)) = test_calls.iter().find(|(pi, ci, _)| {
+                            *pi == exc_info.pallet_index && Some(*ci) == exc_info.call_index
+                        }) {
                             assert!(
                                 !proxy_type.filter(call),
                                 "ProxyType {:?} should deny exception {:?}",
                                 proxy_type,
-                                exc_info.call_name.as_ref().map(|n| core::str::from_utf8(n).unwrap_or("?")).unwrap_or("*")
+                                exc_info
+                                    .call_name
+                                    .as_ref()
+                                    .map(|n| core::str::from_utf8(n).unwrap_or("?"))
+                                    .unwrap_or("*")
                             );
                         }
                     }
@@ -660,15 +667,18 @@ fn proxy_filter_api_cross_check_filter_behavior() {
                         if call_info.call_name.is_none() || call_info.condition.is_some() {
                             continue;
                         }
-                        if let Some((_, _, call)) = test_calls
-                            .iter()
-                            .find(|(pi, ci, _)| *pi == call_info.pallet_index && Some(*ci) == call_info.call_index)
-                        {
+                        if let Some((_, _, call)) = test_calls.iter().find(|(pi, ci, _)| {
+                            *pi == call_info.pallet_index && Some(*ci) == call_info.call_index
+                        }) {
                             assert!(
                                 !proxy_type.filter(call),
                                 "Deny-mode ProxyType {:?} should deny call {:?}",
                                 proxy_type,
-                                call_info.call_name.as_ref().map(|n| core::str::from_utf8(n).unwrap_or("?")).unwrap_or("*")
+                                call_info
+                                    .call_name
+                                    .as_ref()
+                                    .map(|n| core::str::from_utf8(n).unwrap_or("?"))
+                                    .unwrap_or("*")
                             );
                         }
                     }
