@@ -1771,10 +1771,9 @@ fn call_info_by_name<P: PalletInfoAccess, C: GetCallName + GetCallIndex>(name: &
         pallet_index: P::index() as u8,
         call_name: Some(name.as_bytes().to_vec()),
         call_index: Some(
-            indices
-                .get(pos)
-                .copied()
-                .unwrap_or_else(|| panic!("Call '{}' index out of bounds in '{}'", name, P::name())),
+            indices.get(pos).copied().unwrap_or_else(|| {
+                panic!("Call '{}' index out of bounds in '{}'", name, P::name())
+            }),
         ),
         condition: None,
     }
