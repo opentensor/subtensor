@@ -91,6 +91,7 @@ pub trait WeightInfo {
 	fn add_stake_burn() -> Weight;
 	fn set_pending_childkey_cooldown() -> Weight;
 	fn lock_stake() -> Weight;
+	fn unlock_stake() -> Weight;
 	fn move_lock() -> Weight;
 }
 
