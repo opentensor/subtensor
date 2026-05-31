@@ -627,6 +627,7 @@ impl<T: Config> Pallet<T> {
                     .saturating_to_num::<u64>()
                     .min(i64::MAX as u64)
                     .into();
+                Self::record_tao_outflow(netuid, tao_equivalent);
                 // Check if we should recycle or burn the incentive
                 match RecycleOrBurn::<T>::try_get(netuid) {
                     Ok(RecycleOrBurnEnum::Recycle) => {
