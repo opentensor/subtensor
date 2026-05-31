@@ -621,8 +621,7 @@ impl<T: Config> Pallet<T> {
                 // Record the miner burn as a TAO outflow. The incentive is
                 // denominated in alpha, so convert to its TAO equivalent at
                 // the current spot price (no slippage, since no swap occurs).
-                let current_price: U96F32 =
-                    T::SwapInterface::current_alpha_price(netuid.into());
+                let current_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
                 let tao_equivalent: TaoBalance = current_price
                     .saturating_mul(asfloat!(incentive))
                     .saturating_to_num::<u64>()
