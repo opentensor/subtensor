@@ -102,7 +102,6 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         SubtensorModule::set_min_allowed_weights(netuid, 14);
         SubtensorModule::set_tempo(netuid, 16);
         SubtensorModule::set_weights_version_key(netuid, 19);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 20);
         SubtensorModule::set_activity_cutoff(netuid, 22);
         SubtensorModule::set_network_registration_allowed(netuid, false);
         SubtensorModule::set_target_registrations_per_interval(netuid, 24);
@@ -112,7 +111,6 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
         BurnIncreaseMult::<Test>::insert(netuid, U64F64::saturating_from_num(2));
         SubtensorModule::set_bonds_moving_average(netuid, 27);
         SubtensorModule::set_max_registrations_per_block(netuid, 28);
-        SubtensorModule::set_serving_rate_limit(netuid, 29);
         SubtensorModule::set_max_allowed_validators(netuid, 30);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
