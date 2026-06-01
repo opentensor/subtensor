@@ -620,6 +620,25 @@ parameter_types! {
     pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
 }
 
+// Proxy filter definitions. This macro is the single source of truth for both
+// on-chain InstanceFilter::filter() logic and the ProxyFilterRuntimeApi response.
+//
+// Syntax:
+//   pallets { Alias => (RuntimeVariant, module_path), ... }
+//   ProxyType => allow { Pallet::call, ... }          — allowlist
+//   ProxyType => deny { Pallet::call, ... }           — denylist
+//   ProxyType => allow_all;                           — permit everything
+//   ProxyType => deny_all;                            — permit nothing
+//   ProxyType => allow { ... } except { ... }         — allowlist with exceptions
+//   ProxyType => allow_conditional { Pallet::call where (param) < LIMIT, ... }
+//   ProxyType => allow_nested { Pallet::call where nested(arg) == Target::method, ... }
+//   Pallet::* in a list means all calls in that pallet.
+//
+// To add a new extrinsic to an existing proxy type, append Pallet::call_name
+// to the relevant block. To add a new pallet, register it in the pallets {} section first.
+//
+// Human-readable descriptions of each extrinsic are available to clients via
+// runtime metadata (v14/v15) which includes doc comments from pallet call definitions.
 subtensor_macros::define_proxy_filters! {
     pallets {
         Balances => (Balances, pallet_balances),
