@@ -5,18 +5,18 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::arithmetic_side_effects)]
 
-use pallet_subtensor::*;
-use pallet_subtensor_swap as swap;
-use share_pool::SafeFloat;
-use sp_core::U256;
-use substrate_fixed::types::{I96F32, U64F64};
-use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex, TaoBalance};
 use pallet_subtensor::rpc_info::delegate_info::DelegateInfo;
 use pallet_subtensor::rpc_info::stake_info::StakeInfo;
+use pallet_subtensor::*;
+use pallet_subtensor_swap as swap;
 use pallet_subtensor_swap_runtime_api::SwapRuntimeApi;
+use share_pool::SafeFloat;
+use sp_core::U256;
 use sp_runtime::AccountId32;
 use sp_runtime::traits::Block as BlockT;
+use substrate_fixed::types::{I96F32, U64F64};
 use subtensor_custom_rpc_runtime_api::{DelegateInfoRuntimeApi, StakeInfoRuntimeApi};
+use subtensor_runtime_common::{AlphaBalance, MechId, NetUid, NetUidStorageIndex, TaoBalance};
 
 use super::helpers::*;
 use super::mock::*;
@@ -189,8 +189,7 @@ fn indexer_runtime_api_signatures() {
         DelegateInfoRuntimeApi::get_delegate(&MockApi, at, acct.clone()).unwrap();
 
     let _: Vec<(AccountId32, Vec<StakeInfo<AccountId32>>)> =
-        StakeInfoRuntimeApi::get_stake_info_for_coldkeys(&MockApi, at, vec![acct.clone()])
-            .unwrap();
+        StakeInfoRuntimeApi::get_stake_info_for_coldkeys(&MockApi, at, vec![acct.clone()]).unwrap();
 
     let _: u64 = SwapRuntimeApi::current_alpha_price(&MockApi, at, netuid).unwrap();
 }
