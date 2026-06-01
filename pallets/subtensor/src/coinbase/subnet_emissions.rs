@@ -22,19 +22,45 @@ impl<T: Config> Pallet<T> {
         subnets_to_emit_to: &[NetUid],
         block_emission: U96F32,
     ) -> BTreeMap<NetUid, U96F32> {
-        // Get subnet TAO emissions.
+        // Disabled subnets get zero TAO-side emission, redistributed to enabled subnets.
+        // They stay in the map so the normal alpha_out/root-prop path still runs.
         let shares = Self::get_shares(subnets_to_emit_to);
         log::debug!("Subnet emission shares = {shares:?}");
 
-        shares
+        let zero = U64F64::saturating_from_num(0.0);
+        let mut shares_with_emission_enabled = Vec::with_capacity(shares.len());
+        let mut has_disabled_subnets = false;
+        let mut enabled_share_sum = zero;
+
+        for (netuid, share) in shares {
+            let emission_enabled = SubnetEmissionEnabled::<T>::get(netuid);
+
+            if emission_enabled {
+                enabled_share_sum = enabled_share_sum.saturating_add(share);
+            } else {
+                has_disabled_subnets = true;
+            }
+
+            shares_with_emission_enabled.push((netuid, share, emission_enabled));
+        }
+
+        shares_with_emission_enabled
             .into_iter()
-            .map(|(netuid, share)| {
+            .map(|(netuid, share, emission_enabled)| {
+                let share = if has_disabled_subnets {
+                    if emission_enabled && enabled_share_sum > zero {
+                        share.safe_div(enabled_share_sum)
+                    } else {
+                        zero
+                    }
+                } else {
+                    share
+                };
                 let emission = U64F64::saturating_from_num(block_emission).saturating_mul(share);
                 (netuid, U96F32::saturating_from_num(emission))
             })
             .collect::<BTreeMap<NetUid, U96F32>>()
     }
-
     pub fn record_tao_inflow(netuid: NetUid, tao: TaoBalance) {
         SubnetTaoFlow::<T>::mutate(netuid, |flow| {
             *flow = flow.saturating_add(u64::from(tao) as i64);
@@ -217,19 +243,64 @@ impl<T: Config> Pallet<T> {
     #[allow(dead_code)]
     fn get_shares_flow(subnets_to_emit_to: &[NetUid]) -> BTreeMap<NetUid, U64F64> {
         let net_flow_enabled = NetTaoFlowEnabled::<T>::get();
+        let zero = I64F64::saturating_from_num(0);
 
-        // Always update the protocol EMA (keeps it warm for when toggled on)
-        let ema_flows: BTreeMap<NetUid, I64F64> = subnets_to_emit_to
+        // Always update both EMAs (keeps protocol EMA warm for when toggled on).
+        // Fixes #2667: protocol EMA accumulator was only drained when enabled,
+        // causing a shock on toggle.
+        let subnet_emas: Vec<(NetUid, I64F64, I64F64)> = subnets_to_emit_to
             .iter()
             .map(|netuid| {
                 let user_ema = Self::get_ema_flow(*netuid);
+                let protocol_ema = Self::update_ema_protocol_flow(*netuid);
+                (*netuid, user_ema, protocol_ema)
+            })
+            .collect();
+
+        // When net flow is enabled, normalize protocol EMA so that its
+        // positive total matches the user EMA positive total. This prevents
+        // subsidy concentration: as emissions concentrate on fewer subnets,
+        // their protocol EMA grows, but the normalization factor shrinks to
+        // compensate, keeping the deduction proportional to user demand.
+        let norm_factor = if net_flow_enabled {
+            let (user_positive_ema_sum, protocol_positive_ema_sum) =
+                subnet_emas
+                    .iter()
+                    .fold((zero, zero), |(su, sp), (_, u, p)| {
+                        (
+                            su.saturating_add((*u).max(zero)),
+                            sp.saturating_add((*p).max(zero)),
+                        )
+                    });
+            let one = I64F64::saturating_from_num(1);
+            if protocol_positive_ema_sum > zero {
+                user_positive_ema_sum
+                    .safe_div(protocol_positive_ema_sum)
+                    .min(one)
+            } else {
+                zero
+            }
+        } else {
+            zero
+        };
+        log::debug!("Protocol normalization factor: {norm_factor:?}");
+
+        let ema_flows: BTreeMap<NetUid, I64F64> = subnet_emas
+            .into_iter()
+            .map(|(netuid, user_ema, protocol_ema)| {
                 let net = if net_flow_enabled {
-                    let protocol_ema = Self::update_ema_protocol_flow(*netuid);
-                    user_ema.saturating_sub(protocol_ema)
+                    // Only scale positive protocol cost by norm_factor. Negative
+                    // protocol cost (root drain > emissions) is a benefit, kept as-is.
+                    let scaled_protocol = if protocol_ema > zero {
+                        norm_factor.saturating_mul(protocol_ema)
+                    } else {
+                        protocol_ema
+                    };
+                    user_ema.saturating_sub(scaled_protocol)
                 } else {
                     user_ema
                 };
-                (*netuid, net)
+                (netuid, net)
             })
             .collect();
         log::debug!("EMA flows (net_flow_enabled={net_flow_enabled}): {ema_flows:?}");

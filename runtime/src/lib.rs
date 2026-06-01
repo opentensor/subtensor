@@ -39,7 +39,9 @@ use pallet_subtensor::rpc_info::{
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
-    subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
+    subnet_info::{
+        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+    },
 };
 use pallet_subtensor::{CommitmentsInterface, ProxyInterface};
 use pallet_subtensor_proxy as pallet_proxy;
@@ -101,7 +103,9 @@ use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-use subtensor_transaction_fee::{SubtensorTxFeeHandler, TransactionFeeHandler};
+use subtensor_transaction_fee::{
+    SubtensorEvmFeeHandler, SubtensorTxFeeHandler, TransactionFeeHandler,
+};
 
 use core::marker::PhantomData;
 
@@ -272,7 +276,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 406,
+    spec_version: 413,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -812,6 +816,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::AdminUtils(
                         pallet_admin_utils::Call::sudo_set_toggle_transfer { .. }
                     )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_subnet_emission_enabled { .. }
+                    )
+                    | RuntimeCall::AdminUtils(
+                        pallet_admin_utils::Call::sudo_set_min_childkey_take_per_subnet { .. }
+                    )
             ),
             ProxyType::RootClaim => matches!(
                 c,
@@ -1097,6 +1107,7 @@ parameter_types! {
     pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: TaoBalance = TaoBalance::new(100_000_000); // 0.1 tao
     pub const SubtensorInitialMinBurn: TaoBalance = TaoBalance::new(500_000); // 500k RAO
+    pub const SubtensorInitialMinStake: TaoBalance = TaoBalance::new(2_000_000); // 0.002 tao
     pub const SubtensorInitialMaxBurn: TaoBalance = TaoBalance::new(100_000_000_000); // 100 tao
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000); // 1 TAO
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000); // 0.1 TAO
@@ -1171,6 +1182,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialBurn = SubtensorInitialBurn;
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
+    type InitialMinStake = SubtensorInitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
@@ -1400,7 +1412,7 @@ impl pallet_evm::Config for Runtime {
     type ChainId = ConfigurableChainId;
     type BlockGasLimit = BlockGasLimit;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type OnChargeTransaction = ();
+    type OnChargeTransaction = SubtensorEvmFeeHandler<Balances, TransactionFeeHandler<Runtime>>;
     type OnCreate = ();
     type FindAuthor = FindAuthorTruncated<Aura>;
     type GasLimitPovSizeRatio = GasLimitPovSizeRatio;
@@ -2451,6 +2463,7 @@ impl_runtime_apis! {
         }
     }
 
+    #[api_version(2)]
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: NetUid) -> Option<SubnetInfo<AccountId32>> {
             SubtensorModule::get_subnet_info(netuid)
@@ -2468,12 +2481,18 @@ impl_runtime_apis! {
             SubtensorModule::get_subnets_info_v2()
         }
 
+        #[allow(deprecated)]
         fn get_subnet_hyperparams(netuid: NetUid) -> Option<SubnetHyperparams> {
             SubtensorModule::get_subnet_hyperparams(netuid)
         }
 
+        #[allow(deprecated)]
         fn get_subnet_hyperparams_v2(netuid: NetUid) -> Option<SubnetHyperparamsV2> {
             SubtensorModule::get_subnet_hyperparams_v2(netuid)
+        }
+
+        fn get_subnet_hyperparams_v3(netuid: NetUid) -> Option<SubnetHyperparamsV3> {
+            SubtensorModule::get_subnet_hyperparams_v3(netuid)
         }
 
         fn get_dynamic_info(netuid: NetUid) -> Option<DynamicInfo<AccountId32>> {
@@ -2539,6 +2558,10 @@ impl_runtime_apis! {
 
         fn get_stake_fee( origin: Option<(AccountId32, NetUid)>, origin_coldkey_account: AccountId32, destination: Option<(AccountId32, NetUid)>, destination_coldkey_account: AccountId32, amount: u64 ) -> u64 {
             SubtensorModule::get_stake_fee( origin, origin_coldkey_account, destination, destination_coldkey_account, amount )
+        }
+
+        fn get_coldkey_lock(coldkey: AccountId32, netuid: NetUid) -> Option<pallet_subtensor::staking::lock::LockState> {
+            SubtensorModule::get_coldkey_lock(&coldkey, netuid)
         }
 
         fn get_hotkey_conviction(hotkey: AccountId32, netuid: NetUid) -> U64F64 {

@@ -360,6 +360,7 @@ impl<T: Config> Pallet<T> {
         Yuma3On::<T>::remove(netuid);
         AlphaValues::<T>::remove(netuid);
         SubtokenEnabled::<T>::remove(netuid);
+        OwnerCutAutoLockEnabled::<T>::remove(netuid);
         ImmuneOwnerUidsLimit::<T>::remove(netuid);
 
         // --- 18. Consensus aux vectors.
@@ -482,6 +483,9 @@ impl<T: Config> Pallet<T> {
             let _ = SubnetLeaseShares::<T>::clear_prefix(lease_id, u32::MAX, None);
             AccumulatedLeaseDividends::<T>::remove(lease_id);
         }
+
+        // --- 23: Locks cleanup
+        Self::destroy_lock_maps(netuid);
 
         // --- Final removal logging.
         log::debug!(

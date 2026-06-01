@@ -85,6 +85,11 @@ impl<T: Config> Pallet<T> {
                 let tao_to_swap_with: TaoBalance =
                     tou64!(excess_tao.get(netuid_i).unwrap_or(&asfloat!(0))).into();
 
+                // Clear per-block pool-side emission counters up front so a subnet
+                // disabled this block does not display stale values from an earlier block.
+                SubnetExcessTao::<T>::insert(*netuid_i, TaoBalance::ZERO);
+                SubnetTaoInEmission::<T>::insert(*netuid_i, TaoBalance::ZERO);
+
                 T::SwapInterface::adjust_protocol_liquidity(*netuid_i, tao_in_i, alpha_in_i);
 
                 if tao_to_swap_with > TaoBalance::ZERO {
@@ -102,7 +107,9 @@ impl<T: Config> Pallet<T> {
                             if let Ok(buy_swap_result_ok) = buy_swap_result {
                                 let bought_alpha: AlphaBalance =
                                     buy_swap_result_ok.amount_paid_out.into();
-                                Self::recycle_subnet_alpha(*netuid_i, bought_alpha);
+                                SubnetProtocolAlpha::<T>::mutate(*netuid_i, |total| {
+                                    *total = total.saturating_add(bought_alpha);
+                                });
 
                                 // Record actual excess TAO that entered pool.
                                 let actual_excess: TaoBalance = buy_swap_result_ok.amount_paid_in;
@@ -258,14 +265,16 @@ impl<T: Config> Pallet<T> {
             Self::resolve_to_alpha_out(Self::mint_alpha(*netuid_i, alpha_created));
 
             // Calculate the owner cut.
-            let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
-            log::debug!("owner_cut_i: {owner_cut_i:?}");
-            // Deduct owner cut from alpha_out.
-            alpha_out_i = alpha_out_i.saturating_sub(owner_cut_i);
-            // Accumulate the owner cut in pending.
-            PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
-                *total = total.saturating_add(tou64!(owner_cut_i).into());
-            });
+            if Self::get_owner_cut_enabled(*netuid_i) {
+                let owner_cut_i: U96F32 = alpha_out_i.saturating_mul(cut_percent);
+                log::debug!("owner_cut_i: {owner_cut_i:?}");
+                // Deduct owner cut from alpha_out.
+                alpha_out_i = alpha_out_i.saturating_sub(owner_cut_i);
+                // Accumulate the owner cut in pending.
+                PendingOwnerCut::<T>::mutate(*netuid_i, |total| {
+                    *total = total.saturating_add(tou64!(owner_cut_i).into());
+                });
+            }
 
             // Get root proportional dividends.
             let root_proportion = Self::root_proportion(*netuid_i);
@@ -357,6 +366,10 @@ impl<T: Config> Pallet<T> {
                         owner_cut,
                     ),
                 );
+
+                // Reserved for potential future enhancements.
+                // Ownership update logic based on conviction is currently inactive by design.
+                // Self::change_subnet_owner_if_needed(netuid);
             }
         }
         emissions_to_distribute

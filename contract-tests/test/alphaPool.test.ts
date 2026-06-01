@@ -1,18 +1,17 @@
-import * as assert from "assert";
-import * as chai from "chai";
+import { devnet } from "@polkadot-api/descriptors";
 import { u8aToHex } from "@polkadot/util";
-import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate"
-import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
-import { ETH_LOCAL_URL } from "../src/config";
-import { devnet } from "@polkadot-api/descriptors"
-import { PublicClient } from "viem";
+import * as assert from "assert";
+import { ethers } from "ethers";
 import { TypedApi } from "polkadot-api";
-import { ALPHA_POOL_CONTRACT_ABI, ALPHA_POOL_CONTRACT_BYTECODE } from "../src/contracts/alphaPool";
+import { PublicClient } from "viem";
 import { convertH160ToPublicKey, convertH160ToSS58, convertPublicKeyToSs58, toViemAddress } from "../src/address-utils";
-import { forceSetBalanceToEthAddress, disableWhiteListCheck, addNewSubnetwork, forceSetBalanceToSs58Address, startCall, burnedRegister, getStake } from "../src/subtensor";
-import { ethers } from "ethers"
 import { tao } from "../src/balance-math";
+import { ETH_LOCAL_URL } from "../src/config";
+import { ALPHA_POOL_CONTRACT_ABI, ALPHA_POOL_CONTRACT_BYTECODE } from "../src/contracts/alphaPool";
 import { ISTAKING_V2_ADDRESS, IStakingV2ABI } from "../src/contracts/staking";
+import { getDevnetApi, getRandomSubstrateKeypair } from "../src/substrate";
+import { addNewSubnetwork, burnedRegister, disableWhiteListCheck, forceSetBalanceToEthAddress, forceSetBalanceToSs58Address, getStake, startCall } from "../src/subtensor";
+import { generateRandomEthersWallet, getPublicClient } from "../src/utils";
 // import { KeyPair } from "@polkadot-labs/hdkd-helpers";
 describe("bridge token contract deployment", () => {
   // init eth part
@@ -28,6 +27,8 @@ describe("bridge token contract deployment", () => {
     // init variables got from await and async
     publicClient = await getPublicClient(ETH_LOCAL_URL)
     api = await getDevnetApi()
+
+    let value = await api.constants.SubtensorModule.InitialMinStake;
 
     await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(hotkey.publicKey))
     await forceSetBalanceToSs58Address(api, convertPublicKeyToSs58(coldkey.publicKey))
