@@ -1375,6 +1375,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+    /// --- MAP ( netuid ) --> protocol_alpha | Returns the protocol-owned alpha cached for the subnet.
+    #[pallet::storage]
+    pub type SubnetProtocolAlpha<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     #[pallet::storage]

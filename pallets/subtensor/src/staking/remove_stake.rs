@@ -471,7 +471,11 @@ impl<T: Config> Pallet<T> {
         //    - track hotkeys to clear pool totals.
         let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
-        let mut total_alpha_value_u128: u128 = 0;
+        let protocol_alpha_value_u128: u128 = SubnetAlphaIn::<T>::get(netuid)
+            .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
+            .to_u64() as u128;
+        let mut total_alpha_value_u128: u128 = protocol_alpha_value_u128;
+        let mut protocol_tao_share = TaoBalance::ZERO;
 
         let hotkeys_in_subnet: Vec<T::AccountId> = TotalHotkeyAlpha::<T>::iter_keys()
             .filter(|(_, this_netuid)| *this_netuid == netuid)
@@ -515,16 +519,18 @@ impl<T: Config> Pallet<T> {
 
         // 6) Pro‑rata distribution of the pot by α value (largest‑remainder),
         //    **credited directly to each staker's COLDKEY free balance**.
-        if pot_u64 > 0 && total_alpha_value_u128 > 0 && !stakers.is_empty() {
+        if pot_u64 > 0 && total_alpha_value_u128 > 0 {
             struct Portion<A, C> {
                 _hot: A,
                 cold: C,
+                is_protocol: bool,
                 share: u64, // TAO to credit to coldkey balance
                 rem: u128,  // remainder for largest‑remainder method
             }
 
             let pot_u128: u128 = pot_u64 as u128;
-            let mut portions: Vec<Portion<_, _>> = Vec::with_capacity(stakers.len());
+            let mut portions: Vec<Portion<_, _>> =
+                Vec::with_capacity(stakers.len().saturating_add(1));
             let mut distributed: u128 = 0;
 
             for (hot, cold, alpha_val) in &stakers {
@@ -537,6 +543,22 @@ impl<T: Config> Pallet<T> {
                 portions.push(Portion {
                     _hot: hot.clone(),
                     cold: cold.clone(),
+                    is_protocol: false,
+                    share: share_u64,
+                    rem,
+                });
+            }
+
+            if protocol_alpha_value_u128 > 0 {
+                let prod: u128 = pot_u128.saturating_mul(protocol_alpha_value_u128);
+                let share_u128: u128 = prod.checked_div(total_alpha_value_u128).unwrap_or_default();
+                let share_u64: u64 = share_u128.min(u128::from(u64::MAX)) as u64;
+                distributed = distributed.saturating_add(u128::from(share_u64));
+                let rem: u128 = prod.checked_rem(total_alpha_value_u128).unwrap_or_default();
+                portions.push(Portion {
+                    _hot: owner_coldkey.clone(),
+                    cold: owner_coldkey.clone(),
+                    is_protocol: true,
                     share: share_u64,
                     rem,
                 });
@@ -553,7 +575,9 @@ impl<T: Config> Pallet<T> {
 
             // Credit each share directly to coldkey free balance.
             for p in portions {
-                if p.share > 0 {
+                if p.is_protocol {
+                    protocol_tao_share = protocol_tao_share.saturating_add(p.share.into());
+                } else if p.share > 0 {
                     // Cannot fail the whole transaction if this transfer fails
                     let _ = Self::transfer_tao_from_subnet(netuid, &p.cold, p.share.into());
                 }
@@ -575,6 +599,7 @@ impl<T: Config> Pallet<T> {
         // 7.c) Remove α‑in/α‑out counters (fully destroyed).
         SubnetAlphaIn::<T>::remove(netuid);
         SubnetAlphaOut::<T>::remove(netuid);
+        SubnetProtocolAlpha::<T>::remove(netuid);
 
         // Clear the locked balance on the subnet.
         Self::set_subnet_locked_balance(netuid, TaoBalance::ZERO);
@@ -593,7 +618,8 @@ impl<T: Config> Pallet<T> {
             && let Some(subnet_account) = Self::get_subnet_account_id(netuid)
         {
             // Transfer maximum transferrable up to refund to owner
-            let transferrable = Self::get_coldkey_balance(&subnet_account);
+            let transferrable =
+                Self::get_coldkey_balance(&subnet_account).saturating_sub(protocol_tao_share);
             // We do our best effort to refund owner to as full amount of refund as possible, but
             // we cannot fail new subnet registration, so the result is ignored.
             let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund.min(transferrable));
