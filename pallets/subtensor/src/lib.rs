@@ -998,7 +998,7 @@ pub mod pallet {
     /// Default minimum stake.
     #[pallet::type_value]
     pub fn DefaultMinStake<T: Config>() -> TaoBalance {
-        2_000_000.into()
+        T::InitialMinStake::get().into()
     }
 
     /// Default unicode vector for tau symbol.
@@ -1384,6 +1384,10 @@ pub mod pallet {
     /// --- MAP ( netuid ) --> alpha_supply_in_subnet | Returns the amount of alpha in the subnet.
     #[pallet::storage]
     pub type SubnetAlphaOut<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+    /// --- MAP ( netuid ) --> protocol_alpha | Returns the protocol-owned alpha cached for the subnet.
+    #[pallet::storage]
+    pub type SubnetProtocolAlpha<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
