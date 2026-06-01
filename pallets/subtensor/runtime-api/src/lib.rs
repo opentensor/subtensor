@@ -9,7 +9,9 @@ use pallet_subtensor::rpc_info::{
     neuron_info::{NeuronInfo, NeuronInfoLite},
     show_subnet::SubnetState,
     stake_info::StakeInfo,
-    subnet_info::{SubnetHyperparams, SubnetHyperparamsV2, SubnetInfo, SubnetInfov2},
+    subnet_info::{
+        SubnetHyperparams, SubnetHyperparamsV2, SubnetHyperparamsV3, SubnetInfo, SubnetInfov2,
+    },
 };
 use pallet_subtensor::staking::lock::LockState;
 use sp_runtime::AccountId32;
@@ -37,8 +39,12 @@ sp_api::decl_runtime_apis! {
         fn get_subnets_info() -> Vec<Option<SubnetInfo<AccountId32>>>;
         fn get_subnet_info_v2(netuid: NetUid) -> Option<SubnetInfov2<AccountId32>>;
         fn get_subnets_info_v2() -> Vec<Option<SubnetInfov2<AccountId32>>>;
+        #[deprecated(note = "Use `get_subnet_hyperparams_v3` instead.")]
         fn get_subnet_hyperparams(netuid: NetUid) -> Option<SubnetHyperparams>;
+        #[deprecated(note = "Use `get_subnet_hyperparams_v3` instead.")]
         fn get_subnet_hyperparams_v2(netuid: NetUid) -> Option<SubnetHyperparamsV2>;
+        #[api_version(2)]
+        fn get_subnet_hyperparams_v3(netuid: NetUid) -> Option<SubnetHyperparamsV3>;
         fn get_all_dynamic_info() -> Vec<Option<DynamicInfo<AccountId32>>>;
         fn get_all_metagraphs() -> Vec<Option<Metagraph<AccountId32>>>;
         fn get_metagraph(netuid: NetUid) -> Option<Metagraph<AccountId32>>;

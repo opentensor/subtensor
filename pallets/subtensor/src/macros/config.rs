@@ -111,6 +111,9 @@ mod config {
         /// Initial Min Burn.
         #[pallet::constant]
         type InitialMinBurn: Get<TaoBalance>;
+        /// Initial minimum stake.
+        #[pallet::constant]
+        type InitialMinStake: Get<TaoBalance>;
         /// Min  burn upper bound.
         #[pallet::constant]
         type MinBurnUpperBound: Get<TaoBalance>;
