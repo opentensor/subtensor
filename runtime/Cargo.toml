@@ -159,6 +159,7 @@ ethereum.workspace = true
 
 [dev-dependencies]
 frame-metadata.workspace = true
+libsecp256k1.workspace = true
 sp-io.workspace = true
 sp-tracing.workspace = true
 precompile-utils = { workspace = true, features = ["testing"] }
@@ -282,6 +283,7 @@ std = [
 	"pallet-shield/std",
 	"stp-shield/std",
 	"sp-weights/std",
+	"libsecp256k1/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

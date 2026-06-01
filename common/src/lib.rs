@@ -165,6 +165,7 @@ pub enum ProxyType {
     SwapHotkey,
     SubnetLeaseBeneficiary, // Used to operate the leased subnet
     RootClaim,
+    Validate,
 }
 
 impl TryFrom<u8> for ProxyType {
@@ -190,6 +191,7 @@ impl TryFrom<u8> for ProxyType {
             15 => Ok(Self::SwapHotkey),
             16 => Ok(Self::SubnetLeaseBeneficiary),
             17 => Ok(Self::RootClaim),
+            18 => Ok(Self::Validate),
             _ => Err(()),
         }
     }
@@ -216,6 +218,7 @@ impl From<ProxyType> for u8 {
             ProxyType::SwapHotkey => 15,
             ProxyType::SubnetLeaseBeneficiary => 16,
             ProxyType::RootClaim => 17,
+            ProxyType::Validate => 18,
         }
     }
 }
@@ -450,5 +453,35 @@ mod tests {
     #[test]
     fn netuid_has_u16_bin_repr() {
         assert_eq!(NetUid(5).encode(), 5u16.encode());
+    }
+
+    #[test]
+    fn proxy_type_ids_remain_stable_and_validate_roundtrips() {
+        let expected_ids = [
+            (ProxyType::Any, 0u8),
+            (ProxyType::Owner, 1u8),
+            (ProxyType::NonCritical, 2u8),
+            (ProxyType::NonTransfer, 3u8),
+            (ProxyType::Senate, 4u8),
+            (ProxyType::NonFungible, 5u8),
+            (ProxyType::Triumvirate, 6u8),
+            (ProxyType::Governance, 7u8),
+            (ProxyType::Staking, 8u8),
+            (ProxyType::Registration, 9u8),
+            (ProxyType::Transfer, 10u8),
+            (ProxyType::SmallTransfer, 11u8),
+            (ProxyType::RootWeights, 12u8),
+            (ProxyType::ChildKeys, 13u8),
+            (ProxyType::SudoUncheckedSetCode, 14u8),
+            (ProxyType::SwapHotkey, 15u8),
+            (ProxyType::SubnetLeaseBeneficiary, 16u8),
+            (ProxyType::RootClaim, 17u8),
+            (ProxyType::Validate, 18u8),
+        ];
+
+        for (proxy_type, id) in expected_ids {
+            assert_eq!(<u8 as From<ProxyType>>::from(proxy_type), id);
+            assert_eq!(ProxyType::try_from(id), Ok(proxy_type));
+        }
     }
 }
