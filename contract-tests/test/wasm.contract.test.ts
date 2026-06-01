@@ -11,7 +11,7 @@ import fs from "fs"
 import path from "path";
 import { convertPublicKeyToSs58 } from "../src/address-utils";
 import { tao } from "../src/balance-math";
-import { getDevnetApi, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate";
+import { getBalance, getDevnetApi, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate";
 import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, sendWasmContractExtrinsic, setAdminFreezeWindow, setTargetRegistrationsPerInterval, startCall } from "../src/subtensor";
 
 const bittensorWasmPath = path.resolve(__dirname, "../bittensor/target/ink/bittensor.wasm")
@@ -79,6 +79,17 @@ describe("Test wasm contract", () => {
             convertPublicKeyToSs58(hotkey.publicKey),
             contractAddress,
             netuid,
+        ))?.stake
+
+        assert.ok(stake !== undefined)
+        return stake as bigint
+    }
+
+    async function getContractStakeOnRoot(): Promise<bigint> {
+        const stake = (await api.apis.StakeInfoRuntimeApi.get_stake_info_for_hotkey_coldkey_netuid(
+            convertPublicKeyToSs58(hotkey.publicKey),
+            contractAddress,
+            0,
         ))?.stake
 
         assert.ok(stake !== undefined)
@@ -934,5 +945,47 @@ describe("Test wasm contract", () => {
         await sendWasmContractExtrinsic(api, coldkey, contractAddress, removeData)
         proxies = await api.query.Proxy.Proxies.getValue(convertPublicKeyToSs58(coldkey.publicKey))
         assert.ok(proxies !== undefined && proxies[0].length === 0)
+    })
+
+    it("Check add_stake_recycle is atomic operation", async () => {
+        const stakeBefore = await getContractStakeOnRoot()
+        const balanceBefore = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
+
+        // recycle alpha on root subnet is not allowed, the extrinsic should be failed.
+        const message = inkClient.message("add_stake_recycle")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid: 0,
+            amount: tao(100),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+
+        const stakeAfter = await getContractStakeOnRoot()
+        const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
+
+        assert.ok(balanceBefore - balanceAfter < 10_000_000)
+        assert.equal(stakeAfter, stakeBefore)
+    })
+
+    it("Check add_stake_burn is atomic operation", async () => {
+        const stakeBefore = await getContractStakeOnRoot()
+        const balanceBefore = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
+        const alphaOutBefore = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+
+        const message = inkClient.message("add_stake_burn")
+        const data = message.encode({
+            hotkey: Binary.fromBytes(hotkey.publicKey),
+            netuid: 0,
+            amount: tao(100),
+        })
+        await sendWasmContractExtrinsic(api, coldkey, contractAddress, data)
+
+        const stakeAfter = await getContractStakeOnRoot()
+        const alphaOutAfter = await api.query.SubtensorModule.SubnetAlphaOut.getValue(netuid)
+        const balanceAfter = await getBalance(api, convertPublicKeyToSs58(coldkey.publicKey))
+
+        assert.ok(balanceBefore - balanceAfter < 10_000_000)
+        assert.equal(stakeAfter, stakeBefore)
+        assert.ok(alphaOutAfter > alphaOutBefore)
     })
 });

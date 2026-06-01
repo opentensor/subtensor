@@ -372,6 +372,7 @@ mod tests {
     fn crowdloan_precompile_reads_existing_pallet_crowdloan() {
         new_test_ext().execute_with(|| {
             let creator = AccountId::from([0x11; 32]);
+            let target = AccountId::from([0x12; 32]);
             let caller = addr_from_index(0x7001);
             let crowdloan_id = pallet_crowdloan::NextCrowdloanId::<Runtime>::get();
 
@@ -383,7 +384,7 @@ mod tests {
                 CAP.into(),
                 END.into(),
                 None,
-                None,
+                Some(target),
             )
             .expect("direct crowdloan create should work");
 
@@ -468,6 +469,7 @@ mod tests {
     fn crowdloan_precompile_contributes_and_withdraws_from_pallet_crowdloan() {
         new_test_ext().execute_with(|| {
             let creator = AccountId::from([0x22; 32]);
+            let target = AccountId::from([0x23; 32]);
             let contributor = addr_from_index(0x7016);
             let contributor_account = mapped_account(contributor);
             let crowdloan_id = pallet_crowdloan::NextCrowdloanId::<Runtime>::get();
@@ -482,7 +484,7 @@ mod tests {
                 CAP.into(),
                 END.into(),
                 None,
-                None,
+                Some(target),
             )
             .expect("direct crowdloan create should work");
 

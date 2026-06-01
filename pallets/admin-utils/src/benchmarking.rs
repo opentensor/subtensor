@@ -434,6 +434,19 @@ mod benchmarks {
     }
 
     #[benchmark]
+    fn sudo_set_min_childkey_take_per_subnet() {
+        let netuid = NetUid::from(1);
+        pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);
+        pallet_subtensor::Pallet::<T>::init_new_network(
+            netuid, 1u16, // tempo
+        );
+        let take = pallet_subtensor::Pallet::<T>::get_max_childkey_take() / 2;
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, netuid, take);
+    }
+
+    #[benchmark]
     fn sudo_set_liquid_alpha_enabled() {
         let netuid = NetUid::from(1);
         pallet_subtensor::Pallet::<T>::set_admin_freeze_window(0);

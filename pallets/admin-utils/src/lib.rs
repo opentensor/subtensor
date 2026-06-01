@@ -2030,6 +2030,36 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Set whether subnet owner cut is auto-locked for a subnet.
+        /// It is only callable by root and subnet owner.
+        #[pallet::call_index(95)]
+        #[pallet::weight((
+            Weight::from_parts(25_000_000, 0)
+                .saturating_add(T::DbWeight::get().reads(4))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Operational,
+            Pays::Yes,
+        ))]
+        pub fn sudo_set_owner_cut_auto_lock_enabled(
+            origin: OriginFor<T>,
+            netuid: NetUid,
+            enabled: bool,
+        ) -> DispatchResult {
+            pallet_subtensor::Pallet::<T>::ensure_subnet_owner_or_root(origin, netuid)?;
+            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+
+            ensure!(
+                pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+            ensure!(!netuid.is_root(), Error::<T>::NotPermittedOnRootSubnet);
+
+            pallet_subtensor::Pallet::<T>::set_owner_cut_auto_lock_enabled(netuid, enabled);
+            log::debug!("OwnerCutAutoLockEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} ) ");
+
+            Ok(())
+        }
+
         /// Enables or disables subnet pool-side emission for a subnet.
         ///
         /// This does not remove the subnet from emission share calculation and does not
@@ -2043,12 +2073,7 @@ pub mod pallet {
             netuid: NetUid,
             enabled: bool,
         ) -> DispatchResult {
-            let maybe_owner = pallet_subtensor::Pallet::<T>::ensure_sn_owner_or_root_with_limits(
-                origin,
-                netuid,
-                &[Hyperparameter::SubnetEmissionEnabled.into()],
-            )?;
-            pallet_subtensor::Pallet::<T>::ensure_admin_window_open(netuid)?;
+            ensure_root(origin)?;
 
             ensure!(
                 pallet_subtensor::Pallet::<T>::if_subnet_exist(netuid),
@@ -2059,12 +2084,6 @@ pub mod pallet {
             pallet_subtensor::SubnetEmissionEnabled::<T>::insert(netuid, enabled);
             Self::deposit_event(Event::SubnetEmissionEnabledSet { netuid, enabled });
             log::debug!("SubnetEmissionEnabledSet( netuid: {netuid:?}, enabled: {enabled:?} )");
-
-            pallet_subtensor::Pallet::<T>::record_owner_rl(
-                maybe_owner,
-                netuid,
-                &[Hyperparameter::SubnetEmissionEnabled.into()],
-            );
 
             Ok(())
         }

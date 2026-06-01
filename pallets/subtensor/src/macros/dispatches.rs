@@ -2572,11 +2572,9 @@ mod dispatches {
 
         /// Sets or clears the caller's perpetual lock flag for a subnet.
         ///
-        /// Locks are perpetual by default. Internally, only decaying overrides
-        /// are stored.
-        /// When enabled, the caller's individual lock does not unlock through
-        /// locked-mass decay. Passing `false` removes the flag, returning the
-        /// caller's lock to normal decay.
+        /// Locks decay by default. When enabled, the caller's individual lock
+        /// does not unlock through locked-mass decay. Passing `false` returns
+        /// the caller's lock to normal decay.
         #[pallet::call_index(138)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().reads_writes(4, 3))]
         pub fn set_perpetual_lock(

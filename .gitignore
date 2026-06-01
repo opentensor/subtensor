@@ -52,5 +52,10 @@ scripts/specs/local.json
 node_modules
 e2e/.papi/
 
-# Claude Code configuration
-.claude
+# Python bytecode cache (from .github/ai-review/*.py)
+__pycache__/
+*.py[cod]
+
+# Claude Code configuration (skills are checked in; everything else is ignored)
+.claude/*
+!.claude/skills/
