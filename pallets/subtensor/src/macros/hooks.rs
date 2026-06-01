@@ -15,27 +15,27 @@ mod hooks {
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
         fn on_initialize(block_number: BlockNumberFor<T>) -> Weight {
-            let mut weight = Weight::zero();
+            let hotkey_swap_clean_up_weight = Self::clean_up_hotkey_swap_records(block_number);
 
-            weight.saturating_accrue(Self::clean_up_hotkey_swap_records(block_number));
-            weight.saturating_accrue(Self::tick_root_registered_ema());
-
-            match Self::block_step() {
+            let block_step_result = Self::block_step();
+            match block_step_result {
                 Ok(_) => {
-                    log::debug!("Successfully ran block step.")
+                    // --- If the block step was successful, return the weight.
+                    log::debug!("Successfully ran block step.");
+                    Weight::from_parts(110_634_229_000_u64, 0)
+                        .saturating_add(T::DbWeight::get().reads(8304_u64))
+                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                        .saturating_add(hotkey_swap_clean_up_weight)
                 }
                 Err(e) => {
-                    log::error!("Error while stepping block: {:?}", e)
+                    // --- If the block step was unsuccessful, return the weight anyway.
+                    log::error!("Error while stepping block: {:?}", e);
+                    Weight::from_parts(110_634_229_000_u64, 0)
+                        .saturating_add(T::DbWeight::get().reads(8304_u64))
+                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                        .saturating_add(hotkey_swap_clean_up_weight)
                 }
-            };
-            // TODO: benchmark properly
-            weight.saturating_accrue(
-                Weight::from_parts(110_634_229_000_u64, 0)
-                    .saturating_add(T::DbWeight::get().reads(8304_u64))
-                    .saturating_add(T::DbWeight::get().writes(110_u64)),
-            );
-
-            weight
+            }
         }
 
         // ---- Called on the finalization of this pallet. The code weight must be taken into account prior to the execution of this macro.
@@ -178,9 +178,7 @@ mod hooks {
                 // Fix testnet Subtensor TotalIssuance after the EVM fees issue.
                 .saturating_add(migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<T>())
                 // Remove deprecated conviction lock storage.
-                .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>())
-                // Backfill `RootRegisteredHotkeyCount` from the root-subnet `Keys` map
-                .saturating_add(migrations::migrate_init_root_registered_hotkey_count::migrate_init_root_registered_hotkey_count::<T>());
+                .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>());
             weight
         }
 
@@ -188,9 +186,6 @@ mod hooks {
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
             // Disabled: https://github.com/opentensor/subtensor/pull/1166
             // Self::check_total_stake()?;
-            Self::check_root_registered_hotkey_count()?;
-            Self::check_root_registered_matches_inspector()?;
-            Self::check_root_registered_ema_matches_count()?;
             Ok(())
         }
     }

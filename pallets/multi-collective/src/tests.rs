@@ -1424,8 +1424,9 @@ fn set_members_sorts_input() {
 
 /// `force_rotate` returns `Some(actual_weight)` equal to
 /// `WeightInfo::force_rotate() + OnNewTerm::on_new_term(...)`. The mock's
-/// `WeightInfo` is `()` (zero), so the post-info weight should equal the
-/// hook's reported cost, which we set explicitly here.
+/// `WeightInfo` is `()`, whose generated impl reports the pallet's base
+/// dispatch cost, so the post-info weight should include that static cost
+/// plus the hook's reported cost.
 #[test]
 fn force_rotate_returns_post_info_weight() {
     TestState::build_and_execute(|| {
@@ -1435,7 +1436,13 @@ fn force_rotate_returns_post_info_weight() {
         let post = MultiCollective::<Test>::force_rotate(RuntimeOrigin::root(), CollectiveId::Beta)
             .expect("force_rotate succeeds for Beta");
 
-        assert_eq!(post.actual_weight, Some(hook_weight));
+        assert_eq!(
+            post.actual_weight,
+            Some(
+                <<Test as crate::Config>::WeightInfo as crate::WeightInfo>::force_rotate()
+                    .saturating_add(hook_weight)
+            )
+        );
     });
 }
 

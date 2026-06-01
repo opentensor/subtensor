@@ -1,24 +1,20 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-# Generate weights.rs files for all (or a single) benchmark target using the standard
+# Generate weights.rs files for all (or a single) pallet using the standard
 # frame-benchmarking-cli --output / --template approach.
 #
-# Targets are auto-discovered: pallets with both benchmarking.rs and
-# weights.rs are included, plus runtime-owned targets listed by
-# scripts/discover_pallets.sh. If a target is missing from define_benchmarks!
+# Pallets are auto-discovered: any pallet with both benchmarking.rs and
+# weights.rs is included. If a pallet is missing from define_benchmarks!
 # in runtime/src/lib.rs, the benchmark CLI will error — no silent failures.
 #
 # Usage:
 #   ./scripts/benchmark_all.sh                    # build + generate all
-#   ./scripts/benchmark_all.sh pallet_subtensor   # build + generate one target
-#   ./scripts/benchmark_all.sh governance         # build + generate governance weights
+#   ./scripts/benchmark_all.sh pallet_subtensor   # build + generate one pallet
 #   SKIP_BUILD=1 ./scripts/benchmark_all.sh       # skip cargo build
 
 SCRIPT_DIR="$(cd "$(dirname "${0}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-export PATH="$HOME/.cargo/bin:$PATH"
 
 RUNTIME_WASM="$ROOT_DIR/target/production/wbuild/node-subtensor-runtime/node_subtensor_runtime.compact.compressed.wasm"
 NODE_BIN="$ROOT_DIR/target/production/node-subtensor"
@@ -29,13 +25,13 @@ REPEAT="${REPEAT:-20}"
 
 die() { echo "ERROR: $1" >&2; exit 1; }
 
-# ── Auto-discover benchmark targets ──────────────────────────────────────────
+# ── Auto-discover pallets ────────────────────────────────────────────────────
 typeset -A PALLET_OUTPUTS
-while read -r name out; do
-  PALLET_OUTPUTS[$name]="$out"
+while read -r name path; do
+  PALLET_OUTPUTS[$name]="$path"
 done < <("$SCRIPT_DIR/discover_pallets.sh")
 
-(( ${#PALLET_OUTPUTS} > 0 )) || die "no benchmark targets found"
+(( ${#PALLET_OUTPUTS} > 0 )) || die "no benchmarked pallets found"
 
 # ── Build ────────────────────────────────────────────────────────────────────
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
@@ -47,11 +43,11 @@ fi
 [[ -f "$RUNTIME_WASM" ]] || die "runtime WASM not found at $RUNTIME_WASM"
 [[ -f "$TEMPLATE" ]] || die "weight template not found at $TEMPLATE"
 
-# ── Determine which targets to benchmark ─────────────────────────────────────
+# ── Determine which pallets to benchmark ─────────────────────────────────────
 if [[ $# -gt 0 ]]; then
   PALLETS=("$@")
   for p in "${PALLETS[@]}"; do
-    [[ -n "${PALLET_OUTPUTS[$p]:-}" ]] || die "unknown benchmark target: $p (available: ${(k)PALLET_OUTPUTS})"
+    [[ -n "${PALLET_OUTPUTS[$p]:-}" ]] || die "unknown pallet: $p (available: ${(k)PALLET_OUTPUTS})"
   done
 else
   PALLETS=("${(k)PALLET_OUTPUTS[@]}")

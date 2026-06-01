@@ -5,7 +5,6 @@ use frame_support::pallet_macros::pallet_section;
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod dispatches {
-    use crate::root_registered::OnRootRegistrationChange;
     use crate::weights::WeightInfo;
     use frame_support::traits::schedule::v3::Anon as ScheduleAnon;
     use frame_system::pallet_prelude::BlockNumberFor;
@@ -1004,12 +1003,7 @@ mod dispatches {
 
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
-        #[pallet::weight(
-            <T as crate::pallet::Config>::WeightInfo::root_register()
-                // Worst case: we kick someone off and we take their place.
-                .saturating_add(<T as crate::pallet::Config>::OnRootRegistrationChange::on_added_weight())
-                .saturating_add(<T as crate::pallet::Config>::OnRootRegistrationChange::on_removed_weight())
-        )]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::root_register())]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
@@ -1076,11 +1070,7 @@ mod dispatches {
         ///
         /// Only callable by root as it doesn't require an announcement and can be used to swap any coldkey.
         #[pallet::call_index(71)]
-        #[pallet::weight(
-            <T as crate::pallet::Config>::WeightInfo::swap_coldkey()
-                .saturating_add(<T as crate::pallet::Config>::OnRootRegistrationChange::on_added_weight())
-                .saturating_add(<T as crate::pallet::Config>::OnRootRegistrationChange::on_removed_weight())
-        )]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::swap_coldkey())]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
@@ -2307,11 +2297,7 @@ mod dispatches {
         ///
         /// The `ColdkeySwapped` event is emitted on successful swap.
         #[pallet::call_index(126)]
-        #[pallet::weight(
-            <T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced()
-                .saturating_add(<T as crate::pallet::Config>::OnRootRegistrationChange::on_added_weight())
-                .saturating_add(<T as crate::pallet::Config>::OnRootRegistrationChange::on_removed_weight())
-        )]
+        #[pallet::weight(<T as crate::pallet::Config>::WeightInfo::swap_coldkey_announced())]
         pub fn swap_coldkey_announced(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,

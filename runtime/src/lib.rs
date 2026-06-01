@@ -12,7 +12,6 @@ use core::num::NonZeroU64;
 
 pub mod check_mortality;
 pub mod check_nonce;
-pub mod governance;
 mod migrations;
 pub mod sudo_wrapper;
 pub mod transaction_payment_wrapper;
@@ -275,7 +274,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 409,
+    spec_version: 408,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -893,6 +892,7 @@ parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
         BlockWeights::get().max_block;
     pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 
 /// Used the compare the privilege of an origin inside the scheduler.
@@ -1129,6 +1129,7 @@ parameter_types! {
     pub const InitialDissolveNetworkScheduleDuration: BlockNumber = 5 * 24 * 60 * 60 / 12; // 5 days
     pub const SubtensorInitialTaoWeight: u64 = 971_718_665_099_567_868; // 0.05267697438728329% tao weight.
     pub const InitialEmaPriceHalvingPeriod: u64 = 201_600_u64; // 4 weeks
+    // 0 days
     pub const InitialStartCallDelay: u64 = 0;
     pub const SubtensorInitialKeySwapOnSubnetCost: TaoBalance = TaoBalance::new(1_000_000); // 0.001 TAO
     pub const HotkeySwapOnSubnetInterval : BlockNumber = prod_or_fast!(24 * 60 * 60 / 12, 1); // 1 day
@@ -1213,9 +1214,6 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaAssets = AlphaAssets;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = BlockAuthorFromAura<Aura>;
-    type OnRootRegistrationChange = governance::EconomicEligibleSync;
-    type RootRegisteredInspector = governance::EconomicEligibleInspector;
-    type EmaValueProvider = governance::StakeValueProvider;
     type SubtensorPalletId = SubtensorPalletId;
     type BurnAccountId = BurnAccountId;
     type WeightInfo = pallet_subtensor::weights::SubstrateWeight<Runtime>;
@@ -1697,11 +1695,6 @@ construct_runtime!(
         Contracts: pallet_contracts = 29,
         MevShield: pallet_shield = 30,
         AlphaAssets: pallet_alpha_assets = 31,
-
-        // Governance
-        MultiCollective: pallet_multi_collective = 32,
-        SignedVoting: pallet_signed_voting = 33,
-        Referenda: pallet_referenda = 34,
     }
 );
 
@@ -1787,10 +1780,7 @@ mod benches {
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
-        [pallet_referenda, Referenda]
-        [pallet_signed_voting, SignedVoting]
         [pallet_multi_collective, MultiCollective]
-        [governance, GovernanceBench::<Runtime>]
     );
 }
 
@@ -2379,7 +2369,6 @@ impl_runtime_apis! {
             use frame_support::traits::StorageInfoTrait;
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
-            use governance::benchmarking::Pallet as GovernanceBench;
 
             let mut list = Vec::<BenchmarkList>::new();
             list_benchmarks!(list, extra);
@@ -2397,7 +2386,6 @@ impl_runtime_apis! {
 
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
-            use governance::benchmarking::Pallet as GovernanceBench;
 
             #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}

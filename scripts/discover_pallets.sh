@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# Auto-discover benchmarked runtime benchmark targets.
+# Auto-discover benchmarked pallets.
 #
 # Finds all pallets under pallets/ that have both:
 #   - src/benchmarking.rs (or src/benchmarks.rs)
 #   - src/weights.rs
 #
-# Also includes runtime-owned benchmark targets that are registered in
-# runtime/src/lib.rs via define_benchmarks!.
-#
-# Outputs one line per target: "benchmark_name path/to/weights.rs"
+# Outputs one line per pallet: "pallet_name pallets/<dir>/src/weights.rs"
 # The pallet name is derived from the Cargo.toml `name` field with dashes -> underscores.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -21,8 +18,3 @@ for dir in "$ROOT_DIR"/pallets/*/; do
   relpath="pallets/$(basename "$dir")/src/weights.rs"
   echo "$name $relpath"
 done
-
-if [ -f "$ROOT_DIR/runtime/src/governance/benchmarking.rs" ] && \
-   [ -f "$ROOT_DIR/runtime/src/governance/weights.rs" ]; then
-  echo "governance runtime/src/governance/weights.rs"
-fi
