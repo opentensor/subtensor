@@ -165,6 +165,7 @@ pub enum ProxyType {
     SwapHotkey,
     SubnetLeaseBeneficiary, // Used to operate the leased subnet
     RootClaim,
+    CancelProxy, // Only allows rejecting proxy announcements for time-delayed proxies
 }
 
 impl TryFrom<u8> for ProxyType {
@@ -190,6 +191,7 @@ impl TryFrom<u8> for ProxyType {
             15 => Ok(Self::SwapHotkey),
             16 => Ok(Self::SubnetLeaseBeneficiary),
             17 => Ok(Self::RootClaim),
+            18 => Ok(Self::CancelProxy),
             _ => Err(()),
         }
     }
@@ -216,6 +218,7 @@ impl From<ProxyType> for u8 {
             ProxyType::SwapHotkey => 15,
             ProxyType::SubnetLeaseBeneficiary => 16,
             ProxyType::RootClaim => 17,
+            ProxyType::CancelProxy => 18,
         }
     }
 }
