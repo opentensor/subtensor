@@ -825,6 +825,8 @@ fn dissolve_protocol_alpha_share_is_not_paid_to_users() {
         let staker_before = SubtensorModule::get_coldkey_balance(&staker_cold);
         assert_ok!(SubtensorModule::do_dissolve_network(net));
 
+        run_block_idle();
+
         // User gets 50 / (100 alpha-in + 50 cached protocol alpha + 50 user alpha)
         // of the TAO pot. The protocol share is withheld from user/owner payout.
         assert_eq!(
@@ -1140,6 +1142,8 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // Run the path under test
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        DissolvedSubnetTotalAlphaValue::<Test>::set(Some(0));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
         SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
 
         // Owner received their refund…
@@ -1189,6 +1193,8 @@ fn destroy_alpha_out_refund_gating_by_registration_block() {
         // Run the path under test
         let mut weight_meter =
             frame_support::weights::WeightMeter::with_limit(Weight::from_parts(u64::MAX, u64::MAX));
+        DissolvedSubnetTotalAlphaValue::<Test>::set(Some(0));
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
         SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
 
         // No refund for non‑legacy

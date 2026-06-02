@@ -218,6 +218,8 @@ fn test_destroy_alpha_in_out_stakes() {
         // Now test the main destroy function (which should call all the steps internally)
         let w = Weight::from_parts(u64::MAX, u64::MAX);
         let mut weight_meter = frame_support::weights::WeightMeter::with_limit(w);
+        DissolvedSubnetTotalAlphaValue::<Test>::set(Some(0)); 
+        DissolvedSubnetDistributedTao::<Test>::set(Some(0));
         let result = SubtensorModule::destroy_alpha_in_out_stakes(netuid, &mut weight_meter);
         assert!(result, "destroy_alpha_in_out_stakes should return true when it successfully processes the netuid");
     });

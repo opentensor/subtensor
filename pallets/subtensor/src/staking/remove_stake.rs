@@ -508,6 +508,7 @@ impl<T: Config> Pallet<T> {
         SubnetAlphaIn::<T>::remove(netuid);
         SubnetAlphaInProvided::<T>::remove(netuid);
         SubnetAlphaOut::<T>::remove(netuid);
+        SubnetProtocolAlpha::<T>::remove(netuid);
 
         // Clear the locked balance on the subnet.
         Self::set_subnet_locked_balance(netuid, TaoBalance::ZERO);
