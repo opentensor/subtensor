@@ -473,9 +473,13 @@ impl<T: Config> Pallet<T> {
         //    - track hotkeys to clear pool totals.
         let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
-        let protocol_alpha_value_u128: u128 = SubnetAlphaIn::<T>::get(netuid)
-            .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
-            .to_u64() as u128;
+        // Alpha bought by the chain during protocol TAO buys is cached in
+        // `SubnetProtocolAlpha` (rather than burned). On dissolution it is converted
+        // to TAO pro-rata exactly like every staker's alpha, and that TAO is then
+        // recycled back to the chain (see step 8/9 below). Note we deliberately do
+        // NOT include `SubnetAlphaIn` (the AMM pool reserve) here: it is not held
+        // alpha and must not dilute stakers' pro-rata shares.
+        let protocol_alpha_value_u128: u128 = SubnetProtocolAlpha::<T>::get(netuid).to_u64() as u128;
         let mut total_alpha_value_u128: u128 = protocol_alpha_value_u128;
         let mut protocol_tao_share = TaoBalance::ZERO;
 
