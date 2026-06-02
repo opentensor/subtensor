@@ -1780,7 +1780,6 @@ mod benches {
         [pallet_shield, MevShield]
         [pallet_subtensor_proxy, Proxy]
         [pallet_subtensor_utility, Utility]
-        [pallet_multi_collective, MultiCollective]
     );
 }
 
