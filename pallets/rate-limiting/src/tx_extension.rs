@@ -77,6 +77,51 @@ where
         Ok((ValidTransaction::default(), vals, origin))
     }
 
+    /// Like [`validate_calls_same_block`](Self::validate_calls_same_block), but validates each call
+    /// under its own dispatch origin.
+    ///
+    /// Callers that unwrap nested calls (`proxy`, `as_derivative`, `dispatch_as`, multisig, …) must
+    /// resolve the *effective* origin each inner call will execute under, otherwise account-keyed
+    /// limits would be bucketed by the outer signer instead of the real dispatch origin. The same
+    /// in-block usage set is shared across all calls; `outer_origin` is returned unchanged to
+    /// satisfy the transaction-extension contract.
+    pub fn validate_calls_with_origins<'a, Items>(
+        &self,
+        outer_origin: DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
+        items: Items,
+    ) -> ValidateResult<
+        Vec<
+            Option<(
+                RateLimitTarget<<T as Config<I>>::GroupId>,
+                Option<BTreeSet<<T as Config<I>>::UsageKey>>,
+                bool,
+            )>,
+        >,
+        <T as Config<I>>::RuntimeCall,
+    >
+    where
+        Items: IntoIterator<
+            Item = (
+                DispatchOriginOf<<T as Config<I>>::RuntimeCall>,
+                &'a <T as Config<I>>::RuntimeCall,
+            ),
+        >,
+        <T as Config<I>>::RuntimeCall: 'a,
+    {
+        let mut usage_seen_in_block = BTreeSet::<(
+            RateLimitTarget<<T as Config<I>>::GroupId>,
+            Option<<T as Config<I>>::UsageKey>,
+        )>::new();
+        let mut vals = Vec::new();
+
+        for (origin, call) in items {
+            let val = self.validate_single_call(&origin, call, &mut usage_seen_in_block)?;
+            vals.push(val);
+        }
+
+        Ok((ValidTransaction::default(), vals, outer_origin))
+    }
+
     fn validate_single_call(
         &self,
         origin: &DispatchOriginOf<<T as Config<I>>::RuntimeCall>,

@@ -975,6 +975,230 @@ mod staking_ops {
                 assert_extrinsic_ok(&coldkey, &coldkey_pair, remove_origin);
             });
     }
+
+    fn proxy_remove_stake_call(
+        real: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        alpha: AlphaBalance,
+    ) -> RuntimeCall {
+        let inner = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey: hotkey.clone(),
+            netuid,
+            amount_unstaked: alpha,
+        });
+        RuntimeCall::Proxy(pallet_subtensor_proxy::Call::proxy {
+            real: sp_runtime::MultiAddress::Id(real.clone()),
+            force_proxy_type: None,
+            call: Box::new(inner),
+        })
+    }
+
+    fn proxy_add_stake_call(
+        real: &AccountId,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        tao: u64,
+    ) -> RuntimeCall {
+        let inner = RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
+            hotkey: hotkey.clone(),
+            netuid,
+            amount_staked: tao.into(),
+        });
+        RuntimeCall::Proxy(pallet_subtensor_proxy::Call::proxy {
+            real: sp_runtime::MultiAddress::Id(real.clone()),
+            force_proxy_type: None,
+            call: Box::new(inner),
+        })
+    }
+
+    /// Establish stake + reserves for `(coldkey, hotkey)` via a real `add_stake` at block 1.
+    ///
+    /// In `GROUP_STAKING_OPS`, `add_stake`/`move_stake`/`swap_stake` *record* usage while
+    /// `remove_stake*` are read-only (they enforce but do not record). So this leaves the
+    /// principal's bucket occupied at block 1, and a same-block enforcing op (e.g. `remove_stake`)
+    /// is rate limited. Returns the staked alpha. Does not advance the block.
+    fn setup_staked_principal(
+        coldkey: &AccountId,
+        coldkey_pair: &sr25519::Pair,
+        hotkey: &AccountId,
+        netuid: NetUid,
+        stake_amount: u64,
+    ) -> AlphaBalance {
+        setup_staking_network(netuid);
+        let _ =
+            pallet_subtensor::Pallet::<Runtime>::create_account_if_non_existent(coldkey, hotkey);
+        Executive::execute_on_runtime_upgrade();
+
+        let add_call = RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
+            hotkey: hotkey.clone(),
+            netuid,
+            amount_staked: stake_amount.into(),
+        });
+        assert_extrinsic_ok(coldkey, coldkey_pair, add_call);
+
+        pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+            hotkey, coldkey, netuid,
+        )
+    }
+
+    /// The principal recorded a staking op (`add_stake`) this block; a delegate proxying
+    /// `remove_stake` for that principal in the same block must be rate limited (it enforces against
+    /// the principal's bucket). The proxy bypass instead bucketed it on the delegate.
+    #[test]
+    fn proxy_remove_stake_bypasses_principal_rate_limit() {
+        let coldkey_pair = sr25519::Pair::from_seed(&[60u8; 32]);
+        let coldkey = AccountId::from(coldkey_pair.public());
+        let delegate_pair = sr25519::Pair::from_seed(&[61u8; 32]);
+        let delegate = AccountId::from(delegate_pair.public());
+        let hotkey = AccountId::from([62u8; 32]);
+        let netuid = NetUid::from(40u16);
+        let stake_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 100;
+        let balance = stake_amount * 10;
+
+        ExtBuilder::default()
+            .with_balances(vec![
+                (coldkey.clone(), balance),
+                (delegate.clone(), balance),
+            ])
+            .build()
+            .execute_with(|| {
+                let alpha =
+                    setup_staked_principal(&coldkey, &coldkey_pair, &hotkey, netuid, stake_amount);
+                assert_ok!(
+                    pallet_subtensor_proxy::Pallet::<Runtime>::add_proxy_delegate(
+                        &coldkey,
+                        delegate.clone(),
+                        subtensor_runtime_common::ProxyType::Staking,
+                        0,
+                    )
+                );
+
+                let chunk = AlphaBalance::from(alpha.to_u64() / 4);
+
+                // Principal already recorded `add_stake` this block; a proxied remove for the same
+                // principal in the same block must be rate limited.
+                let proxy = proxy_remove_stake_call(&coldkey, &hotkey, netuid, chunk);
+                assert_extrinsic_rate_limited(&delegate, &delegate_pair, proxy);
+            });
+    }
+
+    /// Two distinct delegates each proxy a remove for the same principal in one block. Both must be
+    /// rate limited (one shared principal bucket); the bypass gave each delegate its own bucket,
+    /// letting N delegates drain the principal N times per block.
+    #[test]
+    fn two_delegates_drain_principal_stake_in_same_block() {
+        let coldkey_pair = sr25519::Pair::from_seed(&[63u8; 32]);
+        let coldkey = AccountId::from(coldkey_pair.public());
+        let d1_pair = sr25519::Pair::from_seed(&[64u8; 32]);
+        let d1 = AccountId::from(d1_pair.public());
+        let d2_pair = sr25519::Pair::from_seed(&[65u8; 32]);
+        let d2 = AccountId::from(d2_pair.public());
+        let hotkey = AccountId::from([66u8; 32]);
+        let netuid = NetUid::from(41u16);
+        let stake_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 100;
+        let balance = stake_amount * 10;
+
+        ExtBuilder::default()
+            .with_balances(vec![
+                (coldkey.clone(), balance),
+                (d1.clone(), balance),
+                (d2.clone(), balance),
+            ])
+            .build()
+            .execute_with(|| {
+                let alpha =
+                    setup_staked_principal(&coldkey, &coldkey_pair, &hotkey, netuid, stake_amount);
+                assert_ok!(
+                    pallet_subtensor_proxy::Pallet::<Runtime>::add_proxy_delegate(
+                        &coldkey,
+                        d1.clone(),
+                        subtensor_runtime_common::ProxyType::Staking,
+                        0,
+                    )
+                );
+                assert_ok!(
+                    pallet_subtensor_proxy::Pallet::<Runtime>::add_proxy_delegate(
+                        &coldkey,
+                        d2.clone(),
+                        subtensor_runtime_common::ProxyType::Staking,
+                        0,
+                    )
+                );
+
+                let chunk = AlphaBalance::from(alpha.to_u64() / 4);
+
+                // The principal already recorded `add_stake` this block, so EVERY proxied remove for
+                // that principal must be rate limited — neither delegate gets an independent budget.
+                assert_extrinsic_rate_limited(
+                    &d1,
+                    &d1_pair,
+                    proxy_remove_stake_call(&coldkey, &hotkey, netuid, chunk),
+                );
+                assert_extrinsic_rate_limited(
+                    &d2,
+                    &d2_pair,
+                    proxy_remove_stake_call(&coldkey, &hotkey, netuid, chunk),
+                );
+            });
+    }
+
+    /// A delegate's proxied *recording* op (`add_stake`) must consume the principal's budget: the
+    /// principal's own enforcing op (`remove_stake`) in the same block should then be rate limited.
+    /// The proxy bypass recorded the delegate's bucket instead, leaving the principal's untouched.
+    #[test]
+    fn proxy_add_stake_does_not_consume_principal_budget() {
+        let coldkey_pair = sr25519::Pair::from_seed(&[67u8; 32]);
+        let coldkey = AccountId::from(coldkey_pair.public());
+        let delegate_pair = sr25519::Pair::from_seed(&[68u8; 32]);
+        let delegate = AccountId::from(delegate_pair.public());
+        let hotkey = AccountId::from([69u8; 32]);
+        let netuid = NetUid::from(42u16);
+        let stake_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 100;
+        let balance = stake_amount * 10;
+
+        ExtBuilder::default()
+            .with_balances(vec![
+                (coldkey.clone(), balance),
+                (delegate.clone(), balance),
+            ])
+            .build()
+            .execute_with(|| {
+                let _ =
+                    setup_staked_principal(&coldkey, &coldkey_pair, &hotkey, netuid, stake_amount);
+                assert_ok!(
+                    pallet_subtensor_proxy::Pallet::<Runtime>::add_proxy_delegate(
+                        &coldkey,
+                        delegate.clone(),
+                        subtensor_runtime_common::ProxyType::Staking,
+                        0,
+                    )
+                );
+
+                // Advance past the setup `add_stake` so the principal's bucket starts free.
+                System::set_block_number(2);
+
+                // Delegate proxies an `add_stake` (a recording op) for the principal.
+                let add_amount = pallet_subtensor::DefaultMinStake::<Runtime>::get().to_u64() * 5;
+                assert_extrinsic_ok(
+                    &delegate,
+                    &delegate_pair,
+                    proxy_add_stake_call(&coldkey, &hotkey, netuid, add_amount),
+                );
+
+                // Principal's own `remove_stake` in the same block must now be rate limited.
+                let alpha =
+                    pallet_subtensor::Pallet::<Runtime>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                        &hotkey, &coldkey, netuid,
+                    );
+                let remove = RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+                    hotkey: hotkey.clone(),
+                    netuid,
+                    amount_unstaked: AlphaBalance::from(alpha.to_u64() / 4),
+                });
+                assert_extrinsic_rate_limited(&coldkey, &coldkey_pair, remove);
+            });
+    }
 }
 
 mod swap_keys {

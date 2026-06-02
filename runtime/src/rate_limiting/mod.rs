@@ -31,8 +31,8 @@ use serde::{Deserialize, Serialize};
 use sp_runtime::{
     DispatchError,
     traits::{
-        DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication, TransactionExtension,
-        ValidateResult,
+        DispatchInfoOf, DispatchOriginOf, Dispatchable, Implication, StaticLookup,
+        TransactionExtension, ValidateResult,
     },
     transaction_validity::{TransactionSource, TransactionValidityError},
 };
@@ -500,43 +500,130 @@ impl UnwrappedRateLimitTransactionExtension {
         Self::default()
     }
 
-    fn unwrap_nested_calls(call: &RuntimeCall) -> Vec<&RuntimeCall> {
+    /// Flatten nested call wrappers (`sudo`, `proxy`, `utility`, `multisig`) into the leaf calls
+    /// that will actually be dispatched, pairing each with the **effective origin** it will execute
+    /// under.
+    ///
+    /// This origin resolution is the crux of correct rate limiting: account-keyed limits (staking,
+    /// `swap_hotkey`, serving, …) derive their usage key from the dispatch origin. `pallet-proxy`
+    /// dispatches under the principal, `as_derivative` under the derived sub-account, multisig under
+    /// the multisig account, and `sudo`/`dispatch_as` under a substituted origin — so passing the
+    /// outer signer through would bucket the limit on the wrong account (see H2). The transforms
+    /// below mirror exactly what each pallet's dispatch does.
+    fn unwrap_nested_calls(
+        outer_origin: RuntimeOrigin,
+        call: &RuntimeCall,
+    ) -> Vec<(RuntimeOrigin, &RuntimeCall)> {
         let mut calls = Vec::new();
         let mut stack = Vec::new();
-        stack.push(call);
+        stack.push((outer_origin, call));
 
-        while let Some(current) = stack.pop() {
+        while let Some((origin, current)) = stack.pop() {
             match current {
+                // `sudo`/`sudo_unchecked_weight` dispatch as Root.
                 RuntimeCall::Sudo(
                     pallet_sudo::Call::sudo { call }
-                    | pallet_sudo::Call::sudo_unchecked_weight { call, .. }
-                    | pallet_sudo::Call::sudo_as { call, .. },
-                ) => stack.push(call),
+                    | pallet_sudo::Call::sudo_unchecked_weight { call, .. },
+                ) => stack.push((RawOrigin::Root.into(), call.as_ref())),
+                // `sudo_as` dispatches as the target account.
+                RuntimeCall::Sudo(pallet_sudo::Call::sudo_as { who, call }) => {
+                    let inner = Self::lookup_signed_origin(who).unwrap_or(origin);
+                    stack.push((inner, call.as_ref()));
+                }
+                // `proxy`/`proxy_announced` dispatch as the real (principal) account.
                 RuntimeCall::Proxy(
-                    pallet_proxy::Call::proxy { call, .. }
-                    | pallet_proxy::Call::proxy_announced { call, .. },
-                ) => stack.push(call),
+                    pallet_proxy::Call::proxy { real, call, .. }
+                    | pallet_proxy::Call::proxy_announced { real, call, .. },
+                ) => {
+                    let inner = Self::lookup_signed_origin(real).unwrap_or(origin);
+                    stack.push((inner, call.as_ref()));
+                }
                 RuntimeCall::Utility(inner) => match inner {
+                    // Batch items run under the batch caller's origin (unchanged).
                     pallet_utility::Call::batch { calls: inner_calls }
                     | pallet_utility::Call::batch_all { calls: inner_calls }
                     | pallet_utility::Call::force_batch { calls: inner_calls } => {
                         for call in inner_calls.iter().rev() {
-                            stack.push(call);
+                            stack.push((origin.clone(), call));
                         }
                     }
-                    pallet_utility::Call::dispatch_as { call, .. }
-                    | pallet_utility::Call::as_derivative { call, .. } => stack.push(call),
-                    _ => calls.push(current),
+                    // `dispatch_as` dispatches under the provided origin.
+                    pallet_utility::Call::dispatch_as { as_origin, call } => {
+                        stack.push((RuntimeOrigin::from((**as_origin).clone()), call.as_ref()));
+                    }
+                    // `as_derivative` dispatches as the caller's derived sub-account.
+                    pallet_utility::Call::as_derivative { index, call } => {
+                        let inner =
+                            Self::derivative_signed_origin(&origin, *index).unwrap_or(origin);
+                        stack.push((inner, call.as_ref()));
+                    }
+                    _ => calls.push((origin, current)),
                 },
-                RuntimeCall::Multisig(
-                    pallet_multisig::Call::as_multi { call, .. }
-                    | pallet_multisig::Call::as_multi_threshold_1 { call, .. },
-                ) => stack.push(call),
-                _ => calls.push(current),
+                // Multisig calls dispatch as the multisig account.
+                RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1 {
+                    other_signatories,
+                    call,
+                    ..
+                }) => {
+                    let inner = Self::multisig_signed_origin(&origin, other_signatories, 1)
+                        .unwrap_or(origin);
+                    stack.push((inner, call.as_ref()));
+                }
+                RuntimeCall::Multisig(pallet_multisig::Call::as_multi {
+                    threshold,
+                    other_signatories,
+                    call,
+                    ..
+                }) => {
+                    let inner =
+                        Self::multisig_signed_origin(&origin, other_signatories, *threshold)
+                            .unwrap_or(origin);
+                    stack.push((inner, call.as_ref()));
+                }
+                _ => calls.push((origin, current)),
             }
         }
 
         calls
+    }
+
+    /// Extract the signed account from an origin, if any.
+    fn signed_account(origin: &RuntimeOrigin) -> Option<AccountId> {
+        match origin.clone().into() {
+            Ok(RawOrigin::Signed(who)) => Some(who),
+            _ => None,
+        }
+    }
+
+    /// Resolve a `MultiAddress` lookup source into a `Signed` origin (proxy `real`, `sudo_as` who).
+    fn lookup_signed_origin(
+        source: &<<Runtime as frame_system::Config>::Lookup as StaticLookup>::Source,
+    ) -> Option<RuntimeOrigin> {
+        <<Runtime as frame_system::Config>::Lookup as StaticLookup>::lookup(source.clone())
+            .ok()
+            .map(|who| RawOrigin::Signed(who).into())
+    }
+
+    /// Resolve `as_derivative`'s sub-account origin (`derivative_account_id(caller, index)`).
+    fn derivative_signed_origin(origin: &RuntimeOrigin, index: u16) -> Option<RuntimeOrigin> {
+        let who = Self::signed_account(origin)?;
+        let derived = pallet_utility::Pallet::<Runtime>::derivative_account_id(who, index).ok()?;
+        Some(RawOrigin::Signed(derived).into())
+    }
+
+    /// Resolve a multisig call's executing origin (`Signed(multi_account_id(signatories, threshold))`).
+    fn multisig_signed_origin(
+        origin: &RuntimeOrigin,
+        other_signatories: &[AccountId],
+        threshold: u16,
+    ) -> Option<RuntimeOrigin> {
+        let who = Self::signed_account(origin)?;
+        let mut signatories = other_signatories.to_vec();
+        signatories.push(who);
+        signatories.sort();
+        signatories.dedup();
+        let id = pallet_multisig::Pallet::<Runtime>::multi_account_id(&signatories, threshold);
+        Some(RawOrigin::Signed(id).into())
     }
 }
 
@@ -573,8 +660,8 @@ where
         _inherited_implication: &impl Implication,
         _source: TransactionSource,
     ) -> ValidateResult<Self::Val, RuntimeCall> {
-        let inner_calls = Self::unwrap_nested_calls(call);
-        let (valid, vals, origin) = self.0.validate_calls_same_block(origin, inner_calls)?;
+        let inner_calls = Self::unwrap_nested_calls(origin.clone(), call);
+        let (valid, vals, origin) = self.0.validate_calls_with_origins(origin, inner_calls)?;
         Ok((valid, vals, origin))
     }
 
