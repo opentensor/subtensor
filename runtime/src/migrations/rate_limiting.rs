@@ -209,19 +209,44 @@ where
 
 // The commits functions are main entrypoints.
 
+// Legacy last-seen maps, read once per migration and passed by slice into the builders (see H3:
+// previously each builder re-read the whole map).
+type LastRateLimitedSlice = [(RateLimitKey<AccountId>, u64)];
+type TxKeyLastBlockSlice = [((AccountId, NetUid, u16), u64)];
+
 // build all groups and commits, along with storage reads.
 fn commits_grouped() -> (Vec<GroupConfig>, Vec<Commit>, u64) {
     let mut groups = Vec::new();
     let mut commits = Vec::new();
 
+    // Read the legacy last-seen map once and share it across builders (instead of one full sweep
+    // per builder). Reads are counted here, once.
+    let (last_rate_limited, mut reads) = legacy_storage::last_rate_limited_blocks();
+
     // grouped
-    let mut reads = build_serving(&mut groups, &mut commits);
-    reads = reads.saturating_add(build_delegate_take(&mut groups, &mut commits));
+    reads = reads.saturating_add(build_serving(&mut groups, &mut commits));
+    reads = reads.saturating_add(build_delegate_take(
+        &mut groups,
+        &mut commits,
+        &last_rate_limited,
+    ));
     reads = reads.saturating_add(build_weights(&mut groups, &mut commits));
-    reads = reads.saturating_add(build_register_network(&mut groups, &mut commits));
-    reads = reads.saturating_add(build_owner_hparams(&mut groups, &mut commits));
+    reads = reads.saturating_add(build_register_network(
+        &mut groups,
+        &mut commits,
+        &last_rate_limited,
+    ));
+    reads = reads.saturating_add(build_owner_hparams(
+        &mut groups,
+        &mut commits,
+        &last_rate_limited,
+    ));
     reads = reads.saturating_add(build_staking_ops(&mut groups, &mut commits));
-    reads = reads.saturating_add(build_swap_keys(&mut groups, &mut commits));
+    reads = reads.saturating_add(build_swap_keys(
+        &mut groups,
+        &mut commits,
+        &last_rate_limited,
+    ));
 
     (groups, commits, reads)
 }
@@ -229,16 +254,20 @@ fn commits_grouped() -> (Vec<GroupConfig>, Vec<Commit>, u64) {
 // build commits and storage reads for standalone calls.
 fn commits_standalone() -> (Vec<Commit>, u64) {
     let mut commits = Vec::new();
-    let mut reads: u64 = 0;
 
-    reads = reads.saturating_add(build_childkey_take(&mut commits));
-    reads = reads.saturating_add(build_set_children(&mut commits));
-    reads = reads.saturating_add(build_weights_version_key(&mut commits));
-    reads = reads.saturating_add(build_sn_owner_hotkey(&mut commits));
+    // Read each legacy last-seen map once and share it across builders (see H3).
+    let (last_rate_limited, lrl_reads) = legacy_storage::last_rate_limited_blocks();
+    let (tx_key_last_block, txk_reads) = legacy_storage::transaction_key_last_block();
+    let mut reads = lrl_reads.saturating_add(txk_reads);
+
+    reads = reads.saturating_add(build_childkey_take(&mut commits, &tx_key_last_block));
+    reads = reads.saturating_add(build_set_children(&mut commits, &tx_key_last_block));
+    reads = reads.saturating_add(build_weights_version_key(&mut commits, &tx_key_last_block));
+    reads = reads.saturating_add(build_sn_owner_hotkey(&mut commits, &last_rate_limited));
     reads = reads.saturating_add(build_associate_evm(&mut commits));
-    reads = reads.saturating_add(build_mechanism_count(&mut commits));
-    reads = reads.saturating_add(build_mechanism_emission(&mut commits));
-    reads = reads.saturating_add(build_trim_max_uids(&mut commits));
+    reads = reads.saturating_add(build_mechanism_count(&mut commits, &tx_key_last_block));
+    reads = reads.saturating_add(build_mechanism_emission(&mut commits, &tx_key_last_block));
+    reads = reads.saturating_add(build_trim_max_uids(&mut commits, &tx_key_last_block));
 
     (commits, reads)
 }
@@ -450,7 +479,11 @@ fn build_serving(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u6
 // Delegate take group (config + usage shared).
 // usage: account
 // legacy sources: TxDelegateTakeRateLimit, LastTxBlockDelegateTake
-fn build_delegate_take(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
+fn build_delegate_take(
+    groups: &mut Vec<GroupConfig>,
+    commits: &mut Vec<Commit>,
+    last_rate_limited: &LastRateLimitedSlice,
+) -> u64 {
     let mut reads: u64 = 0;
     groups.push(GroupConfig {
         id: GROUP_DELEGATE_TAKE,
@@ -467,16 +500,15 @@ fn build_delegate_take(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>)
     reads = reads.saturating_add(delegate_reads);
     push_limit_commit_if_non_zero(commits, target, delegate_take_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
-            commits,
-            |key| match key {
-                RateLimitKey::LastTxBlockDelegateTake(account) => {
-                    Some((target, Some(RateLimitUsageKey::Account(account))))
-                }
-                _ => None,
-            },
-        ),
+    last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
+        commits,
+        last_rate_limited,
+        |key| match key {
+            RateLimitKey::LastTxBlockDelegateTake(account) => {
+                Some((target, Some(RateLimitUsageKey::Account(account))))
+            }
+            _ => None,
+        },
     );
 
     reads
@@ -555,7 +587,11 @@ fn build_weights(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u6
 
 // Register network group (config + usage shared).
 // legacy sources: NetworkRateLimit, NetworkLastRegistered
-fn build_register_network(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
+fn build_register_network(
+    groups: &mut Vec<GroupConfig>,
+    commits: &mut Vec<Commit>,
+    last_rate_limited: &LastRateLimitedSlice,
+) -> u64 {
     let mut reads: u64 = 0;
     groups.push(GroupConfig {
         id: GROUP_REGISTER_NETWORK,
@@ -572,14 +608,13 @@ fn build_register_network(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commi
     reads = reads.saturating_add(network_reads);
     push_limit_commit_if_non_zero(commits, target, network_rate_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
-            commits,
-            |key| match key {
-                RateLimitKey::NetworkLastRegistered => Some((target, None)),
-                _ => None,
-            },
-        ),
+    last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
+        commits,
+        last_rate_limited,
+        |key| match key {
+            RateLimitKey::NetworkLastRegistered => Some((target, None)),
+            _ => None,
+        },
     );
 
     reads
@@ -588,7 +623,11 @@ fn build_register_network(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commi
 // Owner hyperparameter group (config shared, usage per call).
 // usage: netuid
 // legacy sources: OwnerHyperparamRateLimit * tempo, LastRateLimitedBlock per OwnerHyperparamUpdate
-fn build_owner_hparams(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
+fn build_owner_hparams(
+    groups: &mut Vec<GroupConfig>,
+    commits: &mut Vec<Commit>,
+    last_rate_limited: &LastRateLimitedSlice,
+) -> u64 {
     let mut reads: u64 = 0;
     groups.push(GroupConfig {
         id: GROUP_OWNER_HPARAMS,
@@ -605,20 +644,19 @@ fn build_owner_hparams(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>)
     reads = reads.saturating_add(owner_reads);
     push_limit_commit_if_non_zero(commits, group_target, owner_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
-            commits,
-            |key| match key {
-                RateLimitKey::OwnerHyperparamUpdate(netuid, hyper) => {
-                    let identifier = identifier_for_hyperparameter(hyper)?;
-                    Some((
-                        RateLimitTarget::Transaction(identifier.identifier()),
-                        Some(RateLimitUsageKey::Subnet(netuid)),
-                    ))
-                }
-                _ => None,
-            },
-        ),
+    last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
+        commits,
+        last_rate_limited,
+        |key| match key {
+            RateLimitKey::OwnerHyperparamUpdate(netuid, hyper) => {
+                let identifier = identifier_for_hyperparameter(hyper)?;
+                Some((
+                    RateLimitTarget::Transaction(identifier.identifier()),
+                    Some(RateLimitUsageKey::Subnet(netuid)),
+                ))
+            }
+            _ => None,
+        },
     );
 
     reads
@@ -661,7 +699,11 @@ fn build_staking_ops(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -
 // (LastHotkeySwapOnNetuid). It is a separate legacy gate with its own span, and
 // pallet-rate-limiting currently supports only one span per target, so we do not migrate it into
 // this group.
-fn build_swap_keys(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> u64 {
+fn build_swap_keys(
+    groups: &mut Vec<GroupConfig>,
+    commits: &mut Vec<Commit>,
+    last_rate_limited: &LastRateLimitedSlice,
+) -> u64 {
     let mut reads: u64 = 0;
     groups.push(GroupConfig {
         id: GROUP_SWAP_KEYS,
@@ -685,16 +727,15 @@ fn build_swap_keys(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> 
     };
     push_limit_commit_if_non_zero(commits, target, effective_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
-            commits,
-            |key| match key {
-                RateLimitKey::LastTxBlock(account) => {
-                    Some((target, Some(RateLimitUsageKey::Account(account))))
-                }
-                _ => None,
-            },
-        ),
+    last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
+        commits,
+        last_rate_limited,
+        |key| match key {
+            RateLimitKey::LastTxBlock(account) => {
+                Some((target, Some(RateLimitUsageKey::Account(account))))
+            }
+            _ => None,
+        },
     );
 
     reads
@@ -703,7 +744,7 @@ fn build_swap_keys(groups: &mut Vec<GroupConfig>, commits: &mut Vec<Commit>) -> 
 // Standalone set_childkey_take.
 // usage: account+netuid
 // legacy sources: TxChildkeyTakeRateLimit, TransactionKeyLastBlock per SetChildkeyTake
-fn build_childkey_take(commits: &mut Vec<Commit>) -> u64 {
+fn build_childkey_take(commits: &mut Vec<Commit>, tx_key_last_block: &TxKeyLastBlockSlice) -> u64 {
     let mut reads: u64 = 0;
     let target =
         RateLimitTarget::Transaction(TransactionIdentifier::new(SUBTENSOR_PALLET_INDEX, 75));
@@ -711,12 +752,11 @@ fn build_childkey_take(commits: &mut Vec<Commit>) -> u64 {
     reads = reads.saturating_add(childkey_reads);
     push_limit_commit_if_non_zero(commits, target, childkey_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
-            commits,
-            target,
-            TransactionType::SetChildkeyTake,
-        ),
+    last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
+        commits,
+        tx_key_last_block,
+        target,
+        TransactionType::SetChildkeyTake,
     );
 
     reads
@@ -725,18 +765,17 @@ fn build_childkey_take(commits: &mut Vec<Commit>) -> u64 {
 // Standalone set_children.
 // usage: account+netuid
 // legacy sources: SET_CHILDREN_RATE_LIMIT (constant 150), TransactionKeyLastBlock per SetChildren
-fn build_set_children(commits: &mut Vec<Commit>) -> u64 {
-    let mut reads: u64 = 0;
+fn build_set_children(commits: &mut Vec<Commit>, tx_key_last_block: &TxKeyLastBlockSlice) -> u64 {
+    let reads: u64 = 0;
     let target =
         RateLimitTarget::Transaction(TransactionIdentifier::new(SUBTENSOR_PALLET_INDEX, 67));
     push_limit_commit_if_non_zero(commits, target, SET_CHILDREN_RATE_LIMIT, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
-            commits,
-            target,
-            TransactionType::SetChildren,
-        ),
+    last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
+        commits,
+        tx_key_last_block,
+        target,
+        TransactionType::SetChildren,
     );
 
     reads
@@ -747,7 +786,10 @@ fn build_set_children(commits: &mut Vec<Commit>) -> u64 {
 // usage: account+netuid
 // legacy sources: WeightsVersionKeyRateLimit * tempo,
 // 			       TransactionKeyLastBlock per SetWeightsVersionKey
-fn build_weights_version_key(commits: &mut Vec<Commit>) -> u64 {
+fn build_weights_version_key(
+    commits: &mut Vec<Commit>,
+    tx_key_last_block: &TxKeyLastBlockSlice,
+) -> u64 {
     let mut reads: u64 = 0;
     let target =
         RateLimitTarget::Transaction(TransactionIdentifier::new(ADMIN_UTILS_PALLET_INDEX, 6));
@@ -756,12 +798,11 @@ fn build_weights_version_key(commits: &mut Vec<Commit>) -> u64 {
     reads = reads.saturating_add(weights_version_reads);
     push_limit_commit_if_non_zero(commits, target, weights_version_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
-            commits,
-            target,
-            TransactionType::SetWeightsVersionKey,
-        ),
+    last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
+        commits,
+        tx_key_last_block,
+        target,
+        TransactionType::SetWeightsVersionKey,
     );
 
     reads
@@ -770,7 +811,10 @@ fn build_weights_version_key(commits: &mut Vec<Commit>) -> u64 {
 // Standalone set_sn_owner_hotkey.
 // usage: netuid
 // legacy sources: DefaultSetSNOwnerHotkeyRateLimit, LastRateLimitedBlock per SetSNOwnerHotkey
-fn build_sn_owner_hotkey(commits: &mut Vec<Commit>) -> u64 {
+fn build_sn_owner_hotkey(
+    commits: &mut Vec<Commit>,
+    last_rate_limited: &LastRateLimitedSlice,
+) -> u64 {
     let mut reads: u64 = 0;
     let target =
         RateLimitTarget::Transaction(TransactionIdentifier::new(ADMIN_UTILS_PALLET_INDEX, 67));
@@ -778,16 +822,15 @@ fn build_sn_owner_hotkey(commits: &mut Vec<Commit>) -> u64 {
     reads += 1;
     push_limit_commit_if_non_zero(commits, target, sn_owner_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
-            commits,
-            |key| match key {
-                RateLimitKey::SetSNOwnerHotkey(netuid) => {
-                    Some((target, Some(RateLimitUsageKey::Subnet(netuid))))
-                }
-                _ => None,
-            },
-        ),
+    last_seen_helpers::collect_last_seen_from_last_rate_limited_block(
+        commits,
+        last_rate_limited,
+        |key| match key {
+            RateLimitKey::SetSNOwnerHotkey(netuid) => {
+                Some((target, Some(RateLimitUsageKey::Subnet(netuid))))
+            }
+            _ => None,
+        },
     );
 
     reads
@@ -829,19 +872,21 @@ fn build_associate_evm(commits: &mut Vec<Commit>) -> u64 {
 // usage: account+netuid
 // legacy sources: MechanismCountSetRateLimit, TransactionKeyLastBlock per MechanismCountUpdate
 // sudo_set_mechanism_count
-fn build_mechanism_count(commits: &mut Vec<Commit>) -> u64 {
-    let mut reads: u64 = 0;
+fn build_mechanism_count(
+    commits: &mut Vec<Commit>,
+    tx_key_last_block: &TxKeyLastBlockSlice,
+) -> u64 {
+    let reads: u64 = 0;
     let target =
         RateLimitTarget::Transaction(TransactionIdentifier::new(ADMIN_UTILS_PALLET_INDEX, 76));
     let mechanism_limit = legacy_defaults::mechanism_count_rate_limit();
     push_limit_commit_if_non_zero(commits, target, mechanism_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
-            commits,
-            target,
-            TransactionType::MechanismCountUpdate,
-        ),
+    last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
+        commits,
+        tx_key_last_block,
+        target,
+        TransactionType::MechanismCountUpdate,
     );
 
     reads
@@ -851,19 +896,21 @@ fn build_mechanism_count(commits: &mut Vec<Commit>) -> u64 {
 // usage: account+netuid
 // legacy sources: MechanismEmissionRateLimit, TransactionKeyLastBlock per MechanismEmission
 // sudo_set_mechanism_emission_split
-fn build_mechanism_emission(commits: &mut Vec<Commit>) -> u64 {
-    let mut reads: u64 = 0;
+fn build_mechanism_emission(
+    commits: &mut Vec<Commit>,
+    tx_key_last_block: &TxKeyLastBlockSlice,
+) -> u64 {
+    let reads: u64 = 0;
     let target =
         RateLimitTarget::Transaction(TransactionIdentifier::new(ADMIN_UTILS_PALLET_INDEX, 77));
     let emission_limit = legacy_defaults::mechanism_emission_rate_limit();
     push_limit_commit_if_non_zero(commits, target, emission_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
-            commits,
-            target,
-            TransactionType::MechanismEmission,
-        ),
+    last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
+        commits,
+        tx_key_last_block,
+        target,
+        TransactionType::MechanismEmission,
     );
 
     reads
@@ -873,19 +920,18 @@ fn build_mechanism_emission(commits: &mut Vec<Commit>) -> u64 {
 // usage: account+netuid
 // legacy sources: MaxUidsTrimmingRateLimit, TransactionKeyLastBlock per MaxUidsTrimming
 // sudo_trim_to_max_allowed_uids
-fn build_trim_max_uids(commits: &mut Vec<Commit>) -> u64 {
-    let mut reads: u64 = 0;
+fn build_trim_max_uids(commits: &mut Vec<Commit>, tx_key_last_block: &TxKeyLastBlockSlice) -> u64 {
+    let reads: u64 = 0;
     let target =
         RateLimitTarget::Transaction(TransactionIdentifier::new(ADMIN_UTILS_PALLET_INDEX, 78));
     let trim_limit = legacy_defaults::max_uids_trimming_rate_limit();
     push_limit_commit_if_non_zero(commits, target, trim_limit, None);
 
-    reads = reads.saturating_add(
-        last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
-            commits,
-            target,
-            TransactionType::MaxUidsTrimming,
-        ),
+    last_seen_helpers::collect_last_seen_from_transaction_key_last_block(
+        commits,
+        tx_key_last_block,
+        target,
+        TransactionType::MaxUidsTrimming,
     );
 
     reads
@@ -964,24 +1010,25 @@ mod last_seen_helpers {
 
     use super::*;
 
+    // Note: the legacy maps below are read ONCE by the caller (`commits_grouped` /
+    // `commits_standalone`) and the resulting slice is passed in. Previously each builder re-read
+    // the whole map, so a large map was scanned 4–6 times in the upgrade block (H3). These helpers
+    // now only iterate the already-read slice in memory.
     pub(super) fn collect_last_seen_from_last_rate_limited_block(
         commits: &mut Vec<Commit>,
+        entries: &[(RateLimitKey<AccountId>, u64)],
         map: impl Fn(
             RateLimitKey<AccountId>,
         ) -> Option<(
             RateLimitTarget<GroupId>,
             Option<RateLimitUsageKey<AccountId>>,
         )>,
-    ) -> u64 {
-        let mut reads: u64 = 0;
-
-        let (entries, iter_reads) = legacy_storage::last_rate_limited_blocks();
-        reads = reads.saturating_add(iter_reads);
+    ) {
         for (key, block) in entries {
-            let Some((target, usage)) = map(key) else {
+            let Some((target, usage)) = map(key.clone()) else {
                 continue;
             };
-            let Some(block) = block_number::<Runtime>(block) else {
+            let Some(block) = block_number::<Runtime>(*block) else {
                 continue;
             };
             commits.push(Commit {
@@ -989,28 +1036,24 @@ mod last_seen_helpers {
                 kind: CommitKind::LastSeen(MigratedLastSeen { block, usage }),
             });
         }
-
-        reads
     }
 
     pub(super) fn collect_last_seen_from_transaction_key_last_block(
         commits: &mut Vec<Commit>,
+        entries: &[((AccountId, NetUid, u16), u64)],
         target: RateLimitTarget<GroupId>,
         tx_filter: TransactionType,
-    ) -> u64 {
-        let mut reads: u64 = 0;
-
-        let (entries, iter_reads) = legacy_storage::transaction_key_last_block();
-        reads = reads.saturating_add(iter_reads);
-        for ((account, netuid, tx_kind), block) in entries {
-            let tx = TransactionType::from(tx_kind);
+    ) {
+        for (key, block) in entries {
+            let (account, netuid, tx_kind) = key;
+            let tx = TransactionType::from(*tx_kind);
             if discriminant(&tx) != discriminant(&tx_filter) {
                 continue;
             }
-            let Some(usage) = usage_key_from_transaction_type(tx, &account, netuid) else {
+            let Some(usage) = usage_key_from_transaction_type(tx, account, *netuid) else {
                 continue;
             };
-            let Some(block) = block_number::<Runtime>(block) else {
+            let Some(block) = block_number::<Runtime>(*block) else {
                 continue;
             };
             commits.push(Commit {
@@ -1021,8 +1064,6 @@ mod last_seen_helpers {
                 }),
             });
         }
-
-        reads
     }
 }
 
