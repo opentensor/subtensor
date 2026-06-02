@@ -448,6 +448,10 @@ impl<T: Config> Pallet<T> {
             members.len() >= info.min_members as usize,
             Error::<T>::TooFewMembers
         );
+        ensure!(
+            members.len() <= T::MaxMembers::get() as usize,
+            Error::<T>::TooManyMembers
+        );
         if let Some(max) = info.max_members {
             ensure!(members.len() <= max as usize, Error::<T>::TooManyMembers);
         }
