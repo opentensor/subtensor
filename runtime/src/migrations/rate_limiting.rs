@@ -115,9 +115,19 @@ where
             },
         );
 
+        // Raw (pre-dedup) commit counts and storage reads, logged below so a try-runtime / dry-run
+        // against real state shows how heavy this single-block migration actually is (H3 sizing).
+        let raw_limit_commits = limit_commits.len();
+        let raw_last_seen_commits = last_seen_commits.len();
+
         let (group_writes, group_count) = migrate_grouping(&groups);
         let (limit_writes, limits_len) = migrate_limits(limit_commits);
         let (last_seen_writes, last_seen_len) = migrate_last_seen(last_seen_commits);
+
+        info!(
+            "Grouped rate-limiting migration footprint: reads={}, raw commits={} limits / {} last-seen (pre-dedup); writing {} limits / {} last-seen / {} groups after dedup",
+            reads, raw_limit_commits, raw_last_seen_commits, limits_len, last_seen_len, group_count,
+        );
 
         let mut writes = group_writes
             .saturating_add(limit_writes)
