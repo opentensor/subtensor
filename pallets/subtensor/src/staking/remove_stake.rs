@@ -479,7 +479,8 @@ impl<T: Config> Pallet<T> {
         // recycled back to the chain (see step 8/9 below). Note we deliberately do
         // NOT include `SubnetAlphaIn` (the AMM pool reserve) here: it is not held
         // alpha and must not dilute stakers' pro-rata shares.
-        let protocol_alpha_value_u128: u128 = SubnetProtocolAlpha::<T>::get(netuid).to_u64() as u128;
+        let protocol_alpha_value_u128: u128 =
+            SubnetProtocolAlpha::<T>::get(netuid).to_u64() as u128;
         let mut total_alpha_value_u128: u128 = protocol_alpha_value_u128;
         let mut protocol_tao_share = TaoBalance::ZERO;
 
