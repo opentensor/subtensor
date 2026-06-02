@@ -218,8 +218,39 @@ impl<T: Config> Pallet<T> {
             Self::coldkey_owns_hotkey(&lease.beneficiary, &hotkey),
             Error::<T>::BeneficiaryDoesNotOwnHotkey
         );
+
+        // Move any lease coldkey lock to the beneficiary-controlled hotkey without
+        // assigning ownership of the generated lease hotkey to the beneficiary.
+        Self::move_lease_lock_to_beneficiary_hotkey(&lease, &hotkey)?;
+
+        // Transfer ownership to the beneficiary
         SubnetOwner::<T>::insert(lease.netuid, lease.beneficiary.clone());
         Self::set_subnet_owner_hotkey(lease.netuid, &hotkey)?;
+        Self::reassign_subnet_owner_lock_aggregates(lease.netuid, &lease.hotkey, &hotkey);
+
+        Self::repatriate_lease_coldkey_alpha(&lease, &hotkey)?;
+        Self::transfer_full_lock_to_coldkey(
+            &lease.coldkey,
+            &lease.beneficiary,
+            lease.netuid,
+            &hotkey,
+        )?;
+        Self::remove_lease_coldkey_references(&lease);
+
+        // Remove the proxy before dec_providers: its reserved deposit holds a consumer ref,
+        // so decrementing providers first would fail with ConsumerRemaining and leak the account.
+        T::ProxyInterface::remove_lease_beneficiary_proxy(&lease.coldkey, &lease.beneficiary)?;
+
+        // Sweep the now-unreserved deposit off the keyless lease coldkey so it isn't stranded.
+        let remaining = <T as Config>::Currency::balance(&lease.coldkey);
+        if !remaining.is_zero() {
+            <T as Config>::Currency::transfer(
+                &lease.coldkey,
+                &lease.beneficiary,
+                remaining,
+                Preservation::Expendable,
+            )?;
+        }
 
         // Stop tracking the lease coldkey and hotkey
         let _ = frame_system::Pallet::<T>::dec_providers(&lease.coldkey).defensive();
@@ -229,13 +260,11 @@ impl<T: Config> Pallet<T> {
         let clear_result =
             SubnetLeaseShares::<T>::clear_prefix(lease_id, T::MaxContributors::get(), None);
         AccumulatedLeaseDividends::<T>::remove(lease_id);
+        SubnetUidToLeaseId::<T>::remove(lease.netuid);
         SubnetLeases::<T>::remove(lease_id);
 
-        // Remove the beneficiary proxy
-        T::ProxyInterface::remove_lease_beneficiary_proxy(&lease.coldkey, &lease.beneficiary)?;
-
         Self::deposit_event(Event::SubnetLeaseTerminated {
-            beneficiary: lease.beneficiary,
+            beneficiary: lease.beneficiary.clone(),
             netuid: lease.netuid,
         });
 
@@ -249,6 +278,54 @@ impl<T: Config> Pallet<T> {
             // We have cleared the max number of shareholders, so we don't need to refund anything
             Ok(().into())
         }
+    }
+
+    fn move_lease_lock_to_beneficiary_hotkey(
+        lease: &SubnetLeaseOf<T>,
+        beneficiary_hotkey: &T::AccountId,
+    ) -> Result<(), DispatchError> {
+        let Some((locked_hotkey, _)) =
+            Lock::<T>::iter_prefix((&lease.coldkey, lease.netuid)).next()
+        else {
+            return Ok(());
+        };
+
+        if locked_hotkey != *beneficiary_hotkey {
+            Self::do_move_lock(&lease.coldkey, beneficiary_hotkey, lease.netuid, true)?;
+        }
+
+        Ok(())
+    }
+
+    fn repatriate_lease_coldkey_alpha(
+        lease: &SubnetLeaseOf<T>,
+        beneficiary_hotkey: &T::AccountId,
+    ) -> Result<(), DispatchError> {
+        let alpha = Self::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &lease.coldkey,
+            lease.netuid,
+        );
+        if !alpha.is_zero() {
+            Self::transfer_stake_within_subnet(
+                &lease.coldkey,
+                &lease.hotkey,
+                &lease.beneficiary,
+                beneficiary_hotkey,
+                lease.netuid,
+                alpha,
+                false,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn remove_lease_coldkey_references(lease: &SubnetLeaseOf<T>) {
+        OwnedHotkeys::<T>::remove(&lease.coldkey);
+        StakingHotkeys::<T>::remove(&lease.coldkey);
+        DecayingLock::<T>::remove(&lease.coldkey, lease.netuid);
+        LastColdkeyHotkeyStakeBlock::<T>::remove(&lease.coldkey, &lease.hotkey);
     }
 
     /// Hook used when the subnet owner's cut is distributed to split the amount into dividends
@@ -312,6 +389,7 @@ impl<T: Config> Pallet<T> {
                     &lease.hotkey,
                     lease.netuid,
                     alpha_for_contributor.into(),
+                    true,
                 )?;
                 alpha_distributed = alpha_distributed.saturating_add(alpha_for_contributor.into());
 
@@ -332,6 +410,7 @@ impl<T: Config> Pallet<T> {
                 &lease.hotkey,
                 lease.netuid,
                 beneficiary_cut_alpha.into(),
+                true,
             )?;
             Self::deposit_event(Event::SubnetLeaseDividendsDistributed {
                 lease_id,
@@ -408,11 +487,11 @@ impl<T: frame_system::Config> SubnetLeasingWeightInfo<T> {
     }
 
     pub fn do_terminate_lease(k: u32) -> Weight {
-        Weight::from_parts(56_635_122, 6148)
-            .saturating_add(Weight::from_parts(912_993, 0).saturating_mul(k.into()))
-            .saturating_add(T::DbWeight::get().reads(4_u64))
+        Weight::from_parts(239_842_400, 11615)
+            .saturating_add(Weight::from_parts(1_051_411, 0).saturating_mul(k.into()))
+            .saturating_add(T::DbWeight::get().reads(37_u64))
             .saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(k.into())))
-            .saturating_add(T::DbWeight::get().writes(6_u64))
+            .saturating_add(T::DbWeight::get().writes(27_u64))
             .saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(k.into())))
             .saturating_add(Weight::from_parts(0, 2529).saturating_mul(k.into()))
     }
