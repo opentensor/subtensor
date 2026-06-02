@@ -1768,6 +1768,22 @@ mod pallet_benchmarks {
         let hotkey = account::<T::AccountId>("beneficiary_hotkey", 0, 0);
         let _ = Subtensor::<T>::create_account_if_non_existent(&beneficiary, &hotkey);
 
+        let residual_alpha = AlphaBalance::from(10_000_000_u64);
+        let lock_amount = AlphaBalance::from(4_000_000_u64);
+        Subtensor::<T>::increase_stake_for_hotkey_and_coldkey_on_subnet(
+            &lease.hotkey,
+            &lease.coldkey,
+            lease.netuid,
+            residual_alpha,
+        );
+        DecayingLock::<T>::insert(&lease.coldkey, lease.netuid, false);
+        assert_ok!(Subtensor::<T>::do_lock_stake(
+            &lease.coldkey,
+            lease.netuid,
+            &lease.hotkey,
+            lock_amount,
+        ));
+
         #[extrinsic_call]
         _(
             RawOrigin::Signed(beneficiary.clone()),
@@ -1781,6 +1797,10 @@ mod pallet_benchmarks {
         assert_eq!(SubnetLeases::<T>::get(lease_id), None);
         assert!(!SubnetLeaseShares::<T>::contains_prefix(lease_id));
         assert!(!AccumulatedLeaseDividends::<T>::contains_key(lease_id));
+        assert_eq!(
+            Subtensor::<T>::total_coldkey_alpha_on_subnet(&lease.coldkey, lease.netuid),
+            AlphaBalance::ZERO
+        );
     }
 
     #[benchmark]
