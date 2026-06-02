@@ -476,10 +476,8 @@ impl<T: Config> Pallet<T> {
 
         let tao_in_refund_deployment_block: u64 = TaoInRefundDeploymentBlock::<T>::get();
 
-        // For subnets registered after this runtime was deployed, the protocol-owned
-        // alpha bucket includes both the pool reserve and cached protocol alpha.
-        // Subnets registered before or at deployment keep the previous accounting:
-        // only cached protocol alpha participates in the dissolution settlement.
+        // Legacy subnets keep the old dereg behavior: ignore SubnetAlphaIn.
+        // New subnets include SubnetAlphaIn.
         let protocol_alpha_value_u128: u128 = if reg_at > tao_in_refund_deployment_block {
             SubnetAlphaIn::<T>::get(netuid)
                 .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
