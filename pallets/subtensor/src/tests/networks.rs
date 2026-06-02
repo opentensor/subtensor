@@ -739,10 +739,15 @@ fn dissolve_protocol_alpha_share_is_not_paid_to_users() {
         let owner_hot = U256::from(620);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
         remove_owner_registration_stake(net);
+
+        // Make this subnet pre-deploy for protocol-alpha accounting.
+        let reg_at = NetworkRegisteredAt::<Test>::get(net);
+        TaoInRefundDeploymentBlock::<Test>::put(reg_at.saturating_add(1));
         SubtensorModule::set_subnet_locked_balance(net, TaoBalance::ZERO);
 
         // Alpha-in is the AMM pool reserve and must NOT participate in the
-        // deregistration settlement. Only the chain-bought (cached protocol)
+        // deregistration settlement for pre-deploy subnets. Only the chain-bought
+        // cached protocol
         // alpha is converted to TAO pro-rata, exactly like every staker's alpha.
         SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(100u64));
         SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::from(50u64));
@@ -780,17 +785,68 @@ fn dissolve_protocol_alpha_share_is_not_paid_to_users() {
 }
 
 #[test]
+fn dissolve_protocol_alpha_post_deploy_includes_alpha_in() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(611);
+        let owner_hot = U256::from(621);
+
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        remove_owner_registration_stake(net);
+
+        // Make this subnet post-deploy for protocol-alpha accounting.
+        TaoInRefundDeploymentBlock::<Test>::put(100);
+        NetworkRegisteredAt::<Test>::insert(net, 101);
+
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::ZERO);
+
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(100u64));
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::from(50u64));
+
+        let staker_hot = U256::from(631);
+        let staker_cold = U256::from(641);
+
+        AlphaV2::<Test>::insert((staker_hot, staker_cold, net), sf_from_u64(50u64));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, net, AlphaBalance::from(50u64));
+
+        let pot: u64 = 200;
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
+
+        let staker_before = SubtensorModule::get_coldkey_balance(&staker_cold);
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Post-deploy denominator = 100 alpha-in + 50 cached protocol alpha
+        // + 50 user alpha = 200. The user gets 50/200 of the 200 TAO pot.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&staker_cold),
+            staker_before + 50.into()
+        );
+
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&owner_cold),
+            owner_before
+        );
+
+        assert!(!SubnetProtocolAlpha::<Test>::contains_key(net));
+    });
+}
+#[test]
 fn dissolve_chain_bought_alpha_is_converted_to_tao_and_recycled() {
     new_test_ext(0).execute_with(|| {
         let owner_cold = U256::from(710);
         let owner_hot = U256::from(720);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
         remove_owner_registration_stake(net);
+
+        // Make this subnet pre-deploy for protocol-alpha accounting.
+        let reg_at = NetworkRegisteredAt::<Test>::get(net);
+        TaoInRefundDeploymentBlock::<Test>::put(reg_at.saturating_add(1));
         // No owner refund path: any TAO left on the subnet account is recycled.
         SubtensorModule::set_subnet_locked_balance(net, TaoBalance::ZERO);
 
-        // Alpha-in (pool reserve) is present but must be ignored. The chain-bought
-        // alpha is the only claimant, so it is the sole settlement weight.
+        // Alpha-in is present but ignored on the pre-deploy branch. The cached
+        // protocol alpha is the only claimant, so the entire pot is recycled.
         SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(123u64));
         SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::from(100u64));
 
