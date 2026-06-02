@@ -2575,7 +2575,7 @@ mod dispatches {
             netuid: NetUid,
         ) -> DispatchResult {
             let coldkey = ensure_signed(origin)?;
-            Self::do_move_lock(&coldkey, &destination_hotkey, netuid)
+            Self::do_move_lock(&coldkey, &destination_hotkey, netuid, false)
         }
 
         /// Sets or clears the caller's perpetual lock flag for a subnet.
