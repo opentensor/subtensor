@@ -98,7 +98,8 @@ export async function devExecuteOrders(
     polkadotJs: ApiPromise,
     context: any,
     alice: KeyringPair,
-    orders: SignedOrder[]
+    orders: SignedOrder[],
+    shouldFail = false
 ): Promise<void> {
-    await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders(orders).signAsync(alice)]);
+    await context.createBlock([await polkadotJs.tx.limitOrders.executeOrders(orders, shouldFail).signAsync(alice)]);
 }

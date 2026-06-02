@@ -107,8 +107,8 @@ thread_local! {
     /// on residual balances after distribution.
     pub static TAO_BALANCES: RefCell<HashMap<AccountId, u64>> =
         RefCell::new(HashMap::new());
-    /// When set to `true`, `transfer_tao` returns `Err(CannotTransfer)` so
-    /// tests can exercise the `FeeTransferFailed` event path.
+    /// When set to `true`, `transfer_tao` returns `Err(CannotLookup)` so
+    /// tests can exercise the fee-transfer-failure path.
     pub static FAIL_FEE_TRANSFER: RefCell<bool> = const { RefCell::new(false) };
     /// When `true`, `buy_alpha` and `sell_alpha` return `DispatchError::Other("pool error")`.
     pub static MOCK_SWAP_FAIL: RefCell<bool> = const { RefCell::new(false) };

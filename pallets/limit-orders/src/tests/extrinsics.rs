@@ -199,7 +199,8 @@ fn execute_orders_buy_order_fulfilled() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
@@ -236,7 +237,8 @@ fn execute_orders_sell_order_fulfilled() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
@@ -273,7 +275,8 @@ fn execute_orders_stop_loss_order_fulfilled() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
@@ -309,7 +312,8 @@ fn execute_orders_stop_loss_price_not_met_skipped() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert!(Orders::<Test>::get(id).is_none());
@@ -341,7 +345,8 @@ fn execute_orders_expired_order_skipped() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         // Skipped — storage untouched.
@@ -374,7 +379,8 @@ fn execute_orders_price_not_met_skipped() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert!(Orders::<Test>::get(id).is_none());
@@ -413,7 +419,8 @@ fn take_profit_sub_unity_price_executes_when_limit_met() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         // Executes: 500_000_000 >= 400_000_000 → condition met.
@@ -446,7 +453,8 @@ fn take_profit_sub_unity_price_skipped_when_limit_not_met() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         // Skipped: 500_000_000 >= 600_000_000 is false.
@@ -481,7 +489,8 @@ fn execute_orders_already_processed_skipped() {
         // Should succeed (batch-level) but skip this order silently.
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
         // Still Fulfilled (not changed).
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
@@ -528,6 +537,7 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![valid, expired]),
+            false,
         ));
 
         assert_eq!(Orders::<Test>::get(valid_id), Some(OrderStatus::Fulfilled));
@@ -542,7 +552,7 @@ fn execute_orders_mixed_batch_valid_and_skipped() {
 fn execute_orders_unsigned_rejected() {
     new_test_ext().execute_with(|| {
         assert_noop!(
-            LimitOrders::execute_orders(RuntimeOrigin::none(), bounded(vec![])),
+            LimitOrders::execute_orders(RuntimeOrigin::none(), bounded(vec![]), false),
             DispatchError::BadOrigin
         );
     });
@@ -570,7 +580,8 @@ fn execute_orders_buy_with_fee_charges_fee() {
         MockSwap::set_tao_balance(alice(), 1_000);
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         // One buy_alpha call for the net amount (990 TAO after 1% fee).
@@ -617,7 +628,8 @@ fn execute_orders_sell_with_fee_charges_fee() {
         );
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         // Full 1_000 alpha sold (no alpha deducted for fee).
@@ -645,16 +657,17 @@ fn execute_orders_empty_batch_returns_ok() {
     new_test_ext().execute_with(|| {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![])
+            bounded(vec![]),
+            false,
         ));
     });
 }
 
 #[test]
-fn execute_orders_fee_transfer_failure_emits_event() {
+fn execute_orders_fee_transfer_failure_skips_order() {
     new_test_ext().execute_with(|| {
-        // Order executes successfully, but the fee transfer to the recipient fails.
-        // The order should still be marked Fulfilled and FeeTransferFailed emitted.
+        // When the fee transfer fails the entire order is rolled back and emits OrderSkipped.
+        // This prevents users from exploiting a tight balance to execute swaps fee-free.
         MockTime::set(1_000_000);
         MockSwap::set_price(1.0);
         MockSwap::set_buy_alpha_return(500);
@@ -676,18 +689,18 @@ fn execute_orders_fee_transfer_failure_emits_event() {
         FAIL_FEE_TRANSFER.with(|f| *f.borrow_mut() = true);
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed.clone()])
+            bounded(vec![signed.clone()]),
+            false,
         ));
         FAIL_FEE_TRANSFER.with(|f| *f.borrow_mut() = false);
 
-        // Order was executed despite the failed fee transfer.
+        // Order was skipped — not stored as Fulfilled.
         let id = crate::tests::mock::order_id(&signed.order);
-        assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
+        assert!(Orders::<Test>::get(id).is_none());
 
-        // FeeTransferFailed was emitted with the correct recipient and error.
-        assert_event(Event::FeeTransferFailed {
-            recipient: fee_recipient(),
-            amount: 10, // 1% of 1_000
+        // OrderSkipped was emitted with the fee-transfer error as the reason.
+        assert_event(Event::OrderSkipped {
+            order_id: id,
             reason: DispatchError::CannotLookup,
         });
 
@@ -727,7 +740,8 @@ mod execute_orders_skip_invalid {
 
             assert_ok!(LimitOrders::execute_orders(
                 RuntimeOrigin::signed(charlie()),
-                bounded(vec![signed])
+                bounded(vec![signed]),
+                false,
             ));
 
             // Skipped — storage untouched.
@@ -764,7 +778,8 @@ mod execute_orders_skip_invalid {
 
             assert_ok!(LimitOrders::execute_orders(
                 RuntimeOrigin::signed(charlie()),
-                bounded(vec![signed])
+                bounded(vec![signed]),
+                false,
             ));
 
             // Skipped — storage untouched.
@@ -815,6 +830,7 @@ mod execute_orders_skip_invalid {
             assert_ok!(LimitOrders::execute_orders(
                 RuntimeOrigin::signed(charlie()),
                 bounded(vec![valid, expired]),
+                false,
             ));
 
             // Valid order executed successfully.
@@ -825,6 +841,134 @@ mod execute_orders_skip_invalid {
                 order_id: expired_id,
                 reason: Error::<Test>::OrderExpired.into(),
             });
+        });
+    }
+
+    /// With `should_fail = true` a single expired order is NOT silently skipped:
+    /// the whole call fails with `OrderExpired` and storage stays untouched.
+    #[test]
+    fn execute_orders_should_fail_expired_order_reverts() {
+        new_test_ext().execute_with(|| {
+            MockTime::set(2_000_001); // now > expiry
+            MockSwap::set_price(1.0);
+
+            let signed = make_signed_order(
+                AccountKeyring::Alice,
+                bob(),
+                netuid(),
+                OrderType::LimitBuy,
+                1_000,
+                u64::MAX,
+                2_000_000, // expiry in the past
+                Perbill::zero(),
+                fee_recipient(),
+                None,
+            );
+            let id = order_id(&signed.order);
+
+            // all-or-nothing: the failing order makes the whole call return Err
+            // and assert_noop! confirms storage is unchanged.
+            assert_noop!(
+                LimitOrders::execute_orders(
+                    RuntimeOrigin::signed(charlie()),
+                    bounded(vec![signed]),
+                    true,
+                ),
+                Error::<Test>::OrderExpired
+            );
+
+            assert!(Orders::<Test>::get(id).is_none());
+        });
+    }
+
+    /// With `should_fail = true` a batch containing a VALID order followed by an
+    /// INVALID (expired) order reverts entirely: the valid order's effects are
+    /// rolled back, so it is NOT recorded as `Fulfilled` and the relayer's TAO
+    /// is not consumed. Contrast `execute_orders_valid_and_invalid_mixed`, where
+    /// the same batch with `should_fail = false` keeps the valid order.
+    #[test]
+    fn execute_orders_should_fail_valid_then_invalid_reverts_whole_batch() {
+        new_test_ext().execute_with(|| {
+            MockTime::set(1_000_000);
+            MockSwap::set_price(1.0);
+
+            let valid = make_signed_order(
+                AccountKeyring::Alice,
+                bob(),
+                netuid(),
+                OrderType::LimitBuy,
+                1_000,
+                u64::MAX,
+                FAR_FUTURE,
+                Perbill::zero(),
+                fee_recipient(),
+                None,
+            );
+            let expired = make_signed_order(
+                AccountKeyring::Bob,
+                alice(),
+                netuid(),
+                OrderType::LimitBuy,
+                500,
+                u64::MAX,
+                500_000, // already expired
+                Perbill::zero(),
+                fee_recipient(),
+                None,
+            );
+            let valid_id = order_id(&valid.order);
+            let expired_id = order_id(&expired.order);
+
+            // The expired order is the second in the batch; with should_fail = true
+            // its failure reverts the already-executed valid order too.
+            assert_noop!(
+                LimitOrders::execute_orders(
+                    RuntimeOrigin::signed(charlie()),
+                    bounded(vec![valid, expired]),
+                    true,
+                ),
+                Error::<Test>::OrderExpired
+            );
+
+            // Neither order survived: the valid order's Fulfilled status was rolled back.
+            assert!(Orders::<Test>::get(valid_id).is_none());
+            assert!(Orders::<Test>::get(expired_id).is_none());
+        });
+    }
+
+    /// With `should_fail = true` a price-condition-not-met order hard-fails the
+    /// whole call with `PriceConditionNotMet`, mirroring `execute_batched_orders`
+    /// rather than the best-effort skip path.
+    #[test]
+    fn execute_orders_should_fail_price_condition_not_met_reverts() {
+        new_test_ext().execute_with(|| {
+            MockTime::set(1_000_000);
+            MockSwap::set_price(5.0); // price 5.0 > limit 0 → buy condition not met
+
+            let signed = make_signed_order(
+                AccountKeyring::Alice,
+                bob(),
+                netuid(),
+                OrderType::LimitBuy,
+                1_000,
+                0, // price ceiling of 0 — never satisfied at price 5.0
+                FAR_FUTURE,
+                Perbill::zero(),
+                fee_recipient(),
+                None,
+            );
+            let id = order_id(&signed.order);
+
+            assert_noop!(
+                LimitOrders::execute_orders(
+                    RuntimeOrigin::signed(charlie()),
+                    bounded(vec![signed]),
+                    true,
+                ),
+                Error::<Test>::PriceConditionNotMet
+            );
+
+            assert!(Orders::<Test>::get(id).is_none());
         });
     }
 }
@@ -1855,7 +1999,8 @@ fn execute_orders_buy_no_slippage_passes_u64_max_to_pool() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         // Pool must have been called with u64::MAX as price ceiling.
@@ -1884,7 +2029,8 @@ fn execute_orders_sell_no_slippage_passes_zero_to_pool() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![0]);
@@ -1913,7 +2059,8 @@ fn execute_orders_buy_one_percent_slippage_passes_ceiling_to_pool() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(MockSwap::buy_alpha_limit_prices(), vec![1_010_000_000]);
@@ -1943,7 +2090,8 @@ fn execute_orders_sell_one_percent_slippage_passes_floor_to_pool() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(MockSwap::sell_alpha_limit_prices(), vec![990_000_000]);
@@ -2351,6 +2499,7 @@ fn execute_orders_stoploss_narrow_slippage_skips_order() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![stoploss]),
+            false,
         ));
 
         // Order not stored — pool rejected the floor.
@@ -2399,7 +2548,8 @@ fn execute_orders_wrong_relayer_skipped() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(bob()), // wrong relayer
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         // Order not stored — it was skipped.
@@ -2434,7 +2584,8 @@ fn execute_orders_correct_relayer_executed() {
 
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()), // correct relayer
-            bounded(vec![signed])
+            bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
@@ -2543,6 +2694,7 @@ fn execute_orders_partial_fill_sets_partially_filled_status() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![signed]),
+            false,
         ));
 
         assert_eq!(
@@ -2575,6 +2727,7 @@ fn execute_orders_second_partial_fill_completes_order() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![signed_first.clone()]),
+            false,
         ));
         assert_eq!(
             Orders::<Test>::get(id),
@@ -2588,6 +2741,7 @@ fn execute_orders_second_partial_fill_completes_order() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![signed_second]),
+            false,
         ));
         assert_eq!(Orders::<Test>::get(id), Some(OrderStatus::Fulfilled));
     });
@@ -2629,6 +2783,7 @@ fn execute_orders_partial_fill_without_relayer_skipped() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![signed]),
+            false,
         ));
 
         // Nothing written to storage.
@@ -2663,6 +2818,7 @@ fn execute_orders_partial_fill_exceeding_remaining_is_skipped() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![signed.clone()]),
+            false,
         ));
         assert_eq!(
             Orders::<Test>::get(id),
@@ -2675,6 +2831,7 @@ fn execute_orders_partial_fill_exceeding_remaining_is_skipped() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![over_fill]),
+            false,
         ));
 
         // Status unchanged.
@@ -2847,6 +3004,7 @@ fn execute_orders_buy_partial_fill_skips_order() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![order]),
+            false,
         ));
 
         // Order must not be stored — it was skipped, not fulfilled.
@@ -2928,6 +3086,7 @@ fn execute_orders_sell_partial_fill_skips_order() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie()),
             bounded(vec![order]),
+            false,
         ));
 
         // Order must not be stored — it was skipped, not fulfilled.

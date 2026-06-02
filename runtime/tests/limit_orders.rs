@@ -336,6 +336,7 @@ fn execute_orders_ed25519_signature_rejected() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(alice_id),
             orders,
+            false,
         ));
 
         // Order was silently skipped — nothing written to storage.
@@ -384,6 +385,7 @@ fn execute_orders_chain_id_mismatch_rejected() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(alice_id),
             make_order_batch(vec![signed]),
+            false,
         ));
 
         // Order was silently skipped — nothing written to storage.
@@ -429,6 +431,7 @@ fn limit_buy_order_executes_and_stakes_alpha() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order must be marked as executed.
@@ -492,6 +495,7 @@ fn take_profit_order_executes_and_unstakes_alpha() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order must be marked as executed.
@@ -558,6 +562,7 @@ fn stop_loss_order_executes_and_unstakes_alpha() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order must be marked as executed.
@@ -1091,6 +1096,7 @@ fn execute_orders_skips_expired_order() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Expired order silently skipped — nothing written to storage.
@@ -1154,6 +1160,7 @@ fn execute_orders_valid_and_invalid_mixed() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Valid order executed — stored as Fulfilled.
@@ -1163,6 +1170,141 @@ fn execute_orders_valid_and_invalid_mixed() {
         );
         // Expired order silently skipped — not written to storage.
         assert!(Orders::<Runtime>::get(expired_id).is_none());
+    });
+}
+
+// ── execute_orders — all-or-nothing (should_fail = true) ──────────────────────
+
+/// `execute_orders` with `should_fail = true` aborts the whole call as soon as
+/// it hits a failing order. A single expired order makes the extrinsic return
+/// `OrderExpired`, and nothing is written to the `Orders` storage map.
+#[test]
+fn execute_orders_should_fail_aborts_on_expired_order() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let bob_id = Sr25519Keyring::Bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Advance the runtime timestamp so that `now_ms` exceeds the order's expiry.
+        pallet_timestamp::Now::<Runtime>::put(100_000u64);
+
+        // Build an order that expired at 50_000 ms — already in the past.
+        let signed = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            50_000, // expiry in ms — before current timestamp of 100_000
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let id = order_id(&signed.order);
+
+        let orders = make_order_batch(vec![signed]);
+
+        // should_fail = true → the expired order surfaces its error to the caller
+        // and the whole call reverts (nothing written to storage).
+        assert_noop!(
+            LimitOrders::execute_orders(RuntimeOrigin::signed(charlie_id), orders, true),
+            pallet_limit_orders::Error::<Runtime>::OrderExpired
+        );
+
+        // Order was never stored — the call aborted.
+        assert!(Orders::<Runtime>::get(id).is_none());
+    });
+}
+
+/// Contrast with `execute_orders_valid_and_invalid_mixed`: the SAME mixed batch
+/// (a valid LimitBuy followed by an expired LimitBuy) submitted with
+/// `should_fail = true` reverts the WHOLE batch. The valid order's stake and
+/// balance effects are NOT applied — dispatchables are transactional.
+#[test]
+fn execute_orders_should_fail_reverts_valid_order_in_mixed_batch() {
+    new_test_ext().execute_with(|| {
+        let netuid = NetUid::from(1u16);
+        let alice = Sr25519Keyring::Alice;
+        let alice_id = alice.to_account_id();
+        let bob = Sr25519Keyring::Bob;
+        let bob_id = bob.to_account_id();
+        let charlie_id = Sr25519Keyring::Charlie.to_account_id();
+
+        setup_subnet(netuid);
+
+        // Fund Alice so that her LimitBuy order would execute (absent the abort).
+        fund_account(&alice_id);
+
+        // Create the hotkey association for Alice so buy_alpha would succeed.
+        let _ = SubtensorModule::create_account_if_non_existent(&alice_id, &bob_id);
+
+        // Snapshot Alice's balance and stake before submitting the batch.
+        let alice_balance_before = SubtensorModule::get_coldkey_balance(&alice_id);
+        let alice_stake_before =
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid);
+
+        // Timestamp at 100_000 ms — Bob's order (expiry 50_000) will be expired.
+        pallet_timestamp::Now::<Runtime>::put(100_000u64);
+
+        // Valid order: LimitBuy with price ceiling always satisfied and no expiry.
+        let valid = make_signed_order(
+            alice,
+            bob_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX, // price ceiling — always satisfied
+            u64::MAX, // no expiry
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        // Invalid order: already expired. It follows the valid order in the batch,
+        // so the valid order is executed first and must be rolled back on abort.
+        let expired = make_signed_order(
+            bob,
+            alice_id.clone(),
+            netuid,
+            OrderType::LimitBuy,
+            min_default_stake().into(),
+            u64::MAX,
+            50_000, // expiry in ms — before current timestamp of 100_000
+            Perbill::zero(),
+            charlie_id.clone(),
+        );
+        let valid_id = order_id(&valid.order);
+        let expired_id = order_id(&expired.order);
+
+        let orders = make_order_batch(vec![valid, expired]);
+
+        // should_fail = true → the expired order aborts the whole call and reverts
+        // the already-executed valid order.
+        assert_noop!(
+            LimitOrders::execute_orders(RuntimeOrigin::signed(charlie_id), orders, true),
+            pallet_limit_orders::Error::<Runtime>::OrderExpired
+        );
+
+        // Neither order is stored — the entire batch was rolled back.
+        assert!(
+            Orders::<Runtime>::get(valid_id).is_none(),
+            "valid order must be rolled back, not stored, when should_fail aborts"
+        );
+        assert!(Orders::<Runtime>::get(expired_id).is_none());
+
+        // The valid order's effects must NOT have been applied: Alice's TAO balance
+        // and her staked alpha are exactly what they were before the call.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&alice_id),
+            alice_balance_before,
+            "alice's TAO must be unchanged after an aborted all-or-nothing batch"
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(&bob_id, &alice_id, netuid),
+            alice_stake_before,
+            "alice's staked alpha must be unchanged after an aborted all-or-nothing batch"
+        );
     });
 }
 
@@ -1205,6 +1347,7 @@ fn execute_orders_skips_order_with_unassociated_hotkey() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order was silently skipped — nothing written to storage.
@@ -1252,6 +1395,7 @@ fn execute_orders_skips_order_below_minimum_stake() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order was silently skipped — nothing written to storage.
@@ -1297,6 +1441,7 @@ fn execute_orders_skips_order_for_nonexistent_subnet() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order was silently skipped — nothing written to storage.
@@ -1366,6 +1511,7 @@ fn execute_orders_fee_forwarded_to_recipient() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
             orders,
+            false,
         ));
 
         // Order must be marked as executed.
@@ -1660,6 +1806,7 @@ fn execute_orders_stoploss_max_slippage_exceeds_pool_price_skipped() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order must NOT have been written to storage — it was silently skipped.
@@ -1733,6 +1880,7 @@ fn execute_orders_stoploss_no_slippage_executes_on_dynamic_subnet() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order must be marked as fulfilled.
@@ -1803,6 +1951,7 @@ fn execute_orders_partial_fill_then_complete() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
             orders,
+            false,
         ));
 
         // After the first execution the order must be partially filled.
@@ -1826,6 +1975,7 @@ fn execute_orders_partial_fill_then_complete() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id.clone()),
             orders2,
+            false,
         ));
 
         // After the second execution the order must be fulfilled.
@@ -1971,6 +2121,7 @@ fn execute_orders_buy_tight_slippage_partial_fill_skipped() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order must NOT have been written to storage — it was silently skipped.
@@ -2086,6 +2237,7 @@ fn execute_orders_sell_tight_slippage_partial_fill_skipped() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             orders,
+            false,
         ));
 
         // Order must NOT have been written to storage — it was silently skipped.
@@ -2227,6 +2379,7 @@ fn individual_sell_order_skipped_when_alpha_is_conviction_locked() {
         assert_ok!(LimitOrders::execute_orders(
             RuntimeOrigin::signed(charlie_id),
             make_order_batch(vec![signed]),
+            false,
         ));
 
         // Order must NOT be in storage — it was skipped, not fulfilled.
