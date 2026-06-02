@@ -585,10 +585,16 @@ impl pallet_rate_limiting::Config for Runtime {
 }
 
 impl PrecompileTxExtensionProvider for Runtime {
-    type Extensions = pallet_rate_limiting::RateLimitTransactionExtension<Runtime>;
+    type Extensions = (
+        pallet_subtensor::SubtensorTransactionExtension<Runtime>,
+        pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
+    );
 
     fn tx_extensions() -> Self::Extensions {
-        pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new()
+        (
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
+        )
     }
 }
 

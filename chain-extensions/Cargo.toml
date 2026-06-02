@@ -22,6 +22,7 @@ codec = { workspace = true, features = ["derive"] }
 scale-info = { workspace = true, features = ["derive"] }
 subtensor-runtime-common.workspace = true
 pallet-contracts.workspace = true
+pallet-rate-limiting.workspace = true
 pallet-subtensor.workspace = true
 pallet-subtensor-swap.workspace = true
 pallet-alpha-assets.workspace = true
@@ -39,6 +40,7 @@ substrate-fixed.workspace = true
 
 [dev-dependencies]
 rate-limiting-interface.workspace = true
+serde = { workspace = true, features = ["derive"] }
 
 [lints]
 workspace = true
@@ -58,6 +60,7 @@ std = [
 	"subtensor-runtime-common/std",
 	"pallet-alpha-assets/std",
 	"pallet-contracts/std",
+	"pallet-rate-limiting/std",
 	"pallet-subtensor/std",
 	"pallet-subtensor-swap/std",
 	"pallet-balances/std",
@@ -82,6 +85,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-contracts/runtime-benchmarks",
 	"pallet-crowdloan/runtime-benchmarks",
+	"pallet-rate-limiting/runtime-benchmarks",
 	"pallet-drand/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",

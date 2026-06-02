@@ -18,7 +18,6 @@ const EXPECTED_V3_NAMES: &[&[u8]] = &[
     b"max_weights_limit",
     b"tempo",
     b"weights_version",
-    b"weights_rate_limit",
     b"activity_cutoff",
     b"registration_allowed",
     b"target_regs_per_interval",
@@ -28,7 +27,6 @@ const EXPECTED_V3_NAMES: &[&[u8]] = &[
     b"burn_increase_mult",
     b"bonds_moving_avg",
     b"max_regs_per_block",
-    b"serving_rate_limit",
     b"max_validators",
     b"commit_reveal_period",
     b"commit_reveal_weights_enabled",
@@ -185,16 +183,8 @@ fn test_get_subnet_hyperparams_v3_values_reflect_storage() {
             &HyperparamValue::U64(Compact(19))
         );
         assert_eq!(
-            find(p, b"weights_rate_limit"),
-            &HyperparamValue::U64(Compact(20))
-        );
-        assert_eq!(
             find(p, b"bonds_moving_avg"),
             &HyperparamValue::U64(Compact(27))
-        );
-        assert_eq!(
-            find(p, b"serving_rate_limit"),
-            &HyperparamValue::U64(Compact(29))
         );
 
         // TaoBalance variants

@@ -153,7 +153,7 @@ pub use benchmarking::BenchmarkHelper;
 pub use pallet::*;
 pub use rate_limiting_interface::{RateLimitTarget, TransactionIdentifier};
 pub use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
-pub use tx_extension::RateLimitTransactionExtension;
+pub use tx_extension::{RATE_LIMIT_DENIED, RateLimitTransactionExtension};
 pub use types::{
     BypassDecision, EnsureLimitSettingRule, GroupSharing, RateLimit, RateLimitGroup, RateLimitKind,
     RateLimitScopeResolver, RateLimitUsageResolver,

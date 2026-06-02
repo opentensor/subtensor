@@ -14,6 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { workspace = true, features = ["derive"] }
 environmental.workspace = true
 frame-support.workspace = true
+frame-system.workspace = true
 num-traits = { workspace = true, features = ["libm"] }
 scale-info.workspace = true
 serde.workspace = true
@@ -35,6 +36,7 @@ approx = ["dep:approx"]
 fast-runtime = []
 runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"runtime-common/runtime-benchmarks",
 ]
@@ -42,6 +44,7 @@ std = [
 	"codec/std",
 	"environmental/std",
 	"frame-support/std",
+	"frame-system/std",
 	"num-traits/std",
 	"scale-info/std",
 	"serde/std",

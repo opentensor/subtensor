@@ -30,7 +30,7 @@ use crate::{
 const IDENTIFIER: &str = "RateLimitTransactionExtension";
 
 /// Custom error code used to signal a rate limit violation.
-const RATE_LIMIT_DENIED: u8 = 1;
+pub const RATE_LIMIT_DENIED: u8 = 1;
 
 /// Transaction extension that enforces pallet rate limiting rules.
 #[derive(Default, Encode, Decode, DecodeWithMemTracking, TypeInfo)]

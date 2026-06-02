@@ -26,15 +26,10 @@ use subtensor_runtime_common::with_evm_context;
 
 type RuntimeCallOf<R> = <R as frame_system::Config>::RuntimeCall;
 
-pub trait PrecompileTxExtensionProvider: frame_system::Config
-where
-    RuntimeCallOf<Self>: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-{
-    /// Runtime-provided transaction extensions used for precompile-dispatched runtime calls
-    type Extensions: TransactionExtension<RuntimeCallOf<Self>>;
-
-    fn tx_extensions() -> Self::Extensions;
-}
+// The provider trait now lives in `subtensor-runtime-common` so it can be shared with the ink!
+// chain extensions, which also dispatch runtime calls outside the extrinsic pipeline. Re-exported
+// under the historical name to keep the precompile call sites unchanged.
+pub use subtensor_runtime_common::RuntimeTxExtensionProvider as PrecompileTxExtensionProvider;
 
 pub(crate) trait PrecompileHandleExt: PrecompileHandle {
     fn caller_account_id<R>(&self) -> R::AccountId
