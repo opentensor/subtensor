@@ -18321,7 +18321,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "node-subtensor-runtime",
  "semver 1.0.27",
  "toml_edit 0.22.27",
 ]
