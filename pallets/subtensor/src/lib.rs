@@ -1444,6 +1444,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+    /// --- MAP ( netuid ) --> protocol_alpha | Returns the protocol-owned alpha cached for the subnet.
+    #[pallet::storage]
+    pub type SubnetProtocolAlpha<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     #[pallet::storage]
@@ -2187,7 +2191,7 @@ pub mod pallet {
     /// --- ITEM ( dissolved_subnet_settled_alpha_value ) Settled alpha value for the dissolved subnet.
     /// It is only used during clean the data for dissolved networks.
     #[pallet::storage]
-    pub type DissolvedSubnetSettledAlphaValue<T> = StorageValue<_, u128, OptionQuery>;
+    pub type DissolvedSubnetDistributedTao<T> = StorageValue<_, u128, OptionQuery>;
 
     // =======================================
     // ==== VotingPower Storage  ====

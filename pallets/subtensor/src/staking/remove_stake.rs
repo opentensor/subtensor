@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::weights::WeightMeter;
+use num_traits::ToPrimitive;
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::U96F32;
@@ -429,7 +430,23 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn destroy_alpha_in_out_stakes(netuid: NetUid, weight_meter: &mut WeightMeter) -> bool {
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(4));
+        let total_alpha_value_u128: u128 = match DissolvedSubnetTotalAlphaValue::<T>::get() {
+            Some(value) => value,
+            None => {
+                log::warn!("DissolvedSubnetTotalAlphaValue not set");
+                return false;
+            }
+        };
+
+        let mut distributed_tao_value_u128: u128 = match DissolvedSubnetDistributedTao::<T>::get() {
+            Some(value) => value,
+            None => {
+                log::warn!("DissolvedSubnetDistributedTao not set");
+                return false;
+            }
+        };
+
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(6));
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: TaoBalance = Self::get_subnet_locked_balance(netuid);
 
@@ -438,6 +455,13 @@ impl<T: Config> Pallet<T> {
 
         let start_block: u64 = NetworkRegistrationStartBlock::<T>::get();
         let should_refund_owner: bool = reg_at < start_block;
+
+        let protocol_alpha_value_u128: u128 = SubnetAlphaIn::<T>::get(netuid)
+            .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
+            .to_u64() as u128;
+
+        let pot_tao: TaoBalance = SubnetTAO::<T>::get(netuid);
+        let pot_u128: u128 = pot_tao.into();
 
         // Compute owner's received emission in TAO at current price (ONLY if we may refund).
         // We:
@@ -472,6 +496,13 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        let mut protocol_tao_share = TaoBalance::ZERO;
+        if protocol_alpha_value_u128 > 0 {
+            let prod: u128 = pot_u128.saturating_mul(protocol_alpha_value_u128);
+            let share_u128: u128 = prod.checked_div(total_alpha_value_u128).unwrap_or_default();
+            protocol_tao_share = (share_u128.min(u128::from(u64::MAX)) as u64).into();
+        }
+
         // Remove α‑in/α‑out counters (fully destroyed).
         WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(4));
         SubnetAlphaIn::<T>::remove(netuid);
@@ -485,16 +516,43 @@ impl<T: Config> Pallet<T> {
         //    - Legacy subnets (registered before NetworkRegistrationStartBlock) receive:
         //        refund = max(0, lock_cost(τ) − owner_received_emission_in_τ).
         //    - New subnets: no refund.
-        let refund: TaoBalance = if should_refund_owner {
+        let mut refund: TaoBalance = if should_refund_owner {
             lock_cost.saturating_sub(owner_emission_tao)
         } else {
             TaoBalance::ZERO
         };
 
-        if !refund.is_zero() {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(1, 1));
-            let _ = Self::transfer_tao_from_subnet(netuid, &owner_coldkey, refund);
+        if !refund.is_zero()
+            && let Some(subnet_account) = Self::get_subnet_account_id(netuid)
+        {
+            // Transfer maximum transferrable up to refund to owner
+            let transferrable =
+                Self::get_coldkey_balance(&subnet_account).saturating_sub(protocol_tao_share);
+
+            distributed_tao_value_u128 = distributed_tao_value_u128.saturating_add(refund.into());
+
+            if distributed_tao_value_u128 < pot_u128 {
+                let final_leftover: u128 = pot_u128.saturating_sub(distributed_tao_value_u128);
+
+                refund = refund.saturating_add(final_leftover.into());
+            }
+            // We do our best effort to refund owner to as full amount of refund as possible, but
+            // we cannot fail new subnet registration, so the result is ignored.
+            let _ = Self::transfer_tao(&subnet_account, &owner_coldkey, refund.min(transferrable));
         }
+
+        // 9) Recycle TAO remaining on the subnet account, forgive errors.
+        if let Some(subnet_account) = Self::get_subnet_account_id(netuid) {
+            let remaining_subnet_balance = Self::get_keep_alive_balance(&subnet_account);
+            if Self::recycle_tao(&subnet_account, remaining_subnet_balance).is_ok() {
+                RAORecycledForRegistration::<T>::insert(netuid, remaining_subnet_balance);
+            }
+        }
+
+        DissolvedSubnetTotalAlphaValue::<T>::set(None);
+        LastKeptRawKey::<T>::set(None);
+        DissolvedSubnetDistributedTao::<T>::set(None);
+        SubnetTAO::<T>::remove(netuid);
 
         true
     }
@@ -520,7 +578,14 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let mut read_all = true;
-        let mut total_alpha_value_u128: u128 = 0;
+        // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
+        //    - collect keys to remove,
+        //    - per (hot,cold) α VALUE (not shares) with fallback to raw share if pool uninitialized,
+        //    - track hotkeys to clear pool totals.
+        let protocol_alpha_value_u128: u128 = SubnetAlphaIn::<T>::get(netuid)
+            .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
+            .to_u64() as u128;
+        let mut total_alpha_value_u128: u128 = protocol_alpha_value_u128;
 
         let iter = match LastKeptRawKey::<T>::get() {
             Some(key) => {
@@ -589,7 +654,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        //always update the status no matter if there is weight left or not
         DissolvedSubnetTotalAlphaValue::<T>::set(Some(total_alpha_value_u128));
 
         if read_all {
@@ -616,8 +680,7 @@ impl<T: Config> Pallet<T> {
                 return false;
             }
         };
-        let mut settled_alpha_value_u128 =
-            DissolvedSubnetSettledAlphaValue::<T>::get().unwrap_or(0);
+        let mut distributed_tao_value_u128 = DissolvedSubnetDistributedTao::<T>::get().unwrap_or(0);
 
         let mut hotkeys_in_subnet: Vec<T::AccountId> = Vec::new();
         let mut coldkeys = BTreeSet::<T::AccountId>::new();
@@ -746,13 +809,10 @@ impl<T: Config> Pallet<T> {
                 });
             }
 
-            settled_alpha_value_u128 = settled_alpha_value_u128.saturating_add(distributed);
-
             let leftover: u128 = total_rem
                 .checked_div(total_alpha_value_u128)
                 .unwrap_or_default();
             if leftover > 0 {
-                settled_alpha_value_u128 = settled_alpha_value_u128.saturating_add(leftover);
                 portions.sort_by(|a, b| b.rem.cmp(&a.rem));
                 let give: usize = core::cmp::min(leftover, portions.len() as u128) as usize;
                 for p in portions.iter_mut().take(give) {
@@ -784,38 +844,17 @@ impl<T: Config> Pallet<T> {
             // Credit each share directly to coldkey free balance.
             for transfer in transfer_map.iter() {
                 // Cannot fail the whole transaction if this transfer fails
+                distributed_tao_value_u128 = distributed_tao_value_u128
+                    .saturating_add(transfer.1.to_u128().unwrap_or(0_u128));
                 let _ = Self::transfer_tao_from_subnet(netuid, transfer.0, *transfer.1);
             }
         }
 
         // ignore the weight for handling the final operation, we must set the correct status for the next run
         if read_all {
-            if settled_alpha_value_u128 < total_alpha_value_u128 {
-                let final_leftover: u128 = total_alpha_value_u128
-                    .saturating_sub(settled_alpha_value_u128)
-                    .checked_div(total_alpha_value_u128)
-                    .unwrap_or_default();
-
-                if final_leftover > 0 {
-                    let owner = SubnetOwner::<T>::get(netuid);
-                    let _ = Self::transfer_tao_from_subnet(netuid, &owner, final_leftover.into());
-                }
-
-                DissolvedSubnetSettledAlphaValue::<T>::set(Some(settled_alpha_value_u128));
-            } else {
-                DissolvedSubnetSettledAlphaValue::<T>::set(None);
-            }
-
-            DissolvedSubnetTotalAlphaValue::<T>::set(None);
             LastKeptRawKey::<T>::set(None);
-            DissolvedSubnetSettledAlphaValue::<T>::set(None);
-            if pot_u64 > 0 {
-                SubnetTAO::<T>::remove(netuid);
-                TotalStake::<T>::mutate(|total| *total = total.saturating_sub(pot_tao));
-            }
-        } else {
-            DissolvedSubnetSettledAlphaValue::<T>::set(Some(settled_alpha_value_u128));
         }
+        DissolvedSubnetDistributedTao::<T>::set(Some(distributed_tao_value_u128));
 
         read_all
     }
