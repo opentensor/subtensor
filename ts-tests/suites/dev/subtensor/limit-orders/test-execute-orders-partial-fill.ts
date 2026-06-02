@@ -78,7 +78,7 @@ describeSuite({
                 // Submit first partial fill (60 out of 100 TAO).
                 const firstEnvelope = { ...signed, partial_fill: firstFill };
                 await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([firstEnvelope]).signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeOrders([firstEnvelope], false).signAsync(alice),
                 ]);
 
                 const events = await polkadotJs.query.system.events();
@@ -122,7 +122,7 @@ describeSuite({
                 // First fill: 120 / 200.
                 const firstEnvelope = { ...signed, partial_fill: firstFill };
                 await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([firstEnvelope]).signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeOrders([firstEnvelope], false).signAsync(alice),
                 ]);
 
                 expect(await getOrderStatus(polkadotJs, id)).toBe("PartiallyFilled");
@@ -133,7 +133,7 @@ describeSuite({
                 // envelope changes, per the Rust design.
                 const secondEnvelope = { ...signed, partial_fill: secondFill };
                 await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([secondEnvelope]).signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeOrders([secondEnvelope], false).signAsync(alice),
                 ]);
 
                 const events = await polkadotJs.query.system.events();

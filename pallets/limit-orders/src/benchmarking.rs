@@ -150,7 +150,7 @@ mod benchmarks {
         let caller: T::AccountId = frame_benchmarking::account("caller", 0, 0);
 
         #[extrinsic_call]
-        _(RawOrigin::Signed(caller), bounded_orders);
+        _(RawOrigin::Signed(caller), bounded_orders, false);
     }
 
     /// Worst case: `n` buy orders each with a distinct signer and fee recipient,

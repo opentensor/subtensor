@@ -392,15 +392,23 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Execute a batch of signed limit orders. Admin-gated.
         ///
-        /// Orders whose price condition is not yet met are silently skipped so
-        /// that a single stale order cannot block the rest of the batch.
-        /// Orders that fail for any other reason (expired, bad signature, etc.)
-        /// are also skipped; the admin is expected to filter these off-chain.
+        /// The `should_fail` flag controls how individual order failures are
+        /// handled:
+        ///
+        /// - When `false` (best-effort): orders whose price condition is not yet
+        ///   met are silently skipped so that a single stale order cannot block
+        ///   the rest of the batch. Orders that fail for any other reason
+        ///   (expired, bad signature, etc.) are also skipped; the admin is
+        ///   expected to filter these off-chain.
+        /// - When `true` (all-or-nothing): the first order failure aborts the
+        ///   whole batch by returning the underlying error, reverting any orders
+        ///   already executed in this call.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::execute_orders(orders.len() as u32))]
         pub fn execute_orders(
             origin: OriginFor<T>,
             orders: BoundedVec<SignedOrder<T::AccountId>, T::MaxOrdersPerBatch>,
+            should_fail: bool,
         ) -> DispatchResult {
             let relayer = ensure_signed(origin)?;
             ensure!(
@@ -409,9 +417,13 @@ pub mod pallet {
             );
 
             for signed_order in orders {
-                // Best-effort: individual order failures do not revert the batch.
                 let order_id = Self::derive_order_id(&signed_order.order);
                 if let Err(reason) = Self::try_execute_order(signed_order, order_id, &relayer) {
+                    if should_fail {
+                        // All-or-nothing: abort the batch, reverting prior orders.
+                        return Err(reason);
+                    }
+                    // Best-effort: individual order failures do not revert the batch.
                     Self::deposit_event(Event::OrderSkipped { order_id, reason });
                 }
             }

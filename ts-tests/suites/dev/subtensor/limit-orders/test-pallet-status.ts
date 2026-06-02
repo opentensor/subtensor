@@ -54,7 +54,7 @@ describeSuite({
                 const {
                     result: [attempt],
                 } = await context.createBlock([
-                    await polkadotJs.tx.limitOrders.executeOrders([signed]).signAsync(alice),
+                    await polkadotJs.tx.limitOrders.executeOrders([signed], false).signAsync(alice),
                 ]);
 
                 expect(attempt.successful).toEqual(false);

@@ -90,7 +90,7 @@ describeSuite({
 
                 // Sign the inner execute_orders tx at nonce+1, then get its raw bytes
                 const innerTx = await polkadotJs.tx.limitOrders
-                    .executeOrders([signedOrder])
+                    .executeOrders([signedOrder], false)
                     .signAsync(alice, { nonce: aliceNonce + 1 });
                 const innerTxBytes = innerTx.toU8a();
 
@@ -163,7 +163,7 @@ describeSuite({
                 ).nonce.toNumber() as number;
 
                 const innerTx = await polkadotJs.tx.limitOrders
-                    .executeOrders([signedOrder])
+                    .executeOrders([signedOrder], false)
                     .signAsync(relayer, { nonce: relayerNonce + 1 });
                 const innerTxBytes = innerTx.toU8a();
 
