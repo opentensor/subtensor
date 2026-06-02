@@ -694,6 +694,12 @@ pub mod pallet {
         0
     }
 
+    /// Default value for TAO-in refund deployment block.
+    #[pallet::type_value]
+    pub fn DefaultTaoInRefundDeploymentBlock() -> u64 {
+        0
+    }
+
     /// Default value for weights version key rate limit.
     /// In units of tempos.
     #[pallet::type_value]
@@ -2558,6 +2564,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// ITEM( TaoInRefundDeploymentBlock )
+    #[pallet::storage]
+    pub type TaoInRefundDeploymentBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTaoInRefundDeploymentBlock>;
 
     /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
     #[pallet::storage]
