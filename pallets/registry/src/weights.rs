@@ -36,7 +36,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{traits::Get, weights::{Weight, constants::ParityDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_registry`.
@@ -88,8 +88,8 @@ impl WeightInfo for () {
 		//  Estimated: `3564`
 		// Minimum execution time: 50_534_000 picoseconds.
 		Weight::from_parts(51_626_000, 3564)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Registry::IdentityOf` (r:1 w:1)
 	/// Proof: `Registry::IdentityOf` (`max_values`: None, `max_size`: None, mode: `Measured`)
@@ -101,7 +101,7 @@ impl WeightInfo for () {
 		//  Estimated: `3847`
 		// Minimum execution time: 42_379_000 picoseconds.
 		Weight::from_parts(43_501_000, 3847)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 }

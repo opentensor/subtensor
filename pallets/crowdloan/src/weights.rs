@@ -31,7 +31,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{traits::Get, weights::{Weight, constants::ParityDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_crowdloan`.
@@ -224,8 +224,8 @@ impl WeightInfo for () {
 		//  Estimated: `6148`
 		// Minimum execution time: 58_307_000 picoseconds.
 		Weight::from_parts(59_829_000, 6148)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().writes(5_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -241,8 +241,8 @@ impl WeightInfo for () {
 		//  Estimated: `6148`
 		// Minimum execution time: 65_557_000 picoseconds.
 		Weight::from_parts(66_609_000, 6148)
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(ParityDbWeight::get().reads(5_u64))
+			.saturating_add(ParityDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -256,8 +256,8 @@ impl WeightInfo for () {
 		//  Estimated: `6148`
 		// Minimum execution time: 59_438_000 picoseconds.
 		Weight::from_parts(60_259_000, 6148)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(ParityDbWeight::get().reads(4_u64))
+			.saturating_add(ParityDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -275,8 +275,8 @@ impl WeightInfo for () {
 		//  Estimated: `4197809`
 		// Minimum execution time: 30_264_000 picoseconds.
 		Weight::from_parts(31_507_000, 4197809)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(4_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -293,9 +293,9 @@ impl WeightInfo for () {
 		Weight::from_parts(110_703_000, 3747)
 			// Standard Error: 96_515
 			.saturating_add(Weight::from_parts(39_503_253, 0).saturating_mul(k.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(k.into())))
-			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(k.into())))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().reads((2_u64).saturating_mul(k.into())))
+			.saturating_add(ParityDbWeight::get().writes((2_u64).saturating_mul(k.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(k.into()))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
@@ -312,8 +312,8 @@ impl WeightInfo for () {
 		//  Estimated: `6148`
 		// Minimum execution time: 66_138_000 picoseconds.
 		Weight::from_parts(66_939_000, 6148)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			.saturating_add(ParityDbWeight::get().reads(4_u64))
+			.saturating_add(ParityDbWeight::get().writes(5_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -325,8 +325,8 @@ impl WeightInfo for () {
 		//  Estimated: `3747`
 		// Minimum execution time: 12_639_000 picoseconds.
 		Weight::from_parts(13_259_000, 3747)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -336,8 +336,8 @@ impl WeightInfo for () {
 		//  Estimated: `3747`
 		// Minimum execution time: 11_637_000 picoseconds.
 		Weight::from_parts(12_048_000, 3747)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:1)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -347,8 +347,8 @@ impl WeightInfo for () {
 		//  Estimated: `3747`
 		// Minimum execution time: 11_026_000 picoseconds.
 		Weight::from_parts(11_357_000, 3747)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Crowdloan::Crowdloans` (r:1 w:0)
 	/// Proof: `Crowdloan::Crowdloans` (`max_values`: None, `max_size`: Some(282), added: 2757, mode: `MaxEncodedLen`)
@@ -362,7 +362,7 @@ impl WeightInfo for () {
 		//  Estimated: `3747`
 		// Minimum execution time: 15_263_000 picoseconds.
 		Weight::from_parts(16_024_000, 3747)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 }
