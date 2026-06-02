@@ -2412,6 +2412,7 @@ mod caller_dispatch_tests {
 /// The shared mock keeps rate limiting *dormant* (nothing registered), so these tests opt in by
 /// installing a span-1 limit on `remove_stake`; the rest of the suite is unaffected.
 mod rate_limit_tests {
+    #![allow(clippy::arithmetic_side_effects)]
     use super::*;
     use pallet_rate_limiting::{
         LastSeen, Limits, RateLimit, RateLimitKind, RateLimitTarget, TransactionIdentifier,
@@ -2467,25 +2468,22 @@ mod rate_limit_tests {
 
     /// Set up a subnet with a funded, staked (coldkey, hotkey), returning the staked alpha.
     fn setup_staked(seed: u64) -> (NetUid, U256, U256, AlphaBalance) {
-        let owner_hotkey = U256::from(seed.saturating_add(1));
-        let owner_coldkey = U256::from(seed.saturating_add(2));
-        let coldkey = U256::from(seed.saturating_add(101));
-        let hotkey = U256::from(seed.saturating_add(102));
+        let owner_hotkey = U256::from(seed + 1);
+        let owner_coldkey = U256::from(seed + 2);
+        let coldkey = U256::from(seed + 101);
+        let hotkey = U256::from(seed + 102);
 
         let min_stake = DefaultMinStake::<mock::Test>::get();
-        let stake_amount_raw = min_stake.to_u64().saturating_mul(500);
+        let stake_amount_raw = min_stake.to_u64() * 500;
 
         let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
         mock::setup_reserves(
             netuid,
-            stake_amount_raw.saturating_mul(50).into(),
-            AlphaBalance::from(stake_amount_raw.saturating_mul(100)),
+            (stake_amount_raw * 50).into(),
+            AlphaBalance::from(stake_amount_raw * 100),
         );
         mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
-        add_balance_to_coldkey_account(
-            &coldkey,
-            stake_amount_raw.saturating_add(1_000_000_000).into(),
-        );
+        add_balance_to_coldkey_account(&coldkey, (stake_amount_raw + 1_000_000_000).into());
 
         assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
             RawOrigin::Signed(coldkey).into(),
