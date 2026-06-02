@@ -959,6 +959,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         netuid: NetUid,
         alpha: AlphaBalance,
+        enforce_min_stake: bool,
     ) -> Result<TaoBalance, DispatchError> {
         // Transfer lock (may fail if destination coldkey has a conflicting lock)
         Self::transfer_lock(origin_coldkey, destination_coldkey, netuid, alpha)?;
@@ -1002,11 +1003,12 @@ impl<T: Config> Pallet<T> {
             .saturating_to_num::<u64>()
             .into();
 
-        // Ensure tao_equivalent is above DefaultMinStake
-        ensure!(
-            tao_equivalent >= DefaultMinStake::<T>::get(),
-            Error::<T>::AmountTooLow
-        );
+        if enforce_min_stake {
+            ensure!(
+                tao_equivalent >= DefaultMinStake::<T>::get(),
+                Error::<T>::AmountTooLow
+            );
+        }
 
         // Step 3: Update StakingHotkeys if the hotkey's total alpha, across all subnets, is zero
         // TODO: fix.
