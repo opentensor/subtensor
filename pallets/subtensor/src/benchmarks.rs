@@ -934,7 +934,11 @@ mod pallet_benchmarks {
 
         let _ = Subtensor::<T>::create_account_if_non_existent(&coldkey, &destination);
 
-        StakingOperationRateLimiter::<T>::remove((origin.clone(), coldkey.clone(), netuid));
+        // Worst case for weight: the origin tuple is already rate-limited this block (e.g. a
+        // same-block `add_stake`). A same-netuid move is not rate-limited itself but propagates
+        // the limiter marker to the destination tuple, costing one extra
+        // `StakingOperationRateLimiter` write.
+        Subtensor::<T>::set_stake_operation_limit(&origin, &coldkey, netuid);
 
         #[extrinsic_call]
         _(
@@ -1172,7 +1176,11 @@ mod pallet_benchmarks {
 
         let _ = Subtensor::<T>::create_account_if_non_existent(&dest, &hot);
 
-        StakingOperationRateLimiter::<T>::remove((hot.clone(), coldkey.clone(), netuid));
+        // Worst case for weight: the origin tuple is already rate-limited this block (e.g. a
+        // same-block `add_stake`). A same-netuid transfer is not rate-limited itself but
+        // propagates the limiter marker to the destination tuple, costing one extra
+        // `StakingOperationRateLimiter` write.
+        Subtensor::<T>::set_stake_operation_limit(&hot, &coldkey, netuid);
 
         #[extrinsic_call]
         _(
