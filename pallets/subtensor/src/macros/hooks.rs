@@ -178,7 +178,11 @@ mod hooks {
                 // Fix testnet Subtensor TotalIssuance after the EVM fees issue.
                 .saturating_add(migrations::migrate_fix_total_issuance_evm_fees::migrate_fix_total_issuance_evm_fees::<T>())
                 // Remove deprecated conviction lock storage.
-                .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>());
+                .saturating_add(migrations::migrate_remove_deprecated_conviction_maps::migrate_remove_deprecated_conviction_maps::<T>())
+                // Reset testnet conviction lock storage before deploying the current design.
+                .saturating_add(migrations::migrate_reset_tnet_conviction_locks::migrate_reset_tnet_conviction_locks::<T>())
+                // Capture the runtime-upgrade block for TAO-in refund cutover.
+                .saturating_add(migrations::migrate_tao_in_refund_deployment_block::migrate_tao_in_refund_deployment_block::<T>());
             weight
         }
 

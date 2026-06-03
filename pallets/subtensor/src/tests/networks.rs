@@ -111,6 +111,8 @@ fn dissolve_single_alpha_out_staker_gets_all_tao() {
         let owner_hot = U256::from(20);
         let net = add_dynamic_network(&owner_hot, &owner_cold);
         remove_owner_registration_stake(net);
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::ZERO);
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::ZERO);
 
         // 2. Single α-out staker
         let (s_hot, s_cold) = (U256::from(100), U256::from(200));
@@ -147,6 +149,8 @@ fn dissolve_two_stakers_pro_rata_distribution() {
         let oh = U256::from(51);
         let net = add_dynamic_network(&oh, &oc);
         remove_owner_registration_stake(net);
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::ZERO);
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::ZERO);
 
         // Mark this subnet as *legacy* so owner refund path is enabled.
         let reg_at = NetworkRegisteredAt::<Test>::get(net);
@@ -367,6 +371,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         // Items now REMOVED (not zeroed) by dissolution
         SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(2));
         SubnetAlphaOut::<Test>::insert(net, AlphaBalance::from(3));
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::from(4));
 
         // Prefix / double-map collections
         Keys::<Test>::insert(net, 0u16, owner_hot);
@@ -435,6 +440,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         Yuma3On::<Test>::insert(net, true);
         AlphaValues::<Test>::insert(net, (1u16, 2u16));
         SubtokenEnabled::<Test>::insert(net, true);
+        OwnerCutAutoLockEnabled::<Test>::insert(net, true);
         ImmuneOwnerUidsLimit::<Test>::insert(net, 1u16);
 
         // Per‑subnet vectors / indexes
@@ -522,6 +528,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         // These are now REMOVED
         assert!(!SubnetAlphaIn::<Test>::contains_key(net));
         assert!(!SubnetAlphaOut::<Test>::contains_key(net));
+        assert!(!SubnetProtocolAlpha::<Test>::contains_key(net));
 
         // Collections fully cleared
         assert!(Keys::<Test>::iter_prefix(net).next().is_none());
@@ -590,6 +597,7 @@ fn dissolve_clears_all_per_subnet_storages() {
         assert!(!Yuma3On::<Test>::contains_key(net));
         assert!(!AlphaValues::<Test>::contains_key(net));
         assert!(!SubtokenEnabled::<Test>::contains_key(net));
+        assert!(!OwnerCutAutoLockEnabled::<Test>::contains_key(net));
         assert!(!ImmuneOwnerUidsLimit::<Test>::contains_key(net));
 
         // Per‑subnet vectors / indexes
@@ -689,6 +697,8 @@ fn dissolve_rounding_remainder_distribution() {
         let oh = U256::from(62);
         let net = add_dynamic_network(&oh, &oc);
         remove_owner_registration_stake(net);
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::ZERO);
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::ZERO);
 
         let (s1h, s1c) = (U256::from(63), U256::from(64));
         let (s2h, s2c) = (U256::from(65), U256::from(66));
@@ -719,6 +729,147 @@ fn dissolve_rounding_remainder_distribution() {
         // α records for subnet gone; TAO key gone
         assert!(AlphaV2::<Test>::iter().all(|((_h, _c, n), _)| n != net));
         assert!(!SubnetTAO::<Test>::contains_key(net));
+    });
+}
+
+#[test]
+fn dissolve_protocol_alpha_share_is_not_paid_to_users() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(610);
+        let owner_hot = U256::from(620);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        remove_owner_registration_stake(net);
+
+        // Make this subnet pre-deploy for protocol-alpha accounting.
+        let reg_at = NetworkRegisteredAt::<Test>::get(net);
+        TaoInRefundDeploymentBlock::<Test>::put(reg_at.saturating_add(1));
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::ZERO);
+
+        // Alpha-in is the AMM pool reserve and must NOT participate in the
+        // deregistration settlement for pre-deploy subnets. Only the chain-bought
+        // cached protocol
+        // alpha is converted to TAO pro-rata, exactly like every staker's alpha.
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(100u64));
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::from(50u64));
+
+        let staker_hot = U256::from(630);
+        let staker_cold = U256::from(640);
+        AlphaV2::<Test>::insert((staker_hot, staker_cold, net), sf_from_u64(50u64));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, net, AlphaBalance::from(50u64));
+
+        let pot: u64 = 200;
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
+
+        let staker_before = SubtensorModule::get_coldkey_balance(&staker_cold);
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Settlement denominator = 50 cached protocol alpha + 50 user alpha = 100
+        // (alpha-in is excluded). The user therefore gets 50/100 of the 200 TAO pot,
+        // i.e. 100 TAO. The chain-bought alpha's 100 TAO share is withheld from the
+        // user/owner payout (it is recycled back to the chain, see the dedicated
+        // recycling test below).
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&staker_cold),
+            staker_before + 100.into()
+        );
+        // The owner is not paid the protocol share either (locked balance is zero, so
+        // there is no refund path that could leak it).
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&owner_cold),
+            owner_before
+        );
+        assert!(!SubnetProtocolAlpha::<Test>::contains_key(net));
+    });
+}
+
+#[test]
+fn dissolve_protocol_alpha_post_deploy_includes_alpha_in() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(611);
+        let owner_hot = U256::from(621);
+
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        remove_owner_registration_stake(net);
+
+        // Make this subnet post-deploy for protocol-alpha accounting.
+        TaoInRefundDeploymentBlock::<Test>::put(100);
+        NetworkRegisteredAt::<Test>::insert(net, 101);
+
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::ZERO);
+
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(100u64));
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::from(50u64));
+
+        let staker_hot = U256::from(631);
+        let staker_cold = U256::from(641);
+
+        AlphaV2::<Test>::insert((staker_hot, staker_cold, net), sf_from_u64(50u64));
+        TotalHotkeyAlpha::<Test>::insert(staker_hot, net, AlphaBalance::from(50u64));
+
+        let pot: u64 = 200;
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
+
+        let staker_before = SubtensorModule::get_coldkey_balance(&staker_cold);
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // Post-deploy denominator = 100 alpha-in + 50 cached protocol alpha
+        // + 50 user alpha = 200. The user gets 50/200 of the 200 TAO pot.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&staker_cold),
+            staker_before + 50.into()
+        );
+
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&owner_cold),
+            owner_before
+        );
+
+        assert!(!SubnetProtocolAlpha::<Test>::contains_key(net));
+    });
+}
+#[test]
+fn dissolve_chain_bought_alpha_is_converted_to_tao_and_recycled() {
+    new_test_ext(0).execute_with(|| {
+        let owner_cold = U256::from(710);
+        let owner_hot = U256::from(720);
+        let net = add_dynamic_network(&owner_hot, &owner_cold);
+        remove_owner_registration_stake(net);
+
+        // Make this subnet pre-deploy for protocol-alpha accounting.
+        let reg_at = NetworkRegisteredAt::<Test>::get(net);
+        TaoInRefundDeploymentBlock::<Test>::put(reg_at.saturating_add(1));
+        // No owner refund path: any TAO left on the subnet account is recycled.
+        SubtensorModule::set_subnet_locked_balance(net, TaoBalance::ZERO);
+
+        // Alpha-in is present but ignored on the pre-deploy branch. The cached
+        // protocol alpha is the only claimant, so the entire pot is recycled.
+        SubnetAlphaIn::<Test>::insert(net, AlphaBalance::from(123u64));
+        SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::from(100u64));
+
+        let pot: u64 = 100;
+        SubnetTAO::<Test>::insert(net, TaoBalance::from(pot));
+
+        let issuance_before = TotalIssuance::<Test>::get();
+        let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
+
+        assert_ok!(SubtensorModule::do_dissolve_network(net));
+
+        // There are no stakers, so the entire pot is the chain-bought alpha's TAO
+        // share. It is not paid to the owner; instead it is recycled back to the
+        // chain, which removes it from existence and reduces total issuance.
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&owner_cold),
+            owner_before
+        );
+        assert!(
+            TotalIssuance::<Test>::get() < issuance_before,
+            "recycling the chain-bought alpha's TAO must reduce total issuance"
+        );
+        assert!(!SubnetProtocolAlpha::<Test>::contains_key(net));
     });
 }
 
@@ -764,6 +915,9 @@ fn destroy_alpha_out_multiple_stakers_pro_rata() {
         ));
 
         // 4. α-out snapshot
+
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::ZERO);
+        SubnetProtocolAlpha::<Test>::insert(netuid, AlphaBalance::ZERO);
         let a1: u128 = sf_to_u128(&AlphaV2::<Test>::get((h1, c1, netuid)));
         let a2: u128 = sf_to_u128(&AlphaV2::<Test>::get((h2, c2, netuid)));
         let atotal = a1 + a2;
@@ -897,6 +1051,9 @@ fn destroy_alpha_out_many_stakers_complex_distribution() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         // ── 5) expected τ share per pallet algorithm (incl. remainder) ─────
+
+        SubnetAlphaIn::<Test>::insert(netuid, AlphaBalance::ZERO);
+        SubnetProtocolAlpha::<Test>::insert(netuid, AlphaBalance::ZERO);
         let mut share = [0u64; N];
         let mut rem = [0u128; N];
         let mut paid: u128 = 0;
@@ -1968,6 +2125,11 @@ fn massive_dissolve_refund_and_reregistration_flow_is_lossless_and_cleans_state(
         // 5) Compute Hamilton-apportionment BASE shares per cold and total leftover
         //    from the **pair-level** pre‑LP α snapshot; also count pairs per cold.
         // ────────────────────────────────────────────────────────────────────
+        for &net in nets.iter() {
+            SubnetAlphaIn::<Test>::insert(net, AlphaBalance::ZERO);
+            SubnetProtocolAlpha::<Test>::insert(net, AlphaBalance::ZERO);
+        }
+
         let mut base_share_cold: BTreeMap<U256, u64> =
             cold_lps.iter().copied().map(|c| (c, 0_u64)).collect();
         let mut pair_count_cold: BTreeMap<U256, u32> =
@@ -2318,9 +2480,9 @@ fn dissolve_clears_all_lock_maps_for_removed_network() {
         OwnerLock::<Test>::insert(other_net, lock_b.clone());
 
         // --- DecayingLock
-        DecayingLock::<Test>::insert(cold_1, net, true);
-        DecayingLock::<Test>::insert(cold_2, net, true);
-        DecayingLock::<Test>::insert(cold_1, other_net, true);
+        DecayingLock::<Test>::insert(cold_1, net, false);
+        DecayingLock::<Test>::insert(cold_2, net, false);
+        DecayingLock::<Test>::insert(cold_1, other_net, false);
 
         // Sanity checks before dissolve
         assert!(Lock::<Test>::contains_key((cold_1, net, hot_1)));

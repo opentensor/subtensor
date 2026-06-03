@@ -694,6 +694,12 @@ pub mod pallet {
         0
     }
 
+    /// Default value for TAO-in refund deployment block.
+    #[pallet::type_value]
+    pub fn DefaultTaoInRefundDeploymentBlock() -> u64 {
+        0
+    }
+
     /// Default value for weights version key rate limit.
     /// In units of tempos.
     #[pallet::type_value]
@@ -998,7 +1004,7 @@ pub mod pallet {
     /// Default minimum stake.
     #[pallet::type_value]
     pub fn DefaultMinStake<T: Config>() -> TaoBalance {
-        2_000_000.into()
+        T::InitialMinStake::get().into()
     }
 
     /// Default unicode vector for tau symbol.
@@ -1385,6 +1391,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetAlphaOut<T: Config> =
         StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
+    /// --- MAP ( netuid ) --> protocol_alpha | Returns the protocol-owned alpha cached for the subnet.
+    #[pallet::storage]
+    pub type SubnetProtocolAlpha<T: Config> =
+        StorageMap<_, Identity, NetUid, AlphaBalance, ValueQuery, DefaultZeroAlpha<T>>;
 
     /// --- MAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
     #[pallet::storage]
@@ -1556,26 +1566,42 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    /// --- MAP ( netuid ) --> LockState | Aggregate owner-coldkey lock for a subnet.
+    /// --- MAP ( netuid ) --> LockState | Total perpetual lock to the owner hotkey for a subnet.
     #[pallet::storage]
     pub type OwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
 
-    /// --- DMAP ( coldkey, netuid ) --> false | When present, this coldkey's lock decays.
-    /// Missing entries mean the lock is perpetual.
+    /// --- MAP ( netuid ) --> LockState | Total decaying lock to the owner hotkey for a subnet.
+    #[pallet::storage]
+    pub type DecayingOwnerLock<T: Config> = StorageMap<_, Identity, NetUid, LockState, OptionQuery>;
+
+    /// --- DMAP ( coldkey, netuid ) --> false | When present and false, this coldkey's lock is perpetual.
+    /// Missing entries mean the lock decays by default.
     #[pallet::storage]
     pub type DecayingLock<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, NetUid, bool, OptionQuery>;
 
-    /// Default unlock timescale: 90% decay over ~365.25 days at 12s blocks.
+    /// Default value for owner cut auto-locking.
     #[pallet::type_value]
-    pub fn DefaultUnlockRate<T: Config>() -> u64 {
-        1_142_108
+    pub fn DefaultOwnerCutAutoLockEnabled<T: Config>() -> bool {
+        false
     }
 
-    /// Default maturity timescale: Conviction is ~5.2x faster than the default unlock rate.
+    /// --- MAP ( netuid ) --> bool | Whether subnet owner cut should be auto-locked.
+    /// Missing entries default to true, so auto-locking is enabled unless explicitly disabled.
+    #[pallet::storage]
+    pub type OwnerCutAutoLockEnabled<T: Config> =
+        StorageMap<_, Identity, NetUid, bool, ValueQuery, DefaultOwnerCutAutoLockEnabled<T>>;
+
+    /// Default unlock timescale: 50% lock back in ~90 days.
+    #[pallet::type_value]
+    pub fn DefaultUnlockRate<T: Config>() -> u64 {
+        934_866
+    }
+
+    /// Default maturity timescale: 50% conviction in ~90 days.
     #[pallet::type_value]
     pub fn DefaultMaturityRate<T: Config>() -> u64 {
-        216_000
+        934_866
     }
 
     /// --- ITEM( maturity_rate ) | Decay timescale in blocks for lock conviction.
@@ -2538,6 +2564,11 @@ pub mod pallet {
     #[pallet::storage]
     pub type NetworkRegistrationStartBlock<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkRegistrationStartBlock<T>>;
+
+    /// ITEM( TaoInRefundDeploymentBlock )
+    #[pallet::storage]
+    pub type TaoInRefundDeploymentBlock<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTaoInRefundDeploymentBlock>;
 
     /// --- MAP ( netuid ) --> minimum required number of non-immortal & non-immune UIDs
     #[pallet::storage]
