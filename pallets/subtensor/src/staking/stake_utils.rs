@@ -1040,6 +1040,16 @@ impl<T: Config> Pallet<T> {
             0_u64, // 0 fee
         ));
 
+        // Carry the per-block staking-operation limit across the transfer. Same-netuid
+        // transfers/moves are not rate-limited themselves (no AMM price impact), but if the
+        // origin tuple is already limited this block (e.g. a same-block `add_stake` set the
+        // marker), we propagate it to the destination tuple. Otherwise a same-block `add_stake`
+        // could be laundered to a fresh (hotkey, coldkey) tuple and then removed / swapped /
+        // cross-subnet transferred within the same block, bypassing the limiter.
+        if StakingOperationRateLimiter::<T>::contains_key((origin_hotkey, origin_coldkey, netuid)) {
+            Self::set_stake_operation_limit(destination_hotkey, destination_coldkey, netuid);
+        }
+
         Ok(tao_equivalent)
     }
 

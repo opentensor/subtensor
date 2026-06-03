@@ -1919,6 +1919,83 @@ fn test_transfer_stake_same_netuid_not_rate_limited() {
 }
 
 #[test]
+fn test_transfer_stake_same_netuid_propagates_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
+        let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        let _ = SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&destination_coldkey, &hotkey);
+        add_balance_to_coldkey_account(&origin_coldkey, stake_amount.into());
+
+        // add_stake sets the limiter for the origin tuple (hotkey, origin_coldkey, netuid).
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &origin_coldkey,
+            netuid,
+            stake_amount.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            true,
+            false,
+        )
+        .unwrap();
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &origin_coldkey,
+            netuid,
+        );
+
+        // Same-netuid transfer to a different coldkey is allowed (no AMM price impact)...
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            netuid,
+            netuid,
+            alpha
+        ));
+
+        // ...but the limiter marker is PROPAGATED to the destination tuple, closing the
+        // laundering bypass: the moved stake cannot be removed/swapped/cross-subnet transferred
+        // from the destination tuple within the same block.
+        assert!(StakingOperationRateLimiter::<Test>::contains_key((
+            hotkey,
+            destination_coldkey,
+            netuid
+        )));
+
+        let moved_alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &destination_coldkey,
+            netuid,
+        );
+        assert_err!(
+            SubtensorModule::remove_stake(
+                RuntimeOrigin::signed(destination_coldkey),
+                hotkey,
+                netuid,
+                moved_alpha
+            ),
+            Error::<Test>::StakingOperationRateLimitExceeded
+        );
+
+        // The limiter clears at the block boundary, so removal works in the next block.
+        next_block();
+        assert!(!StakingOperationRateLimiter::<Test>::contains_key((
+            hotkey,
+            destination_coldkey,
+            netuid
+        )));
+    });
+}
+
+#[test]
 fn test_transfer_stake_doesnt_limit_destination_coldkey() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
