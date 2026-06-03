@@ -18,12 +18,11 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -44,12 +43,11 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -302,7 +300,6 @@ mod tests {
         pallet_subtensor::Pallet::<Runtime>::set_network_registration_allowed(netuid, true);
         pallet_subtensor::Pallet::<Runtime>::set_burn(netuid, REGISTRATION_BURN.into());
         pallet_subtensor::Pallet::<Runtime>::set_max_allowed_uids(netuid, 4096);
-        pallet_subtensor::Pallet::<Runtime>::set_weights_set_rate_limit(netuid, 0);
         pallet_subtensor::Pallet::<Runtime>::set_tempo(netuid, TEMPO);
         pallet_subtensor::Pallet::<Runtime>::set_commit_reveal_weights_enabled(netuid, true);
         pallet_subtensor::Pallet::<Runtime>::set_reveal_period(netuid, REVEAL_PERIOD)

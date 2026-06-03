@@ -87,13 +87,12 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -116,13 +115,12 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + Into<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -675,14 +673,13 @@ impl<R> PrecompileExt<R::AccountId> for StakingPrecompile<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -706,14 +703,13 @@ impl<R> StakingPrecompile<R>
 where
     R: frame_system::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
         + pallet_balances::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]>,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -1070,11 +1066,6 @@ mod tests {
 
         fund_account(&source_account, COLDKEY_BALANCE);
         add_stake_v2(source, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
-        pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-            hotkey.clone(),
-            source_account.clone(),
-            netuid,
-        ));
 
         (
             netuid,
@@ -1269,11 +1260,6 @@ mod tests {
 
             fund_account(&caller_account, COLDKEY_BALANCE);
             add_stake_v1(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             let precompiles = precompiles::<StakingPrecompile<Runtime>>();
             let precompile_addr = addr_from_index(StakingPrecompile::<Runtime>::INDEX);
@@ -1309,11 +1295,6 @@ mod tests {
 
             fund_account(&caller_account, COLDKEY_BALANCE);
             add_stake_v2(caller, &hotkey, TEST_NETUID_U16, INITIAL_STAKE_RAO);
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             let precompiles = precompiles::<StakingPrecompileV2<Runtime>>();
             let precompile_addr = addr_from_index(StakingPrecompileV2::<Runtime>::INDEX);
@@ -1402,11 +1383,6 @@ mod tests {
                     ),
                 )
                 .execute_returns(());
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             let stake_before = stake_for(&hotkey, &caller_account, netuid);
             precompiles
@@ -1458,11 +1434,6 @@ mod tests {
                     ),
                 )
                 .execute_returns(());
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             assert!(stake_for(&hotkey, &caller_account, netuid) > 0);
             precompiles
@@ -1512,11 +1483,6 @@ mod tests {
                     ),
                 )
                 .execute_returns(());
-            pallet_subtensor::StakingOperationRateLimiter::<Runtime>::remove((
-                hotkey.clone(),
-                caller_account.clone(),
-                netuid,
-            ));
 
             assert!(stake_for(&hotkey, &caller_account, netuid) > 0);
             precompiles

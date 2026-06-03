@@ -6,8 +6,10 @@ use core::{marker::PhantomData, num::NonZeroU64};
 
 use fp_evm::{Context, PrecompileResult};
 use frame_support::{
-    PalletId, derive_impl, parameter_types,
-    traits::{Everything, InherentBuilder, PrivilegeCmp},
+    PalletId, derive_impl,
+    dispatch::DispatchResult,
+    parameter_types,
+    traits::{EnsureOrigin, Everything, InherentBuilder, PrivilegeCmp},
     weights::Weight,
 };
 use frame_system::{EnsureRoot, limits, offchain::CreateTransactionBase};
@@ -22,10 +24,15 @@ use sp_runtime::{
     testing::TestXt,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
 };
+use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AuthorshipInfo, NetUid, ProxyType, TaoBalance};
+use subtensor_runtime_common::{
+    AuthorshipInfo, NetUid, ProxyType, TaoBalance,
+    rate_limiting::{GroupId as RateLimitGroupId, RateLimitUsageKey},
+};
 
 use crate::PrecompileExt;
+use crate::extensions::PrecompileTxExtensionProvider;
 
 pub(crate) type AccountId = AccountId32;
 pub(crate) type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -48,6 +55,7 @@ frame_support::construct_runtime!(
         Evm: pallet_evm = 12,
         AdminUtils: pallet_admin_utils = 13,
         EVMChainId: pallet_evm_chain_id = 14,
+        RateLimiting: pallet_rate_limiting = 16,
     }
 );
 
@@ -107,9 +115,6 @@ parameter_types! {
     pub const InitialMinChildKeyTake: u16 = 0;
     pub const InitialMaxChildKeyTake: u16 = 11_796;
     pub const InitialWeightsVersionKey: u64 = 0;
-    pub const InitialServingRateLimit: u64 = 0;
-    pub const InitialTxRateLimit: u64 = 0;
-    pub const InitialTxDelegateTakeRateLimit: u64 = 0;
     pub const InitialTxChildKeyTakeRateLimit: u64 = 0;
     pub const InitialBurn: TaoBalance = TaoBalance::new(0);
     pub const InitialMinBurn: TaoBalance = TaoBalance::new(500_000);
@@ -135,7 +140,6 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: TaoBalance = TaoBalance::new(100_000_000_000);
     pub const InitialSubnetOwnerCut: u16 = 0;
     pub const InitialNetworkLockReductionInterval: u64 = 2;
-    pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: TaoBalance = TaoBalance::new(1_000_000_000);
     pub const InitialAlphaHigh: u16 = 58_982;
     pub const InitialAlphaLow: u16 = 45_875;
@@ -451,9 +455,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
-    type InitialServingRateLimit = InitialServingRateLimit;
-    type InitialTxRateLimit = InitialTxRateLimit;
-    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialTxChildKeyTakeRateLimit = InitialTxChildKeyTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
@@ -466,7 +467,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialNetworkRateLimit = InitialNetworkRateLimit;
+    type RateLimiting = RateLimiting;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
@@ -522,6 +523,79 @@ impl pallet_subtensor_proxy::Config for Runtime {
     type AnnouncementDepositBase = AnnouncementDepositBase;
     type AnnouncementDepositFactor = AnnouncementDepositFactor;
     type BlockNumberProvider = System;
+}
+
+parameter_types! {
+    pub const DefaultLimitSettingRule: () = ();
+    pub const RateLimitingMaxGroupMembers: u32 = 64;
+    pub const RateLimitingMaxGroupNameLength: u32 = 64;
+}
+
+pub struct LimitSettingOrigin;
+impl pallet_rate_limiting::EnsureLimitSettingRule<RuntimeOrigin, (), NetUid>
+    for LimitSettingOrigin
+{
+    fn ensure_origin(origin: RuntimeOrigin, _rule: &(), _scope: &Option<NetUid>) -> DispatchResult {
+        EnsureRoot::<AccountId>::ensure_origin(origin)
+            .map(|_| ())
+            .map_err(|_| sp_runtime::DispatchError::BadOrigin)
+    }
+}
+
+pub struct MockScopeResolver;
+impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, u64>
+    for MockScopeResolver
+{
+    fn context(_origin: &RuntimeOrigin, _call: &RuntimeCall) -> Option<BTreeSet<NetUid>> {
+        None
+    }
+}
+
+pub struct MockUsageResolver;
+impl
+    pallet_rate_limiting::RateLimitUsageResolver<
+        RuntimeOrigin,
+        RuntimeCall,
+        RateLimitUsageKey<AccountId>,
+    > for MockUsageResolver
+{
+    fn context(
+        _origin: &RuntimeOrigin,
+        _call: &RuntimeCall,
+    ) -> Option<BTreeSet<RateLimitUsageKey<AccountId>>> {
+        None
+    }
+}
+
+impl pallet_rate_limiting::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LimitSettingRule = ();
+    type DefaultLimitSettingRule = DefaultLimitSettingRule;
+    type LimitSettingOrigin = LimitSettingOrigin;
+    type LimitScope = NetUid;
+    type LimitScopeResolver = MockScopeResolver;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+    type UsageResolver = MockUsageResolver;
+    type GroupId = RateLimitGroupId;
+    type MaxGroupMembers = RateLimitingMaxGroupMembers;
+    type MaxGroupNameLength = RateLimitingMaxGroupNameLength;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
+}
+
+impl PrecompileTxExtensionProvider for Runtime {
+    type Extensions = (
+        pallet_subtensor::SubtensorTransactionExtension<Runtime>,
+        pallet_rate_limiting::RateLimitTransactionExtension<Runtime>,
+    );
+
+    fn tx_extensions() -> Self::Extensions {
+        (
+            pallet_subtensor::SubtensorTransactionExtension::<Runtime>::new(),
+            pallet_rate_limiting::RateLimitTransactionExtension::<Runtime>::new(),
+        )
+    }
 }
 
 pub(crate) struct SinglePrecompileSet<P>(PhantomData<P>);

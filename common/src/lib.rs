@@ -17,10 +17,13 @@ use subtensor_macros::freeze_struct;
 pub use currency::*;
 pub use evm_context::*;
 pub use transaction_error::*;
+pub use tx_extension::*;
 
 mod currency;
 mod evm_context;
+pub mod rate_limiting;
 mod transaction_error;
+mod tx_extension;
 
 /// Balance of an account.
 pub type Balance = TaoBalance;

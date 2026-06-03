@@ -2,7 +2,7 @@
 #
 # (Re)generate polkadot-api type descriptors using a running node.
 # Checks that the node binary exists before running.
-# Generates types only if they are missing or empty.
+# Generates types if they are missing or older than the node binary.
 #
 # Usage:
 #   ./generate-types.sh
@@ -27,12 +27,19 @@ if [ ! -d "$DESCRIPTORS_DIR" ] || [ -z "$(ls -A "$DESCRIPTORS_DIR" 2>/dev/null)"
   echo "==> Type descriptors not found or empty, will generate..."
   GENERATE_TYPES=true
 else
-  echo "==> Type descriptors already exist, skipping generation."
+  BINARY_MTIME=$(stat -f "%m" "$BINARY")
+  DESCRIPTORS_MTIME=$(find "$DESCRIPTORS_DIR" -type f -exec stat -f "%m" {} \; | sort -nr | head -1)
+  if [ -z "$DESCRIPTORS_MTIME" ] || [ "$BINARY_MTIME" -gt "$DESCRIPTORS_MTIME" ]; then
+    echo "==> Node binary is newer than descriptors, will regenerate..."
+    GENERATE_TYPES=true
+  else
+    echo "==> Types are up-to-date, nothing to do."
+  fi
 fi
 
 if [ "$GENERATE_TYPES" = true ]; then
   echo "==> Starting dev node (logs at $NODE_LOG)..."
-  "$BINARY" --one --dev &>"$NODE_LOG" &
+  "$BINARY" --one --dev --offchain-worker never --no-prometheus &>"$NODE_LOG" &
   NODE_PID=$!
   trap "kill $NODE_PID 2>/dev/null; wait $NODE_PID 2>/dev/null || true; exit 0" EXIT
 
@@ -56,6 +63,4 @@ if [ "$GENERATE_TYPES" = true ]; then
 
   echo "==> Done generating types."
   exit 0
-else
-  echo "==> Types are up-to-date, nothing to do."
 fi

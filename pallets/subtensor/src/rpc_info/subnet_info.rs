@@ -510,11 +510,6 @@ impl<T: Config> Pallet<T> {
             )
                 .into(),
             (
-                "weights_rate_limit",
-                HyperparamValue::U64(Self::get_weights_set_rate_limit(netuid).into()),
-            )
-                .into(),
-            (
                 "activity_cutoff",
                 HyperparamValue::U16(Self::get_activity_cutoff(netuid).into()),
             )
@@ -557,11 +552,6 @@ impl<T: Config> Pallet<T> {
             (
                 "max_regs_per_block",
                 HyperparamValue::U16(Self::get_max_registrations_per_block(netuid).into()),
-            )
-                .into(),
-            (
-                "serving_rate_limit",
-                HyperparamValue::U64(Self::get_serving_rate_limit(netuid).into()),
             )
                 .into(),
             (

@@ -24,13 +24,12 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + ByteArray,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>
@@ -52,13 +51,12 @@ where
     R: frame_system::Config
         + pallet_balances::Config
         + pallet_evm::Config
+        + pallet_rate_limiting::Config<RuntimeCall = <R as frame_system::Config>::RuntimeCall>
         + pallet_subtensor::Config
         + pallet_crowdloan::Config
         + pallet_shield::Config
         + pallet_subtensor_proxy::Config
-        + Send
-        + Sync
-        + scale_info::TypeInfo,
+        + crate::PrecompileRuntime,
     R::AccountId: From<[u8; 32]> + ByteArray,
     <R as frame_system::Config>::RuntimeOrigin: AsSystemOriginSigner<R::AccountId> + Clone,
     <R as frame_system::Config>::RuntimeCall: From<pallet_subtensor::Call<R>>

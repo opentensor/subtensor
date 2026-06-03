@@ -51,10 +51,6 @@ impl<T: Config> Pallet<T> {
     ///
     /// * 'InvalidIpAddress':
     ///     - The numerically encoded ip address does not resolve to a proper ip.
-    ///
-    /// * 'ServingRateLimitExceeded':
-    ///     - Attempting to set prometheus information withing the rate limit min.
-    ///
     pub fn do_serve_axon(
         origin: OriginFor<T>,
         netuid: NetUid,
@@ -155,10 +151,6 @@ impl<T: Config> Pallet<T> {
     ///
     /// * 'InvalidIpAddress':
     ///     - The numerically encoded ip address does not resolve to a proper ip.
-    ///
-    /// * 'ServingRateLimitExceeded':
-    ///     - Attempting to set prometheus information withing the rate limit min.
-    ///
     pub fn do_serve_prometheus(
         origin: OriginFor<T>,
         netuid: NetUid,
@@ -187,26 +179,6 @@ impl<T: Config> Pallet<T> {
     /********************************
      --==[[  Helper functions   ]]==--
     *********************************/
-
-    pub fn axon_passes_rate_limit(
-        netuid: NetUid,
-        prev_axon_info: &AxonInfoOf,
-        current_block: u64,
-    ) -> bool {
-        let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
-        let last_serve = prev_axon_info.block;
-        rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
-    }
-
-    pub fn prometheus_passes_rate_limit(
-        netuid: NetUid,
-        prev_prometheus_info: &PrometheusInfoOf,
-        current_block: u64,
-    ) -> bool {
-        let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
-        let last_serve = prev_prometheus_info.block;
-        rate_limit == 0 || last_serve == 0 || current_block.saturating_sub(last_serve) >= rate_limit
-    }
 
     pub fn get_axon_info(netuid: NetUid, hotkey: &T::AccountId) -> AxonInfoOf {
         if let Some(axons) = Axons::<T>::get(netuid, hotkey) {
@@ -313,11 +285,6 @@ impl<T: Config> Pallet<T> {
 
         // Get the previous axon information.
         let mut prev_axon = Self::get_axon_info(netuid, hotkey_id);
-        let current_block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            Self::axon_passes_rate_limit(netuid, &prev_axon, current_block),
-            Error::<T>::ServingRateLimitExceeded
-        );
 
         // Validate axon data with delegate func
         prev_axon.block = Self::get_current_block_as_u64();
@@ -359,11 +326,6 @@ impl<T: Config> Pallet<T> {
         );
 
         let mut prev_prometheus = Self::get_prometheus_info(netuid, hotkey_id);
-        let current_block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            Self::prometheus_passes_rate_limit(netuid, &prev_prometheus, current_block),
-            Error::<T>::ServingRateLimitExceeded
-        );
 
         prev_prometheus.block = Self::get_current_block_as_u64();
         prev_prometheus.version = version;

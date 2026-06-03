@@ -624,37 +624,6 @@ fn extension_associate_evm_key_rejects_uid_not_found() {
 }
 
 #[test]
-fn extension_register_network_rejects_global_rate_limit() {
-    new_test_ext(0).execute_with(|| {
-        let limit = 50u64;
-        NetworkRateLimit::<Test>::put(limit);
-        System::set_block_number(200u64.into());
-        SubtensorModule::set_network_last_lock_block(170);
-
-        let coldkey = U256::from(70);
-        let hotkey = U256::from(71);
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::register_network { hotkey });
-        let err = validate_signed(coldkey, &call).unwrap_err();
-        assert_eq!(err, CustomTransactionError::RateLimitExceeded.into());
-    });
-}
-
-#[test]
-fn extension_register_network_accepts_after_global_cooldown() {
-    new_test_ext(0).execute_with(|| {
-        let limit = 50u64;
-        NetworkRateLimit::<Test>::put(limit);
-        System::set_block_number(200u64.into());
-        SubtensorModule::set_network_last_lock_block(150);
-
-        let coldkey = U256::from(72);
-        let hotkey = U256::from(73);
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::register_network { hotkey });
-        assert!(validate_signed(coldkey, &call).is_ok());
-    });
-}
-
-#[test]
 fn extension_associate_evm_key_rejects_associate_rate_limit() {
     new_test_ext(0).execute_with(|| {
         let netuid = NetUid::from(1);

@@ -37,6 +37,7 @@ substrate-fixed.workspace = true
 pallet-subtensor.workspace = true
 pallet-subtensor-swap.workspace = true
 pallet-admin-utils.workspace = true
+pallet-rate-limiting.workspace = true
 subtensor-swap-interface.workspace = true
 pallet-crowdloan.workspace = true
 pallet-shield.workspace = true
@@ -67,6 +68,7 @@ std = [
 	"pallet-evm/std",
 	"pallet-preimage/std",
 	"pallet-scheduler/std",
+	"pallet-rate-limiting/std",
 	"pallet-subtensor-proxy/std",
 	"pallet-subtensor-swap/std",
 	"pallet-subtensor/std",
@@ -99,6 +101,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"subtensor-runtime-common/runtime-benchmarks",
+	"pallet-rate-limiting/runtime-benchmarks",
 ]
 
 [dev-dependencies]

@@ -8,7 +8,7 @@ use core::num::NonZeroU64;
 
 use frame_support::dispatch::DispatchResult;
 use frame_support::pallet_prelude::Zero;
-use frame_support::traits::{Contains, Everything, InherentBuilder, InsideBoth};
+use frame_support::traits::{Contains, EnsureOrigin, Everything, InherentBuilder, InsideBoth};
 use frame_support::weights::Weight;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{PalletId, derive_impl};
@@ -19,6 +19,7 @@ use pallet_contracts::HoldReason as ContractsHoldReason;
 use pallet_subtensor::*;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_utility as pallet_utility;
+use rate_limiting_interface::{RateLimitingInterface, TryIntoRateLimitTarget};
 use sp_core::{ConstU64, H256, U256, offchain::KeyTypeId};
 use sp_runtime::Perbill;
 use sp_runtime::{
@@ -28,6 +29,7 @@ use sp_runtime::{
 use sp_std::{cell::RefCell, cmp::Ordering, sync::OnceLock};
 use subtensor_runtime_common::{
     AlphaBalance, AuthorshipInfo, NetUid, Saturating, TaoBalance, Token,
+    rate_limiting::RateLimitUsageKey,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -48,6 +50,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage} = 14,
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 15,
         Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 16,
+        RateLimiting: pallet_rate_limiting = 17,
     }
 );
 
@@ -305,9 +308,6 @@ parameter_types! {
     pub const InitialMinChildKeyTake: u16 = 0; // 0 %;
     pub const InitialMaxChildKeyTake: u16 = 11_796; // 18 %;
     pub const InitialWeightsVersionKey: u16 = 0;
-    pub const InitialServingRateLimit: u64 = 0; // No limit.
-    pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
-    pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialTxChildKeyTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 500_000;
@@ -334,7 +334,6 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
@@ -393,9 +392,6 @@ impl pallet_subtensor::Config for Test {
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
-    type InitialServingRateLimit = InitialServingRateLimit;
-    type InitialTxRateLimit = InitialTxRateLimit;
-    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -407,7 +403,6 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
-    type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
@@ -429,6 +424,7 @@ impl pallet_subtensor::Config for Test {
     type GetCommitments = ();
     type MaxImmuneUidsPercentage = MaxImmuneUidsPercentage;
     type CommitmentsInterface = CommitmentsI;
+    type RateLimiting = NoRateLimiting;
     type EvmKeyAssociateRateLimit = EvmKeyAssociateRateLimit;
     type AuthorshipProvider = MockAuthorshipProvider;
     type SubtensorPalletId = SubtensorPalletId;
@@ -471,6 +467,226 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
 pub struct CommitmentsI;
 impl CommitmentsInterface for CommitmentsI {
     fn purge_netuid(_netuid: NetUid) {}
+}
+
+pub struct NoRateLimiting;
+
+impl RateLimitingInterface for NoRateLimiting {
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
+    type CallMetadata = RuntimeCall;
+    type Limit = BlockNumber;
+    type Scope = subtensor_runtime_common::NetUid;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+
+    fn rate_limit<TargetArg>(_target: TargetArg, _scope: Option<Self::Scope>) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+    ) -> Option<Self::Limit>
+    where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+        None
+    }
+
+    fn set_last_seen<TargetArg>(
+        _target: TargetArg,
+        _usage_key: Option<Self::UsageKey>,
+        _block: Option<Self::Limit>,
+    ) where
+        TargetArg: TryIntoRateLimitTarget<Self::GroupId>,
+    {
+    }
+}
+
+// ---------------------------------------------------------------------------
+// `pallet-rate-limiting` wiring.
+//
+// This mirrors (a minimal slice of) the real runtime so the chain-extension dispatch path can be
+// exercised against the transaction-extension tuple. It is intentionally *dormant* by default:
+// `new_test_ext` registers no staking limit, so `is_registered()` is false and the extension is a
+// no-op for the existing test suite. The dedicated `rate_limit_tests` module opts in by registering
+// a limit in its own setup, so other tests are never rate limited.
+// ---------------------------------------------------------------------------
+
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    codec::Encode,
+    codec::Decode,
+    codec::DecodeWithMemTracking,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    scale_info::TypeInfo,
+    codec::MaxEncodedLen,
+    Debug,
+)]
+pub enum RateLimitSettingRule {
+    RootOnly,
+}
+
+parameter_types! {
+    pub const DefaultRateLimitSettingRule: RateLimitSettingRule = RateLimitSettingRule::RootOnly;
+}
+
+pub struct RateLimitSettingOrigin;
+
+impl pallet_rate_limiting::EnsureLimitSettingRule<RuntimeOrigin, RateLimitSettingRule, NetUid>
+    for RateLimitSettingOrigin
+{
+    fn ensure_origin(
+        origin: RuntimeOrigin,
+        rule: &RateLimitSettingRule,
+        _scope: &Option<NetUid>,
+    ) -> DispatchResult {
+        match rule {
+            RateLimitSettingRule::RootOnly => EnsureRoot::<AccountId>::ensure_origin(origin)
+                .map(|_| ())
+                .map_err(Into::into),
+        }
+    }
+}
+
+pub struct TestScopeResolver;
+pub struct TestUsageResolver;
+
+impl pallet_rate_limiting::RateLimitScopeResolver<RuntimeOrigin, RuntimeCall, NetUid, BlockNumber>
+    for TestScopeResolver
+{
+    fn context(
+        _origin: &RuntimeOrigin,
+        _call: &RuntimeCall,
+    ) -> Option<sp_std::collections::btree_set::BTreeSet<NetUid>> {
+        // Staking limits are global (no per-scope split) in this mock.
+        None
+    }
+
+    fn should_bypass(
+        _origin: &RuntimeOrigin,
+        call: &RuntimeCall,
+    ) -> pallet_rate_limiting::BypassDecision {
+        // Mirror the runtime: add_stake records usage but is not itself rate limited; all other
+        // staking ops are enforced.
+        if let RuntimeCall::SubtensorModule(
+            pallet_subtensor::Call::add_stake { .. }
+            | pallet_subtensor::Call::add_stake_limit { .. },
+        ) = call
+        {
+            return pallet_rate_limiting::BypassDecision::bypass_and_record();
+        }
+        pallet_rate_limiting::BypassDecision::enforce_and_record()
+    }
+
+    fn adjust_span(_origin: &RuntimeOrigin, _call: &RuntimeCall, span: BlockNumber) -> BlockNumber {
+        span
+    }
+}
+
+impl
+    pallet_rate_limiting::RateLimitUsageResolver<
+        RuntimeOrigin,
+        RuntimeCall,
+        RateLimitUsageKey<AccountId>,
+    > for TestUsageResolver
+{
+    fn context(
+        origin: &RuntimeOrigin,
+        call: &RuntimeCall,
+    ) -> Option<sp_std::collections::btree_set::BTreeSet<RateLimitUsageKey<AccountId>>> {
+        let RuntimeCall::SubtensorModule(inner) = call else {
+            return None;
+        };
+        let coldkey = match origin.clone().into() {
+            Ok(RawOrigin::Signed(who)) => who,
+            _ => return None,
+        };
+        let (hotkey, netuid) = match inner {
+            pallet_subtensor::Call::add_stake { hotkey, netuid, .. }
+            | pallet_subtensor::Call::add_stake_limit { hotkey, netuid, .. }
+            | pallet_subtensor::Call::remove_stake { hotkey, netuid, .. }
+            | pallet_subtensor::Call::remove_stake_limit { hotkey, netuid, .. }
+            | pallet_subtensor::Call::remove_stake_full_limit { hotkey, netuid, .. }
+            | pallet_subtensor::Call::transfer_stake {
+                hotkey,
+                origin_netuid: netuid,
+                ..
+            } => (*hotkey, *netuid),
+            pallet_subtensor::Call::swap_stake {
+                hotkey,
+                destination_netuid: netuid,
+                ..
+            }
+            | pallet_subtensor::Call::swap_stake_limit {
+                hotkey,
+                destination_netuid: netuid,
+                ..
+            } => (*hotkey, *netuid),
+            pallet_subtensor::Call::move_stake {
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                ..
+            } => {
+                if origin_netuid == destination_netuid {
+                    (*origin_hotkey, *origin_netuid)
+                } else {
+                    (*destination_hotkey, *destination_netuid)
+                }
+            }
+            _ => return None,
+        };
+        let mut usage = sp_std::collections::btree_set::BTreeSet::new();
+        usage.insert(RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
+            coldkey,
+            hotkey,
+            netuid,
+        });
+        Some(usage)
+    }
+}
+
+impl pallet_rate_limiting::Config for Test {
+    type RuntimeCall = RuntimeCall;
+    type AdminOrigin = EnsureRoot<AccountId>;
+    type LimitSettingRule = RateLimitSettingRule;
+    type DefaultLimitSettingRule = DefaultRateLimitSettingRule;
+    type LimitSettingOrigin = RateLimitSettingOrigin;
+    type LimitScope = NetUid;
+    type LimitScopeResolver = TestScopeResolver;
+    type UsageKey = RateLimitUsageKey<AccountId>;
+    type UsageResolver = TestUsageResolver;
+    type GroupId = subtensor_runtime_common::rate_limiting::GroupId;
+    type MaxGroupMembers = frame_support::traits::ConstU32<32>;
+    type MaxGroupNameLength = frame_support::traits::ConstU32<64>;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = RateLimitBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct RateLimitBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_rate_limiting::BenchmarkHelper<RuntimeCall> for RateLimitBenchmarkHelper {
+    fn sample_call() -> RuntimeCall {
+        RuntimeCall::System(frame_system::Call::remark { remark: Vec::new() })
+    }
+}
+
+impl subtensor_runtime_common::RuntimeTxExtensionProvider for Test {
+    type Extensions = pallet_rate_limiting::RateLimitTransactionExtension<Test>;
+
+    fn tx_extensions() -> Self::Extensions {
+        pallet_rate_limiting::RateLimitTransactionExtension::<Test>::new()
+    }
 }
 
 parameter_types! {
@@ -763,11 +979,6 @@ pub fn add_dynamic_network(hotkey: &U256, coldkey: &U256) -> NetUid {
     FirstEmissionBlockNumber::<Test>::insert(netuid, 0);
     SubtokenEnabled::<Test>::insert(netuid, true);
     netuid
-}
-
-#[allow(dead_code)]
-pub(crate) fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
 }
 
 #[allow(dead_code)]

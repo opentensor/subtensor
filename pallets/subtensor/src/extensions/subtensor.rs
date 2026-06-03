@@ -70,9 +70,6 @@ where
                     CustomTransactionError::HotKeyNotRegisteredInNetwork
                 }
                 Error::<T>::InvalidIpAddress => CustomTransactionError::InvalidIpAddress,
-                Error::<T>::ServingRateLimitExceeded => {
-                    CustomTransactionError::ServingRateLimitExceeded
-                }
                 Error::<T>::InvalidPort => CustomTransactionError::InvalidPort,
                 Error::<T>::NonAssociatedColdKey => CustomTransactionError::NonAssociatedColdKey,
                 _ => CustomTransactionError::BadRequest,

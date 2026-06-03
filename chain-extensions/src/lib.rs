@@ -9,7 +9,11 @@ pub mod types;
 
 use crate::types::{FunctionId, Output};
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{DebugNoBound, traits::Get};
+use frame_support::{
+    DebugNoBound,
+    dispatch::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
+    traits::Get,
+};
 use frame_system::RawOrigin;
 use pallet_contracts::chain_extension::{
     BufInBufOutState, ChainExtension, Environment, Ext, InitState, RetVal, SysConfig,
@@ -17,10 +21,17 @@ use pallet_contracts::chain_extension::{
 use pallet_subtensor::weights::WeightInfo as SubtensorWeightInfo;
 use pallet_subtensor_proxy as pallet_proxy;
 use pallet_subtensor_proxy::WeightInfo;
-use sp_runtime::{DispatchError, Weight, traits::StaticLookup};
+use sp_runtime::{
+    DispatchError, Weight,
+    traits::{AsSystemOriginSigner, Dispatchable, StaticLookup},
+    transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 use sp_std::marker::PhantomData;
 use substrate_fixed::types::U96F32;
-use subtensor_runtime_common::{AlphaBalance, NetUid, ProxyType, TaoBalance};
+use subtensor_runtime_common::{
+    AlphaBalance, NetUid, ProxyType, RuntimeTxExtensionProvider, TaoBalance, TxExtDispatchError,
+    dispatch_with_tx_extensions,
+};
 use subtensor_swap_interface::SwapHandler;
 
 #[derive(DebugNoBound)]
@@ -37,8 +48,16 @@ where
     T: pallet_subtensor::Config
         + pallet_contracts::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_subtensor_swap::Config,
+        + pallet_subtensor_swap::Config
+        + RuntimeTxExtensionProvider
+        + Send
+        + Sync,
     T::AccountId: Clone,
+    <T as SysConfig>::RuntimeCall: From<pallet_subtensor::Call<T>>
+        + GetDispatchInfo
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as SysConfig>::RuntimeOrigin:
+        From<RawOrigin<T::AccountId>> + AsSystemOriginSigner<T::AccountId> + Clone,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
 {
     fn call<E>(&mut self, env: Environment<E, InitState>) -> Result<RetVal, DispatchError>
@@ -59,9 +78,44 @@ where
     T: pallet_subtensor::Config
         + pallet_contracts::Config
         + pallet_proxy::Config<ProxyType = ProxyType>
-        + pallet_subtensor_swap::Config,
+        + pallet_subtensor_swap::Config
+        + RuntimeTxExtensionProvider
+        + Send
+        + Sync,
     T::AccountId: Clone,
+    <T as SysConfig>::RuntimeCall: From<pallet_subtensor::Call<T>>
+        + GetDispatchInfo
+        + Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as SysConfig>::RuntimeOrigin:
+        From<RawOrigin<T::AccountId>> + AsSystemOriginSigner<T::AccountId> + Clone,
 {
+    /// Dispatch a `pallet-subtensor` call through the runtime transaction-extension tuple, so the
+    /// chain-extension path runs the same checks (notably rate limiting) and records the same usage
+    /// as a normal extrinsic, then map the outcome to a chain-extension [`Output`] code.
+    ///
+    /// Calling the pallet dispatchables directly (as plain Rust functions) would skip the extension
+    /// tuple entirely and bypass rate limiting; routing through [`dispatch_with_tx_extensions`]
+    /// closes that gap and keeps this path consistent with the EVM precompiles.
+    fn dispatch_subtensor_call(
+        origin: RawOrigin<T::AccountId>,
+        call: pallet_subtensor::Call<T>,
+    ) -> Result<RetVal, DispatchError> {
+        let code = match dispatch_with_tx_extensions::<T, _>(call, origin) {
+            Ok(_) => Output::Success as u32,
+            Err(TxExtDispatchError::Dispatch(e)) => Output::from(e) as u32,
+            Err(TxExtDispatchError::Extension(e)) => match e {
+                TransactionValidityError::Invalid(InvalidTransaction::Custom(code))
+                    if code == pallet_rate_limiting::RATE_LIMIT_DENIED =>
+                {
+                    Output::TxRateLimitExceeded as u32
+                }
+                _ => Output::RuntimeError as u32,
+            },
+        };
+
+        Ok(RetVal::Converging(code))
+    }
+
     fn dispatch_add_stake_v1<Env>(
         env: &mut Env,
         origin: RawOrigin<T::AccountId>,
@@ -79,16 +133,14 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result =
-            pallet_subtensor::Pallet::<T>::add_stake(origin.into(), hotkey, netuid, amount_staked);
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::add_stake {
+                hotkey,
+                netuid,
+                amount_staked,
+            },
+        )
     }
 
     fn dispatch_remove_stake_v1<Env>(
@@ -109,20 +161,14 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::remove_stake(
-            origin.into(),
-            hotkey,
-            netuid,
-            amount_unstaked,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::remove_stake {
+                hotkey,
+                netuid,
+                amount_unstaked,
+            },
+        )
     }
 
     fn dispatch_unstake_all_v1<Env>(
@@ -142,15 +188,7 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::unstake_all(origin.into(), hotkey);
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(origin, pallet_subtensor::Call::<T>::unstake_all { hotkey })
     }
 
     fn dispatch_unstake_all_alpha_v1<Env>(
@@ -171,15 +209,10 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::unstake_all_alpha(origin.into(), hotkey);
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::unstake_all_alpha { hotkey },
+        )
     }
 
     fn dispatch_move_stake_v1<Env>(
@@ -205,22 +238,16 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::move_stake(
-            origin.into(),
-            origin_hotkey,
-            destination_hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::move_stake {
+                origin_hotkey,
+                destination_hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            },
+        )
     }
 
     fn dispatch_transfer_stake_v1<Env>(
@@ -246,22 +273,16 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::transfer_stake(
-            origin.into(),
-            destination_coldkey,
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::transfer_stake {
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            },
+        )
     }
 
     fn dispatch_swap_stake_v1<Env>(
@@ -286,21 +307,15 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::swap_stake(
-            origin.into(),
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::swap_stake {
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+            },
+        )
     }
 
     fn dispatch_add_stake_limit_v1<Env>(
@@ -326,22 +341,16 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::add_stake_limit(
-            origin.into(),
-            hotkey,
-            netuid,
-            amount_staked,
-            limit_price,
-            allow_partial,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::add_stake_limit {
+                hotkey,
+                netuid,
+                amount_staked,
+                limit_price,
+                allow_partial,
+            },
+        )
     }
 
     fn dispatch_remove_stake_limit_v1<Env>(
@@ -367,22 +376,16 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::remove_stake_limit(
-            origin.into(),
-            hotkey,
-            netuid,
-            amount_unstaked,
-            limit_price,
-            allow_partial,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::remove_stake_limit {
+                hotkey,
+                netuid,
+                amount_unstaked,
+                limit_price,
+                allow_partial,
+            },
+        )
     }
 
     fn dispatch_swap_stake_limit_v1<Env>(
@@ -410,23 +413,17 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::swap_stake_limit(
-            origin.into(),
-            hotkey,
-            origin_netuid,
-            destination_netuid,
-            alpha_amount,
-            limit_price,
-            allow_partial,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::swap_stake_limit {
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha_amount,
+                limit_price,
+                allow_partial,
+            },
+        )
     }
 
     fn dispatch_remove_stake_full_limit_v1<Env>(
@@ -445,20 +442,14 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::remove_stake_full_limit(
-            origin.into(),
-            hotkey,
-            netuid,
-            limit_price,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::remove_stake_full_limit {
+                hotkey,
+                netuid,
+                limit_price,
+            },
+        )
     }
 
     fn dispatch_set_coldkey_auto_stake_hotkey_v1<Env>(
@@ -477,19 +468,10 @@ where
 
         env.charge_weight(weight)?;
 
-        let call_result = pallet_subtensor::Pallet::<T>::set_coldkey_auto_stake_hotkey(
-            origin.into(),
-            netuid,
-            hotkey,
-        );
-
-        match call_result {
-            Ok(_) => Ok(RetVal::Converging(Output::Success as u32)),
-            Err(e) => {
-                let error_code = Output::from(e) as u32;
-                Ok(RetVal::Converging(error_code))
-            }
-        }
+        Self::dispatch_subtensor_call(
+            origin,
+            pallet_subtensor::Call::<T>::set_coldkey_auto_stake_hotkey { netuid, hotkey },
+        )
     }
 
     fn dispatch_add_proxy_v1<Env>(

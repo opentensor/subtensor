@@ -5,13 +5,27 @@ import * as assert from "assert";
 import fs from "fs";
 import { Binary, TypedApi } from "polkadot-api";
 import { contracts } from "../.papi/descriptors";
+import { getInkClient, InkClient, } from "@polkadot-api/ink-contracts"
+import { forceSetBalanceToSs58Address, startCall, burnedRegister } from "../src/subtensor";
+import fs from "fs"
+import path from "path";
 import { convertPublicKeyToSs58 } from "../src/address-utils";
 import { tao } from "../src/balance-math";
 import { getBalance, getDevnetApi, getRandomSubstrateKeypair, getSignerFromKeypair, waitForTransactionWithRetry } from "../src/substrate";
 import { addNewSubnetwork, burnedRegister, forceSetBalanceToSs58Address, sendWasmContractExtrinsic, setAdminFreezeWindow, setTargetRegistrationsPerInterval, startCall } from "../src/subtensor";
 
-const bittensorWasmPath = "./bittensor/target/ink/bittensor.wasm"
-const bittensorBytecode = fs.readFileSync(bittensorWasmPath)
+const bittensorWasmPath = path.resolve(__dirname, "../bittensor/target/ink/bittensor.wasm")
+const loadBittensorBytecode = () => {
+    if (!fs.existsSync(bittensorWasmPath)) {
+        throw new Error(
+            `Missing Ink wasm at ${bittensorWasmPath}. Run ` +
+                "`cd contract-tests/bittensor && cargo contract build --release` to generate it."
+        )
+    }
+
+    return fs.readFileSync(bittensorWasmPath)
+}
+let bittensorBytecode: Buffer;
 
 describe("Test wasm contract", () => {
 
@@ -91,7 +105,8 @@ describe("Test wasm contract", () => {
     }
 
     before(async () => {
-        // init variables got from await and async  
+        bittensorBytecode = loadBittensorBytecode()
+        // init variables got from await and async
         api = await getDevnetApi()
         await setAdminFreezeWindow(api);
 

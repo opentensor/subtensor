@@ -322,10 +322,6 @@ pub fn increase_stake_on_hotkey_account(hotkey: &U256, increment: TaoBalance, ne
     );
 }
 
-pub fn remove_stake_rate_limit_for_tests(hotkey: &U256, coldkey: &U256, netuid: NetUid) {
-    StakingOperationRateLimiter::<Test>::remove((hotkey, coldkey, netuid));
-}
-
 pub fn setup_reserves(netuid: NetUid, tao: TaoBalance, alpha: AlphaBalance) {
     SubnetTAO::<Test>::set(netuid, tao);
     SubnetAlphaIn::<Test>::set(netuid, alpha);
@@ -403,8 +399,6 @@ pub fn assert_last_event<T: frame_system::pallet::Config>(
 }
 
 pub fn commit_dummy(who: U256, netuid: NetUid) {
-    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-
     // any 32‑byte value is fine; hash is never opened
     let hash = H256::from_low_u64_be(0xDEAD_BEEF);
     assert_ok!(SubtensorModule::do_commit_weights(

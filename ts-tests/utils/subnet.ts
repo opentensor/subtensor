@@ -10,17 +10,7 @@ export async function addNewSubnetwork(
     hotkey: KeyringPair,
     coldkey: KeyringPair
 ): Promise<number> {
-    const keyring = new Keyring({ type: "sr25519" });
-    const alice = keyring.addFromUri("//Alice");
     const totalNetworks = await api.query.SubtensorModule.TotalNetworks.getValue();
-
-    // Disable network rate limit for testing
-    const rateLimit = await api.query.SubtensorModule.NetworkRateLimit.getValue();
-    if (rateLimit !== BigInt(0)) {
-        const internalCall = api.tx.AdminUtils.sudo_set_network_rate_limit({ rate_limit: BigInt(0) });
-        const tx = api.tx.Sudo.sudo({ call: internalCall.decodedCall });
-        await waitForTransactionWithRetry(api, tx, alice, "set_network_rate_limit");
-    }
 
     const registerNetworkTx = api.tx.SubtensorModule.register_network({
         hotkey: hotkey.address,

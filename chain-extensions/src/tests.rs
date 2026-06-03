@@ -106,8 +106,6 @@ fn remove_stake_full_limit_success_with_limit_price() {
             stake_amount_raw.into(),
         ));
 
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
 
         let balance_before = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
@@ -169,8 +167,6 @@ fn swap_stake_limit_with_tight_price_returns_slippage_error() {
             netuid_a,
             stake_alpha,
         );
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
 
         let alpha_origin_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -240,8 +236,6 @@ fn remove_stake_limit_success_respects_price_limit() {
             netuid,
             stake_amount_raw.into(),
         ));
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
         let alpha_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -382,8 +376,6 @@ fn swap_stake_success_moves_between_subnets() {
             stake_amount_raw.into(),
         ));
 
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
-
         let alpha_origin_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &hotkey, &coldkey, netuid_a,
@@ -453,8 +445,6 @@ fn transfer_stake_success_moves_between_coldkeys() {
             netuid,
             stake_amount_raw.into(),
         ));
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &origin_coldkey, netuid);
 
         let alpha_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -533,8 +523,6 @@ fn move_stake_success_moves_alpha_between_hotkeys() {
             stake_amount_raw.into(),
         ));
 
-        mock::remove_stake_rate_limit_for_tests(&origin_hotkey, &coldkey, netuid);
-
         let alpha_before =
             pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                 &origin_hotkey,
@@ -607,8 +595,6 @@ fn unstake_all_alpha_success_moves_stake_to_root() {
             netuid,
             stake_amount_raw.into(),
         ));
-
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all_alpha();
 
@@ -1579,8 +1565,6 @@ fn unstake_all_success_unstakes_balance() {
             stake_amount_raw.into(),
         ));
 
-        mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
         let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all();
 
         let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
@@ -1752,8 +1736,6 @@ mod caller_dispatch_tests {
                 stake_amount_raw.into(),
             ));
 
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
             let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all();
 
             let pre_balance = pallet_subtensor::Pallet::<mock::Test>::get_coldkey_balance(&coldkey);
@@ -1805,8 +1787,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
             let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::unstake_all_alpha();
 
@@ -1869,8 +1849,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&origin_hotkey, &coldkey, netuid);
 
             let alpha_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -1949,8 +1927,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &origin_coldkey, netuid);
 
             let alpha_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2038,8 +2014,6 @@ mod caller_dispatch_tests {
                 netuid_a,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
 
             let alpha_origin_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
@@ -2171,8 +2145,6 @@ mod caller_dispatch_tests {
                 stake_amount_raw.into(),
             ));
 
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
-
             let alpha_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid,
@@ -2251,8 +2223,6 @@ mod caller_dispatch_tests {
                 stake_alpha,
             );
 
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid_a);
-
             let alpha_origin_before =
                 pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
                     &hotkey, &coldkey, netuid_a,
@@ -2320,8 +2290,6 @@ mod caller_dispatch_tests {
                 netuid,
                 stake_amount_raw.into(),
             ));
-
-            mock::remove_stake_rate_limit_for_tests(&hotkey, &coldkey, netuid);
 
             let expected_weight = <<mock::Test as pallet_subtensor::Config>::WeightInfo as SubtensorWeightInfo>::remove_stake_full_limit();
 
@@ -2430,6 +2398,225 @@ mod caller_dispatch_tests {
 
             let proxies_after = pallet_subtensor_proxy::Proxies::<mock::Test>::get(delegator).0;
             assert_eq!(proxies_after.len(), 0);
+        });
+    }
+}
+
+/// Regression tests for the chain-extension <-> rate-limiting integration.
+///
+/// Staking rate limiting now lives in `pallet-rate-limiting`'s transaction extension. Because the
+/// chain extension dispatches `pallet-subtensor` calls directly (outside the extrinsic pipeline),
+/// it must replay that extension explicitly — otherwise an ink! contract could loop staking ops and
+/// bypass the limit entirely. These tests pin that behaviour down.
+///
+/// The shared mock keeps rate limiting *dormant* (nothing registered), so these tests opt in by
+/// installing a span-1 limit on `remove_stake`; the rest of the suite is unaffected.
+mod rate_limit_tests {
+    #![allow(clippy::arithmetic_side_effects)]
+    use super::*;
+    use pallet_rate_limiting::{
+        LastSeen, Limits, RateLimit, RateLimitKind, RateLimitTarget, TransactionIdentifier,
+    };
+    use subtensor_runtime_common::rate_limiting::RateLimitUsageKey;
+
+    fn remove_stake_call(hotkey: U256, netuid: NetUid, amount: AlphaBalance) -> mock::RuntimeCall {
+        mock::RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {
+            hotkey,
+            netuid,
+            amount_unstaked: amount,
+        })
+    }
+
+    /// Install a "one `remove_stake` per block" transaction-level limit.
+    fn limit_remove_stake_to_one_per_block(sample: &mock::RuntimeCall) {
+        let id = TransactionIdentifier::from_call(sample).unwrap();
+        Limits::<mock::Test>::insert(
+            RateLimitTarget::Transaction(id),
+            RateLimit::Global(RateLimitKind::Exact(1)),
+        );
+    }
+
+    fn seed_last_seen(sample: &mock::RuntimeCall, coldkey: U256, hotkey: U256, netuid: NetUid) {
+        let id = TransactionIdentifier::from_call(sample).unwrap();
+        LastSeen::<mock::Test>::insert(
+            RateLimitTarget::Transaction(id),
+            Some(RateLimitUsageKey::<AccountId>::ColdkeyHotkeySubnet {
+                coldkey,
+                hotkey,
+                netuid,
+            }),
+            frame_system::Pallet::<mock::Test>::block_number(),
+        );
+    }
+
+    fn remove_stake_via_ce(
+        coldkey: U256,
+        hotkey: U256,
+        netuid: NetUid,
+        amount: AlphaBalance,
+    ) -> u32 {
+        let mut env = MockEnv::new(
+            FunctionId::RemoveStakeV1,
+            coldkey,
+            (hotkey, netuid, amount).encode(),
+        );
+        match SubtensorChainExtension::<mock::Test>::dispatch(&mut env).unwrap() {
+            RetVal::Converging(code) => code,
+            _ => panic!("unexpected return value"),
+        }
+    }
+
+    /// Set up a subnet with a funded, staked (coldkey, hotkey), returning the staked alpha.
+    fn setup_staked(seed: u64) -> (NetUid, U256, U256, AlphaBalance) {
+        let owner_hotkey = U256::from(seed + 1);
+        let owner_coldkey = U256::from(seed + 2);
+        let coldkey = U256::from(seed + 101);
+        let hotkey = U256::from(seed + 102);
+
+        let min_stake = DefaultMinStake::<mock::Test>::get();
+        let stake_amount_raw = min_stake.to_u64() * 500;
+
+        let netuid = mock::add_dynamic_network(&owner_hotkey, &owner_coldkey);
+        mock::setup_reserves(
+            netuid,
+            (stake_amount_raw * 50).into(),
+            AlphaBalance::from(stake_amount_raw * 100),
+        );
+        mock::register_ok_neuron(netuid, hotkey, coldkey, 0);
+        add_balance_to_coldkey_account(&coldkey, (stake_amount_raw + 1_000_000_000).into());
+
+        assert_ok!(pallet_subtensor::Pallet::<mock::Test>::add_stake(
+            RawOrigin::Signed(coldkey).into(),
+            hotkey,
+            netuid,
+            stake_amount_raw.into(),
+        ));
+
+        let alpha =
+            pallet_subtensor::Pallet::<mock::Test>::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey, &coldkey, netuid,
+            );
+        (netuid, coldkey, hotkey, alpha)
+    }
+
+    /// Core regression: a `remove_stake` that is within the rate-limit window is rejected on the
+    /// chain-extension path (it used to silently bypass the limit). Enforced at validation, so no
+    /// real stake is required.
+    #[test]
+    fn chain_extension_remove_stake_is_rate_limited() {
+        mock::new_test_ext(1).execute_with(|| {
+            let coldkey = U256::from(70101);
+            let hotkey = U256::from(70102);
+            let netuid = NetUid::from(1);
+            let amount = AlphaBalance::from(1_000_000u64);
+            let call = remove_stake_call(hotkey, netuid, amount);
+
+            limit_remove_stake_to_one_per_block(&call);
+            // Pretend this (coldkey, hotkey, netuid) already removed stake this block.
+            seed_last_seen(&call, coldkey, hotkey, netuid);
+
+            let code = remove_stake_via_ce(coldkey, hotkey, netuid, amount);
+            assert_eq!(
+                code,
+                Output::TxRateLimitExceeded as u32,
+                "chain extension must enforce the staking rate limit"
+            );
+        });
+    }
+
+    /// The same call is permitted once a block has elapsed.
+    #[test]
+    fn chain_extension_remove_stake_allowed_next_block() {
+        mock::new_test_ext(1).execute_with(|| {
+            let (netuid, coldkey, hotkey, alpha) = setup_staked(71000);
+            let chunk = AlphaBalance::from(alpha.to_u64() / 8);
+            let call = remove_stake_call(hotkey, netuid, chunk);
+
+            limit_remove_stake_to_one_per_block(&call);
+            seed_last_seen(&call, coldkey, hotkey, netuid);
+
+            // Same block: blocked.
+            assert_eq!(
+                remove_stake_via_ce(coldkey, hotkey, netuid, chunk),
+                Output::TxRateLimitExceeded as u32
+            );
+
+            // Next block: allowed.
+            frame_system::Pallet::<mock::Test>::set_block_number(2);
+            assert_eq!(
+                remove_stake_via_ce(coldkey, hotkey, netuid, chunk),
+                Output::Success as u32
+            );
+        });
+    }
+
+    /// Two real removes in the same block via the chain extension: the first succeeds and records
+    /// usage, the second trips the limit. This mirrors the behaviour the previously-deleted tests
+    /// relied on (they manually reset the limit between operations).
+    #[test]
+    fn chain_extension_second_remove_same_block_is_limited() {
+        mock::new_test_ext(1).execute_with(|| {
+            let (netuid, coldkey, hotkey, alpha) = setup_staked(72000);
+            let chunk = AlphaBalance::from(alpha.to_u64() / 8);
+            limit_remove_stake_to_one_per_block(&remove_stake_call(hotkey, netuid, chunk));
+
+            // First remove succeeds and records last-seen.
+            assert_eq!(
+                remove_stake_via_ce(coldkey, hotkey, netuid, chunk),
+                Output::Success as u32
+            );
+            // Second remove in the same block is rate limited.
+            assert_eq!(
+                remove_stake_via_ce(coldkey, hotkey, netuid, chunk),
+                Output::TxRateLimitExceeded as u32
+            );
+
+            // Advancing a block clears the window.
+            frame_system::Pallet::<mock::Test>::set_block_number(2);
+            assert_eq!(
+                remove_stake_via_ce(coldkey, hotkey, netuid, chunk),
+                Output::Success as u32
+            );
+        });
+    }
+
+    /// The limit is keyed per (coldkey, hotkey, netuid): a different hotkey is not affected.
+    #[test]
+    fn chain_extension_remove_stake_distinct_key_not_limited() {
+        mock::new_test_ext(1).execute_with(|| {
+            let coldkey = U256::from(73101);
+            let hotkey_a = U256::from(73102);
+            let hotkey_b = U256::from(73103);
+            let netuid = NetUid::from(1);
+            let amount = AlphaBalance::from(1_000_000u64);
+            let call = remove_stake_call(hotkey_a, netuid, amount);
+
+            limit_remove_stake_to_one_per_block(&call);
+            seed_last_seen(&call, coldkey, hotkey_a, netuid);
+
+            // hotkey_b shares no usage key with hotkey_a, so it is not rate limited (it fails later
+            // for lack of stake instead).
+            let code = remove_stake_via_ce(coldkey, hotkey_b, netuid, amount);
+            assert_ne!(code, Output::TxRateLimitExceeded as u32);
+        });
+    }
+
+    /// Sanity check that the wiring is dormant by default: with no limit registered, the extension
+    /// never rate limits, so the rest of the test suite is unaffected.
+    #[test]
+    fn chain_extension_not_rate_limited_when_unregistered() {
+        mock::new_test_ext(1).execute_with(|| {
+            let coldkey = U256::from(74101);
+            let hotkey = U256::from(74102);
+            let netuid = NetUid::from(1);
+            let amount = AlphaBalance::from(1_000_000u64);
+            let call = remove_stake_call(hotkey, netuid, amount);
+
+            // Seed last-seen but DO NOT register a limit.
+            seed_last_seen(&call, coldkey, hotkey, netuid);
+
+            let code = remove_stake_via_ce(coldkey, hotkey, netuid, amount);
+            assert_ne!(code, Output::TxRateLimitExceeded as u32);
         });
     }
 }

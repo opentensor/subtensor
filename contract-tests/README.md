@@ -36,6 +36,9 @@ npx papi add devnet -w ws://localhost:9944
 If the runtime is upgrade, need to get the metadata again.
 
 ```bash
+cd contract-tests/bittensor
+cargo contract build --release
+cd ..
 sh get-metadata.sh
 ```
 

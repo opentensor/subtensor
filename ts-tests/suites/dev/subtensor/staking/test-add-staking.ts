@@ -2,6 +2,9 @@ import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
 import { BN } from "@polkadot/util";
+import { disableAdminFreezeWindow } from "../rate_limiting/_utils.ts";
+import { generateKeyringPair } from "../../../../utils";
+import { seal } from "../../../../utils/dev_utils.ts";
 
 describeSuite({
     id: "DEV_SUB_STAKING_ADD_STAKING_01",
@@ -12,25 +15,29 @@ describeSuite({
         let netuid1: number;
 
         let alice: KeyringPair;
-        let bob: KeyringPair;
+        let snOwner: KeyringPair;
 
         beforeAll(() => {
             polkadotJs = context.polkadotJs();
 
             alice = context.keyring.alice;
-            bob = context.keyring.bob;
+            snOwner = generateKeyringPair("sr25519");
         });
 
         it({
             id: "T01",
             title: "Add stake payable",
             test: async () => {
-                const alice = context.keyring.alice;
-                const bob = context.keyring.bob;
-                const appFees = new BN(100_000);
+                await context.createBlock([
+                    await polkadotJs.tx.sudo
+                        .sudo(polkadotJs.tx.balances.forceSetBalance(snOwner.address, 10_000_000_000))
+                        .signAsync(alice),
+                ]);
+
+                await disableAdminFreezeWindow(polkadotJs, context, alice);
 
                 // Register network
-                let tx = polkadotJs.tx.subtensorModule.registerNetwork(bob.address);
+                let tx = polkadotJs.tx.subtensorModule.registerNetwork(snOwner.address);
                 await context.createBlock([await tx.signAsync(alice)]);
 
                 let events = await polkadotJs.query.system.events();
@@ -45,7 +52,7 @@ describeSuite({
                 await context.createBlock([await polkadotJs.tx.sudo.sudo(tx1).signAsync(alice)]);
 
                 // Adding stake
-                tx = polkadotJs.tx.subtensorModule.addStake(bob.address, netuid1, 1000_000_000);
+                tx = polkadotJs.tx.subtensorModule.addStake(snOwner.address, netuid1, 1000_000_000);
                 await context.createBlock([await tx.signAsync(alice)]);
 
                 events = await polkadotJs.query.system.events();
@@ -61,8 +68,11 @@ describeSuite({
             id: "T02",
             title: "Remove stake payable",
             test: async () => {
+                // We need enough blocks to bypass rate limit
+                await seal(context, 10);
+
                 // Removing stake
-                const tx = polkadotJs.tx.subtensorModule.removeStake(bob.address, netuid1, 500_000_000);
+                const tx = polkadotJs.tx.subtensorModule.removeStake(snOwner.address, netuid1, 500_000_000);
                 await context.createBlock([await tx.signAsync(alice)]);
 
                 const events = await polkadotJs.query.system.events();
