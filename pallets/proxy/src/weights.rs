@@ -31,7 +31,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{traits::Get, weights::{Weight, constants::ParityDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_subtensor_proxy`.
@@ -286,8 +286,8 @@ impl WeightInfo for () {
 		Weight::from_parts(24_151_161, 4254)
 			// Standard Error: 3_337
 			.saturating_add(Weight::from_parts(96_756, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 37).saturating_mul(p.into()))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:0)
@@ -314,8 +314,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(261_812, 0).saturating_mul(a.into()))
 			// Standard Error: 5_727
 			.saturating_add(Weight::from_parts(54_276, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(ParityDbWeight::get().reads(5_u64))
+			.saturating_add(ParityDbWeight::get().writes(3_u64))
 			.saturating_add(Weight::from_parts(0, 68).saturating_mul(a.into()))
 			.saturating_add(Weight::from_parts(0, 37).saturating_mul(p.into()))
 	}
@@ -335,8 +335,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(211_445, 0).saturating_mul(a.into()))
 			// Standard Error: 3_552
 			.saturating_add(Weight::from_parts(20_637, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Announcements` (r:1 w:1)
 	/// Proof: `Proxy::Announcements` (`max_values`: None, `max_size`: Some(5150), added: 7625, mode: `MaxEncodedLen`)
@@ -354,8 +354,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(211_311, 0).saturating_mul(a.into()))
 			// Standard Error: 3_572
 			.saturating_add(Weight::from_parts(19_850, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(2_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:0)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -375,8 +375,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(245_681, 0).saturating_mul(a.into()))
 			// Standard Error: 10_638
 			.saturating_add(Weight::from_parts(108_442, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -389,8 +389,8 @@ impl WeightInfo for () {
 		Weight::from_parts(23_099_598, 4254)
 			// Standard Error: 1_922
 			.saturating_add(Weight::from_parts(76_038, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -405,8 +405,8 @@ impl WeightInfo for () {
 		Weight::from_parts(24_761_635, 4254)
 			// Standard Error: 2_310
 			.saturating_add(Weight::from_parts(58_413, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(2_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -419,8 +419,8 @@ impl WeightInfo for () {
 		Weight::from_parts(24_632_652, 4254)
 			// Standard Error: 2_253
 			.saturating_add(Weight::from_parts(48_858, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -433,8 +433,8 @@ impl WeightInfo for () {
 		Weight::from_parts(24_892_331, 4254)
 			// Standard Error: 2_007
 			.saturating_add(Weight::from_parts(21_649, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -447,8 +447,8 @@ impl WeightInfo for () {
 		Weight::from_parts(23_802_763, 4254)
 			// Standard Error: 2_166
 			.saturating_add(Weight::from_parts(41_019, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:1)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -462,8 +462,8 @@ impl WeightInfo for () {
 		//  Estimated: `8615`
 		// Minimum execution time: 42_413_000 picoseconds.
 		Weight::from_parts(43_264_000, 8615)
-			.saturating_add(RocksDbWeight::get().reads(3_u64))
-			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(ParityDbWeight::get().reads(3_u64))
+			.saturating_add(ParityDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `Proxy::Proxies` (r:1 w:0)
 	/// Proof: `Proxy::Proxies` (`max_values`: None, `max_size`: Some(789), added: 3264, mode: `MaxEncodedLen`)
@@ -478,7 +478,7 @@ impl WeightInfo for () {
 		Weight::from_parts(12_050_045, 4254)
 			// Standard Error: 1_620
 			.saturating_add(Weight::from_parts(45_828, 0).saturating_mul(p.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().reads(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 }

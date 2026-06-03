@@ -31,7 +31,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{traits::Get, weights::{Weight, constants::ParityDbWeight}};
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_shield`.
@@ -141,8 +141,8 @@ impl WeightInfo for () {
 		//  Estimated: `5555`
 		// Minimum execution time: 32_118_000 picoseconds.
 		Weight::from_parts(33_661_000, 5555)
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
-			.saturating_add(RocksDbWeight::get().writes(6_u64))
+			.saturating_add(ParityDbWeight::get().reads(4_u64))
+			.saturating_add(ParityDbWeight::get().writes(6_u64))
 	}
 	fn submit_encrypted() -> Weight {
 		// Proof Size summary in bytes:
@@ -159,7 +159,7 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 3_865_000 picoseconds.
 		Weight::from_parts(4_206_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `MevShield::OnInitializeWeight` (r:0 w:1)
 	/// Proof: `MevShield::OnInitializeWeight` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -169,7 +169,7 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 4_066_000 picoseconds.
 		Weight::from_parts(4_327_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `MevShield::ExtrinsicLifetime` (r:0 w:1)
 	/// Proof: `MevShield::ExtrinsicLifetime` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
@@ -179,7 +179,7 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 3_906_000 picoseconds.
 		Weight::from_parts(4_116_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `MevShield::MaxExtrinsicWeight` (r:0 w:1)
 	/// Proof: `MevShield::MaxExtrinsicWeight` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
@@ -189,6 +189,6 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 4_037_000 picoseconds.
 		Weight::from_parts(4_227_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
+			.saturating_add(ParityDbWeight::get().writes(1_u64))
 	}
 }
