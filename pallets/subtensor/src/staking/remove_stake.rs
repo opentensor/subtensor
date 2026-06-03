@@ -446,7 +446,9 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(6));
+        // Check if there is enought weight to complete all the operations in this function
+        // It is the maximum weight that can be consumed by the function. including all potential reads and writes.
+        WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads_writes(20, 12));
         let owner_coldkey: T::AccountId = SubnetOwner::<T>::get(netuid);
         let lock_cost: TaoBalance = Self::get_subnet_locked_balance(netuid);
 
@@ -469,11 +471,9 @@ impl<T: Config> Pallet<T> {
         //      - price that α using a *simulated* AMM swap.
         let mut owner_emission_tao = TaoBalance::ZERO;
         if should_refund_owner && !lock_cost.is_zero() {
-            WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
             let total_emitted_alpha_u128: u128 = Self::get_alpha_issuance(netuid).to_u64() as u128;
 
             if total_emitted_alpha_u128 > 0 {
-                WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(1));
                 let owner_fraction: U96F32 = Self::get_float_subnet_owner_cut();
                 let owner_alpha_u64 = U96F32::from_num(total_emitted_alpha_u128)
                     .saturating_mul(owner_fraction)
@@ -482,7 +482,6 @@ impl<T: Config> Pallet<T> {
 
                 owner_emission_tao = if owner_alpha_u64 > 0 {
                     // Need max 3 reads for current_alpha_price
-                    WeightMeterWrapper!(weight_meter, T::DbWeight::get().reads(3));
                     let cur_price: U96F32 = T::SwapInterface::current_alpha_price(netuid.into());
                     let val_u64 = U96F32::from_num(owner_alpha_u64)
                         .saturating_mul(cur_price)
@@ -503,7 +502,6 @@ impl<T: Config> Pallet<T> {
         }
 
         // Remove α‑in/α‑out counters (fully destroyed).
-        WeightMeterWrapper!(weight_meter, T::DbWeight::get().writes(4));
         SubnetAlphaIn::<T>::remove(netuid);
         SubnetAlphaInProvided::<T>::remove(netuid);
         SubnetAlphaOut::<T>::remove(netuid);
