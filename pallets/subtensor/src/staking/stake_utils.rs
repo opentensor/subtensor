@@ -1244,11 +1244,14 @@ impl<T: Config> Pallet<T> {
             ensure!(origin_netuid != destination_netuid, Error::<T>::SameNetuid);
         }
 
-        Self::ensure_stake_operation_limit_not_exceeded(
-            origin_hotkey,
-            origin_coldkey,
-            origin_netuid.into(),
-        )?;
+        // Only rate-limit cross-subnet transitions.
+        if origin_netuid != destination_netuid {
+            Self::ensure_stake_operation_limit_not_exceeded(
+                origin_hotkey,
+                origin_coldkey,
+                origin_netuid.into(),
+            )?;
+        }
 
         // Ensure that both subnets exist.
         ensure!(

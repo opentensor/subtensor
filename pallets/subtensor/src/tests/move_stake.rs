@@ -1812,6 +1812,55 @@ fn test_transfer_stake_rate_limited() {
     new_test_ext(1).execute_with(|| {
         let subnet_owner_coldkey = U256::from(1001);
         let subnet_owner_hotkey = U256::from(1002);
+        let origin_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+        let destination_netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
+
+        let origin_coldkey = U256::from(1);
+        let destination_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let stake_amount = DefaultMinStake::<Test>::get().to_u64() * 10;
+
+        let _ = SubtensorModule::create_account_if_non_existent(&origin_coldkey, &hotkey);
+        let _ = SubtensorModule::create_account_if_non_existent(&destination_coldkey, &hotkey);
+        add_balance_to_coldkey_account(&origin_coldkey, stake_amount.into());
+        SubtensorModule::stake_into_subnet(
+            &hotkey,
+            &origin_coldkey,
+            origin_netuid,
+            stake_amount.into(),
+            <Test as Config>::SwapInterface::max_price(),
+            true,
+            false,
+        )
+        .unwrap();
+        let alpha = SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+            &hotkey,
+            &origin_coldkey,
+            origin_netuid,
+        );
+
+        // add_stake set the limiter for (hotkey, origin_coldkey, origin_netuid).
+        // A cross-subnet transfer in the same block goes through the AMM (price impact),
+        // so it is still rate limited.
+        assert_err!(
+            SubtensorModule::do_transfer_stake(
+                RuntimeOrigin::signed(origin_coldkey),
+                destination_coldkey,
+                hotkey,
+                origin_netuid,
+                destination_netuid,
+                alpha
+            ),
+            Error::<Test>::StakingOperationRateLimitExceeded
+        );
+    });
+}
+
+#[test]
+fn test_transfer_stake_same_netuid_not_rate_limited() {
+    new_test_ext(1).execute_with(|| {
+        let subnet_owner_coldkey = U256::from(1001);
+        let subnet_owner_hotkey = U256::from(1002);
         let netuid = add_dynamic_network(&subnet_owner_hotkey, &subnet_owner_coldkey);
 
         let origin_coldkey = U256::from(1);
@@ -1838,16 +1887,33 @@ fn test_transfer_stake_rate_limited() {
             netuid,
         );
 
-        assert_err!(
-            SubtensorModule::do_transfer_stake(
-                RuntimeOrigin::signed(origin_coldkey),
-                destination_coldkey,
-                hotkey,
-                netuid,
-                netuid,
-                alpha
+        // add_stake set the limiter for (hotkey, origin_coldkey, netuid), but a same-netuid
+        // transfer performs no AMM swap (no price impact), so it is NOT rate limited
+        assert_ok!(SubtensorModule::do_transfer_stake(
+            RuntimeOrigin::signed(origin_coldkey),
+            destination_coldkey,
+            hotkey,
+            netuid,
+            netuid,
+            alpha
+        ));
+
+        // The whole position was moved to the destination coldkey on the same subnet.
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &origin_coldkey,
+                netuid
             ),
-            Error::<Test>::StakingOperationRateLimitExceeded
+            AlphaBalance::ZERO
+        );
+        assert_ne!(
+            SubtensorModule::get_stake_for_hotkey_and_coldkey_on_subnet(
+                &hotkey,
+                &destination_coldkey,
+                netuid
+            ),
+            AlphaBalance::ZERO
         );
     });
 }
