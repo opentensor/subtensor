@@ -473,9 +473,19 @@ impl<T: Config> Pallet<T> {
         //    - track hotkeys to clear pool totals.
         let mut keys_to_remove: Vec<(T::AccountId, T::AccountId)> = Vec::new();
         let mut stakers: Vec<(T::AccountId, T::AccountId, u128)> = Vec::new();
-        let protocol_alpha_value_u128: u128 = SubnetAlphaIn::<T>::get(netuid)
-            .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
-            .to_u64() as u128;
+
+        let tao_in_refund_deployment_block: u64 = TaoInRefundDeploymentBlock::<T>::get();
+
+        // Legacy subnets keep the old dereg behavior: ignore SubnetAlphaIn.
+        // New subnets include SubnetAlphaIn.
+        let protocol_alpha_value_u128: u128 = if reg_at > tao_in_refund_deployment_block {
+            SubnetAlphaIn::<T>::get(netuid)
+                .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
+                .to_u64() as u128
+        } else {
+            SubnetProtocolAlpha::<T>::get(netuid).to_u64() as u128
+        };
+
         let mut total_alpha_value_u128: u128 = protocol_alpha_value_u128;
         let mut protocol_tao_share = TaoBalance::ZERO;
 
