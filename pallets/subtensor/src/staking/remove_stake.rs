@@ -579,29 +579,32 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let r = T::DbWeight::get().reads(1);
         let mut read_all = true;
-        // 4) Enumerate all α entries on this subnet to build distribution weights and cleanup lists.
-        //    - collect keys to remove,
-        //    - per (hot,cold) α VALUE (not shares) with fallback to raw share if pool uninitialized,
-        //    - track hotkeys to clear pool totals.
-        let protocol_alpha_value_u128: u128 = SubnetAlphaIn::<T>::get(netuid)
-            .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
-            .to_u64() as u128;
-        let mut total_alpha_value_u128: u128 = protocol_alpha_value_u128;
+
+        let mut total_alpha_value_u128: u128;
+        if let Some(value) = DissolvedSubnetTotalAlphaValue::<T>::get() {
+            total_alpha_value_u128 = value;
+        } else {
+            let reg_at: u64 = NetworkRegisteredAt::<T>::get(netuid);
+            let tao_in_refund_deployment_block: u64 = TaoInRefundDeploymentBlock::<T>::get();
+
+            // Legacy subnets keep the old dereg behavior: ignore SubnetAlphaIn.
+            // New subnets include SubnetAlphaIn.
+            let protocol_alpha_value_u128: u128 = if reg_at > tao_in_refund_deployment_block {
+                SubnetAlphaIn::<T>::get(netuid)
+                    .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
+                    .to_u64() as u128
+            } else {
+                SubnetProtocolAlpha::<T>::get(netuid).to_u64() as u128
+            };
+            total_alpha_value_u128 = protocol_alpha_value_u128;
+        }
 
         let iter = match LastKeptRawKey::<T>::get() {
-            Some(key) => {
-                if let Some(value) = DissolvedSubnetTotalAlphaValue::<T>::get() {
-                    total_alpha_value_u128 = value;
-                } else {
-                    log::warn!("DissolvedSubnetTotalAlphaValue not set");
-                }
-                TotalHotkeyAlpha::<T>::iter_from(key)
-            }
+            Some(key) => TotalHotkeyAlpha::<T>::iter_from(key),
             None => TotalHotkeyAlpha::<T>::iter(),
         };
 
         for (hot, this_netuid, _) in iter {
-            // let mut coldkeys: Vec<T::AccountId> = Vec::new();
             if !weight_meter.can_consume(r) {
                 read_all = false;
                 LastKeptRawKey::<T>::set(Some(TotalHotkeyAlpha::<T>::hashed_key_for(

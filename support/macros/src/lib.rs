@@ -6,6 +6,9 @@ use syn::{Error, ItemStruct, LitStr, Result, parse2, visit_mut::visit_item_struc
 mod visitor;
 use visitor::*;
 
+mod proxy_filter;
+use proxy_filter::ProxyFilterInput;
+
 /// Freezes the layout of a struct to the current hash of its fields, ensuring that future
 /// changes require updating the hash.
 ///
@@ -68,4 +71,16 @@ fn freeze_struct_impl(
         ));
     }
     Ok(item)
+}
+
+/// Defines proxy filter rules as a single source of truth, generating both the
+/// `proxy_type_filter()` function (used by `InstanceFilter::filter()`) and the
+/// `get_all_proxy_filters()` function (used by the Runtime API).
+///
+/// This ensures the on-chain filtering logic and the off-chain API metadata
+/// can never drift apart.
+#[proc_macro]
+pub fn define_proxy_filters(input: TokenStream) -> TokenStream {
+    let parsed = syn::parse_macro_input!(input as ProxyFilterInput);
+    parsed.generate().into()
 }

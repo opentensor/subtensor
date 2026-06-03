@@ -583,6 +583,8 @@ impl<T: Config> Pallet<T> {
         netuid: NetUid,
         enabled: bool,
     ) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
+
         let now = Self::get_current_block_as_u64();
         let current_enabled = Self::is_perpetual_lock(coldkey, netuid);
 
@@ -701,6 +703,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         amount: AlphaBalance,
     ) -> dispatch::DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         ensure!(!amount.is_zero(), Error::<T>::AmountTooLow);
         ensure!(
             Self::hotkey_account_exists(hotkey),
@@ -1584,6 +1587,7 @@ impl<T: Config> Pallet<T> {
         destination_hotkey: &T::AccountId,
         netuid: NetUid,
     ) -> DispatchResult {
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::SubnetNotExists);
         ensure!(
             Self::hotkey_account_exists(destination_hotkey),
             Error::<T>::HotKeyAccountNotExists
