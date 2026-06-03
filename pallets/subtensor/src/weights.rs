@@ -193,7 +193,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1716`
+		//  Measured:  `1753`
 		//  Estimated: `13600`
 		// Minimum execution time: 374_002_000 picoseconds.
 		Weight::from_parts(380_312_000, 13600)
@@ -448,7 +448,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn burned_register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1649`
+		//  Measured:  `1686`
 		//  Estimated: `13600`
 		// Minimum execution time: 362_295_000 picoseconds.
 		Weight::from_parts(368_123_000, 13600)
@@ -491,10 +491,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::ValidatorTrust` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ValidatorPermit` (r:1 w:1)
 	/// Proof: `SubtensorModule::ValidatorPermit` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RootRegisteredHotkeyCount` (r:1 w:1)
+	/// Proof: `SubtensorModule::RootRegisteredHotkeyCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `MultiCollective::Members` (r:1 w:1)
+	/// Proof: `MultiCollective::Members` (`max_values`: None, `max_size`: Some(2067), added: 4542, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::Delegates` (r:1 w:1)
 	/// Proof: `SubtensorModule::Delegates` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::BlockAtRegistration` (r:0 w:1)
 	/// Proof: `SubtensorModule::BlockAtRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RootRegisteredEma` (r:0 w:1)
+	/// Proof: `SubtensorModule::RootRegisteredEma` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Keys` (r:0 w:1)
 	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:0 w:1)
@@ -1918,7 +1924,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn unstake_all_alpha() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2642`
+		//  Measured:  `2679`
 		//  Estimated: `11306`
 		// Minimum execution time: 583_803_000 picoseconds.
 		Weight::from_parts(599_485_000, 11306)
@@ -2573,7 +2579,7 @@ impl WeightInfo for () {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1716`
+		//  Measured:  `1753`
 		//  Estimated: `13600`
 		// Minimum execution time: 374_002_000 picoseconds.
 		Weight::from_parts(380_312_000, 13600)
@@ -2828,7 +2834,7 @@ impl WeightInfo for () {
 	/// Proof: `Swap::CurrentTick` (`max_values`: None, `max_size`: Some(14), added: 2489, mode: `MaxEncodedLen`)
 	fn burned_register() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1649`
+		//  Measured:  `1686`
 		//  Estimated: `13600`
 		// Minimum execution time: 362_295_000 picoseconds.
 		Weight::from_parts(368_123_000, 13600)
@@ -2871,10 +2877,16 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::ValidatorTrust` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::ValidatorPermit` (r:1 w:1)
 	/// Proof: `SubtensorModule::ValidatorPermit` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RootRegisteredHotkeyCount` (r:1 w:1)
+	/// Proof: `SubtensorModule::RootRegisteredHotkeyCount` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `MultiCollective::Members` (r:1 w:1)
+	/// Proof: `MultiCollective::Members` (`max_values`: None, `max_size`: Some(2067), added: 4542, mode: `MaxEncodedLen`)
 	/// Storage: `SubtensorModule::Delegates` (r:1 w:1)
 	/// Proof: `SubtensorModule::Delegates` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::BlockAtRegistration` (r:0 w:1)
 	/// Proof: `SubtensorModule::BlockAtRegistration` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SubtensorModule::RootRegisteredEma` (r:0 w:1)
+	/// Proof: `SubtensorModule::RootRegisteredEma` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::Keys` (r:0 w:1)
 	/// Proof: `SubtensorModule::Keys` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `SubtensorModule::IsNetworkMember` (r:0 w:1)
@@ -4298,7 +4310,7 @@ impl WeightInfo for () {
 	/// Proof: `SubtensorModule::LastColdkeyHotkeyStakeBlock` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn unstake_all_alpha() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `2642`
+		//  Measured:  `2679`
 		//  Estimated: `11306`
 		// Minimum execution time: 583_803_000 picoseconds.
 		Weight::from_parts(599_485_000, 11306)
