@@ -113,6 +113,7 @@ parameter_types! {
     pub const InitialTxChildKeyTakeRateLimit: u64 = 0;
     pub const InitialBurn: TaoBalance = TaoBalance::new(0);
     pub const InitialMinBurn: TaoBalance = TaoBalance::new(500_000);
+    pub const InitialMinStake: TaoBalance = TaoBalance::new(2_000_000);
     pub const InitialMaxBurn: TaoBalance = TaoBalance::new(1_000_000_000);
     pub const MinBurnUpperBound: TaoBalance = TaoBalance::new(1_000_000_000);
     pub const MaxBurnLowerBound: TaoBalance = TaoBalance::new(100_000_000);
@@ -457,6 +458,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
+    type InitialMinStake = InitialMinStake;
     type MinBurnUpperBound = MinBurnUpperBound;
     type MaxBurnLowerBound = MaxBurnLowerBound;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;

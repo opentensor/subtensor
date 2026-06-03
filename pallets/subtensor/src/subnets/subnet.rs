@@ -494,4 +494,14 @@ impl<T: Config> Pallet<T> {
     pub fn set_owner_cut_enabled_flag(netuid: NetUid, value: bool) {
         OwnerCutEnabled::<T>::insert(netuid, value);
     }
+
+    /// Returns whether owner cut auto-locking is enabled for the given subnet.
+    pub fn get_owner_cut_auto_lock_enabled(netuid: NetUid) -> bool {
+        OwnerCutAutoLockEnabled::<T>::get(netuid)
+    }
+
+    /// Sets whether owner cut should be auto-locked for the given subnet.
+    pub fn set_owner_cut_auto_lock_enabled(netuid: NetUid, value: bool) {
+        OwnerCutAutoLockEnabled::<T>::insert(netuid, value);
+    }
 }

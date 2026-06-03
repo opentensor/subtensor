@@ -360,6 +360,7 @@ impl<T: Config> Pallet<T> {
         Yuma3On::<T>::remove(netuid);
         AlphaValues::<T>::remove(netuid);
         SubtokenEnabled::<T>::remove(netuid);
+        OwnerCutAutoLockEnabled::<T>::remove(netuid);
         ImmuneOwnerUidsLimit::<T>::remove(netuid);
 
         // --- 18. Consensus aux vectors.
