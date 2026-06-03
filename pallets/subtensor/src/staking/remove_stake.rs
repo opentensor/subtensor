@@ -456,9 +456,8 @@ impl<T: Config> Pallet<T> {
         let start_block: u64 = NetworkRegistrationStartBlock::<T>::get();
         let should_refund_owner: bool = reg_at < start_block;
 
-        let protocol_alpha_value_u128: u128 = SubnetAlphaIn::<T>::get(netuid)
-            .saturating_add(SubnetProtocolAlpha::<T>::get(netuid))
-            .to_u64() as u128;
+        let protocol_alpha_value_u128: u128 =
+            SubnetProtocolAlpha::<T>::get(netuid).to_u64() as u128;
 
         let pot_tao: TaoBalance = SubnetTAO::<T>::get(netuid);
         let pot_u128: u128 = pot_tao.into();

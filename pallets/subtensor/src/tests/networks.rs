@@ -931,6 +931,7 @@ fn dissolve_chain_bought_alpha_is_converted_to_tao_and_recycled() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // There are no stakers, so the entire pot is the chain-bought alpha's TAO
         // share. It is not paid to the owner; instead it is recycled back to the
