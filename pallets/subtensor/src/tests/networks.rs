@@ -834,12 +834,10 @@ fn dissolve_protocol_alpha_share_is_not_paid_to_users() {
 
         assert_ok!(SubtensorModule::do_dissolve_network(net));
 
-<<<<<<< HEAD
         run_block_idle();
 
         // User gets 50 / (100 alpha-in + 50 cached protocol alpha + 50 user alpha)
         // of the TAO pot. The protocol share is withheld from user/owner payout.
-=======
         // Settlement denominator = 50 cached protocol alpha + 50 user alpha = 100
         // (alpha-in is excluded). The user therefore gets 50/100 of the 200 TAO pot,
         // i.e. 100 TAO. The chain-bought alpha's 100 TAO share is withheld from the
@@ -890,10 +888,10 @@ fn dissolve_protocol_alpha_post_deploy_includes_alpha_in() {
         let owner_before = SubtensorModule::get_coldkey_balance(&owner_cold);
 
         assert_ok!(SubtensorModule::do_dissolve_network(net));
+        run_block_idle();
 
         // Post-deploy denominator = 100 alpha-in + 50 cached protocol alpha
         // + 50 user alpha = 200. The user gets 50/200 of the 200 TAO pot.
->>>>>>> devnet-ready
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&staker_cold),
             staker_before + 50.into()
