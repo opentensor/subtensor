@@ -1,7 +1,10 @@
 import { beforeAll, describeSuite, expect } from "@moonwall/cli";
 import type { ApiPromise } from "@polkadot/api";
 import type { KeyringPair } from "@moonwall/util";
-import { tao, generateKeyringPair } from "../../../../utils";
+import { generateKeyringPair } from "../../../../utils/account";
+
+const TAO = 1_000_000_000n; // 10^9 RAO per TAO
+const tao = (value: number): bigint => TAO * BigInt(value);
 
 async function devForceSetBalance(
     polkadotJs: ApiPromise,
